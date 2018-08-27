@@ -299,14 +299,14 @@ let treatment (model : Model) =
 
         [ 
             [ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]
-            [ "Reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
-            [ "Reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
-            [ "Reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
-            [ "Reanimatie"; "epinephrine iv/io"; epiIv |> fst; epiIv |> snd; "0,01 mg/kg" ]
-            [ "Reanimatie"; "epinephrine trach"; epiTr |> fst; epiTr |> snd; "0,1 mg/kg" ]
-            [ "Reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
-            [ "Reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
-            [ "Reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
+            [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
+            [ "reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
+            [ "reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
+            [ "reanimatie"; "epinephrine iv/io"; epiIv |> fst; epiIv |> snd; "0,01 mg/kg" ]
+            [ "reanimatie"; "epinephrine trach"; epiTr |> fst; epiTr |> snd; "0,1 mg/kg" ]
+            [ "reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
+            [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
+            [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
         ] @ (Treatment.medicationDefs |> List.map calcMeds)
 
     | { GenPres = None } ->
