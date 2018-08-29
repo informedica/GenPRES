@@ -29,7 +29,6 @@ let calculateWeight yr mo =
     | _ when age >= 0.  -> 3.5
     | _ -> 0.
 
-
 let calcDoseVol kg doserPerKg conc min max =
     let d = 
         kg * doserPerKg
@@ -73,11 +72,19 @@ let getMonths = function
 | { GenPres = None } -> 0
 
 
+let getWeight = function 
+| { GenPres = Some x } ->
+    if x.Patient.Weight.Measured = 0. then x.Patient.Weight.Estimated else x.Patient.Weight.Measured
+| { GenPres = None } -> 0.
+
+
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
 | YearChange of string
 | MonthChange of string
+| WeightChange of string
+| ClearInput
 | GenPresLoaded of Result<GenPres, exn>
 
 
@@ -105,11 +112,11 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
             if i > 18 || i < 0 then currentModel, Cmd.none
             else
                 let newModel = 
-                    let w = calculateWeight i (currentModel |> getMonths)
 
                     match currentModel.GenPres with
                     | Some gp ->
-                        let gp' = { gp with Patient = { gp.Patient with Age  =  { gp.Patient.Age  with Years = i }; Weight = w } }
+                        let w =  calculateWeight i (currentModel |> getMonths)
+                        let gp' = { gp with Patient = { gp.Patient with Age  =  { gp.Patient.Age  with Years = i }; Weight = { gp.Patient.Weight with Estimated = w } } }
                         { currentModel with GenPres = Some gp' }
                     | None -> currentModel
                 newModel, Cmd.none
@@ -120,21 +127,51 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
         printfn "Month: %s" s
         match s |> Int32.TryParse with
         | true, i -> 
-            if i > 11 || i < 0 then currentModel, Cmd.none
+            let i = i % 12
+            if i < 0 then currentModel, Cmd.none
             else
                 let newModel = 
-                    let w = calculateWeight (currentModel |> getYears) i
 
                     match currentModel.GenPres with
                     | Some gp ->
-                        let gp' = { gp with Patient = { gp.Patient with Age  =  { gp.Patient.Age  with Months = i }; Weight = w } }
+                        let w = calculateWeight (currentModel |> getYears) i
+
+                        let y = if i = 0 then gp.Patient.Age.Years + 1 else gp.Patient.Age.Years
+                        let gp' = { gp with Patient = { gp.Patient with Age = { gp.Patient.Age with Months = i; Years = y }; Weight = { gp.Patient.Weight with Estimated = w } } }
                         { currentModel with GenPres = Some gp' }
                     | None -> currentModel
                 newModel, Cmd.none
         | false, _ -> 
             currentModel, Cmd.none
+
+    | WeightChange s ->
+        printf "Weight: %s" s
+        match s |> Double.TryParse with
+        | true, x ->
+            let x = x |> Math.fixPrecision 2
+            if x < 2. then currentModel, Cmd.none
+            else
+                let newModel =
+                    match currentModel.GenPres with
+                    | Some gp ->
+                        let gp' = { gp with Patient = { gp.Patient with Weight = { gp.Patient.Weight with Measured = x }}}
+                        { currentModel with GenPres = Some gp' }
+                    | None -> currentModel
+                newModel, Cmd.none
+        | false, _ -> currentModel, Cmd.none
+
     | GenPresLoaded (Ok genpres) ->
         let newModel = { GenPres = Some genpres }
+        newModel, Cmd.none
+
+    | ClearInput ->
+        let newModel =
+            match currentModel.GenPres with
+            | Some gp ->
+                let pat = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2.; Measured = 0. } }
+                let gp' = { gp with Patient = pat }
+                { currentModel with GenPres = Some gp' }
+            | None -> currentModel
         newModel, Cmd.none
 
     | _ -> currentModel, Cmd.none
@@ -167,19 +204,24 @@ let show = function
 let showPatient = function
 | { GenPres = Some x } ->
     let wght = 
-        let w = calculateWeight x.Patient.Age.Years x.Patient.Age.Months
-        if w < 3.5 then "" else 
+        let w = if x.Patient.Weight.Measured = 0. then x.Patient.Weight.Estimated else x.Patient.Weight.Measured
+        if w < 2. then "" else 
             ( w * 10. |> Math.Round ) / 10. |> string
-    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg" x.Patient.Age.Years x.Patient.Age.Months wght
+    let e = x.Patient.Weight.Estimated |> Math.fixPrecision 2 |> string
+    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg, Geschat gewicht: %s" x.Patient.Age.Years x.Patient.Age.Months wght e
 | { GenPres = None } -> ""
 
 
 let button txt onClick =
-    Button.button
-        [ Button.IsFullWidth
-          Button.Color IsPrimary
-          Button.OnClick onClick ]
-        [ str txt ]
+    Field.div [ Field.Props [ Style [ CSSProp.Padding "10px"] ]]
+              [
+                Button.button
+                    [ Button.IsFullWidth
+                      Button.Color IsPrimary
+                      Button.OnClick (fun _ -> ClearInput |> onClick) ]
+                    [ str txt ]
+
+              ]
 
 
 let yrInput dispatch (n : int)  =
@@ -197,7 +239,20 @@ let moInput dispatch (n : int) =
         [ Label.label [] 
             [ str "Maanden" ] 
           Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> MonthChange |> dispatch) ] ]
-             [ Input.number [ Input.Value ph ] ]]
+             [ Input.number [ Input.Value ph; Input.Props [  ] ] ]]
+
+
+let wtInput dispatch (n : double) =
+    let s = 
+        if n >= 10. then 1. else 0.1 
+        |> string
+    let n = string n
+    printfn "weight input %s, step %s" n s
+    Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
+        [ Label.label [] 
+            [ str "Gewicht" ] 
+          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> WeightChange |> dispatch) ] ]
+             [ Input.number [ Input.Value n; Input.Props [ Fable.Helpers.React.Props.Step s ] ] ]]
 
 
 let createTable data =
@@ -250,14 +305,14 @@ let treatment (model : Model) =
                     calcDoseVol wght 0.01 0.1 0.01 0.5
             
             (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
-            (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v * 10.))
+            (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
 
         let epiTr = 
             let d, v =
                     calcDoseVol wght 0.1 0.1 0.1 5.
             
             (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
-            (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v * 10.))
+            (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
 
         let fluid =
             let d, _ =
@@ -317,7 +372,7 @@ let treatment (model : Model) =
 
 
 let view (model : Model) (dispatch : Msg -> unit) =
-    div []
+    div [ Style [ CSSProp.Padding "10px"] ]
         [ Navbar.navbar [ Navbar.Color IsPrimary ; Navbar.Props [ Style [ CSSProp.Padding "30px"] ] ]
             [ Navbar.Item.div [ ]
                 [ Heading.h2 [ ]
@@ -325,10 +380,15 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
           Container.container []
               [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h3 [] [ str (showPatient model) ] ]
+                    [ Heading.h5 [] [ str (showPatient model) ] ]
                 
                 form [ ]
-                    [ Field.div [ Field.IsHorizontal; Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] [ model |> getYears |> yrInput dispatch; model |> getMonths |> moInput dispatch ] ] 
+                    [ 
+                        Field.div [ Field.IsHorizontal; Field.Props [ Style [ ] ] ] 
+                                  [ model |> getYears  |> yrInput dispatch
+                                    model |> getMonths |> moInput dispatch
+                                    model |> getWeight |> wtInput dispatch ] 
+                        button "Verwijder" dispatch  ] 
                 
                 treatment model]
           
