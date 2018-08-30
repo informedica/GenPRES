@@ -16,6 +16,7 @@ open Fulma
 open System.Runtime.InteropServices
 open Fable.Import.React
 open Fable.Helpers.React.ReactiveComponents
+open Fulma
 
 module Treatment = Data.Treatment
 module Math = Utils.Math
@@ -57,8 +58,13 @@ let calcDoseVol kg doserPerKg conc min max =
 // in this case, we are keeping track of a counter
 // we mark it as optional, because initially it will not be available from the client
 // the initial value will be requested from server
-type Model = { GenPres: GenPres option }
+type Model = { GenPres: GenPres option; Device : Device; Selections : (string * bool) List }
+and Device = Computer | Tablet | Mobile
 
+let createDevice x =
+    if x < 1000. then Mobile
+    else if x < 2000. then Tablet
+    else Computer
 
 let getYears = function 
 | { GenPres = Some x } ->
@@ -85,12 +91,22 @@ type Msg =
 | MonthChange of string
 | WeightChange of string
 | ClearInput
+| Select of string
 | GenPresLoaded of Result<GenPres, exn>
 
 
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model * Cmd<Msg> =
-    let initialModel = { GenPres = None }
+    printfn "Screen: x = %A, y = %A" Fable.Import.Browser.screen.width Fable.Import.Browser.screen.height
+    let selections =
+        Treatment.medicationDefs
+        |> List.map (fun (cat, _, _, _, _, _, _, _) ->
+            cat, false
+        )
+        |> List.distinct
+        |> List.append [ "alles", true ]
+        
+    let initialModel = { GenPres = None; Device = Fable.Import.Browser.screen.width |> createDevice; Selections = selections }
     let loadCountCmd =
         Cmd.ofPromise
             ( fetchAs<GenPres> "/api/init" )
@@ -127,20 +143,29 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
         printfn "Month: %s" s
         match s |> Int32.TryParse with
         | true, i -> 
-            let i = i % 12
-            if i < 0 then currentModel, Cmd.none
-            else
-                let newModel = 
+            let newModel = 
 
-                    match currentModel.GenPres with
-                    | Some gp ->
-                        let w = calculateWeight (currentModel |> getYears) i
+                match currentModel.GenPres with
+                | Some gp ->
+                    let w = calculateWeight (currentModel |> getYears) i
 
-                        let y = if i = 0 then gp.Patient.Age.Years + 1 else gp.Patient.Age.Years
-                        let gp' = { gp with Patient = { gp.Patient with Age = { gp.Patient.Age with Months = i; Years = y }; Weight = { gp.Patient.Weight with Estimated = w } } }
-                        { currentModel with GenPres = Some gp' }
-                    | None -> currentModel
-                newModel, Cmd.none
+                    let y = 
+                        if i = 12 && gp.Patient.Age.Years < 18 then 
+                            gp.Patient.Age.Years + 1 
+                        else if i = -1 && gp.Patient.Age.Years > 0 then  
+                            gp.Patient.Age.Years - 1
+                        else
+                            gp.Patient.Age.Years
+
+                    let m =
+                        if i >= 12 then 0
+                        else if i = -1 then 11
+                        else i
+                       
+                    let gp' = { gp with Patient = { gp.Patient with Age = { gp.Patient.Age with Months = m; Years = y }; Weight = { gp.Patient.Weight with Estimated = w } } }
+                    { currentModel with GenPres = Some gp' }
+                | None -> currentModel
+            newModel, Cmd.none
         | false, _ -> 
             currentModel, Cmd.none
 
@@ -160,8 +185,20 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
                 newModel, Cmd.none
         | false, _ -> currentModel, Cmd.none
 
+    | Select s ->
+        printfn "update with select: %s" s
+        let newModel = 
+            { currentModel with 
+                Selections = 
+                    currentModel.Selections 
+                    |> List.map (fun (cat, _) ->
+                        if cat = s then cat, true else cat, false
+                    ) }
+
+        newModel, Cmd.none
+
     | GenPresLoaded (Ok genpres) ->
-        let newModel = { GenPres = Some genpres }
+        let newModel = { currentModel with GenPres = Some genpres }
         newModel, Cmd.none
 
     | ClearInput ->
@@ -212,6 +249,25 @@ let showPatient = function
 | { GenPres = None } -> ""
 
 
+let select dispatch (model : Model) = 
+    let toItem (cat, sel) = 
+        Dropdown.Item.a [ Dropdown.Item.IsActive sel; Dropdown.Item.Props [ OnClick (fun _ -> printfn "selecteer: %s" cat; cat |> Select |> dispatch) ] ] [ str cat ]
+
+    let content = 
+        model.Selections
+        |> List.map toItem
+    
+    Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.Padding "10px"  ] ] ]
+        [ div []
+            [ Button.button []
+                [ span []
+                    [ str "Selecteer" ]
+                  Fulma.FontAwesome.Icon.faIcon [ Icon.Size IsSmall ] [ FontAwesome.Fa.icon FontAwesome.Fa.I.AngleDown ]  ]]
+          Dropdown.menu []
+            [ Dropdown.content []
+                content ]]
+
+
 let button txt onClick =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px"] ]]
               [
@@ -246,7 +302,11 @@ let wtInput dispatch (n : double) =
     let s = 
         if n >= 10. then 1. else 0.1 
         |> string
-    let n = string n
+    let n = 
+        n
+        |> Math.fixPrecision 2
+        |> string
+
     printfn "weight input %s, step %s" n s
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
@@ -283,7 +343,7 @@ let treatment (model : Model) =
             let mos = (genpres.Patient.Age.Months |> double) / 12.
             yrs + mos
 
-        let wght = calculateWeight genpres.Patient.Age.Years genpres.Patient.Age.Months
+        let wght = model |> getWeight
 
         let tube = 
             let m = 
@@ -352,8 +412,14 @@ let treatment (model : Model) =
                 ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 2) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv 
             ]
 
+        let selected = 
+            if model.Selections.Head |> snd then []
+            else
+                model.Selections
+                |> List.filter snd
+                |> List.map fst
+        
         [ 
-            [ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]
             [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
             [ "reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
             [ "reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
@@ -363,6 +429,10 @@ let treatment (model : Model) =
             [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
             [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
         ] @ (Treatment.medicationDefs |> List.map calcMeds)
+        |> List.filter (fun xs ->
+            selected = List.empty || selected |> List.exists ((=) xs.Head)
+        )
+        |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
 
     | { GenPres = None } ->
         [ 
@@ -379,16 +449,17 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     [ str (show model) ] ] ]
 
           Container.container []
-              [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h5 [] [ str (showPatient model) ] ]
-                
-                form [ ]
+              [ form [ ]
                     [ 
                         Field.div [ Field.IsHorizontal; Field.Props [ Style [ ] ] ] 
                                   [ model |> getYears  |> yrInput dispatch
                                     model |> getMonths |> moInput dispatch
                                     model |> getWeight |> wtInput dispatch ] 
-                        button "Verwijder" dispatch  ] 
+                        button "Verwijder" dispatch ; model |> select dispatch  ] 
+                
+                Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
+                    [ Heading.h5 [] [ str (showPatient model) ] ]
+                
                 
                 treatment model]
           
