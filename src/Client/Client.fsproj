@@ -5,10 +5,10 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="..\Shared\Shared.fs" />
-        <Compile Include=".\Data\Treatment.fs" />
         <Compile Include=".\Utils\String.fs" />
         <Compile Include=".\Utils\List.fs" />
         <Compile Include=".\Utils\Math.fs" />
+        <Compile Include=".\Data\Treatment.fs" />
         <Compile Include="Client.fs" />
     </ItemGroup>
     <Import Project="..\..\.paket\Paket.Restore.targets" />

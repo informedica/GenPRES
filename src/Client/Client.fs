@@ -58,7 +58,7 @@ let calcDoseVol kg doserPerKg conc min max =
 // in this case, we are keeping track of a counter
 // we mark it as optional, because initially it will not be available from the client
 // the initial value will be requested from server
-type Model = { GenPres: GenPres option; Device : Device; Selections : (string * bool) List }
+type Model = { GenPres: GenPres option; Device : Device; Selections : (string * bool) List; ActiveTab : string }
 and Device = Computer | Tablet | Mobile
 
 let createDevice x =
@@ -87,6 +87,7 @@ let getWeight = function
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
+| TabChange of string
 | YearChange of string
 | MonthChange of string
 | WeightChange of string
@@ -98,6 +99,7 @@ type Msg =
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model * Cmd<Msg> =
     printfn "Screen: x = %A, y = %A" Fable.Import.Browser.screen.width Fable.Import.Browser.screen.height
+    
     let selections =
         Treatment.medicationDefs
         |> List.map (fun (cat, _, _, _, _, _, _, _) ->
@@ -105,9 +107,19 @@ let init () : Model * Cmd<Msg> =
         )
         |> List.distinct
         |> List.append [ "alles", true ]
+
     let patient = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2. ; Measured = 0. } }
+    
     let genpres = { Name = "GenPres OFFLINE"; Version = "0.01"; Patient = patient }
-    let initialModel = { GenPres = Some genpres; Device = Fable.Import.Browser.screen.width |> createDevice; Selections = selections }
+    
+    let initialModel = 
+        { 
+            GenPres = Some genpres
+            Device = Fable.Import.Browser.screen.width |> createDevice
+            Selections = selections 
+            ActiveTab = "Noodlijst"
+        }
+
     let loadCountCmd =
         Cmd.ofPromise
             ( fetchAs<GenPres> "/api/init" )
@@ -122,6 +134,26 @@ let init () : Model * Cmd<Msg> =
 // these commands in turn, can dispatch messages to which the update function will react.
 let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
     match msg with
+    | TabChange tab ->
+        let selections =
+            if tab = "Noodlijst" then
+                Treatment.medicationDefs
+                |> List.map (fun (cat, _, _, _, _, _, _, _) ->
+                    cat, false
+                )
+                |> List.distinct
+                |> List.append [ "alles", true ]
+            else
+                Treatment.contMeds
+                |> List.map Treatment.createContMed
+                |> List.map (fun med -> med.Indication, false)
+                |> List.distinct
+                |> List.append [ "alles", true ]
+            |> List.sort            
+
+        let updatedModel = { currentModel with ActiveTab = tab; Selections = selections }
+        updatedModel, Cmd.none
+
     | YearChange s -> 
         printfn "Year: %s" s
         match s |> Int32.TryParse with
@@ -200,6 +232,7 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
 
     | GenPresLoaded (Ok genpres) ->
         let newModel = { currentModel with GenPres = Some genpres }
+        printfn "active tab: %s" currentModel.ActiveTab
         newModel, Cmd.none
 
     | ClearInput ->
@@ -246,7 +279,7 @@ let showPatient = function
         if w < 2. then "" else 
             ( w * 10. |> Math.Round ) / 10. |> string
     let e = x.Patient.Weight.Estimated |> Math.fixPrecision 2 |> string
-    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg, Geschat gewicht: %s" x.Patient.Age.Years x.Patient.Age.Months wght e
+    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)" x.Patient.Age.Years x.Patient.Age.Months wght e
 | { GenPres = None } -> ""
 
 
@@ -442,6 +475,32 @@ let treatment (model : Model) =
     |> createTable
 
 
+let contMeds (model : Model) =
+    let selected = 
+        if model.Selections.Head |> snd then []
+        else
+            model.Selections
+            |> List.filter snd
+            |> List.map fst
+        
+    Treatment.calcContMed ((model |> getYears |> float) + ((model |> getMonths |> float) / 12.)) (model |> getWeight)
+    |> List.filter (fun xs ->
+        if selected |> List.isEmpty then true
+        else
+            selected |> List.exists ((=) xs.Head)
+    )
+    |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Volume"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
+    |> createTable
+
+
+let tabs dispatch (model : Model) =
+    Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 
+        [ Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Noodlijst")
+                     Tabs.Tab.Props [ OnClick (fun _ -> "Noodlijst" |> TabChange |> dispatch) ] ] [ a [] [str "Noodlijst"] ]
+          Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Standaard Pompen") 
+                     Tabs.Tab.Props [ OnClick (fun _ -> "Standaard Pompen" |> TabChange |> dispatch) ]] [ a [] [str "Standaard Pompen"]] ]
+
+
 let view (model : Model) (dispatch : Msg -> unit) =
     div [ Style [ CSSProp.Padding "10px"] ]
         [ Navbar.navbar [ Navbar.Color IsPrimary ; Navbar.Props [ Style [ CSSProp.Padding "30px"] ] ]
@@ -450,7 +509,8 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     [ str (show model) ] ] ]
 
           Container.container []
-              [ form [ ]
+              [ model |> tabs dispatch
+                form [ ]
                     [ 
                         Field.div [ Field.IsHorizontal; Field.Props [ Style [ ] ] ] 
                                   [ model |> getYears  |> yrInput dispatch
@@ -462,7 +522,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     [ Heading.h5 [] [ str (showPatient model) ] ]
                 
                 
-                treatment model]
+                (if model.ActiveTab = "Noodlijst" then treatment model else div [] [ contMeds model ]) ]
           
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
