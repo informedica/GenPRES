@@ -106,6 +106,7 @@ let init () : Model * Cmd<Msg> =
             cat, false
         )
         |> List.distinct
+        |> List.sort
         |> List.append [ "alles", true ]
 
     let patient = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2. ; Measured = 0. } }
@@ -142,12 +143,14 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
                     cat, false
                 )
                 |> List.distinct
+                |> List.sort
                 |> List.append [ "alles", true ]
             else
                 Treatment.contMeds
                 |> List.map Treatment.createContMed
                 |> List.map (fun med -> med.Indication, false)
                 |> List.distinct
+                |> List.sort
                 |> List.append [ "alles", true ]
             |> List.sort            
 
