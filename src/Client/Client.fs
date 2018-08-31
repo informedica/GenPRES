@@ -105,8 +105,9 @@ let init () : Model * Cmd<Msg> =
         )
         |> List.distinct
         |> List.append [ "alles", true ]
-        
-    let initialModel = { GenPres = None; Device = Fable.Import.Browser.screen.width |> createDevice; Selections = selections }
+    let patient = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2. ; Measured = 0. } }
+    let genpres = { Name = "GenPres OFFLINE"; Version = "0.01"; Patient = patient }
+    let initialModel = { GenPres = Some genpres; Device = Fable.Import.Browser.screen.width |> createDevice; Selections = selections }
     let loadCountCmd =
         Cmd.ofPromise
             ( fetchAs<GenPres> "/api/init" )

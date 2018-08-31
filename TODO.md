@@ -6,8 +6,9 @@
 * ~~Use user entered weight or else calculated weight~~
 * ~~Add a button to clear the age en weight entries~~
 * ~~Let the user select a number of categories to show/or all~~
-* Responsive design for tablets and smartphones
+* ~~Enable offline use of client~~
 * Add pump infusions to bolus medication
+* Responsive design for tablets and smartphones
 
 ## Technical
 * Create client deploy build target

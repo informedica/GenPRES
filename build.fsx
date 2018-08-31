@@ -102,6 +102,19 @@ Target.create "Run" (fun _ ->
 )
 
 
+Target.create "Bundle" (fun _ ->
+    let serverDir = Path.combine deployDir "Server"
+    let clientDir = Path.combine deployDir "Client"
+    let publicDir = Path.combine clientDir "public"
+
+    let publishArgs = sprintf "publish -c Release -o \"%s\"" serverDir
+    runDotNet publishArgs serverPath
+
+    Shell.copyDir publicDir "src/Client/public" FileFilter.allFiles
+)
+
+
+
 open Fake.Core.TargetOperators
 
 "Clean"
@@ -112,5 +125,10 @@ open Fake.Core.TargetOperators
     ==> "InstallClient"
     ==> "RestoreServer"
     ==> "Run"
+
+"Clean"
+    ==> "InstallClient"
+    ==> "Build"
+    ==> "Bundle"
 
 Target.runOrDefault "Build"
