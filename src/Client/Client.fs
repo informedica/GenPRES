@@ -288,6 +288,7 @@ let showPatient = function
 
 
 let select dispatch (model : Model) = 
+
     let onclick cat = 
         fun e -> 
             printfn "selecteer: %s, %A" cat e
