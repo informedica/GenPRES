@@ -288,8 +288,13 @@ let showPatient = function
 
 
 let select dispatch (model : Model) = 
+    let onclick cat = 
+        fun e -> 
+            printfn "selecteer: %s, %A" cat e
+            cat |> Select |> dispatch
+
     let toItem (cat, sel) = 
-        Dropdown.Item.a [ Dropdown.Item.IsActive sel; Dropdown.Item.Props [ OnClick (fun _ -> printfn "selecteer: %s" cat; cat |> Select |> dispatch) ] ] [ str cat ]
+        Dropdown.Item.a [ Dropdown.Item.IsActive sel; Dropdown.Item.Props [ OnClick (onclick cat) ] ] [ str cat ]
 
     let content = 
         model.Selections
