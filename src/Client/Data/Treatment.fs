@@ -217,13 +217,15 @@ module Treatment =
         |> List.map createContMed
         |> List.sortBy (fun med -> med.Indication, med.Generic)
         |> List.map (fun med ->
-            [ 
-                med.Indication
-                med.Generic
-                ((med |> qty |> string) + " " + med.Unit)
-                ((med |> vol |> string ) + " ml")
-                med.Solution
-                (calcDose (med |> qty) (med |> vol) med.Unit med.DoseUnit) 
-                (printAdv med.MinDose med.MaxDose med.DoseUnit)
-            ]
+            if med |> vol = 0. then []
+            else
+                [ 
+                    med.Indication
+                    med.Generic
+                    ((med |> qty |> string) + " " + med.Unit)
+                    ("in " + (med |> vol |> string ) + " ml " + med.Solution)
+                    (calcDose (med |> qty) (med |> vol) med.Unit med.DoseUnit) 
+                    (printAdv med.MinDose med.MaxDose med.DoseUnit)
+                ]
         )
+        |> List.filter (List.isEmpty >> not)

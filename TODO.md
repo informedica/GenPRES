@@ -7,11 +7,12 @@
 * ~~Add a button to clear the age en weight entries~~
 * ~~Let the user select a number of categories to show/or all~~
 * ~~Enable offline use of client~~
-* Add pump infusions to bolus medication
+* ~~Add pump infusions to bolus medication~~
 * Responsive design for tablets and smartphones
+* Add navigation to allow opening with age and weight in url
 
 ## Technical
-* Create client deploy build target
+* ~~Create client deploy build target~~
 * Add source documentation
 * Refactor the client file
 

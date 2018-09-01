@@ -435,18 +435,20 @@ let treatment (model : Model) =
             let d, v =
                 calcDoseVol wght dose conc min max
 
-            let adv =
-                let minmax =
-                    match (min = 0., max = 0.) with
-                    | true,  true  -> ""
-                    | true,  false -> sprintf "(max %A %s)" max unit
-                    | false, true  -> sprintf "(min %A %s)" min unit
-                    | false, false -> sprintf "(%A - %A %s)" min max unit
+            let adv s =
+                if s <> "" then s
+                else
+                    let minmax =
+                        match (min = 0., max = 0.) with
+                        | true,  true  -> ""
+                        | true,  false -> sprintf "(max %A %s)" max unit
+                        | false, true  -> sprintf "(min %A %s)" min unit
+                        | false, false -> sprintf "(%A - %A %s)" min max unit
 
-                sprintf "%A %s/kg %s" dose unit minmax
+                    sprintf "%A %s/kg %s" dose unit minmax
 
             [
-                ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 2) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv 
+                ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 2) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv rem 
             ]
 
         let selected = 
@@ -492,7 +494,7 @@ let contMeds (model : Model) =
         else
             selected |> List.exists ((=) xs.Head)
     )
-    |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Volume"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
+    |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
     |> createTable
 
 
