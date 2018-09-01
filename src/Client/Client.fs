@@ -145,13 +145,14 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
                 |> List.distinct
                 |> List.sort
                 |> List.append [ "alles", true ]
-            else
+            else if tab = "Standaard Pompen" then
                 Treatment.contMeds
                 |> List.map Treatment.createContMed
                 |> List.map (fun med -> med.Indication, false)
                 |> List.distinct
                 |> List.sort
                 |> List.append [ "alles", true ]
+            else []
             |> List.sort            
 
         let updatedModel = { currentModel with ActiveTab = tab; Selections = selections }
@@ -503,7 +504,9 @@ let tabs dispatch (model : Model) =
         [ Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Noodlijst")
                      Tabs.Tab.Props [ OnClick (fun _ -> "Noodlijst" |> TabChange |> dispatch) ] ] [ a [] [str "Noodlijst"] ]
           Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Standaard Pompen") 
-                     Tabs.Tab.Props [ OnClick (fun _ -> "Standaard Pompen" |> TabChange |> dispatch) ]] [ a [] [str "Standaard Pompen"]] ]
+                     Tabs.Tab.Props [ OnClick (fun _ -> "Standaard Pompen" |> TabChange |> dispatch) ]] [ a [] [str "Standaard Pompen"]] 
+          Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Normaal Waarden") 
+                     Tabs.Tab.Props [ OnClick (fun _ -> "Normaal Waarden" |> TabChange |> dispatch) ]] [ a [] [str "Normaal Waarden"]] ]
 
 
 let view (model : Model) (dispatch : Msg -> unit) =
@@ -527,7 +530,11 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     [ Heading.h5 [] [ str (showPatient model) ] ]
                 
                 
-                (if model.ActiveTab = "Noodlijst" then treatment model else div [] [ contMeds model ]) ]
+                (if model.ActiveTab = "Noodlijst" then 
+                    treatment model 
+                 else if model.ActiveTab = "Standaard Pompen" then 
+                    div [] [ contMeds model ]
+                 else div [] [ str "Normaal Waarden (volgt nog)"]) ]
           
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
