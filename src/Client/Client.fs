@@ -17,9 +17,11 @@ open System.Runtime.InteropServices
 open Fable.Import.React
 open Fable.Helpers.React.ReactiveComponents
 open Fulma
+open Component
 
 module Treatment = Data.Treatment
 module Math = Utils.Math
+module Select = Component.Select
 
 let calculateWeight yr mo =
     let age = (double yr) + (double mo) / 12.
@@ -58,7 +60,7 @@ let calcDoseVol kg doserPerKg conc min max =
 // in this case, we are keeping track of a counter
 // we mark it as optional, because initially it will not be available from the client
 // the initial value will be requested from server
-type Model = { GenPres: GenPres option; Device : Device; Selections : (string * bool) List; ActiveTab : string }
+type Model = { GenPres: GenPres option; Device : Device; Selections : Select.Model; ActiveTab : string }
 and Device = Computer | Tablet | Mobile
 
 let createDevice x =
@@ -92,7 +94,7 @@ type Msg =
 | MonthChange of string
 | WeightChange of string
 | ClearInput
-| Select of string
+| Select of Select.Msg
 | GenPresLoaded of Result<GenPres, exn>
 
 
@@ -103,11 +105,12 @@ let init () : Model * Cmd<Msg> =
     let selections =
         Treatment.medicationDefs
         |> List.map (fun (cat, _, _, _, _, _, _, _) ->
-            cat, false
+            cat
         )
         |> List.distinct
         |> List.sort
-        |> List.append [ "alles", true ]
+        |> List.append [ "alles" ]
+        |> Select.init
 
     let patient = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2. ; Measured = 0. } }
     
@@ -140,20 +143,21 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
             if tab = "Noodlijst" then
                 Treatment.medicationDefs
                 |> List.map (fun (cat, _, _, _, _, _, _, _) ->
-                    cat, false
+                    cat
                 )
                 |> List.distinct
                 |> List.sort
-                |> List.append [ "alles", true ]
+                |> List.append [ "alles" ]
             else if tab = "Standaard Pompen" then
                 Treatment.contMeds
                 |> List.map Treatment.createContMed
-                |> List.map (fun med -> med.Indication, false)
+                |> List.map (fun med -> med.Indication)
                 |> List.distinct
                 |> List.sort
-                |> List.append [ "alles", true ]
+                |> List.append [ "alles" ]
             else []
-            |> List.sort            
+            |> List.sort
+            |> Select.init            
 
         let updatedModel = { currentModel with ActiveTab = tab; Selections = selections }
         updatedModel, Cmd.none
@@ -222,17 +226,9 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
                 newModel, Cmd.none
         | false, _ -> currentModel, Cmd.none
 
-    | Select s ->
-        printfn "update with select: %s" s
-        let newModel = 
-            { currentModel with 
-                Selections = 
-                    currentModel.Selections 
-                    |> List.map (fun (cat, _) ->
-                        if cat = s then cat, true else cat, false
-                    ) }
-
-        newModel, Cmd.none
+    | Select msg ->
+        let model, cmd = Select.update msg currentModel.Selections
+        { currentModel with Selections = model}, Cmd.map Select cmd
 
     | GenPresLoaded (Ok genpres) ->
         let newModel = { currentModel with GenPres = Some genpres }
@@ -286,30 +282,6 @@ let showPatient = function
     sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)" x.Patient.Age.Years x.Patient.Age.Months wght e
 | { GenPres = None } -> ""
 
-
-let select dispatch (model : Model) = 
-
-    let onclick cat = 
-        fun e -> 
-            printfn "selecteer: %s, %A" cat e
-            cat |> Select |> dispatch
-
-    let toItem (cat, sel) = 
-        Dropdown.Item.a [ Dropdown.Item.IsActive sel; Dropdown.Item.Props [ OnClick (onclick cat) ] ] [ str cat ]
-
-    let content = 
-        model.Selections
-        |> List.map toItem
-    
-    Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.Padding "10px"  ] ] ]
-        [ div []
-            [ Button.button []
-                [ span []
-                    [ str "Selecteer" ]
-                  Fulma.FontAwesome.Icon.faIcon [ Icon.Size IsSmall ] [ FontAwesome.Fa.icon FontAwesome.Fa.I.AngleDown ]  ]]
-          Dropdown.menu []
-            [ Dropdown.content []
-                content ]]
 
 
 let button txt onClick =
@@ -459,11 +431,11 @@ let treatment (model : Model) =
             ]
 
         let selected = 
-            if model.Selections.Head |> snd then []
+            if model.Selections.Head.Selected then []
             else
                 model.Selections
-                |> List.filter snd
-                |> List.map fst
+                |> List.filter (fun item -> item.Selected)
+                |> List.map (fun item -> item.Name)
         
         [ 
             [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
@@ -489,11 +461,11 @@ let treatment (model : Model) =
 
 let contMeds (model : Model) =
     let selected = 
-        if model.Selections.Head |> snd then []
+        if model.Selections.Head.Selected then []
         else
             model.Selections
-            |> List.filter snd
-            |> List.map fst
+            |> List.filter (fun item -> item.Selected)
+            |> List.map (fun item -> item.Name)
         
     Treatment.calcContMed ((model |> getYears |> float) + ((model |> getMonths |> float) / 12.)) (model |> getWeight)
     |> List.filter (fun xs ->
@@ -530,7 +502,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                   [ model |> getYears  |> yrInput dispatch
                                     model |> getMonths |> moInput dispatch
                                     model |> getWeight |> wtInput dispatch ] 
-                        button "Verwijder" dispatch ; model |> select dispatch  ] 
+                        button "Verwijder" dispatch ; Select.view model.Selections (Select >> dispatch)  ] 
                 
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ Heading.h5 [] [ str (showPatient model) ] ]

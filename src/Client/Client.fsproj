@@ -8,6 +8,7 @@
         <Compile Include=".\Utils\String.fs" />
         <Compile Include=".\Utils\List.fs" />
         <Compile Include=".\Utils\Math.fs" />
+        <Compile Include=".\Component\Select.fs" />
         <Compile Include=".\Data\Treatment.fs" />
         <Compile Include="Client.fs" />
     </ItemGroup>
