@@ -29,6 +29,9 @@ let apply f (p: Model) = f p
 let get = apply id
 
 
+let init () = { Shared.Age = { Years = 0; Months = 0 }; Shared.Weight = { Estimated = 2. ; Measured = 0. } }
+
+
 let getWeight pat = 
     if (pat |> get).Weight.Measured = 0. then pat.Weight.Estimated else pat.Weight.Measured
 
@@ -49,12 +52,13 @@ let calculateWeight yr mo =
 
 
 let show pat = 
-
     let wght = 
         let w = pat |> getWeight
         if w < 2. then "" else 
             w |> Math.fixPrecision 2 |> string
+
     let e = pat.Weight.Estimated |> Math.fixPrecision 2 |> string
+
     sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)" pat.Age.Years pat.Age.Months wght e
 
 
@@ -115,8 +119,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         | false, _ -> model, Cmd.none
 
     | Clear ->
-        let newModel =
-                { model with Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2.; Measured = 0. } }
+        let newModel = init ()
         newModel, Cmd.none
 
 

@@ -21,8 +21,9 @@ open Component
 
 module Treatment = Data.Treatment
 module Math = Utils.Math
-module Select = Component.Select
 
+module Select = Component.Select
+module Table = Component.Table
 
 let calcDoseVol kg doserPerKg conc min max =
     let d = 
@@ -91,15 +92,13 @@ let init () : Model * Cmd<Msg> =
         |> List.sort
         |> List.append [ "alles" ]
         |> Select.init
-
-    let patient = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2. ; Measured = 0. } }
     
-    let genpres = { Name = "GenPres OFFLINE"; Version = "0.01"; Patient = patient }
+    let genpres = { Name = "GenPres OFFLINE"; Version = "0.01" }
     
     let initialModel = 
         { 
             GenPres = Some genpres
-            Patient = patient
+            Patient = Patient.init ()
             Device = Fable.Import.Browser.screen.width |> createDevice
             Selections = selections 
             ActiveTab = "Noodlijst"
@@ -184,180 +183,105 @@ let show = function
 | { GenPres = None   } -> "Loading..."
 
 
-
-let button txt onClick =
-    Field.div [ Field.Props [ Style [ CSSProp.Padding "10px"] ]]
-              [
-                Button.button
-                    [ Button.IsFullWidth
-                      Button.Color IsPrimary
-                      Button.OnClick (fun _ -> (Patient.Clear |> PatientMsg) |> onClick) ]
-                    [ str txt ]
-
-              ]
-
-
-let yrInput dispatch (n : int)  =
-    let ph = string n
-    Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
-        [ Label.label [] 
-            [ str "Jaren" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> (!! ev.target?value |> Patient.YearChange) |> PatientMsg |> dispatch) ] ]
-             [ Input.number [ Input.Value ph ] ]]
-
-
-let moInput dispatch (n : int) =
-    let ph = string n
-    Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
-        [ Label.label [] 
-            [ str "Maanden" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> (!! ev.target?value |> Patient.MonthChange) |> PatientMsg |> dispatch) ] ]
-             [ Input.number [ Input.Value ph; Input.Props [  ] ] ]]
-
-
-let wtInput dispatch (n : double) =
-    let s = 
-        if n >= 10. then 1. else 0.1 
-        |> string
-    let n = 
-        n
-        |> Math.fixPrecision 2
-        |> string
-
-    printfn "weight input %s, step %s" n s
-    Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
-        [ Label.label [] 
-            [ str "Gewicht" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> Patient.WeightChange |> PatientMsg |> dispatch) ] ]
-             [ Input.number [ Input.Value n; Input.Props [ Fable.Helpers.React.Props.Step s ] ] ]]
-
-
-let createTable data =
-    match data with
-    | h::rs ->
-        let header =
-            thead [] (h |> List.map (fun s -> th [] [ str s ]))
-        
-        let body =
-            rs 
-            |> List.map (fun xs ->
-                tr [] (xs |> List.map (fun x -> td [] [ str x]))
-            )
-
-        Table.table [ Table.IsBordered
-                      Table.IsFullWidth
-                      Table.IsStriped
-                      Table.IsHoverable]
-                    [ header; tbody [] body ]
-    | _ -> div [] []
-
-
 let treatment (model : Model) =
-    match model with
-    | { GenPres = Some (genpres) } ->
-        let age = 
-            let yrs = genpres.Patient.Age.Years |> double
-            let mos = (genpres.Patient.Age.Months |> double) / 12.
-            yrs + mos
+    let age = 
+        let yrs = model.Patient.Age.Years |> double
+        let mos = (model.Patient.Age.Months |> double) / 12.
+        yrs + mos
 
-        let wght = model.Patient |> Patient.getWeight
+    let wght = model.Patient |> Patient.getWeight
 
-        let tube = 
-            let m = 
-                4. + age / 4. 
-                |> Math.roundBy0_5
-                |> (fun m -> if m > 7. then 7. else m)
-            sprintf "%A-%A-%A" (m - 0.5) m (m + 0.5)
+    let tube = 
+        let m = 
+            4. + age / 4. 
+            |> Math.roundBy0_5
+            |> (fun m -> if m > 7. then 7. else m)
+        sprintf "%A-%A-%A" (m - 0.5) m (m + 0.5)
 
-        let oral = 
-            let m = 12. + age / 2. |> Math.roundBy0_5
-            sprintf "%A cm" m
+    let oral = 
+        let m = 12. + age / 2. |> Math.roundBy0_5
+        sprintf "%A cm" m
 
-        let nasal =
-            let m = 15. + age / 2. |> Math.roundBy0_5
-            sprintf "%A cm" m
+    let nasal =
+        let m = 15. + age / 2. |> Math.roundBy0_5
+        sprintf "%A cm" m
 
-        let epiIv = 
-            let d, v =
-                    calcDoseVol wght 0.01 0.1 0.01 0.5
-            
-            (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
-            (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
-
-        let epiTr = 
-            let d, v =
-                    calcDoseVol wght 0.1 0.1 0.1 5.
-            
-            (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
-            (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
-
-        let fluid =
-            let d, _ =
-                calcDoseVol wght 20. 1. 0. 500.
-            
-            (sprintf "%A ml NaCl 0.9%%" d) , ("")
-
-        let defib =
-            let j = 
-                Treatment.joules
-                |> Utils.List.findNearestMax (wght * 4. |> int)
-            
-            sprintf "%A Joule" j
-
-        let cardio =
-            let j = 
-                Treatment.joules
-                |> Utils.List.findNearestMax (wght * 2. |> int)
-            
-            sprintf "%A Joule" j
-
-        let calcMeds (ind, item, dose, min, max, conc, unit, rem) =
-            let d, v =
-                calcDoseVol wght dose conc min max
-
-            let adv s =
-                if s <> "" then s
-                else
-                    let minmax =
-                        match (min = 0., max = 0.) with
-                        | true,  true  -> ""
-                        | true,  false -> sprintf "(max %A %s)" max unit
-                        | false, true  -> sprintf "(min %A %s)" min unit
-                        | false, false -> sprintf "(%A - %A %s)" min max unit
-
-                    sprintf "%A %s/kg %s" dose unit minmax
-
-            [
-                ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 2) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv rem 
-            ]
-
-        let selected = 
-            if model.Selections.Head.Selected then []
-            else
-                model.Selections
-                |> List.filter (fun item -> item.Selected)
-                |> List.map (fun item -> item.Name)
+    let epiIv = 
+        let d, v =
+                calcDoseVol wght 0.01 0.1 0.01 0.5
         
-        [ 
-            [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
-            [ "reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
-            [ "reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
-            [ "reanimatie"; "epinephrine iv/io"; epiIv |> fst; epiIv |> snd; "0,01 mg/kg" ]
-            [ "reanimatie"; "epinephrine trach"; epiTr |> fst; epiTr |> snd; "0,1 mg/kg" ]
-            [ "reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
-            [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
-            [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
-        ] @ (Treatment.medicationDefs |> List.map calcMeds)
-        |> List.filter (fun xs ->
-            selected = List.empty || selected |> List.exists ((=) xs.Head)
-        )
-        |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
+        (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
+        (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
 
-    | { GenPres = None } ->
-        [ 
-            [ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]
+    let epiTr = 
+        let d, v =
+                calcDoseVol wght 0.1 0.1 0.1 5.
+        
+        (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
+        (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
+
+    let fluid =
+        let d, _ =
+            calcDoseVol wght 20. 1. 0. 500.
+        
+        (sprintf "%A ml NaCl 0.9%%" d) , ("")
+
+    let defib =
+        let j = 
+            Treatment.joules
+            |> Utils.List.findNearestMax (wght * 4. |> int)
+        
+        sprintf "%A Joule" j
+
+    let cardio =
+        let j = 
+            Treatment.joules
+            |> Utils.List.findNearestMax (wght * 2. |> int)
+        
+        sprintf "%A Joule" j
+
+    let calcMeds (ind, item, dose, min, max, conc, unit, rem) =
+        let d, v =
+            calcDoseVol wght dose conc min max
+
+        let adv s =
+            if s <> "" then s
+            else
+                let minmax =
+                    match (min = 0., max = 0.) with
+                    | true,  true  -> ""
+                    | true,  false -> sprintf "(max %A %s)" max unit
+                    | false, true  -> sprintf "(min %A %s)" min unit
+                    | false, false -> sprintf "(%A - %A %s)" min max unit
+
+                sprintf "%A %s/kg %s" dose unit minmax
+
+        [
+            ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 2) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv rem 
         ]
-    |> createTable
+
+    let selected = 
+        if model.Selections.Head.Selected then []
+        else
+            model.Selections
+            |> List.filter (fun item -> item.Selected)
+            |> List.map (fun item -> item.Name)
+    
+    [ 
+        [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
+        [ "reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
+        [ "reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
+        [ "reanimatie"; "epinephrine iv/io"; epiIv |> fst; epiIv |> snd; "0,01 mg/kg" ]
+        [ "reanimatie"; "epinephrine trach"; epiTr |> fst; epiTr |> snd; "0,1 mg/kg" ]
+        [ "reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
+        [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
+        [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
+    ] @ (Treatment.medicationDefs |> List.map calcMeds)
+    |> List.filter (fun xs ->
+        selected = List.empty || selected |> List.exists ((=) xs.Head)
+    )
+    |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
+    |> Table.create
 
 
 let contMeds (model : Model) =
@@ -375,7 +299,7 @@ let contMeds (model : Model) =
             selected |> List.exists ((=) xs.Head)
     )
     |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
-    |> createTable
+    |> Table.create
 
 
 let tabs dispatch (model : Model) =
