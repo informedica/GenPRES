@@ -2,9 +2,6 @@ namespace Data
 
 module Treatment =
 
-    open Shared
-    open Utils
-
     let joules =
         [ 
             1

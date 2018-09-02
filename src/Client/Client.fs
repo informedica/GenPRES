@@ -6,11 +6,7 @@ open Elmish.React
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.PowerPack.Fetch
-open Fable.Core.JsInterop
 
-open Fulma
-open Fable.Import.React
-open Fable.Helpers.React.ReactiveComponents
 open Fulma
 open Component
 
@@ -89,7 +85,6 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let patModel, cmd = Patient.update msg model.Patient
         { model with Patient = patModel}, Cmd.map PatientMsg cmd
 
-
     | SelectMsg msg ->
         let selModel, cmd = Select.update msg model.Selections
         { model with Selections = selModel}, Cmd.map SelectMsg cmd
@@ -99,7 +94,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         printfn "active tab: %s" model.ActiveTab
         newModel, Cmd.none
 
-    | _ -> model, Cmd.none
+    | GenPresLoaded (_) -> model, Cmd.none
 
 
 let safeComponents =
