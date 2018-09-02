@@ -167,7 +167,7 @@ let wtInput dispatch (n : double) =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
             [ str "Gewicht" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value WeightChange |> dispatch) ] ]
+          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> WeightChange |> dispatch) ] ]
              [ Input.number [ Input.Value n; Input.Props [ Fable.Helpers.React.Props.Step s ] ] ]]
 
 

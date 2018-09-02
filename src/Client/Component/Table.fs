@@ -27,6 +27,5 @@ module Table =
                           Table.IsStriped
                           Table.IsHoverable]
                         [ thead [] h; tbody [] b ]
-
         )
 
