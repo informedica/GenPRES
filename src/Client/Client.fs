@@ -23,14 +23,6 @@ module Treatment = Data.Treatment
 module Math = Utils.Math
 module Select = Component.Select
 
-let calculateWeight yr mo =
-    let age = (double yr) + (double mo) / 12.
-    match age with
-    | _ when age > 18.  -> 0.
-    | _ when age >= 1.  -> age * 2.5 + 8.
-    | _ when age >= 0.5 -> 6.
-    | _ when age >= 0.  -> 3.5
-    | _ -> 0.
 
 let calcDoseVol kg doserPerKg conc min max =
     let d = 
@@ -60,41 +52,29 @@ let calcDoseVol kg doserPerKg conc min max =
 // in this case, we are keeping track of a counter
 // we mark it as optional, because initially it will not be available from the client
 // the initial value will be requested from server
-type Model = { GenPres: GenPres option; Device : Device; Selections : Select.Model; ActiveTab : string }
+type Model = 
+    { 
+        GenPres : GenPres option
+        Patient : Patient
+        Device : Device
+        Selections : Select.Model
+        ActiveTab : string 
+    }
 and Device = Computer | Tablet | Mobile
+
 
 let createDevice x =
     if x < 1000. then Mobile
     else if x < 2000. then Tablet
     else Computer
 
-let getYears = function 
-| { GenPres = Some x } ->
-    x.Patient.Age.Years
-| { GenPres = None } -> 0
-
-
-let getMonths = function 
-| { GenPres = Some x } ->
-    x.Patient.Age.Months
-| { GenPres = None } -> 0
-
-
-let getWeight = function 
-| { GenPres = Some x } ->
-    if x.Patient.Weight.Measured = 0. then x.Patient.Weight.Estimated else x.Patient.Weight.Measured
-| { GenPres = None } -> 0.
-
 
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
 | TabChange of string
-| YearChange of string
-| MonthChange of string
-| WeightChange of string
-| ClearInput
-| Select of Select.Msg
+| SelectMsg of Select.Msg
+| PatientMsg of Patient.Msg
 | GenPresLoaded of Result<GenPres, exn>
 
 
@@ -119,6 +99,7 @@ let init () : Model * Cmd<Msg> =
     let initialModel = 
         { 
             GenPres = Some genpres
+            Patient = patient
             Device = Fable.Import.Browser.screen.width |> createDevice
             Selections = selections 
             ActiveTab = "Noodlijst"
@@ -136,7 +117,7 @@ let init () : Model * Cmd<Msg> =
 // The update function computes the next state of the application based on the current state and the incoming events/messages
 // It can also run side-effects (encoded as commands) like calling the server via Http.
 // these commands in turn, can dispatch messages to which the update function will react.
-let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
+let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
     | TabChange tab ->
         let selections =
@@ -159,93 +140,24 @@ let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
             |> List.sort
             |> Select.init            
 
-        let updatedModel = { currentModel with ActiveTab = tab; Selections = selections }
+        let updatedModel = { model with ActiveTab = tab; Selections = selections }
         updatedModel, Cmd.none
 
-    | YearChange s -> 
-        printfn "Year: %s" s
-        match s |> Int32.TryParse with
-        | true, i -> 
-            if i > 18 || i < 0 then currentModel, Cmd.none
-            else
-                let newModel = 
+    | PatientMsg msg ->
+        let patModel, cmd = Patient.update msg model.Patient
+        { model with Patient = patModel}, Cmd.map PatientMsg cmd
 
-                    match currentModel.GenPres with
-                    | Some gp ->
-                        let w =  calculateWeight i (currentModel |> getMonths)
-                        let gp' = { gp with Patient = { gp.Patient with Age  =  { gp.Patient.Age  with Years = i }; Weight = { gp.Patient.Weight with Estimated = w } } }
-                        { currentModel with GenPres = Some gp' }
-                    | None -> currentModel
-                newModel, Cmd.none
-        | false, _ -> 
-            currentModel, Cmd.none
 
-    | MonthChange s -> 
-        printfn "Month: %s" s
-        match s |> Int32.TryParse with
-        | true, i -> 
-            let newModel = 
-
-                match currentModel.GenPres with
-                | Some gp ->
-                    let w = calculateWeight (currentModel |> getYears) i
-
-                    let y = 
-                        if i = 12 && gp.Patient.Age.Years < 18 then 
-                            gp.Patient.Age.Years + 1 
-                        else if i = -1 && gp.Patient.Age.Years > 0 then  
-                            gp.Patient.Age.Years - 1
-                        else
-                            gp.Patient.Age.Years
-
-                    let m =
-                        if i >= 12 then 0
-                        else if i = -1 then 11
-                        else i
-                       
-                    let gp' = { gp with Patient = { gp.Patient with Age = { gp.Patient.Age with Months = m; Years = y }; Weight = { gp.Patient.Weight with Estimated = w } } }
-                    { currentModel with GenPres = Some gp' }
-                | None -> currentModel
-            newModel, Cmd.none
-        | false, _ -> 
-            currentModel, Cmd.none
-
-    | WeightChange s ->
-        printf "Weight: %s" s
-        match s |> Double.TryParse with
-        | true, x ->
-            let x = x |> Math.fixPrecision 2
-            if x < 2. then currentModel, Cmd.none
-            else
-                let newModel =
-                    match currentModel.GenPres with
-                    | Some gp ->
-                        let gp' = { gp with Patient = { gp.Patient with Weight = { gp.Patient.Weight with Measured = x }}}
-                        { currentModel with GenPres = Some gp' }
-                    | None -> currentModel
-                newModel, Cmd.none
-        | false, _ -> currentModel, Cmd.none
-
-    | Select msg ->
-        let model, cmd = Select.update msg currentModel.Selections
-        { currentModel with Selections = model}, Cmd.map Select cmd
+    | SelectMsg msg ->
+        let selModel, cmd = Select.update msg model.Selections
+        { model with Selections = selModel}, Cmd.map SelectMsg cmd
 
     | GenPresLoaded (Ok genpres) ->
-        let newModel = { currentModel with GenPres = Some genpres }
-        printfn "active tab: %s" currentModel.ActiveTab
+        let newModel = { model with GenPres = Some genpres }
+        printfn "active tab: %s" model.ActiveTab
         newModel, Cmd.none
 
-    | ClearInput ->
-        let newModel =
-            match currentModel.GenPres with
-            | Some gp ->
-                let pat = { Age = { Years = 0; Months = 0 }; Weight = { Estimated = 2.; Measured = 0. } }
-                let gp' = { gp with Patient = pat }
-                { currentModel with GenPres = Some gp' }
-            | None -> currentModel
-        newModel, Cmd.none
-
-    | _ -> currentModel, Cmd.none
+    | _ -> model, Cmd.none
 
 
 let safeComponents =
@@ -272,17 +184,6 @@ let show = function
 | { GenPres = None   } -> "Loading..."
 
 
-let showPatient = function
-| { GenPres = Some x } ->
-    let wght = 
-        let w = if x.Patient.Weight.Measured = 0. then x.Patient.Weight.Estimated else x.Patient.Weight.Measured
-        if w < 2. then "" else 
-            ( w * 10. |> Math.Round ) / 10. |> string
-    let e = x.Patient.Weight.Estimated |> Math.fixPrecision 2 |> string
-    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)" x.Patient.Age.Years x.Patient.Age.Months wght e
-| { GenPres = None } -> ""
-
-
 
 let button txt onClick =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px"] ]]
@@ -290,7 +191,7 @@ let button txt onClick =
                 Button.button
                     [ Button.IsFullWidth
                       Button.Color IsPrimary
-                      Button.OnClick (fun _ -> ClearInput |> onClick) ]
+                      Button.OnClick (fun _ -> (Patient.Clear |> PatientMsg) |> onClick) ]
                     [ str txt ]
 
               ]
@@ -301,7 +202,7 @@ let yrInput dispatch (n : int)  =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
             [ str "Jaren" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> YearChange |> dispatch) ] ]
+          Control.div [ Control.Props [ OnChange (fun ev -> (!! ev.target?value |> Patient.YearChange) |> PatientMsg |> dispatch) ] ]
              [ Input.number [ Input.Value ph ] ]]
 
 
@@ -310,7 +211,7 @@ let moInput dispatch (n : int) =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
             [ str "Maanden" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> MonthChange |> dispatch) ] ]
+          Control.div [ Control.Props [ OnChange (fun ev -> (!! ev.target?value |> Patient.MonthChange) |> PatientMsg |> dispatch) ] ]
              [ Input.number [ Input.Value ph; Input.Props [  ] ] ]]
 
 
@@ -327,7 +228,7 @@ let wtInput dispatch (n : double) =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
             [ str "Gewicht" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> WeightChange |> dispatch) ] ]
+          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> Patient.WeightChange |> PatientMsg |> dispatch) ] ]
              [ Input.number [ Input.Value n; Input.Props [ Fable.Helpers.React.Props.Step s ] ] ]]
 
 
@@ -359,7 +260,7 @@ let treatment (model : Model) =
             let mos = (genpres.Patient.Age.Months |> double) / 12.
             yrs + mos
 
-        let wght = model |> getWeight
+        let wght = model.Patient |> Patient.getWeight
 
         let tube = 
             let m = 
@@ -467,7 +368,7 @@ let contMeds (model : Model) =
             |> List.filter (fun item -> item.Selected)
             |> List.map (fun item -> item.Name)
         
-    Treatment.calcContMed ((model |> getYears |> float) + ((model |> getMonths |> float) / 12.)) (model |> getWeight)
+    Treatment.calcContMed (model.Patient |> Patient.getAge) (model.Patient |> Patient.getWeight)
     |> List.filter (fun xs ->
         if selected |> List.isEmpty then true
         else
@@ -496,17 +397,13 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
           Container.container []
               [ model |> tabs dispatch
-                form [ ]
-                    [ 
-                        Field.div [ Field.IsHorizontal; Field.Props [ Style [ ] ] ] 
-                                  [ model |> getYears  |> yrInput dispatch
-                                    model |> getMonths |> moInput dispatch
-                                    model |> getWeight |> wtInput dispatch ] 
-                        button "Verwijder" dispatch ; Select.view model.Selections (Select >> dispatch)  ] 
                 
+                Patient.view model.Patient (PatientMsg >> dispatch)
+
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h5 [] [ str (showPatient model) ] ]
+                    [ Heading.h5 [] [ str (model.Patient |> Patient.show) ] ]
                 
+                Select.view model.Selections (SelectMsg >> dispatch)
                 
                 (if model.ActiveTab = "Noodlijst" then 
                     treatment model 
