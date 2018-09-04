@@ -11,6 +11,7 @@ open Fulma
 
 
 module Math = Utils.Math
+module NormalValues = Data.NormalValues
 
 
 type Model = Shared.Patient
@@ -29,7 +30,16 @@ let apply f (p: Model) = f p
 let get = apply id
 
 
-let init () = { Shared.Age = { Years = 0; Months = 0 }; Shared.Weight = { Estimated = 2. ; Measured = 0. } }
+let calculateWeight yr mo =
+    let age = (double yr) * 12. + (double mo)
+    match
+        NormalValues.ageWeight
+        |> List.filter (fun (a, _) -> age <= a) with
+    | (_, w)::_  -> w
+    | [] -> 0.    
+
+
+let init () = { Shared.Age = { Years = 0; Months = 0 }; Shared.Weight = { Estimated = calculateWeight 0 0 ; Measured = 0. } }
 
 
 let getWeight pat = 
@@ -41,14 +51,6 @@ let getAge pat =
     let m = (pat.Age.Months |> float) / 12.
     y + m
 
-let calculateWeight yr mo =
-    let age = (double yr) + (double mo) / 12.
-    match age with
-    | _ when age > 18.  -> 0.
-    | _ when age >= 1.  -> age * 2.5 + 8.
-    | _ when age >= 0.5 -> 6.
-    | _ when age >= 0.  -> 3.5
-    | _ -> 0.
 
 
 let show pat = 
