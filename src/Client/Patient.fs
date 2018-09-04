@@ -53,6 +53,46 @@ let getAge pat =
 
 
 
+let updateAge yr mo (model: Model) =
+
+    match yr, mo with
+    | Some y, None ->
+        if y > 18 || y < 0 then model
+        else
+            let newModel = 
+                let w =  calculateWeight y (model.Age.Months)
+                { model with Age = { model.Age  with Years = y }; Weight = { model.Weight with Estimated = w } }
+            newModel
+
+    | None, Some m ->
+        let newModel = 
+            let age = model.Age
+            let weight = model.Weight
+
+            let w = calculateWeight (age.Years) m
+
+            let y = 
+                if m = 12 && age.Years < 18 then 
+                    age.Years + 1 
+                else if m = -1 && model.Age.Years > 0 then  
+                    age.Years - 1
+                else
+                    age.Years
+
+            let m =
+                if m >= 12 then 0
+                else if m = -1 && y = 0 then 0
+                else if m = -1 && y > 0 then 11
+                else m
+               
+            { model with Age = { age with Months = m; Years = y }; Weight = { weight with Estimated = w } }
+
+        newModel
+
+    | _ -> model
+
+
+
 let show pat = 
     let wght = 
         let w = pat |> getWeight
@@ -70,12 +110,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         printfn "Year: %s" s
         match s |> Int32.TryParse with
         | true, i -> 
-            if i > 18 || i < 0 then model, Cmd.none
-            else
-                let newModel = 
-                    let w =  calculateWeight i (model.Age.Months)
-                    { model with Age = { model.Age  with Years = i }; Weight = { model.Weight with Estimated = w } }
-                newModel, Cmd.none
+            model |> updateAge (Some i) None, Cmd.none
         | false, _ -> 
             model, Cmd.none
 
@@ -83,28 +118,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         printfn "Month: %s" s
         match s |> Int32.TryParse with
         | true, i -> 
-            let newModel = 
-                let age = model.Age
-                let weight = model.Weight
-
-                let w = calculateWeight (age.Years) i
-
-                let y = 
-                    if i = 12 && age.Years < 18 then 
-                        age.Years + 1 
-                    else if i = -1 && model.Age.Years > 0 then  
-                        age.Years - 1
-                    else
-                        age.Years
-
-                let m =
-                    if i >= 12 then 0
-                    else if i = -1 then 11
-                    else i
-                   
-                { model with Age = { age with Months = m; Years = y }; Weight = { weight with Estimated = w } }
-
-            newModel, Cmd.none
+            model |> updateAge None (Some i), Cmd.none
         | false, _ -> 
             model, Cmd.none
 
