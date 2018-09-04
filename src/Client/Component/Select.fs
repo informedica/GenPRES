@@ -17,7 +17,7 @@ module Select =
 
     let init items = 
         items
-        |> List.map (fun item -> { Name = item; Selected = false})
+        |> List.map (fun item -> { Name = item; Selected = item = "alles" || false})
 
 
     let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
@@ -55,7 +55,7 @@ module Select =
             model
             |> List.map toItem
         
-        Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.Padding "10px"  ] ] ]
+        Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.PaddingBottom "10px"  ] ] ]
             [ div []
                 [ Button.button []
                     [ span []
