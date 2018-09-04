@@ -30,7 +30,11 @@ module Select =
                 currentModel 
                 |> List.map (fun item ->
                     if item.Name = s then 
-                        { item with Selected = not item.Selected }
+                        { item with Selected = if s = "alles" then true else not item.Selected }
+                    else if s <> "alles" && item.Name = "alles" then
+                        { item with Selected = false }
+                    else if s = "alles" && item.Name <> "alles" then 
+                        { item with Selected = false }
                     else item
                 )
 

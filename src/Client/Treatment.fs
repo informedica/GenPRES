@@ -2,7 +2,7 @@ module Treatment
 
 open Shared
 
-module Data = Data.Treatment
+module Data = Data.TreatmentData
 module String = Utils.String
 module Math = Utils.Math
 module List = Utils.List

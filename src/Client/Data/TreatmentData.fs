@@ -1,6 +1,6 @@
 namespace Data
 
-module Treatment =
+module TreatmentData =
 
     let joules =
         [ 

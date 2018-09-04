@@ -8,9 +8,9 @@
         <Compile Include=".\Utils\String.fs" />
         <Compile Include=".\Utils\List.fs" />
         <Compile Include=".\Utils\Math.fs" />
+        <Compile Include=".\Data\TreatmentData.fs" />
         <Compile Include=".\Component\Select.fs" />
         <Compile Include=".\Component\Table.fs" />
-        <Compile Include=".\Data\Treatment.fs" />
         <Compile Include="Patient.fs" />
         <Compile Include="Treatment.fs" />
         <Compile Include="Client.fs" />
