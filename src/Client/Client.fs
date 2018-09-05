@@ -27,7 +27,7 @@ type Model =
         GenPres : GenPres option
         Patient : Patient.Model
         Device : Device
-        Selections : Treatment.Model
+        Treatment : Treatment.Model
         ActiveTab : string 
     }
 and Device = Computer | Tablet | Mobile
@@ -45,6 +45,7 @@ type Msg =
 | TabChange of string
 | SelectMsg of Select.Msg
 | PatientMsg of Patient.Msg
+| TreatmentMsg of Treatment.Msg
 | GenPresLoaded of Result<GenPres, exn>
 
 
@@ -59,7 +60,7 @@ let init () : Model * Cmd<Msg> =
             GenPres = Some genpres
             Patient = Patient.init ()
             Device = Fable.Import.Browser.screen.width |> createDevice
-            Selections = Treatment.init "Noodlijst" 
+            Treatment = Treatment.init "Noodlijst" 
             ActiveTab = "Noodlijst"
         }
 
@@ -78,7 +79,7 @@ let init () : Model * Cmd<Msg> =
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
     | TabChange tab ->
-        let updatedModel = { model with ActiveTab = tab; Selections = Treatment.init tab }
+        let updatedModel = { model with ActiveTab = tab; Treatment = Treatment.init tab }
         updatedModel, Cmd.none
 
     | PatientMsg msg ->
@@ -86,8 +87,14 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Patient = patModel}, Cmd.map PatientMsg cmd
 
     | SelectMsg msg ->
-        let selModel, cmd = Select.update msg model.Selections
-        { model with Selections = selModel}, Cmd.map SelectMsg cmd
+        let selModel, cmd = Select.update msg model.Treatment.Selections
+        { model with Treatment = { model.Treatment with Selections = selModel }}, Cmd.map SelectMsg cmd
+
+    | TreatmentMsg msg ->
+        let newModel =
+            { model with Treatment = model.Treatment |> Treatment.update msg }
+        printfn "ShowModal = %A" newModel.Treatment.ShowModal.IsActive    
+        newModel, Cmd.none
 
     | GenPresLoaded (Ok genpres) ->
         let newModel = { model with GenPres = Some genpres }
@@ -122,11 +129,11 @@ let show = function
 
 
 let treatment (model : Model) =
-    Treatment.treatment model.Selections model.Patient
+    Treatment.treatment model.Treatment model.Patient
 
 
-let contMeds (model : Model) =
-    Treatment.contMeds model.Selections model.Patient
+let contMeds (model : Model) dispatch =
+    Treatment.contMeds model.Treatment model.Patient dispatch
 
 
 let tabs dispatch (model : Model) =
@@ -154,14 +161,14 @@ let view (model : Model) (dispatch : Msg -> unit) =
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ Heading.h5 [] [ str (model.Patient |> Patient.show) ] ]
                 
-                Select.view model.Selections (SelectMsg >> dispatch)
+                Select.view model.Treatment.Selections (SelectMsg >> dispatch)
                 
                 (if model.ActiveTab = "Noodlijst" then 
                     treatment model 
                  else if model.ActiveTab = "Standaard Pompen" then 
-                    div [] [ contMeds model ]
-                 else div [] [ str "Normaal Waarden (volgt nog)"]) ]
-          
+                    div [] [ contMeds model (TreatmentMsg >> dispatch) ]
+                 else div [] [ str "Normaal Waarden (volgt nog)"]) ]     
+
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ safeComponents ] ] ]

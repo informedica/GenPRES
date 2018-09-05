@@ -1,5 +1,6 @@
 namespace Component
 
+open Fable.Helpers.React.ReactiveComponents
 module Table =
 
     open Fable.Helpers.React
@@ -7,7 +8,7 @@ module Table =
     open Elmish
     open Fulma
 
-    let create data =
+    let create onClick data =
         match data with
         | h::rs ->
             let header =
@@ -15,8 +16,18 @@ module Table =
             
             let body =
                 rs 
-                |> List.map (fun xs ->
-                    tr [] (xs |> List.map (fun x -> td [] [ str x]))
+                |> List.mapi (fun i xs ->
+                    let attrs =
+                        if onClick |> List.isEmpty then 
+                            [ OnClick (fun _ -> printfn "Table is clicked") :> IHTMLProp ]
+                        else
+                            let f = onClick.[i]
+                            [ OnClick f :> IHTMLProp ]
+
+                    tr attrs (xs |> List.map (fun x -> 
+                                td [] [ str x]
+                            )                                                    
+                        )
                 )
 
             header, body

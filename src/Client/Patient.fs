@@ -4,7 +4,6 @@ open System
 
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
-open Fable.PowerPack.Fetch
 open Fable.Core.JsInterop
 open Elmish
 open Fulma

@@ -2,15 +2,35 @@ module Treatment
 
 open Shared
 
-module Data = Data.TreatmentData
+open Fable.Helpers.React
+open Fable.Helpers.React.Props
+open Elmish
+open Fulma
+
+
+module TreatmentData = Data.TreatmentData
 module String = Utils.String
 module Math = Utils.Math
 module List = Utils.List
 module Select = Component.Select
 module Table = Component.Table
+module Modal = Component.Modal
 
 
-type Model = Select.Model
+type Model = { Selections : Select.Model; ShowModal : Modal.Model }
+
+
+type Msg = 
+    | ClickContMed of string
+    | ModalMsg of Modal.Msg
+
+
+let update msg model =
+    match msg with
+    | ModalMsg msg' ->
+        { model with ShowModal = model.ShowModal |> Modal.update msg' }
+    | ClickContMed _ -> 
+        { model with ShowModal = model.ShowModal |> Modal.update (true |> Modal.Show) }
 
 
 let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to11, vol6to11, qty11to40, vol11to40,  qtyfrom40, volfrom40, mindose, maxdose, absmax, minconc, maxconc, solution) =
@@ -38,24 +58,27 @@ let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to
 
 
 let init cat =
-    if cat = "Noodlijst" then
-        Data.medicationDefs
-        |> List.map (fun (cat, _, _, _, _, _, _, _) ->
-            cat
-        )
-        |> List.distinct
+    let sels =
+        if cat = "Noodlijst" then
+            TreatmentData.medicationDefs
+            |> List.map (fun (cat, _, _, _, _, _, _, _) ->
+                cat
+            )
+            |> List.distinct
+            |> List.sort
+            |> List.append [ "alles" ]
+        else if cat = "Standaard Pompen" then
+            TreatmentData.contMeds
+            |> List.map createContMed
+            |> List.map (fun med -> med.Indication)
+            |> List.distinct
+            |> List.sort
+            |> List.append [ "alles" ]
+        else []
         |> List.sort
-        |> List.append [ "alles" ]
-    else if cat = "Standaard Pompen" then
-        Data.contMeds
-        |> List.map createContMed
-        |> List.map (fun med -> med.Indication)
-        |> List.distinct
-        |> List.sort
-        |> List.append [ "alles" ]
-    else []
-    |> List.sort
-    |> Select.init            
+        |> Select.init   
+
+    { Selections = sels; ShowModal = Modal.init () }         
 
 
 let calcDoseVol kg doserPerKg conc min max =
@@ -124,7 +147,7 @@ let calcContMed age wght =
     let printAdv min max unit =
         sprintf "%A - %A %s" min max unit
 
-    Data.contMeds
+    TreatmentData.contMeds
     |> List.map createContMed
     |> List.sortBy (fun med -> med.Indication, med.Generic)
     |> List.map (fun med ->
@@ -187,14 +210,14 @@ let treatment (model : Model) (pat : Patient.Model) =
 
     let defib =
         let j = 
-            Data.joules
+            TreatmentData.joules
             |> List.findNearestMax (wght * 4. |> int)
         
         sprintf "%A Joule" j
 
     let cardio =
         let j = 
-            Data.joules
+            TreatmentData.joules
             |> List.findNearestMax (wght * 2. |> int)
         
         sprintf "%A Joule" j
@@ -220,9 +243,9 @@ let treatment (model : Model) (pat : Patient.Model) =
         ]
 
     let selected = 
-        if model.Head.Selected then []
+        if model.Selections.Head.Selected then []
         else
-            model
+            model.Selections
             |> List.filter (fun item -> item.Selected)
             |> List.map (fun item -> item.Name)
     
@@ -235,27 +258,42 @@ let treatment (model : Model) (pat : Patient.Model) =
         [ "reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
         [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
         [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
-    ] @ (Data.medicationDefs |> List.map calcMeds)
+    ] @ (TreatmentData.medicationDefs |> List.map calcMeds)
     |> List.filter (fun xs ->
         selected = List.empty || selected |> List.exists ((=) xs.Head)
     )
     |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
-    |> Table.create
+    |> Table.create []
 
 
-let contMeds (model : Model) (pat : Patient.Model) =
+let contMeds (model : Model) (pat : Patient.Model) dispatch =
     let selected = 
-        if model.Head.Selected then []
+        if model.Selections.Head.Selected then []
         else
-            model
+            model.Selections
             |> List.filter (fun item -> item.Selected)
             |> List.map (fun item -> item.Name)
-        
-    calcContMed (pat |> Patient.getAge) (pat |> Patient.getWeight)
-    |> List.filter (fun xs ->
-        if selected |> List.isEmpty then true
-        else
-            selected |> List.exists ((=) xs.Head)
-    )
-    |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
-    |> Table.create
+
+    let meds =
+        calcContMed (pat |> Patient.getAge) (pat |> Patient.getWeight)
+        |> List.filter (fun xs ->
+            if selected |> List.isEmpty then true
+            else
+                selected |> List.exists ((=) xs.Head)
+        )
+
+    let onclick =
+        meds 
+        |> List.map (fun xs ->
+            match xs with
+            | _::gen::_ -> fun _ -> gen |> ClickContMed |> dispatch
+            | _ ->         fun _ -> ""  |> ClickContMed |> dispatch
+        )
+
+    let table =    
+        meds
+        |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
+        |> Table.create onclick
+
+
+    div [] [ table; Modal.cardModal "Bereiding" (div [] [ str "Voor generiek"]) model.ShowModal (ModalMsg >> dispatch) ]
