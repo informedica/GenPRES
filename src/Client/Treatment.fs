@@ -17,21 +17,65 @@ module Table = Component.Table
 module Modal = Component.Modal
 
 
-type Model = { Selections : Select.Model; ShowModal : Modal.Model }
+type Model = { Age : float; ContMeds : Continuous list; Selections : Select.Model; ShowModal : Modal.Model }
 
 
 type Msg = 
+    | AgeChange of float
     | ClickContMed of string
     | ModalMsg of Modal.Msg
 
 
-let update msg model =
+
+let calcQty age (med : Continuous) =
+    match age with
+    | _ when age < 6.  -> med.Quantity2To6
+    | _ when age < 11. -> med.Quantity6To11
+    | _ when age < 40. -> med.Quantity11To40
+    | _ -> med.QuantityFrom40
+
+
+let calcVol age (med : Continuous) =
+     match age with
+     | _ when age < 6.  -> med.Volume2To6
+     | _ when age < 11. -> med.Volume6To11
+     | _ when age < 40. -> med.VolumeFrom40
+     | _ -> med.QuantityFrom40
+
+
+let update (msg : Msg) (model : Model) =
     match msg with
+    | AgeChange a ->
+        { model with Age = a }
     | ModalMsg msg' ->
         { model with ShowModal = model.ShowModal |> Modal.update msg' }
+
     | ClickContMed s -> 
         let t = sprintf "Bereiding voor %s" s
-        let c = "Bereidings tekst...."
+        let c =
+            match TreatmentData.products 
+                  |> List.tryFind (fun (_, gen, _, _) ->
+                    gen = s
+                  ) with
+            | Some (_, _, un, conc) ->
+                if conc = 0. then "Geen bereiding, oplossing is puur"
+                else
+                    let q =
+                        match
+                            model.ContMeds 
+                            |> List.tryFind (fun cm -> cm.Generic = s) with
+                        | Some cm -> 
+                            (cm |> calcQty model.Age) / conc
+                        | None -> 0.    
+                    let v =                
+                        match
+                            model.ContMeds 
+                            |> List.tryFind (fun cm -> cm.Generic = s) with
+                        | Some cm -> (cm |> calcVol model.Age) - q
+                        | None -> 0.    
+                    sprintf "%A ml van %s %A %s/ml + %A ml oplossing" q s conc un v            
+            | None ->
+                "Bereidings tekst niet mogelijk"
         { model with ShowModal = model.ShowModal |> Modal.update ((t, c) |> Modal.Show) }
 
 
@@ -60,6 +104,10 @@ let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to
 
 
 let init cat =
+    let conts =
+        TreatmentData.contMeds
+        |> List.map createContMed
+
     let sels =
         if cat = "Noodlijst" then
             TreatmentData.medicationDefs
@@ -70,8 +118,7 @@ let init cat =
             |> List.sort
             |> List.append [ "alles" ]
         else if cat = "Standaard Pompen" then
-            TreatmentData.contMeds
-            |> List.map createContMed
+            conts
             |> List.map (fun med -> med.Indication)
             |> List.distinct
             |> List.sort
@@ -80,7 +127,7 @@ let init cat =
         |> List.sort
         |> Select.init   
 
-    { Selections = sels; ShowModal = Modal.init () }         
+    { Age = 0.; ContMeds = conts; Selections = sels; ShowModal = Modal.init () }         
 
 
 let calcDoseVol kg doserPerKg conc min max =
@@ -108,21 +155,6 @@ let calcDoseVol kg doserPerKg conc min max =
 
 
 let calcContMed age wght =
-
-    let qty (med : Continuous) =
-        match age with
-        | _ when age < 6. -> med.Quantity2To6
-        | _ when age < 11. -> med.Quantity6To11
-        | _ when age < 40. -> med.Quantity11To40
-        | _ -> med.QuantityFrom40
-
-    let vol (med : Continuous) =
-         match age with
-         | _ when age < 6. -> med.Volume2To6
-         | _ when age < 11. -> med.Volume6To11
-         | _ when age < 40. -> med.VolumeFrom40
-         | _ -> med.QuantityFrom40
-
 
     let calcDose qty vol unit doseU =
         let f = 
@@ -153,14 +185,17 @@ let calcContMed age wght =
     |> List.map createContMed
     |> List.sortBy (fun med -> med.Indication, med.Generic)
     |> List.map (fun med ->
-        if med |> vol = 0. then []
+        let vol = med |> calcVol age
+        let qty = med |> calcQty age
+
+        if vol = 0. then []
         else
             [ 
                 med.Indication
                 med.Generic
-                ((med |> qty |> string) + " " + med.Unit)
-                ("in " + (med |> vol |> string ) + " ml " + med.Solution)
-                (calcDose (med |> qty) (med |> vol) med.Unit med.DoseUnit) 
+                ((qty |> string) + " " + med.Unit)
+                ("in " + (vol |> string ) + " ml " + med.Solution)
+                (calcDose (qty) (vol) med.Unit med.DoseUnit) 
                 (printAdv med.MinDose med.MaxDose med.DoseUnit)
             ]
     )

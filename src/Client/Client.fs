@@ -84,7 +84,12 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
     | PatientMsg msg ->
         let patModel, cmd = Patient.update msg model.Patient
-        { model with Patient = patModel}, Cmd.map PatientMsg cmd
+        let treatUpdate = 
+            patModel
+            |> Patient.getAge
+            |> Treatment.AgeChange
+            |> Treatment.update
+        { model with Patient = patModel; Treatment = model.Treatment |> treatUpdate }, Cmd.map PatientMsg cmd
 
     | SelectMsg msg ->
         let selModel, cmd = Select.update msg model.Treatment.Selections

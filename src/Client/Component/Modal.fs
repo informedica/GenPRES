@@ -42,7 +42,7 @@ module Modal =
                   Modal.Card.body [ ]
                     [ str content ]
                   Modal.Card.foot [ ]
-                    [ Button.button [ Button.Color IsSuccess ]
+                    [ Button.button [ Button.Color IsSuccess; Button.Props [ OnClick (fun _ -> Close |> dispatch)] ]
                         [ str "OK" ] ] ] ]
 
 

@@ -107,3 +107,39 @@ module TreatmentData =
         ]
 
 
+    let products =
+        [
+            "inotropie", "adrenaline", "mg", 1.
+            "suppletie", "albumine 20%", "g", 0.
+            "ductus afhankelijk cor vitium", "alprostadil", "mg", 0.5
+            "anti-arrythmica", "amiodarone", "mg", 50.
+            "sedatie", "clonidine", "mg", 0.15
+            "inotropie", "dobutamine", "mg", 12.5
+            "inotropie", "dopamine", "mg", 40.
+            // "pijnstilling", "Epi bupi 1,25mg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
+            // "pijnstilling", "Epi bupi 1,25mg, sufenta 0,5 mcg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
+            "pulmonale hypertensie", "epoprostenol", "mg", (0.5 / 10.)
+            "sedatie", "esketamine", "mg", 5.
+            "antihypertensiva", "esmolol", "mg", 10.
+            "pijnstilling", "fentanyl", "mg", 0.05
+            "vasopressie", "fenylefrine", "mg", 10.
+            "diuretica", "furosemide", "mg", 10.
+            "antistolling", "heparine", "IE", 5000.
+            "glucose regulatie", "insuline", "IE", 10.
+            "chronotropie", "isoprenaline", "mg", 1.
+            "antihypertensiva", "labetalol", "mg", 5.
+            "bronchodilatie", "magnesiumsulfaat", "mg", 100.
+            "sedatie", "midazolam", "mg", 5.
+            "inotropie", "milrinone", "mg", 1.
+            "pijnstilling", "morfine", "mg", 10.
+            "suppletie", "NaCl 2,9%", "mmol", 0.5
+            "antihypertensiva", "nitroprusside", "mg", (50. / 4.)
+            "vasopressie", "noradrenaline", "mg", 1.
+            "sedatie", "propofol 1%", "mg", 0.
+            "sedatie", "propofol 2%", "mg", 0.
+            "verslapping", "rocuronium", "mg", 10.
+            "bronchodilatie", "salbutamol", "mg", 1.
+            "sedatie", "thiopental", "mg", 50.
+        ]
+
+
