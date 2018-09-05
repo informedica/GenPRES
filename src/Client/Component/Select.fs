@@ -60,7 +60,7 @@ module Select =
                 [ Button.button []
                     [ span []
                         [ str "Selecteer" ]
-                      Fulma.FontAwesome.Icon.faIcon [ Icon.Size IsSmall ] [ FontAwesome.Fa.icon FontAwesome.Fa.I.AngleDown ]  ]]
+                      Fulma.FontAwesome.Icon.faIcon [ Icon.Size IsSmall ] [ FontAwesome.Fa.icon FontAwesome.Fa.I.AngleDown ] ] ]
               Dropdown.menu []
                 [ Dropdown.content []
                     content ]]

@@ -9,6 +9,7 @@ open Fulma
 
 
 module TreatmentData = Data.TreatmentData
+module NormalValues = Data.NormalValues
 module String = Utils.String
 module Math = Utils.Math
 module List = Utils.List
@@ -336,13 +337,47 @@ let contMeds (model : Model) (pat : Patient.Model) dispatch =
     div [] [ table; Modal.cardModal model.ShowModal (ModalMsg >> dispatch) ]
 
 
-let normalValues = 
+let normalValues (pat : Patient) =
+    let age = pat.Age.Years * 12 + pat.Age.Months |> float
+
+    let ht =
+        match NormalValues.ageHeight
+              |> List.filter (fun (a, _) -> age < a) with
+        | (_, h)::_ -> sprintf "%A cm" (h |> Math.fixPrecision 2)
+        | _ -> ""          
+
+    let hr =
+        match NormalValues.heartRate
+              |> List.filter (fun (a, _) -> age < a) with
+        | (_, s)::_ -> sprintf "%s /min" s
+        | _ -> ""          
+
+    let rr =
+        match NormalValues.respRate
+              |> List.filter (fun (a, _) -> age < a) with
+        | (_, s)::_ -> sprintf "%s /min" s
+        | _ -> ""          
+
+    let sbp =
+        match NormalValues.sbp
+              |> List.filter (fun (a, _) -> age < a) with
+        | (_, s)::_ -> sprintf "%s mmHg" s
+        | _ -> ""          
+
+    let dbp =
+        match NormalValues.dbp
+              |> List.filter (fun (a, _) -> age < a) with
+        | (_, s)::_ -> sprintf "%s mmHg" s
+        | _ -> ""          
+
     [ 
-        ["Gewicht"; ""; ""; ""]
-        ["Lengte"; ""; ""; ""]
-        ["Ademhaling"; ""; ""; ""]
-        ["Teug Volume"; ""; "";""]
-        ["Bloeddruk"; ""; "";""]
+        [ "Gewicht"; pat.Weight.Estimated |> string |> sprintf "%s kg" ]
+        [ "Lengte"; ht ]
+        [ "Hartslag"; hr ]
+        [ "Ademhaling"; rr ]
+        [ "Teug Volume"; pat.Weight.Estimated * 6. |> Math.fixPrecision 2 |> sprintf "%A ml (6 ml/kg)" ]
+        [ "Systolische Bloeddruk"; sbp ]
+        [ "Diastolische Bloeddruk"; dbp ]
     ]
-    |> List.append [[""; "Waarde"; "Beneden Grens"; "Boven Grens"]]
+    |> List.append [ [ ""; "Waarde" ] ]
     |> Table.create []

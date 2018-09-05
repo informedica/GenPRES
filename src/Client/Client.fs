@@ -141,6 +141,10 @@ let contMeds (model : Model) dispatch =
     Treatment.contMeds model.Treatment model.Patient dispatch
 
 
+let normalValues (model : Model) =
+    Treatment.normalValues model.Patient
+
+
 let tabs dispatch (model : Model) =
     Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 
         [ Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Noodlijst")
@@ -153,10 +157,25 @@ let tabs dispatch (model : Model) =
 
 let view (model : Model) (dispatch : Msg -> unit) =
     div [ Style [ CSSProp.Padding "10px"] ]
-        [ Navbar.navbar [ Navbar.Color IsPrimary ; Navbar.Props [ Style [ CSSProp.Padding "30px"] ] ]
+        [ Navbar.navbar 
+            [ Navbar.Color IsPrimary
+              Navbar.Props [ Style [ CSSProp.Padding "10px"; CSSProp.Margin "10px" ] ]
+              Navbar.HasShadow ]
             [ Navbar.Item.div [ ]
-                [ Heading.h2 [ ]
-                    [ str (show model) ] ] ]
+                [ Heading.h3 [ Heading.Option.CustomClass "has-text-white" ]
+                    [ str (show model) ] ]
+
+              Navbar.End.div []
+                  [ Navbar.Item.div 
+                        [ Navbar.Item.IsHoverable
+                          Navbar.Item.HasDropdown ] 
+                        [ Navbar.Item.div [ ] 
+                            [ Fulma.FontAwesome.Icon.faIcon 
+                                [ Icon.Size IsSmall ] 
+                                [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
+                          Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
+                            [ Navbar.Item.a [] [ str "Acute Behandelingen" ]
+                              Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ] ] ]  
 
           Container.container []
               [ model |> tabs dispatch
@@ -173,7 +192,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                  else if model.ActiveTab = "Standaard Pompen" then 
                     div [] [ contMeds model (TreatmentMsg >> dispatch) ]
                  else 
-                    div [] [ Treatment.normalValues ]) ]     
+                    div [] [ normalValues model ]) ]     
 
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
