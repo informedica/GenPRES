@@ -29,8 +29,10 @@ let update msg model =
     match msg with
     | ModalMsg msg' ->
         { model with ShowModal = model.ShowModal |> Modal.update msg' }
-    | ClickContMed _ -> 
-        { model with ShowModal = model.ShowModal |> Modal.update (true |> Modal.Show) }
+    | ClickContMed s -> 
+        let t = sprintf "Bereiding voor %s" s
+        let c = "Bereidings tekst...."
+        { model with ShowModal = model.ShowModal |> Modal.update ((t, c) |> Modal.Show) }
 
 
 let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to11, vol6to11, qty11to40, vol11to40,  qtyfrom40, volfrom40, mindose, maxdose, absmax, minconc, maxconc, solution) =
@@ -296,4 +298,4 @@ let contMeds (model : Model) (pat : Patient.Model) dispatch =
         |> Table.create onclick
 
 
-    div [] [ table; Modal.cardModal "Bereiding" (div [] [ str "Voor generiek"]) model.ShowModal (ModalMsg >> dispatch) ]
+    div [] [ table; Modal.cardModal model.ShowModal (ModalMsg >> dispatch) ]
