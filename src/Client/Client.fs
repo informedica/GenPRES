@@ -172,7 +172,8 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     treatment model 
                  else if model.ActiveTab = "Standaard Pompen" then 
                     div [] [ contMeds model (TreatmentMsg >> dispatch) ]
-                 else div [] [ str "Normaal Waarden (volgt nog)"]) ]     
+                 else 
+                    div [] [ Treatment.normalValues ]) ]     
 
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]

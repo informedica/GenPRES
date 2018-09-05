@@ -334,3 +334,15 @@ let contMeds (model : Model) (pat : Patient.Model) dispatch =
 
 
     div [] [ table; Modal.cardModal model.ShowModal (ModalMsg >> dispatch) ]
+
+
+let normalValues = 
+    [ 
+        ["Gewicht"; ""; ""; ""]
+        ["Lengte"; ""; ""; ""]
+        ["Ademhaling"; ""; ""; ""]
+        ["Teug Volume"; ""; "";""]
+        ["Bloeddruk"; ""; "";""]
+    ]
+    |> List.append [[""; "Waarde"; "Beneden Grens"; "Boven Grens"]]
+    |> Table.create []
