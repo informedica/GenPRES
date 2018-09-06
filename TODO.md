@@ -14,6 +14,8 @@
 * Responsive design for tablets and smartphones
 * Add navigation to allow opening with age and weight in url
 * Sliders for mobile input
+* Add protocols tab
+* Allow for prepartion with multiple concentrations
 
 ## Technical
 * ~~Create client deploy build target~~

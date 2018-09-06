@@ -152,7 +152,9 @@ let tabs dispatch (model : Model) =
           Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Standaard Pompen") 
                      Tabs.Tab.Props [ OnClick (fun _ -> "Standaard Pompen" |> TabChange |> dispatch) ]] [ a [] [str "Standaard Pompen"]] 
           Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Normaal Waarden") 
-                     Tabs.Tab.Props [ OnClick (fun _ -> "Normaal Waarden" |> TabChange |> dispatch) ]] [ a [] [str "Normaal Waarden"]] ]
+                     Tabs.Tab.Props [ OnClick (fun _ -> "Normaal Waarden" |> TabChange |> dispatch) ]] [ a [] [str "Normaal Waarden"]] 
+          Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Protocollen") 
+                     Tabs.Tab.Props [ OnClick (fun _ -> "Protocollen" |> TabChange |> dispatch) ]] [ a [] [str "Protocollen"]] ]
 
 
 let view (model : Model) (dispatch : Msg -> unit) =
@@ -191,8 +193,9 @@ let view (model : Model) (dispatch : Msg -> unit) =
                     treatment model 
                  else if model.ActiveTab = "Standaard Pompen" then 
                     div [] [ contMeds model (TreatmentMsg >> dispatch) ]
-                 else 
-                    div [] [ normalValues model ]) ]     
+                 else if model.ActiveTab = "Normaal Waarden" then
+                    div [] [ normalValues model ] 
+                 else div [] [ str "Protocollen, volgt"])]     
 
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]

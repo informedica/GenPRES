@@ -73,37 +73,37 @@ module TreatmentData =
     // Tbl_Ped_MedContIV	Eenheid	DosEenheid	Hoev	Vol	    Hoev	Vol	    Hoev	Vol	    Hoev	Vol	    MinDos	MaxDos	AbsMax	MinConc	MaxConc	OplKeuze
     let contMeds =
         [
-            "inotropie", "adrenaline", "mg", "microg/kg/min", 1., 50., 2., 50., 5., 50., 5., 50., 0.05, 0.5, 1., 0., 0.1, "NaCl"
+            "inotropie", "adrenaline", "mg", "microg/kg/min", 1., 50., 2., 50., 5., 50., 5., 50., 0.05, 0.5, 1., 0., 0.1, "NaCl of Gluc"
             "suppletie", "albumine 20%", "g", "gram/kg/dag", 0.2, 1., 0.2, 1., 0.2, 1., 0.2, 1., 1., 2., 4., 0., 0., ""
-            "ductus afhankelijk cor vitium", "alprostadil", "mg", "nanog/kg/min", 0.2, 50., 0., 0., 0., 0., 0., 0., 10., 50., 100., 0., 0.02, "NaCl"
-            "anti-arrythmica", "amiodarone", "mg", "microg/kg/min", 50., 50., 150., 50., 300., 50., 600., 50., 5., 15., 25., 0.6, 50., "NaCl"
+            "ductus afhankelijk cor vitium", "alprostadil", "mg", "nanog/kg/min", 0.2, 50., 0., 0., 0., 0., 0., 0., 10., 50., 100., 0., 0.02, "NaCl of Gluc"
+            "anti-arrythmica", "amiodarone", "mg", "microg/kg/min", 50., 50., 150., 50., 300., 50., 600., 50., 5., 15., 25., 0.6, 50., "Gluc 5%"
             "sedatie", "clonidine", "mg", "microg/kg/uur", 0.15, 50., 0.3, 50., 0.6, 50., 0.6, 50., 0.25, 2., 3., 0., 0.15, "NaCl"
-            "inotropie", "dobutamine", "mg", "microg/kg/min", 80., 50., 200., 50., 400., 50., 400., 50., 1., 20., 30., 0., 12.5, "NaCl"
-            "inotropie", "dopamine", "mg", "microg/kg/min", 80., 50., 200., 50., 400., 50., 400., 50., 1., 20., 30., 0., 40., "NaCl"
+            "inotropie", "dobutamine", "mg", "microg/kg/min", 80., 50., 200., 50., 400., 50., 400., 50., 1., 20., 30., 0., 12.5, "NaCl of Gluc"
+            "inotropie", "dopamine", "mg", "microg/kg/min", 80., 50., 200., 50., 400., 50., 400., 50., 1., 20., 30., 0., 40., "NaCl of Gluc"
             // "pijnstilling", "Epi bupi 1,25mg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
             // "pijnstilling", "Epi bupi 1,25mg, sufenta 0,5 mcg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
-            "pulmonale hypertensie", "epoprostenol", "mg", "nanog/kg/min", 0.2, 50., 0.4, 50., 0.8, 50., 0.8, 50., 0.5, 50., 50., 0.005, 0.01, "NaCl"
-            "sedatie", "esketamine", "mg", "mg/kg/uur", 100., 50., 250., 50., 250., 50., 250., 50., 0.5, 1., 2., 0., 5., "NaCl"
-            "antihypertensiva", "esmolol", "mg", "mg/kg/min", 500., 50., 500., 50., 500., 50., 500., 50., 0.1, 1., 2., 0., 10., "NaCl"
-            "pijnstilling", "fentanyl", "mg", "microg/kg/uur", 0.5, 50., 1., 50., 2.5, 50., 2.5, 50., 1., 5., 10., 0., 0.05, "NaCl"
-            "vasopressie", "fenylefrine", "mg", "microg/kg/min", 1.5, 50., 2.5, 50., 5., 50., 5., 50., 0.05, 5., 10., 0., 10., "NaCl"
+            "pulmonale hypertensie", "epoprostenol", "mg", "nanog/kg/min", 0.2, 50., 0.4, 50., 0.8, 50., 0.8, 50., 0.5, 50., 50., 0.005, 0.01, "glycine buffer"
+            "sedatie", "esketamine", "mg", "mg/kg/uur", 100., 50., 250., 50., 250., 50., 250., 50., 0.5, 1., 2., 0., 5., "NaCl of Gluc"
+            "antihypertensiva", "esmolol", "mg", "mg/kg/min", 500., 50., 500., 50., 500., 50., 500., 50., 0.1, 1., 2., 0., 10., "NaCl of Gluc"
+            "pijnstilling", "fentanyl", "mg", "microg/kg/uur", 0.5, 50., 1., 50., 2.5, 50., 2.5, 50., 1., 5., 10., 0., 0.05, "NaCl of Gluc"
+            "vasopressie", "fenylefrine", "mg", "microg/kg/min", 1.5, 50., 2.5, 50., 5., 50., 5., 50., 0.05, 5., 10., 0., 10., "NaCl of Gluc"
             "diuretica", "furosemide", "mg", "mg/kg/dag", 10., 50., 20., 50., 40., 50., 100., 50., 1., 4., 6., 0., 10., "NaCl"
             "antistolling", "heparine", "IE", "IE/kg/uur", 5000., 50., 10000., 50., 20000., 50., 20000., 50., 10., 20., 50., 0., 1000., "NaCl"
             "glucose regulatie", "insuline", "IE", "IE/kg/uur", 10., 50., 10., 50., 50., 50., 50., 50., 0.02, 0.125, 2., 0., 1., "NaCl"
-            "chronotropie", "isoprenaline", "mg", "microg/kg/min", 2., 50., 2., 50., 2., 50., 2., 50., 0.01, 1.5, 3., 0., 1., "NaCl"
-            "antihypertensiva", "labetalol", "mg", "mg/kg/uur", 250., 50., 250., 50., 250., 50., 250., 50., 0.25, 3., 4., 0., 5., "NaCl"
-            "bronchodilatie", "magnesiumsulfaat", "mg", "mg/kg/uur", 500., 50., 1000., 50., 2000., 50., 2000., 50., 3., 20., 25., 1., 160., "NaCl"
-            "sedatie", "midazolam", "mg", "mg/kg/uur", 25., 50., 50., 50., 50., 50., 100., 50., 0.05, 0.5, 1., 0., 5., "NaCl"
-            "inotropie", "milrinone", "mg", "microg/kg/min", 5., 50., 10., 50., 20., 50., 20., 50., 0.15, 0.5, 0.75, 0., 1., "NaCl"
-            "pijnstilling", "morfine", "mg", "mg/kg/dag", 2., 50., 5., 50., 10., 50., 50., 50., 0.1, 0.5, 1., 0., 1., "NaCl"
+            "chronotropie", "isoprenaline", "mg", "microg/kg/min", 2., 50., 2., 50., 2., 50., 2., 50., 0.01, 1.5, 3., 0., 1., "Gluc"
+            "antihypertensiva", "labetalol", "mg", "mg/kg/uur", 250., 50., 250., 50., 250., 50., 250., 50., 0.25, 3., 4., 0., 5., "NaCl of Gluc"
+            "bronchodilatie", "magnesiumsulfaat", "mg", "mg/kg/uur", 500., 50., 1000., 50., 2000., 50., 2000., 50., 3., 20., 25., 1., 160., "NaCl of Gluc"
+            "sedatie", "midazolam", "mg", "mg/kg/uur", 25., 50., 50., 50., 50., 50., 100., 50., 0.05, 0.5, 1., 0., 5., "NaCl of Gluc"
+            "inotropie", "milrinone", "mg", "microg/kg/min", 5., 50., 10., 50., 20., 50., 20., 50., 0.15, 0.5, 0.75, 0., 1., "NaCl of Gluc"
+            "pijnstilling", "morfine", "mg", "mg/kg/dag", 2., 50., 5., 50., 10., 50., 50., 50., 0.1, 0.5, 1., 0., 1., "NaCl of Gluc"
             "suppletie", "NaCl 2,9%", "mmol", "mmol/kg/dag", 25., 50., 25., 50., 25., 50., 25., 50., 2., 4., 6., 0., 0., ""
-            "antihypertensiva", "nitroprusside", "mg", "microg/kg/min", 10., 50., 20., 50., 40., 50., 40., 50., 0.5, 8., 10., 0., 10., "NaCl"
-            "vasopressie", "noradrenaline", "mg", "microg/kg/min", 1., 50., 2., 50., 5., 50., 5., 50., 0.05, 0.5, 1., 0., 1., "NaCl"
+            "antihypertensiva", "nitroprusside", "mg", "microg/kg/min", 10., 50., 20., 50., 40., 50., 40., 50., 0.5, 8., 10., 0., 10., "NaCl of Gluc"
+            "vasopressie", "noradrenaline", "mg", "microg/kg/min", 1., 50., 2., 50., 5., 50., 5., 50., 0.05, 0.5, 1., 0., 1., "NaCl of Gluc"
             "sedatie", "propofol 1%", "mg", "mg/kg/uur", 10., 1., 10., 1., 10., 1., 10., 1., 1., 4., 4., 0., 0., ""
             "sedatie", "propofol 2%", "mg", "mg/kg/uur", 20., 1., 20., 1., 20., 1., 20., 1., 1., 4., 4., 0., 0., ""
-            "verslapping", "rocuronium", "mg", "mg/kg/uur", 50., 50., 100., 50., 200., 50., 200., 50., 0.6, 1.2, 2., 0., 10., "NaCl"
-            "bronchodilatie", "salbutamol", "mg", "microg/kg/min", 5., 50., 10., 50., 20., 50., 20., 50., 0.1, 10., 15., 0.005, 0.42, "NaCl"
-            "sedatie", "thiopental", "mg", "mg/kg/uur", 1250., 50., 1250., 50., 1250., 50., 1250., 50., 5., 10., 20., 5., 25., "NaCl"
+            "verslapping", "rocuronium", "mg", "mg/kg/uur", 50., 50., 100., 50., 200., 50., 200., 50., 0.6, 1.2, 2., 0., 10., "NaCl of Gluc"
+            "bronchodilatie", "salbutamol", "mg", "microg/kg/min", 5., 50., 10., 50., 20., 50., 20., 50., 0.1, 10., 15., 0.005, 0.42, "NaCl of Gluc"
+            "sedatie", "thiopental", "mg", "mg/kg/uur", 1250., 50., 1250., 50., 1250., 50., 1250., 50., 5., 10., 20., 5., 25., "NaCl of Gluc"
         ]
 
 
@@ -118,14 +118,14 @@ module TreatmentData =
             "inotropie", "dopamine", "mg", 40.
             // "pijnstilling", "Epi bupi 1,25mg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
             // "pijnstilling", "Epi bupi 1,25mg, sufenta 0,5 mcg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
-            "pulmonale hypertensie", "epoprostenol", "mg", (0.5 / 10.)
+            "pulmonale hypertensie", "epoprostenol", "mg", (50. / 1000.)
             "sedatie", "esketamine", "mg", 5.
             "antihypertensiva", "esmolol", "mg", 10.
             "pijnstilling", "fentanyl", "mg", 0.05
             "vasopressie", "fenylefrine", "mg", 10.
             "diuretica", "furosemide", "mg", 10.
             "antistolling", "heparine", "IE", 5000.
-            "glucose regulatie", "insuline", "IE", 10.
+            "glucose regulatie", "insuline", "IE", 100.
             "chronotropie", "isoprenaline", "mg", 1.
             "antihypertensiva", "labetalol", "mg", 5.
             "bronchodilatie", "magnesiumsulfaat", "mg", 100.
@@ -133,13 +133,13 @@ module TreatmentData =
             "inotropie", "milrinone", "mg", 1.
             "pijnstilling", "morfine", "mg", 10.
             "suppletie", "NaCl 2,9%", "mmol", 0.5
-            "antihypertensiva", "nitroprusside", "mg", (50. / 4.)
+            "antihypertensiva", "nitroprusside", "mg", 25.
             "vasopressie", "noradrenaline", "mg", 1.
             "sedatie", "propofol 1%", "mg", 0.
             "sedatie", "propofol 2%", "mg", 0.
             "verslapping", "rocuronium", "mg", 10.
             "bronchodilatie", "salbutamol", "mg", 1.
-            "sedatie", "thiopental", "mg", 50.
+            "sedatie", "thiopental", "mg", 25.
         ]
 
 

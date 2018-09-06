@@ -324,9 +324,9 @@ let contMeds (model : Model) (pat : Patient.Model) dispatch =
                 match TreatmentData.contMeds 
                       |> List.map createContMed 
                         |> List.tryFind (fun cont -> cont.Generic = gen) with
-                | Some cont -> cont |> ClickContMed |> dispatch
-                | None -> failwith "OnClick creation error"
-            | _ -> failwith "OnClick creation error"
+                | Some cont ->  cont |> ClickContMed |> dispatch
+                | None -> sprintf "OnClick creation error, cannot find %s" gen |> failwith
+            | _ ->  failwith "OnClick creation error, not a valid cont meds string list"
         )
 
     let table =    
