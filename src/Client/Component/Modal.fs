@@ -2,21 +2,22 @@ namespace Component
 
 module Modal =
 
+    open Fable.Import.React
     open Fable.Helpers.React
     open Fable.Helpers.React.Props
     open Elmish
     open Fulma
 
 
-    type Model = { IsActive : bool; Title : string; Content: string }
+    type Model = { IsActive : bool; Title : string; Content: ReactElement }
 
 
     type Msg = 
-        | Show of string * string
+        | Show of string * ReactElement
         | Close
 
 
-    let init () = { IsActive = false; Title = ""; Content = "" }
+    let init () = { IsActive = false; Title = ""; Content = div [] [] }
 
 
     let update msg model =
@@ -40,7 +41,7 @@ module Modal =
                         [ str title ]
                       Delete.delete [ Delete.OnClick (fun _ -> Close |> dispatch) ] [ ] ]
                   Modal.Card.body [ ]
-                    [ str content ]
+                    [ content ]
                   Modal.Card.foot [ ]
                     [ Button.button [ Button.Color IsSuccess; Button.Props [ OnClick (fun _ -> Close |> dispatch)] ]
                         [ str "OK" ] ] ] ]

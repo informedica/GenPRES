@@ -23,9 +23,8 @@ type Model = { Age : float; ContMeds : Continuous list; Selections : Select.Mode
 
 type Msg = 
     | AgeChange of float
-    | ClickContMed of string
+    | ClickContMed of Continuous
     | ModalMsg of Modal.Msg
-
 
 
 let calcQty age (med : Continuous) =
@@ -51,32 +50,29 @@ let update (msg : Msg) (model : Model) =
     | ModalMsg msg' ->
         { model with ShowModal = model.ShowModal |> Modal.update msg' }
 
-    | ClickContMed s -> 
-        let t = sprintf "Bereiding voor %s" s
+    | ClickContMed cont -> 
+        let t = sprintf "Bereiding voor %s" cont.Generic
         let c =
             match TreatmentData.products 
                   |> List.tryFind (fun (_, gen, _, _) ->
-                    gen = s
+                    gen = cont.Generic
                   ) with
             | Some (_, _, un, conc) ->
-                if conc = 0. then "Geen bereiding, oplossing is puur"
+                if conc = 0. then "Geen bereiding, oplossing is puur" |> str
                 else
-                    let q =
-                        match
-                            model.ContMeds 
-                            |> List.tryFind (fun cm -> cm.Generic = s) with
-                        | Some cm -> 
-                            (cm |> calcQty model.Age) / conc
-                        | None -> 0.    
-                    let v =                
-                        match
-                            model.ContMeds 
-                            |> List.tryFind (fun cm -> cm.Generic = s) with
-                        | Some cm -> (cm |> calcVol model.Age) - q
-                        | None -> 0.    
-                    sprintf "%A ml van %s %A %s/ml + %A ml oplossing" q s conc un v            
+                    let q = (cont |> calcQty model.Age) / conc
+                    let v = (cont |> calcVol model.Age) - q
+                    [ sprintf "= %A ml van %s %A %s/ml + %A ml %s" q cont.Generic conc un v cont.Solution |> str ] 
+                    |> List.append 
+                        [
+                            let q = cont |> calcQty model.Age
+                            let v = cont |> calcVol model.Age
+                            yield [sprintf "%A %s %s in %A ml %s" q cont.Unit cont.Generic v cont.Solution |> str] |> Heading.h5 []
+                        ]
+                    |> Content.content []
             | None ->
-                "Bereidings tekst niet mogelijk"
+                "Bereidings tekst niet mogelijk" |> str
+
         { model with ShowModal = model.ShowModal |> Modal.update ((t, c) |> Modal.Show) }
 
 
@@ -324,8 +320,13 @@ let contMeds (model : Model) (pat : Patient.Model) dispatch =
         meds 
         |> List.map (fun xs ->
             match xs with
-            | _::gen::_ -> fun _ -> gen |> ClickContMed |> dispatch
-            | _ ->         fun _ -> ""  |> ClickContMed |> dispatch
+            | _::gen::_ -> fun _ -> 
+                match TreatmentData.contMeds 
+                      |> List.map createContMed 
+                        |> List.tryFind (fun cont -> cont.Generic = gen) with
+                | Some cont -> cont |> ClickContMed |> dispatch
+                | None -> failwith "OnClick creation error"
+            | _ -> failwith "OnClick creation error"
         )
 
     let table =    

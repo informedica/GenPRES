@@ -13,7 +13,7 @@ let publicPath = Path.GetFullPath "../Client/public"
 let port = 8085us
 
 let getInitialVersion() : Task<GenPres> = 
-    task { return { Name = "Genpres"; Version = "0.0.1" } }
+    task { return { Name = "GenPres"; Version = "0.0.1" } }
 
 let webApp = router {
     get "/api/init" (fun next ctx ->

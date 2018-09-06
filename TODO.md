@@ -8,13 +8,15 @@
 * ~~Let the user select a number of categories to show/or all~~
 * ~~Enable offline use of client~~
 * ~~Add pump infusions to bolus medication~~
-* Add normal values tab
+* ~~Add normal values tab~~
+* ~~Add cont med preparation popus~~
 * Add ventilation tab
 * Responsive design for tablets and smartphones
 * Add navigation to allow opening with age and weight in url
+* Sliders for mobile input
 
 ## Technical
 * ~~Create client deploy build target~~
 * Add source documentation
-* Refactor the client file
+* ~~Refactor the client file~~
 
