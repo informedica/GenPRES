@@ -27,8 +27,9 @@ type Model =
         GenPres : GenPres option
         Patient : Patient.Model
         Device : Device
-        Treatment : Treatment.Model
-        ActiveTab : string 
+        EmergencyModel : Emergency.Model
+        PEWSModel : PEWS.Model
+        ShowPEWS : bool
     }
 and Device = Computer | Tablet | Mobile
 
@@ -42,16 +43,15 @@ let createDevice x =
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
-| TabChange of string
-| SelectMsg of Select.Msg
 | PatientMsg of Patient.Msg
-| TreatmentMsg of Treatment.Msg
+| EmergencyMsg of Emergency.Msg
+| ShowPEWS
+| PEWSMsg of PEWS.Msg
 | GenPresLoaded of Result<GenPres, exn>
 
 
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model * Cmd<Msg> =
-    printfn "Screen: x = %A, y = %A" Fable.Import.Browser.screen.width Fable.Import.Browser.screen.height
        
     let genpres = { Name = "GenPres OFFLINE"; Version = "0.01" }
     
@@ -60,8 +60,9 @@ let init () : Model * Cmd<Msg> =
             GenPres = Some genpres
             Patient = Patient.init ()
             Device = Fable.Import.Browser.screen.width |> createDevice
-            Treatment = Treatment.init "Noodlijst" 
-            ActiveTab = "Noodlijst"
+            EmergencyModel = Emergency.init () 
+            PEWSModel = PEWS.init ()
+            ShowPEWS = false
         }
 
     let loadCountCmd =
@@ -70,6 +71,7 @@ let init () : Model * Cmd<Msg> =
             []
             (Ok >> GenPresLoaded)
             (Error >> GenPresLoaded)
+
     initialModel, loadCountCmd
 
 
@@ -78,33 +80,23 @@ let init () : Model * Cmd<Msg> =
 // these commands in turn, can dispatch messages to which the update function will react.
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
-    | TabChange tab ->
-        let updatedModel = { model with ActiveTab = tab; Treatment = Treatment.init tab }
-        updatedModel, Cmd.none
 
     | PatientMsg msg ->
         let patModel, cmd = Patient.update msg model.Patient
-        let treatUpdate = 
-            patModel
-            |> Patient.getAge
-            |> Treatment.AgeChange
-            |> Treatment.update
-        { model with Patient = patModel; Treatment = model.Treatment |> treatUpdate }, Cmd.map PatientMsg cmd
+        { model with Patient = patModel }, Cmd.map PatientMsg cmd
 
-    | SelectMsg msg ->
-        let selModel, cmd = Select.update msg model.Treatment.Selections
-        { model with Treatment = { model.Treatment with Selections = selModel }}, Cmd.map SelectMsg cmd
 
-    | TreatmentMsg msg ->
-        let newModel =
-            { model with Treatment = model.Treatment |> Treatment.update msg }
-        printfn "ShowModal = %A" newModel.Treatment.ShowModal.IsActive    
-        newModel, Cmd.none
-
+    | EmergencyMsg msg ->
+        { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
+ 
     | GenPresLoaded (Ok genpres) ->
-        let newModel = { model with GenPres = Some genpres }
-        printfn "active tab: %s" model.ActiveTab
-        newModel, Cmd.none
+        { model with GenPres = Some genpres }, Cmd.none
+
+    | PEWSMsg msg ->
+        { model with PEWSModel = model.PEWSModel |> PEWS.update msg  }, Cmd.none
+
+    | ShowPEWS ->
+        { model with ShowPEWS = true}, Cmd.none
 
     | GenPresLoaded (_) -> model, Cmd.none
 
@@ -133,31 +125,17 @@ let show = function
 | { GenPres = None   } -> "Loading..."
 
 
-let treatment (model : Model) =
-    Treatment.treatment model.Treatment model.Patient
-
-
-let contMeds (model : Model) dispatch =
-    Treatment.contMeds model.Treatment model.Patient dispatch
-
-
-let normalValues (model : Model) =
-    Treatment.normalValues model.Patient
-
-
-let tabs dispatch (model : Model) =
-    Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 
-        [ Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Noodlijst")
-                     Tabs.Tab.Props [ OnClick (fun _ -> "Noodlijst" |> TabChange |> dispatch) ] ] [ a [] [str "Noodlijst"] ]
-          Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Standaard Pompen") 
-                     Tabs.Tab.Props [ OnClick (fun _ -> "Standaard Pompen" |> TabChange |> dispatch) ]] [ a [] [str "Standaard Pompen"]] 
-          Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Normaal Waarden") 
-                     Tabs.Tab.Props [ OnClick (fun _ -> "Normaal Waarden" |> TabChange |> dispatch) ]] [ a [] [str "Normaal Waarden"]] 
-          Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = "Protocollen") 
-                     Tabs.Tab.Props [ OnClick (fun _ -> "Protocollen" |> TabChange |> dispatch) ]] [ a [] [str "Protocollen"]] ]
-
 
 let view (model : Model) (dispatch : Msg -> unit) =
+
+    let openPEWS = fun _ -> ShowPEWS |> dispatch
+
+    let content =
+        if model.ShowPEWS then PEWS.view model.PEWSModel (PEWSMsg >> dispatch)
+        else
+            Emergency.view model.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
+
+
     div [ Style [ CSSProp.Padding "10px"] ]
         [ Navbar.navbar 
             [ Navbar.Color IsPrimary
@@ -174,28 +152,31 @@ let view (model : Model) (dispatch : Msg -> unit) =
                         [ Navbar.Item.div [ ] 
                             [ Fulma.FontAwesome.Icon.faIcon 
                                 [ Icon.Size IsSmall ] 
+                                [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
+                          Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
+                            [ Navbar.Item.a [ Navbar.Item.Props  [OnClick openPEWS] ] [ str "PEWS score" ] ] ]
+                              
+                    Navbar.Item.div 
+                        [ Navbar.Item.IsHoverable
+                          Navbar.Item.HasDropdown ] 
+                        [ Navbar.Item.div [ ] 
+                            [ Fulma.FontAwesome.Icon.faIcon 
+                                [ Icon.Size IsSmall ] 
                                 [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
                           Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
                             [ Navbar.Item.a [] [ str "Acute Behandelingen" ]
-                              Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ] ] ]  
+                              Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ]          
+                              
+                               ] ]  
 
           Container.container []
-              [ model |> tabs dispatch
-                
-                Patient.view model.Patient (PatientMsg >> dispatch)
+              [ Patient.view model.Patient (PatientMsg >> dispatch)
 
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ Heading.h5 [] [ str (model.Patient |> Patient.show) ] ]
+                content
+              ]
                 
-                Select.view model.Treatment.Selections (SelectMsg >> dispatch)
-                
-                (if model.ActiveTab = "Noodlijst" then 
-                    treatment model 
-                 else if model.ActiveTab = "Standaard Pompen" then 
-                    div [] [ contMeds model (TreatmentMsg >> dispatch) ]
-                 else if model.ActiveTab = "Normaal Waarden" then
-                    div [] [ normalValues model ] 
-                 else div [] [ str "Protocollen, volgt"])]     
 
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]

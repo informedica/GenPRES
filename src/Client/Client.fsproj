@@ -14,7 +14,8 @@
         <Compile Include=".\Component\Table.fs" />
         <Compile Include=".\Component\Modal.fs" />
         <Compile Include="Patient.fs" />
-        <Compile Include="Treatment.fs" />
+        <Compile Include="PEWS.fs" />
+        <Compile Include="Emergency.fs" />
         <Compile Include="Client.fs" />
     </ItemGroup>
     <Import Project="..\..\.paket\Paket.Restore.targets" />

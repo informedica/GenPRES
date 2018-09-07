@@ -20,7 +20,7 @@ module Select =
         |> List.map (fun item -> { Name = item; Selected = item = "alles" || false})
 
 
-    let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
+    let update (msg : Msg) (currentModel : Model) =
 
         match msg with
         | Select s ->
@@ -38,10 +38,10 @@ module Select =
                     else item
                 )
 
-            newModel, Cmd.none
+            newModel
 
 
-    let view (model : Model) (dispatch : Msg -> unit) = 
+    let view2 title (model : Model) (dispatch : Msg -> unit) = 
 
         let onclick cat = 
             fun e -> 
@@ -59,8 +59,11 @@ module Select =
             [ div []
                 [ Button.button []
                     [ span []
-                        [ str "Selecteer" ]
+                        [ str title ]
                       Fulma.FontAwesome.Icon.faIcon [ Icon.Size IsSmall ] [ FontAwesome.Fa.icon FontAwesome.Fa.I.AngleDown ] ] ]
               Dropdown.menu []
                 [ Dropdown.content []
                     content ]]
+
+
+    let view (model : Model) (dispatch : Msg -> unit) = view2 "Selecteer" model dispatch

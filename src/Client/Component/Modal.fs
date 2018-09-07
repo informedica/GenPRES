@@ -9,31 +9,13 @@ module Modal =
     open Fulma
 
 
-    type Model = { IsActive : bool; Title : string; Content: ReactElement }
-
-
     type Msg = 
-        | Show of string * ReactElement
         | Close
 
 
-    let init () = { IsActive = false; Title = ""; Content = div [] [] }
+    let cardModal title content (dispatch : Msg -> unit) =
 
-
-    let update msg model =
-        match msg with
-        | Show (t, c) -> 
-            { model with IsActive = true; Title = t; Content = c }
-        | Close -> 
-            init ()
-
-
-
-    let cardModal (model : Model) (dispatch : Msg -> unit) =
-        let title = model.Title
-        let content = model.Content
-
-        Modal.modal [ Modal.IsActive model.IsActive  ]
+        Modal.modal [ Modal.IsActive true  ]
             [ Modal.background [ Props [ OnClick (fun _ -> Close |> dispatch) ] ] [ ]
               Modal.Card.card [ ]
                 [ Modal.Card.head [ ]
