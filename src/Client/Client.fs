@@ -3,6 +3,9 @@ module Client
 open Elmish
 open Elmish.React
 
+open Fable.Core
+
+
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.PowerPack.Fetch
@@ -13,9 +16,12 @@ open Component
 open Shared
 
 module Math = Utils.Math
+module String = Utils.String
 module Select = Component.Select
 module Table = Component.Table
 
+[<Emit("navigator.userAgent")>]
+let userAgent : string = jsNative
 
 
 // The model holds data that you want to keep track of while the application is running
@@ -31,14 +37,24 @@ type Model =
         CalculatorModel : Calculator.Model
         ShowCalculator : bool
     }
-and Device = Computer | Tablet | Mobile
+and Device = 
+    {
+        IsMobile : bool
+        Width : float
+        Height : float
+    }
 
 
 let createDevice x =
-    if x < 1000. then Mobile
-    else if x < 2000. then Tablet
-    else Computer
-
+    {
+        IsMobile =
+            userAgent
+            |> String.contains "iPhone" ||
+            userAgent
+            |> String.contains "Android"
+        Width = Fable.Import.Browser.screen.width
+        Height = Fable.Import.Browser.screen.height        
+    }
 
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
@@ -52,7 +68,9 @@ type Msg =
 
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model * Cmd<Msg> =
-       
+
+    printfn "User Agent = %s" userAgent
+    
     let genpres = { Name = "GenPres OFFLINE"; Version = "0.01" }
     
     let initialModel = 
