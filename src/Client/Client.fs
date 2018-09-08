@@ -61,7 +61,7 @@ let init () : Model * Cmd<Msg> =
             Patient = Patient.init ()
             Device = Fable.Import.Browser.screen.width |> createDevice
             EmergencyModel = Emergency.init () 
-            CalculatorModel = Calculator.init ()
+            CalculatorModel = Calculator.init (Patient.init ())
             ShowCalculator = false
         }
 
@@ -83,7 +83,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
     | PatientMsg msg ->
         let patModel, cmd = Patient.update msg model.Patient
-        { model with Patient = patModel }, Cmd.map PatientMsg cmd
+        { model with Patient = patModel; CalculatorModel = Calculator.init patModel }, Cmd.map PatientMsg cmd
 
     | EmergencyMsg msg ->
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none

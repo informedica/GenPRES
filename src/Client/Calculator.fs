@@ -89,7 +89,7 @@ module PEWS =
                 | Some x -> x + a
                 | None -> a
             ) 0
-            
+
         { model with Score = t }
 
 
@@ -123,22 +123,36 @@ module PEWS =
             let sel, score = getSelected model.Age  m
             tr [] [ td [] [ div [] [ el ] ]; td [] [sel |> str]; td [] [(if score |> Option.isSome then score |> Option.get |> string |> str else str "")] ]
 
+        let scoreText =
+            match model.Score with
+            | x when x >= 8 -> "binnen 10 minuten contact met d.d. arts"
+            | x when x >= 6 -> "elk uur scoren"
+            | x when x >= 4 -> "1 x/4 uur scoren"
+            | _ -> ""
+
         let items =
             model.Items
             |> List.mapi (fun i (_, xs) ->
                     let el = Select.view xs (fun msg -> (i, msg) |> SelectItem |> dispatch) 
                     toRow xs el
             )
-            |> List.append [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str "" ]; td [] [ str (model.Score |> string) ] ] ]
+            |> List.append [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str scoreText ]; td [] [ str (model.Score |> string) ] ] ]
             |> List.rev
 
         let content =
-            Table.table [ Table.IsFullWidth
-                          Table.IsStriped
-                          Table.IsHoverable]
-                [ header
-                  tbody []
-                      items ]
+            let pewsImg =
+                Image.image []
+                    [ img [ Src "Images/PEWS.png" ] ]
+            div []
+                [
+                    Table.table [ Table.IsFullWidth
+                                  Table.IsStriped
+                                  Table.IsHoverable]
+                        [ header
+                          tbody []
+                              items ]
+                    pewsImg
+                ]
 
         content
 
@@ -147,6 +161,7 @@ module PEWS =
 type Model = 
     { 
         ActiveTab : ActiveTab
+        PatientModel : Patient.Model
         PEWSModel : PEWS.Model
     }
 and ActiveTab =
@@ -162,13 +177,15 @@ let update (msg : Msg) (model : Model) =
     match msg with
     | TabChange tab ->
         { model with ActiveTab = tab }
+
     | PEWSMsg msg ->
         { model with PEWSModel = model.PEWSModel |> PEWS.update msg }
 
-let init () = 
+let init pat = 
     { 
         ActiveTab = PEWSTab
-        PEWSModel = PEWS.init 0
+        PatientModel = pat
+        PEWSModel = PEWS.init (pat.Age.Years * 12 + pat.Age.Months)
     }
 
 
