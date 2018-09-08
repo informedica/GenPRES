@@ -9,7 +9,7 @@ module Select =
 
 
     type Model = 
-        { Title : string;  Items: Item List; MultiSelect : bool }
+        { Title : string;  Items: Item List; MultiSelect : bool ; IsActive : bool }
     and Item = { Name : string; Selected : bool}
 
 
@@ -23,6 +23,7 @@ module Select =
                 items
                 |> List.map (fun item -> { Name = item; Selected = item = "alles" || false})
             MultiSelect = multi
+            IsActive = false
         }
 
 
@@ -65,7 +66,7 @@ module Select =
             model.Items
             |> List.map toItem
         
-        Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.PaddingBottom "10px"  ] ] ]
+        Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.PaddingBottom "10px"  ] ] ; Dropdown.IsActive model.IsActive ]
             [ div []
                 [ Button.button []
                     [ span []

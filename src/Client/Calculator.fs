@@ -142,7 +142,7 @@ module PEWS =
         let content =
             let pewsImg =
                 Image.image []
-                    [ img [ Src "Images/PEWS.png" ] ]
+                    [ img [ Src "images/PEWS.png" ] ]
             div []
                 [
                     Table.table [ Table.IsFullWidth
