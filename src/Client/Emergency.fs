@@ -9,7 +9,7 @@ open Fulma
 
 
 module TreatmentData = Data.TreatmentData
-module NormalValues = Data.NormalValues
+module NormalValues = Data.NormalValueData
 module String = Utils.String
 module Math = Utils.Math
 module List = Utils.List
@@ -42,7 +42,7 @@ module EmergencyList =
             |> List.distinct
             |> List.sort
             |> List.append [ "alles" ]
-            |> Select.init
+            |> Select.init true "Selecteer"
 
         { Selections = sels }         
 
@@ -143,9 +143,9 @@ module EmergencyList =
             ]
 
         let selected = 
-            if model.Selections.Head.Selected then []
+            if model.Selections.Items.Head.Selected then []
             else
-                model.Selections
+                model.Selections.Items
                 |> List.filter (fun item -> item.Selected)
                 |> List.map (fun item -> item.Name)
         
@@ -269,7 +269,7 @@ module ContMeds =
             |> List.distinct
             |> List.append [ "alles" ]
             |> List.sort
-            |> Select.init   
+            |> Select.init true "Selecteer"
 
         { ContMeds = conts; Selections = sels; ShowMed = None }         
 
@@ -324,9 +324,9 @@ module ContMeds =
 
     let view age wght (model : Model) dispatch =
         let selected = 
-            if model.Selections.Head.Selected then []
+            if model.Selections.Items.Head.Selected then []
             else
-                model.Selections
+                model.Selections.Items
                 |> List.filter (fun item -> item.Selected)
                 |> List.map (fun item -> item.Name)
 

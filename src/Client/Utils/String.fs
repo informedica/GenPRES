@@ -22,4 +22,5 @@ module String =
 
     /// Check if string `s2` contains string `s1`
     let contains= 
-        fun s1 s2 -> (s2 |> get).Contains(s1)        
+        fun s1 s2 -> (s2 |> get).Contains(s1)    
+

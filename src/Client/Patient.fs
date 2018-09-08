@@ -10,7 +10,7 @@ open Fulma
 
 
 module Math = Utils.Math
-module NormalValues = Data.NormalValues
+module NormalValues = Data.NormalValueData
 
 
 type Model = Shared.Patient

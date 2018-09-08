@@ -5,7 +5,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="..\Shared\Shared.fs" />
-        <Compile Include=".\Data\NormalValues.fs" />
+        <Compile Include=".\Data\NormalValueData.fs" />
         <Compile Include=".\Data\TreatmentData.fs" />
         <Compile Include=".\Utils\String.fs" />
         <Compile Include=".\Utils\List.fs" />
@@ -14,7 +14,7 @@
         <Compile Include=".\Component\Table.fs" />
         <Compile Include=".\Component\Modal.fs" />
         <Compile Include="Patient.fs" />
-        <Compile Include="PEWS.fs" />
+        <Compile Include="Calculator.fs" />
         <Compile Include="Emergency.fs" />
         <Compile Include="Client.fs" />
     </ItemGroup>

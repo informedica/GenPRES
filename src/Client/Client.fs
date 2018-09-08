@@ -28,8 +28,8 @@ type Model =
         Patient : Patient.Model
         Device : Device
         EmergencyModel : Emergency.Model
-        PEWSModel : PEWS.Model
-        ShowPEWS : bool
+        CalculatorModel : Calculator.Model
+        ShowCalculator : bool
     }
 and Device = Computer | Tablet | Mobile
 
@@ -46,7 +46,7 @@ type Msg =
 | PatientMsg of Patient.Msg
 | EmergencyMsg of Emergency.Msg
 | ShowPEWS
-| PEWSMsg of PEWS.Msg
+| CalculatorMsg of Calculator.Msg
 | GenPresLoaded of Result<GenPres, exn>
 
 
@@ -61,8 +61,8 @@ let init () : Model * Cmd<Msg> =
             Patient = Patient.init ()
             Device = Fable.Import.Browser.screen.width |> createDevice
             EmergencyModel = Emergency.init () 
-            PEWSModel = PEWS.init ()
-            ShowPEWS = false
+            CalculatorModel = Calculator.init ()
+            ShowCalculator = false
         }
 
     let loadCountCmd =
@@ -85,18 +85,17 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let patModel, cmd = Patient.update msg model.Patient
         { model with Patient = patModel }, Cmd.map PatientMsg cmd
 
-
     | EmergencyMsg msg ->
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
  
     | GenPresLoaded (Ok genpres) ->
         { model with GenPres = Some genpres }, Cmd.none
 
-    | PEWSMsg msg ->
-        { model with PEWSModel = model.PEWSModel |> PEWS.update msg  }, Cmd.none
+    | CalculatorMsg msg ->
+        { model with CalculatorModel = model.CalculatorModel |> Calculator.update msg  }, Cmd.none
 
     | ShowPEWS ->
-        { model with ShowPEWS = true}, Cmd.none
+        { model with ShowCalculator = true}, Cmd.none
 
     | GenPresLoaded (_) -> model, Cmd.none
 
@@ -125,13 +124,12 @@ let show = function
 | { GenPres = None   } -> "Loading..."
 
 
-
 let view (model : Model) (dispatch : Msg -> unit) =
 
     let openPEWS = fun _ -> ShowPEWS |> dispatch
 
     let content =
-        if model.ShowPEWS then PEWS.view model.PEWSModel (PEWSMsg >> dispatch)
+        if model.ShowCalculator then Calculator.view model.CalculatorModel (CalculatorMsg >> dispatch)
         else
             Emergency.view model.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
 
