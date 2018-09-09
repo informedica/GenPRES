@@ -66,7 +66,7 @@ module Select =
             model.Items
             |> List.map toItem
         
-        Dropdown.dropdown [ Dropdown.IsHoverable; Dropdown.Props [ Style [ CSSProp.PaddingBottom "10px"  ] ] ]
+        Dropdown.dropdown [ Dropdown.IsHoverable ]
             [ div []
                 [ Button.button []
                     [ span []

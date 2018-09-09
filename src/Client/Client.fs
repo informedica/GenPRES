@@ -145,65 +145,68 @@ let safeComponents =
 
 
 let show = function
-| { GenPres = Some x } -> sprintf "%s version: %s" x.Name x.Version 
-| { GenPres = None   } -> "Loading..."
+| { GenPres = Some x } -> sprintf "%s versie: %s" x.Name x.Version 
+| { GenPres = None   } -> "Laden ..."
+
+
+let topView dispatch model =
+    let openPEWS = fun _ -> CalculatorPage    |> ChangePage |> dispatch
+    let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
+
+    Navbar.navbar 
+        [ Navbar.Color IsPrimary
+          Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
+          Navbar.HasShadow ]
+        [ Navbar.Item.div [ ]
+            [ Heading.h3 [ Heading.Option.CustomClass "has-text-white" ]
+                [ str (show model) ] ]
+
+          Navbar.End.div []
+              [ Navbar.Item.div 
+                    [ Navbar.Item.IsHoverable
+                      Navbar.Item.HasDropdown ] 
+                    [ Navbar.Item.div [ ] 
+                        [ Fulma.FontAwesome.Icon.faIcon 
+                            [ Icon.Size IsSmall ] 
+                            [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
+                      Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
+                        [ Navbar.Item.a [ Navbar.Item.Props  [OnClick openPEWS] ] [ str "PEWS score" ] ] ]
+                          
+                Navbar.Item.div 
+                    [ Navbar.Item.IsHoverable
+                      Navbar.Item.HasDropdown ] 
+                    [ Navbar.Item.div [ ] 
+                        [ Fulma.FontAwesome.Icon.faIcon 
+                            [ Icon.Size IsSmall ] 
+                            [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
+                      Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
+                        [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL] ] [ str "Acute Opvang" ]
+                          Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ]          
+                           ] ]
+
+let bottomView =
+    Footer.footer [ ]
+        [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
+            [ safeComponents ] ]
 
 
 let view (model : Model) (dispatch : Msg -> unit) =
-
-    let openPEWS = fun _ -> CalculatorPage    |> ChangePage |> dispatch
-    let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
 
     let content =
         match model.Page with
         | CalculatorPage    -> Calculator.view model.Device.IsMobile model.CalculatorModel (CalculatorMsg >> dispatch)
         | EmergencyListPage -> Emergency.view model.Device.IsMobile model.PatientModel model.EmergencyModel (EmergencyMsg >> dispatch)
+    
+    div [ ]
+        [ model |> topView dispatch  
 
-
-    div [ Style [ CSSProp.Padding "10px"] ]
-        [ Navbar.navbar 
-            [ Navbar.Color IsPrimary
-              Navbar.Props [ Style [ CSSProp.Padding "10px"; CSSProp.Margin "10px" ] ]
-              Navbar.HasShadow ]
-            [ Navbar.Item.div [ ]
-                [ Heading.h3 [ Heading.Option.CustomClass "has-text-white" ]
-                    [ str (show model) ] ]
-
-              Navbar.End.div []
-                  [ Navbar.Item.div 
-                        [ Navbar.Item.IsHoverable
-                          Navbar.Item.HasDropdown ] 
-                        [ Navbar.Item.div [ ] 
-                            [ Fulma.FontAwesome.Icon.faIcon 
-                                [ Icon.Size IsSmall ] 
-                                [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
-                          Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                            [ Navbar.Item.a [ Navbar.Item.Props  [OnClick openPEWS] ] [ str "PEWS score" ] ] ]
-                              
-                    Navbar.Item.div 
-                        [ Navbar.Item.IsHoverable
-                          Navbar.Item.HasDropdown ] 
-                        [ Navbar.Item.div [ ] 
-                            [ Fulma.FontAwesome.Icon.faIcon 
-                                [ Icon.Size IsSmall ] 
-                                [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
-                          Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                            [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL] ] [ str "Acute Behandelingen" ]
-                              Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ]          
-                              
-                               ] ]  
-
-          Container.container []
+          Container.container [ Container.Props [Style [ CSSProp.Padding "10px"]] ]
               [ Patient.view model.Device.IsMobile model.PatientModel (PatientMsg >> dispatch)
 
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ Heading.h5 [] [ str (model.PatientModel |> Patient.show) ] ]
-                content
-              ]
-                
-          Footer.footer [ ]
-                [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ safeComponents ] ] ]
+                content ]
+          bottomView  ] 
 
 
 #if DEBUG

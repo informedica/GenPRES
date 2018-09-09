@@ -145,7 +145,7 @@ module PEWS =
                     opts
                 ]
 
-        Field.div [ Field.IsHorizontal; Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
+        Field.div [ ] 
             [ Label.label [] 
                 [ str name ] 
               Control.div [ Control.Props [ OnChange cb ] ]
@@ -266,6 +266,7 @@ let update (msg : Msg) (model : Model) =
 
     | PEWSMsg msg ->
         { model with PEWSModel = model.PEWSModel |> PEWS.update msg }
+
 
 let init (pat : Patient) =
     { 

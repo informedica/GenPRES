@@ -8,13 +8,33 @@ module Table =
     open Elmish
     open Fulma
 
-    let create onClick data =
+
+    let createMobileData data =
+        match data with
+        | _::tail ->
+            tail
+            |> List.map (fun row ->
+                let d =
+                    row
+                    |> List.fold (fun a c ->
+                        [ div [] [ c ] ]
+                        |> List.append a
+                    ) []
+                [ div [] d ]
+            )
+        | _ -> data            
+
+
+    let create isMobile onClick data =
         match data with
         | h::rs ->
             let header =
-                (h |> List.map (fun s -> th [] [ str s ]))
+                if isMobile then []
+                else
+                    (h |> List.map (fun el -> th [] [ el ]))
             
             let body =
+                let rs = if isMobile then data |> createMobileData else rs
                 rs 
                 |> List.mapi (fun i xs ->
                     let attrs =
@@ -24,13 +44,14 @@ module Table =
                             let f = onClick.[i]
                             [ OnClick f :> IHTMLProp ]
 
-                    tr attrs (xs |> List.map (fun x -> 
-                                td [] [ str x]
+                    tr attrs (xs |> List.map (fun el -> 
+                                td [] [ el ]
                             )                                                    
                         )
                 )
 
             header, body
+
         | _ -> [], []
         |> (fun (h, b) ->
             Table.table [ Table.IsBordered

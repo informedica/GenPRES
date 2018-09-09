@@ -162,12 +162,13 @@ module EmergencyList =
         |> List.filter (fun xs ->
             selected = List.empty || selected |> List.exists ((=) xs.Head)
         )
-        |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
-        |> Table.create []
+        |> List.append [ [ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ] ]
+        |> List.map (List.map str)
+        |> Table.create isMobile []
         |> (fun table ->
             if not isMobile then
                 [
-                    Select.view model.Selections (SelectMsg >> dispatch)
+                    div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.view model.Selections (SelectMsg >> dispatch) ]
                     table
                 ]
             else [ table ]
@@ -316,14 +317,14 @@ module ContMeds =
                     med.Generic
                     ((qty |> string) + " " + med.Unit)
                     ("in " + (vol |> string ) + " ml " + med.Solution)
-                    (calcDose (qty) (vol) med.Unit med.DoseUnit) 
+                    sprintf "1 ml/uur = %s" (calcDose (qty) (vol) med.Unit med.DoseUnit) 
                     (printAdv med.MinDose med.MaxDose med.DoseUnit)
                 ]
         )
         |> List.filter (List.isEmpty >> not)
 
 
-    let view age wght (model : Model) dispatch =
+    let view isMobile age wght (model : Model) dispatch =
         let selected = 
             if model.Selections.Items.Head.Selected then []
             else
@@ -354,20 +355,25 @@ module ContMeds =
 
         let table =    
             meds
-            |> List.append [ [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering (stand 1 ml/uur)"; "Advies" ] ]
-            |> Table.create onclick
+            |> List.map (List.map str)
+            |> List.append 
+                [ 
+                    [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering"; "Advies" ] 
+                    |> List.map str
+                ]
+            |> Table.create isMobile onclick
 
         let content =
-            let selView = Select.view model.Selections (SelectMsg >> dispatch)
+            let selView = div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.view model.Selections (SelectMsg >> dispatch) ]
 
             match model.ShowMed with
             | Some med -> 
                 let t, c = createModalTitleContent age med
                 [ table; Modal.cardModal t c (ModalMsg >> dispatch)]
             | None -> [ table ]
-            |> List.append [ selView ]
+            |> List.append (if isMobile then [] else [ selView ]) 
 
-        div [] content
+        div [ ] content
 
 
 
@@ -417,7 +423,8 @@ module NormalValues =
             [ "Diastolische Bloeddruk"; dbp ]
         ]
         |> List.append [ [ ""; "Waarde" ] ]
-        |> Table.create []
+        |> List.map (List.map str)
+        |> Table.create false []
 
 
 
@@ -481,7 +488,7 @@ let view isMobile (pat : Patient) (model: Model) dispatch =
         if model.ActiveTab = EmergencyListTab then 
             EmergencyList.view isMobile age wght model.EmergencyListModel (EmergencyListMsg >> dispatch)
         else if model.ActiveTab = ContMedsTab then 
-            ContMeds.view age wght model.ContMedsModel (ContMedsMsg >> dispatch)
+            ContMeds.view isMobile age wght model.ContMedsModel (ContMedsMsg >> dispatch)
         else if model.ActiveTab = NormalValuesTab then
             NormalValues.view pat
         else div [] [ str "Protocollen, volgt"]   
