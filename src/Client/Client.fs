@@ -77,15 +77,17 @@ let init () : Model * Cmd<Msg> =
     let genpres = { Name = "GenPres OFFLINE"; Version = "0.01" }
 
     let device = createDevice ()
+
+    let pat = Patient.init ()
     
     let initialModel = 
         { 
             GenPres = Some genpres
             Page = EmergencyListPage
-            PatientModel = Patient.init device.IsMobile
+            PatientModel = pat
             Device = device
             EmergencyModel = Emergency.init () 
-            CalculatorModel = Calculator.init ((Patient.init device.IsMobile).Patient)
+            CalculatorModel = Calculator.init pat
         }
 
     let loadCountCmd =
@@ -106,7 +108,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
     | PatientMsg msg ->
         let pat, cmd = Patient.update msg model.PatientModel
-        { model with PatientModel = pat; CalculatorModel = Calculator.init pat.Patient }, Cmd.map PatientMsg cmd
+        { model with PatientModel = pat; CalculatorModel = Calculator.init pat }, Cmd.map PatientMsg cmd
 
     | EmergencyMsg msg ->
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
@@ -154,8 +156,8 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
     let content =
         match model.Page with
-        | CalculatorPage -> Calculator.view model.CalculatorModel (CalculatorMsg >> dispatch)
-        | EmergencyListPage -> Emergency.view model.PatientModel.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
+        | CalculatorPage    -> Calculator.view model.Device.IsMobile model.CalculatorModel (CalculatorMsg >> dispatch)
+        | EmergencyListPage -> Emergency.view model.Device.IsMobile model.PatientModel model.EmergencyModel (EmergencyMsg >> dispatch)
 
 
     div [ Style [ CSSProp.Padding "10px"] ]
@@ -192,7 +194,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                ] ]  
 
           Container.container []
-              [ Patient.view model.PatientModel (PatientMsg >> dispatch)
+              [ Patient.view model.Device.IsMobile model.PatientModel (PatientMsg >> dispatch)
 
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ Heading.h5 [] [ str (model.PatientModel |> Patient.show) ] ]

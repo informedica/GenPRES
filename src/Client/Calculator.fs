@@ -19,7 +19,7 @@ module PEWS =
 
     type Model = 
         { 
-            Age: int
+            AgeInMo: int
             Score: int 
             Items : (string * Select.Model) List
         }
@@ -45,7 +45,7 @@ module PEWS =
                 ) []
             | None -> []
         { 
-            Age = a
+            AgeInMo = a
             Score = 0
             Items = get a
         }
@@ -84,7 +84,7 @@ module PEWS =
         let t = 
             model.Items 
             |> List.fold (fun a (_, xs) ->
-                let _, s = xs |> getSelected model.Age
+                let _, s = xs |> getSelected model.AgeInMo
                 match s with
                 | Some x -> x + a
                 | None -> a
@@ -96,7 +96,7 @@ module PEWS =
     let update (msg : Msg) (model : Model) =
         match msg with
         | OpenPEWS pat ->
-            { model with Age = pat.Age.Years * 12 + pat.Age.Months }
+            { model with AgeInMo = pat.Age.Years * 12 + pat.Age.Months }
 
         | SelectItem (i, msg) ->
             { 
@@ -110,7 +110,7 @@ module PEWS =
             |> calculateTotal 
 
 
-    let view (model : Model) (dispatch : Msg -> unit) =
+    let view isMobile (model : Model) (dispatch : Msg -> unit) =
         let header =
             thead []
                 [
@@ -120,7 +120,7 @@ module PEWS =
                 ]
 
         let toRow m el =
-            let sel, score = getSelected model.Age  m
+            let sel, score = getSelected model.AgeInMo  m
             tr [] [ td [] [ div [] [ el ] ]; td [] [sel |> str]; td [] [(if score |> Option.isSome then score |> Option.get |> string |> str else str "")] ]
 
         let scoreText =
@@ -189,7 +189,7 @@ let init (pat : Patient) =
     }
 
 
-let view (model: Model) dispatch =
+let view isMobile (model: Model) dispatch =
 
     let tabs (model : Model) dispatch =
         Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 
@@ -198,7 +198,7 @@ let view (model: Model) dispatch =
 
     let content =
         if model.ActiveTab = PEWSTab then 
-            PEWS.view model.PEWSModel (PEWSMsg >> dispatch)
+            PEWS.view isMobile model.PEWSModel (PEWSMsg >> dispatch)
         else div [] []   
 
     div []

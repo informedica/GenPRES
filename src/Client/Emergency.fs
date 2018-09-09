@@ -71,7 +71,7 @@ module EmergencyList =
         (v * conc |> Math.fixPrecision 2, v)
 
 
-    let view age wght (model : Model) dispatch =
+    let view isMobile age wght (model : Model) dispatch =
 
         let tube = 
             let m = 
@@ -149,28 +149,29 @@ module EmergencyList =
                 |> List.filter (fun item -> item.Selected)
                 |> List.map (fun item -> item.Name)
         
-        let table =
-            [ 
-                [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
-                [ "reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
-                [ "reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
-                [ "reanimatie"; "epinephrine iv/io"; epiIv |> fst; epiIv |> snd; "0,01 mg/kg" ]
-                [ "reanimatie"; "epinephrine trach"; epiTr |> fst; epiTr |> snd; "0,1 mg/kg" ]
-                [ "reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
-                [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
-                [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
-            ] @ (TreatmentData.medicationDefs |> List.map calcMeds)
-            |> List.filter (fun xs ->
-                selected = List.empty || selected |> List.exists ((=) xs.Head)
-            )
-            |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
-            |> Table.create []
-
-        div []
-            [
-                Select.view model.Selections (SelectMsg >> dispatch)
-                table
-            ]
+        [ 
+            [ "reanimatie"; "tube maat"; tube; ""; "4 + leeftijd / 4" ]
+            [ "reanimatie"; "tube lengte oraal"; oral; ""; "12 + leeftijd / 2" ]
+            [ "reanimatie"; "tube lengte nasaal"; nasal; ""; "15 + leeftijd / 2" ]
+            [ "reanimatie"; "epinephrine iv/io"; epiIv |> fst; epiIv |> snd; "0,01 mg/kg" ]
+            [ "reanimatie"; "epinephrine trach"; epiTr |> fst; epiTr |> snd; "0,1 mg/kg" ]
+            [ "reanimatie"; "vaatvulling"; fluid |> fst; fluid |> snd; "20 ml/kg" ]
+            [ "reanimatie"; "defibrillatie"; defib; ""; "4 Joule/kg" ]
+            [ "reanimatie"; "cardioversie"; cardio; ""; "2 Joule/kg" ]
+        ] @ (TreatmentData.medicationDefs |> List.map calcMeds)
+        |> List.filter (fun xs ->
+            selected = List.empty || selected |> List.exists ((=) xs.Head)
+        )
+        |> List.append [[ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]]
+        |> Table.create []
+        |> (fun table ->
+            if not isMobile then
+                [
+                    Select.view model.Selections (SelectMsg >> dispatch)
+                    table
+                ]
+            else [ table ]
+        ) |> div []
 
 
 module ContMeds =
@@ -460,7 +461,7 @@ let init () =
     }
 
 
-let view (pat : Patient) (model: Model) dispatch =
+let view isMobile (pat : Patient) (model: Model) dispatch =
 
     let age =  pat |> Patient.getAge
     let wght = pat |> Patient.getWeight
@@ -478,7 +479,7 @@ let view (pat : Patient) (model: Model) dispatch =
 
     let content =
         if model.ActiveTab = EmergencyListTab then 
-            EmergencyList.view age wght model.EmergencyListModel (EmergencyListMsg >> dispatch)
+            EmergencyList.view isMobile age wght model.EmergencyListModel (EmergencyListMsg >> dispatch)
         else if model.ActiveTab = ContMedsTab then 
             ContMeds.view age wght model.ContMedsModel (ContMedsMsg >> dispatch)
         else if model.ActiveTab = NormalValuesTab then
