@@ -13,8 +13,11 @@ module Math = Utils.Math
 module NormalValues = Data.NormalValueData
 
 
-type Model = Shared.Patient
-
+type Model = 
+    {
+        Patient : Shared.Patient
+        IsMobile : bool
+    }
 
 type Msg =
     | YearChange of string
@@ -26,7 +29,7 @@ type Msg =
 let apply f (p: Model) = f p
 
 
-let get = apply id
+let get m = (apply id m).Patient
 
 
 let calculateWeight yr mo =
@@ -38,18 +41,19 @@ let calculateWeight yr mo =
     | [] -> 0.    
 
 
-let init () = { Shared.Age = { Years = 0; Months = 0 }; Shared.Weight = { Estimated = calculateWeight 0 0 ; Measured = 0. } }
+let init b = 
+    let p = { Shared.Age = { Years = 0; Months = 0 }; Shared.Weight = { Estimated = calculateWeight 0 0 ; Measured = 0. } }
+    { Patient = p; IsMobile = b }    
 
 
-let getWeight pat = 
-    if (pat |> get).Weight.Measured = 0. then pat.Weight.Estimated else pat.Weight.Measured
+let getWeight (pat : Shared.Patient) =
+    if pat.Weight.Measured = 0. then pat.Weight.Estimated else pat.Weight.Measured
 
 
-let getAge pat =
-    let y = (pat |> get).Age.Years |> float
+let getAge (pat : Shared.Patient) =
+    let y = pat.Age.Years |> float
     let m = (pat.Age.Months |> float) / 12.
     y + m
-
 
 
 let updateAge yr mo (model: Model) =
@@ -58,22 +62,25 @@ let updateAge yr mo (model: Model) =
     | Some y, None ->
         if y > 18 || y < 0 then model
         else
-            let newModel = 
-                let w =  calculateWeight y (model.Age.Months)
-                { model with Age = { model.Age  with Years = y }; Weight = { model.Weight with Estimated = w } }
-            newModel
+            let pat = 
+                let p = model.Patient
+                let w =  calculateWeight y (p.Age.Months)
+                
+                { p with Age = { p.Age  with Years = y }; Weight = { p.Weight with Estimated = w } }
+            { model with Patient = pat }
 
     | None, Some m ->
-        let newModel = 
-            let age = model.Age
-            let weight = model.Weight
+        let pat = 
+            let p = model.Patient
+            let age = p.Age
+            let weight = p.Weight
 
             let w = calculateWeight (age.Years) m
 
             let y = 
                 if m = 12 && age.Years < 18 then 
                     age.Years + 1 
-                else if m = -1 && model.Age.Years > 0 then  
+                else if m = -1 && p.Age.Years > 0 then  
                     age.Years - 1
                 else
                     age.Years
@@ -84,15 +91,15 @@ let updateAge yr mo (model: Model) =
                 else if m = -1 && y > 0 then 11
                 else m
                
-            { model with Age = { age with Months = m; Years = y }; Weight = { weight with Estimated = w } }
+            { p with Age = { age with Months = m; Years = y }; Weight = { weight with Estimated = w } }
 
-        newModel
+        { model with Patient = pat }
 
     | _ -> model
 
 
-
-let show pat = 
+let show model =
+    let pat = model |> get
     let wght = 
         let w = pat |> getWeight
         if w < 2. then "" else 
@@ -128,15 +135,14 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             let x = x |> Math.fixPrecision 2
             if x < 2. then model, Cmd.none
             else
-                let newModel =
-                    { model with Weight = { model.Weight with Measured = x }}
-                newModel, Cmd.none
+                let pat =
+                    let p = model |> get
+                    { p with Weight = { p.Weight with Measured = x }}
+                { model with Patient = pat }, Cmd.none
         | false, _ -> model, Cmd.none
 
     | Clear ->
-        let newModel = init ()
-        newModel, Cmd.none
-
+        init model.IsMobile, Cmd.none
 
 
 let button txt dispatch =
@@ -151,13 +157,20 @@ let button txt dispatch =
               ]
 
 
-let yrInput dispatch (n : int)  =
-    let ph = string n
+let yrInput dispatch (model: Model)  =
+    let ph = string model.Patient.Age.Years
+
+    let ctrl = 
+        let cb =  OnChange (fun ev -> !! ev.target?value |> YearChange |> dispatch) 
+        
+        Control.div [ Control.Props [ cb] ]
+            [ Input.number [ Input.Value ph ] ]
+
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
             [ str "Jaren" ] 
-          Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> YearChange |> dispatch) ] ]
-             [ Input.number [ Input.Value ph ] ]]
+          ctrl
+        ]
 
 
 let moInput dispatch (n : int) =
@@ -190,7 +203,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
     form [ ]
         [ 
             Field.div [ Field.IsHorizontal; Field.Props [ Style [ ] ] ] 
-                      [ model.Age.Years  |> yrInput dispatch
-                        model.Age.Months |> moInput dispatch
-                        model |> getWeight |> wtInput dispatch ] 
+                      [ model |> yrInput dispatch
+                        model.Patient.Age.Months |> moInput dispatch
+                        model.Patient |> getWeight |> wtInput dispatch ] 
             button "Verwijder" dispatch  ] 

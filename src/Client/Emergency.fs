@@ -462,7 +462,7 @@ let init () =
 
 let view (pat : Patient) (model: Model) dispatch =
 
-    let age = pat |> Patient.getAge
+    let age =  pat |> Patient.getAge
     let wght = pat |> Patient.getWeight
 
     let tabs (model : Model) dispatch =

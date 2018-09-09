@@ -52,7 +52,7 @@ module PEWS =
 
 
     type Msg = 
-        | OpenPEWS of Patient.Model
+        | OpenPEWS of Patient
         | SelectItem of int * Select.Msg
 
 
@@ -161,7 +161,7 @@ module PEWS =
 type Model = 
     { 
         ActiveTab : ActiveTab
-        PatientModel : Patient.Model
+        Patient : Patient
         PEWSModel : PEWS.Model
     }
 and ActiveTab =
@@ -181,16 +181,15 @@ let update (msg : Msg) (model : Model) =
     | PEWSMsg msg ->
         { model with PEWSModel = model.PEWSModel |> PEWS.update msg }
 
-let init pat = 
+let init (pat : Patient) =
     { 
         ActiveTab = PEWSTab
-        PatientModel = pat
+        Patient = pat
         PEWSModel = PEWS.init (pat.Age.Years * 12 + pat.Age.Months)
     }
 
 
 let view (model: Model) dispatch =
-
 
     let tabs (model : Model) dispatch =
         Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 

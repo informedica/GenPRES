@@ -31,7 +31,7 @@ let userAgent : string = jsNative
 type Model = 
     { 
         GenPres : GenPres option
-        Patient : Patient.Model
+        PatientModel : Patient.Model
         Page : Page
         Device : Device
         EmergencyModel : Emergency.Model
@@ -48,7 +48,7 @@ and Page =
     | EmergencyListPage
      
 
-let createDevice x =
+let createDevice () =
     {
         IsMobile =
             userAgent
@@ -75,15 +75,17 @@ let init () : Model * Cmd<Msg> =
     printfn "User Agent = %s" userAgent
     
     let genpres = { Name = "GenPres OFFLINE"; Version = "0.01" }
+
+    let device = createDevice ()
     
     let initialModel = 
         { 
             GenPres = Some genpres
             Page = EmergencyListPage
-            Patient = Patient.init ()
-            Device = Fable.Import.Browser.screen.width |> createDevice
+            PatientModel = Patient.init device.IsMobile
+            Device = device
             EmergencyModel = Emergency.init () 
-            CalculatorModel = Calculator.init (Patient.init ())
+            CalculatorModel = Calculator.init ((Patient.init device.IsMobile).Patient)
         }
 
     let loadCountCmd =
@@ -103,8 +105,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
 
     | PatientMsg msg ->
-        let patModel, cmd = Patient.update msg model.Patient
-        { model with Patient = patModel; CalculatorModel = Calculator.init patModel }, Cmd.map PatientMsg cmd
+        let pat, cmd = Patient.update msg model.PatientModel
+        { model with PatientModel = pat; CalculatorModel = Calculator.init pat.Patient }, Cmd.map PatientMsg cmd
 
     | EmergencyMsg msg ->
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
@@ -153,7 +155,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
     let content =
         match model.Page with
         | CalculatorPage -> Calculator.view model.CalculatorModel (CalculatorMsg >> dispatch)
-        | EmergencyListPage -> Emergency.view model.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
+        | EmergencyListPage -> Emergency.view model.PatientModel.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
 
 
     div [ Style [ CSSProp.Padding "10px"] ]
@@ -190,14 +192,13 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                ] ]  
 
           Container.container []
-              [ Patient.view model.Patient (PatientMsg >> dispatch)
+              [ Patient.view model.PatientModel (PatientMsg >> dispatch)
 
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h5 [] [ str (model.Patient |> Patient.show) ] ]
+                    [ Heading.h5 [] [ str (model.PatientModel |> Patient.show) ] ]
                 content
               ]
                 
-
           Footer.footer [ ]
                 [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
                     [ safeComponents ] ] ]
