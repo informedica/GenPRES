@@ -187,11 +187,16 @@ module PEWS =
                     ]
 
         let scoreText =
-            match model.Score with
-            | x when x >= 8 -> "binnen 10 minuten contact met d.d. arts"
-            | x when x >= 6 -> "elk uur scoren"
-            | x when x >= 4 -> "1 x/4 uur scoren"
-            | _ -> ""
+            let txt = 
+                match model.Score with
+                | x when x >= 8 -> "binnen 10 minuten contact met d.d. arts"
+                | x when x >= 6 -> "elk uur scoren"
+                | x when x >= 4 -> "1 x per 4 uur scoren"
+                | _ -> ""
+
+            if isMobile then 
+                sprintf  "%A (%s)" model.Score txt
+            else txt
 
         let items =
             model.Items
@@ -214,9 +219,9 @@ module PEWS =
             |> List.append 
                 (
                     if isMobile then
-                        [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str ((model.Score |> string) + " " + scoreText) ] ] ]
+                        [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ scoreText |> str ] ] ]
                     else 
-                        [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str scoreText ]; td [] [ str (model.Score |> string) ] ] ]
+                        [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ scoreText |> str ]; td [] [ str (model.Score |> string) ] ] ]
                 )
             |> List.rev
 
