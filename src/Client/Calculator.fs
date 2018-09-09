@@ -131,7 +131,7 @@ module PEWS =
 
 
 
-    let createInput name cb vals =
+    let createInput value name cb vals =
         
         let inp = 
             let opts =
@@ -141,7 +141,7 @@ module PEWS =
                 )
 
             Select.select []
-                [ select [ ]
+                [ select [ Value value ]
                     opts
                 ]
 
@@ -156,16 +156,35 @@ module PEWS =
 
     let view isMobile (model : Model) (dispatch : Msg -> unit) =
         let header =
-            thead []
-                [
-                    th [] [ str "Item" ]
-                    th [] [ str "Selectie" ]
-                    th [] [ str "Score" ]
-                ]
+            if isMobile then
+                thead []
+                    [
+                        th [] [ str "Item" ]
+                        th [] [ str "Score" ]
+                    ]
+            else
+                thead []
+                    [
+                        th [] [ str "Item" ]
+                        th [] [ str "Selectie" ]
+                        th [] [ str "Score" ]
+                    ]
 
         let toRow m el =
             let sel, score = getSelected model.AgeInMo  m
-            tr [] [ td [] [ div [] [ el ] ]; td [] [sel |> str]; td [] [(if score |> Option.isSome then score |> Option.get |> string |> str else str "")] ]
+            if isMobile then
+                tr [] 
+                    [ 
+                        td [] [ div [] [ el ] ]
+                        td [] [(if score |> Option.isSome then score |> Option.get |> string |> str else str "")] 
+                    ]
+            else
+                tr [] 
+                    [ 
+                        td [] [ div [] [ el ] ]
+                        td [] [sel |> str]
+                        td [] [(if score |> Option.isSome then score |> Option.get |> string |> str else str "")] 
+                    ]
 
         let scoreText =
             match model.Score with
@@ -179,15 +198,26 @@ module PEWS =
             |> List.mapi (fun i (_, xs) ->
                     let el = 
                         if isMobile then
+                            let value  =
+                                match xs.Items |> List.tryFind (fun item -> item.Selected) with
+                                | Some item -> item.Name
+                                | None -> "" 
+
                             xs.Items
                             |> List.map (fun item -> item.Name)
                             |> List.append [""]
-                            |> createInput xs.Title (fun ev -> (i, !! ev.target?value ) |> InputChange |> dispatch)
+                            |> createInput value xs.Title (fun ev -> (i, !! ev.target?value ) |> InputChange |> dispatch)
                         else 
                             Select.view xs (fun msg -> (i, msg) |> SelectItem |> dispatch) 
                     toRow xs el
             )
-            |> List.append [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str scoreText ]; td [] [ str (model.Score |> string) ] ] ]
+            |> List.append 
+                (
+                    if isMobile then
+                        [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str ((model.Score |> string) + " " + scoreText) ] ] ]
+                    else 
+                        [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str scoreText ]; td [] [ str (model.Score |> string) ] ] ]
+                )
             |> List.rev
 
         let content =

@@ -156,7 +156,7 @@ let createInput value name isMobile change dispatch vals =
                 )
 
             Select.select []
-                [ select [ DefaultValue value ]
+                [ select [ Value value ]
                     opts
                 ]
         else        
@@ -177,7 +177,7 @@ let yrInput isMobile dispatch yrs  =
 
 
 let moInput isMobile dispatch mos =
-    [0 .. 12]
+    [0 .. 11]
     |> List.map string
     |> createInput (mos |> string) "Leeftijd Maanden" isMobile MonthChange dispatch
 
