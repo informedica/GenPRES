@@ -54,6 +54,7 @@ module PEWS =
     type Msg = 
         | OpenPEWS of Patient
         | SelectItem of int * Select.Msg
+        | InputChange of int * string
 
 
 
@@ -109,6 +110,49 @@ module PEWS =
             }
             |> calculateTotal 
 
+        | InputChange (i, s) ->
+            { 
+                model with 
+                    Items = 
+                        model.Items |> List.mapi (fun i' (n, xs) ->
+                            if i' = i then 
+                                n, 
+                                { xs with 
+                                    Items = xs.Items 
+                                    |> List.map (fun item ->
+                                        if item.Name = s then { item with Selected = true }
+                                        else { item with Selected = false }
+                                    )}
+                            else n, xs
+                        )
+            }
+            |> calculateTotal 
+
+
+
+
+    let createInput name cb vals =
+        
+        let inp = 
+            let opts =
+                vals
+                |> List.map (fun n ->
+                    option [ n |> Value ] [ n |> str ]
+                )
+
+            Select.select []
+                [ select [ ]
+                    opts
+                ]
+
+        Field.div [ Field.IsHorizontal; Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
+            [ Label.label [] 
+                [ str name ] 
+              Control.div [ Control.Props [ OnChange cb ] ]
+                [ inp ]
+            ]
+
+
 
     let view isMobile (model : Model) (dispatch : Msg -> unit) =
         let header =
@@ -133,7 +177,14 @@ module PEWS =
         let items =
             model.Items
             |> List.mapi (fun i (_, xs) ->
-                    let el = Select.view xs (fun msg -> (i, msg) |> SelectItem |> dispatch) 
+                    let el = 
+                        if isMobile then
+                            xs.Items
+                            |> List.map (fun item -> item.Name)
+                            |> List.append [""]
+                            |> createInput xs.Title (fun ev -> (i, !! ev.target?value ) |> InputChange |> dispatch)
+                        else 
+                            Select.view xs (fun msg -> (i, msg) |> SelectItem |> dispatch) 
                     toRow xs el
             )
             |> List.append [ tr [ Style [CSSProp.FontWeight "bold" ] ] [ td [  ] [ str "Totaal"  ] ; td [] [ str scoreText ]; td [] [ str (model.Score |> string) ] ] ]

@@ -144,19 +144,19 @@ let button txt dispatch =
               ]
 
 
-let createInput value name isMobile dispatch vals =
-    let cb =  OnChange (fun ev -> !! ev.target?value |> YearChange |> dispatch) 
+let createInput value name isMobile change dispatch vals =
+    let cb =  OnChange (fun ev -> !! ev.target?value |> change |> dispatch) 
     
     let inp = 
         if isMobile then
             let opts =
                 vals
                 |> List.map (fun n ->
-                    option [] [ n |> str ]
+                    option [ n |> Value ] [ n |> str ]
                 )
 
             Select.select []
-                [ select [ DefaultValue "0" ]
+                [ select [ DefaultValue value ]
                     opts
                 ]
         else        
@@ -165,7 +165,7 @@ let createInput value name isMobile dispatch vals =
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
             [ str name ] 
-          Control.div [ Control.Props [ cb] ]
+          Control.div [ Control.Props [ cb ] ]
             [ inp ]
         ]
 
@@ -173,21 +173,21 @@ let createInput value name isMobile dispatch vals =
 let yrInput isMobile dispatch yrs  = 
     [0 .. 18]
     |> List.map string
-    |> createInput (yrs |> string) " Leeftijd Jaren" isMobile dispatch
+    |> createInput (yrs |> string) " Leeftijd Jaren" isMobile YearChange dispatch
 
 
 let moInput isMobile dispatch mos =
     [0 .. 12]
     |> List.map string
-    |> createInput (mos |> string) "Leeftijd Maanden" isMobile dispatch
+    |> createInput (mos |> string) "Leeftijd Maanden" isMobile MonthChange dispatch
 
 
 let wtInput isMobile dispatch wght =
     [11. .. 100.]
-    |> List.append [0. .. 0.1 .. 10.]
+    |> List.append [2. .. 0.1 .. 10.]
     |> List.map (Math.fixPrecision 2)
     |> List.map string
-    |> createInput (wght |> string) "Gewicht Kg" isMobile dispatch
+    |> createInput (wght |> Math.fixPrecision 2 |> string) "Gewicht Kg" isMobile WeightChange dispatch
 
 
 let view isMobile (model : Model) (dispatch : Msg -> unit) =
