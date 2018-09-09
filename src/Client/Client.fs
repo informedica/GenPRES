@@ -32,10 +32,10 @@ type Model =
     { 
         GenPres : GenPres option
         Patient : Patient.Model
+        Page : Page
         Device : Device
         EmergencyModel : Emergency.Model
         CalculatorModel : Calculator.Model
-        ShowCalculator : bool
     }
 and Device = 
     {
@@ -43,7 +43,10 @@ and Device =
         Width : float
         Height : float
     }
-
+and Page =
+    | CalculatorPage
+    | EmergencyListPage
+     
 
 let createDevice x =
     {
@@ -61,7 +64,7 @@ let createDevice x =
 type Msg =
 | PatientMsg of Patient.Msg
 | EmergencyMsg of Emergency.Msg
-| ShowPEWS
+| ChangePage of Page
 | CalculatorMsg of Calculator.Msg
 | GenPresLoaded of Result<GenPres, exn>
 
@@ -76,11 +79,11 @@ let init () : Model * Cmd<Msg> =
     let initialModel = 
         { 
             GenPres = Some genpres
+            Page = EmergencyListPage
             Patient = Patient.init ()
             Device = Fable.Import.Browser.screen.width |> createDevice
             EmergencyModel = Emergency.init () 
             CalculatorModel = Calculator.init (Patient.init ())
-            ShowCalculator = false
         }
 
     let loadCountCmd =
@@ -112,8 +115,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | CalculatorMsg msg ->
         { model with CalculatorModel = model.CalculatorModel |> Calculator.update msg  }, Cmd.none
 
-    | ShowPEWS ->
-        { model with ShowCalculator = true}, Cmd.none
+    | ChangePage page ->
+        { model with Page = page}, Cmd.none
 
     | GenPresLoaded (_) -> model, Cmd.none
 
@@ -144,12 +147,13 @@ let show = function
 
 let view (model : Model) (dispatch : Msg -> unit) =
 
-    let openPEWS = fun _ -> ShowPEWS |> dispatch
+    let openPEWS = fun _ -> CalculatorPage    |> ChangePage |> dispatch
+    let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
 
     let content =
-        if model.ShowCalculator then Calculator.view model.CalculatorModel (CalculatorMsg >> dispatch)
-        else
-            Emergency.view model.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
+        match model.Page with
+        | CalculatorPage -> Calculator.view model.CalculatorModel (CalculatorMsg >> dispatch)
+        | EmergencyListPage -> Emergency.view model.Patient model.EmergencyModel (EmergencyMsg >> dispatch)
 
 
     div [ Style [ CSSProp.Padding "10px"] ]
@@ -180,7 +184,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
                                 [ Icon.Size IsSmall ] 
                                 [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
                           Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                            [ Navbar.Item.a [] [ str "Acute Behandelingen" ]
+                            [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL] ] [ str "Acute Behandelingen" ]
                               Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ]          
                               
                                ] ]  
