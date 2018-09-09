@@ -195,7 +195,7 @@ module PEWS =
                 | _ -> ""
 
             if isMobile then 
-                sprintf  "%A (%s)" model.Score txt
+                if txt <> "" then sprintf  "%A (%s)" model.Score txt else txt
             else txt
 
         let items =
