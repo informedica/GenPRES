@@ -25,6 +25,25 @@ module PEWS =
         }
 
 
+    let getPEWSAgeGroup a =
+        let upper =
+            match 
+                NormalValueData.pews
+                |> List.tryFind (fun (age, _) -> a < age) with
+            | Some (a, _) -> a
+            | None -> 0
+
+        let lower =
+            match 
+                NormalValueData.pews
+                |> List.rev
+                |> List.tryFind (fun (age, _) -> a >= age) with
+            | Some (a, _) -> a
+            | None -> 0
+
+        lower, upper
+
+
     let init a =
         let get a =
             match 
@@ -227,8 +246,10 @@ module PEWS =
 
         let content =
             let pewsImg =
-                Image.image []
-                    [ img [ Src "images/PEWS.png" ] ]
+                div [] 
+                    [ Heading.h4 [] [ str "PEWS diagram"]
+                      Image.image []
+                            [ img [ Src "images/PEWS.png" ] ] ]
             div []
                 [
                     Table.table [ Table.IsFullWidth
@@ -278,10 +299,17 @@ let init (pat : Patient) =
 
 let view isMobile (model: Model) dispatch =
 
+    let pewsTab = 
+        let l, u = PEWS.getPEWSAgeGroup model.PEWSModel.AgeInMo
+        match l, u with
+        | _, _ when l < 12 && u < 12 -> sprintf "PEWS Score %i tot %i maanden" (l) (u)
+        | _, _ when l < 12           -> sprintf "PEWS Score %i maanden tot %i jaar" (l) (u/12)
+        | _, _                       -> sprintf "PEWS Score %i tot %i jaar" (l/12) (u/12)
+
     let tabs (model : Model) dispatch =
         Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 
             [ Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = PEWSTab)
-                         Tabs.Tab.Props [ OnClick (fun _ -> PEWSTab |> TabChange |> dispatch) ] ] [ a [] [str "PEWS Score"] ] ]
+                         Tabs.Tab.Props [ OnClick (fun _ -> PEWSTab |> TabChange |> dispatch) ] ] [ a [] [str pewsTab] ] ]
 
     let content =
         if model.ActiveTab = PEWSTab then 

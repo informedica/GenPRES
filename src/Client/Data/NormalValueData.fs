@@ -191,6 +191,7 @@ module NormalValueData =
               "Capillaire refill", [(4, ""); (2, ""); (1, ""); (0, "< 3 sec"); (1, ""); (2, ""); (4, "> 3 sec")]
               "RR (systole)", [(4, "< 70 mmHg"); (2, "70-79 mmHg"); (1, "80-89 mmHg"); (0, "90-120 mmHg"); (1, "121-140 mmHg"); (2, "141-170 mmHg"); (4, "> 170 mmHg")] 
               "Temperatuur", [(4, ""); (2, "< 36.0 C"); (1, "36.0-36.4 C"); (0, "36.5-37.5 C"); (1, "37.6-38.5 C"); (2, "> 38.5 C"); (4, "")]]       
+            // Age 12 to 19 year
             19 * 12, 
             [ "Ademfrequentie", [(4, "< 10 /min"); (2, "10 /min"); (1, "11 /min"); (0, "12-16 /min"); (1, "17-22 /min"); (2, "23-30 /min"); (4, "> 30 /min")]        
               "Ademarbeid", [(4, ""); (2, ""); (1, ""); (0, "normaal"); (1, "mild verhoogd"); (2, "matig verhoogd"); (4, "ernstig verhoogd")]        
