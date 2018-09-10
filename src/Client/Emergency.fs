@@ -379,6 +379,13 @@ module ContMeds =
 
 module NormalValues =
 
+    let calcLowBP a =
+        match a with 
+        | _ when a < 1.   -> 60
+        | _ when a < 12.  -> 70
+        | _ when a < 120. -> ((a / 12.) * 2. + 70.) |> int
+        | _ -> 90 
+
 
     let view (pat : Patient) =
         let age = pat.Age.Years * 12 + pat.Age.Months |> float
@@ -404,7 +411,7 @@ module NormalValues =
         let sbp =
             match NormalValues.sbp
                   |> List.filter (fun (a, _) -> age < a) with
-            | (_, s)::_ -> sprintf "%s mmHg" s
+            | (_, s)::_ -> sprintf "%s mmHg (shock bij <%i mmHg)" s (age |> calcLowBP)
             | _ -> ""          
 
         let dbp =

@@ -24,3 +24,6 @@ module String =
     let contains= 
         fun s1 s2 -> (s2 |> get).Contains(s1)    
 
+
+    let toLower s =
+        (s |> get).ToLower()

@@ -11,7 +11,7 @@
 * ~~Add normal values tab~~
 * ~~Add cont med preparation popus~~
 * Add ventilation tab
-* Responsive design for tablets and smartphones
+* ~~Responsive design for tablets and smartphones~~
 * Add navigation to allow opening with age and weight in url
 * Sliders for mobile input
 * Add protocols tab
@@ -19,6 +19,7 @@
 
 ## Technical
 * ~~Create client deploy build target~~
+* Fix tablet and mobile close of dropdown
 * Add source documentation
 * ~~Refactor the client file~~
 

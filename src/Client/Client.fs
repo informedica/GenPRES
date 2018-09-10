@@ -49,12 +49,11 @@ and Page =
      
 
 let createDevice () =
+    let agent = userAgent |> String.toLower
     {
         IsMobile =
-            userAgent
-            |> String.contains "iPhone" ||
-            userAgent
-            |> String.contains "Android"
+            [ "iphone"; "android"; "ipad"; "opera mini"; "windows mobile"; "windows phone"; "iemobile" ]
+            |> List.exists (fun s -> agent |> String.contains s)
         Width = Fable.Import.Browser.screen.width
         Height = Fable.Import.Browser.screen.height        
     }
@@ -165,24 +164,24 @@ let topView dispatch model =
               [ Navbar.Item.div 
                     [ Navbar.Item.IsHoverable
                       Navbar.Item.HasDropdown ] 
-                    [ Navbar.Item.div [ ] 
+                    [ Navbar.Item.a [ ] 
                         [ Fulma.FontAwesome.Icon.faIcon 
                             [ Icon.Size IsSmall ] 
                             [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
                       Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                        [ Navbar.Item.a [ Navbar.Item.Props  [OnClick openPEWS] ] [ str "PEWS score" ] ] ]
+                        [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "PEWS score" ] ] ]
                           
                 Navbar.Item.div 
                     [ Navbar.Item.IsHoverable
                       Navbar.Item.HasDropdown ] 
-                    [ Navbar.Item.div [ ] 
+                    [ Navbar.Item.a [ ] 
                         [ Fulma.FontAwesome.Icon.faIcon 
                             [ Icon.Size IsSmall ] 
                             [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
                       Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                        [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL] ] [ str "Acute Opvang" ]
-                          Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ]          
-                           ] ]
+                        [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
+                          Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ] ] ]
+
 
 let bottomView =
     Footer.footer [ ]
