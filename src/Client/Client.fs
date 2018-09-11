@@ -85,7 +85,7 @@ let init () : Model * Cmd<Msg> =
             Page = EmergencyListPage
             PatientModel = pat
             Device = device
-            EmergencyModel = Emergency.init () 
+            EmergencyModel = Emergency.init device.IsMobile 
             CalculatorModel = Calculator.init pat
         }
 

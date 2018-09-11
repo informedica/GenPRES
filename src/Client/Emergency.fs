@@ -32,7 +32,7 @@ module EmergencyList =
             { model with Selections = model.Selections |> Select.update msg }
 
 
-    let init () = 
+    let init isMobile = 
 
         let sels =
             TreatmentData.medicationDefs
@@ -42,7 +42,7 @@ module EmergencyList =
             |> List.distinct
             |> List.sort
             |> List.append [ "alles" ]
-            |> Select.init true "Selecteer"
+            |> Select.init (not isMobile) "Selecteer"
 
         { Selections = sels }         
 
@@ -171,7 +171,11 @@ module EmergencyList =
                     div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.dropdownView model.Selections (SelectMsg >> dispatch) ]
                     table
                 ]
-            else [ table ]
+            else 
+                [
+                    div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.selectView model.Selections (SelectMsg >> dispatch) ]
+                    table
+                ]
         ) |> div []
 
 
@@ -260,7 +264,7 @@ module ContMeds =
         }
 
 
-    let init () =
+    let init isMobile =
         let conts =
             TreatmentData.contMeds
             |> List.map createContMed
@@ -271,7 +275,7 @@ module ContMeds =
             |> List.distinct
             |> List.append [ "alles" ]
             |> List.sort
-            |> Select.init true "Selecteer"
+            |> Select.init (not isMobile) "Selecteer"
 
         { ContMeds = conts; Selections = sels; ShowMed = None }         
 
@@ -364,14 +368,18 @@ module ContMeds =
             |> Table.create isMobile onclick
 
         let content =
-            let selView = div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.dropdownView model.Selections (SelectMsg >> dispatch) ]
+            let selView = 
+                if isMobile then 
+                    div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.selectView model.Selections (SelectMsg >> dispatch) ]
+                else
+                    div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.dropdownView model.Selections (SelectMsg >> dispatch) ]
 
             match model.ShowMed with
             | Some med -> 
                 let t, c = createModalTitleContent age med
                 [ table; Modal.cardModal t c (ModalMsg >> dispatch)]
             | None -> [ table ]
-            |> List.append (if isMobile then [] else [ selView ]) 
+            |> List.append [ selView ]
 
         div [ ] content
 
@@ -467,11 +475,11 @@ let update (msg : Msg) (model : Model) =
         { model with ContMedsModel = ContMeds.update msg model.ContMedsModel }
 
 
-let init () = 
+let init isMobile = 
     { 
         ActiveTab = EmergencyListTab
-        EmergencyListModel = EmergencyList.init ()
-        ContMedsModel = ContMeds.init () 
+        EmergencyListModel = EmergencyList.init isMobile
+        ContMedsModel = ContMeds.init isMobile 
     }
 
 

@@ -78,8 +78,7 @@ module Select =
                     content ]]
 
 
-    let selectView name (model : Model) (dispatch : Msg -> unit) = 
-
+    let selectView (model : Model) (dispatch : Msg -> unit) = 
         let inp = 
             let opts =
                 model.Items
@@ -97,7 +96,7 @@ module Select =
 
         Field.div [ ] 
             [ Label.label [] 
-                [ str name ] 
+                [ str model.Title ] 
               Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> Select |> dispatch) ] ]
                 [ inp ]
             ]

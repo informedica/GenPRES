@@ -144,7 +144,7 @@ let button txt dispatch =
               ]
 
 
-let createInput value name isMobile change dispatch vals =
+let createInput value step name isMobile change dispatch vals =
     let cb =  OnChange (fun ev -> !! ev.target?value |> change |> dispatch) 
     
     let inp = 
@@ -159,8 +159,8 @@ let createInput value name isMobile change dispatch vals =
                 [ select [ Value value ]
                     opts
                 ]
-        else        
-            Input.number [ Input.Value value ]
+        else 
+            Input.number [ Input.Value value; Input.Props [ Fable.Helpers.React.Props.Step step ] ]
 
     Field.div [ Field.Props [ Style [ CSSProp.Padding "10px" ] ] ] 
         [ Label.label [] 
@@ -173,21 +173,25 @@ let createInput value name isMobile change dispatch vals =
 let yrInput isMobile dispatch yrs  = 
     [0 .. 18]
     |> List.map string
-    |> createInput (yrs |> string) " Leeftijd Jaren" isMobile YearChange dispatch
+    |> createInput (yrs |> string) "" " Leeftijd Jaren" isMobile YearChange dispatch
 
 
 let moInput isMobile dispatch mos =
     [0 .. 11]
     |> List.map string
-    |> createInput (mos |> string) "Leeftijd Maanden" isMobile MonthChange dispatch
+    |> createInput (mos |> string) "" "Leeftijd Maanden" isMobile MonthChange dispatch
 
 
 let wtInput isMobile dispatch wght =
+    let s = 
+        if wght >= 10. then 1. else 0.1 
+        |> string
+
     [11. .. 100.]
     |> List.append [2. .. 0.1 .. 10.]
     |> List.map (Math.fixPrecision 2)
     |> List.map string
-    |> createInput (wght |> Math.fixPrecision 2 |> string) "Gewicht Kg" isMobile WeightChange dispatch
+    |> createInput (wght |> Math.fixPrecision 2 |> string) s "Gewicht Kg" isMobile WeightChange dispatch
 
 
 let view isMobile (model : Model) (dispatch : Msg -> unit) =
