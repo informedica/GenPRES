@@ -4,6 +4,7 @@ module Select =
 
     open Fable.Helpers.React
     open Fable.Helpers.React.Props
+    open Fable.Core.JsInterop
     open Elmish
     open Fulma
 
@@ -52,7 +53,7 @@ module Select =
 
 
 
-    let view (model : Model) (dispatch : Msg -> unit) = 
+    let dropdownView (model : Model) (dispatch : Msg -> unit) = 
 
         let onclick cat = 
             fun _ -> 
@@ -75,3 +76,28 @@ module Select =
               Dropdown.menu []
                 [ Dropdown.content []
                     content ]]
+
+
+    let selectView name (model : Model) (dispatch : Msg -> unit) = 
+
+        let inp = 
+            let opts =
+                model.Items
+                |> List.map (fun item ->
+                    option [ item.Name |> Value ] [ item.Name |> str ]
+                )
+
+            Select.select []
+                [ select 
+                    (match model.Items |> List.tryFind (fun item -> item.Selected) with
+                     | Some item -> [ Value item.Name ]
+                     | None -> [])
+                    opts
+                ]
+
+        Field.div [ ] 
+            [ Label.label [] 
+                [ str name ] 
+              Control.div [ Control.Props [ OnChange (fun ev -> !! ev.target?value |> Select |> dispatch) ] ]
+                [ inp ]
+            ]

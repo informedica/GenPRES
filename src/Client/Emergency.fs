@@ -168,7 +168,7 @@ module EmergencyList =
         |> (fun table ->
             if not isMobile then
                 [
-                    div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.view model.Selections (SelectMsg >> dispatch) ]
+                    div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.dropdownView model.Selections (SelectMsg >> dispatch) ]
                     table
                 ]
             else [ table ]
@@ -364,7 +364,7 @@ module ContMeds =
             |> Table.create isMobile onclick
 
         let content =
-            let selView = div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.view model.Selections (SelectMsg >> dispatch) ]
+            let selView = div [ Style [ CSSProp.PaddingBottom "10px" ] ] [ Select.dropdownView model.Selections (SelectMsg >> dispatch) ]
 
             match model.ShowMed with
             | Some med -> 

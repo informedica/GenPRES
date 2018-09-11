@@ -9,7 +9,6 @@ open Elmish
 open Fulma
 
 open Shared
-open System.Xml.Xsl
 
 module Select = Component.Select
 module Modal = Component.Modal
@@ -232,7 +231,7 @@ module PEWS =
                             |> List.append [""]
                             |> createInput value xs.Title (fun ev -> (i, !! ev.target?value ) |> InputChange |> dispatch)
                         else 
-                            Select.view xs (fun msg -> (i, msg) |> SelectItem |> dispatch) 
+                            Select.dropdownView xs (fun msg -> (i, msg) |> SelectItem |> dispatch) 
                     toRow xs el
             )
             |> List.append 
