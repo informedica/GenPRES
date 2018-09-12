@@ -453,7 +453,7 @@ and ActiveTab =
     | EmergencyListTab
     | ContMedsTab
     | NormalValuesTab
-    | ProtocolsTab
+    | MaterialsTab
 
 
 type Msg = 
@@ -496,8 +496,8 @@ let view isMobile (pat : Patient) (model: Model) dispatch =
                          Tabs.Tab.Props [ OnClick (fun _ -> ContMedsTab |> TabChange |> dispatch) ]] [ a [] [str "Standaard Pompen"]] 
               Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = NormalValuesTab) 
                          Tabs.Tab.Props [ OnClick (fun _ -> NormalValuesTab |> TabChange |> dispatch) ]] [ a [] [str "Normaal Waarden"]] 
-              Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = ProtocolsTab) 
-                         Tabs.Tab.Props [ OnClick (fun _ -> ProtocolsTab |> TabChange |> dispatch) ]] [ a [] [str "Protocollen"]] ]
+              Tabs.tab [ Tabs.Tab.IsActive (model.ActiveTab = MaterialsTab) 
+                         Tabs.Tab.Props [ OnClick (fun _ -> MaterialsTab |> TabChange |> dispatch) ]] [ a [] [str "Materialen"]] ]
 
     let content =
         if model.ActiveTab = EmergencyListTab then 
@@ -506,7 +506,7 @@ let view isMobile (pat : Patient) (model: Model) dispatch =
             ContMeds.view isMobile age wght model.ContMedsModel (ContMedsMsg >> dispatch)
         else if model.ActiveTab = NormalValuesTab then
             NormalValues.view pat
-        else div [] [ str "Protocollen, volgt"]   
+        else div [] [ str "Materialen, volgt"]   
 
     div []
         [
