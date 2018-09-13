@@ -15,7 +15,7 @@
 * Add navigation to allow opening with age and weight in url
 * Sliders for mobile input
 * Add protocols tab
-* Allow for prepartion with multiple concentrations
+* Allow for preparation calculation with multiple concentrations
 * Calculate extra dilution if applicable
 
 ## Technical
@@ -24,4 +24,4 @@
 * Add source documentation
 * ~~Refactor the client file~~
 * ~~Enable CORS~~
-
+    

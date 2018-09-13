@@ -162,8 +162,21 @@ module EmergencyList =
         |> List.filter (fun xs ->
             selected = List.empty || selected |> List.exists ((=) xs.Head)
         )
-        |> List.append [ [ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ] ]
-        |> List.map (List.map str)
+        |> List.map (fun xs ->
+            match xs with 
+            | cat::item::calc::prep::adv::_ ->
+                [
+                    Text.span [ Props [ Style [CSSProp.FontStyle "italic"] ] ]   [ cat  |> str ]
+                    item |> str
+                    Text.span [ Modifiers [ Modifier.TextWeight TextWeight.SemiBold ] ] [ calc |> str ]
+                    prep |> str
+                    Text.span [ Modifiers [ Modifier.TextColor Color.IsGrey ] ] [adv |> str]
+                ]
+            | _ -> []
+        )
+        |> List.append [ 
+                [ "Indicatie"; "Interventie"; "Berekend"; "Bereiding"; "Advies" ]
+                |> List.map str ]
         |> Table.create isMobile []
         |> (fun table ->
             if not isMobile then
