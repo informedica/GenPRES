@@ -91,7 +91,7 @@ let init () : Model * Cmd<Msg> =
 
     let loadCountCmd =
         Cmd.ofPromise
-            ( fetchAs<GenPres> "/api/init" )
+            ( fetchAs<GenPres> "http://localhost:8085/api/init" )
             []
             (Ok >> GenPresLoaded)
             (Error >> GenPresLoaded)

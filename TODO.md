@@ -23,4 +23,5 @@
 * Fix tablet and mobile close of dropdown
 * Add source documentation
 * ~~Refactor the client file~~
+* ~~Enable CORS~~
 
