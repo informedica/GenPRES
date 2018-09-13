@@ -27,3 +27,7 @@ module String =
 
     let toLower s =
         (s |> get).ToLower()
+
+    
+    let replace (s1 : string) (s2 : string) s =
+        (s |> get).Replace(s1, s2)

@@ -167,8 +167,9 @@ module EmergencyList =
             | cat::item::calc::prep::adv::_ ->
                 [
                     Text.span [ Props [ Style [CSSProp.FontStyle "italic"] ] ]   [ cat  |> str ]
-                    item |> str
-                    Text.span [ Modifiers [ Modifier.TextWeight TextWeight.SemiBold ] ] [ calc |> str ]
+                    Text.span [ Modifiers [ Modifier.TextWeight TextWeight.SemiBold; Modifier.TextColor Color.IsGreyDark ] ] [ item |> str ]
+                    Text.span [ Modifiers [ Modifier.TextWeight TextWeight.SemiBold ] ] 
+                        [ calc |> String.replace "(" "(= " |> str ]
                     prep |> str
                     Text.span [ Modifiers [ Modifier.TextColor Color.IsGrey ] ] [adv |> str]
                 ]
