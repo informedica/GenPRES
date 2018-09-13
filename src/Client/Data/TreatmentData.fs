@@ -58,7 +58,7 @@ module TreatmentData =
             ( "pijnstilling", "paracetamol", 20., 0., 100., 10., "mg", "" )
             ( "pijnstilling", "diclofenac", 1., 0., 75., 25., "mg", "" )
             ( "pijnstilling", "fentanyl", 1., 0., 0., 50., "microg", "" )
-            ( "pijnstilling", "morfine", 1., 0., 0., 10., "mg", "" )
+            ( "pijnstilling", "morfine", 0.1, 0., 0., 1., "mg", "" )
             ( "anti-emetica", "ondansetron", 0.1, 0., 4., 2., "mg", "" )
             ( "anti-emetica", "metoclopramide", 0.1, 0., 10., 5., "mg", "" )
             ( "elektrolyten", "kaliumchloride 7,4%", 0.5, 0., 40., 1.0, "mmol", "" )

@@ -16,6 +16,7 @@
 * Sliders for mobile input
 * Add protocols tab
 * Allow for prepartion with multiple concentrations
+* Calculate extra dilution if applicable
 
 ## Technical
 * ~~Create client deploy build target~~
