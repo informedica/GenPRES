@@ -373,7 +373,20 @@ module ContMeds =
 
         let table =    
             meds
-            |> List.map (List.map str)
+            |> List.map (fun xs ->
+                match xs with 
+                | ind::gen::qty::sol::dose::adv::_ ->
+                    [
+                        Text.span [ Props [ Style [CSSProp.FontStyle "italic"] ] ]   [ ind  |> str ]
+                        Text.span [ Modifiers [ Modifier.TextWeight TextWeight.SemiBold; Modifier.TextColor Color.IsGreyDark ] ] [ gen |> str ]
+                        Text.span [ Modifiers [ Modifier.TextWeight TextWeight.SemiBold ] ] 
+                            [ qty |> str ]
+                        sol |> str
+                        dose |> str
+                        Text.span [ Modifiers [ Modifier.TextColor Color.IsGrey ] ] [ adv |> str]
+                    ]
+                | _ -> []
+            )
             |> List.append 
                 [ 
                     [ "Indicatie"; "Generiek"; "Hoeveelheid"; "Oplossing"; "Dosering"; "Advies" ] 
