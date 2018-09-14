@@ -34,9 +34,11 @@ type Model =
         PatientModel : Patient.Model
         Page : Page
         Device : Device
+        ShowMenu : NavbarMenu
         EmergencyModel : Emergency.Model
         CalculatorModel : Calculator.Model
     }
+and NavbarMenu = { CalculatorMenu : bool; MainMenu : bool }
 and Device = 
     {
         IsMobile : bool
@@ -63,9 +65,11 @@ let createDevice () =
 type Msg =
 | PatientMsg of Patient.Msg
 | EmergencyMsg of Emergency.Msg
+| MenuMsg of MenuMsg
 | ChangePage of Page
 | CalculatorMsg of Calculator.Msg
 | GenPresLoaded of Result<GenPres, exn>
+and MenuMsg = CalculatorMenuMsg | MainMenuMsg
 
 
 // defines the initial state and initial command (= side-effect) of the application
@@ -78,6 +82,8 @@ let init () : Model * Cmd<Msg> =
     let device = createDevice ()
 
     let pat = Patient.init ()
+
+    let showMenu = { CalculatorMenu = false; MainMenu = false }
     
     let initialModel = 
         { 
@@ -85,6 +91,7 @@ let init () : Model * Cmd<Msg> =
             Page = EmergencyListPage
             PatientModel = pat
             Device = device
+            ShowMenu = showMenu
             EmergencyModel = Emergency.init device.IsMobile 
             CalculatorModel = Calculator.init pat
         }
@@ -123,6 +130,13 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
     | GenPresLoaded (_) -> model, Cmd.none
 
+    | MenuMsg msg ->
+        match msg with
+        | CalculatorMenuMsg -> 
+            { model with ShowMenu =  { model.ShowMenu with CalculatorMenu = not model.ShowMenu.CalculatorMenu } }, Cmd.none
+        | MainMenuMsg -> 
+            { model with ShowMenu =  { model.ShowMenu with MainMenu = not model.ShowMenu.MainMenu } }, Cmd.none
+
 
 let safeComponents =
     let components =
@@ -152,6 +166,17 @@ let topView dispatch model =
     let openPEWS = fun _ -> CalculatorPage    |> ChangePage |> dispatch
     let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
 
+    let calcMenu isMobile (model : NavbarMenu) =
+        if isMobile && not model.CalculatorMenu then []
+        else
+            [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "PEWS score" ] ]
+
+    let mainMenu isMobile (model : NavbarMenu) =
+        if isMobile && not model.MainMenu then []
+        else
+            [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
+              Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ]    
+
     Navbar.navbar 
         [ Navbar.Color IsPrimary
           Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
@@ -164,23 +189,22 @@ let topView dispatch model =
               [ Navbar.Item.div 
                     [ Navbar.Item.IsHoverable
                       Navbar.Item.HasDropdown ] 
-                    [ Navbar.Item.a [ ] 
+                    [ Navbar.Item.a [ Navbar.Item.Props [OnClick (fun _ -> CalculatorMenuMsg |> MenuMsg |> dispatch )] ] 
                         [ Fulma.FontAwesome.Icon.faIcon 
                             [ Icon.Size IsSmall ] 
                             [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
                       Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                        [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "PEWS score" ] ] ]
+                         (calcMenu model.Device.IsMobile model.ShowMenu) ]
                           
                 Navbar.Item.div 
                     [ Navbar.Item.IsHoverable
                       Navbar.Item.HasDropdown ] 
-                    [ Navbar.Item.a [ ] 
+                    [ Navbar.Item.a [ Navbar.Item.Props [OnClick (fun _ -> MainMenuMsg |> MenuMsg |> dispatch )] ]  
                         [ Fulma.FontAwesome.Icon.faIcon 
                             [ Icon.Size IsSmall ] 
                             [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
                       Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                        [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
-                          Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ] ] ] ]
+                         (mainMenu model.Device.IsMobile model.ShowMenu) ] ] ]
 
 
 let bottomView =
