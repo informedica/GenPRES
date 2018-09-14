@@ -17,6 +17,7 @@
 * Add protocols tab
 * Allow for preparation calculation with multiple concentrations
 * Calculate extra dilution if applicable
+* Add table sort capability
 
 ## Technical
 * ~~Create client deploy build target~~
@@ -24,4 +25,4 @@
 * Add source documentation
 * ~~Refactor the client file~~
 * ~~Enable CORS~~
-    
+* Refactor menu in seperate component
