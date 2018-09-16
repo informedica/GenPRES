@@ -37,10 +37,20 @@ module Models =
             | [] -> 0.    
 
 
+
+        let ageToHeight yr mo =
+            let age = (double yr) * 12. + (double mo)
+
+            match Data.NormalValues.ageHeight
+                  |> List.filter (fun (a, _) -> age < a) with
+            | (_, h)::_ -> h
+            | _ -> 0.       
+
+
         let patient = 
             let age = { Years = 0; Months = 0 }
             let wght : Weight = { Estimated = ageToWeight 0 0; Measured = 0.} 
-            let hght = { Estimated = 0.; Measured = 0. }
+            let hght = { Estimated = ageToHeight 0 0; Measured = 0. }
             { Age = age; Weight = wght; Height = hght }
 
 
@@ -73,9 +83,15 @@ module Models =
             | Some y, None ->
                 if y > 18 || y < 0 then pat
                 else
-                    let w =  ageToWeight y (pat.Age.Months)
+                    let w = ageToWeight y (pat.Age.Months)
+                    let h = ageToHeight y (pat.Age.Months)
                     
-                    { pat with Age = { pat.Age  with Years = y }; Weight = { pat.Weight with Estimated = w } }
+                    { 
+                        pat with 
+                            Age = { pat.Age  with Years = y }
+                            Weight = { pat.Weight with Weight.Estimated = w } 
+                            Height = { pat.Height with Estimated = h }
+                    }
 
             | None, Some m ->
                 let age    = pat.Age
@@ -97,7 +113,13 @@ module Models =
                     else if m = -1 && y > 0 then 11
                     else m
                    
-                { pat with Age = { age with Months = m; Years = y }; Weight = { weight with Estimated = w } }
+                let h = ageToHeight y (pat.Age.Months)
+                { 
+                    pat with 
+                        Age = { pat.Age  with Years = y }
+                        Weight = { pat.Weight with Weight.Estimated = w } 
+                        Height = { pat.Height with Estimated = h }
+                }
 
 
             | _ -> pat
@@ -116,6 +138,14 @@ module Models =
             else None
 
 
+        let calcBSA pat =
+            let l = pat |> getHeight
+            
+            if l  > 0. then
+                sqrt ((pat |> getWeight) * ((l |> float)) / 3600.) |> Some
+            else None
+
+
         let show pat =
             let pat = pat |> get
 
@@ -124,15 +154,15 @@ module Models =
                 if w < 2. then "" else 
                     w |> Math.fixPrecision 2 |> string
 
-            let e = pat.Weight.Estimated |> Math.fixPrecision 2 |> string
+            let ew = pat.Weight.Estimated |> Math.fixPrecision 2 |> string
 
-            let bmi = 
-                match pat |> calcBMI with
-                | Some bmi -> sprintf " BMI %A" bmi
+            let bsa = 
+                match pat |> calcBSA with
+                | Some bsa -> sprintf ", BSA %A m2" (bsa |> Math.fixPrecision 2)
                 | None     ->  ""
                     
 
-            sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)%s" pat.Age.Years pat.Age.Months wght e bmi
+            sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)%s" pat.Age.Years pat.Age.Months wght ew bsa
 
 
 

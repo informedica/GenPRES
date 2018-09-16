@@ -68,12 +68,11 @@ module Utils =
         /// * 6.6666 |> getPrecision 3 = 2
         /// etc
         /// If n < 0 then n = 0 is used.
-        let getPrecision n f =
+        let getPrecision n f = // ToDo fix infinity case
             let n = if n < 0 then 0 else n
             if f = 0. || n = 0 then n
             else
                 let s = (f |> abs |> string).Split([|'.'|])
-                printfn "getPrecision parsing %A" s
                 // calculate number of remaining decimal digits (after '.')
                 let p = n - (if s.[0] = "0" then 0 else s.[0].Length)
                 let p = if p < 0 then 0 else p
