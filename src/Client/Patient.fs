@@ -10,7 +10,7 @@ open Fulma
 
 
 module Math = Shared.Utils.Math
-module NormalValues = Data.NormalValueData
+module NormalValues = Shared.Data.NormalValues
 module Patient = Shared.Models.Patient
 
 type Model = Patient.Patient
@@ -20,8 +20,8 @@ type Msg =
     | YearChange of string
     | MonthChange of string
     | WeightChange of string
+    | HeightChange of string
     | Clear
-
 
 let apply f (p: Model) = f p
 
@@ -42,6 +42,9 @@ let init () = Patient.patient
 
 
 let getWeight = Patient.getWeight
+
+
+let getHeight = Patient.getHeight
 
 
 let getAge = Patient.getAge
@@ -86,6 +89,16 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             if x < 2. then model, Cmd.none
             else
                 { model with Weight = { model.Weight with Measured = x }}, Cmd.none
+        | false, _ -> model, Cmd.none
+
+    | HeightChange s ->
+        printf "Height: %s" s
+        match s |> Double.TryParse with
+        | true, x ->
+            let x = x |> Math.fixPrecision 0
+            if x < 40. || x > 200. then model, Cmd.none
+            else
+                { model with Height = { model.Height with Measured = x }}, Cmd.none
         | false, _ -> model, Cmd.none
 
     | Clear ->
@@ -154,11 +167,30 @@ let wtInput isMobile dispatch wght =
     |> createInput (wght |> Math.fixPrecision 2 |> string) s "Gewicht Kg" isMobile WeightChange dispatch
 
 
+let htInput isMobile dispatch hght =
+    let s = 
+        if hght >= 10. then 1. else 0.1 
+        |> string
+
+    [11. .. 200.]
+    |> List.append [2. .. 1. .. 10.]
+    |> List.map (Math.fixPrecision 2)
+    |> List.map string
+    |> createInput (hght |> Math.fixPrecision 2 |> string) s "Lengte cm" isMobile HeightChange dispatch
+
+
 let view isMobile (model : Model) (dispatch : Msg -> unit) =
+
+    let title =
+        Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
+            [ Heading.h6 [] [ str (model |> Patient.show) ] ]
+
     form [ ]
         [ 
             Field.div [ Field.IsHorizontal; Field.Props [ Style [ ] ] ] 
                       [ model.Age.Years    |> yrInput isMobile dispatch
                         model.Age.Months   |> moInput isMobile dispatch
-                        model |> getWeight |> wtInput isMobile dispatch ] 
-            button "Verwijder" dispatch  ] 
+                        model |> getWeight |> wtInput isMobile dispatch
+                        model |> getHeight |> htInput isMobile dispatch ] 
+            button "Verwijder" dispatch
+            title  ] 

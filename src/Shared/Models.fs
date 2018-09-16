@@ -63,6 +63,12 @@ module Models =
         let getAgeMonths p = (p |> getAge).Months
 
 
+        let getAgeInYears p = (p |> getAgeYears |> float) + ((p |> getAgeMonths |> float) / 12.)
+
+
+        let getAgeInMonths p = (p |> getAgeYears) * 12 + (p |> getAgeMonths)
+
+
         /// Get either the measured weight or the 
         /// estimated weight if measured weight = 0
         let getWeight pat =
@@ -131,18 +137,23 @@ module Models =
         let updateAgeMonths mo = updateAge None (Some mo)
 
 
-        let calcBMI pat = 
-            let l = pat |> getHeight
+        let calcBMI isEst pat = 
+            let l = 
+                if isEst then pat.Height.Estimated else pat |> getHeight
+                |> fun x -> x / 100.
+            let w = if isEst then pat.Weight.Estimated else pat |> getWeight
+
             if l  > 0. then
-                ((pat |> getWeight) / ((l |> float)  ** 2.)) |> Some
+                (w / (l  ** 2.)) |> Some
             else None
 
 
-        let calcBSA pat =
-            let l = pat |> getHeight
+        let calcBSA isEst pat =
+            let l = if isEst then pat.Height.Estimated else pat |> getHeight
+            let w = if isEst then pat.Weight.Estimated else pat |> getWeight
             
             if l  > 0. then
-                sqrt ((pat |> getWeight) * ((l |> float)) / 3600.) |> Some
+                sqrt (w * ((l |> float)) / 3600.) |> Some
             else None
 
 
@@ -157,7 +168,7 @@ module Models =
             let ew = pat.Weight.Estimated |> Math.fixPrecision 2 |> string
 
             let bsa = 
-                match pat |> calcBSA with
+                match pat |> calcBSA false with
                 | Some bsa -> sprintf ", BSA %A m2" (bsa |> Math.fixPrecision 2)
                 | None     ->  ""
                     

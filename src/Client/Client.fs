@@ -215,6 +215,10 @@ let bottomView =
 
 let view (model : Model) (dispatch : Msg -> unit) =
 
+    let patView =
+        div [ Style [ CSSProp.PaddingBottom "10px" ] ] 
+            [ Patient.view model.Device.IsMobile model.PatientModel (PatientMsg >> dispatch) ]
+    
     let content =
         match model.Page with
         | CalculatorPage    -> Calculator.view model.Device.IsMobile model.CalculatorModel (CalculatorMsg >> dispatch)
@@ -224,10 +228,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
         [ model |> topView dispatch  
 
           Container.container [ Container.Props [Style [ CSSProp.Padding "10px"]] ]
-              [ Patient.view model.Device.IsMobile model.PatientModel (PatientMsg >> dispatch)
-
-                Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h6 [] [ str (model.PatientModel |> Patient.show) ] ]
+              [ patView
                 content ]
           bottomView  ] 
 

@@ -12,7 +12,7 @@ open Shared
 
 module Select = Component.Select
 module Modal = Component.Modal
-module NormalValueData = Data.NormalValueData
+module NormalValueData = Shared.Data.NormalValues
 
 module PEWS =
 
@@ -246,7 +246,7 @@ module PEWS =
         let content =
             let pewsImg =
                 div [] 
-                    [ Heading.h4 [] [ str "PEWS diagram"]
+                    [ Heading.h5 [] [ str "PEWS Flow Diagram"]
                       Image.image []
                             [ img [ Src "images/PEWS.png" ] ] ]
             div []

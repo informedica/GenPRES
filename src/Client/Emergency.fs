@@ -6,15 +6,15 @@ open Elmish
 open Fulma
 
 
-module TreatmentData = Data.TreatmentData
-module NormalValues = Data.NormalValueData
+module TreatmentData = Shared.Data.TreatmentData
+module NormalValues = Shared.Data.NormalValues
 module String = Shared.Utils.String
 module Math = Shared.Utils.Math
 module List = Shared.Utils.List
 module Select = Component.Select
 module Table = Component.Table
 module Modal = Component.Modal
-module Patient = Patient
+module Patient = Shared.Models.Patient
 
 
 module EmergencyList =
@@ -454,9 +454,23 @@ module NormalValues =
             | (_, s)::_ -> sprintf "%s mmHg" s
             | _ -> ""          
 
+
+        let bsa =
+            match pat |> Shared.Models.Patient.calcBSA true with
+            | Some bsa -> bsa |> Math.fixPrecision 2 |> sprintf "%A m2"
+            | None -> ""
+
+
+        let bmi =
+            match pat |> Shared.Models.Patient.calcBMI true with
+            | Some bmi -> bmi |> Math.fixPrecision 2 |> sprintf "%A kg/m2"
+            | None -> ""
+
         [ 
             [ "Gewicht"; pat.Weight.Estimated |> string |> sprintf "%s kg" ]
             [ "Lengte"; ht ]
+            [ "Body Surface Area"; bsa ]
+            [ "Body Mass Index"; bmi ]
             [ "Hartslag"; hr ]
             [ "Ademhaling"; rr ]
             [ "Teug Volume"; pat.Weight.Estimated * 6. |> Math.fixPrecision 2 |> sprintf "%A ml (6 ml/kg)" ]
@@ -464,6 +478,107 @@ module NormalValues =
             [ "Diastolische Bloeddruk"; dbp ]
         ]
         |> List.append [ [ ""; "Waarde" ] ]
+        |> List.map (List.map str)
+        |> Table.create false []
+
+
+
+module Materials =
+
+
+    let tubeData =
+        [
+            (None, Some 1200., 2.5, None, "7")
+            (None, Some 2000., 3.0, None, "7 - 8")
+            (None, Some 3000., 3.5, None, "8 - 9")
+            ((3 |> Some), None, 3.5, (Some 3.0), "9 - 10")
+            ((6 |> Some), None, 4.0, (Some 3.0), "11 - 12")
+            ((2 * 12 |> Some), None, 4.5, (Some 4.0), "12 - 13")
+            ((3 * 12 |> Some), None, 5.0, (Some 4.5), "13 - 14")
+            ((5 * 12 |> Some), None, 5.5, (Some 5.0), "14 - 15")
+            ((8 * 12 |> Some), None, 6.0, (Some 5.5), "15 - 16")
+            ((10 * 12 |> Some), None, 6.5, (Some 6.0), "16 - 17")
+            (None, None, 7.0, (Some 7.0), "16 - 17")
+        ]
+
+
+    let maskData =
+        [
+            (5., 1.,   "< 5")            
+            (10., 1.5, "< 7")            
+            (20., 2.,  "< 10")            
+            (30., 2.5, "< 15")            
+            (50., 3.,  "< 20")            
+            (70., 4.,  "< 35")            
+            (999., 5., "< 40")            
+        ]
+
+
+    let nonZeroString n =
+        if n > 0. then n |> string else ""
+
+
+    let tubes wghtGram ageMo =
+
+        match wghtGram, ageMo with
+        | None, None ->
+            tubeData
+            |> List.rev
+            |> List.head
+            |> Some
+        // find tube data with weight        
+        | Some w, None ->
+            tubeData |> List.tryFind (fun (_, w', _, _, _) -> 
+                match w' with 
+                | Some w' -> w < w'
+                | None -> false
+            )
+        // find tube data with age        
+        | None, Some a ->
+            tubeData |> List.tryFind (fun (a', _, _, _, _) -> 
+                match a' with 
+                | Some a' -> a < a'
+                | None -> false
+            )
+        // cannot find with weight and age
+        | Some _, Some _ -> None        
+        |> (fun td ->
+            match td with
+            | Some (_, _, ts, tc, tl) ->
+                match tc with
+                | Some tc' -> (ts, tc', tl)
+                | None     -> (ts, 0., tl)
+            | None -> (0., 0., "")            
+        )
+
+
+    let laryngealMask wght =
+        match maskData
+              |> List.tryFind (fun (w, _, _) -> wght < w) with
+        | Some (_, m, v) -> sprintf "Maat %A, max. cuff volume %s ml" m v          
+        | None -> ""
+
+
+    let view (pat : Shared.Models.Patient.Patient) =
+        let ts, tc, tl = tubes None (pat |> Patient.getAgeInMonths |> Some)
+
+        let tn = 
+            pat 
+            |> Patient.getAgeInYears
+            |> (fun a -> a / 2. + 15.)
+            |> Math.fixPrecision 0
+            |> string
+
+        let zco, zcn =
+            ts * 2. |> nonZeroString,
+            tc * 2. |> nonZeroString 
+
+        [
+           [ "Tube maat"; sprintf "Zonder cuff %s, met cuff %s, lengte vanaf de mondhoek %s cm via de neus %s cm" (ts |> nonZeroString) (tc |> nonZeroString) tl tn ]
+           [ "Maat uitzuigcatheter"; sprintf "%s French bij tube zonder cuff of %s French met cuff" zco zcn ]
+           [ "Larynxmasker"; pat |> Patient.getWeight |> laryngealMask ]
+        ]
+        |> List.append [ [ "Item"; "Waarde" ] ]
         |> List.map (List.map str)
         |> Table.create false []
 
@@ -526,13 +641,15 @@ let view isMobile (pat : Shared.Models.Patient.Patient) (model: Model) dispatch 
                          Tabs.Tab.Props [ OnClick (fun _ -> MaterialsTab |> TabChange |> dispatch) ]] [ a [] [str "Materialen"]] ]
 
     let content =
-        if model.ActiveTab = EmergencyListTab then 
+        match model.ActiveTab with
+        | EmergencyListTab ->
             EmergencyList.view isMobile age wght model.EmergencyListModel (EmergencyListMsg >> dispatch)
-        else if model.ActiveTab = ContMedsTab then 
+        | ContMedsTab -> 
             ContMeds.view isMobile age wght model.ContMedsModel (ContMedsMsg >> dispatch)
-        else if model.ActiveTab = NormalValuesTab then
+        | NormalValuesTab ->
             NormalValues.view pat
-        else div [] [ str "Materialen, volgt"]   
+        | MaterialsTab ->
+            Materials.view pat   
 
     div []
         [

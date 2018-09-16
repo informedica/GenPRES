@@ -7,8 +7,6 @@
         <Compile Include="..\Shared\Utils.fs" />
         <Compile Include="..\Shared\Data.fs" />
         <Compile Include="..\Shared\Models.fs" />
-        <Compile Include=".\Data\NormalValueData.fs" />
-        <Compile Include=".\Data\TreatmentData.fs" />
         <Compile Include=".\Component\Select.fs" />
         <Compile Include=".\Component\Table.fs" />
         <Compile Include=".\Component\Modal.fs" />
