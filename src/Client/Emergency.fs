@@ -138,7 +138,7 @@ module EmergencyList =
                     sprintf "%A %s/kg %s" dose unit minmax
 
             [
-                ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 2) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv rem 
+                ind; item; (sprintf "%A %s (%A %s/kg)" d unit (d / wght |> Math.fixPrecision 1) unit); (sprintf "%A ml van %A %s/ml" v conc unit); adv rem 
             ]
 
         let selected = 
@@ -466,6 +466,16 @@ module NormalValues =
             | Some bmi -> bmi |> Math.fixPrecision 2 |> sprintf "%A kg/m2"
             | None -> ""
 
+        let fp =
+            if pat |> Patient.getAgeInMonths < 6 then
+                "4 uur voor melk (babymelk) of sondevoeding, 3 uur voor borstvoeding, 2 uur voor heldere vloeistof"
+            else
+                "6 uur voor lichte maaltijd of sondevoeding, 2 uur voor heldere vloeistof (max 220 ml = volle beker)"
+
+        let bcap =
+            (pat |> Patient.getAgeInYears) * 30. + 30. 
+            |> Math.fixPrecision 0
+
         [ 
             [ "Gewicht"; pat.Weight.Estimated |> string |> sprintf "%s kg" ]
             [ "Lengte"; ht ]
@@ -476,6 +486,8 @@ module NormalValues =
             [ "Teug Volume"; pat.Weight.Estimated * 6. |> Math.fixPrecision 2 |> sprintf "%A ml (6 ml/kg)" ]
             [ "Systolische Bloeddruk"; sbp ]
             [ "Diastolische Bloeddruk"; dbp ]
+            [ "Blaascapaciteit"; sprintf "%A ml" bcap  ]
+            [ "Nuchter beleid"; fp ]
         ]
         |> List.append [ [ ""; "Waarde" ] ]
         |> List.map (List.map str)
@@ -511,6 +523,15 @@ module Materials =
             (50., 3.,  "< 20")            
             (70., 4.,  "< 35")            
             (999., 5., "< 40")            
+        ]
+
+
+    let venousCathData =
+        [
+            (1 * 12, 4, 8)
+            (4 * 12, 5, 12)
+            (12 * 12, 6, 15)
+            (19 * 12, 7, 20)
         ]
 
 
@@ -559,6 +580,13 @@ module Materials =
         | None -> ""
 
 
+    let venCath a =
+        match venousCathData 
+              |> List.tryFind (fun (a', _, _) -> a < a') with
+        | Some (_, d, l) -> sprintf "%A Fr" d, sprintf "%A cm" l           
+        | None -> "", ""
+
+
     let view (pat : Shared.Models.Patient.Patient) =
         let ts, tc, tl = tubes None (pat |> Patient.getAgeInMonths |> Some)
 
@@ -573,10 +601,29 @@ module Materials =
             ts * 2. |> nonZeroString,
             tc * 2. |> nonZeroString 
 
+        let bn = 
+            if pat |> Patient.getWeight < 40. then
+                "15 G x 15 mm naald"
+            else "15 G x 25 mm naald"
+
+        let vcd, vcl = 
+            pat 
+            |> Patient.getAgeInMonths
+            |> venCath
+
+        let bc =
+            ts * 2.
+            |> System.Math.Floor
+            |> Math.fixPrecision 0
+
         [
            [ "Tube maat"; sprintf "Zonder cuff %s, met cuff %s, lengte vanaf de mondhoek %s cm via de neus %s cm" (ts |> nonZeroString) (tc |> nonZeroString) tl tn ]
            [ "Maat uitzuigcatheter"; sprintf "%s French bij tube zonder cuff of %s French met cuff" zco zcn ]
            [ "Larynxmasker"; pat |> Patient.getWeight |> laryngealMask ]
+           [ "Botnaald"; bn ]
+           [ "Centraal Veneuze Catheter"; sprintf "Diameter %s met lengte %s" vcd vcl ]
+           [ "Blaascatheter"; sprintf "%A Charriere" bc ]
+           [ "Maagsonde"; sprintf "%A French/Charriere" bc ]
         ]
         |> List.append [ [ "Item"; "Waarde" ] ]
         |> List.map (List.map str)
