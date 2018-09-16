@@ -94,14 +94,13 @@ module Models =
                     
                     { 
                         pat with 
-                            Age = { pat.Age  with Years = y }
+                            Age = { pat.Age with Years = y }
                             Weight = { pat.Weight with Weight.Estimated = w } 
                             Height = { pat.Height with Estimated = h }
                     }
 
             | None, Some m ->
                 let age    = pat.Age
-                let weight = pat.Weight
 
                 let w = ageToWeight (age.Years) m
 
@@ -122,7 +121,7 @@ module Models =
                 let h = ageToHeight y (pat.Age.Months)
                 { 
                     pat with 
-                        Age = { pat.Age  with Years = y }
+                        Age = { pat.Age with Years = y; Months = m }
                         Weight = { pat.Weight with Weight.Estimated = w } 
                         Height = { pat.Height with Estimated = h }
                 }
