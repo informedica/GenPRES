@@ -8,9 +8,9 @@ open Fulma
 
 module TreatmentData = Data.TreatmentData
 module NormalValues = Data.NormalValueData
-module String = Utils.String
-module Math = Utils.Math
-module List = Utils.List
+module String = Shared.Utils.String
+module Math = Shared.Utils.Math
+module List = Shared.Utils.List
 module Select = Component.Select
 module Table = Component.Table
 module Modal = Component.Modal
@@ -421,7 +421,7 @@ module NormalValues =
         | _ -> 90 
 
 
-    let view (pat : Shared.Patient) =
+    let view (pat : Shared.Models.Patient.Patient) =
         let age = pat.Age.Years * 12 + pat.Age.Months |> float
 
         let ht =
@@ -509,10 +509,10 @@ let init isMobile =
     }
 
 
-let view isMobile (pat : Shared.Patient) (model: Model) dispatch =
+let view isMobile (pat : Shared.Models.Patient.Patient) (model: Model) dispatch =
 
-    let age =  pat |> Patient.getAge
-    let wght = pat |> Patient.getWeight
+    let age =  pat |> Shared.Models.Patient.getAgeMonths |> float
+    let wght = pat |> Shared.Models.Patient.getWeight
 
     let tabs (model : Model) dispatch =
         Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 

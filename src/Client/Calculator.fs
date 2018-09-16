@@ -70,7 +70,7 @@ module PEWS =
 
 
     type Msg = 
-        | OpenPEWS of Patient
+        | OpenPEWS of Shared.Models.Patient.Patient
         | SelectItem of int * Select.Msg
         | InputChange of int * string
 
@@ -267,7 +267,7 @@ module PEWS =
 type Model = 
     { 
         ActiveTab : ActiveTab
-        Patient : Patient
+        Patient : Shared.Models.Patient.Patient
         PEWSModel : PEWS.Model
     }
 and ActiveTab =
@@ -288,7 +288,7 @@ let update (msg : Msg) (model : Model) =
         { model with PEWSModel = model.PEWSModel |> PEWS.update msg }
 
 
-let init (pat : Patient) =
+let init (pat : Shared.Models.Patient.Patient) =
     { 
         ActiveTab = PEWSTab
         Patient = pat

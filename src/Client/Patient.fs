@@ -9,11 +9,11 @@ open Elmish
 open Fulma
 
 
-module Math = Utils.Math
+module Math = Shared.Utils.Math
 module NormalValues = Data.NormalValueData
+module Patient = Shared.Models.Patient
 
-
-type Model = Shared.Patient
+type Model = Patient.Patient
 
 
 type Msg =
@@ -38,77 +38,26 @@ let calculateWeight yr mo =
     | [] -> 0.    
 
 
-let init () : Shared.Patient = 
-    { 
-        Age = { Years = 0; Months = 0 }
-        Weight = { Estimated = calculateWeight 0 0 ; Measured = 0. } 
-        Length = 0
-    }
+let init () = Patient.patient 
 
 
-let getWeight (pat : Shared.Patient) =
-    if pat.Weight.Measured = 0. then pat.Weight.Estimated else pat.Weight.Measured
+let getWeight = Patient.getWeight
 
 
-let getAge (pat : Shared.Patient) =
-    let y = pat.Age.Years |> float
-    let m = (pat.Age.Months |> float) / 12.
-    y + m
+let getAge = Patient.getAge
 
 
 let updateAge yr mo (model: Model) =
 
     match yr, mo with
-    | Some y, None ->
-        if y > 18 || y < 0 then model
-        else
-            let w =  calculateWeight y (model.Age.Months)
-            
-            { model with Age = { model.Age  with Years = y }; Weight = { model.Weight with Estimated = w } }
+    | Some y, None -> model |> Patient.updateAgeYears y
 
-    | None, Some m ->
-        let age    = model.Age
-        let weight = model.Weight
-
-        let w = calculateWeight (age.Years) m
-
-        let y = 
-            if m = 12 && age.Years < 18 then 
-                age.Years + 1 
-            else if m = -1 && model.Age.Years > 0 then  
-                age.Years - 1
-            else
-                age.Years
-
-        let m =
-            if m >= 12 then 0
-            else if m = -1 && y = 0 then 0
-            else if m = -1 && y > 0 then 11
-            else m
-           
-        { model with Age = { age with Months = m; Years = y }; Weight = { weight with Estimated = w } }
-
+    | None, Some m -> model |> Patient.updateAgeMonths m
 
     | _ -> model
 
 
-let show model =
-    let pat = model |> get
-    let wght = 
-        let w = pat |> getWeight
-        if w < 2. then "" else 
-            w |> Math.fixPrecision 2 |> string
-
-    let e = pat.Weight.Estimated |> Math.fixPrecision 2 |> string
-    let bmi = 
-        if pat.Length > 0 then
-            ((pat |> getWeight) / ((pat.Length |> float)  ** 2.))
-            |> Math.fixPrecision 2
-            |> sprintf " BMI %A"
-        else ""
-            
-
-    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)%s" pat.Age.Years pat.Age.Months wght e bmi
+let show model = model |> Patient.show
 
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =

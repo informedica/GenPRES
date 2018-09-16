@@ -227,7 +227,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
               [ Patient.view model.Device.IsMobile model.PatientModel (PatientMsg >> dispatch)
 
                 Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-                    [ Heading.h5 [] [ str (model.PatientModel |> Patient.show) ] ]
+                    [ Heading.h6 [] [ str (model.PatientModel |> Patient.show) ] ]
                 content ]
           bottomView  ] 
 
