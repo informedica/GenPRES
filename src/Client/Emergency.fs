@@ -1,7 +1,5 @@
 module Emergency
 
-open Shared
-
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Elmish
@@ -16,6 +14,7 @@ module List = Utils.List
 module Select = Component.Select
 module Table = Component.Table
 module Modal = Component.Modal
+module Patient = Patient
 
 
 module EmergencyList =
@@ -195,11 +194,11 @@ module EmergencyList =
 
 module ContMeds =
 
-    type Model = { ContMeds : Continuous list; Selections : Select.Model; ShowMed : Continuous Option }
+    type Model = { ContMeds : Shared.Continuous list; Selections : Select.Model; ShowMed : Shared.Continuous Option }
 
     type Msg = 
         | SelectMsg of Select.Msg
-        | ClickContMed of Continuous
+        | ClickContMed of Shared.Continuous
         | ModalMsg of Modal.Msg
 
     let update (msg : Msg) (model : Model) =
@@ -214,7 +213,7 @@ module ContMeds =
             { model with Selections = model.Selections |> Select.update msg }
 
 
-    let calcQty age (med : Continuous) =
+    let calcQty age (med : Shared.Continuous) =
         match age with
         | _ when age < 6.  -> med.Quantity2To6
         | _ when age < 11. -> med.Quantity6To11
@@ -222,7 +221,7 @@ module ContMeds =
         | _ -> med.QuantityFrom40
 
 
-    let calcVol age (med : Continuous) =
+    let calcVol age (med : Shared.Continuous) =
          match age with
          | _ when age < 6.  -> med.Volume2To6
          | _ when age < 11. -> med.Volume6To11
@@ -230,7 +229,7 @@ module ContMeds =
          | _ -> med.QuantityFrom40
 
 
-    let createModalTitleContent age (cont : Continuous) =
+    let createModalTitleContent age (cont : Shared.Continuous) =
             let t = sprintf "Bereiding voor %s" cont.Generic
             let c =
                 match TreatmentData.products 
@@ -255,7 +254,7 @@ module ContMeds =
             (t, c)
 
 
-    let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to11, vol6to11, qty11to40, vol11to40,  qtyfrom40, volfrom40, mindose, maxdose, absmax, minconc, maxconc, solution) =
+    let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to11, vol6to11, qty11to40, vol11to40,  qtyfrom40, volfrom40, mindose, maxdose, absmax, minconc, maxconc, solution) : Shared.Continuous =
         {
             Indication = indication
             Generic = generic
@@ -422,7 +421,7 @@ module NormalValues =
         | _ -> 90 
 
 
-    let view (pat : Patient) =
+    let view (pat : Shared.Patient) =
         let age = pat.Age.Years * 12 + pat.Age.Months |> float
 
         let ht =
@@ -510,7 +509,7 @@ let init isMobile =
     }
 
 
-let view isMobile (pat : Patient) (model: Model) dispatch =
+let view isMobile (pat : Shared.Patient) (model: Model) dispatch =
 
     let age =  pat |> Patient.getAge
     let wght = pat |> Patient.getWeight

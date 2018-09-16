@@ -38,8 +38,12 @@ let calculateWeight yr mo =
     | [] -> 0.    
 
 
-let init () = 
-    { Shared.Age = { Years = 0; Months = 0 }; Shared.Weight = { Estimated = calculateWeight 0 0 ; Measured = 0. } }
+let init () : Shared.Patient = 
+    { 
+        Age = { Years = 0; Months = 0 }
+        Weight = { Estimated = calculateWeight 0 0 ; Measured = 0. } 
+        Length = 0
+    }
 
 
 let getWeight (pat : Shared.Patient) =
@@ -96,8 +100,15 @@ let show model =
             w |> Math.fixPrecision 2 |> string
 
     let e = pat.Weight.Estimated |> Math.fixPrecision 2 |> string
+    let bmi = 
+        if pat.Length > 0 then
+            ((pat |> getWeight) / ((pat.Length |> float)  ** 2.))
+            |> Math.fixPrecision 2
+            |> sprintf " BMI %A"
+        else ""
+            
 
-    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)" pat.Age.Years pat.Age.Months wght e
+    sprintf "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)%s" pat.Age.Years pat.Age.Months wght e bmi
 
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =

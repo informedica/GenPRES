@@ -5,6 +5,7 @@
         <TargetFramework>netcoreapp2.1</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="..\Shared\Data.fs" />
         <Compile Include="..\Shared\Shared.fs" />
         <Compile Include="Server.fs" />
     </ItemGroup>
