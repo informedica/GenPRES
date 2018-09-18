@@ -152,6 +152,25 @@ module Data =
             ]        
 
 
+        let gcs =
+            [
+                // Pedicatric
+                5 * 12,
+                [
+                    "Eye Opening", [ (4, "spontaan"); (3, "bij geluid"); (2, "bij pijn"); (1, "geen"); (0, "gesloten bij zwelling of verband") ]
+                    "Motor Response", [ (6, "normale spontane bewegingen"); (5, "lokaliseert bij pijn of trekt terug bij aanraking"); (4, "trekt terug bij pijn"); (3, "flexie bij pijn"); (2, "extensie bij pijn"); (1, "geen reactie op pijn") ]
+                    "Verbal Response", [ (5, "alert, brabbelt, conform leeftijd"); (4, "minder dan normaal, geirriteerd huilen"); (3, "huilt bij pijn"); (2, "kreunt bij pijn"); (1, "geen reactie op pijn"); (0, "tube") ]
+                ]
+                // Adult
+                19 * 12,
+                [
+                    "Eye Opening", [ (4, "spontaan"); (3, "bij geluid"); (2, "bij pijn"); (1, "geen"); (0, "gesloten bij zwelling of verband") ]
+                    "Motor Response", [ (6, "normale spontane bewegingen"); (5, "lokaliseert bij pijn of trekt terug bij aanraking"); (4, "trekt terug bij pijn"); (3, "flexie bij pijn"); (2, "extensie bij pijn"); (1, "geen reactie op pijn") ]
+                    "Verbal Response", [ (5, "voert opdrachten uit"); (4, "verward"); (3, "niet adequaat"); (2, "niet verstaanbaar"); (1, "geen reactie op pijn"); (0, "tube") ]
+                ]
+            ]
+
+
         let pews =
             [
                 // Age 0 to 3 mo
