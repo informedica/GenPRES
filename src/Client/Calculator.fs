@@ -558,11 +558,11 @@ let view isMobile (model: Model) dispatch =
         | _, _                       -> sprintf "PEWS Score %i tot %i jaar" (l/12) (u/12)
 
     let gcsTab = 
-        let _, u = GlascowComaScale.getGCSAgeGroup model.GlascowComaModel.AgeInMo
+        let l, u = GlascowComaScale.getGCSAgeGroup model.GlascowComaModel.AgeInMo
         printfn "GCS age %A" u
         match u with
         | _ when u <= (5 * 12) -> sprintf "Glascow Coma Scale tot %i jaar" (u/12)
-        | _                    -> sprintf "Glascow Coma Scale vanaf %i jaar" (u/12)
+        | _                    -> sprintf "Glascow Coma Scale vanaf %i jaar" (l/12)
 
     let tabs (model : Model) dispatch =
         Tabs.tabs [ Tabs.IsFullWidth; Tabs.IsBoxed ] 
