@@ -91,14 +91,14 @@ module EmergencyList =
             let d, v =
                     calcDoseVol wght 0.01 0.1 0.01 0.5
             
-            (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
+            (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 1)) ,
             (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
 
         let epiTr = 
             let d, v =
                     calcDoseVol wght 0.1 0.1 0.1 5.
             
-            (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 2)) ,
+            (sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 1)) ,
             (sprintf "%A ml van 0,1 mg/ml (1:10.000) of %A ml van 1 mg/ml (1:1000)" v (v / 10. |> Math.fixPrecision 2))
 
         let fluid =

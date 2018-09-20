@@ -4,7 +4,7 @@ open Elmish
 open Elmish.React
 
 open Fable.Core
-
+open Fable.Core.JsInterop
 
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
@@ -20,8 +20,28 @@ module String = Utils.String
 module Select = Component.Select
 module Table = Component.Table
 
+
 [<Emit("navigator.userAgent")>]
 let userAgent : string = jsNative
+
+
+type MarkDown =
+    abstract render : string -> obj
+
+
+let md = 
+    createNew (importDefault<MarkDown> "markdown-it") ()
+    :?> MarkDown    
+
+
+[<Pojo>]
+type DangerousInnerHtml =
+    { __html : string }
+
+
+let htmlFromMarkdown str = 
+    printfn "Markdown: %s" (str |> md.render |> string)
+    div [ DangerouslySetInnerHTML { __html = md.render str |> string } ] []
 
 
 // The model holds data that you want to keep track of while the application is running
@@ -138,24 +158,18 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             { model with ShowMenu =  { model.ShowMenu with MainMenu = not model.ShowMenu.MainMenu } }, Cmd.none
 
 
-let safeComponents =
-    let components =
-        span [ ]
-           [
-             a [ Href "https://saturnframework.github.io" ] [ str "Saturn" ]
-             str ", "
-             a [ Href "http://fable.io" ] [ str "Fable" ]
-             str ", "
-             a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
-             str ", "
-             a [ Href "https://mangelmaxime.github.io/Fulma" ] [ str "Fulma" ]
-           ]
+let disclaimer =
+    let txt = """
+***Disclaimer***
 
-    p [ ]
-        [ strong [] [ str "SAFE Template" ]
-          str " powered by: "
-          components ]
+Deze applicatie is nog in ontwikkeling en validatie van de inhoud heeft nog niet plaatsgevond. 
+De gebruiker is zelf verantwoordelijk voor het gebruik van de getoonde informatie. Indien u fouten vindt
+of suggesties hebt gaarne dit per [mail](mailto:c.w.bollen@umcutrecht.nl) vermelden. 
 
+Verdere informatie kunt u vinden op de [PICU WKZ site](http://picuwkz.nl). De code voor deze webapplicatie
+is te vinden op [Github](http://github.com/halcwb/GenPres2.git).
+"""
+    htmlFromMarkdown txt
 
 let show = function
 | { GenPres = Some x } -> sprintf "%s versie: %s" x.Name x.Version 
@@ -209,8 +223,8 @@ let topView dispatch model =
 
 let bottomView =
     Footer.footer [ ]
-        [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ]
-            [ safeComponents ] ]
+        [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Left) ] ]
+            [ disclaimer ] ]
 
 
 let view (model : Model) (dispatch : Msg -> unit) =

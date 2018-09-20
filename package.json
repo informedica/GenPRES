@@ -3,6 +3,7 @@
     "dependencies": {
         "babel-polyfill": "6.26.0",
         "babel-runtime": "6.26.0",
+        "markdown-it": "^8.4.2",
         "react": "16.4.0",
         "react-bootstrap": "0.32.1",
         "react-dom": "16.4.0"
