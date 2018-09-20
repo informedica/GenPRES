@@ -18,6 +18,12 @@
 * Allow for preparation calculation with multiple concentrations
 * Calculate extra dilution if applicable
 * Add table sort capability
+* Add neonatal calculations
+* Calculate intervantions for age/weight categories
+* Add burn surface area score
+* Add calulated resuscitation protocol
+* Add calculated sepsis protocol
+
 
 ## Technical
 * ~~Create client deploy build target~~
@@ -26,3 +32,5 @@
 * ~~Refactor the client file~~
 * ~~Enable CORS~~
 * Refactor menu in seperate component
+* Refactor markdown in seperate component
+* Make tables sortable
