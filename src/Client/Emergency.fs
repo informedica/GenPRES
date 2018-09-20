@@ -70,7 +70,8 @@ module EmergencyList =
         (v * conc |> Math.fixPrecision 2, v)
 
 
-    let view isMobile age wght (model : Model) dispatch =
+    let view isMobile ageInMo wght (model : Model) dispatch =
+        let age = (ageInMo |> float) / 12.
 
         let tube = 
             let m = 
@@ -341,7 +342,9 @@ module ContMeds =
         |> List.filter (List.isEmpty >> not)
 
 
-    let view isMobile age wght (model : Model) dispatch =
+    let view isMobile ageInMo wght (model : Model) dispatch =
+        let age = (ageInMo |> float) / 12.
+
         let selected = 
             if model.Selections.Items.Head.Selected then []
             else
@@ -673,7 +676,7 @@ let init isMobile =
 
 let view isMobile (pat : Shared.Models.Patient.Patient) (model: Model) dispatch =
 
-    let age =  pat |> Shared.Models.Patient.getAgeMonths |> float
+    let age =  pat |> Shared.Models.Patient.getAgeInMonths
     let wght = pat |> Shared.Models.Patient.getWeight
 
     let tabs (model : Model) dispatch =
