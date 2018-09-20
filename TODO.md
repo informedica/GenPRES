@@ -21,6 +21,9 @@
 * Add neonatal calculations
 * Calculate intervantions for age/weight categories
 * Add burn surface area score
+* Add comfort score
+* Add stridor score
+* Add asthma score
 * Add calulated resuscitation protocol
 * Add calculated sepsis protocol
 
