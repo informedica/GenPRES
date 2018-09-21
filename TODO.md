@@ -37,3 +37,4 @@
 * Refactor menu in seperate component
 * Refactor markdown in seperate component
 * Make tables sortable
+* ~~Automate setting of build version~~

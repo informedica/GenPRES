@@ -12,9 +12,38 @@ open Fake.Core
 open Fake.DotNet
 open Fake.IO
 
+
+module String =
+
+    let replace (os : string) (ns : string) (s: string) =
+        s.Replace(os, ns)
+
+
+module File =
+
+    open System.IO
+
+    let writeTextToFile path text =
+        File.WriteAllText(path, text) 
+
+    let exists path =
+        File.Exists(path)
+
+
+
 let serverPath = Path.getFullName "./src/Server"
 let clientPath = Path.getFullName "./src/Client"
 let deployDir = Path.getFullName "./deploy"
+
+let gitCountPath = Path.getFullName "./src/Client/lib/gitCount.js"
+
+let gitCount = """
+module.exports = {
+    count : $0
+};
+"""
+
+let gitCountCmd = "rev-list --count HEAD"
 
 let platformTool tool winTool =
     let tool = if Environment.isUnix then tool else winTool
@@ -83,6 +112,18 @@ Target.create "Build" (fun _ ->
     runDotNet "fable webpack --port free -- -p" clientPath
 )
 
+Target.create "SetGitCount" (fun _ ->
+    let count = 
+        gitCountCmd
+        |> Fake.Tools.Git.CommandHelper.runSimpleGitCommand __SOURCE_DIRECTORY__
+
+    printfn "Setting build version to: %s" count
+    
+    gitCount
+    |> String.replace "$0" count
+    |> File.writeTextToFile gitCountPath
+)
+
 Target.create "Run" (fun _ ->
     let server = async {
         runDotNet "watch run" serverPath
@@ -118,15 +159,18 @@ Target.create "Bundle" (fun _ ->
 open Fake.Core.TargetOperators
 
 "Clean"
+    ==> "SetGitCount"
     ==> "InstallClient"
     ==> "Build"
 
 "Clean"
+    ==> "SetGitCount"
     ==> "InstallClient"
     ==> "RestoreServer"
     ==> "Run"
 
 "Clean"
+    ==> "SetGitCount"
     ==> "InstallClient"
     ==> "Build"
     ==> "Bundle"

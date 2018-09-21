@@ -25,6 +25,13 @@ module Table = Component.Table
 let userAgent : string = jsNative
 
 
+[<Import("count", "./lib/gitCount.js")>]
+let gitCount : int = jsNative
+
+
+let version = sprintf "0.0.1.%i" gitCount
+
+
 type MarkDown =
     abstract render : string -> obj
 
@@ -97,7 +104,7 @@ let init () : Model * Cmd<Msg> =
 
     printfn "User Agent = %s" userAgent
     
-    let genpres = { Name = "GenPres OFFLINE"; Version = "0.01" }
+    let genpres = { Name = "GenPres OFFLINE"; Version = version }
 
     let device = createDevice ()
 
@@ -140,7 +147,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
  
     | GenPresLoaded (Ok genpres) ->
-        { model with GenPres = Some genpres }, Cmd.none
+        { model with GenPres = { genpres with Version = version } |> Some }, Cmd.none
 
     | CalculatorMsg msg ->
         { model with CalculatorModel = model.CalculatorModel |> Calculator.update msg  }, Cmd.none
@@ -148,7 +155,13 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | ChangePage page ->
         { model with Page = page}, Cmd.none
 
-    | GenPresLoaded (_) -> model, Cmd.none
+    | GenPresLoaded (_) -> 
+        let gp =
+            match model.GenPres with 
+            | Some gp' -> { gp' with Version = version } |> Some
+            | None -> None
+        printfn "GenPresLoaded %A" gp
+        { model with GenPres = gp }, Cmd.none
 
     | MenuMsg msg ->
         match msg with
@@ -171,9 +184,16 @@ is te vinden op [Github](http://github.com/halcwb/GenPres2.git).
 """
     htmlFromMarkdown txt
 
-let show = function
-| { GenPres = Some x } -> sprintf "%s versie: %s" x.Name x.Version 
-| { GenPres = None   } -> "Laden ..."
+let show model = 
+    match model with
+    | { GenPres = Some x } -> 
+        div []
+            [ Heading.h3 [ Heading.Option.CustomClass "has-text-white" ] [ x.Name |> str ]
+              Heading.h6 [ Heading.Option.CustomClass "has-text-white" ] [ "versie " + x.Version |> str ]
+            ]
+
+    | { GenPres = None   } ->
+        Heading.h3 [ Heading.Option.CustomClass "has-text-white" ] [ "Laden ..." |> str ]
 
 
 let topView dispatch model =
@@ -195,9 +215,9 @@ let topView dispatch model =
         [ Navbar.Color IsPrimary
           Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
           Navbar.HasShadow ]
+        
         [ Navbar.Item.div [ ]
-            [ Heading.h3 [ Heading.Option.CustomClass "has-text-white" ]
-                [ str (show model) ] ]
+                [ show model ] 
 
           Navbar.End.div []
               [ Navbar.Item.div 
