@@ -2,6 +2,8 @@ module Client
 
 open Elmish
 open Elmish.React
+open Elmish.Browser.Navigation
+open Elmish.Browser.UrlParser
 
 open Fable.Core
 open Fable.Core.JsInterop
@@ -14,9 +16,11 @@ open Fulma
 open Component
 
 open Shared
+open System
 
 module Math = Utils.Math
 module String = Utils.String
+module DateTime = Utils.DateTime
 module Select = Component.Select
 module Table = Component.Table
 
@@ -47,8 +51,32 @@ type DangerousInnerHtml =
 
 
 let htmlFromMarkdown str = 
-    printfn "Markdown: %s" (str |> md.render |> string)
     div [ DangerouslySetInnerHTML { __html = md.render str |> string } ] []
+
+
+module Query = 
+
+    type PatientQuery = 
+        {
+            BirthYear : int option
+            BirthMonth : int option
+            BirthDay : int option
+            WeightGram : int option
+            HeightCm : int option            
+        }
+
+    type Route =
+        | Query of PatientQuery
+        static member FromParams by bm bd wt ht =
+            { BirthYear = by; BirthMonth = bm; BirthDay = bd; WeightGram = wt; HeightCm = ht }
+            |> Query
+
+    let route : Parser<Route -> Route,_> =
+        let map = Elmish.Browser.UrlParser.map
+
+        oneOf [
+            map (Route.FromParams) (top <?> intParam "by" <?> intParam "bm" <?> intParam "bd" <?> intParam "wt" <?> intParam "ht") 
+        ]
 
 
 // The model holds data that you want to keep track of while the application is running
@@ -95,6 +123,25 @@ let updateGenPres (model : Model) =
     { model with GenPres = Some gp }
 
 
+let urlUpdate (result : Query.Route Option) (model : Model) =
+    match result with
+    | Some (Query.Query pat) ->
+        printfn "urlUpdate: %A" pat
+        let pat =
+            DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay
+            |> DateTime.dateDiffYearsMonths DateTime.Now
+            |> (fun (yr, mo) ->
+                model.PatientModel 
+                |> Models.Patient.updateAgeYears yr
+                |> Models.Patient.updateAgeMonths mo
+            )
+            
+        { model with PatientModel = pat }, Cmd.none
+
+    | None -> model, Cmd.none
+    
+
+
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
@@ -108,7 +155,7 @@ and MenuMsg = CalculatorMenuMsg | MainMenuMsg
 
 
 // defines the initial state and initial command (= side-effect) of the application
-let init () : Model * Cmd<Msg> =
+let init (result : Query.Route Option) : Model * Cmd<Msg> =
 
     printfn "User Agent = %s" userAgent
     
@@ -136,7 +183,7 @@ let init () : Model * Cmd<Msg> =
             (Ok >> GenPresLoaded)
             (Error >> GenPresLoaded)
 
-    initialModel, loadCountCmd
+    initialModel |> urlUpdate result |> fst, loadCountCmd
 
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
@@ -270,13 +317,14 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
 #if DEBUG
 open Elmish.Debug
-open Elmish.HMR
+open Elmish.HMR 
 #endif
 
 Program.mkProgram init update view
+|> Program.toNavigable (parsePath Query.route) urlUpdate
 #if DEBUG
 |> Program.withConsoleTrace
-|> Program.withHMR
+|> Program.withHMR  
 #endif
 |> Program.withReact "elmish-app"
 #if DEBUG

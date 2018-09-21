@@ -37,8 +37,6 @@ module Utils =
 
     module Math =
 
-        open System
-
         let roundBy s n =
             (n / s)
                 |> round
@@ -137,3 +135,37 @@ module Utils =
                         [ x ] |> List.append xs
                 )
                 []
+
+
+    module DateTime =
+
+        let apply f (dt : DateTime) = f dt
+
+
+        let get = apply id
+
+
+        let optionToDate yr mo dy =
+            let get = Option.defaultValue 1
+            new DateTime((yr |> get), (mo |> get), (dy |> get))
+
+
+        let dateDiff dt1 dt2 =
+            (dt1 |> get) - (dt2 |> get)
+
+
+        let dateDiffDays dt1 dt2 =
+            (dateDiff dt1 dt2).Days
+
+
+        let dateDiffMonths dt1 dt2 =
+            (dateDiffDays dt1 dt2)
+            |> float
+            |> (fun x -> x / 365.)
+            |> ((*) 12.)
+
+
+        let dateDiffYearsMonths dt1 dt2 =
+            let mos = (dateDiffMonths dt1 dt2) |> int
+
+            (mos / 12), (mos % 12)
