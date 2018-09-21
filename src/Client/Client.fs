@@ -29,7 +29,7 @@ let userAgent : string = jsNative
 let gitCount : int = jsNative
 
 
-let version = sprintf "0.0.1.%i" gitCount
+let version = sprintf "0.0.%i" gitCount
 
 
 type MarkDown =
@@ -87,6 +87,14 @@ let createDevice () =
         Height = Fable.Import.Browser.screen.height        
     }
 
+let updateGenPres (model : Model) =
+    let gp =
+        match model.GenPres with
+        | Some gp' -> { gp' with Version = version }
+        | None ->  { Name = "GenPres OFFLINE"; Version = version }
+    { model with GenPres = Some gp }
+
+
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
@@ -104,8 +112,6 @@ let init () : Model * Cmd<Msg> =
 
     printfn "User Agent = %s" userAgent
     
-    let genpres = { Name = "GenPres OFFLINE"; Version = version }
-
     let device = createDevice ()
 
     let pat = Patient.init ()
@@ -114,7 +120,7 @@ let init () : Model * Cmd<Msg> =
     
     let initialModel = 
         { 
-            GenPres = Some genpres
+            GenPres = None
             Page = EmergencyListPage
             PatientModel = pat
             Device = device
@@ -147,7 +153,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
  
     | GenPresLoaded (Ok genpres) ->
-        { model with GenPres = { genpres with Version = version } |> Some }, Cmd.none
+        model |> updateGenPres, Cmd.none
 
     | CalculatorMsg msg ->
         { model with CalculatorModel = model.CalculatorModel |> Calculator.update msg  }, Cmd.none
@@ -156,12 +162,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Page = page}, Cmd.none
 
     | GenPresLoaded (_) -> 
-        let gp =
-            match model.GenPres with 
-            | Some gp' -> { gp' with Version = version } |> Some
-            | None -> None
-        printfn "GenPresLoaded %A" gp
-        { model with GenPres = gp }, Cmd.none
+        model |> updateGenPres, Cmd.none
 
     | MenuMsg msg ->
         match msg with
