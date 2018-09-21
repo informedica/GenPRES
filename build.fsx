@@ -155,6 +155,9 @@ Target.create "Bundle" (fun _ ->
 )
 
 
+Target.create "Update" (fun _ ->
+    printfn "Dummy target to get fake to update if new modules are installed"
+)
 
 open Fake.Core.TargetOperators
 
