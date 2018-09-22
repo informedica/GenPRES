@@ -75,7 +75,7 @@ module Query =
         let map = Elmish.Browser.UrlParser.map
 
         oneOf [
-            map (Route.FromParams) (top <?> intParam "by" <?> intParam "bm" <?> intParam "bd" <?> intParam "wt" <?> intParam "ht") 
+            map (Route.FromParams) (top <?> intParam "bty" <?> intParam "btm" <?> intParam "btd" <?> intParam "wth" <?> intParam "hth") 
         ]
 
 
