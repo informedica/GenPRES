@@ -135,6 +135,10 @@ module Models =
 
         let updateAgeMonths mo = updateAge None (Some mo)
 
+        let updateWeightGram gr pat =
+            let kg = gr / 1000.
+            { (pat |> get) with Weight = { pat.Weight with Measured = kg  } }
+
 
         let calcBMI isEst pat = 
             let l = 

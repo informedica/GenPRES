@@ -158,6 +158,7 @@ let urlUpdate (result : Query.Route Option) (model : Model) =
     match result with
     | Some (Query.Query pat) ->
         printfn "urlUpdate: %A" pat
+
         let pat =
             DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay
             |> DateTime.dateDiffYearsMonths DateTime.Now
@@ -165,6 +166,11 @@ let urlUpdate (result : Query.Route Option) (model : Model) =
                 model.PatientModel 
                 |> Models.Patient.updateAgeYears yr
                 |> Models.Patient.updateAgeMonths mo
+                |> (fun p ->
+                    match pat.WeightGram with
+                    | Some gr -> p |> Models.Patient.updateWeightGram (gr |> float)
+                    | None -> p
+                )
             )
             
         { model with PatientModel = pat } , loadCountCmd
