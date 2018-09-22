@@ -25,8 +25,16 @@ module Select = Component.Select
 module Table = Component.Table
 
 
+/// Setup older browser support for
+/// `fetch` and `promises`.
+importDefault "isomorphic-fetch"
+let polyFill : unit -> unit = import "polyfill" "es6-promise"
+polyFill ()
+
+
 [<Emit("navigator.userAgent")>]
 let userAgent : string = jsNative
+
 
 
 [<Import("count", "./lib/gitCount.js")>]
@@ -73,9 +81,11 @@ module Query =
 
     let route : Parser<Route -> Route,_> =
         let map = Elmish.Browser.UrlParser.map
+        let s = Elmish.Browser.UrlParser.s
 
         oneOf [
             map (Route.FromParams) (top <?> intParam "bty" <?> intParam "btm" <?> intParam "btd" <?> intParam "wth" <?> intParam "hth") 
+            map (Route.FromParams) (s "noodlijst2" </> top <?> intParam "bty" <?> intParam "btm" <?> intParam "btd" <?> intParam "wth" <?> intParam "hth") 
         ]
 
 
@@ -123,23 +133,6 @@ let updateGenPres (model : Model) =
     { model with GenPres = Some gp }
 
 
-let urlUpdate (result : Query.Route Option) (model : Model) =
-    match result with
-    | Some (Query.Query pat) ->
-        printfn "urlUpdate: %A" pat
-        let pat =
-            DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay
-            |> DateTime.dateDiffYearsMonths DateTime.Now
-            |> (fun (yr, mo) ->
-                model.PatientModel 
-                |> Models.Patient.updateAgeYears yr
-                |> Models.Patient.updateAgeMonths mo
-            )
-            
-        { model with PatientModel = pat }, Cmd.none
-
-    | None -> model, Cmd.none
-    
 
 
 // The Msg type defines what events/actions can occur while the application is running
@@ -154,8 +147,33 @@ type Msg =
 and MenuMsg = CalculatorMenuMsg | MainMenuMsg
 
 
+let urlUpdate (result : Query.Route Option) (model : Model) =
+    let loadCountCmd =
+        Cmd.ofPromise
+            ( fetchAs<GenPres> "http://localhost:8085/api/init" )
+            []
+            (Ok >> GenPresLoaded)
+            (Error >> GenPresLoaded)
+
+    match result with
+    | Some (Query.Query pat) ->
+        printfn "urlUpdate: %A" pat
+        let pat =
+            DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay
+            |> DateTime.dateDiffYearsMonths DateTime.Now
+            |> (fun (yr, mo) ->
+                model.PatientModel 
+                |> Models.Patient.updateAgeYears yr
+                |> Models.Patient.updateAgeMonths mo
+            )
+            
+        { model with PatientModel = pat } , loadCountCmd
+
+    | None -> model , loadCountCmd
+    
+
 // defines the initial state and initial command (= side-effect) of the application
-let init (result : Query.Route Option) : Model * Cmd<Msg> =
+let init result : Model * Cmd<Msg> =
 
     printfn "User Agent = %s" userAgent
     
@@ -176,14 +194,8 @@ let init (result : Query.Route Option) : Model * Cmd<Msg> =
             CalculatorModel = Calculator.init pat
         }
 
-    let loadCountCmd =
-        Cmd.ofPromise
-            ( fetchAs<GenPres> "http://localhost:8085/api/init" )
-            []
-            (Ok >> GenPresLoaded)
-            (Error >> GenPresLoaded)
 
-    initialModel |> urlUpdate result |> fst, loadCountCmd
+    initialModel |> urlUpdate result
 
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
@@ -200,7 +212,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
  
     | GenPresLoaded (Ok genpres) ->
-        model |> updateGenPres, Cmd.none
+        
+        { model with GenPres = Some genpres } |> updateGenPres, Cmd.none
 
     | CalculatorMsg msg ->
         { model with CalculatorModel = model.CalculatorModel |> Calculator.update msg  }, Cmd.none
