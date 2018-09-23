@@ -279,7 +279,7 @@ let navbarView dispatch model =
     let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
 
     let menu =
-        [ Navbar.menuItem (Some FontAwesome.Fa.I.Ambulance) "Noodlijst" openERL 
+        [ Navbar.menuItem (Some FontAwesome.Fa.I.Ambulance) "Acute Opvang" openERL 
           Navbar.divider
           Navbar.menuItem (Some FontAwesome.Fa.I.Calculator) "Calculators" openCalc
         ]
@@ -288,50 +288,6 @@ let navbarView dispatch model =
         Navbar.config (createBrand model) [] menu
 
     Navbar.navbarView (NavbarMsg >> dispatch) config model.NavbarModel
-
-
-    // let calcMenu isMobile (model : NavbarMenu) =
-    //     if isMobile && not model.CalculatorMenu then []
-    //     else
-    //         [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "Score Calculators" ] ]
-
-    // let mainMenu isMobile (model : NavbarMenu) =
-    //     if isMobile && not model.MainMenu then []
-    //     else
-    //         [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
-    //           Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ]    
-
-    // let iconModWhite = Icon.Modifiers [ Modifier.TextColor IsWhite ]
-
-    // Navbar.navbar 
-    //     [ Navbar.Color Color.IsDark
-    //       Navbar.Modifiers [ Modifier.TextColor IsWhite ]
-    //       Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
-    //       Navbar.HasShadow ]
-        
-    //     [ Navbar.Brand.div [ ]
-    //             [ show model ] 
-
-    //       Navbar.End.div []
-    //           [ Navbar.Item.div 
-    //                 [ Navbar.Item.IsHoverable
-    //                   Navbar.Item.HasDropdown ] 
-    //                 [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> CalculatorMenuMsg |> MenuMsg |> dispatch )] ] 
-    //                     [ Fulma.FontAwesome.Icon.faIcon 
-    //                         [ Icon.Size IsSmall; iconModWhite ] 
-    //                         [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
-    //                   Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-    //                      (calcMenu model.Device.IsMobile model.ShowMenu) ]
-                           
-    //             Navbar.Item.div 
-    //                 [ Navbar.Item.IsHoverable
-    //                   Navbar.Item.HasDropdown ] 
-    //                 [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> MainMenuMsg |> MenuMsg |> dispatch )] ]  
-    //                     [ Fulma.FontAwesome.Icon.faIcon 
-    //                         [ Icon.Size IsSmall; iconModWhite ] 
-    //                         [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
-    //                   Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-    //                      (mainMenu model.Device.IsMobile model.ShowMenu) ] ] ]
 
 
 let bottomView =

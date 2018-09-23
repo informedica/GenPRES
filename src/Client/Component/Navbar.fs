@@ -87,6 +87,7 @@ module Navbar =
                   span [] []
                   span [] [] ]
 
+        // burger is the last child of brand
         let brand = Navbar.Brand.div [] [ config.Brand; burger ]
 
         let createMenu isEnd items =
@@ -116,6 +117,7 @@ module Navbar =
             
             Navbar.Item.div  [ Navbar.Item.HasDropdown 
                                Navbar.Item.IsHoverable ]
+                // Clicking this link div on an ipad doesn't do anything                            
                 [ Navbar.Link.div [ ]
                     [ burgerIcon ]      
                 
