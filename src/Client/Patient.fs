@@ -89,6 +89,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             if x < 2. then model, Cmd.none
             else
                 { model with Weight = { model.Weight with Measured = x }}, Cmd.none
+
         | false, _ -> model, Cmd.none
 
     | HeightChange s ->
@@ -99,6 +100,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             if x < 40. || x > 200. then model, Cmd.none
             else
                 { model with Height = { model.Height with Measured = x }}, Cmd.none
+        
         | false, _ -> model, Cmd.none
 
     | Clear ->

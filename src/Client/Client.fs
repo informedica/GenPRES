@@ -25,6 +25,7 @@ module DateTime = Utils.DateTime
 module List = Utils.List
 module Select = Component.Select
 module Table = Component.Table
+module Navbar = Component.Navbar
 
 
 /// Setup older browser support for
@@ -98,6 +99,7 @@ module Query =
 type Model = 
     { 
         GenPres : GenPres option
+        NavbarModel : Navbar.Model
         PatientModel : Patient.Model
         Page : Page
         Device : Device
@@ -140,6 +142,7 @@ let updateGenPres (model : Model) =
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
 type Msg =
+| NavbarMsg of Navbar.Msg
 | PatientMsg of Patient.Msg
 | EmergencyMsg of Emergency.Msg
 | MenuMsg of MenuMsg
@@ -194,6 +197,7 @@ let init result : Model * Cmd<Msg> =
     let initialModel = 
         { 
             GenPres = None
+            NavbarModel = Navbar.init ()
             Page = EmergencyListPage
             PatientModel = pat
             Device = device
@@ -211,6 +215,8 @@ let init result : Model * Cmd<Msg> =
 // these commands in turn, can dispatch messages to which the update function will react.
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
+    | NavbarMsg msg -> 
+        { model with NavbarModel = model.NavbarModel |> Navbar.update msg }, Cmd.none
 
     | PatientMsg msg ->
         let pat, cmd = Patient.update msg model.PatientModel
@@ -253,13 +259,13 @@ is te vinden op [Github](http://github.com/halcwb/GenPres2.git).
 """
     htmlFromMarkdown txt
 
-let show model = 
-    let inl = Heading.Props [ Style [ CSSProp.Display "inline-block"; CSSProp.PaddingRight "10px" ] ]
+let createBrand model = 
+    let inl = Heading.Props [ Style [ CSSProp.Display "inline-block"; CSSProp.PaddingLeft "10px" ] ]
 
     match model with
     | { GenPres = Some x } -> 
         div [ ]
-            [ Heading.h3 [ Heading.Option.CustomClass "has-text-white"; inl ] [ x.Name |> str ]
+            [ Heading.h2 [ Heading.Option.CustomClass "has-text-white"; inl ] [ x.Name |> str ]
               Heading.h6 [ Heading.Option.CustomClass "has-text-white"; inl ] [ "versie " + x.Version |> str ]
             ]
 
@@ -267,52 +273,65 @@ let show model =
         Heading.h3 [ Heading.Option.CustomClass "has-text-white" ] [ "Laden ..." |> str ]
 
 
-let topView dispatch model =
-    let openPEWS = fun _ -> CalculatorPage    |> ChangePage |> dispatch
+let navbarView dispatch model =
+
+    let openCalc = fun _ -> CalculatorPage    |> ChangePage |> dispatch
     let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
 
-    let calcMenu isMobile (model : NavbarMenu) =
-        if isMobile && not model.CalculatorMenu then []
-        else
-            [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "Score Calculators" ] ]
+    let menu =
+        [ Navbar.menuItem (Some FontAwesome.Fa.I.Ambulance) "Noodlijst" openERL 
+          Navbar.divider
+          Navbar.menuItem (Some FontAwesome.Fa.I.Calculator) "Calculators" openCalc
+        ]
 
-    let mainMenu isMobile (model : NavbarMenu) =
-        if isMobile && not model.MainMenu then []
-        else
-            [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
-              Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ]    
+    let config = 
+        Navbar.config (createBrand model) [] menu
 
-    let iconModWhite = Icon.Modifiers [ Modifier.TextColor IsWhite ]
+    Navbar.navbarView (NavbarMsg >> dispatch) config model.NavbarModel
 
-    Navbar.navbar 
-        [ Navbar.Color Color.IsDark
-          Navbar.Modifiers [ Modifier.TextColor IsWhite ]
-          Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
-          Navbar.HasShadow ]
+
+    // let calcMenu isMobile (model : NavbarMenu) =
+    //     if isMobile && not model.CalculatorMenu then []
+    //     else
+    //         [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "Score Calculators" ] ]
+
+    // let mainMenu isMobile (model : NavbarMenu) =
+    //     if isMobile && not model.MainMenu then []
+    //     else
+    //         [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
+    //           Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ]    
+
+    // let iconModWhite = Icon.Modifiers [ Modifier.TextColor IsWhite ]
+
+    // Navbar.navbar 
+    //     [ Navbar.Color Color.IsDark
+    //       Navbar.Modifiers [ Modifier.TextColor IsWhite ]
+    //       Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
+    //       Navbar.HasShadow ]
         
-        [ Navbar.Item.div [ ]
-                [ show model ] 
+    //     [ Navbar.Brand.div [ ]
+    //             [ show model ] 
 
-          Navbar.End.div []
-              [ Navbar.Item.div 
-                    [ Navbar.Item.IsHoverable
-                      Navbar.Item.HasDropdown ] 
-                    [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> CalculatorMenuMsg |> MenuMsg |> dispatch )] ] 
-                        [ Fulma.FontAwesome.Icon.faIcon 
-                            [ Icon.Size IsSmall; iconModWhite ] 
-                            [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
-                      Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                         (calcMenu model.Device.IsMobile model.ShowMenu) ]
+    //       Navbar.End.div []
+    //           [ Navbar.Item.div 
+    //                 [ Navbar.Item.IsHoverable
+    //                   Navbar.Item.HasDropdown ] 
+    //                 [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> CalculatorMenuMsg |> MenuMsg |> dispatch )] ] 
+    //                     [ Fulma.FontAwesome.Icon.faIcon 
+    //                         [ Icon.Size IsSmall; iconModWhite ] 
+    //                         [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
+    //                   Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
+    //                      (calcMenu model.Device.IsMobile model.ShowMenu) ]
                            
-                Navbar.Item.div 
-                    [ Navbar.Item.IsHoverable
-                      Navbar.Item.HasDropdown ] 
-                    [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> MainMenuMsg |> MenuMsg |> dispatch )] ]  
-                        [ Fulma.FontAwesome.Icon.faIcon 
-                            [ Icon.Size IsSmall; iconModWhite ] 
-                            [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
-                      Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
-                         (mainMenu model.Device.IsMobile model.ShowMenu) ] ] ]
+    //             Navbar.Item.div 
+    //                 [ Navbar.Item.IsHoverable
+    //                   Navbar.Item.HasDropdown ] 
+    //                 [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> MainMenuMsg |> MenuMsg |> dispatch )] ]  
+    //                     [ Fulma.FontAwesome.Icon.faIcon 
+    //                         [ Icon.Size IsSmall; iconModWhite ] 
+    //                         [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
+    //                   Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
+    //                      (mainMenu model.Device.IsMobile model.ShowMenu) ] ] ]
 
 
 let bottomView =
@@ -333,7 +352,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
         | EmergencyListPage -> Emergency.view model.Device.IsMobile model.PatientModel model.EmergencyModel (EmergencyMsg >> dispatch)
     
     div [ ]
-        [ model |> topView dispatch  
+        [ model |> navbarView (dispatch)  
 
           Container.container [ Container.Props [Style [ CSSProp.Padding "10px"] ] ]
               [ patView

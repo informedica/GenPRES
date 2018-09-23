@@ -10,6 +10,7 @@
         <Compile Include=".\Component\Select.fs" />
         <Compile Include=".\Component\Table.fs" />
         <Compile Include=".\Component\Modal.fs" />
+        <Compile Include=".\Component\Navbar.fs" />
         <Compile Include="Patient.fs" />
         <Compile Include="Calculator.fs" />
         <Compile Include="Emergency.fs" />
