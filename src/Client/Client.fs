@@ -172,8 +172,8 @@ let urlUpdate (result : Query.Route Option) (model : Model) =
                     | None -> p
                 )
             )
-            
-        { model with PatientModel = pat } , loadCountCmd
+        // Dirty fix to enable right calculator model patient
+        { model with PatientModel = pat ; CalculatorModel = Calculator.init pat } , loadCountCmd
 
     | None -> model , loadCountCmd
     
