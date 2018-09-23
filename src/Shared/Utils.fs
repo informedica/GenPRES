@@ -106,6 +106,8 @@ module Utils =
 
     module List =
 
+        let create x = x::[]
+
         let findNearestMax n ns =
             match ns with
             | [] ->

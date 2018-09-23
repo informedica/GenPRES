@@ -38,3 +38,4 @@
 * Refactor markdown in seperate component
 * Make tables sortable
 * ~~Automate setting of build version~~
+* Refactor navbar, use burger and menu

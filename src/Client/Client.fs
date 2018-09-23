@@ -17,10 +17,12 @@ open Component
 
 open Shared
 open System
+open Fulma
 
 module Math = Utils.Math
 module String = Utils.String
 module DateTime = Utils.DateTime
+module List = Utils.List
 module Select = Component.Select
 module Table = Component.Table
 
@@ -252,11 +254,13 @@ is te vinden op [Github](http://github.com/halcwb/GenPres2.git).
     htmlFromMarkdown txt
 
 let show model = 
+    let inl = Heading.Props [ Style [ CSSProp.Display "inline-block"; CSSProp.PaddingRight "10px" ] ]
+
     match model with
     | { GenPres = Some x } -> 
-        div []
-            [ Heading.h3 [ Heading.Option.CustomClass "has-text-white" ] [ x.Name |> str ]
-              Heading.h6 [ Heading.Option.CustomClass "has-text-white" ] [ "versie " + x.Version |> str ]
+        div [ ]
+            [ Heading.h3 [ Heading.Option.CustomClass "has-text-white"; inl ] [ x.Name |> str ]
+              Heading.h6 [ Heading.Option.CustomClass "has-text-white"; inl ] [ "versie " + x.Version |> str ]
             ]
 
     | { GenPres = None   } ->
@@ -270,7 +274,7 @@ let topView dispatch model =
     let calcMenu isMobile (model : NavbarMenu) =
         if isMobile && not model.CalculatorMenu then []
         else
-            [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "PEWS score" ] ]
+            [ Navbar.Item.a [ Navbar.Item.Props  [ OnClick openPEWS ] ] [ str "Score Calculators" ] ]
 
     let mainMenu isMobile (model : NavbarMenu) =
         if isMobile && not model.MainMenu then []
@@ -278,8 +282,11 @@ let topView dispatch model =
             [ Navbar.Item.a [ Navbar.Item.Props [ OnClick openERL ] ] [ str "Acute Opvang" ]
               Navbar.Item.a [] [ str "Medicatie Voorschrijven" ] ]    
 
+    let iconModWhite = Icon.Modifiers [ Modifier.TextColor IsWhite ]
+
     Navbar.navbar 
-        [ Navbar.Color IsPrimary
+        [ Navbar.Color Color.IsDark
+          Navbar.Modifiers [ Modifier.TextColor IsWhite ]
           Navbar.Props [ Style [ CSSProp.Padding "10px" ] ]
           Navbar.HasShadow ]
         
@@ -290,19 +297,19 @@ let topView dispatch model =
               [ Navbar.Item.div 
                     [ Navbar.Item.IsHoverable
                       Navbar.Item.HasDropdown ] 
-                    [ Navbar.Item.a [ Navbar.Item.Props [OnClick (fun _ -> CalculatorMenuMsg |> MenuMsg |> dispatch )] ] 
+                    [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> CalculatorMenuMsg |> MenuMsg |> dispatch )] ] 
                         [ Fulma.FontAwesome.Icon.faIcon 
-                            [ Icon.Size IsSmall ] 
+                            [ Icon.Size IsSmall; iconModWhite ] 
                             [ FontAwesome.Fa.icon FontAwesome.Fa.I.Calculator ] ]
                       Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
                          (calcMenu model.Device.IsMobile model.ShowMenu) ]
-                          
+                           
                 Navbar.Item.div 
                     [ Navbar.Item.IsHoverable
                       Navbar.Item.HasDropdown ] 
-                    [ Navbar.Item.a [ Navbar.Item.Props [OnClick (fun _ -> MainMenuMsg |> MenuMsg |> dispatch )] ]  
+                    [ Navbar.Link.div [ Navbar.Link.Props [OnClick (fun _ -> MainMenuMsg |> MenuMsg |> dispatch )] ]  
                         [ Fulma.FontAwesome.Icon.faIcon 
-                            [ Icon.Size IsSmall ] 
+                            [ Icon.Size IsSmall; iconModWhite ] 
                             [ FontAwesome.Fa.icon FontAwesome.Fa.I.Bars ] ]
                       Navbar.Dropdown.div [ Navbar.Dropdown.IsRight ] 
                          (mainMenu model.Device.IsMobile model.ShowMenu) ] ] ]
@@ -328,7 +335,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
     div [ ]
         [ model |> topView dispatch  
 
-          Container.container [ Container.Props [Style [ CSSProp.Padding "10px"]] ]
+          Container.container [ Container.Props [Style [ CSSProp.Padding "10px"] ] ]
               [ patView
                 content ]
           bottomView  ] 
