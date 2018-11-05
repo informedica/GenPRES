@@ -148,8 +148,11 @@ module Utils =
 
 
         let optionToDate yr mo dy =
-            let get = Option.defaultValue 1
-            new DateTime((yr |> get), (mo |> get), (dy |> get))
+            match yr, mo, dy with
+            | Some y, Some m, Some d ->
+                new DateTime(y, m, d)
+                |> Some
+            | _ -> None            
 
 
         let dateDiff dt1 dt2 =

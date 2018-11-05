@@ -159,7 +159,10 @@ module Models =
                 sqrt (w * ((l |> float)) / 3600.) |> Some
             else None
 
-
+        
+        let calcNormalFluid pat =
+            let a = pat |> getAge
+            a
         let show pat =
             let pat = pat |> get
 

@@ -165,18 +165,21 @@ let urlUpdate (result : Query.Route Option) (model : Model) =
         printfn "urlUpdate: %A" pat
 
         let pat =
-            DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay
-            |> DateTime.dateDiffYearsMonths DateTime.Now
-            |> (fun (yr, mo) ->
-                model.PatientModel 
-                |> Models.Patient.updateAgeYears yr
-                |> Models.Patient.updateAgeMonths mo
-                |> (fun p ->
-                    match pat.WeightGram with
-                    | Some gr -> p |> Models.Patient.updateWeightGram (gr |> float)
-                    | None -> p
+            match DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay with
+            | Some dt ->
+                dt
+                |> DateTime.dateDiffYearsMonths DateTime.Now
+                |> (fun (yr, mo) ->
+                    model.PatientModel 
+                    |> Models.Patient.updateAgeYears yr
+                    |> Models.Patient.updateAgeMonths mo
+                    |> (fun p ->
+                        match pat.WeightGram with
+                        | Some gr -> p |> Models.Patient.updateWeightGram (gr |> float)
+                        | None -> p
+                    )
                 )
-            )
+            | None -> Models.Patient.patient            
         // Dirty fix to enable right calculator model patient
         { model with PatientModel = pat ; CalculatorModel = Calculator.init pat } , loadCountCmd
 

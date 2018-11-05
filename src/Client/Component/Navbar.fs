@@ -65,6 +65,8 @@ module Navbar =
 
     let navbarView dispatch (config : Config) (model : Model) =
 
+        let inl : IHTMLProp list = [ Style [ CSSProp.Display "inline-block"; CSSProp.PaddingLeft "10px" ] ]
+
         let iconModWhite = Icon.Modifiers [ Modifier.TextColor IsWhite ]
 
         let faIcon isWhite icon =
@@ -77,7 +79,7 @@ module Navbar =
                     [ Icon.Size IsSmall ] 
                     [ FontAwesome.Fa.icon icon ]
 
-        let burgerIcon = faIcon true FontAwesome.Fa.I.Bars
+        let burgerIcon = div [] [ div inl [ str "Menu" ]; div inl [ faIcon true FontAwesome.Fa.I.Bars ] ]
 
         let burger =
             Navbar.burger 
@@ -94,7 +96,6 @@ module Navbar =
             let ddr = if isEnd then [ Navbar.Dropdown.IsRight ] else []
 
             let itm i n = 
-                let inl : IHTMLProp list = [ Style [ CSSProp.Display "inline-block"; CSSProp.PaddingLeft "10px" ] ]
 
                 match i with
                 | Some icon ->
