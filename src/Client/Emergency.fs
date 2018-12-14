@@ -214,23 +214,23 @@ module ContMeds =
             { model with Selections = model.Selections |> Select.update msg }
 
 
-    let calcQty age (med : Shared.Continuous) =
-        match age with
-        | _ when age < 6.  -> med.Quantity2To6
-        | _ when age < 11. -> med.Quantity6To11
-        | _ when age < 40. -> med.Quantity11To40
+    let calcQty wght (med : Shared.Continuous) =
+        match wght with
+        | _ when wght < 6.  -> med.Quantity2To6
+        | _ when wght < 11. -> med.Quantity6To11
+        | _ when wght < 40. -> med.Quantity11To40
         | _ -> med.QuantityFrom40
 
 
-    let calcVol age (med : Shared.Continuous) =
-         match age with
-         | _ when age < 6.  -> med.Volume2To6
-         | _ when age < 11. -> med.Volume6To11
-         | _ when age < 40. -> med.VolumeFrom40
+    let calcVol wght (med : Shared.Continuous) =
+         match wght with
+         | _ when wght < 6.  -> med.Volume2To6
+         | _ when wght < 11. -> med.Volume6To11
+         | _ when wght < 40. -> med.VolumeFrom40
          | _ -> med.QuantityFrom40
 
 
-    let createModalTitleContent age (cont : Shared.Continuous) =
+    let createModalTitleContent wght (cont : Shared.Continuous) =
             let t = sprintf "Bereiding voor %s" cont.Generic
             let c =
                 match TreatmentData.products 
@@ -240,13 +240,13 @@ module ContMeds =
                 | Some (_, _, un, conc) ->
                     if conc = 0. then "Geen bereiding, oplossing is puur" |> str
                     else
-                        let q = (cont |> calcQty age) / conc
-                        let v = (cont |> calcVol age) - q
+                        let q = (cont |> calcQty wght) / conc
+                        let v = (cont |> calcVol wght) - q
                         [ sprintf "= %A ml van %s %A %s/ml + %A ml %s" q cont.Generic conc un v cont.Solution |> str ] 
                         |> List.append 
                             [
-                                let q = cont |> calcQty age
-                                let v = cont |> calcVol age
+                                let q = cont |> calcQty wght
+                                let v = cont |> calcVol wght
                                 yield [sprintf "%A %s %s in %A ml %s" q cont.Unit cont.Generic v cont.Solution |> str] |> Heading.h5 []
                             ]
                         |> Content.content []
@@ -325,8 +325,8 @@ module ContMeds =
         |> List.map createContMed
         |> List.sortBy (fun med -> med.Indication, med.Generic)
         |> List.map (fun med ->
-            let vol = med |> calcVol age
-            let qty = med |> calcQty age
+            let vol = med |> calcVol wght
+            let qty = med |> calcQty wght
 
             if vol = 0. then []
             else
