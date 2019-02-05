@@ -3,7 +3,7 @@ group Client
     Fable.Elmish.Debugger
     Fable.Elmish.React
     Fable.Elmish.HMR
-    Fable.Elmish.Browser
     Fable.Core
-    dotnet-fable
     Fulma
+    Fable.FontAwesome.Free
+

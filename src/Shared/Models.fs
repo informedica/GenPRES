@@ -4,7 +4,102 @@ open Shared.Utils
 
 module Models =
 
+
     module Patient =
+
+
+        module Age =
+
+
+            let (>==) r f = Result.bind f r
+
+
+            type Age = { Years : int ; Months : int; Weeks: int;  Days : int }
+
+
+            let ageZero = { Years = 0; Months = 0; Weeks = 0; Days = 0 }
+
+            
+            let validateMinMax lbl min max n =
+                if n >= min && n <= max then Result.Ok n
+                else 
+                    sprintf "%s: %i not >= %i and <= %i" lbl n min max
+                    |> Result.Error
+
+            
+            let set setter lbl min max n age =
+                n
+                |> validateMinMax lbl min max
+                >== ((setter age) >> Result.Ok)
+
+
+            let setYears = set (fun age n -> { age with Years = n}) "Years" 0 100 
+
+
+            let setMonths mos age =
+                age
+                |> setYears (mos / 12)
+                >== set (fun age n -> { age with Months = n }) "Months" 0 11 (mos % 12)
+
+
+            let setWeeks wks age =
+                let yrs = wks / 52
+                let mos = 
+                    (wks - yrs * 52) / 4 
+                let wks = 
+                    wks - (mos * 4) - (yrs * 52)
+                
+                age
+                |> setYears yrs
+                >== set (fun age n -> { age with Months = n }) "Months" 0 12 mos
+                >== set (fun age n -> { age with Weeks = n }) "Weeks" 0 4 wks
+
+
+            let setDays dys age =
+                let c = 356. / 12.
+                let yrs = dys / 356
+                let mos = 
+                    ((float dys) - (float yrs) * 356.) / c
+                    |> int
+                let wks = 
+                    (float dys) - ((float mos) * c) - (yrs * 356 |> float)
+                    |> int
+                    |> fun x -> x / 7
+                let dys =
+                    (float dys) - ((float mos) * c) - (yrs * 356 |> float)
+                    |> int
+                    |> fun x -> x % 7
+                
+                age
+                |> setYears yrs
+                >== set (fun age n -> { age with Months = n }) "Months" 0 12 mos
+                >== set (fun age n -> { age with Weeks = n }) "Weeks" 0 4 wks
+                >== set (fun age n -> { age with Days = n }) "Days" 0 6 dys
+
+
+            let getYears { Years = yrs } = yrs
+
+
+            let getMonths { Months = mos } = mos
+
+            let getWeeks { Weeks = ws } = ws
+
+
+            let getDays { Days = ds } = ds
+
+
+            let calcYears a = 
+                (a |> getYears |> float) + 
+                ((a |> getMonths |> float) / 12.)
+
+
+            let calcMonths a = 
+                (a |> getYears) * 12 + 
+                (a |> getMonths)
+
+
+
+        type Age = Age.Age
 
         /// Patient model for calculations
         type Patient = 
@@ -13,7 +108,6 @@ module Models =
                 Weight : Weight
                 Height : Height 
             }
-        and Age = { Years : int ; Months : int }
         /// Weight in kg
         and Weight = { Estimated : double; Measured : double }
         /// Length in cm
@@ -48,7 +142,7 @@ module Models =
 
 
         let patient = 
-            let age = { Years = 0; Months = 0 }
+            let age = Age.ageZero
             let wght : Weight = { Estimated = ageToWeight 0 0; Measured = 0.} 
             let hght = { Estimated = ageToHeight 0 0; Measured = 0. }
             { Age = age; Weight = wght; Height = hght }

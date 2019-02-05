@@ -127,7 +127,7 @@ let createInput value step name isMobile change dispatch vals =
             let opts =
                 vals
                 |> List.map (fun n ->
-                    option [ n |> Value ] [ n |> str ]
+                    option [ n |> box |> Value ] [ n |> str ]
                 )
 
             Select.select []

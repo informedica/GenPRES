@@ -9,10 +9,12 @@ open Elmish
 open Fulma
 
 open Shared
+open Patient
 
 module Select = Component.Select
 module Modal = Component.Modal
-module NormalValueData = Shared.Data.NormalValues
+module NormalValueData = Data.NormalValues
+module Patient = Models.Patient
 
 module PEWS =
 
@@ -65,7 +67,7 @@ module PEWS =
         { 
             AgeInMo = a
             Score = 0
-            Items = get a
+            Items = a |> get
         }
 
 
@@ -155,7 +157,7 @@ module PEWS =
             let opts =
                 vals
                 |> List.map (fun n ->
-                    option [ n |> Value ] [ n |> str ]
+                    option [ n |> box |> Value ] [ n |> str ]
                 )
 
             Select.select []
@@ -417,7 +419,7 @@ module GlascowComaScale =
             let opts =
                 vals
                 |> List.map (fun n ->
-                    option [ n |> Value ] [ n |> str ]
+                    option [ n |> box |> Value ] [ n |> str ]
                 )
 
             Select.select []

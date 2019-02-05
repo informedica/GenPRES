@@ -3,7 +3,7 @@
 
 #if !FAKE
 #r "netstandard"
-#r "Facades/netstandard" // https://github.com/ionide/ionide-vscode-fsharp/issues/839#issuecomment-396296095
+// #r "Facades/netstandard" // https://github.com/ionide/ionide-vscode-fsharp/issues/839#issuecomment-396296095
 #endif
 
 open System
@@ -11,6 +11,7 @@ open System
 open Fake.Core
 open Fake.DotNet
 open Fake.IO
+
 
 
 module String =
@@ -30,10 +31,11 @@ module File =
         File.Exists(path)
 
 
-
 let serverPath = Path.getFullName "./src/Server"
 let clientPath = Path.getFullName "./src/Client"
+let clientDeployPath = Path.combine clientPath "deploy"
 let deployDir = Path.getFullName "./deploy"
+
 
 let gitCountPath = Path.getFullName "./src/Client/lib/gitCount.js"
 
@@ -45,9 +47,10 @@ module.exports = {
 
 let gitCountCmd = "rev-list --count HEAD"
 
+
 let platformTool tool winTool =
     let tool = if Environment.isUnix then tool else winTool
-    match Process.tryFindFileOnPath tool with
+    match ProcessUtils.tryFindFileOnPath tool with
     | Some t -> t
     | _ ->
         let errorMsg =
@@ -59,39 +62,33 @@ let platformTool tool winTool =
 let nodeTool = platformTool "node" "node.exe"
 let yarnTool = platformTool "yarn" "yarn.cmd"
 
-let install = lazy DotNet.install DotNet.Versions.FromGlobalJson
-
-let inline withWorkDir wd =
-    DotNet.Options.lift install.Value
-    >> DotNet.Options.withWorkingDirectory wd
-
 let runTool cmd args workingDir =
-    let result =
-        Process.execSimple (fun info ->
-            { info with
-                FileName = cmd
-                WorkingDirectory = workingDir
-                Arguments = args })
-            TimeSpan.MaxValue
-    if result <> 0 then failwithf "'%s %s' failed" cmd args
+    let arguments = args |> String.split ' ' |> Arguments.OfArgs
+    Command.RawCommand (cmd, arguments)
+    |> CreateProcess.fromCommand
+    |> CreateProcess.withWorkingDirectory workingDir
+    |> CreateProcess.ensureExitCode
+    |> Proc.run
+    |> ignore
 
 let runDotNet cmd workingDir =
     let result =
-        DotNet.exec (withWorkDir workingDir) cmd ""
+        DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) cmd ""
     if result.ExitCode <> 0 then failwithf "'dotnet %s' failed in %s" cmd workingDir
 
 let openBrowser url =
-    let result =
-        //https://github.com/dotnet/corefx/issues/10361
-        Process.execSimple (fun info ->
-            { info with
-                FileName = url
-                UseShellExecute = true })
-            TimeSpan.MaxValue
-    if result <> 0 then failwithf "opening browser failed"
+    //https://github.com/dotnet/corefx/issues/10361
+    Command.ShellCommand url
+    |> CreateProcess.fromCommand
+    |> CreateProcess.ensureExitCodeWithMessage "opening browser failed"
+    |> Proc.run
+    |> ignore
+
 
 Target.create "Clean" (fun _ ->
-    Shell.cleanDirs [deployDir]
+    [ deployDir
+      clientDeployPath ]
+    |> Shell.cleanDirs
 )
 
 Target.create "InstallClient" (fun _ ->
@@ -103,13 +100,35 @@ Target.create "InstallClient" (fun _ ->
     runDotNet "restore" clientPath
 )
 
-Target.create "RestoreServer" (fun _ ->
-    runDotNet "restore" serverPath
-)
-
 Target.create "Build" (fun _ ->
     runDotNet "build" serverPath
-    runDotNet "fable webpack --port free -- -p" clientPath
+    runTool yarnTool "webpack-cli -p" __SOURCE_DIRECTORY__
+)
+
+Target.create "Run" (fun _ ->
+    let server = async {
+        runDotNet "watch run" serverPath
+    }
+    let client = async {
+        runTool yarnTool "webpack-dev-server" __SOURCE_DIRECTORY__
+    }
+    let browser = async {
+        do! Async.Sleep 5000
+        openBrowser "http://localhost:8080"
+    }
+
+    let vsCodeSession = Environment.hasEnvironVar "vsCodeSession"
+    let safeClientOnly = Environment.hasEnvironVar "safeClientOnly"
+
+    let tasks =
+        [ if not safeClientOnly then yield server
+          yield client
+          if not vsCodeSession then yield browser ]
+
+    tasks
+    |> Async.Parallel
+    |> Async.RunSynchronously
+    |> ignore
 )
 
 Target.create "SetGitCount" (fun _ ->
@@ -124,24 +143,9 @@ Target.create "SetGitCount" (fun _ ->
     |> File.writeTextToFile gitCountPath
 )
 
-Target.create "Run" (fun _ ->
-    let server = async {
-        runDotNet "watch run" serverPath
-    }
-    let client = async {
-        runDotNet "fable webpack-dev-server --port free" clientPath
-    }
-    let browser = async {
-        do! Async.Sleep 5000
-        //openBrowser "http://localhost:8080"
-    }
-
-    [ server; client; browser ]
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> ignore
-)
-
+let buildDocker tag =
+    let args = sprintf "build -t %s ." tag
+    runTool "docker" args "."
 
 Target.create "Bundle" (fun _ ->
     let serverDir = Path.combine deployDir "Server"
@@ -151,26 +155,20 @@ Target.create "Bundle" (fun _ ->
     let publishArgs = sprintf "publish -c Release -o \"%s\"" serverDir
     runDotNet publishArgs serverPath
 
-    Shell.copyDir publicDir "src/Client/public" FileFilter.allFiles
+    Shell.copyDir publicDir clientDeployPath FileFilter.allFiles
 )
 
+let dockerUser = "halcwb"
+let dockerImageName = "genpres"
+let dockerFullName = sprintf "%s/%s" dockerUser dockerImageName
 
-Target.create "Update" (fun _ ->
-    printfn "Dummy target to get fake to update if new modules are installed"
+Target.create "Docker" (fun _ ->
+    buildDocker dockerFullName
 )
+
 
 open Fake.Core.TargetOperators
 
-"Clean"
-    ==> "SetGitCount"
-    ==> "InstallClient"
-    ==> "Build"
-
-"Clean"
-    ==> "SetGitCount"
-    ==> "InstallClient"
-    ==> "RestoreServer"
-    ==> "Run"
 
 "Clean"
     ==> "SetGitCount"
@@ -178,4 +176,34 @@ open Fake.Core.TargetOperators
     ==> "Build"
     ==> "Bundle"
 
-Target.runOrDefault "Build"
+
+"Clean"
+    ==> "SetGitCount"
+    ==> "InstallClient"
+    ==> "Build"
+    ==> "Bundle"
+    ==> "Docker"
+
+
+"Clean"
+    ==> "SetGitCount"
+    ==> "InstallClient"
+    ==> "Run"
+
+Target.runOrDefaultWithArguments "Build"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

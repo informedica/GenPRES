@@ -1,4 +1,5 @@
 namespace Component
+open System.Drawing
 
 module Navbar =
 
@@ -19,19 +20,14 @@ module Navbar =
         | Item of Item
     and Item =
         {
-            Icon : Fulma.FontAwesome.Fa.I.IFontAwesomeIcon Option
+            Icon : Fable.FontAwesome.Fa.IconOption
             Name : string
             Handler : MouseEvent -> unit
         }
 
 
-    let menuItem (i : FontAwesome.Fa.I.FontAwesomeIcons option) n h =
-        let icon =
-            match i with
-            | Some i' -> i' :> FontAwesome.Fa.I.IFontAwesomeIcon |> Some
-            | None -> None
-
-        { Icon = icon; Name = n; Handler = h } |> Item
+    let menuItem (i : Fable.FontAwesome.Fa.IconOption) n h =
+        { Icon = i; Name = n; Handler = h } |> Item
 
 
     let divider = Divider
@@ -69,17 +65,20 @@ module Navbar =
 
         let iconModWhite = Icon.Modifiers [ Modifier.TextColor IsWhite ]
 
+        // ToDo color the icon white
         let faIcon isWhite icon =
             if isWhite then
-                Fulma.FontAwesome.Icon.faIcon 
-                    [ Icon.Size IsSmall; iconModWhite ] 
-                    [ FontAwesome.Fa.icon icon ]
+                Fable.FontAwesome.Fa.i
+                    [ icon
+                      Fable.FontAwesome.Fa.Size Fable.FontAwesome.Fa.FaSmall  ] 
+                    []
             else
-                Fulma.FontAwesome.Icon.faIcon 
-                    [ Icon.Size IsSmall ] 
-                    [ FontAwesome.Fa.icon icon ]
+                Fable.FontAwesome.Fa.i
+                    [ icon
+                      Fable.FontAwesome.Fa.Size Fable.FontAwesome.Fa.FaSmall  ] 
+                    []
 
-        let burgerIcon = div [] [ div inl [ str "Menu" ]; div inl [ faIcon true FontAwesome.Fa.I.Bars ] ]
+        let burgerIcon = div [] [ div inl [ str "Menu" ]; div inl [ faIcon true Fable.FontAwesome.Free.Fa.Solid.Bars ] ]
 
         let burger =
             Navbar.burger 
@@ -113,7 +112,7 @@ module Navbar =
                         Navbar.divider [] []
                     | Item item -> 
                         Navbar.Item.a [ Navbar.Item.Props [ OnClick item.Handler ] ]
-                            [ itm item.Icon item.Name ]
+                            [ itm (Some item.Icon) item.Name ]
                 )
             
             Navbar.Item.div  [ Navbar.Item.HasDropdown 

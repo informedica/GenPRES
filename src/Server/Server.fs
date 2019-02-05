@@ -3,6 +3,8 @@ open System.Threading.Tasks
 
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
+open FSharp.Control.Tasks.V2
+
 open Giraffe
 open Saturn
 open Shared
@@ -27,9 +29,7 @@ let webApp = router {
 
 
 let configureSerialization (services:IServiceCollection) =
-    let fableJsonSettings = Newtonsoft.Json.JsonSerializerSettings()
-    fableJsonSettings.Converters.Add(Fable.JsonConverter())
-    services.AddSingleton<IJsonSerializer>(NewtonsoftJsonSerializer fableJsonSettings)
+    services.AddSingleton<Giraffe.Serialization.Json.IJsonSerializer>(Thoth.Json.Giraffe.ThothSerializer())
 
 
 let app = application {

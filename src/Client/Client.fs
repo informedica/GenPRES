@@ -12,6 +12,8 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.PowerPack.Fetch
 
+open Thoth.Json
+
 open Fulma
 open Component
 
@@ -28,15 +30,13 @@ module Table = Component.Table
 module Navbar = Component.Navbar
 
 
-/// Setup older browser support for
-/// `fetch` and `promises`.
-importDefault "isomorphic-fetch"
-let polyFill : unit -> unit = import "polyfill" "es6-promise"
-polyFill ()
-
 
 [<Emit("navigator.userAgent")>]
 let userAgent : string = jsNative
+
+
+[<Emit("location.protocol+'//'+location.hostname+(location.port ? ':'+location.port: '')")>]
+let host : string = jsNative
 
 
 
@@ -56,7 +56,6 @@ let md =
     :?> MarkDown    
 
 
-[<Pojo>]
 type DangerousInnerHtml =
     { __html : string }
 
@@ -154,8 +153,10 @@ and MenuMsg = CalculatorMenuMsg | MainMenuMsg
 
 let urlUpdate (result : Query.Route Option) (model : Model) =
     let loadCountCmd =
+        let url = "/api/init" // sprintf "%s/api/init" host
+        printfn "Going to fetch from %s" url
         Cmd.ofPromise
-            ( fetchAs<GenPres> "http://localhost:8085/api/init" )
+            (fetchAs<GenPres> url (Decode.Auto.generateDecoder()))
             []
             (Ok >> GenPresLoaded)
             (Error >> GenPresLoaded)
@@ -282,9 +283,9 @@ let navbarView dispatch model =
     let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
 
     let menu =
-        [ Navbar.menuItem (Some FontAwesome.Fa.I.Ambulance) "Acute Opvang" openERL 
+        [ Navbar.menuItem (Fable.FontAwesome.Free.Fa.Solid.Ambulance (*Some FontAwesome.Fa.I.Ambulance*)) "Acute Opvang" openERL 
           Navbar.divider
-          Navbar.menuItem (Some FontAwesome.Fa.I.Calculator) "Calculators" openCalc
+          Navbar.menuItem (Fable.FontAwesome.Free.Fa.Solid.Calculator (*Some FontAwesome.Fa.I.Calculator*)) "Calculators" openCalc
         ]
 
     let config = 

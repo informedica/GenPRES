@@ -9,6 +9,9 @@ module Select =
     open Fulma
 
 
+    module FA = Fable.FontAwesome.Fa
+    module FR = Fable.FontAwesome.Free
+
     type Model = 
         { Title : string;  Items: Item List; MultiSelect : bool ; IsActive : bool }
     and Item = { Name : string; Selected : bool}
@@ -72,7 +75,7 @@ module Select =
                 [ Button.button []
                     [ span []
                         [ str model.Title ]
-                      Fulma.FontAwesome.Icon.faIcon [ Icon.Size IsSmall ] [ FontAwesome.Fa.icon FontAwesome.Fa.I.AngleDown ] ] ]
+                      FA.i [ FR.Fa.Solid.ArrowDown ] [ ] ] ]
               Dropdown.menu []
                 [ Dropdown.content []
                     content ]]
@@ -83,7 +86,7 @@ module Select =
             let opts =
                 model.Items
                 |> List.map (fun item ->
-                    option [ item.Name |> Value ] [ item.Name |> str ]
+                    option [ item.Name |> box |> Value ] [ item.Name |> str ]
                 )
 
             Select.select []
