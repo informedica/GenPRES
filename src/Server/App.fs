@@ -28,8 +28,6 @@ module App =
                 |> Response.Patient  
                 |> Some
             | _ -> None
-        
-        | _ -> None
 
 
     let tryGetEnv =

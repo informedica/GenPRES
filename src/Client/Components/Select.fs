@@ -1,15 +1,16 @@
 namespace Components
 
+
 module Select =
+
     open Fable.Core.JsInterop
     open Fable.Helpers.React
     open Fable.Helpers.React.Props
-    open Fable.Import.React
     open Fable.MaterialUI.Core
-    open Fable.MaterialUI.Props
-    open Fable.MaterialUI.Themes
+    open Fable.Import.React
+    open Fable.MaterialUI
 
-    type SelectItem =
+    type SelectItem =   
         { Key : string
           Value : string }
 
@@ -66,6 +67,7 @@ module Select =
     // Boilerplate code
     // Workaround for using JSS with Elmish
     // https://github.com/mvsmal/fable-material-ui/issues/4#issuecomment-422781471
+
     type private IProps =
         abstract model : Model with get, set
         abstract dispatch : (Msg -> unit) with get, set

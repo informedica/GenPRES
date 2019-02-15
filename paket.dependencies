@@ -1,3 +1,4 @@
+version 5.193.0
 generate_load_scripts: true
 
 group Server

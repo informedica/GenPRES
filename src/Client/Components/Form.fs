@@ -15,11 +15,11 @@ module Form =
           Weight : Select.Model
           Height : Select.Model }
 
-    let init() =
-        { Year = Select.init "Jaren" ([ 0..18 ] |> List.map string)
-          Month = Select.init "Maanden" ([ 0..11 ] |> List.map string)
-          Weight = Select.init "Gewicht (kg)" ([ 0..100 ] |> List.map string)
-          Height = Select.init "Lengte (cm)" ([ 0..200 ] |> List.map string) }
+    let init (yrs : int list) (mos : int list) (whts : float list) (hths : int list) =
+        { Year = Select.init "Jaren" (yrs |> List.map string)
+          Month = Select.init "Maanden" (mos |> List.map string)
+          Weight = Select.init "Gewicht (kg)" (whts |> List.map string)
+          Height = Select.init "Lengte (cm)" (hths |> List.map string) }
 
     type Msg =
         | YearChange of Select.Msg

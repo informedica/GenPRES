@@ -13,7 +13,6 @@ module Patient =
 
         let (>==) r f = Result.bind f r
 
-
         let ageZero =
             { Years = 0
               Months = 0

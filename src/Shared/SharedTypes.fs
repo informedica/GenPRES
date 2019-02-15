@@ -17,13 +17,14 @@ module Types =
 
     module Patient =
 
-        module Age =
+        module Age = 
 
             type Age =
                 { Years : int
                   Months : int
                   Weeks : int
                   Days : int }
+
 
         type Age = Age.Age
 
