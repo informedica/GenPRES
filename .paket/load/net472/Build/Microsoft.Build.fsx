@@ -1,0 +1,15 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\Microsoft.Build.Framework.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\Microsoft.Win32.Registry.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Collections.Immutable.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Diagnostics.TraceSource.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.IO.Compression.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Reflection.Metadata.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Reflection.TypeExtensions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.InteropServices.RuntimeInformation.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.Loader.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Text.Encoding.CodePages.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Threading.Tasks.Dataflow.fsx" 
+#r "System.Configuration" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\microsoft.build\\15.9.20\\lib\\net46\\Microsoft.Build.dll" 

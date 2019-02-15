@@ -1,0 +1,15 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Collections.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.IO.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Resources.ResourceManager.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.Extensions.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.Handles.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.InteropServices.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.Numerics.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Security.Cryptography.Algorithms.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Security.Cryptography.Encoding.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Security.Cryptography.Primitives.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Text.Encoding.csx" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\system.security.cryptography.openssl\\4.5.0\\lib\\netstandard2.0\\System.Security.Cryptography.OpenSsl.dll" 

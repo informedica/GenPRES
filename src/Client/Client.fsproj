@@ -4,16 +4,13 @@
         <TargetFramework>netstandard2.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="..\Shared\Utils.fs" />
-        <Compile Include="..\Shared\Data.fs" />
-        <Compile Include="..\Shared\Models.fs" />
-        <Compile Include=".\Component\Select.fs" />
-        <Compile Include=".\Component\Table.fs" />
-        <Compile Include=".\Component\Modal.fs" />
-        <Compile Include=".\Component\Navbar.fs" />
-        <Compile Include="Patient.fs" />
-        <Compile Include="Calculator.fs" />
-        <Compile Include="Emergency.fs" />
+        <Compile Include="..\Shared\SharedTypes.fs" />
+        <Compile Include="Components\Select.fs"/>
+        <Compile Include="Components\SideMenu.fs"/>
+        <Compile Include="Components\StatusBar.fs"/>
+        <Compile Include="Components\NavBar.fs"/>
+        <Compile Include="Components\Form.fs"/>
+        <Compile Include="Types.fs"/>
         <Compile Include="Client.fs" />
     </ItemGroup>
     <Import Project="..\..\.paket\Paket.Restore.targets" />

@@ -1,0 +1,16 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Hosting.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Http.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Http.Extensions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Configuration.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Configuration.EnvironmentVariables.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Configuration.FileExtensions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.DependencyInjection.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.FileProviders.Physical.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Hosting.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Logging.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Options.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Diagnostics.DiagnosticSource.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Reflection.Metadata.fsx" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\microsoft.aspnetcore.hosting\\2.2.0\\lib\\netstandard2.0\\Microsoft.AspNetCore.Hosting.dll" 

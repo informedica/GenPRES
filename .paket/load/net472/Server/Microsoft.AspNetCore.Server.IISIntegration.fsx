@@ -1,0 +1,16 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Authentication.Core.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Hosting.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Http.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Http.Extensions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.HttpOverrides.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Logging.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Options.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Buffers.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.IO.Pipelines.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Memory.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Numerics.Vectors.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Runtime.CompilerServices.Unsafe.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Security.Principal.Windows.fsx" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\microsoft.aspnetcore.server.iisintegration\\2.2.1\\lib\\netstandard2.0\\Microsoft.AspNetCore.Server.IISIntegration.dll" 

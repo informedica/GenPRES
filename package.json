@@ -25,6 +25,6 @@
         "whatwg-fetch": "^3.0.0"
     },
     "dependencies": {
-        "markdown-it": "^8.4.2"
+        "@material-ui/core": "^3.9.2"
     }
 }

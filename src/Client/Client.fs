@@ -2,337 +2,139 @@ module Client
 
 open Elmish
 open Elmish.React
-open Elmish.Browser.Navigation
-open Elmish.Browser.UrlParser
-
-open Fable.Core
-open Fable.Core.JsInterop
-
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Fable.PowerPack.Fetch
-
+open Fable.PowerPack.PromiseImpl
 open Thoth.Json
+open GenPres
+open Types
+open Fable.Helpers.Isomorphic
+open Elmish.ReactNative
+open System.Security.Claims
 
-open Fulma
-open Component
+module MPR = Fable.MaterialUI.Props
+module MUI = Fable.MaterialUI.Core
+module MTH = Fable.MaterialUI.Themes
 
-open Shared
-open System
-open Fulma
+let theme =
+    MUI.createMuiTheme
+        [ MPR.ThemeProp.Palette
+              [ MPR.PaletteProp.Primary
+                    [ MPR.PaletteIntentionProp.Main
+                          Fable.MaterialUI.Colors.blue.``500`` ] ]
 
-module Math = Utils.Math
-module String = Utils.String
-module DateTime = Utils.DateTime
-module List = Utils.List
-module Select = Component.Select
-module Table = Component.Table
-module Navbar = Component.Navbar
-
-
-
-[<Emit("navigator.userAgent")>]
-let userAgent : string = jsNative
-
-
-[<Emit("location.protocol+'//'+location.hostname+(location.port ? ':'+location.port: '')")>]
-let host : string = jsNative
+          MPR.ThemeProp.Typography
+              [ MPR.ThemeTypographyProp.UseNextVariants true ] ]
 
 
-
-[<Import("count", "./lib/gitCount.js")>]
-let gitCount : int = jsNative
-
-
-let version = sprintf "0.0.%i" gitCount
-
-
-type MarkDown =
-    abstract render : string -> obj
-
-
-let md = 
-    createNew (importDefault<MarkDown> "markdown-it") ()
-    :?> MarkDown    
-
-
-type DangerousInnerHtml =
-    { __html : string }
-
-
-let htmlFromMarkdown str = 
-    div [ DangerouslySetInnerHTML { __html = md.render str |> string } ] []
-
-
-module Query = 
-
-    type PatientQuery = 
-        {
-            BirthYear : int option
-            BirthMonth : int option
-            BirthDay : int option
-            WeightGram : int option
-            HeightCm : int option            
-        }
-
-    type Route =
-        | Query of PatientQuery
-        static member FromParams by bm bd wt ht =
-            { BirthYear = by; BirthMonth = bm; BirthDay = bd; WeightGram = wt; HeightCm = ht }
-            |> Query
-
-    let route : Parser<Route -> Route,_> =
-        let map = Elmish.Browser.UrlParser.map
-        let s = Elmish.Browser.UrlParser.s
-
-        oneOf [
-            map (Route.FromParams) (top <?> intParam "bty" <?> intParam "btm" <?> intParam "btd" <?> intParam "wth" <?> intParam "hth") 
-            map (Route.FromParams) (s "noodlijst2" </> top <?> intParam "bty" <?> intParam "btm" <?> intParam "btd" <?> intParam "wth" <?> intParam "hth") 
-        ]
-
-
-// The model holds data that you want to keep track of while the application is running
-// in this case, we are keeping track of a counter
-// we mark it as optional, because initially it will not be available from the client
-// the initial value will be requested from server
-type Model = 
-    { 
-        GenPres : GenPres option
-        NavbarModel : Navbar.Model
-        PatientModel : Patient.Model
-        Page : Page
-        Device : Device
-        ShowMenu : NavbarMenu
-        EmergencyModel : Emergency.Model
-        CalculatorModel : Calculator.Model
+let getSettings () =
+    promise {
+        let req =
+            Shared.Types.Request.Configuration.Get
+            |> Shared.Types.Request.ConfigMsg
+//            |> encode
+        let! res =
+            postRecord "/api/request" req []
+        let! settings =
+            res.text ()
+            
+        return settings |> Decode.Auto.unsafeFromString<Shared.Types.Response.Response Option>
     }
-and NavbarMenu = { CalculatorMenu : bool; MainMenu : bool }
-and Device = 
-    {
-        IsMobile : bool
-        Width : float
-        Height : float
-    }
-and Page =
-    | CalculatorPage
-    | EmergencyListPage
-     
-
-let createDevice () =
-    let agent = userAgent |> String.toLower
-    {
-        IsMobile =
-            [ "iphone"; "android"; "ipad"; "opera mini"; "windows mobile"; "windows phone"; "iemobile" ]
-            |> List.exists (fun s -> agent |> String.contains s)
-        Width = Fable.Import.Browser.screen.width
-        Height = Fable.Import.Browser.screen.height        
-    }
-
-let updateGenPres (model : Model) =
-    let gp =
-        match model.GenPres with
-        | Some gp' -> { gp' with Version = version }
-        | None ->  { Name = "GenPres OFFLINE"; Version = version }
-    { model with GenPres = Some gp }
-
-
-
-
-// The Msg type defines what events/actions can occur while the application is running
-// the state of the application changes *only* in reaction to these events
-type Msg =
-| NavbarMsg of Navbar.Msg
-| PatientMsg of Patient.Msg
-| EmergencyMsg of Emergency.Msg
-| MenuMsg of MenuMsg
-| ChangePage of Page
-| CalculatorMsg of Calculator.Msg
-| GenPresLoaded of Result<GenPres, exn>
-and MenuMsg = CalculatorMenuMsg | MainMenuMsg
-
-
-let urlUpdate (result : Query.Route Option) (model : Model) =
-    let loadCountCmd =
-        let url = "/api/init" // sprintf "%s/api/init" host
-        printfn "Going to fetch from %s" url
-        Cmd.ofPromise
-            (fetchAs<GenPres> url (Decode.Auto.generateDecoder()))
-            []
-            (Ok >> GenPresLoaded)
-            (Error >> GenPresLoaded)
-
-    match result with
-    | Some (Query.Query pat) ->
-        printfn "urlUpdate: %A" pat
-
-        let pat =
-            match DateTime.optionToDate pat.BirthYear pat.BirthMonth pat.BirthDay with
-            | Some dt ->
-                dt
-                |> DateTime.dateDiffYearsMonths DateTime.Now
-                |> (fun (yr, mo) ->
-                    model.PatientModel 
-                    |> Models.Patient.updateAgeYears yr
-                    |> Models.Patient.updateAgeMonths mo
-                    |> (fun p ->
-                        match pat.WeightGram with
-                        | Some gr -> p |> Models.Patient.updateWeightGram (gr |> float)
-                        | None -> p
-                    )
-                )
-            | None -> Models.Patient.patient            
-        // Dirty fix to enable right calculator model patient
-        { model with PatientModel = pat ; CalculatorModel = Calculator.init pat } , loadCountCmd
-
-    | None -> model , loadCountCmd
-    
 
 // defines the initial state and initial command (= side-effect) of the application
-let init result : Model * Cmd<Msg> =
+let init() : Model * Cmd<Msg> =
+    let initialModel =
+        { NavBarModel = Components.NavBar.init()
+          SideMenuModel = Components.SideMenu.init()
+          StatusBarModel = Components.StatusBar.init()
+          FormModel = Components.Form.init() }
 
-    printfn "User Agent = %s" userAgent
-    
-    let device = createDevice ()
-
-    let pat = Patient.init ()
-
-    let showMenu = { CalculatorMenu = false; MainMenu = false }
-    
-    let initialModel = 
-        { 
-            GenPres = None
-            NavbarModel = Navbar.init ()
-            Page = EmergencyListPage
-            PatientModel = pat
-            Device = device
-            ShowMenu = showMenu
-            EmergencyModel = Emergency.init device.IsMobile 
-            CalculatorModel = Calculator.init pat
-        }
-
-
-    initialModel |> urlUpdate result
-
+    let loadCountCmd =
+        Cmd.ofPromise getSettings () (Ok >> SettingsLoaded)
+            (Error >> SettingsLoaded)
+    initialModel, loadCountCmd
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
 // It can also run side-effects (encoded as commands) like calling the server via Http.
 // these commands in turn, can dispatch messages to which the update function will react.
-let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
-    match msg with
-    | NavbarMsg msg -> 
-        { model with NavbarModel = model.NavbarModel |> Navbar.update msg }, Cmd.none
+let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
+    match currentModel.StatusBarModel, msg with
+    | _, SettingsLoaded(Ok settings) ->
+        printfn "settings received: %A" settings
+        currentModel, Cmd.none
+    | _, SettingsLoaded(Error err) ->
+        printfn "Error: %s" err.Message
+        currentModel, Cmd.none
+    | _, NavBarMsg _ ->
+        printfn "navbar message"
+        let nextModel =
+            { currentModel with SideMenuModel =
+                                    currentModel.SideMenuModel
+                                    |> Components.SideMenu.update
+                                           Components.SideMenu.ToggleMenu }
+        nextModel, Cmd.none
+    | _, SideMenuMsg msg ->
+        printfn "sidemenu message"
+        let nextModel =
+            { currentModel with SideMenuModel =
+                                    currentModel.SideMenuModel
+                                    |> Components.SideMenu.update msg }
+        nextModel, Cmd.none
+    | _, FormMsg msg ->
+        printfn "sidemenu message"
+        let nextModel =
+            { currentModel with FormModel =
+                                    currentModel.FormModel
+                                    |> Components.Form.update msg }
+        nextModel, Cmd.none
+    | _  -> currentModel, Cmd.none
 
-    | PatientMsg msg ->
-        let pat, cmd = Patient.update msg model.PatientModel
-        { model with PatientModel = pat; CalculatorModel = Calculator.init pat }, Cmd.map PatientMsg cmd
+let safeComponents =
+    let components =
+        span []
+            [ a [ Href "https://saturnframework.github.io" ] [ str "Saturn" ]
+              str ", "
+              a [ Href "http://fable.io" ] [ str "Fable" ]
+              str ", "
+              a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ] ]
+    p [] [ strong [] [ str "SAFE Template" ]
+           str " powered by: "
+           components ]
 
-    | EmergencyMsg msg ->
-        { model with EmergencyModel = model.EmergencyModel |> Emergency.update msg }, Cmd.none
- 
-    | GenPresLoaded (Ok genpres) ->
-        
-        { model with GenPres = Some genpres } |> updateGenPres, Cmd.none
-
-    | CalculatorMsg msg ->
-        { model with CalculatorModel = model.CalculatorModel |> Calculator.update msg  }, Cmd.none
-
-    | ChangePage page ->
-        { model with Page = page}, Cmd.none
-
-    | GenPresLoaded (_) -> 
-        model |> updateGenPres, Cmd.none
-
-    | MenuMsg msg ->
-        match msg with
-        | CalculatorMenuMsg -> 
-            { model with ShowMenu =  { model.ShowMenu with CalculatorMenu = not model.ShowMenu.CalculatorMenu } }, Cmd.none
-        | MainMenuMsg -> 
-            { model with ShowMenu =  { model.ShowMenu with MainMenu = not model.ShowMenu.MainMenu } }, Cmd.none
-
-
-let disclaimer =
-    let txt = """
-***Disclaimer***
-
-Deze applicatie is nog in ontwikkeling en validatie van de inhoud heeft nog niet plaatsgevond. 
-De gebruiker is zelf verantwoordelijk voor het gebruik van de getoonde informatie. Indien u fouten vindt
-of suggesties hebt gaarne dit per [mail](mailto:c.w.bollen@umcutrecht.nl) vermelden. 
-
-Verdere informatie kunt u vinden op de [PICU WKZ site](http://picuwkz.nl). De code voor deze webapplicatie
-is te vinden op [Github](http://github.com/halcwb/GenPres2.git).
-"""
-    htmlFromMarkdown txt
-
-let createBrand model = 
-    let inl = Heading.Props [ Style [ CSSProp.Display "inline-block"; CSSProp.PaddingLeft "10px" ] ]
-
-    match model with
-    | { GenPres = Some x } -> 
-        div [ ]
-            [ Heading.h2 [ Heading.Option.CustomClass "has-text-white"; inl ] [ x.Name |> str ]
-              Heading.h6 [ Heading.Option.CustomClass "has-text-white"; inl ] [ "versie " + x.Version |> str ]
-            ]
-
-    | { GenPres = None   } ->
-        Heading.h3 [ Heading.Option.CustomClass "has-text-white" ] [ "Laden ..." |> str ]
-
-
-let navbarView dispatch model =
-
-    let openCalc = fun _ -> CalculatorPage    |> ChangePage |> dispatch
-    let openERL  = fun _ -> EmergencyListPage |> ChangePage |> dispatch
-
-    let menu =
-        [ Navbar.menuItem (Fable.FontAwesome.Free.Fa.Solid.Ambulance (*Some FontAwesome.Fa.I.Ambulance*)) "Acute Opvang" openERL 
-          Navbar.divider
-          Navbar.menuItem (Fable.FontAwesome.Free.Fa.Solid.Calculator (*Some FontAwesome.Fa.I.Calculator*)) "Calculators" openCalc
-        ]
-
-    let config = 
-        Navbar.config (createBrand model) [] menu
-
-    Navbar.navbarView (NavbarMsg >> dispatch) config model.NavbarModel
-
-
-let bottomView =
-    Footer.footer [ ]
-        [ Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Left) ] ]
-            [ disclaimer ] ]
-
+let bottomBar = div [ Id "bottombar" ] [ safeComponents ]
+let body = form [] [ str "input" ]
+let menu = []
 
 let view (model : Model) (dispatch : Msg -> unit) =
+    MUI.muiThemeProvider
+        [ MPR.MuiThemeProviderProp.Theme(MPR.ProviderTheme.Theme theme) ]
+        [ div [ Id "homepage" ]
+              [ yield Components.SideMenu.view model.SideMenuModel
+                          (SideMenuMsg >> dispatch)
 
-    let patView =
-        div [ Style [ CSSProp.PaddingBottom "10px" ] ] 
-            [ Patient.view model.Device.IsMobile model.PatientModel (PatientMsg >> dispatch) ]
-    
-    let content =
-        match model.Page with
-        | CalculatorPage    -> Calculator.view model.Device.IsMobile model.CalculatorModel (CalculatorMsg >> dispatch)
-        | EmergencyListPage -> Emergency.view model.Device.IsMobile model.PatientModel model.EmergencyModel (EmergencyMsg >> dispatch)
-    
-    div [ ]
-        [ model |> navbarView (dispatch)  
+                yield Components.NavBar.view model.NavBarModel
+                          (NavBarMsg >> dispatch)
+                yield Components.Form.view model.FormModel (FormMsg >> dispatch)
 
-          Container.container [ Container.Props [Style [ CSSProp.Padding "10px"] ] ]
-              [ patView
-                content ]
-          bottomView  ] 
-
-
+                yield Components.StatusBar.view model.StatusBarModel
+                          (StatusBarMsg >> dispatch) ] ]
 #if DEBUG
+
 open Elmish.Debug
-open Elmish.HMR 
+open Elmish.HMR
 #endif
+
 
 Program.mkProgram init update view
-|> Program.toNavigable (parsePath Query.route) urlUpdate
 #if DEBUG
 |> Program.withConsoleTrace
-|> Program.withHMR  
+|> Program.withHMR
 #endif
+
 |> Program.withReact "elmish-app"
 #if DEBUG
 |> Program.withDebugger
 #endif
+
 |> Program.run

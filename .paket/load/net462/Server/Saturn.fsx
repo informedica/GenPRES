@@ -1,0 +1,15 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Giraffe.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Antiforgery.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Authentication.Cookies.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Authentication.JwtBearer.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Authentication.OAuth.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Authorization.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Cors.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.ResponseCompression.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Rewrite.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.Session.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.AspNetCore.StaticFiles.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\Microsoft.Extensions.Caching.Memory.fsx" 

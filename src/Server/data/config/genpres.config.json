@@ -1,0 +1,19 @@
+["Configuration", [{
+	"Department": "neonatologie",
+	"MinAge": 0,
+	"MaxAge": 1,
+	"MinWeight": 0.4,
+	"MaxWeight": 10.0
+}, {
+	"Department": "pediatrie",
+	"MinAge": 0,
+	"MaxAge": 240,
+	"MinWeight": 2.0,
+	"MaxWeight": 120.0
+}, {
+	"Department": "adult",
+	"MinAge": 240,
+	"MaxAge": 1800,
+	"MinWeight": 20.0,
+	"MaxWeight": 500.0
+}]]

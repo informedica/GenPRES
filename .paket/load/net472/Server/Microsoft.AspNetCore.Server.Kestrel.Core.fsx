@@ -1,0 +1,16 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Hosting.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Http.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.Server.Kestrel.Transport.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.AspNetCore.WebUtilities.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Configuration.Binder.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Logging.Abstractions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Extensions.Options.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\Microsoft.Net.Http.Headers.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Memory.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Numerics.Vectors.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Runtime.CompilerServices.Unsafe.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Security.Cryptography.Cng.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Server\\System.Threading.Tasks.Extensions.fsx" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\microsoft.aspnetcore.server.kestrel.core\\2.2.0\\lib\\netstandard2.0\\Microsoft.AspNetCore.Server.Kestrel.Core.dll" 

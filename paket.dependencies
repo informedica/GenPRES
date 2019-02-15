@@ -1,3 +1,5 @@
+generate_load_scripts: true
+
 group Server
     source https://api.nuget.org/v3/index.json
     framework: netcoreapp2.2
@@ -17,9 +19,8 @@ group Client
     nuget Fable.Elmish.Debugger ~> 2
     nuget Fable.Elmish.React ~> 2
     nuget Fable.Elmish.HMR ~> 2
+    nuget Fable.MaterialUI
     nuget Fable.React ~> 4
-    nuget Fulma
-    nuget Fable.FontAwesome.Free
 
 group Build
     source https://api.nuget.org/v3/index.json
@@ -30,4 +31,18 @@ group Build
     nuget Fake.Core.Target
     nuget Fake.DotNet.Cli
     nuget Fake.IO.FileSystem
-    nuget Fake.Tools.Git
+
+group ServerTests
+  source https://nuget.org/api/v2
+  storage:none
+  nuget Expecto
+  nuget FSharp.Core redirects: force
+
+group UITests
+  source https://nuget.org/api/v2
+  framework >= net461
+  nuget Canopy
+  nuget Expecto
+  nuget FSharp.Core redirects: force
+  nuget phantomjs
+  nuget Selenium.WebDriver.ChromeDriver

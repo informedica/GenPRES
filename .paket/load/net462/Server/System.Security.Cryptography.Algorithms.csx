@@ -1,0 +1,16 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Collections.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.IO.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Resources.ResourceManager.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Runtime.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Runtime.Extensions.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Runtime.Handles.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Runtime.InteropServices.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Runtime.Numerics.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Security.Cryptography.Encoding.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Security.Cryptography.Primitives.csx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net462\\Server\\System.Text.Encoding.csx" 
+#r "System.Core" 
+#r "mscorlib" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\system.security.cryptography.algorithms\\4.3.1\\lib\\net461\\System.Security.Cryptography.Algorithms.dll" 

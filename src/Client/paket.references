@@ -1,9 +1,7 @@
 group Client
-    FSharp.Core
-    Fable.Elmish.Debugger
-    Fable.Elmish.React
-    Fable.Elmish.HMR
-    Fable.Core
-    Fulma
-    Fable.FontAwesome.Free
-
+FSharp.Core
+Fable.Elmish.Debugger
+Fable.Elmish.React
+Fable.Elmish.HMR
+Fable.Core
+Fable.MaterialUI

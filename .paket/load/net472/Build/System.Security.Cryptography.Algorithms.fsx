@@ -1,0 +1,15 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Collections.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.IO.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Resources.ResourceManager.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.Extensions.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.Handles.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.InteropServices.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Runtime.Numerics.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Security.Cryptography.Encoding.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Security.Cryptography.Primitives.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\Build\\System.Text.Encoding.fsx" 
+#r "System.Core" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\system.security.cryptography.algorithms\\4.3.1\\lib\\net463\\System.Security.Cryptography.Algorithms.dll" 

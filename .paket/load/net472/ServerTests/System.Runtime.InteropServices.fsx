@@ -1,0 +1,9 @@
+namespace PaketLoadScripts
+
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Reflection.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Reflection.Primitives.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.fsx" 
+#load "C:\\Development\\Informedica\\apps\\GenPres2\\.paket\\load\\net472\\ServerTests\\System.Runtime.Handles.fsx" 
+#r "System" 
+#r "System.Core" 
+#r "C:\\Users\\halcw\\.nuget\\packages\\system.runtime.interopservices\\4.3.0\\lib\\net463\\System.Runtime.InteropServices.dll" 
