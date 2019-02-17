@@ -53,14 +53,11 @@ module Types =
 
         module Patient =
 
+            type Patient = Patient.Patient
+
             type Msg =
                 | Init
-                | Clear
-                | Get
-                | Year of int
-                | Month of int
-                | Weight of float
-                | Height of float
+                | Calculate of Patient
 
         module AcuteList =
             type Msg = Get of Patient.Patient

@@ -14,6 +14,7 @@ module App =
 
 
     let processRequest (req : Request.Msg) =
+        printfn "received request: %A" req
         match req with
         | Request.ConfigMsg msg ->
             match msg with
@@ -27,7 +28,11 @@ module App =
                 Patient.patient
                 |> Response.Patient  
                 |> Some
-            | _ -> None
+            | Request.Patient.Calculate pat ->
+                pat
+                |> Patient.calculate
+                |> Response.Patient
+                |> Some
 
 
     let tryGetEnv =

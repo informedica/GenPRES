@@ -9,24 +9,30 @@ module StatusBar =
     open Fable.MaterialUI.Props
     open Fable.MaterialUI.Themes
 
-    type Model = Status of string
+    type Model =
+        { Message : string
+          Open : bool }
 
-    let init() = Status "Offline"
+    let init() = { Message = ""; Open = false }
 
     type Msg =
+        | IsOpen of bool
         | IsOnline of string
         | IsOffLine
 
     let update msg model =
         match msg with
-        | IsOnline s -> Status s
-        | IsOffLine -> Status "Offline"
+        | IsOpen b -> { model with Open = b }
+        | IsOnline s -> { model with Message = s }
+        | IsOffLine -> { model with Message = "Offline" }
 
     let styles (theme : ITheme) : IStyles list = []
 
     let view' (classes : IClasses) model dispatch =
-        let (Status s) = model
-        snackbar [ Open true
+        let { Message = s } = model
+        snackbar [ Open model.Open
+                   OnClose (fun _ _ -> false |> IsOpen |> dispatch)
+                   SnackbarProp.AutoHideDuration 1000
                    SnackbarProp.Message(str s) ] []
 
     // Boilerplate code

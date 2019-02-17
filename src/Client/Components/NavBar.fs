@@ -17,7 +17,7 @@ module NavBar =
     let init() = { Title = "GenPRES" }
 
     let private styles (theme : ITheme) : IStyles list =
-        [ Styles.Root [ CSSProp.FlexGrow 1 ]
+        [ Styles.Root [ CSSProp.Display "flex";  CSSProp.FlexGrow 1 ]
           Styles.Custom("flex", [ FlexGrow 1 ]) ]
 
     let private menubutton dispatch =
@@ -30,7 +30,7 @@ module NavBar =
     let private view' (classes : IClasses) model dispatch =
         div [ Id "navbar"
               Class !!classes?root ]
-            [ appBar [ AppBarProp.Position AppBarPosition.Sticky ]
+            [ appBar [ AppBarProp.Position AppBarPosition.Fixed  ]
                   [ toolbar [] [ typography
                                      [ Id "title"
 

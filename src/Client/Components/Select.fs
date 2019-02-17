@@ -33,7 +33,6 @@ module Select =
     let update msg model =
         match msg with
         | Select s ->
-            printfn "trying to find %s" s
             { model with Selected =
                              model.Items |> List.tryFind (fun i -> i.Value = s) }
 
@@ -44,7 +43,7 @@ module Select =
     let private selectItem e =
         menuItem [ HTMLAttr.Value e.Value
                    Key(string e.Key) ]
-            [ typography [ TypographyProp.Variant TypographyVariant.Caption ]
+            [ typography [ TypographyProp.Variant TypographyVariant.H6 ]
                   [ e.Value
                     |> string
                     |> str ] ]

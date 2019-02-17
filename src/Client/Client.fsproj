@@ -6,16 +6,18 @@
     <ItemGroup>
 		<None Include="Scripts\Script.fsx"/>
         <Compile Include="..\Shared\SharedTypes.fs"/>
-		<Compile Include="Utils\Request.fs"/>
+        <Compile Include="Types.fs"/>
         <Compile Include="Styles.fs"/>
+		<Compile Include="Utils\Utils.fs"/>
+		<Compile Include="Utils\Request.fs"/>
+        <Compile Include="Domain\Configuration.fs"/>
+        <Compile Include="Domain\Patient.fs"/>
         <Compile Include="Components\Select.fs"/>
         <Compile Include="Components\SideMenu.fs"/>
         <Compile Include="Components\StatusBar.fs"/>
         <Compile Include="Components\NavBar.fs"/>
-        <Compile Include="Components\Form.fs"/>
-        <Compile Include="Types.fs"/>
-        <Compile Include="View.fs"/>
-        <Compile Include="State.fs"/>
+        <Compile Include="Views\PatientForm.fs"/>
+        <Compile Include="Views\Main.fs"/>
         <Compile Include="App.fs" />
     </ItemGroup>
     <Import Project="..\..\.paket\Paket.Restore.targets" />
