@@ -5,6 +5,7 @@ module SideMenu =
     open Fable.Helpers.React
     open Fable.Helpers.React.Props
     open Fable.Import.React
+    open Fable.MaterialUI
     open Fable.MaterialUI.Core
     open Fable.MaterialUI.Props
     open Fable.MaterialUI.Themes
@@ -20,17 +21,34 @@ module SideMenu =
         match msg with
         | ToggleMenu -> { model with Open = not model.Open }
 
-    let styles (theme : ITheme) : IStyles list = []
+    let styles (theme : ITheme) : IStyles list =
+        [ Styles.Custom ("toolbar", [
+            CSSProp.Padding "0px"
+            Display "flex"
+            FlexDirection "column" ])
+          Styles.Button [ CSSProp.FlexBasis "auto"; CSSProp.Flex "1" ]
+        ]
 
     let private view' (classes : IClasses) (model : Model) dispatch =
-        nav []
-            [ drawer [ DrawerProp.Variant DrawerVariant.Temporary
-                       MaterialProp.OnClose(fun _ -> ToggleMenu |> dispatch)
-                       MaterialProp.Open model.Open ]
-                  [ toolbar []
-                        [ typography
-                              [ TypographyProp.Variant TypographyVariant.H6 ]
-                              [ str "Menu" ] ] ] ]
+            drawer [ DrawerProp.Variant DrawerVariant.Temporary
+                     MaterialProp.OnClose(fun _ -> ToggleMenu |> dispatch)
+                     MaterialProp.Open model.Open ]
+                   [
+                     list [ Class !!classes?toolbar ]
+                        [ listItem []
+                            [ typography
+                                      [ TypographyProp.Variant TypographyVariant.H6 ]
+                                      [ str "Menu" ] ] 
+                          divider [] 
+                          listItem [ ]
+                                [ button
+                                    [ Class !!classes?button ]
+                                    [ str "Noodlijst" ] ]
+                          divider []
+                          listItem []
+                                 [ button
+                                      [ Class !!classes?button ]
+                                      [ str "Continue Medicatie" ] ] ] ]
 
     // Boilerplate code
     // Workaround for using JSS with Elmish

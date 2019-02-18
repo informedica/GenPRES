@@ -121,7 +121,7 @@ let dockerFullName = sprintf "%s/%s" dockerUser dockerImageName
 Target.create "Docker" (fun _ -> buildDocker dockerFullName)
 
 let runFantomas folder =
-    let cmd = sprintf "%s --recurse" folder
+    let cmd = sprintf "%s --recurse --profile" folder
     runTool fantomasTool cmd __SOURCE_DIRECTORY__
 
 // Run the fantomas tool

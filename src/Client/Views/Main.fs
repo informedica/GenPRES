@@ -10,28 +10,29 @@ module Main =
     open Fable.MaterialUI.Core
     open Fable.MaterialUI.Themes
     open GenPres
+    open Components
+
 
     type Model =
         { Configuration : Shared.Types.Configuration.Configuration Option
           Patient : Shared.Types.Patient.Patient Option
-          NavBarModel : Components.NavBar.Model
           SideMenuModel : Components.SideMenu.Model
-          StatusBarModel : Components.StatusBar.Model
-          PatientFormModel : Views.PatientForm.Model Option }
+          PatientFormModel : Views.PatientForm.Model Option
+          StatusText : string
+          StatusIsOpen : bool }
 
     type Msg =
         | SideMenuMsg of Components.SideMenu.Msg
-        | NavBarMsg of Components.NavBar.Msg
-        | StatusBarMsg of Components.StatusBar.Msg
+        | NavBarMsg
         | PatientFormMsg of Views.PatientForm.Msg
         | ResponseMsg of Shared.Types.Response.Result
+        | SecondStatusBarMsg of bool
 
     let cmdNone model = model, Cmd.none
 
     let setStatus msg model =
-        { model with StatusBarModel =
-                         { Components.StatusBar.Message = msg
-                           Open = true } }
+        { model with StatusText = msg
+                     StatusIsOpen = true }
 
     let processResponse model resp =
         match resp with
@@ -57,9 +58,9 @@ module Main =
         let initialModel =
             { Configuration = None
               Patient = None
-              NavBarModel = Components.NavBar.init()
               SideMenuModel = Components.SideMenu.init()
-              StatusBarModel = Components.StatusBar.init()
+              StatusText = ""
+              StatusIsOpen = false
               PatientFormModel = None }
 
         let loadConfig =
@@ -89,10 +90,8 @@ module Main =
                 let patFormMod, cmd = patFormMod |> Views.PatientForm.update msg
                 { model with PatientFormModel = Some patFormMod },
                 Cmd.map Msg.PatientFormMsg cmd
-        | StatusBarMsg msg ->
-            { model with StatusBarModel =
-                             model.StatusBarModel
-                             |> Components.StatusBar.update msg }, Cmd.none
+        | SecondStatusBarMsg b ->
+             { model with StatusIsOpen = b } , Cmd.none
         | SideMenuMsg msg ->
             { model with SideMenuModel =
                              model.SideMenuModel
@@ -105,8 +104,7 @@ module Main =
                   [ yield Components.SideMenu.view model.SideMenuModel
                               (SideMenuMsg >> dispatch)
 
-                    yield Components.NavBar.view model.NavBarModel
-                              (NavBarMsg >> dispatch)
+                    yield Components.NavBar.view "GenPRES" NavBarMsg dispatch
 
                     match model.PatientFormModel with
                     | None -> ()
@@ -114,5 +112,4 @@ module Main =
                         yield Views.PatientForm.view m
                                   (PatientFormMsg >> dispatch)
 
-                    yield Components.StatusBar.view model.StatusBarModel
-                              (StatusBarMsg >> dispatch) ] ]
+                    yield StatusBar.view model.StatusIsOpen model.StatusText SecondStatusBarMsg dispatch ] ]
