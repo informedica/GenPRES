@@ -3,10 +3,9 @@ namespace GenPres.Shared
 /// This module defines shared types between
 /// the client and the server
 module Types =
-
     module Configuration =
-
         type Configuration = Setting list
+
         and Setting =
             { Department : string
               MinAge : int
@@ -14,17 +13,13 @@ module Types =
               MinWeight : float
               MaxWeight : float }
 
-
     module Patient =
-
-        module Age = 
-
+        module Age =
             type Age =
                 { Years : int
                   Months : int
                   Weeks : int
                   Days : int }
-
 
         type Age = Age.Age
 
@@ -44,15 +39,11 @@ module Types =
             { Estimated : double
               Measured : double }
 
-
     module Request =
-
         module Configuration =
-
             type Msg = Get
 
         module Patient =
-
             type Patient = Patient.Patient
 
             type Msg =
@@ -66,14 +57,9 @@ module Types =
             | PatientMsg of Patient.Msg
             | ConfigMsg of Configuration.Msg
 
-
-
     module Response =
-
-
         type Response =
             | Configuration of Configuration.Configuration
             | Patient of Patient.Patient
-
 
         type Result = Result<Response Option, exn>

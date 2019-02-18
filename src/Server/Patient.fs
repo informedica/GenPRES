@@ -2,13 +2,10 @@ namespace GenPres.Server
 
 open GenPres.Shared
 
-
 module Patient =
-
     open Utils
 
     module Age =
-
         open Types.Patient.Age
 
         let (>==) r f = Result.bind f r
@@ -29,8 +26,7 @@ module Patient =
             n
             |> validateMinMax lbl min max
             >== ((setter age) >> Result.Ok)
-        let setYears =
-            set (fun age n -> { age with Years = n }) "Years" 0 100
+        let setYears = set (fun age n -> { age with Years = n }) "Years" 0 100
         let setMonths mos age =
             age
             |> setYears (mos / 12)
@@ -74,12 +70,12 @@ module Patient =
 
         let calcYears a =
             (a
-                |> getYears
-                |> float)
+             |> getYears
+             |> float)
             + ((a
                 |> getMonths
                 |> float)
-                / 12.)
+               / 12.)
 
         let calcMonths a = (a |> getYears) * 12 + (a |> getMonths)
 
@@ -93,14 +89,13 @@ module Patient =
     let ageToWeight yr mo =
         let age = (double yr) * 12. + (double mo)
         match Data.NormalValues.ageWeight
-                |> List.filter (fun (a, _) -> age <= a) with
+              |> List.filter (fun (a, _) -> age <= a) with
         | (_, w) :: _ -> w
         | [] -> 0.
 
     let ageToHeight yr mo =
         let age = (double yr) * 12. + (double mo)
-        match Data.NormalValues.ageHeight
-                |> List.filter (fun (a, _) -> age < a) with
+        match Data.NormalValues.ageHeight |> List.filter (fun (a, _) -> age < a) with
         | (_, h) :: _ -> h
         | _ -> 0.
 
@@ -125,12 +120,12 @@ module Patient =
 
     let getAgeInYears p =
         (p
-            |> getAgeYears
-            |> float)
+         |> getAgeYears
+         |> float)
         + ((p
             |> getAgeMonths
             |> float)
-            / 12.)
+           / 12.)
 
     let getAgeInMonths p = (p |> getAgeYears) * 12 + (p |> getAgeMonths)
 
@@ -175,8 +170,8 @@ module Patient =
 
             let h = ageToHeight y (pat.Age.Months)
             { pat with Age =
-                            { pat.Age with Years = y
-                                           Months = m }
+                           { pat.Age with Years = y
+                                          Months = m }
                        Weight = { pat.Weight with Weight.Estimated = w }
                        Height = { pat.Height with Estimated = h } }
         | _ -> pat
@@ -246,4 +241,3 @@ module Patient =
         sprintf
             "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)%s"
             pat.Age.Years pat.Age.Months wght ew bsa
-

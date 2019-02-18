@@ -10,7 +10,6 @@ module PatientForm =
     open Fable.MaterialUI.Core
     open Fable.MaterialUI.Props
     open Fable.MaterialUI.Themes
-
     open GenPres
     open Components
     open Utils.Utils
@@ -26,17 +25,14 @@ module PatientForm =
 
     type Msg =
         | PatientLoaded of Shared.Types.Response.Result
-        | ClearPatient 
-        | YearChange of (bool *  Select.Msg)
-        | MonthChange of (bool *  Select.Msg)
-        | WeightChange of (bool *  Select.Msg)
-        | HeightChange of (bool *  Select.Msg)
+        | ClearPatient
+        | YearChange of (bool * Select.Msg)
+        | MonthChange of (bool * Select.Msg)
+        | WeightChange of (bool * Select.Msg)
+        | HeightChange of (bool * Select.Msg)
 
     let cmdOfPromise task =
-        Cmd.ofPromise
-            (fun () -> task)
-            ()
-            (Ok >> PatientLoaded)
+        Cmd.ofPromise (fun () -> task) () (Ok >> PatientLoaded)
             (Result.Error >> PatientLoaded)
 
     let getPatient msg =
@@ -45,7 +41,7 @@ module PatientForm =
         |> Utils.Request.post
         |> cmdOfPromise
 
-    let nearestItem (sel : Select.Model) n  =
+    let nearestItem (sel : Select.Model) n =
         sel.Items
         |> List.map (fun i -> i.Value)
         |> List.map Double.TryParse
@@ -63,30 +59,21 @@ module PatientForm =
         |> (fun s -> (false, s) |> msg)
         |> Cmd.ofMsg
 
-
     let processResponse model resp =
         match resp with
         | None -> model, Cmd.none
         | Some resp ->
             match resp with
             | Shared.Types.Response.Patient pat ->
-                let yr =
-                    pat
-                    |> toMsg Domain.Patient.getAgeYears YearChange
-                let mo =
-                    pat
-                    |> toMsg Domain.Patient.getAgeMonths MonthChange
-                let wt =
-                    pat
-                    |> toMsg Domain.Patient.getWeight WeightChange
-                let ht =
-                    pat
-                    |> toMsg Domain.Patient.getHeight HeightChange
+                let yr = pat |> toMsg Domain.Patient.getAgeYears YearChange
+                let mo = pat |> toMsg Domain.Patient.getAgeMonths MonthChange
+                let wt = pat |> toMsg Domain.Patient.getWeight WeightChange
+                let ht = pat |> toMsg Domain.Patient.getHeight HeightChange
                 { model with Patient = Some pat }, Cmd.batch [ yr; mo; wt; ht ]
             | _ -> model, Cmd.none
-            
 
-    let init (yrs : int list) (mos : int list) (whts : float list) (hths : int list) =
+    let init (yrs : int list) (mos : int list) (whts : float list)
+        (hths : int list) =
         let model =
             { Patient = None
               Year = Select.init "Jaren" (yrs |> List.map string)
@@ -95,7 +82,6 @@ module PatientForm =
               Height = Select.init "Lengte (cm)" (hths |> List.map string) }
 
         let loadPatient = getPatient Shared.Types.Request.Patient.Init
-
         model, loadPatient
 
     let show pat =
@@ -103,118 +89,127 @@ module PatientForm =
         | Some p -> p |> Domain.Patient.show
         | None -> ""
 
-    let setModelYear msg model = 
-        let (Select.Select (yr)) = msg
-        match  yr |> Int32.TryParse with
+    let setModelYear msg model =
+        let (Select.Select(yr)) = msg
+        match yr |> Int32.TryParse with
         | (true, n) ->
             { model with Year = Select.update msg model.Year
-                         Patient = match model.Patient with
-                                   | Some p ->
-                                        
-                                        { p with Age = { p.Age with Years = n } } |> Some
-                                   | None -> None }
+                         Patient =
+                             match model.Patient with
+                             | Some p ->
+                                 { p with Age = { p.Age with Years = n } }
+                                 |> Some
+                             | None -> None }
         | (false, _) -> model
-        
-    let setModelMonth msg model = 
-        let (Select.Select (mo)) = msg
+
+    let setModelMonth msg model =
+        let (Select.Select(mo)) = msg
         match mo |> Int32.TryParse with
         | (true, n) ->
             { model with Month = Select.update msg model.Month
-                         Patient = match model.Patient with
-                                   | Some p ->
-                                        { p with Age = { p.Age with Months = n } } |> Some
-                                   | None -> None }
+                         Patient =
+                             match model.Patient with
+                             | Some p ->
+                                 { p with Age = { p.Age with Months = n } }
+                                 |> Some
+                             | None -> None }
         | (false, _) -> model
-        
-    let setModelWeight msg model = 
-        let (Select.Select (wt)) = msg
+
+    let setModelWeight msg model =
+        let (Select.Select(wt)) = msg
         match wt |> Double.TryParse with
         | (true, n) ->
             { model with Weight = Select.update msg model.Weight
-                         Patient = match model.Patient with
-                                   | Some p ->
-                                        { p with Weight = { p.Weight with Measured = n } } |> Some
-                                   | None -> None }
+                         Patient =
+                             match model.Patient with
+                             | Some p ->
+                                 { p with Weight =
+                                              { p.Weight with Measured = n } }
+                                 |> Some
+                             | None -> None }
         | (false, _) -> model
-        
-    let setModelHeight msg model = 
-        let (Select.Select (ht)) = msg
+
+    let setModelHeight msg model =
+        let (Select.Select(ht)) = msg
         match ht |> Double.TryParse with
         | (true, n) ->
             { model with Height = Select.update msg model.Height
-                         Patient = match model.Patient with
-                                   | Some p ->
-                                        { p with Height = { p.Height with Measured = n } } |> Some
-                                   | None -> None }
+                         Patient =
+                             match model.Patient with
+                             | Some p ->
+                                 { p with Height =
+                                              { p.Height with Measured = n } }
+                                 |> Some
+                             | None -> None }
         | (false, _) -> model
-        
 
     let update msg model =
         let change set calc msg model =
             let model = model |> set msg
+
             let cmd =
                 if not calc then Cmd.none
                 else
                     match model.Patient with
-                    | Some pat -> 
+                    | Some pat ->
                         getPatient (Shared.Types.Request.Patient.Calculate pat)
                     | None -> Cmd.none
             model, cmd
-
         match msg with
-        | PatientLoaded (Ok resp) ->
-            resp |> processResponse model
-        | PatientLoaded (Result.Error err) ->
+        | PatientLoaded(Ok resp) -> resp |> processResponse model
+        | PatientLoaded(Result.Error err) ->
             printfn "couldn't load patient: %s" err.Message
             model, Cmd.none
         | ClearPatient -> model, (getPatient Shared.Types.Request.Patient.Init)
-        | YearChange (calc, msg) ->
-            model |> change setModelYear calc msg
-        | MonthChange (calc, msg) ->
-            model |> change setModelMonth calc msg
-        | WeightChange (calc, msg) ->
-            model |> change setModelWeight calc msg
-        | HeightChange (calc, msg) ->
-            model |> change setModelHeight calc msg
+        | YearChange(calc, msg) -> model |> change setModelYear calc msg
+        | MonthChange(calc, msg) -> model |> change setModelMonth calc msg
+        | WeightChange(calc, msg) -> model |> change setModelWeight calc msg
+        | HeightChange(calc, msg) -> model |> change setModelHeight calc msg
 
     let private styles (theme : ITheme) : IStyles list =
-        [ Styles.Form [ CSSProp.Padding "20px"; CSSProp.Flex "1" ]
+        [ Styles.Form [ CSSProp.Padding "20px"
+                        CSSProp.Flex "1" ]
+
           Styles.Button
-            [ CSSProp.FlexBasis "auto"
-              CSSProp.Flex "1"
-              CSSProp.MarginTop "10px"
-              CSSProp.BackgroundColor Fable.MaterialUI.Colors.green.``50`` ]
+              [ CSSProp.FlexBasis "auto"
+                CSSProp.Flex "1"
+                CSSProp.MarginTop "10px"
+                CSSProp.BackgroundColor Fable.MaterialUI.Colors.green.``50`` ]
           Styles.Paper [ CSSProp.MarginTop "70px" ]
-          Styles.Custom ("show", [ CSSProp.PaddingTop "20px" ]) ]
+          Styles.Custom("show", [ CSSProp.PaddingTop "20px" ]) ]
 
     let private view' (classes : IClasses) model dispatch =
         let toMsg msg s =
             (true, s)
             |> msg
             |> dispatch
-            
         paper [ Class classes?paper ]
             [ form [ Id "patientform"
                      Class classes?form ]
-                [ formGroup [ FormGroupProp.Row true ]
-                      [ Select.view model.Year (YearChange |> toMsg)
-                        Select.view model.Month (MonthChange |> toMsg)
-                        Select.view model.Weight (WeightChange |> toMsg)
-                        Select.view model.Height (HeightChange |> toMsg) ]
-                  div
-                    [ Style [CSSProp.Display "flex" ]]
-                    [ button
-                        [ OnClick (fun _ -> ClearPatient |> dispatch)
-                          ButtonProp.Variant ButtonVariant.Contained
-                          Class classes?button ]
-                        [ typography
-                            [ TypographyProp.Color TypographyColor.Inherit
-                              TypographyProp.Variant TypographyVariant.Body1 ]
-                            [ str "verwijder" ] ] ] 
-                  typography
-                    [ Class classes?show
-                      TypographyProp.Variant TypographyVariant.Subtitle2 ]
-                    [ model.Patient |> show |> str ] ] ]
+                  [ formGroup [ FormGroupProp.Row true ]
+                        [ Select.view model.Year (YearChange |> toMsg)
+                          Select.view model.Month (MonthChange |> toMsg)
+                          Select.view model.Weight (WeightChange |> toMsg)
+                          Select.view model.Height (HeightChange |> toMsg) ]
+
+                    div [ Style [ CSSProp.Display "flex" ] ]
+                        [ button [ OnClick(fun _ -> ClearPatient |> dispatch)
+                                   ButtonProp.Variant ButtonVariant.Contained
+                                   Class classes?button ]
+                              [ typography
+                                    [ TypographyProp.Color
+                                          TypographyColor.Inherit
+
+                                      TypographyProp.Variant
+                                          TypographyVariant.Body1 ]
+                                    [ str "verwijder" ] ] ]
+
+                    typography
+                        [ Class classes?show
+                          TypographyProp.Variant TypographyVariant.Subtitle2 ]
+                        [ model.Patient
+                          |> show
+                          |> str ] ] ]
 
     // Boilerplate code
     // Workaround for using JSS with Elmish

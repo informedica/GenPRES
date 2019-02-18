@@ -2,6 +2,7 @@
 #load "./.fake/build.fsx/intellisense.fsx"
 #if !FAKE
 #r "netstandard"
+
 // #r "Facades/netstandard" // https://github.com/ionide/ionide-vscode-fsharp/issues/839#issuecomment-396296095
 
 #endif
@@ -13,6 +14,7 @@ open Fake.IO
 
 let serverPath = Path.getFullName "./src/Server"
 let clientPath = Path.getFullName "./src/Client"
+let sharedPath = Path.getFullName "./src/Shared"
 let clientDeployPath = Path.combine clientPath "deploy"
 let deployDir = Path.getFullName "./deploy"
 
@@ -31,6 +33,7 @@ let platformTool tool winTool =
 
 let nodeTool = platformTool "node" "node.exe"
 let yarnTool = platformTool "yarn" "yarn.cmd"
+let fantomasTool = platformTool "fantomas" "fantomas"
 
 let runTool cmd args workingDir =
     let arguments =
@@ -58,8 +61,10 @@ let openBrowser url =
     |> Proc.run
     |> ignore
 
+// Clean the solution
 Target.create "Clean"
     (fun _ -> [ deployDir; clientDeployPath ] |> Shell.cleanDirs)
+// Install the client
 Target.create "InstallClient" (fun _ ->
     printfn "Node version:"
     runTool nodeTool "--version" __SOURCE_DIRECTORY__
@@ -67,9 +72,11 @@ Target.create "InstallClient" (fun _ ->
     runTool yarnTool "--version" __SOURCE_DIRECTORY__
     runTool yarnTool "install --frozen-lockfile" __SOURCE_DIRECTORY__
     runDotNet "restore" clientPath)
+// Build the solution
 Target.create "Build" (fun _ ->
     runDotNet "build" serverPath
     runTool yarnTool "webpack-cli -p" __SOURCE_DIRECTORY__)
+// Run the development environment
 Target.create "Run" (fun _ ->
     let server = async { runDotNet "watch run" serverPath }
     let client =
@@ -86,17 +93,18 @@ Target.create "Run" (fun _ ->
 
     let tasks =
         [ if not safeClientOnly then yield server
-          yield client
-          (*if not vsCodeSession then yield browser*) ]
+          yield client ]
     tasks
-    |> Async.Parallel
+    (*if not vsCodeSession then yield browser*) |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore)
 
+// Build a docker image
 let buildDocker tag =
     let args = sprintf "build -t %s ." tag
     runTool "docker" args "."
 
+// Bundle the solution
 Target.create "Bundle" (fun _ ->
     let serverDir = Path.combine deployDir "Server"
     let clientDir = Path.combine deployDir "Client"
@@ -109,10 +117,22 @@ let dockerUser = "halcwb"
 let dockerImageName = "genpres"
 let dockerFullName = sprintf "%s/%s" dockerUser dockerImageName
 
+// Docker target
 Target.create "Docker" (fun _ -> buildDocker dockerFullName)
+
+let runFantomas folder =
+    let cmd = sprintf "%s --recurse" folder
+    runTool fantomasTool cmd __SOURCE_DIRECTORY__
+
+// Run the fantomas tool
+Target.create "Fantomas" (fun _ ->
+    "build.fsx" |> runFantomas
+    serverPath |> runFantomas
+    sharedPath |> runFantomas
+    clientPath |> runFantomas)
 
 open Fake.Core.TargetOperators
 
-"Clean" ==> "InstallClient" ==> "Build" ==> "Bundle" ==> "Docker"
-"Clean" ==> "InstallClient" ==> "Run"
+"Fantomas" ==> "Clean" ==> "InstallClient" ==> "Build" ==> "Bundle" ==> "Docker"
+"Fantomas" ==> "Clean" ==> "InstallClient" ==> "Run"
 Target.runOrDefaultWithArguments "Build"

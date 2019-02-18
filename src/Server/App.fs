@@ -2,9 +2,7 @@ namespace GenPres.Server
 
 open GenPres.Shared
 
-
 module App =
-
     open System.IO
     open Microsoft.Extensions.DependencyInjection
     open FSharp.Control.Tasks.V2
@@ -12,28 +10,26 @@ module App =
     open Saturn
     open Types
 
-
     let processRequest (req : Request.Msg) =
         printfn "received request: %A" req
         match req with
         | Request.ConfigMsg msg ->
             match msg with
             | Request.Configuration.Get ->
-                Configuration.getSettings ()
+                Configuration.getSettings()
                 |> Types.Response.Configuration
                 |> Some
         | Request.PatientMsg msg ->
             match msg with
             | Request.Patient.Init ->
                 Patient.patient
-                |> Response.Patient  
+                |> Response.Patient
                 |> Some
             | Request.Patient.Calculate pat ->
                 pat
                 |> Patient.calculate
                 |> Response.Patient
                 |> Some
-
 
     let tryGetEnv =
         System.Environment.GetEnvironmentVariable
@@ -50,17 +46,17 @@ module App =
         |> Option.map uint16
         |> Option.defaultValue 8085us
 
-
     let webApp =
         router
             {
-            post "/api/request" (fun next ctx ->
-                task {
-                    let! resp = task {
-                        let! req = ctx.BindJsonAsync<Request.Msg>()
-                        return req |> processRequest }
-                    return! json resp next ctx }) }
-
+            post "/api/request"
+                (fun next ctx -> task { let! resp = task
+                                                        {
+                                                        let! req = ctx.BindJsonAsync<Request.Msg>
+                                                                       ()
+                                                        return req
+                                                               |> processRequest }
+                                        return! json resp next ctx }) }
     let configureSerialization (services : IServiceCollection) =
         services.AddSingleton<Giraffe.Serialization.Json.IJsonSerializer>
             (Thoth.Json.Giraffe.ThothSerializer())
@@ -74,4 +70,3 @@ module App =
             service_config configureSerialization
             use_gzip
         }
-

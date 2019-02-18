@@ -13,7 +13,9 @@ module StatusBar =
         { Message : string
           Open : bool }
 
-    let init() = { Message = ""; Open = false }
+    let init() =
+        { Message = ""
+          Open = false }
 
     type Msg =
         | IsOpen of bool
@@ -31,7 +33,10 @@ module StatusBar =
     let view' (classes : IClasses) model dispatch =
         let { Message = s } = model
         snackbar [ Open model.Open
-                   OnClose (fun _ _ -> false |> IsOpen |> dispatch)
+                   OnClose(fun _ _ ->
+                       false
+                       |> IsOpen
+                       |> dispatch)
                    SnackbarProp.AutoHideDuration 1000
                    SnackbarProp.Message(str s) ] []
 
