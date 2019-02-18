@@ -21,14 +21,12 @@ module Main =
           StatusBarModel : Components.StatusBar.Model
           PatientFormModel : Views.PatientForm.Model Option }
 
-    type ResponseLoaded = Result<Shared.Types.Response.Response Option, exn>
-
     type Msg =
         | SideMenuMsg of Components.SideMenu.Msg
         | NavBarMsg of Components.NavBar.Msg
         | StatusBarMsg of Components.StatusBar.Msg
         | PatientFormMsg of Views.PatientForm.Msg
-        | ResponseMsg of ResponseLoaded
+        | ResponseMsg of Shared.Types.Response.Result
 
 
     let cmdNone model = model, Cmd.none
@@ -77,6 +75,7 @@ module Main =
                 (Result.Error >> ResponseMsg)
 
         initialModel, (Cmd.batch [loadConfig])
+
 
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with

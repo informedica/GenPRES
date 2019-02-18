@@ -74,3 +74,6 @@ module Types =
         type Response =
             | Configuration of Configuration.Configuration
             | Patient of Patient.Patient
+
+
+        type Result = Result<Response Option, exn>

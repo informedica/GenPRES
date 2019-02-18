@@ -24,10 +24,8 @@ module PatientForm =
           Weight : Select.Model
           Height : Select.Model }
 
-    type ResponseLoaded = Result<Shared.Types.Response.Response Option, exn>
-
     type Msg =
-        | PatientLoaded of ResponseLoaded
+        | PatientLoaded of Shared.Types.Response.Result
         | ClearPatient 
         | YearChange of (bool *  Select.Msg)
         | MonthChange of (bool *  Select.Msg)
@@ -165,23 +163,18 @@ module PatientForm =
 
         match msg with
         | PatientLoaded (Ok resp) ->
-            printfn "patient received: %A" resp
             resp |> processResponse model
         | PatientLoaded (Result.Error err) ->
             printfn "couldn't load patient: %s" err.Message
             model, Cmd.none
         | ClearPatient -> model, (getPatient Shared.Types.Request.Patient.Init)
         | YearChange (calc, msg) ->
-            printfn "received a year change: %A" msg
             model |> change setModelYear calc msg
         | MonthChange (calc, msg) ->
-            printfn "received a month change: %A" msg
             model |> change setModelMonth calc msg
         | WeightChange (calc, msg) ->
-            printfn "received a weight change: %A" msg
             model |> change setModelWeight calc msg
         | HeightChange (calc, msg) ->
-            printfn "received a height change: %A" msg
             model |> change setModelHeight calc msg
 
     let private styles (theme : ITheme) : IStyles list =
@@ -191,8 +184,8 @@ module PatientForm =
               CSSProp.Flex "1"
               CSSProp.MarginTop "10px"
               CSSProp.BackgroundColor Fable.MaterialUI.Colors.green.``50`` ]
-          Styles.Paper [ CSSProp.MarginTop "60px" ]
-          Styles.Custom ("show", [ CSSProp.PaddingTop "10px" ]) ]
+          Styles.Paper [ CSSProp.MarginTop "70px" ]
+          Styles.Custom ("show", [ CSSProp.PaddingTop "20px" ]) ]
 
     let private view' (classes : IClasses) model dispatch =
         let toMsg msg s =
