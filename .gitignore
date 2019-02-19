@@ -1,6 +1,9 @@
+.paket/load
 .fable/
 .fake/
 .vs/
+.vscode/
+.editorconfig
 obj/
 bin/
 packages/

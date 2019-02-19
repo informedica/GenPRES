@@ -92,22 +92,24 @@ module Patient =
               |> List.filter (fun (a, _) -> age <= a) with
         | (_, w) :: _ -> w
         | [] -> 0.
+        |> Math.fixPrecision 2
 
     let ageToHeight yr mo =
         let age = (double yr) * 12. + (double mo)
         match Data.NormalValues.ageHeight |> List.filter (fun (a, _) -> age < a) with
         | (_, h) :: _ -> h
         | _ -> 0.
+        |> Math.fixPrecision 0
 
     let patient =
         let age = Age.ageZero
 
         let wght : Weight =
-            { Estimated = ageToWeight 0 0
+            { Estimated = ageToWeight 0 0 
               Measured = 0. }
 
         let hght =
-            { Estimated = ageToHeight 0 0
+            { Estimated = ageToHeight 0 0 
               Measured = 0. }
 
         { Age = age
@@ -148,8 +150,8 @@ module Patient =
         | Some y, None ->
             if y > 18 || y < 0 then pat
             else
-                let w = ageToWeight y (pat.Age.Months)
-                let h = ageToHeight y (pat.Age.Months)
+                let w = ageToWeight y (pat.Age.Months) 
+                let h = ageToHeight y (pat.Age.Months) 
                 { pat with Age = { pat.Age with Years = y }
                            Weight = { pat.Weight with Weight.Estimated = w }
                            Height = { pat.Height with Estimated = h } }

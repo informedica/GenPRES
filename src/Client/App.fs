@@ -9,6 +9,7 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
+open Pages
 
 type Model = MainModel of Main.Model
 

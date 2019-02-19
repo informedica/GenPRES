@@ -32,7 +32,8 @@ module PatientForm =
         | HeightChange of (bool * Select.Msg)
 
     let cmdOfPromise task =
-        Cmd.ofPromise (fun () -> task) () (Ok >> PatientLoaded)
+        Cmd.ofPromise
+            (fun () -> task) () (Ok >> PatientLoaded)
             (Result.Error >> PatientLoaded)
 
     let getPatient msg =
@@ -41,35 +42,18 @@ module PatientForm =
         |> Utils.Request.post
         |> cmdOfPromise
 
-    let nearestItem (sel : Select.Model) n =
-        sel.Items
-        |> List.map (fun i -> i.Value)
-        |> List.map Double.TryParse
-        |> List.filter fst
-        |> List.map snd
-        |> Utils.Utils.List.findNearestMax n
-        |> string
-
-    let inline toMsg get msg pat =
-        pat
-        |> get
-        |> int
-        |> string
-        |> Select.Select
-        |> (fun s -> (false, s) |> msg)
-        |> Cmd.ofMsg
-
     let processResponse model resp =
         match resp with
         | None -> model, Cmd.none
         | Some resp ->
             match resp with
             | Shared.Types.Response.Patient pat ->
-                let yr = pat |> toMsg Domain.Patient.getAgeYears YearChange
-                let mo = pat |> toMsg Domain.Patient.getAgeMonths MonthChange
-                let wt = pat |> toMsg Domain.Patient.getWeight WeightChange
-                let ht = pat |> toMsg Domain.Patient.getHeight HeightChange
-                { model with Patient = Some pat }, Cmd.batch [ yr; mo; wt; ht ]
+                { model with Patient = Some pat
+                             Year = model.Year     |> Select.updateModel (pat.Age.Years |> string)
+                             Month = model.Month   |> Select.updateModel (pat.Age.Months |> string)
+                             Weight = model.Weight |> Select.updateModel (pat |> Domain.Patient.getWeight |> string)
+                             Height = model.Height |> Select.updateModel (pat |> Domain.Patient.getHeight |> string)}
+                , Cmd.batch [ ]
             | _ -> model, Cmd.none
 
     let init (yrs : int list) (mos : int list) (whts : float list)
@@ -78,7 +62,7 @@ module PatientForm =
             { Patient = None
               Year = Select.init "Jaren" (yrs |> List.map string)
               Month = Select.init "Maanden" (mos |> List.map string)
-              Weight = Select.init "Gewicht (kg)" (whts |> List.map string)
+              Weight = Select.init "Gewicht (kg)" (whts |> List.map ((Math.fixPrecision 2) >> string))
               Height = Select.init "Lengte (cm)" (hths |> List.map string) }
 
         let loadPatient = getPatient Shared.Types.Request.Patient.Init
@@ -117,8 +101,10 @@ module PatientForm =
 
     let setModelWeight msg model =
         let (Select.Select(wt)) = msg
+        printfn "setting weight to %s" wt
         match wt |> Double.TryParse with
         | (true, n) ->
+            printfn "could parse weight to %f" n
             { model with Weight = Select.update msg model.Weight
                          Patient =
                              match model.Patient with
@@ -161,8 +147,8 @@ module PatientForm =
             printfn "couldn't load patient: %s" err.Message
             model, Cmd.none
         | ClearPatient -> model, (getPatient Shared.Types.Request.Patient.Init)
-        | YearChange(calc, msg) -> model |> change setModelYear calc msg
-        | MonthChange(calc, msg) -> model |> change setModelMonth calc msg
+        | YearChange(calc, msg)   -> model |> change setModelYear   calc msg
+        | MonthChange(calc, msg)  -> model |> change setModelMonth  calc msg
         | WeightChange(calc, msg) -> model |> change setModelWeight calc msg
         | HeightChange(calc, msg) -> model |> change setModelHeight calc msg
 

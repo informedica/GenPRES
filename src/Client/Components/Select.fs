@@ -28,11 +28,16 @@ module Select =
 
     type Msg = Select of string
 
+    let updateModel s model =
+        { model with Selected =
+                            model.Items
+                            |> List.tryFind (fun i ->
+                            i.Value = s
+                            )}
+
     let update msg model =
         match msg with
-        | Select s ->
-            { model with Selected =
-                             model.Items |> List.tryFind (fun i -> i.Value = s) }
+        | Select s -> model |> updateModel s
 
     let private styles (theme : ITheme) : IStyles list =
         [ Styles.FormControl [ MinWidth "115px"
@@ -40,10 +45,9 @@ module Select =
 
     let private selectItem e =
         menuItem [ HTMLAttr.Value e.Value
-                   Key(string e.Key) ]
+                   Key(e.Key) ]
             [ typography [ TypographyProp.Variant TypographyVariant.H6 ]
                   [ e.Value
-                    |> string
                     |> str ] ]
 
     let view' (classes : IClasses) model dispatch =
@@ -55,7 +59,6 @@ module Select =
                                       |> Option.defaultValue "")
                        DOMAttr.OnChange(fun ev ->
                            ev.Value
-                           |> string
                            |> Select
                            |> dispatch) ] [ model.Items
                                             |> List.map selectItem
