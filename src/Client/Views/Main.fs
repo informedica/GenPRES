@@ -12,7 +12,6 @@ module Main =
     open GenPres
     open Components
 
-
     type Model =
         { Configuration : Shared.Types.Configuration.Configuration Option
           Patient : Shared.Types.Patient.Patient Option
@@ -26,7 +25,7 @@ module Main =
         | NavBarMsg
         | PatientFormMsg of Views.PatientForm.Msg
         | ResponseMsg of Shared.Types.Response.Result
-        | SecondStatusBarMsg of bool
+        | StatusBarMsg of bool
 
     let cmdNone model = model, Cmd.none
 
@@ -77,11 +76,10 @@ module Main =
             printfn "error: %s" err.Message
             model |> cmdNone
         | NavBarMsg _ ->
-            printfn "navbar message"
-            { model with SideMenuModel =
-                             model.SideMenuModel
-                             |> Components.SideMenu.update
-                                    Components.SideMenu.ToggleMenu } |> cmdNone
+            let menuModel, _ =
+                Components.SideMenu.update Components.SideMenu.ToggleMenu
+                    model.SideMenuModel
+            { model with SideMenuModel = menuModel } |> cmdNone
         | PatientFormMsg msg ->
             printfn "form message"
             match model.PatientFormModel with
@@ -90,12 +88,11 @@ module Main =
                 let patFormMod, cmd = patFormMod |> Views.PatientForm.update msg
                 { model with PatientFormModel = Some patFormMod },
                 Cmd.map Msg.PatientFormMsg cmd
-        | SecondStatusBarMsg b ->
-             { model with StatusIsOpen = b } , Cmd.none
+        | StatusBarMsg b -> { model with StatusIsOpen = b }, Cmd.none
         | SideMenuMsg msg ->
-            { model with SideMenuModel =
-                             model.SideMenuModel
-                             |> Components.SideMenu.update msg }, Cmd.none
+            let menuModel, cmd =
+                Components.SideMenu.update msg model.SideMenuModel
+            { model with SideMenuModel = menuModel }, Cmd.map SideMenuMsg cmd
 
     let view model dispatch =
         muiThemeProvider
@@ -103,7 +100,6 @@ module Main =
             [ div [ Id "homepage" ]
                   [ yield Components.SideMenu.view model.SideMenuModel
                               (SideMenuMsg >> dispatch)
-
                     yield Components.NavBar.view "GenPRES" NavBarMsg dispatch
 
                     match model.PatientFormModel with
@@ -112,4 +108,5 @@ module Main =
                         yield Views.PatientForm.view m
                                   (PatientFormMsg >> dispatch)
 
-                    yield StatusBar.view model.StatusIsOpen model.StatusText SecondStatusBarMsg dispatch ] ]
+                    yield StatusBar.view model.StatusIsOpen model.StatusText
+                              StatusBarMsg dispatch ] ]

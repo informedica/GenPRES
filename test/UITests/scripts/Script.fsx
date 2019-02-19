@@ -6,6 +6,7 @@ open canopy.configuration
 open canopy.classic
 open canopy.types
 
+
 let filepath = __SOURCE_DIRECTORY__
 let driverpath =
     @"./../../../packages/uitests/Selenium.WebDriver.ChromeDriver/driver/win32"

@@ -9,7 +9,6 @@ module NavBar =
     open Fable.MaterialUI.Props
     open Fable.MaterialUI.Themes
 
-
     let private styles (theme : ITheme) : IStyles list =
         [ Styles.Root [ CSSProp.Display "flex"
                         CSSProp.FlexGrow 1 ]
@@ -33,8 +32,7 @@ module NavBar =
                                            TypographyColor.Inherit
 
                                        TypographyProp.Variant
-                                           TypographyVariant.H6 ]
-                                     [ str title ]
+                                           TypographyVariant.H6 ] [ str title ]
                                  div [ Class !!classes?flex ] []
                                  menubutton msg dispatch ] ] ]
 

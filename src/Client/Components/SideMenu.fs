@@ -9,46 +9,68 @@ module SideMenu =
     open Fable.MaterialUI.Core
     open Fable.MaterialUI.Props
     open Fable.MaterialUI.Themes
+    open GenPres.Shared.Types.Request.Configuration
+    open Elmish
+
+    type Msg =
+        | ToggleMenu
+        | MenuClick of string
+
+    type ListItemButton =
+        { Text : string
+          Selected : bool }
 
     type Model =
-        { Open : bool }
+        { Open : bool
+          Items : ListItemButton list }
 
-    type Msg = ToggleMenu
-
-    let init() = { Open = false }
+    let init() =
+        { Open = false
+          Items =
+              [ { Text = "Noodlijst"
+                  Selected = false }
+                { Text = "Continue Medicatie"
+                  Selected = false } ] }
 
     let update msg model =
         match msg with
-        | ToggleMenu -> { model with Open = not model.Open }
+        | ToggleMenu -> { model with Open = not model.Open }, Cmd.none
+        | MenuClick s ->
+            { model with Items =
+                             [ for item in model.Items do
+                                   if item.Text = s then
+                                       yield { item with Selected = true }
+                                   else yield { item with Selected = false } ] },
+            Cmd.ofMsg ToggleMenu
 
     let styles (theme : ITheme) : IStyles list =
-        [ Styles.Custom ("toolbar", [
-            CSSProp.Padding "0px"
-            Display "flex"
-            FlexDirection "column" ])
-          Styles.Button [ CSSProp.FlexBasis "auto"; CSSProp.Flex "1" ]
-        ]
+        [ Styles.Custom("list",
+                        [ Display "flex"
+                          FlexDirection "column" ]) ]
+
+    let listItemButton sel txt dispatch =
+        listItem [ ListItemProp.Button true
+                   ListItemProp.Divider true
+                   OnClick(fun _ ->
+                       txt
+                       |> MenuClick
+                       |> dispatch)
+                   HTMLAttr.Selected sel ] [ str txt ]
+
+    let menuList model dispatch =
+        model.Items
+        |> List.map (fun i -> listItemButton i.Selected i.Text dispatch)
+        |> List.append [ listItem []
+                             [ typography
+                                   [ TypographyProp.Variant TypographyVariant.H6 ]
+                                   [ str "Menu" ] ]
+                         divider [] ]
 
     let private view' (classes : IClasses) (model : Model) dispatch =
-            drawer [ DrawerProp.Variant DrawerVariant.Temporary
-                     MaterialProp.OnClose(fun _ -> ToggleMenu |> dispatch)
-                     MaterialProp.Open model.Open ]
-                   [
-                     list [ Class !!classes?toolbar ]
-                        [ listItem []
-                            [ typography
-                                      [ TypographyProp.Variant TypographyVariant.H6 ]
-                                      [ str "Menu" ] ] 
-                          divider [] 
-                          listItem [ ]
-                                [ button
-                                    [ Class !!classes?button ]
-                                    [ str "Noodlijst" ] ]
-                          divider []
-                          listItem []
-                                 [ button
-                                      [ Class !!classes?button ]
-                                      [ str "Continue Medicatie" ] ] ] ]
+        drawer [ DrawerProp.Variant DrawerVariant.Temporary
+                 MaterialProp.OnClose(fun _ -> ToggleMenu |> dispatch)
+                 MaterialProp.Open model.Open ]
+            [ list [ Class !!classes?list ] (menuList model dispatch) ]
 
     // Boilerplate code
     // Workaround for using JSS with Elmish

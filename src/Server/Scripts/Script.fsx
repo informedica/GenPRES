@@ -883,14 +883,14 @@ module Data =
 
 open Data
 
-
 module DataTests =
     open Thoth.Json
     open System.IO
 
-    let path = Path.Combine(System.Environment.CurrentDirectory, "./../../data/data/")
-    let encode ob = Thoth.Json.Net.Encode.Auto.toString(0, ob, false)
-    let decode<'T> s = Thoth.Json.Net.Decode.Auto.unsafeFromString<'T>(s)
+    let path =
+        Path.Combine(System.Environment.CurrentDirectory, "./../../data/data/")
+    let encode ob = Thoth.Json.Net.Encode.Auto.toString (0, ob, false)
+    let decode<'T> s = Thoth.Json.Net.Decode.Auto.unsafeFromString<'T> (s)
 
     let writeToFile file ob =
         let file = Path.Combine(path, file)
@@ -900,87 +900,43 @@ module DataTests =
 
     let readFromFile<'T> file =
         let file = Path.Combine(path, file)
-        File.ReadAllText(file)
-        |> decode<'T>
+        File.ReadAllText(file) |> decode<'T>
 
-    Data.NormalValues.ageHeight
-    |> writeToFile "AgeHeight.json"
-
+    Data.NormalValues.ageHeight |> writeToFile "AgeHeight.json"
     "AgeHeight.json"
-    |> readFromFile<((float * float) list)>
+    |> readFromFile<(float * float) list>
     |> printfn "%A"
-
-
-    Data.NormalValues.ageWeight
-    |> writeToFile "AgeWeight.json"
-
+    Data.NormalValues.ageWeight |> writeToFile "AgeWeight.json"
     "AgeWeight.json"
-    |> readFromFile<((float * float) list)>
+    |> readFromFile<(float * float) list>
     |> printfn "%A"
-
-
-    Data.NormalValues.dbp
-    |> writeToFile "dbp.json"
-
+    Data.NormalValues.dbp |> writeToFile "dbp.json"
     "dbp.json"
-    |> readFromFile<((float * string) list)>
+    |> readFromFile<(float * string) list>
     |> printfn "%A"
-
-    Data.NormalValues.sbp
-    |> writeToFile "sbp.json"
-
+    Data.NormalValues.sbp |> writeToFile "sbp.json"
     "sbp.json"
-    |> readFromFile<((float * string) list)>
+    |> readFromFile<(float * string) list>
     |> printfn "%A"
-
-    Data.NormalValues.gcs
-    |> writeToFile "gcs.json"
-
-    "gcs.json"
-    |> readFromFile<(int * (string * (int * string) list) list) list>
-
-    Data.NormalValues.heartRate
-    |> writeToFile "hearRate.json"
-
-    "hearRate.json"
-    |> readFromFile<(float * string) list>
-
-    Data.NormalValues.respRate
-    |> writeToFile "respRate.json"
-
-    "respRate.json"
-    |> readFromFile<(float * string) list>
-
-    Data.NormalValues.pews
-    |> writeToFile "pews.json"
-
+    Data.NormalValues.gcs |> writeToFile "gcs.json"
+    "gcs.json" |> readFromFile<(int * (string * (int * string) list) list) list>
+    Data.NormalValues.heartRate |> writeToFile "hearRate.json"
+    "hearRate.json" |> readFromFile<(float * string) list>
+    Data.NormalValues.respRate |> writeToFile "respRate.json"
+    "respRate.json" |> readFromFile<(float * string) list>
+    Data.NormalValues.pews |> writeToFile "pews.json"
     "pews.json"
     |> readFromFile<(int * (string * (int * string) list) list) list>
-
-    Data.TreatmentData.contMeds
-    |> writeToFile "contMeds.json"
-
+    Data.TreatmentData.contMeds |> writeToFile "contMeds.json"
     "contMeds.json"
     |> readFromFile<(string * string * string * string * float * float * float * float * float * float * float * float * float * float * float * float * float * string) list>
-
-
-    Data.TreatmentData.medicationDefs
-    |> writeToFile "medicationDefs.json"
-
+    Data.TreatmentData.medicationDefs |> writeToFile "medicationDefs.json"
     "medicationDefs.json"
     |> readFromFile<(string * string * float * float * float * float * string * string) list>
-
-    Data.TreatmentData.joules
-    |> writeToFile "joules.json"
-
-    "joules.json"
-    |> readFromFile<int list>
-
-    Data.TreatmentData.products
-    |> writeToFile "products.json"
-
-    "products.json"
-    |> readFromFile<(string * string * string * float) list>
+    Data.TreatmentData.joules |> writeToFile "joules.json"
+    "joules.json" |> readFromFile<int list>
+    Data.TreatmentData.products |> writeToFile "products.json"
+    "products.json" |> readFromFile<(string * string * string * float) list>
 
 /// This module defines shared types between
 /// the client and the server

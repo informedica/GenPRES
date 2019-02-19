@@ -9,15 +9,14 @@ module StatusBar =
     open Fable.MaterialUI.Props
     open Fable.MaterialUI.Themes
 
-
     let styles (theme : ITheme) : IStyles list = []
 
     let view' (classes : IClasses) isOpen txt msg dispatch =
         snackbar [ Open isOpen
                    OnClose(fun _ _ ->
-                        false
-                        |> msg
-                        |> dispatch)
+                       false
+                       |> msg
+                       |> dispatch)
                    SnackbarProp.AutoHideDuration 1000
                    SnackbarProp.Message(str txt) ] []
 
@@ -33,7 +32,8 @@ module StatusBar =
 
     type private Component(p) =
         inherit PureStatelessComponent<IProps>(p)
-        let viewFun (p : IProps) = view' p.classes p.isOpen p.text p.msg p.dispatch
+        let viewFun (p : IProps) =
+            view' p.classes p.isOpen p.text p.msg p.dispatch
         let viewWithStyles = withStyles (StyleType.Func styles) [] viewFun
         override this.render() =
             ReactElementType.create !!viewWithStyles this.props []
