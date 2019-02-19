@@ -99,7 +99,7 @@ module EmergencyList =
               |> List.mapi (fun i row ->
                     tableRow
                         [ TableRowProp.Hover true
-                          Style [ if i%2 = 0 then yield CSSProp.BackgroundColor Fable.MaterialUI.Colors.grey.``100`` ] ]
+                          (*Style [ if i%2 = 0 then yield CSSProp.BackgroundColor Fable.MaterialUI.Colors.grey.``100`` ]*) ]
                         (row |> List.map (fun cell -> tableCell [] [ str cell ] ) ) ) )
             
         
