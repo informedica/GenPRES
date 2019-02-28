@@ -80,7 +80,10 @@ Target.create "Build" (fun _ ->
 Target.create "Run" (fun _ ->
     let server = async { runDotNet "watch run" serverPath }
     let client =
-        async { runTool yarnTool "webpack-dev-server" __SOURCE_DIRECTORY__ }
+        async
+            {
+            runTool yarnTool "webpack-dev-server --host 0.0.0.0 --port 8080"
+                __SOURCE_DIRECTORY__ }
 
     let browser =
         async {

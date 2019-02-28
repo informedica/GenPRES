@@ -39,6 +39,9 @@ module Types =
             { Estimated : double
               Measured : double }
 
+    module Treatment =
+        type MedicationDefs = (string * string * float * float * float * float * string * string) list
+
     module Request =
         module Configuration =
             type Msg = Get
@@ -51,15 +54,17 @@ module Types =
                 | Calculate of Patient
 
         module AcuteList =
-            type Msg = Get of Patient.Patient
+            type Msg = Get
 
         type Msg =
             | PatientMsg of Patient.Msg
             | ConfigMsg of Configuration.Msg
+            | AcuteListMsg of AcuteList.Msg
 
     module Response =
         type Response =
             | Configuration of Configuration.Configuration
             | Patient of Patient.Patient
+            | MedicationDefs of Treatment.MedicationDefs
 
         type Result = Result<Response Option, exn>

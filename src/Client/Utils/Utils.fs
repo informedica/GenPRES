@@ -142,3 +142,9 @@ module Utils =
         let dateDiffYearsMonths dt1 dt2 =
             let mos = (dateDiffMonths dt1 dt2) |> int
             (mos / 12), (mos % 12)
+
+    module Command =
+        open Elmish
+
+        let cmdOfPromise msg task =
+            Cmd.ofPromise (fun () -> task) () (Ok >> msg) (Result.Error >> msg)

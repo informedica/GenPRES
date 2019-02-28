@@ -10,10 +10,14 @@
         <Compile Include="Styles.fs"/>
 		<Compile Include="Utils\Utils.fs"/>
 		<Compile Include="Utils\Request.fs"/>
+		<Compile Include="Utils\Response.fs"/>
         <Compile Include="Domain\Configuration.fs"/>
         <Compile Include="Domain\Patient.fs"/>
         <Compile Include="Domain\EmergencyTreatment.fs"/>
         <Compile Include="Components\Select.fs"/>
+        <Compile Include="Components\SortableTable.fs"/>
+        <Compile Include="Views\Typography.fs"/>
+        <Compile Include="Views\ExpansionPanel.fs"/>
         <Compile Include="Views\SideMenu.fs"/>
         <Compile Include="Views\StatusBar.fs"/>
         <Compile Include="Views\NavBar.fs"/>

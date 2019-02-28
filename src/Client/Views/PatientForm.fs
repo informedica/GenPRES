@@ -31,30 +31,35 @@ module PatientForm =
         | WeightChange of (bool * Select.Msg)
         | HeightChange of (bool * Select.Msg)
 
-    let cmdOfPromise task =
-        Cmd.ofPromise
-            (fun () -> task) () (Ok >> PatientLoaded)
-            (Result.Error >> PatientLoaded)
-
     let getPatient msg =
         msg
         |> Shared.Types.Request.PatientMsg
-        |> Utils.Request.post
-        |> cmdOfPromise
+        |> Utils.Request.requestToResponseCommand PatientLoaded
 
     let processResponse model resp =
-        match resp with
-        | None -> model, Cmd.none
-        | Some resp ->
+        fun model resp ->
             match resp with
             | Shared.Types.Response.Patient pat ->
                 { model with Patient = Some pat
-                             Year = model.Year     |> Select.updateModel (pat.Age.Years |> string)
-                             Month = model.Month   |> Select.updateModel (pat.Age.Months |> string)
-                             Weight = model.Weight |> Select.updateModel (pat |> Domain.Patient.getWeight |> string)
-                             Height = model.Height |> Select.updateModel (pat |> Domain.Patient.getHeight |> string)}
-                , Cmd.batch [ ]
+                             Year =
+                                 model.Year
+                                 |> Select.updateModel (pat.Age.Years |> string)
+                             Month =
+                                 model.Month
+                                 |> Select.updateModel
+                                        (pat.Age.Months |> string)
+                             Weight =
+                                 model.Weight
+                                 |> Select.updateModel (pat
+                                                        |> Domain.Patient.getWeight
+                                                        |> string)
+                             Height =
+                                 model.Height
+                                 |> Select.updateModel (pat
+                                                        |> Domain.Patient.getHeight
+                                                        |> string) }, Cmd.none
             | _ -> model, Cmd.none
+        |> Utils.Response.processResponse model resp
 
     let init (yrs : int list) (mos : int list) (whts : float list)
         (hths : int list) =
@@ -62,7 +67,9 @@ module PatientForm =
             { Patient = None
               Year = Select.init "Jaren" (yrs |> List.map string)
               Month = Select.init "Maanden" (mos |> List.map string)
-              Weight = Select.init "Gewicht (kg)" (whts |> List.map ((Math.fixPrecision 2) >> string))
+              Weight =
+                  Select.init "Gewicht (kg)"
+                      (whts |> List.map ((Math.fixPrecision 2) >> string))
               Height = Select.init "Lengte (cm)" (hths |> List.map string) }
 
         let loadPatient = getPatient Shared.Types.Request.Patient.Init
@@ -142,26 +149,21 @@ module PatientForm =
                     | None -> Cmd.none
             model, cmd
         match msg with
-        | PatientLoaded(Ok resp) -> resp |> processResponse model
-        | PatientLoaded(Result.Error err) ->
-            printfn "couldn't load patient: %s" err.Message
-            model, Cmd.none
+        | PatientLoaded(resp) -> resp |> processResponse model
         | ClearPatient -> model, (getPatient Shared.Types.Request.Patient.Init)
-        | YearChange(calc, msg)   -> model |> change setModelYear   calc msg
-        | MonthChange(calc, msg)  -> model |> change setModelMonth  calc msg
+        | YearChange(calc, msg) -> model |> change setModelYear calc msg
+        | MonthChange(calc, msg) -> model |> change setModelMonth calc msg
         | WeightChange(calc, msg) -> model |> change setModelWeight calc msg
         | HeightChange(calc, msg) -> model |> change setModelHeight calc msg
 
     let private styles (theme : ITheme) : IStyles list =
-        [ Styles.Form [ CSSProp.Padding "20px"
-                        CSSProp.Flex "1" ]
+        [ Styles.Form [ CSSProp.Flex "1" ]
 
           Styles.Button
               [ CSSProp.FlexBasis "auto"
                 CSSProp.Flex "1"
                 CSSProp.MarginTop "10px"
                 CSSProp.BackgroundColor Fable.MaterialUI.Colors.green.``50`` ]
-          Styles.Paper [ CSSProp.MarginTop "70px" ]
           Styles.Custom("show", [ CSSProp.PaddingTop "20px" ]) ]
 
     let private view' (classes : IClasses) model dispatch =
@@ -169,33 +171,22 @@ module PatientForm =
             (true, s)
             |> msg
             |> dispatch
-        paper [ Class classes?paper ]
-            [ form [ Id "patientform"
-                     Class classes?form ]
-                  [ formGroup [ FormGroupProp.Row true ]
-                        [ Select.view model.Year (YearChange |> toMsg)
-                          Select.view model.Month (MonthChange |> toMsg)
-                          Select.view model.Weight (WeightChange |> toMsg)
-                          Select.view model.Height (HeightChange |> toMsg) ]
+        form [ Id "patientform"
+               Class classes?form ]
+            [ formGroup [ FormGroupProp.Row true ]
+                  [ Select.view model.Year (YearChange |> toMsg)
+                    Select.view model.Month (MonthChange |> toMsg)
+                    Select.view model.Weight (WeightChange |> toMsg)
+                    Select.view model.Height (HeightChange |> toMsg) ]
 
-                    div [ Style [ CSSProp.Display "flex" ] ]
-                        [ button [ OnClick(fun _ -> ClearPatient |> dispatch)
-                                   ButtonProp.Variant ButtonVariant.Contained
-                                   Class classes?button ]
-                              [ typography
-                                    [ TypographyProp.Color
-                                          TypographyColor.Inherit
-
-                                      TypographyProp.Variant
-                                          TypographyVariant.Body1 ]
-                                    [ str "verwijder" ] ] ]
-
-                    typography
-                        [ Class classes?show
-                          TypographyProp.Variant TypographyVariant.Subtitle2 ]
-                        [ model.Patient
-                          |> show
-                          |> str ] ] ]
+              div [ Style [ CSSProp.Display "flex" ] ]
+                  [ button [ OnClick(fun _ -> ClearPatient |> dispatch)
+                             ButtonProp.Variant ButtonVariant.Contained
+                             Class classes?button ]
+                        [ typography
+                              [ TypographyProp.Color TypographyColor.Inherit
+                                TypographyProp.Variant TypographyVariant.Body1 ]
+                              [ str "verwijder" ] ] ] ]
 
     // Boilerplate code
     // Workaround for using JSS with Elmish

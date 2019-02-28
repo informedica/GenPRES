@@ -30,10 +30,7 @@ module Select =
 
     let updateModel s model =
         { model with Selected =
-                            model.Items
-                            |> List.tryFind (fun i ->
-                            i.Value = s
-                            )}
+                         model.Items |> List.tryFind (fun i -> i.Value = s) }
 
     let update msg model =
         match msg with
@@ -47,8 +44,7 @@ module Select =
         menuItem [ HTMLAttr.Value e.Value
                    Key(e.Key) ]
             [ typography [ TypographyProp.Variant TypographyVariant.H6 ]
-                  [ e.Value
-                    |> str ] ]
+                  [ e.Value |> str ] ]
 
     let view' (classes : IClasses) model dispatch =
         formControl [ MaterialProp.Margin FormControlMargin.Dense

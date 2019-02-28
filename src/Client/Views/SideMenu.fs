@@ -8,7 +8,6 @@ module SideMenu =
     open Fable.MaterialUI
     open Fable.MaterialUI.Core
     open Elmish
-
     open Global
 
     type Msg =
@@ -35,7 +34,6 @@ module SideMenu =
         match msg with
         | ToggleMenu -> { model with Open = not model.Open }, Cmd.none
         | MenuClick p ->
-            
             { model with Items =
                              [ for item in model.Items do
                                    if item.Item = p then

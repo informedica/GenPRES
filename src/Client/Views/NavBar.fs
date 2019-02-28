@@ -22,19 +22,14 @@ module NavBar =
                          msg |> dispatch) ] [ icon [] [ str "menu" ] ]
 
     let private view' (classes : IClasses) title msg dispatch =
-        div [ Id "navbar"
-              Class !!classes?root ]
-            [ appBar [ AppBarProp.Position AppBarPosition.Fixed ]
-                  [ toolbar [] [ typography
-                                     [ Id "title"
-
-                                       TypographyProp.Color
-                                           TypographyColor.Inherit
-
-                                       TypographyProp.Variant
-                                           TypographyVariant.H6 ] [ str title ]
-                                 div [ Class !!classes?flex ] []
-                                 menubutton msg dispatch ] ] ]
+        appBar [ AppBarProp.Position AppBarPosition.Fixed ]
+            [ toolbar [] [ typography
+                               [ Id "title"
+                                 TypographyProp.Color TypographyColor.Inherit
+                                 TypographyProp.Variant TypographyVariant.H6 ]
+                               [ str title ]
+                           div [ Class !!classes?flex ] []
+                           menubutton msg dispatch ] ]
 
     // Boilerplate code
     // Workaround for using JSS with Elmish

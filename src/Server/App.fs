@@ -3,12 +3,21 @@ namespace GenPres.Server
 open GenPres.Shared
 
 module App =
+    open System
     open System.IO
     open Microsoft.Extensions.DependencyInjection
     open FSharp.Control.Tasks.V2
     open Giraffe
     open Saturn
     open Types
+
+    let path =
+        Path.Combine(System.Environment.CurrentDirectory, "./../../data/data/")
+    let decode<'T> s = Thoth.Json.Net.Decode.Auto.unsafeFromString<'T> (s)
+
+    let readFromFile<'T> file =
+        let file = Path.Combine(path, file)
+        File.ReadAllText(file) |> decode<'T>
 
     let processRequest (req : Request.Msg) =
         printfn "received request: %A" req
@@ -30,6 +39,14 @@ module App =
                 |> Patient.calculate
                 |> Response.Patient
                 |> Some
+        | Request.AcuteListMsg msg ->
+            match msg with
+            | Request.AcuteList.Get ->
+                "medicationDefs.json"
+                |> readFromFile<Types.Treatment.MedicationDefs>
+                |> Types.Response.MedicationDefs
+                |> Some
+            | _ -> None
 
     let tryGetEnv =
         System.Environment.GetEnvironmentVariable

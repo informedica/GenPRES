@@ -11,8 +11,8 @@ type Pages =
     | PewsCalculator
     | GCSCalculator
 
-
-let parsePages = function
+let parsePages =
+    function
     | EmergencyList -> "Noodlijst"
     | ContinuousMeds -> "Continue Medicatie"
     | NormalValues -> "Normaal Waarden"

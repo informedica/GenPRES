@@ -153,9 +153,20 @@ module Patient =
                 |> Math.fixPrecision 2
                 |> string
 
+        let hgt =
+            pat
+            |> getHeight
+            |> Math.fixPrecision 0
+            |> string
+
         let ew =
             pat.Weight.Estimated
             |> Math.fixPrecision 2
+            |> string
+
+        let eh =
+            pat.Height.Estimated
+            |> Math.fixPrecision 0
             |> string
 
         let bsa =
@@ -164,5 +175,5 @@ module Patient =
             | None -> ""
 
         sprintf
-            "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg)%s"
-            pat.Age.Years pat.Age.Months wght ew bsa
+            "Leeftijd: %i jaren en %i maanden, Gewicht: %s kg (geschat %s kg), Lengte: %s (geschat %s cm)%s"
+            pat.Age.Years pat.Age.Months wght ew hgt eh bsa
