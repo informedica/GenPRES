@@ -78,16 +78,24 @@ module Main =
                 (Result.Error >> ResponseMsg)
         initialModel, (Cmd.batch [ loadConfig ])
 
+    let calculateEmergencyListCmd (model : PatientForm.Model) =
+        match model.Patient with
+        | Some p ->
+            let a, w =
+                p |> Domain.Patient.getAgeInYears, p |> Domain.Patient.getWeight
+            EmergencyList.CalculateTreatment(a, w)
+            |> EmergencyListMsg
+            |> Cmd.ofMsg
+        | None -> Cmd.none
+
     let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         match msg with
-        | ResponseMsg(resp) ->
-            resp |> processResponse model
+        | ResponseMsg(resp) -> resp |> processResponse model
         | NavBarMsg _ ->
             let menuModel, _ =
                 SideMenu.update SideMenu.ToggleMenu model.SideMenuModel
             { model with SideMenuModel = menuModel } |> cmdNone
         | PatientFormMsg msg ->
-            printfn "form message"
             match model.PatientFormModel with
             | None -> model |> cmdNone
             | Some patFormMod ->
@@ -100,36 +108,24 @@ module Main =
                     | _ -> model
 
                 let patFormMod, cmd = patFormMod |> Views.PatientForm.update msg
-                let eListCmd =
-                    match patFormMod.Patient with
-                    | Some p -> 
-                        let a, w = p |> Domain.Patient.getAgeInYears, p |> Domain.Patient.getWeight
-                        EmergencyList.CalculateTreatment(a, w)
-                        |> EmergencyListMsg
-                        |> Cmd.ofMsg
+                let eListCmd = patFormMod |> calculateEmergencyListCmd
                 { model with PatientFormModel = Some patFormMod },
-                Cmd.batch [ Cmd.map Msg.PatientFormMsg cmd; eListCmd ]
+                Cmd.batch [ Cmd.map Msg.PatientFormMsg cmd
+                            eListCmd ]
         | EmergencyListMsg msg ->
             match model.EmergencyListModel with
             | Some lmodel ->
                 let lmodel, _ = EmergencyList.update lmodel msg
-                let cmd = 
+
+                let cmd =
                     match msg with
-                    | EmergencyList.CalculateTreatment _ -> Cmd.none
-                    | _ ->
+                    | EmergencyList.CalculateTreatment _
+                    | EmergencyList.SortMsg _ -> Cmd.none
+                    | EmergencyList.TreatmentLoaded _ ->
                         match model.PatientFormModel with
-                        | Some fm ->
-                            match fm.Patient with
-                            | Some p -> 
-                                let a, w = p |> Domain.Patient.getAgeInYears, p |> Domain.Patient.getWeight
-                                EmergencyList.CalculateTreatment(a, w) 
-                                |> EmergencyListMsg
-                                |> Cmd.ofMsg
-                            | None -> Cmd.none
+                        | Some fm -> fm |> calculateEmergencyListCmd
                         | None -> Cmd.none
-                    
-                { model with EmergencyListModel = lmodel |> Some },
-                cmd
+                { model with EmergencyListModel = lmodel |> Some }, cmd
             | None -> model, Cmd.none
         | StatusBarMsg b -> { model with StatusIsOpen = b }, Cmd.none
         | SideMenuMsg msg ->
@@ -156,7 +152,7 @@ module Main =
                 | Some p -> p |> Domain.Patient.show
                 | None -> ""
                 |> sprintf "Patient: %s"
-                |> Views.Typography.caption
+                |> Utils.Typography.caption
             Views.ExpansionPanel.panel classes (sum)
                 (Views.PatientForm.view m (PatientFormMsg >> dispatch))
 

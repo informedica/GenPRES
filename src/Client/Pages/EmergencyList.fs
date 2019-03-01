@@ -11,6 +11,8 @@ module EmergencyList =
     open GenPres
     open Fable.Import
 
+    module TG = Utils.Typography
+
     type Msg =
         | SortMsg of SortableTable.Msg
         | TreatmentLoaded of Shared.Types.Response.Result
@@ -24,6 +26,15 @@ module EmergencyList =
 
     let treatment age wght medDefs =
         Domain.EmergencyTreatment.getTableData age wght joules medDefs
+        |> List.map (fun row ->
+               match row with
+               | ind :: interv :: calc :: prep :: adv :: [] ->
+                   [ (ind, TG.caption ind)
+                     (interv, TG.subtitle2 interv)
+                     (calc, TG.body2 calc)
+                     (prep, TG.body2 prep)
+                     (adv, str adv) ]
+               | _ -> [])
 
     let createTableModel age wght medDefs =
         let head =
@@ -36,7 +47,8 @@ module EmergencyList =
 
         let data = treatment age wght medDefs
         { SortableTable.HeaderRow = head
-          SortableTable.Rows = data }
+          SortableTable.Rows = data
+          SortableTable.Dialog = [] }
 
     let processResponse model resp =
         fun model resp ->

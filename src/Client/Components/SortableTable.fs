@@ -17,7 +17,8 @@ module SortableTable =
 
     type Model =
         { HeaderRow : Header list
-          Rows : string list list }
+          Rows : (string * ReactElement) list list
+          Dialog : ReactElement list }
 
     and Header =
         { Label : string
@@ -31,10 +32,16 @@ module SortableTable =
           IsSortable = isSort
           SortedDirection = None }
 
-    type Msg = Sort of string
+    type Msg =
+        | Sort of string
+        | Click of ReactElement list
+        | OnClose
 
     let update model msg =
+        let toLower = Utils.Utils.String.toLower
         match msg with
+        | Click els -> { model with Dialog = els }
+        | OnClose -> { model with Dialog = [] }
         | Sort lbl ->
             let hr, sorted =
                 match model.HeaderRow
@@ -64,10 +71,22 @@ module SortableTable =
                         match dir with
                         | TableSortDirection.Asc ->
                             model.Rows
-                            |> List.sortByDescending (fun r -> r.[i].ToLower())
+                            |> List.sortByDescending (fun r ->
+                                   r.[i]
+                                   |> fst
+                                   |> toLower)
                         | TableSortDirection.Desc ->
-                            model.Rows |> List.sortBy (fun r -> r.[i].ToLower())
-                    | _ -> model.Rows |> List.sortBy (fun r -> r.[i].ToLower())
+                            model.Rows
+                            |> List.sortBy (fun r ->
+                                   r.[i]
+                                   |> fst
+                                   |> toLower)
+                    | _ ->
+                        model.Rows
+                        |> List.sortBy (fun r ->
+                               r.[i]
+                               |> fst
+                               |> toLower)
                 | None -> model.HeaderRow, model.Rows
             { model with HeaderRow = hr
                          Rows = sorted }
@@ -105,20 +124,47 @@ module SortableTable =
                           tableCell [ sticky ]
                               [ tableSortLabel props [ str i.Label ] ])) ]
 
-    let createTableBody { Rows = rows } =
+    let createTableBody dispatch { HeaderRow = header; Rows = rows } =
         tableBody []
             (rows
              |> List.mapi
                     (fun i row ->
                     tableRow [ TableRowProp.Hover true ]
-                        (row |> List.map (fun cell -> tableCell [] [ str cell ]))))
+                        (row
+                         |> List.map (fun (_, el) ->
+                                tableCell [ OnClick(fun _ ->
+                                                let els =
+                                                    List.zip header row
+                                                    |> List.map
+                                                           (fun (h, r) ->
+                                                           div
+                                                               [ Style
+                                                                     [ CSSProp.Display
+                                                                           "flex"
+
+                                                                       CSSProp.Direction
+                                                                           "row" ] ]
+                                                               [ str
+                                                                     (h.Label
+                                                                      + ": ")
+                                                                 str (r |> fst) ])
+                                                els
+                                                |> Click
+                                                |> dispatch) ] [ el ]))))
+
     let private styles (theme : ITheme) : IStyles list = []
 
-    let view' (classes : IClasses) model dispatch =
-        let head = model |> createHead dispatch
-        let body = model |> createTableBody
-        let tableView = table [] [ head; body ]
-        tableView
+    let view' (classes : IClasses) (model : Model) dispatch =
+        match model.Dialog with
+        | [] ->
+            let head = model |> createHead dispatch
+            let body = model |> createTableBody dispatch
+            let tableView = table [] [ head; body ]
+            tableView
+        | _ ->
+            dialog [ MaterialProp.Open true
+                     MaterialProp.OnClose(fun _ -> OnClose |> dispatch) ]
+                [ div [ Style [ CSSProp.Padding "30px" ] ] model.Dialog ]
 
     // Boilerplate code
     // Workaround for using JSS with Elmish
