@@ -26,8 +26,7 @@ let platformTool tool winTool =
     | Some t -> t
     | _ ->
         let errorMsg =
-            tool + " was not found in path. "
-            + "Please install it and make sure it's available from your path. "
+            tool + " was not found in path. " + "Please install it and make sure it's available from your path. "
             + "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
         failwith errorMsg
 
@@ -48,10 +47,8 @@ let runTool cmd args workingDir =
     |> ignore
 
 let runDotNet cmd workingDir =
-    let result =
-        DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) cmd ""
-    if result.ExitCode <> 0 then
-        failwithf "'dotnet %s' failed in %s" cmd workingDir
+    let result = DotNet.exec (DotNet.Options.withWorkingDirectory workingDir) cmd ""
+    if result.ExitCode <> 0 then failwithf "'dotnet %s' failed in %s" cmd workingDir
 
 let openBrowser url =
     //https://github.com/dotnet/corefx/issues/10361
@@ -62,8 +59,7 @@ let openBrowser url =
     |> ignore
 
 // Clean the solution
-Target.create "Clean"
-    (fun _ -> [ deployDir; clientDeployPath ] |> Shell.cleanDirs)
+Target.create "Clean" (fun _ -> [ deployDir; clientDeployPath ] |> Shell.cleanDirs)
 // Install the client
 Target.create "InstallClient" (fun _ ->
     printfn "Node version:"
@@ -79,11 +75,7 @@ Target.create "Build" (fun _ ->
 // Run the development environment
 Target.create "Run" (fun _ ->
     let server = async { runDotNet "watch run" serverPath }
-    let client =
-        async
-            {
-            runTool yarnTool "webpack-dev-server --host 0.0.0.0 --port 8080"
-                __SOURCE_DIRECTORY__ }
+    let client = async { runTool yarnTool "webpack-dev-server --host 0.0.0.0 --port 8080" __SOURCE_DIRECTORY__ }
 
     let browser =
         async {
@@ -98,7 +90,7 @@ Target.create "Run" (fun _ ->
         [ if not safeClientOnly then yield server
           yield client ]
     tasks
-    (*if not vsCodeSession then yield browser*) |> Async.Parallel
+    |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore)
 
@@ -128,14 +120,14 @@ let runFantomas folder =
     runTool fantomasTool cmd __SOURCE_DIRECTORY__
 
 // Run the fantomas tool
-Target.create "Fantomas" (fun _ ->
-    "build.fsx" |> runFantomas
-    serverPath |> runFantomas
-    sharedPath |> runFantomas
-    clientPath |> runFantomas)
+Target.create "Fantomas" (fun _ -> "build.fsx" |> runFantomas)
+// serverPath |> runFantomas
+// sharedPath |> runFantomas
+// clientPath |> runFantomas)
 
 open Fake.Core.TargetOperators
 
 "Fantomas" ==> "Clean" ==> "InstallClient" ==> "Build" ==> "Bundle" ==> "Docker"
+"Fantomas"
 "Fantomas" ==> "Clean" ==> "InstallClient" ==> "Run"
 Target.runOrDefaultWithArguments "Build"
