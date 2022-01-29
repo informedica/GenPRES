@@ -1,34 +1,28 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-    </PropertyGroup>
-    <ItemGroup>
-		<None Include="Scripts\Script.fsx"/>
-        <Compile Include="..\Shared\SharedTypes.fs"/>
-        <Compile Include="Global.fs"/>
-        <Compile Include="Styles.fs"/>
-		<Compile Include="Utils\Utils.fs"/>
-		<Compile Include="Utils\Request.fs"/>
-		<Compile Include="Utils\Response.fs"/>
-        <Compile Include="Utils\Typography.fs"/>
-        <Compile Include="Domain\Configuration.fs"/>
-        <Compile Include="Domain\Patient.fs"/>
-        <Compile Include="Domain\EmergencyTreatment.fs"/>
-        <Compile Include="Components\Select.fs"/>
-        <Compile Include="Components\SortableTable.fs"/>
-        <Compile Include="Views\ExpansionPanel.fs"/>
-        <Compile Include="Views\SideMenu.fs"/>
-        <Compile Include="Views\StatusBar.fs"/>
-        <Compile Include="Views\NavBar.fs"/>
-        <Compile Include="Views\PatientForm.fs"/>
-        <Compile Include="Pages\PewsCalculator.fs"/>
-        <Compile Include="Pages\GCSCalculator.fs"/>
-        <Compile Include="Pages\NormalValues.fs"/>
-        <Compile Include="Pages\ContinuousMeds.fs"/>
-        <Compile Include="Pages\EmergencyList.fs"/>
-        <Compile Include="Pages\Main.fs"/>
-        <Compile Include="App.fs" />
-    </ItemGroup>
-    <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <DefineConstants>FABLE_COMPILER</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="index.html" />
+    <Compile Include="../Shared/SharedTypes.fs" />
+    <Compile Include="./Utils/Utils.fs" />
+    <Compile Include="./Utils/Typography.fs" />
+    <Compile Include="Global.fs" />
+    <Compile Include="./Domain/Configuration.fs" />
+    <Compile Include="./Domain/Patient.fs" />
+    <Compile Include="./Domain/EmergencyTreatment.fs" />
+    <Compile Include="./Components/Select.fs" />
+    <Compile Include="./Components/SortableTable.fs" />
+    <Compile Include="./Views/SideMenu.fs" />
+    <Compile Include="./Views/PatientForm.fs" />
+    <Compile Include="./Pages/EmergencyList.fs" />
+    <Compile Include="./Pages/Main.fs" />
+    <Compile Include="App.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Shared.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

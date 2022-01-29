@@ -1,49 +1,22 @@
-version 5.193.0
-generate_load_scripts: true
+source https://api.nuget.org/v3/index.json
 
-group Server
-    source https://api.nuget.org/v3/index.json
-    framework: netcoreapp2.2
-    storage: none
+nuget FSharp.Core
 
-    nuget FSharp.Core
-    nuget Saturn
-    nuget Thoth.Json.Giraffe
+nuget Fake.Core.Target
 
-group Client
-    source https://api.nuget.org/v3/index.json
-    framework: netstandard2.0
-    storage: none
+nuget Fable.Browser.DOM 2.4.4
+nuget Fable.Core 3.2.7
+nuget Fable.Fetch 2.3.1
+nuget Fable.Elmish
+nuget Fable.Elmish.React
+nuget Fable.Elmish.Debugger
+nuget Fable.Elmish.HMR 4.1
+nuget Fable.Mocha
+nuget Fable.React
+nuget Fable.Remoting.Client
 
-    nuget Fable.Core ~> 2
-    nuget Fable.Elmish ~> 2
-    nuget Fable.Elmish.Debugger ~> 2
-    nuget Fable.Elmish.React ~> 2
-    nuget Fable.Elmish.HMR ~> 2
-    nuget Fable.MaterialUI
-    nuget Fable.React ~> 4
+nuget Feliz
+nuget Feliz.MaterialUI
+nuget Feliz.UseElmish
 
-group Build
-    source https://api.nuget.org/v3/index.json
-    framework: netstandard2.0
-    storage: none
-
-    nuget FSharp.Core 4.3.4 // https://github.com/fsharp/FAKE/issues/2001
-    nuget Fake.Core.Target
-    nuget Fake.DotNet.Cli
-    nuget Fake.IO.FileSystem
-
-group ServerTests
-  source https://nuget.org/api/v2
-  storage:none
-  nuget Expecto
-  nuget FSharp.Core redirects: force
-
-group UITests
-  source https://nuget.org/api/v2
-  framework >= net461
-  nuget Canopy
-  nuget Expecto
-  nuget FSharp.Core redirects: force
-  nuget phantomjs
-  nuget Selenium.WebDriver.ChromeDriver
+nuget Saturn 0.15.0-preview03 prerelease

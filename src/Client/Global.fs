@@ -1,9 +1,5 @@
 module Global
 
-open Fable.MaterialUI.Core
-open GenPres
-open Fable.Helpers.Isomorphic
-
 type Pages =
     | EmergencyList
     | ContinuousMeds

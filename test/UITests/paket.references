@@ -1,6 +1,1 @@
-group UITests
-Canopy
-Expecto
-phantomjs
-Selenium.WebDriver.ChromeDriver
-Selenium.WebDriver
+FSharp.Core

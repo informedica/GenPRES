@@ -1,7 +1,13 @@
-group Client
-FSharp.Core
-Fable.Elmish.Debugger
-Fable.Elmish.React
-Fable.Elmish.HMR
+Fable.Browser.DOM
 Fable.Core
-Fable.MaterialUI
+Fable.Fetch
+Fable.Elmish
+Fable.Elmish.React
+Fable.Elmish.Debugger
+Fable.Elmish.HMR
+Fable.Mocha
+Fable.React
+Fable.Remoting.Client
+Feliz
+Feliz.MaterialUI
+Feliz.UseElmish

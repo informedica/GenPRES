@@ -1,17 +1,124 @@
-.paket/load
-.fable/
-.fake/
-.vs/
-.vscode/
-.editorconfig
-obj/
-bin/
-packages/
-paket-files/
-node_modules/
-src/Client/public/js/
-release.cmd
-release.sh
-.idea/
-*.DotSettings.user
-deploy
+# Use an opt-in strategy
+*
+
+# Add .gitignore and .gitattributes
+!.gitignore
+!.gitattributes
+
+# Add license
+!LICENSE.txt
+!LICENSE
+
+# Add todo list
+!ToDo.txt
+
+# Add md files
+!*.md
+
+# Add fsx files
+!*.fsx
+
+# Add build files
+!build.sh
+!build.cmd
+
+# Add build props
+!Directory.Build.props
+
+# Add global json
+!global.json
+
+# Add editor config
+!.editorconfig
+
+# Add vscode config
+!/.vscode/
+!/.vscode/*.json
+
+# Add proc file
+!Procfile
+
+# Add local tools config
+!/.config/
+!/.config/*.json
+
+# Add paket targets
+!/.paket/
+!/.paket/Paket.Restore.targets
+
+# Add github folder
+!/.github
+!/.github/*
+!/.github/ISSUE_TEMPLATE/
+!/.github/ISSUE_TEMPLATE/*
+!/.github/workflows/
+!/.github/workflows/*
+
+# Add devcontainer
+!/.devcontainer/
+!/.devcontainer/*
+
+# Add dependencies file
+!paket.dependencies
+!paket.lock
+!paket.references
+!paket.template
+
+!package.json
+!package-lock.json
+
+!webpack.config.js
+
+# Add yml files to ci on appveyor and travis
+!appveyor.yml
+!.travis.yml
+
+# Add solution file
+!*.sln
+
+# Add fsharp project files
+!*.fsproj
+
+# Add configurarion files
+!App.config
+
+# Add fsharp source files
+!*.fs
+
+# Add notebook files
+!*.dib
+
+# Add documentation tools 
+!/docsTool/
+!/docsTool/templates/
+
+# Add documentation source files
+!/docsSrc/
+!/docsSrc/**
+
+# Add documentation
+!/docs/
+!/docs/**
+
+# Add source files
+!/scripts/
+!/src/
+
+!/src/Client/
+!/src/Client/Scripts/
+!/src/Client/public/
+!/src/Client/Utils/
+!/src/Client/Domain/
+!/src/Client/Components/
+!/src/Client/Views/
+!/src/Client/Pages/
+
+!/src/Shared/
+!/src/Server/
+
+
+# Add test files
+!/test/
+!/test/ServerTests/
+!/test/UITests/
+
