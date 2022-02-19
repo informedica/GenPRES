@@ -10,13 +10,15 @@ module Configuration =
     let dataPath = Path.GetFullPath "./../../data/config/genpres.config.json"
 
     let createSettings dep mina maxa minw maxw =
-        { Department = dep
-          MinAge = mina
-          MaxAge = maxa
-          MinWeight = minw
-          MaxWeight = maxw }
+        {
+            Department = dep
+            MinAge = mina
+            MaxAge = maxa
+            MinWeight = minw
+            MaxWeight = maxw
+        }
 
-    let getSettings() =
+    let getSettings () =
         Path.GetFullPath dataPath
         |> File.ReadAllText
         |> Decode.Auto.unsafeFromString<Configuration>

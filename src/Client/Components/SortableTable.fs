@@ -1,195 +1,208 @@
 namespace Components
 
+
 module SortableTable =
 
-    open Fable.Import
+    open System
     open Fable
-    open Feliz.MaterialUI
-    open Feliz
     open Elmish
-    open Utils
-    
-    type Model =
-        { HeaderRow : Header list
-          Rows : (string * ReactElement) list list
-          Dialog : ReactElement list }
+    open Feliz
+    open Feliz.UseElmish
+    open Fable.MaterialUI
+    open Feliz.MaterialUI
+
+
+    type State<'a when 'a :> IComparable> =
+        {
+            Headers: Header list
+            Rows: Row<'a> list
+        }
 
     and Header =
-        { Label : string
-          IsActive : bool
-          IsSortable : bool
-          SortedDirection : string option }
+        {
+            Id: int
+            Label: ReactElement
+            IsSortable: bool
+            SortedDirection: SortDirection
+        }
 
-    let createHeader lbl isSort =
-        { Label = lbl
-          IsActive = false
-          IsSortable = isSort
-          SortedDirection = None }
+    and SortDirection =
+        | Unsorted
+        | Ascending
+        | Descending
 
-    type Msg =
-        | Sort of string
-        | Click of ReactElement list
-        | OnClose
+    and Row<'a> = { Id: int; Cells: Cell<'a> list }
+    and Cell<'a> = { SortBy: 'a; Element: ReactElement }
 
-    let update model msg =
-        let toLower = Utils.String.toLower
-        match msg with
-        | Click els -> { model with Dialog = els }
 
-        | OnClose -> { model with Dialog = [] }
+    let createHeader id isSort lbl =
+        {
+            Id = id
+            Label = lbl
+            IsSortable = isSort
+            SortedDirection = Unsorted
+        }
 
-        | Sort lbl ->
-            let hr, sorted =
-                match model.HeaderRow
-                      |> List.tryFindIndex (fun h -> h.Label = lbl) with
-                | Some i ->
-                    model.HeaderRow
+
+    let createHeaders headers =
+        headers
+        |> List.mapi (fun i (lbl, isSort) -> createHeader i isSort lbl)
+
+
+    let createRows data =
+        data
+        |> List.mapi (fun i xs ->
+            {
+                Id = i
+                Cells =
+                    xs
+                    |> List.map (fun (s, e) -> { SortBy = s; Element = e })
+            }
+        )
+
+
+    type Msg<'a> =
+        | RowClick of int * 'a list
+        | Sort of int
+
+
+    let sortState i state =
+        match state.Headers.[i].SortedDirection with
+        | Unsorted -> Ascending
+        | Ascending -> Descending
+        | Descending -> Unsorted
+        |> fun dir ->
+            { state with
+                Headers =
+                    state.Headers
                     |> List.mapi (fun i' h ->
-                        if i = i' then
-                            { 
-                                h with 
-                                    IsActive = true
-                                    SortedDirection =
-                                        match h.SortedDirection with
-                                        | None -> "asc" |> Some
-                                        | Some dir ->
-                                            match dir with
-                                            | _ when dir = "asc" -> "desc" |> Some
-                                            | _ ->                  "asc"  |> Some 
-                            }
+                        if i' = i then
+                            { h with SortedDirection = dir }
                         else
-                            { 
-                                h with 
-                                    IsActive = false
-                                    SortedDirection = None 
-                            }
-                    ),
-                    match model.HeaderRow.[i].SortedDirection with
-                    | Some dir ->
-                        match dir with
-                        | _ when dir = "asc" ->
-                            model.Rows
-                            |> List.sortByDescending (fun r ->
-                                r.[i]
-                                |> fst
-                                |> toLower
-                            )
-                        | _ ->
-                            model.Rows
-                            |> List.sortBy (fun r ->
-                                r.[i]
-                                |> fst
-                                |> toLower
-                            )
-                    | _ ->
-                        model.Rows
-                        |> List.sortBy (fun r ->
-                            r.[i]
-                            |> fst
-                            |> toLower
-                        )
-                | None -> model.HeaderRow, model.Rows
-            { 
-                model with 
-                    HeaderRow = hr
-                    Rows = sorted 
+                            { h with SortedDirection = Unsorted }
+                    )
+                Rows =
+                    match dir with
+                    | Unsorted -> state.Rows |> List.sortBy (fun r -> r.Id)
+                    | Ascending ->
+                        state.Rows
+                        |> List.sortBy (fun r -> r.Cells.[i].SortBy)
+                    | Descending ->
+                        state.Rows
+                        |> List.sortByDescending (fun r -> r.Cells.[i].SortBy)
             }
 
 
-    let createHead dispatch { HeaderRow = items } =
-        let sticky =
-            prop.style [ 
-                style.backgroundColor Colors.grey.``100``
-                
-                if Browser.Dom.window.screen.availWidth > 1000. then
-                        style.position.sticky
-                        //CSSProp.Position "sticky"
-                else style.custom ("position", "-webkit-sticky")
-                
-                style.top 0
-                style.zIndex 10 
-            ]
+    let init headers rows =
+        {
+            Headers = headers |> createHeaders
+            Rows = rows |> createRows
+        },
+        Cmd.none
 
+
+    let update rowClick msg state =
+        match msg with
+        | RowClick (i, xs) -> state, Cmd.ofSub (fun _ -> (i, xs) |> rowClick)
+        | Sort i -> state |> sortState i, Cmd.none
+
+
+    let createHead dispatch model =
         Mui.tableHead [
-            items
-            |> List.map (fun i ->
+            model.Headers
+            |> List.map (fun h ->
                 let props =
-                    match i.IsSortable, i.SortedDirection with
-                    | true, Some d ->
+                    if h.IsSortable then
+                        match h.SortedDirection with
+                        | Unsorted -> [ tableSortLabel.active false ] //tableCell.sortDirection.false' ]
+                        | Ascending ->
+                            [
+                                tableSortLabel.active true
+                                tableSortLabel.direction.asc
+                            ]
+                        | Descending ->
+                            [
+                                tableSortLabel.active true
+                                tableSortLabel.direction.desc
+                            ]
+                        |> List.append [
+                            prop.onClick (fun _ -> h.Id |> Sort |> dispatch)
+                           ]
+                    else
                         [
-                            if d = "asc" then 
-                                tableCell.sortDirection.asc 
-                            else tableCell.sortDirection.desc
+                            tableSortLabel.active false
+                            tableSortLabel.hideSortIcon true
+                        ]
+                    |> List.append [
+                        tableCell.children [ h.Label ]
+                       ]
 
-                            prop.text i.Label
-                            prop.onClick (fun _ ->
-                                i.Label
-                                |> Sort
-                                |> dispatch
-                            )
-                        ]
-                    | _ -> 
-                        [   
-                            tableCell.sortDirection.false'
-                            prop.text i.Label
-                        ]
                 Mui.tableSortLabel props
-                |> fun lbl -> 
-                        Mui.tableCell [ 
-                            sticky
-                            tableCell.children lbl 
+                |> fun lbl ->
+                    Mui.tableCell [
+                        prop.style [
+                            style.backgroundColor Colors.grey.``200``
                         ]
+                        tableCell.variant.head
+                        tableCell.children lbl
+                    ]
             )
-            |> Mui.tableRow 
+            |> Mui.tableRow
         ]
 
 
-    let createTableBody dispatch { HeaderRow = header; Rows = rows } =
+    let createTableBody dispatch { Rows = rows } =
         rows
-        |> List.mapi (fun i row ->
-            row
-            |> List.map (fun (_, el) ->
+        |> List.map (fun row ->
+            row.Cells
+            |> List.map (fun c ->
                 Mui.tableCell [
                     prop.onClick (fun _ ->
-                        List.zip header row
-                        |> List.map (fun (h, r) ->
-                            Html.div [
-                                prop.style [ style.display.flex; style.flexDirection.row ]
-                                prop.text $"{h.Label}: {r |> fst}"
-                            ]
-                        )
-                        |> Click
-                        |> dispatch
+                        let els =
+                            row.Cells |> List.map (fun cell -> cell.SortBy)
+
+                        (row.Id, els) |> RowClick |> dispatch
                     )
-                    tableCell.children [el]
+                    tableCell.children [ c.Element ]
                 ]
             )
-            |> fun els -> 
+            |> fun els ->
                 Mui.tableRow [
+                    prop.onClick (fun e -> Utils.Logging.log "rowclick" e)
                     tableRow.hover true
                     tableRow.children els
                 ]
         )
-        |> Mui.tableBody 
+        |> Mui.tableBody
 
 
     [<ReactComponent>]
-    let View (input : {| model : Model; dispatch : Msg -> unit |}) =
-        match input.model.Dialog with
-        | [] ->
-            let head = input.model |> createHead input.dispatch
-            let body = input.model |> createTableBody input.dispatch
-            let tableView = Mui.table [ head; body ]
-            tableView
-        | _ ->
-            Mui.dialog [ 
-                prop.style [
-                    style.padding 30
-                ]
-                dialog.open' true
-                dialog.onClose(fun _ _ -> OnClose |> input.dispatch) 
-                dialog.children input.model.Dialog
-            ]
+    let View
+        (input: {| headers: (ReactElement * bool) list
+                   rows: ('a * ReactElement) list list
+                   rowClick: int * 'a list -> unit |})
+        =
+        let state, dispatch =
+            React.useElmish (
+                init input.headers input.rows,
+                update input.rowClick,
+                [| box input.rows |]
+            )
+
+        let head = state |> createHead dispatch
+        let body = state |> createTableBody dispatch
+
+        Mui.table [
+            table.stickyHeader true
+            table.children [ head; body ]
+        ]
 
 
-    let render model dispatch = View({| model = model; dispatch = dispatch |})
+    let render headers rows rowClick =
+        View(
+            {|
+                headers = headers
+                rows = rows
+                rowClick = rowClick
+            |}
+        )

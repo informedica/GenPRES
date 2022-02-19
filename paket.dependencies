@@ -1,5 +1,6 @@
 source https://api.nuget.org/v3/index.json
 
+nuget Feliz.Markdown
 nuget FSharp.Core
 
 nuget Fake.Core.Target
@@ -18,5 +19,7 @@ nuget Fable.Remoting.Client
 nuget Feliz
 nuget Feliz.MaterialUI
 nuget Feliz.UseElmish
+nuget Fable.MaterialUI.Icons
+nuget Fable.MaterialUI.MaterialDesignIcons
 
 nuget Saturn 0.15.0-preview03 prerelease

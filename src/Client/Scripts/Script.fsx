@@ -12,10 +12,12 @@ module Request =
 
     let post req =
         let decode = Decode.Auto.unsafeFromString<Response Option>
-        promise { let! res = postRecord "http://localhost:8085/api/request" req
-                                 []
-                  let! pat = res.text()
-                  return pat |> decode }
+
+        promise {
+            let! res = postRecord "http://localhost:8085/api/request" req []
+            let! pat = res.text ()
+            return pat |> decode
+        }
 
 module Patient =
     open Elmish
@@ -28,12 +30,10 @@ module Patient =
 
     type Msg = PatientLoaded of Result<Shared.Types.Response.Response Option, exn>
 
-    let getInitPatient() =
+    let getInitPatient () =
         Shared.Types.Request.Patient.Init
         |> Shared.Types.Request.PatientMsg
         |> Request.post
 
-    let init() =
-        None,
-        Cmd.ofPromise getInitPatient () (Ok >> PatientLoaded)
-            (Error >> PatientLoaded)
+    let init () =
+        None, Cmd.ofPromise getInitPatient () (Ok >> PatientLoaded) (Error >> PatientLoaded)

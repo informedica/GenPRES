@@ -1,0 +1,15 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = false
+max_line_length=80
+
+[*.fs]
+fsharp_multiline_block_brackets_on_same_column=true
+fsharp_multi_line_lambda_closing_newline=true
+fsharp_single_argument_web_mode=true
+fsharp_max_value_binding_width=40

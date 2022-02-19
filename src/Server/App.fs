@@ -11,29 +11,28 @@ module App =
     open Saturn
     open Types
 
-    let path =
-        Path.Combine(System.Environment.CurrentDirectory, "./../../data/data/")
-    let decode<'T> s = Thoth.Json.Net.Decode.Auto.unsafeFromString<'T> (s)
+    let path = Path.Combine(System.Environment.CurrentDirectory, "./../../data/data/")
+
+    let decode<'T> s =
+        Thoth.Json.Net.Decode.Auto.unsafeFromString<'T> (s)
 
     let readFromFile<'T> file =
         let file = Path.Combine(path, file)
         File.ReadAllText(file) |> decode<'T>
 
-    let processRequest (req : Request.Msg) =
+    let processRequest (req: Request.Msg) =
         printfn "received request: %A" req
+
         match req with
         | Request.ConfigMsg msg ->
             match msg with
             | Request.Configuration.Get ->
-                Configuration.getSettings()
+                Configuration.getSettings ()
                 |> Types.Response.Configuration
                 |> Some
         | Request.PatientMsg msg ->
             match msg with
-            | Request.Patient.Init ->
-                Patient.patient
-                |> Response.Patient
-                |> Some
+            | Request.Patient.Init -> Patient.patient |> Response.Patient |> Some
             | Request.Patient.Calculate pat ->
                 pat
                 |> Patient.calculate
@@ -51,9 +50,9 @@ module App =
     let tryGetEnv =
         System.Environment.GetEnvironmentVariable
         >> function
-        | null
-        | "" -> None
-        | x -> Some x
+            | null
+            | "" -> None
+            | x -> Some x
 
     let publicPath = Path.GetFullPath "../Client/public"
 
@@ -64,19 +63,24 @@ module App =
         |> Option.defaultValue 8085us
 
     let webApp =
-        router
-            {
-            post "/api/request"
-                (fun next ctx -> task { let! resp = task
-                                                        {
-                                                        let! req = ctx.BindJsonAsync<Request.Msg>
-                                                                       ()
-                                                        return req
-                                                               |> processRequest }
-                                        return! json resp next ctx }) }
-    let configureSerialization (services : IServiceCollection) =
-        services.AddSingleton<Giraffe.Serialization.Json.IJsonSerializer>
-            (Thoth.Json.Giraffe.ThothSerializer())
+        router {
+            post
+                "/api/request"
+                (fun next ctx ->
+                    task {
+                        let! resp =
+                            task {
+                                let! req = ctx.BindJsonAsync<Request.Msg>()
+                                return req |> processRequest
+                            }
+
+                        return! json resp next ctx
+                    }
+                )
+        }
+
+    let configureSerialization (services: IServiceCollection) =
+        services.AddSingleton<Giraffe.Serialization.Json.IJsonSerializer>(Thoth.Json.Giraffe.ThothSerializer())
 
     let app =
         application {

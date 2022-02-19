@@ -1,112 +1,101 @@
 namespace Components
 
+
 module Select =
-    open Fable.Core
-    open Feliz.MaterialUI
-    open Feliz
+
     open Elmish
+    open Feliz
+    open Feliz.UseElmish
+    open Feliz.MaterialUI
 
-    type SelectItem =
-        { Key : string
-          Value : string }
 
-    type Model =
-        { Label : string
-          Selected : SelectItem option
-          Items : SelectItem list }
+    type State<'a> = { Selected: 'a Option }
 
-    let init lbl items =
-        { Label = lbl
-          Selected = None
-          Items =
-              items
-              |> List.map (fun i ->
-                     { Key = i
-                       Value = i }) }
 
-    type Msg = Select of string
+    let init value : State<_> * Cmd<_> = { Selected = value }, Cmd.none
 
-    let updateModel s model =
-        { model with Selected =
-                         model.Items |> List.tryFind (fun i -> i.Value = s) }
 
-    let update msg model =
+    type Msg<'a> = Select of 'a
+
+    // the update function is intitiated with a handle to
+    // report back to the parent which item is selected.
+    let update handleSelect msg state =
         match msg with
-        | Select s -> model |> updateModel s
+        | Select s ->
+            { state with Selected = s |> Some },
+            Cmd.ofSub (fun _ -> s |> handleSelect)
 
-    let useStyles = 
-        Styles.makeStyles(fun styles theme ->
+
+    let useStyles =
+        Styles.makeStyles (fun styles theme ->
             {|
-                formControl = styles.create [
-                    style.minWidth "115px"
-                    style.margin 10
-                ]
+                formControl =
+                    styles.create [
+                        style.minWidth "115px"
+                        style.margin 10
+                    ]
             |}
         )
 
-    // let private styles (theme : ITheme) : IStyles list =
-    //     [ Styles.FormControl [ MinWidth "115px"
-    //                            CSSProp.Margin "10px" ] ]
-
-    let private selectItem e =
-        Mui.menuItem [ 
-            prop.key e.Key
-            prop.value e.Value
-            menuItem.children [
-                Mui.typography [
-                    typography.variant.h6
-                    prop.text (e.Value)
-                ]
-            ]
-        ]
-        |> prop.children
-            // HTMLAttr.Value e.Value
-            //        Key(e.Key) ]
-            // [ typography [ TypographyProp.Variant TypographyVariant.H6 ]
-            //       [ e.Value |> str ] ]
-
 
     [<ReactComponent>]
-    let View(input: {| model : Model; dispatch : Msg -> unit |}) =
+    let View
+        (input: {| label: ReactElement
+                   items: 'a list
+                   value: 'a option
+                   handleSelect: 'a -> unit |})
+        =
         let classes = useStyles ()
-        
+
+        let state, dispatch =
+            React.useElmish (
+                init input.value,
+                update input.handleSelect,
+                [| box input.value |]
+            )
+
         Mui.formControl [
             prop.className classes.formControl
             formControl.margin.dense
             formControl.children [
-                Mui.inputLabel [
-                    prop.text input.model.Label
-                ]
+                Mui.inputLabel [ input.label ]
                 Mui.select [
-                    input.model.Selected
-                    |> Option.map (fun i -> i.Value)
+                    state.Selected
+                    |> Option.map string
                     |> Option.defaultValue ""
-                    |> select.value 
+                    |> select.value
 
-                    select.onChange (fun e ->
-                        e
-                        |> Select
-                        |> input.dispatch
+                    input.items
+                    |> List.mapi (fun i item ->
+                        let s = item |> string
+
+                        Mui.menuItem [
+                            prop.key i
+                            prop.value s
+                            prop.onClick (fun _ -> item |> Select |> dispatch)
+                            menuItem.children [
+                                Mui.typography [
+                                    typography.variant.h6
+                                    prop.text s
+                                ]
+                            ]
+                        ]
                     )
-
-                    yield!
-                        input.model.Items 
-                        |> List.map selectItem
+                    |> select.children
                 ]
             ]
         ]
-        // formControl [ MaterialProp.Margin FormControlMargin.Dense
-        //               Class classes?formControl ]
-        //     [ inputLabel [] [ str model.Label ]
-        //       select [ HTMLAttr.Value(model.Selected
-        //                               |> Option.map (fun i -> i.Value)
-        //                               |> Option.defaultValue "")
-        //                DOMAttr.OnChange(fun ev ->
-        //                    ev.Value
-        //                    |> Select
-        //                    |> dispatch) ] [ model.Items
-        //                                     |> List.map selectItem
-        //                                     |> ofList ] ]
 
-
-    let render model dispatch = View({| model = model; dispatch = dispatch |})
+    // render the select with a label (a ReactElement)
+    // the items to select from, a value that should be
+    // selected (None of no value is selected) and
+    // a handle that gives back the selected element.
+    let render label items value handleSelect =
+        View(
+            {|
+                label = label
+                items = items
+                value = value
+                handleSelect = handleSelect
+            |}
+        )

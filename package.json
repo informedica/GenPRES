@@ -1,9 +1,5 @@
 {
     "private": true,
-    "engines": {
-        "node": "~16",
-        "npm": "~8"
-    },
     "scripts": {
         "start": "webpack-dev-server --mode development",
         "build": "webpack --mode production",
@@ -15,6 +11,7 @@
         "file-loader": "^6.2.0",
         "html-webpack-plugin": "^5.5.0",
         "mini-css-extract-plugin": "^2.4.5",
+        "mocha": "^8.3.2",
         "remotedev": "^0.2.9",
         "sass": "^1.43.4",
         "sass-loader": "^12.3.0",
@@ -22,13 +19,14 @@
         "style-loader": "^3.3.1",
         "webpack": "^5.64.2",
         "webpack-cli": "^4.9.1",
-        "webpack-dev-server": "^4.5.0",
-        "mocha": "^8.3.2"
+        "webpack-dev-server": "^4.5.0"
     },
     "dependencies": {
         "@material-ui/core": "^4.12.3",
-        "@material-ui/lab": "^4.0.0-alpha.56",
+        "@material-ui/icons": "^4.11.2",
+        "@material-ui/lab": "^4.0.0-alpha.60",
         "react": "^17.0.2",
-        "react-dom": "^17.0.2"
+        "react-dom": "^17.0.2",
+        "react-markdown": "^8.0.0"
     }
 }

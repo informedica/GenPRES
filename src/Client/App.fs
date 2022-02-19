@@ -10,7 +10,7 @@ open Elmish.HMR
 #endif
 
 //+:cnd:noEmit
-Program.mkProgram Pages.Main.init Pages.Main.update Pages.Main.render
+Program.mkProgram Main.init Main.update Main.render
 //-:cnd:noEmit
 #if DEBUG
 |> Program.withConsoleTrace

@@ -5,7 +5,7 @@ module Utils =
 
     module String =
         /// Apply `f` to string `s`
-        let apply f (s : string) = f s
+        let apply f (s: string) = f s
 
         /// Utility to enable type inference
         let get = apply id
@@ -14,27 +14,30 @@ module Utils =
         /// string t starts with character c
         let countFirstChar c t =
             let _, count =
-                if String.IsNullOrEmpty(t) then (false, 0)
+                if String.IsNullOrEmpty(t) then
+                    (false, 0)
                 else
                     t
-                    |> Seq.fold (fun (flag, dec) c' ->
-                           if c' = c && flag then (true, dec + 1)
-                           else (false, dec)) (true, 0)
+                    |> Seq.fold
+                        (fun (flag, dec) c' ->
+                            if c' = c && flag then
+                                (true, dec + 1)
+                            else
+                                (false, dec)
+                        )
+                        (true, 0)
+
             count
 
         /// Check if string `s2` contains string `s1`
-        let contains =
-            fun (s1 : string) (s2 : string) -> (s2 |> get).Contains(s1)
+        let contains = fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
 
         let toLower s = (s |> get).ToLower()
-        let replace (s1 : string) (s2 : string) s = (s |> get).Replace(s1, s2)
+        let replace (s1: string) (s2: string) s = (s |> get).Replace(s1, s2)
 
     module Math =
         let roundBy s n =
-            (n / s)
-            |> round
-            |> double
-            |> (fun f -> f * s)
+            (n / s) |> round |> double |> (fun f -> f * s)
 
         let roundBy0_5 = roundBy 0.5
 
@@ -57,27 +60,20 @@ module Utils =
         /// etc
         /// If n < 0 then n = 0 is used.
         let getPrecision n f = // ToDo fix infinity case
-            let n =
-                if n < 0 then 0
-                else n
-            if f = 0. || n = 0 then n
+            let n = if n < 0 then 0 else n
+
+            if f = 0. || n = 0 then
+                n
             else
-                let s =
-                    (f
-                     |> abs
-                     |> string)
-                        .Split([| '.' |])
+                let s = (f |> abs |> string).Split([| '.' |])
 
                 // calculate number of remaining decimal digits (after '.')
-                let p =
-                    n - (if s.[0] = "0" then 0
-                         else s.[0].Length)
+                let p = n - (if s.[0] = "0" then 0 else s.[0].Length)
 
-                let p =
-                    if p < 0 then 0
-                    else p
+                let p = if p < 0 then 0 else p
 
-                if (int s.[0]) > 0 then p
+                if (int s.[0]) > 0 then
+                    p
                 else
                     // calculate the the first occurance of a non-zero decimal digit
                     let c = (s.[1] |> String.countFirstChar '0')
@@ -99,7 +95,7 @@ module Utils =
         /// * 6.6666 |> fixPrecision 3 = 6.67
         /// etc
         /// If n < 0 then n = 0 is used.
-        let fixPrecision n (f : float) = Math.Round(f, f |> getPrecision n)
+        let fixPrecision n (f: float) = Math.Round(f, f |> getPrecision n)
 
     module List =
         let create x = x :: []
@@ -111,18 +107,21 @@ module Utils =
                 ns
                 |> List.sort
                 |> List.rev
-                |> List.fold (fun x a ->
-                       if (a - x) < (n - x) then x
-                       else a) n
+                |> List.fold (fun x a -> if (a - x) < (n - x) then x else a) n
 
         let removeDuplicates xs =
             xs
-            |> List.fold (fun xs x ->
-                   if xs |> List.exists ((=) x) then xs
-                   else [ x ] |> List.append xs) []
+            |> List.fold
+                (fun xs x ->
+                    if xs |> List.exists ((=) x) then
+                        xs
+                    else
+                        [ x ] |> List.append xs
+                )
+                []
 
     module DateTime =
-        let apply f (dt : DateTime) = f dt
+        let apply f (dt: DateTime) = f dt
         let get = apply id
 
         let optionToDate yr mo dy =

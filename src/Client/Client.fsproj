@@ -6,23 +6,22 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="index.html" />
-    <Compile Include="../Shared/SharedTypes.fs" />
-    <Compile Include="./Utils/Utils.fs" />
-    <Compile Include="./Utils/Typography.fs" />
+    <Compile Include="../Shared/Data.fs" />
+    <Compile Include="../Shared/Domain.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Bindings.fs" />
     <Compile Include="Global.fs" />
-    <Compile Include="./Domain/Configuration.fs" />
-    <Compile Include="./Domain/Patient.fs" />
-    <Compile Include="./Domain/EmergencyTreatment.fs" />
+    <Compile Include="./Components/Markdown.fs" />
     <Compile Include="./Components/Select.fs" />
     <Compile Include="./Components/SortableTable.fs" />
-    <Compile Include="./Views/SideMenu.fs" />
-    <Compile Include="./Views/PatientForm.fs" />
-    <Compile Include="./Pages/EmergencyList.fs" />
-    <Compile Include="./Pages/Main.fs" />
+    <Compile Include="./Components/NavBar.fs" />
+    <Compile Include="./Components/StatusBar.fs" />
+    <Compile Include="./Components/SideMenu.fs" />
+    <Compile Include="./Views/Patient.fs" />
+    <Compile Include="./Views/EmergencyList.fs" />
+    <Compile Include="./Pages/LifeSupport.fs" />
+    <Compile Include="Main.fs" />
     <Compile Include="App.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Shared\Shared.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
