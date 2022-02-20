@@ -135,3 +135,45 @@ type markdown =
 
     static member inline components(components: IComponent list) =
         Interop.mkAttr "components" (createObj !!components)
+
+
+/// Fixes createMuiTheme -> createTheme
+namespace Feliz.MaterialUI
+
+open System
+open System.ComponentModel
+open Fable.Core
+open Fable.Core.JsInterop
+open Feliz
+
+
+[<EditorBrowsable(EditorBrowsableState.Never)>]
+module StyleImports =
+
+  let createTheme_argsArray (theme: Theme, [<ParamArray>] extra: Theme []) : Theme =
+    import "createTheme" "@material-ui/core/styles"
+
+  let createTheme_unit () : Theme =
+    import "createTheme" "@material-ui/core/styles"
+
+
+[<Erase>]
+type Styles =
+
+  /// Generate a theme base on the incomplete theme object represented by the specified
+  /// props, and deep merge any extra arguments with this theme.
+  static member inline createTheme (props: IThemeProp list, [<ParamArray>] merge: Theme []) : Theme =
+    let theme =
+      !!props
+      |> Object.fromFlatEntries
+      :?> Theme
+    StyleImports.createTheme_argsArray(theme, merge)
+
+  /// Deep merge any extra arguments with the first theme.
+  static member inline createTheme (theme: Theme, [<ParamArray>] merge: Theme []) : Theme =
+    StyleImports.createTheme_argsArray(theme, merge)
+
+  /// Returns a default theme object.
+  static member inline createTheme () : Theme =
+    StyleImports.createTheme_unit ()
+

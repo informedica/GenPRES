@@ -236,9 +236,46 @@ module Types =
         }
 
 
-
     type MedicationDefs =
         (string * string * float * float * float * float * string * string) list
+
+
+    type Medication =
+        | Bolus of Bolus
+        | Continuous of Continuous
+    and Bolus =
+        {
+            Indication : string
+            Generic : string
+            NormDose : float
+            MinDose : float
+            MaxDose : float
+            Concentration : float
+            Unit : string
+            Remark : string
+        }
+    and Continuous =
+        {
+            Indication: string
+            Generic : string
+            Unit : string
+            DoseUnit : string
+            Quantity2To6 : float
+            Volume2To6 : float
+            Quantity6To11 : float
+            Volume6To11 : float
+            Quantity11To40 : float
+            Volume11To40 : float
+            QuantityFrom40 : float
+            VolumeFrom40 : float
+            MinDose : float
+            MaxDose : float
+            AbsMax : float
+            MinConc : float
+            MaxConc : float
+            Solution : string
+        }
+
 
 
 module Configuration =
@@ -836,3 +873,123 @@ module EmergencyTreatment =
             else
                 medicationDefs |> List.map (calcMeds weight.Value)
             |> List.append xs
+
+
+module ContMeds =
+
+    open Utils
+    open Types 
+    open Shared
+
+
+    let calcQty wght (med : Continuous) =
+        match wght with
+        | _ when wght < 6.  -> med.Quantity2To6
+        | _ when wght < 11. -> med.Quantity6To11
+        | _ when wght < 40. -> med.Quantity11To40
+        | _ -> med.QuantityFrom40
+
+
+    let calcVol wght (med : Continuous) =
+         match wght with
+         | _ when wght < 6.  -> med.Volume2To6
+         | _ when wght < 11. -> med.Volume6To11
+         | _ when wght < 40. -> med.VolumeFrom40
+         | _ -> med.QuantityFrom40
+
+
+    let medicationPreparation wght (cont : Continuous) =
+            let t = sprintf "Bereiding voor %s" cont.Generic
+            let c =
+                match Data.products 
+                      |> List.tryFind (fun (_, gen, _, _) ->
+                        gen = cont.Generic
+                      ) with
+                | Some (_, _, un, conc) ->
+                    if conc = 0. then ["Geen bereiding, oplossing is puur"] 
+                    else
+                        let q = (cont |> calcQty wght) / conc
+                        let v = (cont |> calcVol wght) - q
+                        [ sprintf "= %A ml van %s %A %s/ml + %A ml %s" q cont.Generic conc un v cont.Solution ] 
+                        |> List.append 
+                            [
+                                let q = cont |> calcQty wght
+                                let v = cont |> calcVol wght
+                                sprintf "%A %s %s in %A ml %s" q cont.Unit cont.Generic v cont.Solution
+                            ]
+                | None ->
+                    ["Bereidings tekst niet mogelijk"] 
+            (t, c)
+
+
+    let createContMed (indication, generic, unit, doseunit, qty2to6, vol2to6, qty6to11, vol6to11, qty11to40, vol11to40,  qtyfrom40, volfrom40, mindose, maxdose, absmax, minconc, maxconc, solution) : Continuous =
+        {
+            Indication = indication
+            Generic = generic
+            Unit = unit
+            DoseUnit = doseunit
+            Quantity2To6 = qty2to6
+            Volume2To6 = vol2to6
+            Quantity6To11 = qty6to11
+            Volume6To11 = vol6to11
+            Quantity11To40 = qty11to40
+            Volume11To40 = vol11to40
+            QuantityFrom40 = qtyfrom40
+            VolumeFrom40 = volfrom40
+            MinDose = mindose
+            MaxDose = maxdose
+            AbsMax = absmax
+            MinConc = minconc
+            MaxConc = maxconc
+            Solution = solution
+        }
+
+
+
+    let calcContMed wght =
+
+        let calcDose qty vol unit doseU =
+            let f = 
+                let t =
+                    match doseU with
+                    | _ when doseU |> String.contains "dag" -> 24.
+                    | _ when doseU |> String.contains "min" -> 1. / 60.
+                    | _ -> 1.
+
+                let u = 
+                    match unit, doseU with
+                    | _ when unit = "mg" && doseU |> String.contains "microg" ->
+                        1000.
+                    | _ when unit = "mg" && doseU |> String.contains "nanog" ->
+                        1000. * 1000.
+                    | _ -> 1.
+
+                1. * t * u
+
+            let d = (f * qty / vol / wght) |> Math.fixPrecision 2 
+            sprintf "%A %s" d doseU
+
+
+        let printAdv min max unit =
+            sprintf "%A - %A %s" min max unit
+
+        Data.contMeds
+        |> List.map createContMed
+        |> List.sortBy (fun med -> med.Indication, med.Generic)
+        |> List.map (fun med ->
+            let vol = med |> calcVol wght
+            let qty = med |> calcQty wght
+
+            if vol = 0. then []
+            else
+                [ 
+                    med.Indication
+                    med.Generic
+                    ((qty |> string) + " " + med.Unit)
+                    ("in " + (vol |> string ) + " ml " + med.Solution)
+                    sprintf "1 ml/uur = %s" (calcDose (qty) (vol) med.Unit med.DoseUnit) 
+                    (printAdv med.MinDose med.MaxDose med.DoseUnit)
+                ]
+        )
+        |> List.filter (List.isEmpty >> not)
+

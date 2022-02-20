@@ -12,7 +12,7 @@ open Types
 type State =
     {
         Configuration: Configuration Option
-        PatientModel: Patient option
+        Patient: Patient option
         CurrentPage: Pages Option
         SideMenuItems : (string * bool) list
         SideMenuIsOpen: bool
@@ -25,7 +25,7 @@ type Msg =
     | UpdatePatient of Patient option
 
 
-let pages = [ LifeSupport ]
+let pages = [ LifeSupport; ContinuousMeds ]
 
 
 let init () : State * Cmd<Msg> =
@@ -33,9 +33,9 @@ let init () : State * Cmd<Msg> =
     let initialState =
         {
             Configuration = None
-            PatientModel = None
-            CurrentPage = LifeSupport |> Some
-            SideMenuItems = [LifeSupport] |> List.map (fun p -> p |> parsePages, false)
+            Patient = None
+            CurrentPage = ContinuousMeds |> Some
+            SideMenuItems = [LifeSupport; ContinuousMeds] |> List.map (fun p -> p |> pageToString, false)
             SideMenuIsOpen = false
         }
 
@@ -51,55 +51,21 @@ let update (msg: Msg) (state: State) =
         },
         Cmd.none
     | SideMenuClick msg ->
-
         { state with
             CurrentPage =
                 pages
-                |> List.map (fun p -> p |> parsePages, p)
+                |> List.map (fun p -> p |> pageToString, p)
                 |> List.tryFind (fst >> ((=) msg))
                 |> Option.map snd
             SideMenuItems =
                 state.SideMenuItems
-                |> List.map (fun (s, b) ->
+                |> List.map (fun (s, _) ->
                     if s = msg then (s, true)
                     else (s, false)
                 )
-
-
         },
         Cmd.none
-    | UpdatePatient p -> { state with PatientModel = p }, Cmd.none
-
-let useStyles =
-    Styles.makeStyles (fun styles theme ->
-        {|
-            container =
-                styles.create [
-                    //                    style.height 100
-                    style.boxSizing.borderBox
-                ]
-            mainview =
-                styles.create [
-                    //                    style.height 100
-                    style.display.flex
-                    style.overflow.hidden
-                    style.flexDirection.column
-                    style.marginLeft 20
-                    style.marginRight 20
-                ]
-            patientpanel =
-                styles.create [
-                    style.marginTop 70
-                    style.top 0
-                ]
-            patientdetails =
-                styles.create [
-                    style.display.flex
-                    style.flexDirection.row
-                ]
-        |}
-    )
-
+    | UpdatePatient p -> { state with Patient = p }, Cmd.none
 
 [<ReactComponent>]
 let View
@@ -108,8 +74,6 @@ let View
     =
     let state = input.state
     let dispatch = input.dispatch
-
-    let classes_ = useStyles ()
 
     let sidemenu =
         Components.SideMenu.render
@@ -120,42 +84,60 @@ let View
 
     let header =
         Components.NavBar.render
-            "GenPRES Noodlijst"
+            $"""GenPRES {state.CurrentPage |> Option.map pageToString |> Option.defaultValue ""}"""
             (fun _ -> ToggleMenu |> dispatch)
 
-    let footer =
+    let footer = Components.StatusBar.render true "footer"
+
+    let patientView =
         Html.div [
-            prop.style [
-                style.display.flex
-                style.left 0
-                style.right 0
-                style.bottom 0
-                style.position.absolute
-            ]
+            prop.id "patient-view"
+            prop.style [ style.marginBottom 20 ]
             prop.children [
-                Components.StatusBar.render true "footer"
+                Views.Patient.render
+                    state.Patient
+                    (UpdatePatient >> dispatch)
             ]
         ]
 
     let currentPage =
         match state.CurrentPage with
-        | None -> Html.div []
+        | None -> 
+            Html.div [ 
+                Utils.Typography.h1 "No page"
+            ]
         | Some page ->
-            match page with
-            | Pages.LifeSupport ->
-                Html.div [
-                    // prop.className classes.patientdetails
-                    prop.style [ style.flexGrow 1 ]
-                    prop.children [
-                        Pages.LifeSupport.render
-                            state.PatientModel
-                            (UpdatePatient >> dispatch) //input.dispatch
+            Html.div [
+                prop.style [
+                    style.display.flex
+                    style.flexDirection.column
+                ]
+                prop.children [
+                    patientView
+                    Html.div [
+                        prop.style [
+                            style.flexGrow 1
+                            style.overflowY.scroll
+                        ]
+                        prop.children [
+                            match page with
+                            | LifeSupport ->
+                                Pages.LifeSupport.render
+                                    state.Patient
+                                    (UpdatePatient >> dispatch) //input.dispatch
+
+                            | ContinuousMeds -> 
+                                state.Patient
+                                |> Pages.ContinuousMeds.render 
+
+
+                        ]
                     ]
                 ]
-            | _ -> Html.div []
+            ]
 
     let theme =
-        Styles.createMuiTheme [
+        Styles.createTheme [
             theme.palette.primary Colors.blue
         ]
 
@@ -164,21 +146,38 @@ let View
         themeProvider.children [
             Mui.cssBaseline []
             Html.div [
-                prop.id "main"
                 prop.style [
-                    style.display.flex
+//                    style.custom ("width", "100vh")
                     style.custom ("height", "100vh")
-                    style.overflowY.hidden
-                    style.margin 0
-                    style.padding 0
-                    style.boxSizing.borderBox
+                    style.display.flex
+                    style.flexDirection.column
+                    style.flexWrap.nowrap
                 ]
                 prop.children [
+                    Html.div [
+                        prop.style [ style.flexShrink 0 ]
+                        prop.children [
+                            header
+                        ]
+                    ]
+                    sidemenu
                     Mui.container [
-                        sidemenu
-                        header
-                        currentPage
-                        footer
+                        prop.style [
+                            style.display.flex                            
+                            style.flexGrow 1
+                            style.overflow.hidden
+                            style.marginTop 10
+                            style.marginBottom 10
+                        ]
+                        container.children[
+                            currentPage
+                        ]
+                    ]
+                    Html.div [
+                        prop.style [ style.flexShrink 0 ]
+                        prop.children [
+                            footer
+                        ]
                     ]
                 ]
             ]

@@ -4,16 +4,16 @@ module Global
 type Pages =
     | LifeSupport
     | ContinuousMeds
-    | NormalValues
-    | PewsCalculator
-    | GCSCalculator
+    // | NormalValues
+    // | PewsCalculator
+    // | GCSCalculator
 
 
-let parsePages =
+let pageToString =
     function
     | LifeSupport -> "Noodlijst"
     | ContinuousMeds -> "Continue Medicatie"
-    | NormalValues -> "Normaal Waarden"
-    | PewsCalculator -> "PEWS Calculator"
-    | GCSCalculator -> "GCS Calculator"
+    // | NormalValues -> "Normaal Waarden"
+    // | PewsCalculator -> "PEWS Calculator"
+    // | GCSCalculator -> "GCS Calculator"
 

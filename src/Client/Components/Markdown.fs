@@ -27,7 +27,6 @@ module Markdown =
 
         Markdown.markdown [
             markdown.children props.text
-            markdown.escapeHtml true
             markdown.components [
                 markdown.components.h1 (fun props ->
                     Mui.typography [

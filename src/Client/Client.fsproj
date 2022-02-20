@@ -20,6 +20,7 @@
     <Compile Include="./Views/Patient.fs" />
     <Compile Include="./Views/EmergencyList.fs" />
     <Compile Include="./Pages/LifeSupport.fs" />
+    <Compile Include="./Pages/ContinuousMeds.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>

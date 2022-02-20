@@ -10,29 +10,22 @@ module NavBar =
     open Global
 
 
-    let useStyles =
-        Styles.makeStyles (fun styles theme ->
-            {|
-                flex1 = styles.create [ style.flexGrow 1 ]
-            |}
-        )
-
-
     [<ReactComponent>]
     let private View
         (input: {| title: string
                    menuClick: unit -> unit |})
         =
-        let classes = useStyles ()
 
         Mui.appBar [
-            appBar.position.fixed'
+            appBar.position.sticky
             appBar.children [
                 Mui.toolbar [
                     toolbar.children [
-                        Mui.typography input.title
+                        Utils.Typography.h6 input.title
                         Html.div [
-                            prop.className classes.flex1
+                            prop.style [
+                                style.flexGrow 1
+                            ]
                         ]
                         Mui.iconButton [
                             iconButton.color.inherit'
