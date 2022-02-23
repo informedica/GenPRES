@@ -35,8 +35,9 @@
 !/.vscode/
 !/.vscode/*.json
 
-# Add proc file
+# Add proc and Docker file
 !Procfile
+!Dockerfile
 
 # Add local tools config
 !/.config/
