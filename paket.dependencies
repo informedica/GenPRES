@@ -1,6 +1,7 @@
 source https://api.nuget.org/v3/index.json
 
 nuget Feliz.Markdown
+nuget Feliz.Router
 nuget FSharp.Core
 
 nuget Fake.Core.Target

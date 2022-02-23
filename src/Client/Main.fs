@@ -1,6 +1,7 @@
 module Main
 
 open Feliz
+open Feliz.Router
 open Feliz.UseElmish
 open Elmish
 open Feliz.MaterialUI
@@ -14,7 +15,7 @@ type State =
         Configuration: Configuration Option
         Patient: Patient option
         CurrentPage: Pages Option
-        SideMenuItems : (string * bool) list
+        SideMenuItems: (string * bool) list
         SideMenuIsOpen: bool
     }
 
@@ -23,9 +24,22 @@ type Msg =
     | SideMenuClick of string
     | ToggleMenu
     | UpdatePatient of Patient option
+    | UrlChanged of string list
 
 
 let pages = [ LifeSupport; ContinuousMeds ]
+
+
+let parseUrl sl =
+    Utils.Logging.log "url" sl
+
+    match sl with
+    | [] -> None
+    | [ "pat"
+        Route.Query [ "ay", Route.Int ay; "am", Route.Int am; "ad", Route.Int ad ] ] ->
+        Patient.create (Some ay) (Some am) (Some ad) None None None
+    | _ -> None
+
 
 
 let init () : State * Cmd<Msg> =
@@ -33,9 +47,11 @@ let init () : State * Cmd<Msg> =
     let initialState =
         {
             Configuration = None
-            Patient = None
+            Patient = Router.currentUrl () |> parseUrl
             CurrentPage = ContinuousMeds |> Some
-            SideMenuItems = [LifeSupport; ContinuousMeds] |> List.map (fun p -> p |> pageToString, false)
+            SideMenuItems =
+                [ LifeSupport; ContinuousMeds ]
+                |> List.map (fun p -> p |> pageToString, false)
             SideMenuIsOpen = false
         }
 
@@ -46,6 +62,7 @@ let update (msg: Msg) (state: State) =
     match msg with
     | ToggleMenu ->
         printfn "toggle menu"
+
         { state with
             SideMenuIsOpen = not state.SideMenuIsOpen
         },
@@ -60,12 +77,18 @@ let update (msg: Msg) (state: State) =
             SideMenuItems =
                 state.SideMenuItems
                 |> List.map (fun (s, _) ->
-                    if s = msg then (s, true)
-                    else (s, false)
+                    if s = msg then
+                        (s, true)
+                    else
+                        (s, false)
                 )
         },
         Cmd.none
     | UpdatePatient p -> { state with Patient = p }, Cmd.none
+    | UrlChanged sl ->
+        Utils.Logging.log "url changed" sl
+        state, Cmd.none
+
 
 [<ReactComponent>]
 let View
@@ -74,6 +97,7 @@ let View
     =
     let state = input.state
     let dispatch = input.dispatch
+
 
     let sidemenu =
         Components.SideMenu.render
@@ -84,26 +108,27 @@ let View
 
     let header =
         Components.NavBar.render
-            $"""GenPRES {state.CurrentPage |> Option.map pageToString |> Option.defaultValue ""}"""
+            $"""GenPRES {state.CurrentPage
+                         |> Option.map pageToString
+                         |> Option.defaultValue ""}"""
             (fun _ -> ToggleMenu |> dispatch)
 
-    let footer = Components.StatusBar.render true "footer"
+    let footer =
+        Components.StatusBar.render true "footer"
 
     let patientView =
         Html.div [
             prop.id "patient-view"
             prop.style [ style.marginBottom 20 ]
             prop.children [
-                Views.Patient.render
-                    state.Patient
-                    (UpdatePatient >> dispatch)
+                Views.Patient.render state.Patient (UpdatePatient >> dispatch)
             ]
         ]
 
     let currentPage =
         match state.CurrentPage with
-        | None -> 
-            Html.div [ 
+        | None ->
+            Html.div [
                 Utils.Typography.h1 "No page"
             ]
         | Some page ->
@@ -126,12 +151,11 @@ let View
                                     state.Patient
                                     (UpdatePatient >> dispatch) //input.dispatch
 
-                            | ContinuousMeds -> 
-                                state.Patient
-                                |> Pages.ContinuousMeds.render 
+                            | ContinuousMeds ->
+                                state.Patient |> Pages.ContinuousMeds.render
 
 
-                        ]
+                            ]
                     ]
                 ]
             ]
@@ -141,47 +165,47 @@ let View
             theme.palette.primary Colors.blue
         ]
 
-    Mui.themeProvider [
-        themeProvider.theme theme
-        themeProvider.children [
-            Mui.cssBaseline []
-            Html.div [
-                prop.style [
-//                    style.custom ("width", "100vh")
-                    style.custom ("height", "100vh")
-                    style.display.flex
-                    style.flexDirection.column
-                    style.flexWrap.nowrap
-                ]
-                prop.children [
-                    Html.div [
-                        prop.style [ style.flexShrink 0 ]
-                        prop.children [
-                            header
-                        ]
+    let main =
+        Mui.themeProvider [
+            themeProvider.theme theme
+            themeProvider.children [
+                Mui.cssBaseline []
+                Html.div [
+                    prop.style [
+                        //                    style.custom ("width", "100vh")
+                        style.custom ("height", "100vh")
+                        style.display.flex
+                        style.flexDirection.column
+                        style.flexWrap.nowrap
                     ]
-                    sidemenu
-                    Mui.container [
-                        prop.style [
-                            style.display.flex                            
-                            style.flexGrow 1
-                            style.overflow.hidden
-                            style.marginTop 10
-                            style.marginBottom 10
+                    prop.children [
+                        Html.div [
+                            prop.style [ style.flexShrink 0 ]
+                            prop.children [ header ]
                         ]
-                        container.children[
-                            currentPage
+                        sidemenu
+                        Mui.container [
+                            prop.style [
+                                style.display.flex
+                                style.flexGrow 1
+                                style.overflow.hidden
+                                style.marginTop 10
+                                style.marginBottom 10
+                            ]
+                            container.children[currentPage]
                         ]
-                    ]
-                    Html.div [
-                        prop.style [ style.flexShrink 0 ]
-                        prop.children [
-                            footer
+                        Html.div [
+                            prop.style [ style.flexShrink 0 ]
+                            prop.children [ footer ]
                         ]
                     ]
                 ]
             ]
         ]
+
+    React.router [
+        router.onUrlChanged (UrlChanged >> dispatch)
+        router.children main
     ]
 
 

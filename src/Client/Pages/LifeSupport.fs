@@ -21,7 +21,7 @@ module LifeSupport =
         | CloseDialog
 
 
-    let init = { Dialog = [] }, Cmd.none
+    let init () = { Dialog = [] }, Cmd.none
 
 
     let update updatePatient (msg: Msg) state =

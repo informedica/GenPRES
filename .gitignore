@@ -88,7 +88,7 @@
 # Add notebook files
 !*.dib
 
-# Add documentation tools 
+# Add documentation tools
 !/docsTool/
 !/docsTool/templates/
 
@@ -114,11 +114,15 @@
 !/src/Client/Pages/
 
 !/src/Shared/
+!/src/Shared/Scripts/
 !/src/Server/
+!/src/Server/Scripts/
 
 
 # Add test files
 !/test/
 !/test/ServerTests/
+!/test/ServerTests/Scripts/
 !/test/UITests/
+!/test/UITests/Scripts/
 
