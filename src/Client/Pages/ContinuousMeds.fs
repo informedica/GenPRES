@@ -34,7 +34,7 @@ module ContinuousMeds =
         | CloseDialog -> { state with Dialog = [] }, Cmd.none
 
 
-    let createHeadersAndRows w =
+    let createHeadersAndRows w contMeds =
         let headers =
             [
                 ("Indicatie", true)
@@ -47,8 +47,7 @@ module ContinuousMeds =
             |> List.map (fun (lbl, b) -> (lbl |> Utils.Typography.subtitle2, b))
 
         let rows =
-            w
-            |> ContMeds.calcContMed
+            ContMeds.calcContMed2 w contMeds
             |> List.map (fun row ->
                 match row with
                 | ind :: med :: qty :: sol :: dose :: adv :: [] ->
@@ -129,13 +128,14 @@ module ContinuousMeds =
 
 
     [<ReactComponent>]
-    let view (input: {| pat: Patient option |}) =
+    let view (input: {| pat: Patient option; contMeds : Continuous list |}) =
         let state, dispatch =
             React.useElmish (init, update, [| box input.pat |])
 
         match input.pat |> Option.bind Patient.getWeight with
-        | Some w ->
-            let hs, rs = w |> createHeadersAndRows
+        | Some w when input.contMeds |> List.length > 1 ->
+
+            let hs, rs = createHeadersAndRows w input.contMeds
 
             Html.div [
                 prop.children [
@@ -143,9 +143,9 @@ module ContinuousMeds =
                     SortableTable.render hs rs (RowClick >> dispatch)
                 ]
             ]
-        | None ->
+        | _ ->
             Html.div [
                 Utils.Typography.h3 "Voer leeftijd en/of gewicht in ..."
             ]
 
-    let render patient = view ({| pat = patient |})
+    let render patient contMeds = view ({| pat = patient; contMeds = contMeds |})

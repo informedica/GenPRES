@@ -1,6 +1,22 @@
 namespace Shared
 
 
+module String =
+
+
+    open System
+
+
+    let isNullOrWhiteSpace (s: String) = String.IsNullOrWhiteSpace(s)
+
+
+    let replace (s1: string) s2 (s: string) = s.Replace(s1, s2)
+
+
+    let split (del: string) (s: string) = s.Split(del)
+
+
+
 module NormalValues =
 
 
@@ -233,18 +249,53 @@ module Data =
             "intubatie", "rocuronium", 1.0, 0.0, 10.0, 10.0, "mg", ""
             "intubatie", "atropine", 0.02, 0.1, 0.5, 0.5, "mg", ""
             "stridor", "dexamethason", 0.15, 0.0, 14.0, 4.0, "mg", ""
-            "stridor", "adrenaline vernevelen", 5.0, 5.0, 5.0, 1.0, "mg", "5 mg/keer"
+            "stridor",
+            "adrenaline vernevelen",
+            5.0,
+            5.0,
+            5.0,
+            1.0,
+            "mg",
+            "5 mg/keer"
             "astma", "prednisolon", 2.0, 0.0, 25.0, 12.5, "mg", ""
             "astma", "magnesiumsulfaat 16%", 40.0, 0.0, 2000.0, 160.0, "mg", ""
             "astma", "magnesiumsulfaat 50%", 40.0, 0.0, 2000.0, 500.0, "mg", ""
             "astma", "salbutamol oplaad", 15.0, 0.0, 0.0, 500.0, "microg", ""
             "anafylaxie", "adrenaline im", 0.01, 0.0, 0.5, 1.0, "mg", ""
-            "anafylaxie", "adrenaline vernevelen", 5.0, 5.0, 5.0, 1.0, "mg", "5 mg/keer"
+            "anafylaxie",
+            "adrenaline vernevelen",
+            5.0,
+            5.0,
+            5.0,
+            1.0,
+            "mg",
+            "5 mg/keer"
             "anafylaxie", "clemastine", 0.05, 0.0, 2.0, 1.0, "mg", ""
             "anafylaxie", "hydrocortison", 4.0, 0.0, 100.0, 10.0, "mg", ""
-            "anti-arrythmica", "adenosine 1e gift", 100.0, 0.0, 12000.0, 3000.0, "microg", ""
-            "anti-arrythmica", "adenosine 2e gift", 200.0, 0.0, 12000.0, 3000.0, "microg", ""
-            "anti-arrythmica", "adenosine 3e gift", 300.0, 0.0, 12000.0, 3000.0, "microg", ""
+            "anti-arrythmica",
+            "adenosine 1e gift",
+            100.0,
+            0.0,
+            12000.0,
+            3000.0,
+            "microg",
+            ""
+            "anti-arrythmica",
+            "adenosine 2e gift",
+            200.0,
+            0.0,
+            12000.0,
+            3000.0,
+            "microg",
+            ""
+            "anti-arrythmica",
+            "adenosine 3e gift",
+            300.0,
+            0.0,
+            12000.0,
+            3000.0,
+            "microg",
+            ""
             "anti-arrythmica", "amiodarone", 5.0, 0.0, 300.0, 50.0, "mg", ""
             "antidota", "flumazine", 0.02, 0.0, 0.3, 0.1, "mg", ""
             "antidota", "naloxon", 0.01, 0.0, 0.5, 0.02, "mg", ""
@@ -259,7 +310,14 @@ module Data =
             "anticonvulsiva", "diazepam iv", 0.25, 0.0, 0.0, 5.0, "mg", ""
             "anticonvulsiva", "fenytoine", 20.0, 0.0, 1500.0, 50.0, "mg", ""
             "anticonvulsiva", "midazolam", 0.1, 0.0, 10.0, 5.0, "mg", ""
-            "anticonvulsiva", "midazolam buc/nas/im", 0.2, 0.0, 10.0, 5.0, "mg", ""
+            "anticonvulsiva",
+            "midazolam buc/nas/im",
+            0.2,
+            0.0,
+            10.0,
+            5.0,
+            "mg",
+            ""
             "anticonvulsiva", "thiopental", 5.0, 0.0, 0.0, 25.0, "mg", ""
             "hersenoedeem", "mannitol 15%", 0.5, 0.0, 50.0, 0.15, "gram", ""
             "hersenoedeem", "NaCl 2,9%", 3.0, 0.0, 0.0, 1.0, "ml", ""
@@ -271,48 +329,569 @@ module Data =
             "anti-emetica", "ondansetron", 0.1, 0.0, 4.0, 2.0, "mg", ""
             "anti-emetica", "droperidol", 0.02, 0.0, 1.25, 2.5, "mg", ""
             "anti-emetica", "metoclopramide", 0.1, 0.0, 10.0, 5.0, "mg", ""
-            "elektrolyten", "kaliumchloride 7,4%", 0.5, 0.0, 40.0, 1.0, "mmol", ""
-            "elektrolyten", "calciumgluconaat", 0.13, 0.0, 4.5, 0.225, "mmol", ""
-            "elektrolyten", "magnesiumchloride 10%", 0.08, 0.0, 0.0, 0.5, "mmol", ""
+            "elektrolyten",
+            "kaliumchloride 7,4%",
+            0.5,
+            0.0,
+            40.0,
+            1.0,
+            "mmol",
+            ""
+            "elektrolyten",
+            "calciumgluconaat",
+            0.13,
+            0.0,
+            4.5,
+            0.225,
+            "mmol",
+            ""
+            "elektrolyten",
+            "magnesiumchloride 10%",
+            0.08,
+            0.0,
+            0.0,
+            0.5,
+            "mmol",
+            ""
             "lokaal anesthesie", "licocaine 1%", 5.0, 0.0, 200.0, 10.0, "mg", ""
             "lokaal anesthesie", "licocaine 2%", 5.0, 0.0, 200.0, 20.0, "mg", ""
             "lokaal anesthesie", "bupivacaine", 3.0, 0.0, 0.0, 2.5, "mg", ""
-            "lokaal anesthesie", "bupivacaine/adrenaline", 3.0, 0.0, 0.0, 2.5, "mg", ""
+            "lokaal anesthesie",
+            "bupivacaine/adrenaline",
+            3.0,
+            0.0,
+            0.0,
+            2.5,
+            "mg",
+            ""
         ]
 
     let contMeds =
         [
-            "inotropie", "adrenaline", "mg", "microg/kg/min", 1., 50., 2., 50., 5., 50., 5., 50., 0.05, 0.5, 1., 0., 0.1, "NaCl of Gluc"
-            "suppletie", "albumine 20%", "g", "gram/kg/dag", 0.2, 1., 0.2, 1., 0.2, 1., 0.2, 1., 1., 2., 4., 0., 0., ""
-            "ductus afhankelijk cor vitium", "alprostadil", "mg", "nanog/kg/min", 0.2, 50., 0., 0., 0., 0., 0., 0., 10., 50., 100., 0., 0.02, "NaCl of Gluc"
-            "anti-arrythmica", "amiodarone", "mg", "microg/kg/min", 50., 50., 150., 50., 300., 50., 600., 50., 5., 15., 25., 0.6, 50., "Gluc 5%"
-            "sedatie", "clonidine", "mg", "microg/kg/uur", 0.15, 50., 0.3, 50., 0.6, 50., 0.6, 50., 0.25, 2., 3., 0., 0.15, "NaCl"
-            "inotropie", "dobutamine", "mg", "microg/kg/min", 80., 50., 200., 50., 400., 50., 400., 50., 1., 20., 30., 0., 12.5, "NaCl of Gluc"
-            "inotropie", "dopamine", "mg", "microg/kg/min", 80., 50., 200., 50., 400., 50., 400., 50., 1., 20., 30., 0., 40., "NaCl of Gluc"
+            "inotropie",
+            "adrenaline",
+            "mg",
+            "microg/kg/min",
+            1.,
+            50.,
+            2.,
+            50.,
+            5.,
+            50.,
+            5.,
+            50.,
+            0.05,
+            0.5,
+            1.,
+            0.,
+            0.1,
+            "NaCl of Gluc"
+            "suppletie",
+            "albumine 20%",
+            "g",
+            "gram/kg/dag",
+            0.2,
+            1.,
+            0.2,
+            1.,
+            0.2,
+            1.,
+            0.2,
+            1.,
+            1.,
+            2.,
+            4.,
+            0.,
+            0.,
+            ""
+            "ductus afhankelijk cor vitium",
+            "alprostadil",
+            "mg",
+            "nanog/kg/min",
+            0.2,
+            50.,
+            0.,
+            0.,
+            0.,
+            0.,
+            0.,
+            0.,
+            10.,
+            50.,
+            100.,
+            0.,
+            0.02,
+            "NaCl of Gluc"
+            "anti-arrythmica",
+            "amiodarone",
+            "mg",
+            "microg/kg/min",
+            50.,
+            50.,
+            150.,
+            50.,
+            300.,
+            50.,
+            600.,
+            50.,
+            5.,
+            15.,
+            25.,
+            0.6,
+            50.,
+            "Gluc 5%"
+            "sedatie",
+            "clonidine",
+            "mg",
+            "microg/kg/uur",
+            0.15,
+            50.,
+            0.3,
+            50.,
+            0.6,
+            50.,
+            0.6,
+            50.,
+            0.25,
+            2.,
+            3.,
+            0.,
+            0.15,
+            "NaCl"
+            "inotropie",
+            "dobutamine",
+            "mg",
+            "microg/kg/min",
+            80.,
+            50.,
+            200.,
+            50.,
+            400.,
+            50.,
+            400.,
+            50.,
+            1.,
+            20.,
+            30.,
+            0.,
+            12.5,
+            "NaCl of Gluc"
+            "inotropie",
+            "dopamine",
+            "mg",
+            "microg/kg/min",
+            80.,
+            50.,
+            200.,
+            50.,
+            400.,
+            50.,
+            400.,
+            50.,
+            1.,
+            20.,
+            30.,
+            0.,
+            40.,
+            "NaCl of Gluc"
             // "pijnstilling", "Epi bupi 1,25mg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
             // "pijnstilling", "Epi bupi 1,25mg, sufenta 0,5 mcg /ml", "ml", "ml/uur", 0., 24., 0., 48., 0., 48., 0., 48., 1., 8., 8., 0., 0., ""
-            "pulmonale hypertensie", "epoprostenol", "mg", "nanog/kg/min", 0.2, 50., 0.4, 50., 0.8, 50., 0.8, 50., 0.5, 50., 50., 0.005, 0.01, "glycine buffer"
-            "sedatie", "esketamine", "mg", "mg/kg/uur", 100., 50., 250., 50., 250., 50., 250., 50., 0.5, 1., 2., 0., 5., "NaCl of Gluc"
-            "antihypertensiva", "esmolol", "mg", "mg/kg/min", 500., 50., 500., 50., 500., 50., 500., 50., 0.1, 1., 2., 0., 10., "NaCl of Gluc"
-            "pijnstilling", "fentanyl", "mg", "microg/kg/uur", 0.5, 50., 1., 50., 2.5, 50., 2.5, 50., 1., 5., 10., 0., 0.05, "NaCl of Gluc"
-            "vasopressie", "fenylefrine", "mg", "microg/kg/min", 1.5, 50., 2.5, 50., 5., 50., 5., 50., 0.05, 5., 10., 0., 10., "NaCl of Gluc"
-            "diuretica", "furosemide", "mg", "mg/kg/dag", 10., 50., 20., 50., 40., 50., 100., 50., 1., 4., 6., 0., 10., "NaCl"
-            "antistolling", "heparine", "IE", "IE/kg/uur", 5000., 50., 10000., 50., 20000., 50., 20000., 50., 10., 20., 50., 0., 1000., "NaCl"
-            "glucose regulatie", "insuline", "IE", "IE/kg/uur", 10., 50., 10., 50., 50., 50., 50., 50., 0.02, 0.125, 2., 0., 1., "NaCl"
-            "chronotropie", "isoprenaline", "mg", "microg/kg/min", 2., 50., 2., 50., 2., 50., 2., 50., 0.01, 1.5, 3., 0., 1., "Gluc"
-            "antihypertensiva", "labetalol", "mg", "mg/kg/uur", 250., 50., 250., 50., 250., 50., 250., 50., 0.25, 3., 4., 0., 5., "NaCl of Gluc"
-            "bronchodilatie", "magnesiumsulfaat", "mg", "mg/kg/uur", 500., 50., 1000., 50., 2000., 50., 2000., 50., 3., 20., 25., 1., 160., "NaCl of Gluc"
-            "sedatie", "midazolam", "mg", "mg/kg/uur", 25., 50., 50., 50., 50., 50., 100., 50., 0.05, 0.5, 1., 0., 5., "NaCl of Gluc"
-            "inotropie", "milrinone", "mg", "microg/kg/min", 5., 50., 10., 50., 20., 50., 20., 50., 0.15, 0.5, 0.75, 0., 1., "NaCl of Gluc"
-            "pijnstilling", "morfine", "mg", "mg/kg/dag", 2., 50., 5., 50., 10., 50., 50., 50., 0.1, 0.5, 1., 0., 1., "NaCl of Gluc"
-            "suppletie", "NaCl 2,9%", "mmol", "mmol/kg/dag", 25., 50., 25., 50., 25., 50., 25., 50., 2., 4., 6., 0., 0., ""
-            "antihypertensiva", "nitroprusside", "mg", "microg/kg/min", 10., 50., 20., 50., 40., 50., 40., 50., 0.5, 8., 10., 0., 10., "NaCl of Gluc"
-            "vasopressie", "noradrenaline", "mg", "microg/kg/min", 1., 50., 2., 50., 5., 50., 5., 50., 0.05, 0.5, 1., 0., 1., "NaCl of Gluc"
-            "sedatie", "propofol 1%", "mg", "mg/kg/uur", 10., 1., 10., 1., 10., 1., 10., 1., 1., 4., 4., 0., 0., ""
-            "sedatie", "propofol 2%", "mg", "mg/kg/uur", 20., 1., 20., 1., 20., 1., 20., 1., 1., 4., 4., 0., 0., ""
-            "verslapping", "rocuronium", "mg", "mg/kg/uur", 50., 50., 100., 50., 200., 50., 200., 50., 0.6, 1.2, 2., 0., 10., "NaCl of Gluc"
-            "bronchodilatie", "salbutamol", "mg", "microg/kg/min", 5., 50., 10., 50., 20., 50., 20., 50., 0.1, 10., 15., 0.005, 0.42, "NaCl of Gluc"
-            "sedatie", "thiopental", "mg", "mg/kg/uur", 1250., 50., 1250., 50., 1250., 50., 1250., 50., 5., 10., 20., 5., 25., "NaCl of Gluc"
+            "pulmonale hypertensie",
+            "epoprostenol",
+            "mg",
+            "nanog/kg/min",
+            0.2,
+            50.,
+            0.4,
+            50.,
+            0.8,
+            50.,
+            0.8,
+            50.,
+            0.5,
+            50.,
+            50.,
+            0.005,
+            0.01,
+            "glycine buffer"
+            "sedatie",
+            "esketamine",
+            "mg",
+            "mg/kg/uur",
+            100.,
+            50.,
+            250.,
+            50.,
+            250.,
+            50.,
+            250.,
+            50.,
+            0.5,
+            1.,
+            2.,
+            0.,
+            5.,
+            "NaCl of Gluc"
+            "antihypertensiva",
+            "esmolol",
+            "mg",
+            "mg/kg/min",
+            500.,
+            50.,
+            500.,
+            50.,
+            500.,
+            50.,
+            500.,
+            50.,
+            0.1,
+            1.,
+            2.,
+            0.,
+            10.,
+            "NaCl of Gluc"
+            "pijnstilling",
+            "fentanyl",
+            "mg",
+            "microg/kg/uur",
+            0.5,
+            50.,
+            1.,
+            50.,
+            2.5,
+            50.,
+            2.5,
+            50.,
+            1.,
+            5.,
+            10.,
+            0.,
+            0.05,
+            "NaCl of Gluc"
+            "vasopressie",
+            "fenylefrine",
+            "mg",
+            "microg/kg/min",
+            1.5,
+            50.,
+            2.5,
+            50.,
+            5.,
+            50.,
+            5.,
+            50.,
+            0.05,
+            5.,
+            10.,
+            0.,
+            10.,
+            "NaCl of Gluc"
+            "diuretica",
+            "furosemide",
+            "mg",
+            "mg/kg/dag",
+            10.,
+            50.,
+            20.,
+            50.,
+            40.,
+            50.,
+            100.,
+            50.,
+            1.,
+            4.,
+            6.,
+            0.,
+            10.,
+            "NaCl"
+            "antistolling",
+            "heparine",
+            "IE",
+            "IE/kg/uur",
+            5000.,
+            50.,
+            10000.,
+            50.,
+            20000.,
+            50.,
+            20000.,
+            50.,
+            10.,
+            20.,
+            50.,
+            0.,
+            1000.,
+            "NaCl"
+            "glucose regulatie",
+            "insuline",
+            "IE",
+            "IE/kg/uur",
+            10.,
+            50.,
+            10.,
+            50.,
+            50.,
+            50.,
+            50.,
+            50.,
+            0.02,
+            0.125,
+            2.,
+            0.,
+            1.,
+            "NaCl"
+            "chronotropie",
+            "isoprenaline",
+            "mg",
+            "microg/kg/min",
+            2.,
+            50.,
+            2.,
+            50.,
+            2.,
+            50.,
+            2.,
+            50.,
+            0.01,
+            1.5,
+            3.,
+            0.,
+            1.,
+            "Gluc"
+            "antihypertensiva",
+            "labetalol",
+            "mg",
+            "mg/kg/uur",
+            250.,
+            50.,
+            250.,
+            50.,
+            250.,
+            50.,
+            250.,
+            50.,
+            0.25,
+            3.,
+            4.,
+            0.,
+            5.,
+            "NaCl of Gluc"
+            "bronchodilatie",
+            "magnesiumsulfaat",
+            "mg",
+            "mg/kg/uur",
+            500.,
+            50.,
+            1000.,
+            50.,
+            2000.,
+            50.,
+            2000.,
+            50.,
+            3.,
+            20.,
+            25.,
+            1.,
+            160.,
+            "NaCl of Gluc"
+            "sedatie",
+            "midazolam",
+            "mg",
+            "mg/kg/uur",
+            25.,
+            50.,
+            50.,
+            50.,
+            50.,
+            50.,
+            100.,
+            50.,
+            0.05,
+            0.5,
+            1.,
+            0.,
+            5.,
+            "NaCl of Gluc"
+            "inotropie",
+            "milrinone",
+            "mg",
+            "microg/kg/min",
+            5.,
+            50.,
+            10.,
+            50.,
+            20.,
+            50.,
+            20.,
+            50.,
+            0.15,
+            0.5,
+            0.75,
+            0.,
+            1.,
+            "NaCl of Gluc"
+            "pijnstilling",
+            "morfine",
+            "mg",
+            "mg/kg/dag",
+            2.,
+            50.,
+            5.,
+            50.,
+            10.,
+            50.,
+            50.,
+            50.,
+            0.1,
+            0.5,
+            1.,
+            0.,
+            1.,
+            "NaCl of Gluc"
+            "suppletie",
+            "NaCl 2,9%",
+            "mmol",
+            "mmol/kg/dag",
+            25.,
+            50.,
+            25.,
+            50.,
+            25.,
+            50.,
+            25.,
+            50.,
+            2.,
+            4.,
+            6.,
+            0.,
+            0.,
+            ""
+            "antihypertensiva",
+            "nitroprusside",
+            "mg",
+            "microg/kg/min",
+            10.,
+            50.,
+            20.,
+            50.,
+            40.,
+            50.,
+            40.,
+            50.,
+            0.5,
+            8.,
+            10.,
+            0.,
+            10.,
+            "NaCl of Gluc"
+            "vasopressie",
+            "noradrenaline",
+            "mg",
+            "microg/kg/min",
+            1.,
+            50.,
+            2.,
+            50.,
+            5.,
+            50.,
+            5.,
+            50.,
+            0.05,
+            0.5,
+            1.,
+            0.,
+            1.,
+            "NaCl of Gluc"
+            "sedatie",
+            "propofol 1%",
+            "mg",
+            "mg/kg/uur",
+            10.,
+            1.,
+            10.,
+            1.,
+            10.,
+            1.,
+            10.,
+            1.,
+            1.,
+            4.,
+            4.,
+            0.,
+            0.,
+            ""
+            "sedatie",
+            "propofol 2%",
+            "mg",
+            "mg/kg/uur",
+            20.,
+            1.,
+            20.,
+            1.,
+            20.,
+            1.,
+            20.,
+            1.,
+            1.,
+            4.,
+            4.,
+            0.,
+            0.,
+            ""
+            "verslapping",
+            "rocuronium",
+            "mg",
+            "mg/kg/uur",
+            50.,
+            50.,
+            100.,
+            50.,
+            200.,
+            50.,
+            200.,
+            50.,
+            0.6,
+            1.2,
+            2.,
+            0.,
+            10.,
+            "NaCl of Gluc"
+            "bronchodilatie",
+            "salbutamol",
+            "mg",
+            "microg/kg/min",
+            5.,
+            50.,
+            10.,
+            50.,
+            20.,
+            50.,
+            20.,
+            50.,
+            0.1,
+            10.,
+            15.,
+            0.005,
+            0.42,
+            "NaCl of Gluc"
+            "sedatie",
+            "thiopental",
+            "mg",
+            "mg/kg/uur",
+            1250.,
+            50.,
+            1250.,
+            50.,
+            1250.,
+            50.,
+            1250.,
+            50.,
+            5.,
+            10.,
+            20.,
+            5.,
+            25.,
+            "NaCl of Gluc"
         ]
 
 
@@ -350,3 +929,53 @@ module Data =
             "bronchodilatie", "salbutamol", "mg", 1.
             "sedatie", "thiopental", "mg", 25.
         ]
+
+
+module Csv =
+
+    open System
+    open Types
+
+
+    let tryCast dt (x: string) =
+        match dt with
+        | StringData -> box (x.Trim())
+        | FloatData ->
+            match Double.TryParse(x) with
+            | true, dt -> dt |> box
+            | _ -> None |> box
+        | FloatOptionData ->
+            match Int32.TryParse(x) with
+            | true, n -> n |> box
+            | _ -> None |> box
+
+
+    let getColumn dt columns sl s =
+        columns
+        |> Array.tryFindIndex ((=) s)
+        |> function
+            | None ->
+                $"""cannot find column {s} in {columns |> String.concat ", "}"""
+                |> failwith
+            | Some i -> sl |> Array.item i
+
+
+    let getStringColumn columns sl s =
+        getColumn StringData columns sl s |> unbox<string>
+
+
+    let getFloatColumn columns sl s =
+        getColumn FloatData columns sl s |> unbox<float>
+
+
+    let getFloatOptionColumn columns sl s =
+        getColumn FloatOptionData columns sl s
+        |> unbox<float option>
+
+
+    let parseCSV (s: string) =
+        s.Split("\n")
+        |> Array.filter (String.isNullOrWhiteSpace >> not)
+        |> Array.map (String.replace "\",\"" "|")
+        |> Array.map (String.replace "\"" "")
+        |> Array.map (fun s -> s.Split("|"))

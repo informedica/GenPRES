@@ -11,25 +11,45 @@ module LifeSupport =
     open Global
     open Types
     open Views
+    open Utils
 
 
-    type State = { Dialog: string list }
+    type State =
+        {
+            Dialog: string list
+            MedDefs: Bolus list
+        }
 
 
     type Msg =
         | RowClick of int * string list
         | CloseDialog
+        | LoadData
+        | ReceivedData of string
 
 
-    let init () = { Dialog = [] }, Cmd.none
+
+    let init () =
+        { Dialog = []; MedDefs = [] }, Cmd.ofMsg LoadData
 
 
     let update updatePatient (msg: Msg) state =
         match msg with
         | RowClick (i, xs) ->
-            Utils.Logging.log "rowclick:" i
+            Logging.log "rowclick:" i
             { state with Dialog = xs }, Cmd.none
         | CloseDialog -> { state with Dialog = [] }, Cmd.none
+        | LoadData ->
+            let load = Google.getMedDefs (ReceivedData)
+            state, Cmd.OfAsync.result load
+        | ReceivedData s ->
+            Logging.log "received data" (s)
+
+            { state with
+                MedDefs = s |> EmergencyTreatment.getBolusMed
+            },
+            Cmd.none
+
 
 
     let useStyles =
@@ -80,7 +100,16 @@ module LifeSupport =
                         prop.style [ style.flexGrow 1 ]
                         prop.children [
                             match input.patient with
-                            | None ->
+                            | Some p when state.MedDefs |> List.length > 1 ->
+                                let a = p |> Patient.getAgeInYears
+                                let w = p |> Patient.getWeight
+
+                                EmergencyList.render
+                                    a
+                                    w
+                                    state.MedDefs
+                                    (RowClick >> dispatch)
+                            | _ ->
                                 Html.div [
                                     prop.style [ style.paddingTop 20 ]
                                     prop.children [
@@ -89,11 +118,6 @@ module LifeSupport =
                                             "Wordt getoond na invoer van patient gegevens"
                                     ]
                                 ]
-                            | Some p ->
-                                let a = p |> Patient.getAgeInYears
-                                let w = p |> Patient.getWeight
-
-                                EmergencyList.render a w (RowClick >> dispatch)
                         ]
                     ]
                 ]
@@ -160,10 +184,7 @@ module LifeSupport =
 
         Html.div [
             prop.id "lifesupport-div"
-            prop.children [
-                emergencyList
-                dialog
-            ]
+            prop.children [ emergencyList; dialog ]
         ]
 
 

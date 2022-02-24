@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="index.html" />
+    <Compile Include="../Shared/Types.fs" />
     <Compile Include="../Shared/Data.fs" />
     <Compile Include="../Shared/Domain.fs" />
     <Compile Include="Utils.fs" />

@@ -8,12 +8,13 @@ open Feliz.MaterialUI
 open Shared
 open Global
 open Types
-
+open Utils
 
 type State =
     {
         Configuration: Configuration Option
         Patient: Patient option
+        ContinuousMeds: Continuous list
         CurrentPage: Pages Option
         SideMenuItems: (string * bool) list
         SideMenuIsOpen: bool
@@ -25,6 +26,8 @@ type Msg =
     | ToggleMenu
     | UpdatePatient of Patient option
     | UrlChanged of string list
+    | LoadData
+    | ReceivedData of string
 
 
 let pages = [ LifeSupport; ContinuousMeds ]
@@ -48,14 +51,15 @@ let init () : State * Cmd<Msg> =
         {
             Configuration = None
             Patient = Router.currentUrl () |> parseUrl
-            CurrentPage = ContinuousMeds |> Some
+            ContinuousMeds = []
+            CurrentPage = LifeSupport |> Some
             SideMenuItems =
                 [ LifeSupport; ContinuousMeds ]
                 |> List.map (fun p -> p |> pageToString, false)
             SideMenuIsOpen = false
         }
 
-    initialState, Cmd.none
+    initialState, Cmd.ofMsg LoadData
 
 
 let update (msg: Msg) (state: State) =
@@ -86,8 +90,18 @@ let update (msg: Msg) (state: State) =
         Cmd.none
     | UpdatePatient p -> { state with Patient = p }, Cmd.none
     | UrlChanged sl ->
-        Utils.Logging.log "url changed" sl
+        Logging.log "url changed" sl
         state, Cmd.none
+    | LoadData ->
+        let load = Google.getContMeds (ReceivedData)
+        state, Cmd.OfAsync.result load
+    | ReceivedData s ->
+        Logging.log "received data" (s |> Shared.ContMeds.getContMed)
+
+        { state with
+            ContinuousMeds = s |> ContMeds.getContMed
+        },
+        Cmd.none
 
 
 [<ReactComponent>]
@@ -97,7 +111,6 @@ let View
     =
     let state = input.state
     let dispatch = input.dispatch
-
 
     let sidemenu =
         Components.SideMenu.render
@@ -152,7 +165,9 @@ let View
                                     (UpdatePatient >> dispatch) //input.dispatch
 
                             | ContinuousMeds ->
-                                state.Patient |> Pages.ContinuousMeds.render
+                                Pages.ContinuousMeds.render
+                                    state.Patient
+                                    state.ContinuousMeds
 
 
                             ]

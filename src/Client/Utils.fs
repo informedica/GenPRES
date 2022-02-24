@@ -61,15 +61,40 @@ module Logging =
     let warning (msg: string) a = console.warn (box msg, [| box a |])
 
 
-// module Promise =
+module Google =
 
-//     open Fable.Promise
+    open System
+    open Fable.SimpleHttp
 
-//     let getData sheet =
-//         promise {
-//             let! data =
-//                 fetch
-//                     $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
 
-//             return data
-//         }
+    let getUrl handleResponse url =
+        async {
+            let! (statusCode, responseText) = Http.get url
+
+            match statusCode with
+            | 200 -> printfn "Everything is fine"
+            | _ -> printfn "Status %d => %s" statusCode responseText
+
+            return responseText |> handleResponse
+        }
+
+
+    let createUrl sheet id =
+        $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
+
+    //https://docs.google.com/spreadsheets/d/1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM/edit?usp=sharing
+    [<Literal>]
+    let dataUrlId =
+        "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
+
+
+    let getContMeds handleData =
+        dataUrlId
+        |> createUrl "continuousmeds"
+        |> getUrl handleData
+
+
+    let getMedDefs handleData =
+        dataUrlId
+        |> createUrl "emergencylist"
+        |> getUrl handleData

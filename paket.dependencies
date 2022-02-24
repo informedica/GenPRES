@@ -1,5 +1,6 @@
 source https://api.nuget.org/v3/index.json
 
+nuget Fable.SimpleHttp
 nuget Feliz.Markdown
 nuget Feliz.Router
 nuget FSharp.Core

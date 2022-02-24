@@ -9,6 +9,7 @@ module EmergencyList =
     open Feliz.MaterialUI
     open Shared
     open Global
+    open Types
     open Components
 
 
@@ -35,7 +36,7 @@ module EmergencyList =
         ]
 
 
-    let createHeadersAndRows age wght medDefs =
+    let createHeadersAndRows age wght (bolusMed: Bolus list) =
         let headers =
             [
                 ("Indicatie", true)
@@ -47,7 +48,7 @@ module EmergencyList =
             |> List.map (fun (lbl, b) -> (lbl |> Utils.Typography.subtitle2, b))
 
         let rows =
-            EmergencyTreatment.getTableData age wght medDefs
+            EmergencyTreatment.getTableData2 age wght bolusMed
             |> List.map (fun row ->
                 match row with
                 | ind :: interv :: calc :: prep :: adv :: [] ->
@@ -78,23 +79,25 @@ module EmergencyList =
     let View
         (input: {| age: float option
                    weight: float option
+                   bolusMed : Bolus list
                    handleRowClick: int * string list -> unit |})
         =
         let _, dispatch =
             React.useElmish (init, update input.handleRowClick, [||])
 
         let hs, rs =
-            Data.medDefs
+            input.bolusMed
             |> createHeadersAndRows input.age input.weight
 
         SortableTable.render hs rs (RowClick >> dispatch)
 
 
-    let render age weight handleRowClick =
+    let render age weight bolusMed handleRowClick =
         View(
             {|
                 age = age
                 weight = weight
+                bolusMed = bolusMed
                 handleRowClick = handleRowClick
             |}
         )
