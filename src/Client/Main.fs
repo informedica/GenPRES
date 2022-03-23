@@ -12,9 +12,6 @@ open Utils
 
 type State =
     {
-        Configuration: Configuration Option
-        Patient: Patient option
-        ContinuousMeds: Continuous list
         CurrentPage: Pages Option
         SideMenuItems: (string * bool) list
         SideMenuIsOpen: bool
@@ -25,33 +22,15 @@ type Msg =
     | SideMenuClick of string
     | ToggleMenu
     | UpdatePatient of Patient option
-    | UrlChanged of string list
-    | LoadData
-    | ReceivedData of string
 
 
 let pages = [ LifeSupport; ContinuousMeds ]
 
 
-let parseUrl sl =
-    Utils.Logging.log "url" sl
-
-    match sl with
-    | [] -> None
-    | [ "pat"
-        Route.Query [ "ay", Route.Int ay; "am", Route.Int am; "ad", Route.Int ad ] ] ->
-        Patient.create (Some ay) (Some am) (Some ad) None None None
-    | _ -> None
-
-
-
-let init () : State * Cmd<Msg> =
+let init: State * Cmd<Msg> =
 
     let initialState =
         {
-            Configuration = None
-            Patient = Router.currentUrl () |> parseUrl
-            ContinuousMeds = []
             CurrentPage = LifeSupport |> Some
             SideMenuItems =
                 [ LifeSupport; ContinuousMeds ]
@@ -59,14 +38,12 @@ let init () : State * Cmd<Msg> =
             SideMenuIsOpen = false
         }
 
-    initialState, Cmd.ofMsg LoadData
+    initialState, Cmd.none
 
 
-let update (msg: Msg) (state: State) =
+let update updatePatient (msg: Msg) (state: State) =
     match msg with
     | ToggleMenu ->
-        printfn "toggle menu"
-
         { state with
             SideMenuIsOpen = not state.SideMenuIsOpen
         },
@@ -88,29 +65,16 @@ let update (msg: Msg) (state: State) =
                 )
         },
         Cmd.none
-    | UpdatePatient p -> { state with Patient = p }, Cmd.none
-    | UrlChanged sl ->
-        Logging.log "url changed" sl
-        state, Cmd.none
-    | LoadData ->
-        let load = Google.getContMeds (ReceivedData)
-        state, Cmd.OfAsync.result load
-    | ReceivedData s ->
-        Logging.log "received data" (s |> Shared.ContMeds.getContMed)
-
-        { state with
-            ContinuousMeds = s |> ContMeds.getContMed
-        },
-        Cmd.none
 
 
 [<ReactComponent>]
 let View
-    (input: {| state: State
-               dispatch: Msg -> unit |})
+    (input: {| patient: Patient option
+               updatePatient: Patient option -> unit
+               bolusMedication: Deferred<BolusMedication list>
+               continuousMedication: Deferred<ContinuousMedication list> |})
     =
-    let state = input.state
-    let dispatch = input.dispatch
+    let state, dispatch = React.useElmish(init, update updatePatient, [||])
 
     let sidemenu =
         Components.SideMenu.render
@@ -165,9 +129,13 @@ let View
                                     (UpdatePatient >> dispatch) //input.dispatch
 
                             | ContinuousMeds ->
-                                Pages.ContinuousMeds.render
-                                    state.Patient
-                                    state.ContinuousMeds
+                                match state.ContinuousMeds with
+                                | Resolved meds ->
+                                    Pages.ContinuousMeds.render
+                                        state.Patient
+                                        meds
+                                | _ ->
+                                    Pages.ContinuousMeds.render state.Patient []
 
 
                             ]
@@ -180,49 +148,50 @@ let View
             theme.palette.primary Colors.blue
         ]
 
-    let main =
-        Mui.themeProvider [
-            themeProvider.theme theme
-            themeProvider.children [
-                Mui.cssBaseline []
-                Html.div [
-                    prop.style [
-                        //                    style.custom ("width", "100vh")
-                        style.custom ("height", "100vh")
-                        style.display.flex
-                        style.flexDirection.column
-                        style.flexWrap.nowrap
+    Mui.themeProvider [
+        themeProvider.theme theme
+        themeProvider.children [
+            Mui.cssBaseline []
+            Html.div [
+                prop.style [
+                    //                    style.custom ("width", "100vh")
+                    style.custom ("height", "100vh")
+                    style.display.flex
+                    style.flexDirection.column
+                    style.flexWrap.nowrap
+                ]
+                prop.children [
+                    Html.div [
+                        prop.style [ style.flexShrink 0 ]
+                        prop.children [ header ]
                     ]
-                    prop.children [
-                        Html.div [
-                            prop.style [ style.flexShrink 0 ]
-                            prop.children [ header ]
+                    sidemenu
+                    Mui.container [
+                        prop.style [
+                            style.display.flex
+                            style.flexGrow 1
+                            style.overflow.hidden
+                            style.marginTop 10
+                            style.marginBottom 10
                         ]
-                        sidemenu
-                        Mui.container [
-                            prop.style [
-                                style.display.flex
-                                style.flexGrow 1
-                                style.overflow.hidden
-                                style.marginTop 10
-                                style.marginBottom 10
-                            ]
-                            container.children[currentPage]
-                        ]
-                        Html.div [
-                            prop.style [ style.flexShrink 0 ]
-                            prop.children [ footer ]
-                        ]
+                        container.children[currentPage]
+                    ]
+                    Html.div [
+                        prop.style [ style.flexShrink 0 ]
+                        prop.children [ footer ]
                     ]
                 ]
             ]
         ]
-
-    React.router [
-        router.onUrlChanged (UrlChanged >> dispatch)
-        router.children main
     ]
 
 
-let render state dispatch =
-    View({| state = state; dispatch = dispatch |})
+let render patient updatePatient bolusMedication continuousMedication =
+    View(
+        {|
+            patient = patient
+            updatePatient = updatePatient
+            bolusMedication = bolusMedication
+            continuousMedication = continuousMedication
+        |}
+    )

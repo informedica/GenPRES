@@ -36,7 +36,7 @@ module EmergencyList =
         ]
 
 
-    let createHeadersAndRows age wght (bolusMed: Bolus list) =
+    let createHeadersAndRows age wght (bolusMed: BolusMedication list) =
         let headers =
             [
                 ("Indicatie", true)
@@ -79,7 +79,7 @@ module EmergencyList =
     let View
         (input: {| age: float option
                    weight: float option
-                   bolusMed : Bolus list
+                   bolusMed : BolusMedication list
                    handleRowClick: int * string list -> unit |})
         =
         let _, dispatch =

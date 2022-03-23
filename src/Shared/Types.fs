@@ -66,54 +66,11 @@ module Types =
         }
 
 
-    type MedicationDefs =
-        (string * string * float * float * float * float * string * string) list
-
-
-    type Medication2 =
-        | Bolus of Bolus2
-        | Continuous of Continuous2
-
-    and Bolus2 =
-        {
-            Indication: string
-            Generic: string
-            NormDose: float
-            MinDose: float
-            MaxDose: float
-            Concentration: float
-            Unit: string
-            Remark: string
-        }
-
-    and Continuous2 =
-        {
-            Indication: string
-            Generic: string
-            Unit: string
-            DoseUnit: string
-            Quantity2To6: float
-            Volume2To6: float
-            Quantity6To11: float
-            Volume6To11: float
-            Quantity11To40: float
-            Volume11To40: float
-            QuantityFrom40: float
-            VolumeFrom40: float
-            MinDose: float
-            MaxDose: float
-            AbsMax: float
-            MinConc: float
-            MaxConc: float
-            Solution: string
-        }
-
-
     type Medication =
-        | Bolus of Bolus
-        | Continuous of Continuous
+        | Bolus of BolusMedication
+        | Continuous of ContinuousMedication
 
-    and Bolus =
+    and BolusMedication =
         {
             Indication: string
             Generic: string
@@ -125,13 +82,13 @@ module Types =
             Remark: string
         }
 
-    and Continuous =
+    and ContinuousMedication =
         {
             Indication: string
             Generic: string
             Unit: string
-            Quantity : float
-            Total : float
+            Quantity: float
+            Total: float
             DoseUnit: string
             MinWeight: float
             MaxWeight: float
@@ -141,4 +98,62 @@ module Types =
             MinConc: float
             MaxConc: float
             Solution: string
+        }
+
+// CalculatedDose
+// MinDose
+// MaxDose
+// DoseUnit
+// CalculatedDoseAdjust
+// NormDoseAdjust
+// MinDoseAdjust
+// MaxDoseAdjust
+// DoseAdjustUnit
+// DoseText
+    type Intervention =
+        {
+            // == Intervention ==
+            // Indication for the intervention
+            Indication: string
+            // Name of the intervantion
+            Name: string
+            // == Product ==
+            // Substance quantity
+            Quantity: float option
+            // Quantity unit
+            QuantityUnit: string
+            // Name of the solution
+            Solution: string
+            // Total quantity
+            Total: float option
+            // Total unit
+            TotalUnit: string
+            // == Dose ==
+            // Intervention dose
+            InterventionDose: float option
+            // Intervention dose unit
+            InterventionDoseUnit: string
+            // Text representation
+            InterventionDoseText : string
+            // Dose of the substance
+            SubstanceDose: float option
+            // Min dose of the substance
+            SubstanceMinDose: float option
+            // Max dose of the substance
+            SubstanceMaxDose: float option
+            // Dose unit
+            SubstanceDoseUnit: string
+            // Adjusted dose
+            SubstanceDoseAdjust: float option
+            // Norm adjusted dose
+            SubstanceNormDoseAdjust: float option
+            // Min adjusted dose
+            SubstanceMinDoseAdjust: float option
+            // Max adjusted dose
+            SubstanceMaxDoseAdjust: float option
+            // Adjusted dose unit
+            SubstanceDoseAdjustUnit: string
+            // Dose remarks
+            SubstanceDoseText: string
+            Text : string
         }

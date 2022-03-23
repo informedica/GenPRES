@@ -61,21 +61,27 @@ module Logging =
     let warning (msg: string) a = console.warn (box msg, [| box a |])
 
 
-module Google =
+module GoogleDocs =
 
     open System
     open Fable.SimpleHttp
+    open Shared
 
-
-    let getUrl handleResponse url =
+    let inline getUrl parseResponse msg url =
         async {
             let! (statusCode, responseText) = Http.get url
+            let result =
+                match statusCode with
+                | 200 ->
+                    responseText
+                    |> parseResponse
+                    |> Ok
+                    |> Finished
+                | _ ->
+                    Finished(Error $"Status {statusCode} => {responseText}")
+                |> msg
 
-            match statusCode with
-            | 200 -> printfn "Everything is fine"
-            | _ -> printfn "Status %d => %s" statusCode responseText
-
-            return responseText |> handleResponse
+            return result
         }
 
 
@@ -88,13 +94,14 @@ module Google =
         "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
 
 
-    let getContMeds handleData =
+    let loadContinuousMedication msg =
         dataUrlId
         |> createUrl "continuousmeds"
-        |> getUrl handleData
+        |> getUrl ContMeds.getContMed msg
 
 
-    let getMedDefs handleData =
+    let loadBolusMedication msg =
         dataUrlId
         |> createUrl "emergencylist"
-        |> getUrl handleData
+        |> getUrl EmergencyTreatment.getBolusMed msg
+

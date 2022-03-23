@@ -9,11 +9,9 @@ module Patient =
     open Feliz.Markdown
     open Elmish
     open Shared
+    open Types
     open Global
     open Components
-
-    type Patient = Types.Patient
-
 
     type State =
         {
@@ -56,21 +54,7 @@ module Patient =
         | None -> ""
 
 
-    let updatePatient changePatient state =
-        state,
-        Cmd.ofSub (fun _ ->
-            Patient.create
-                state.Year
-                state.Month
-                state.Week
-                state.Day
-                state.Weight
-                state.Height
-            |> changePatient
-        )
-
-
-    let update changePatient msg state =
+    let update updatePatient msg state =
 
         match msg with
         | ClearPatient -> newState
@@ -80,7 +64,19 @@ module Patient =
         | DayChange n -> { state with Day = Some n }
         | WeightChange n -> { state with Weight = Some n }
         | HeightChange n -> { state with Height = Some n }
-        |> updatePatient changePatient
+        |> fun state ->
+            state,
+            Cmd.ofSub (fun _ ->
+                Patient.create
+                    state.Year
+                    state.Month
+                    state.Week
+                    state.Day
+                    state.Weight
+                    state.Height
+                |> updatePatient
+            )
+
 
 
     let useStyles =
@@ -108,10 +104,10 @@ module Patient =
     [<ReactComponent>]
     let private View
         (input: {| patient: Patient option
-                   changePatient: Patient option -> unit |})
+                   updatePatient: Patient option -> unit |})
         =
         let state, dispatch =
-            React.useElmish (init, update input.changePatient, [||])
+            React.useElmish (init, update input.updatePatient, [||])
 
         let classes = useStyles ()
 
@@ -180,10 +176,10 @@ module Patient =
         ]
 
 
-    let render patient changePatient =
+    let render patient updatePatient =
         View(
             {|
                 patient = patient
-                changePatient = changePatient
+                updatePatient = updatePatient
             |}
         )

@@ -17,20 +17,17 @@ module LifeSupport =
     type State =
         {
             Dialog: string list
-            MedDefs: Bolus list
         }
 
 
     type Msg =
         | RowClick of int * string list
         | CloseDialog
-        | LoadData
-        | ReceivedData of string
-
 
 
     let init () =
-        { Dialog = []; MedDefs = [] }, Cmd.ofMsg LoadData
+        { Dialog = [] },
+        Cmd.none
 
 
     let update updatePatient (msg: Msg) state =
@@ -39,17 +36,6 @@ module LifeSupport =
             Logging.log "rowclick:" i
             { state with Dialog = xs }, Cmd.none
         | CloseDialog -> { state with Dialog = [] }, Cmd.none
-        | LoadData ->
-            let load = Google.getMedDefs (ReceivedData)
-            state, Cmd.OfAsync.result load
-        | ReceivedData s ->
-            Logging.log "received data" (s)
-
-            { state with
-                MedDefs = s |> EmergencyTreatment.getBolusMed
-            },
-            Cmd.none
-
 
 
     let useStyles =
@@ -99,15 +85,15 @@ module LifeSupport =
                         // prop.className classes.patientdetails
                         prop.style [ style.flexGrow 1 ]
                         prop.children [
-                            match input.patient with
-                            | Some p when state.MedDefs |> List.length > 1 ->
+                            match input.patient, state.MedDefs with
+                            | Some p, Resolved(meds) ->
                                 let a = p |> Patient.getAgeInYears
                                 let w = p |> Patient.getWeight
 
                                 EmergencyList.render
                                     a
                                     w
-                                    state.MedDefs
+                                    meds
                                     (RowClick >> dispatch)
                             | _ ->
                                 Html.div [

@@ -943,7 +943,9 @@ module Csv =
         | FloatData ->
             match Double.TryParse(x) with
             | true, dt -> dt |> box
-            | _ -> None |> box
+            | _ ->
+                $"cannot parse {x} to double"
+                |> failwith
         | FloatOptionData ->
             match Int32.TryParse(x) with
             | true, n -> n |> box
@@ -978,4 +980,7 @@ module Csv =
         |> Array.filter (String.isNullOrWhiteSpace >> not)
         |> Array.map (String.replace "\",\"" "|")
         |> Array.map (String.replace "\"" "")
-        |> Array.map (fun s -> s.Split("|"))
+        |> Array.map (fun s ->
+            s.Split("|")
+            |> Array.map (fun s -> s.Trim())
+        )

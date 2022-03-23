@@ -9,6 +9,7 @@
     <Compile Include="../Shared/Types.fs" />
     <Compile Include="../Shared/Data.fs" />
     <Compile Include="../Shared/Domain.fs" />
+    <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Bindings.fs" />
     <Compile Include="Global.fs" />

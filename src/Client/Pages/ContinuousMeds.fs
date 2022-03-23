@@ -47,7 +47,7 @@ module ContinuousMeds =
             |> List.map (fun (lbl, b) -> (lbl |> Utils.Typography.subtitle2, b))
 
         let rows =
-            ContMeds.calcContMed2 w contMeds
+            ContinuousMedication.calculate w contMeds
             |> List.map (fun row ->
                 match row with
                 | ind :: med :: qty :: sol :: dose :: adv :: [] ->
@@ -128,7 +128,7 @@ module ContinuousMeds =
 
 
     [<ReactComponent>]
-    let view (input: {| pat: Patient option; contMeds : Continuous list |}) =
+    let view (input: {| pat: Patient option; contMeds : ContinuousMedication list |}) =
         let state, dispatch =
             React.useElmish (init, update, [| box input.pat |])
 
