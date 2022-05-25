@@ -6,9 +6,12 @@ open Feliz.UseElmish
 open Elmish
 open Feliz.MaterialUI
 open Shared
-open Global
 open Types
 open Utils
+
+
+type Locales = Localization.Locales
+type Pages = Global.Pages
 
 type State =
     {
@@ -22,18 +25,24 @@ type Msg =
     | SideMenuClick of string
     | ToggleMenu
     | UpdatePatient of Patient option
+    | LanguageChange of string
 
 
-let pages = [ LifeSupport; ContinuousMeds ]
+let pages =
+    [
+        Pages.LifeSupport
+        Pages.ContinuousMeds
+    ]
 
 
-let init: State * Cmd<Msg> =
+let init lang : State * Cmd<Msg> =
+    let pageToString = Global.pageToString lang
 
     let initialState =
         {
-            CurrentPage = LifeSupport |> Some
+            CurrentPage = Pages.LifeSupport |> Some
             SideMenuItems =
-                [ LifeSupport; ContinuousMeds ]
+                pages
                 |> List.map (fun p -> p |> pageToString, false)
             SideMenuIsOpen = false
         }
@@ -41,7 +50,7 @@ let init: State * Cmd<Msg> =
     initialState, Cmd.none
 
 
-let update updatePatient (msg: Msg) (state: State) =
+let update lang updateLang updatePatient (msg: Msg) (state: State) =
     match msg with
     | ToggleMenu ->
         { state with
@@ -49,6 +58,8 @@ let update updatePatient (msg: Msg) (state: State) =
         },
         Cmd.none
     | SideMenuClick msg ->
+        let pageToString = Global.pageToString lang
+
         { state with
             CurrentPage =
                 pages
@@ -65,16 +76,29 @@ let update updatePatient (msg: Msg) (state: State) =
                 )
         },
         Cmd.none
+    | UpdatePatient p -> state, Cmd.ofSub (fun _ -> p |> updatePatient)
+    | LanguageChange s ->
+        state, Cmd.ofSub (fun _ -> s |> Localization.fromString |> updateLang)
 
 
 [<ReactComponent>]
 let View
-    (input: {| patient: Patient option
+    (input: {| updateLang: Localization.Locales -> unit
+               patient: Patient option
                updatePatient: Patient option -> unit
-               bolusMedication: Deferred<BolusMedication list>
-               continuousMedication: Deferred<ContinuousMedication list> |})
+               bolusMedication: Deferred<Intervention list>
+               continuousMedication: Deferred<Intervention list>
+               products: Deferred<Product list> |})
     =
-    let state, dispatch = React.useElmish(init, update updatePatient, [||])
+    let lang =
+        React.useContext (Global.languageContext)
+
+    let state, dispatch =
+        React.useElmish (
+            init lang,
+            update lang input.updateLang input.updatePatient,
+            [| box lang |]
+        )
 
     let sidemenu =
         Components.SideMenu.render
@@ -84,11 +108,19 @@ let View
             state.SideMenuItems
 
     let header =
-        Components.NavBar.render
+        let title =
             $"""GenPRES {state.CurrentPage
-                         |> Option.map pageToString
+                         |> Option.map (Global.pageToString lang)
                          |> Option.defaultValue ""}"""
-            (fun _ -> ToggleMenu |> dispatch)
+
+        let menuClick _ = ToggleMenu |> dispatch
+
+        let languages =
+            Localization.languages
+            |> List.map Localization.toString
+
+        let langChange = LanguageChange >> dispatch
+        Components.NavBar.render title menuClick languages langChange
 
     let footer =
         Components.StatusBar.render true "footer"
@@ -98,7 +130,7 @@ let View
             prop.id "patient-view"
             prop.style [ style.marginBottom 20 ]
             prop.children [
-                Views.Patient.render state.Patient (UpdatePatient >> dispatch)
+                Views.Patient.render input.patient (UpdatePatient >> dispatch)
             ]
         ]
 
@@ -123,28 +155,31 @@ let View
                         ]
                         prop.children [
                             match page with
-                            | LifeSupport ->
-                                Pages.LifeSupport.render
-                                    state.Patient
-                                    (UpdatePatient >> dispatch) //input.dispatch
-
-                            | ContinuousMeds ->
-                                match state.ContinuousMeds with
-                                | Resolved meds ->
+                            | Pages.LifeSupport ->
+                                Pages.LifeSupport.render input.bolusMedication
+                            | Pages.ContinuousMeds ->
+                                match input.continuousMedication, input.products
+                                    with
+                                | Resolved meds, Resolved prods ->
                                     Pages.ContinuousMeds.render
-                                        state.Patient
+                                        input.patient
                                         meds
+                                        prods
                                 | _ ->
-                                    Pages.ContinuousMeds.render state.Patient []
-
-
-                            ]
+                                    Pages.ContinuousMeds.render
+                                        input.patient
+                                        []
+                                        []
+                        ]
                     ]
                 ]
             ]
 
     let theme =
         Styles.createTheme [
+            theme.overrides.muiDialogTitle.root [
+                style.backgroundColor.lightGray
+            ]
             theme.palette.primary Colors.blue
         ]
 
@@ -186,12 +221,21 @@ let View
     ]
 
 
-let render patient updatePatient bolusMedication continuousMedication =
+let render
+    updateLang
+    patient
+    updatePatient
+    bolusMedication
+    continuousMedication
+    products
+    =
     View(
         {|
+            updateLang = updateLang
             patient = patient
             updatePatient = updatePatient
             bolusMedication = bolusMedication
             continuousMedication = continuousMedication
+            products = products
         |}
     )

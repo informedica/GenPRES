@@ -125,6 +125,12 @@ module Utils =
             match ns with
             | [] -> n
             | _ ->
+                let n =
+                    if n > (ns |> List.max) then
+                        ns |> List.max
+                    else
+                        n
+
                 ns
                 |> List.sort
                 |> List.rev
@@ -219,6 +225,7 @@ module Patient =
 
     module Age =
 
+        module Terms = Localization.Terms
         open Patient
 
         let (>==) r f = Result.bind f r
@@ -240,6 +247,59 @@ module Patient =
                 Weeks = weeks |> Option.defaultValue 0
                 Days = days |> Option.defaultValue 0
             }
+
+
+        let fromBirthDate (now: DateTime) (bdt: DateTime) =
+            if bdt > now then
+                failwith $"birthdate: {bdt} cannot be after current date: {now}"
+            // calculated last birthdate and number of years ago
+            let last, yrs =
+                // set day one day back if not a leap year and birthdate is at Feb 29 in a leap year
+                let day =
+                    if (bdt.Month = 2 && bdt.Day = 29) |> not then
+                        bdt.Day
+                    else if DateTime.IsLeapYear(now.Year) then
+                        bdt.Day
+                    else
+                        bdt.Day - 1
+
+                if now.Year - bdt.Year <= 0 then
+                    bdt, 0
+                else
+                    let cur = DateTime(now.Year, bdt.Month, day)
+
+                    if cur <= now then
+                        cur, cur.Year - bdt.Year
+                    else
+                        cur.AddYears(-1), cur.Year - bdt.Year - 1
+            // printfn $"last birthdate: {last|> printDate}"
+            // calculate number of months since last birth date
+            let mos =
+                [ 1..11 ]
+                |> List.fold
+                    (fun (mos, n) _ ->
+                        let n = n + 1
+                        // printfn $"folding: {last.AddMonths(n) |> printDate}, {mos}"
+                        if last.AddMonths(n) <= now then
+                            mos + 1, n
+                        else
+                            mos, n
+                    )
+                    (0, 0)
+                |> fst
+
+            let last = last.AddMonths(mos)
+            // calculate number of days
+            let days =
+                if now.Day >= last.Day && now.Month = last.Month then
+                    now.Day - last.Day
+                else
+                    DateTime.DaysInMonth(last.Year, last.Month)
+                    - last.Day
+                    + now.Day
+
+            create yrs (Some mos) (Some(days / 7)) (Some(days - 7 * (days / 7)))
+
 
 
         let validateMinMax lbl min max n =
@@ -326,17 +386,38 @@ module Patient =
         let calcMonths a = (a |> getYears) * 12 + (a |> getMonths)
 
 
-        let toString age =
+        let toString lang age =
+            let getTerm = Localization.getTerm lang
+
             let plur s1 s2 n =
                 if n = 1 then
                     $"{n} {s1}"
                 else
                     $"{n} {s2}"
 
-            let d = age.Days |> plur "dag" "dagen"
-            let w = age.Weeks |> plur "week" "weken"
-            let m = age.Months |> plur "maand" "maanden"
-            let y = age.Years |> plur "jaar" "jaren"
+            let d =
+                age.Days
+                |> plur
+                    (getTerm Terms.``Patient Age day``)
+                    (getTerm Terms.``Patient Age days``)
+
+            let w =
+                age.Weeks
+                |> plur
+                    (getTerm Terms.``Patient Age week``)
+                    (getTerm Terms.``Patient Age weeks``)
+
+            let m =
+                age.Months
+                |> plur
+                    (getTerm Terms.``Patient Age month``)
+                    (getTerm Terms.``Patient Age months``)
+
+            let y =
+                age.Years
+                |> plur
+                    (getTerm Terms.``Patient Age year``)
+                    (getTerm Terms.``Patient Age years``)
 
             match age with
             | _ when age.Years = 0 && age.Months = 0 && age.Weeks = 0 -> $"{d}"
@@ -366,6 +447,9 @@ module Patient =
                 | ms, ws, ds when ms > 0 && ds = 0 && ws = 0 -> $"{y} en {m}"
                 | _ -> $"{y}"
 
+
+
+    module Terms = Localization.Terms
 
 
     let apply f (p: Patient) = f p
@@ -429,15 +513,13 @@ module Patient =
 
                     let w =
                         NormalValues.ageWeight
-                        |> List.find (fun (x, _) -> x >= a)
-                        |> snd
-                        |> Some
+                        |> List.tryFind (fun (x, _) -> x >= a)
+                        |> Option.map snd
 
                     let h =
                         NormalValues.ageHeight
-                        |> List.find (fun (x, _) -> x >= a)
-                        |> snd
-                        |> Some
+                        |> List.tryFind (fun (x, _) -> x >= a)
+                        |> Option.map snd
 
                     w, h
 
@@ -532,7 +614,8 @@ module Patient =
         a
 
 
-    let toString markDown pat =
+    let toString lang markDown pat =
+        let getTerm = Localization.getTerm lang
         let toStr s n = n |> Option.map (sprintf "%s%.1f" s)
 
         let bold s =
@@ -540,30 +623,33 @@ module Patient =
             |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
         [
-            (Some "Leeftijd:") |> bold
+            (Some $"{Terms.``Patient Age`` |> getTerm}:")
+            |> bold
             pat.Age
-            |> Option.map Age.toString
-            |> Option.orElse (Some "onbekend")
+            |> Option.map (Age.toString lang)
+            |> Option.orElse (Terms.Unknown |> getTerm |> Some)
 
-            (Some "Gewicht:") |> bold
+            (Some $"{Terms.``Patient Weight`` |> getTerm}:")
+            |> bold
             pat.Weight.Measured
             |> toStr ""
             |> Option.map (fun s -> $"{s} kg")
             pat.Weight.Estimated
-            |> toStr "geschat: "
+            |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} kg)")
 
 
-            (Some "Lengte:") |> bold
+            (Some $"{Terms.``Patient Length`` |> getTerm}:")
+            |> bold
             pat.Height.Measured
             |> toStr ""
             |> Option.map (fun s -> $"{s} cm")
             pat.Height.Estimated
-            |> toStr "geschat: "
+            |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} cm)")
 
 
-            (Some "BSA") |> bold
+            (Some "BSA:") |> bold
             pat |> calcBSA |> Option.map (fun x -> $" {x} m2")
         ]
         |> List.map (Option.defaultValue "")
@@ -578,25 +664,25 @@ module Intervention =
 
     let emptyIntervention =
         {
-            Indication= ""
-            Name= ""
-            Quantity= None
-            QuantityUnit= ""
-            Solution= ""
-            Total= None
-            TotalUnit= ""
-            SubstanceDose= None
-            SubstanceMinDose= None
-            SubstanceMaxDose= None
-            SubstanceDoseUnit= ""
-            SubstanceDoseAdjust= None
-            SubstanceNormDoseAdjust= None
-            SubstanceMinDoseAdjust= None
-            SubstanceMaxDoseAdjust= None
-            SubstanceDoseAdjustUnit= ""
-            SubstanceDoseText= ""
-            InterventionDose= None
-            InterventionDoseUnit= ""
+            Indication = ""
+            Name = ""
+            Quantity = None
+            QuantityUnit = ""
+            Solution = ""
+            Total = None
+            TotalUnit = ""
+            SubstanceDose = None
+            SubstanceMinDose = None
+            SubstanceMaxDose = None
+            SubstanceDoseUnit = ""
+            SubstanceDoseAdjust = None
+            SubstanceNormDoseAdjust = None
+            SubstanceMinDoseAdjust = None
+            SubstanceMaxDoseAdjust = None
+            SubstanceDoseAdjustUnit = ""
+            SubstanceDoseText = ""
+            InterventionDose = None
+            InterventionDoseUnit = ""
             InterventionDoseText = ""
             Text = ""
         }
@@ -630,100 +716,119 @@ module EmergencyTreatment =
         (v * conc |> Math.fixPrecision 2, v)
 
 
-    let age ageInMo = (ageInMo |> float) / 12.
+    let ageInMoToYrs ageInMo = (ageInMo |> float) / 12.
 
 
-    let calculateIntervention formula textfn a =
+    let calcIntervention indication name text formula doseTextFn a =
         let m = formula a
 
         { Intervention.emptyIntervention with
+            Indication = indication
+            Name = name
             InterventionDose = Some m
-            Text = textfn m
+            SubstanceDoseText = doseTextFn m
+            Text = text
         }
 
 
-    let tube =
-        let textfn m =sprintf "%A-%A-%A" (m - 0.5) m (m + 0.5)
+    let calcTube =
+        let textfn m =
+            sprintf "%A-%A-%A" (m - 0.5) m (m + 0.5)
+
         let formula age =
             4. + age / 4.
             |> Math.roundBy0_5
             |> (fun m -> if m > 7. then 7. else m)
-        calculateIntervention formula textfn
+
+        calcIntervention
+            "reanimatie"
+            "tube maat"
+            "4 + leeftijd / 4"
+            formula
+            textfn
 
 
-    let oral =
+    let calcOralLength =
         let formula age = 12. + age / 2. |> Math.roundBy0_5
         let textfn m = sprintf "%A cm" m
-        calculateIntervention formula textfn
+
+        calcIntervention
+            "reanimatie"
+            "tube lengte oraal"
+            "12 + leeftijd / 2"
+            formula
+            textfn
 
 
-    let nasal =
+    let calcNasalLength =
         let formula age = 15. + age / 2. |> Math.roundBy0_5
         let textfn m = sprintf "%A cm" m
-        calculateIntervention formula textfn
+
+        calcIntervention
+            "reanimatie"
+            "tube lengte nasaal"
+            "15 + leeftijd / 2"
+            formula
+            textfn
 
 
-    let epiIv wght =
-        let d, v =
-            calcDoseVol wght 0.01 0.1 0.01 0.5
-        {
-            Intervention.emptyIntervention with
-                SubstanceDose = Some d
-                SubstanceDoseUnit = "mg"
-                SubstanceDoseText = sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 1)
-                Text =
-                    sprintf
-                        "%A ml van 0,1 mg/ml (1:10.000)"
-                        v
-
-        }
-
-
-    let epiIv2 wght =
-        let d, v =
-            calcDoseVol wght 0.01 0.1 0.01 0.5
-        {
-            Intervention.emptyIntervention with
-                SubstanceDose = Some d
-                SubstanceDoseUnit = "mg"
-                SubstanceDoseText = sprintf "%A mg (%A mg/kg)" d (d / wght |> Math.fixPrecision 1)
-                Text =
-                    sprintf
-                        "%A ml van 0,1 mg/ml (1:10.000)"
-                        (v / 10. |> Math.fixPrecision 2)
-
-        }
-
-
-    let fluid wght =
+    let calcFluidBolus wght =
         let d, _ = calcDoseVol wght 10. 1. 0. 500.
+
         { Intervention.emptyIntervention with
+            Indication = "reanimatie"
+            Name = "vaatvulling"
             SubstanceDose = Some d
             SubstanceDoseUnit = "ml"
+            SubstanceMaxDose = Some 500.
             SubstanceDoseText = (sprintf "%A ml NaCl 0.9%%" d)
+            SubstanceDoseAdjust = d / wght |> Math.fixPrecision 1 |> Some
+            SubstanceDoseAdjustUnit = "ml/kg"
+            Text = "10 ml/kg (max 500 ml)"
         }
 
 
-    let defib joules wght =
-        let j =
+    let joules =
+        [
+            1
+            2
+            3
+            5
+            7
+            10
+            20
+            30
+            50
+            70
+            100
+            150
+        ]
+        |> List.map float
+
+
+    let calcDefib =
+        let formula wght =
             joules |> List.findNearestMax (wght * 4.)
-        { Intervention.emptyIntervention with
-            SubstanceDose = Some j
-            SubstanceDoseText = sprintf "%A Joule" j
-        }
+
+        let textfn m = $"{m} joule"
+
+        calcIntervention
+            "reanimatie"
+            "defibrillatie"
+            "4 joule/kg"
+            formula
+            textfn
 
 
-    let cardio joules wght =
-        let j =
+    let calcCardioVersion =
+        let formula wght =
             joules |> List.findNearestMax (wght * 2.)
-        { Intervention.emptyIntervention with
-            SubstanceDose = Some j
-            SubstanceDoseText = sprintf "%A Joule" j
-        }
+
+        let textfn m = $"{m} joule"
+        calcIntervention "reanimatie" "cardioversie" "2 joule/kg" formula textfn
 
 
-
-    let calcIntervention wght (bolus: BolusMedication) =
+    let calcBolusMedication wght (bolus: BolusMedication) =
         let d, v =
             calcDoseVol
                 wght
@@ -755,33 +860,32 @@ module EmergencyTreatment =
         { Intervention.emptyIntervention with
             Indication = bolus.Indication
             Name = bolus.Generic
+            Quantity = Some(bolus.Concentration)
+            QuantityUnit = bolus.Unit
+            TotalUnit = "ml"
+            InterventionDose = Some v
+            InterventionDoseUnit = "ml"
+            InterventionDoseText =
+                $"{v} ml van {bolus.Concentration} {bolus.Unit}/ml"
+            SubstanceDose = Some d
+            SubstanceMinDose =
+                if bolus.MinDose = 0. then
+                    None
+                else
+                    Some bolus.MinDose
+            SubstanceMaxDose =
+                if bolus.MaxDose = 0. then
+                    None
+                else
+                    Some bolus.MaxDose
+            SubstanceDoseUnit = bolus.Unit
+            SubstanceDoseAdjust = Some(d / wght |> Math.fixPrecision 1)
+            SubstanceNormDoseAdjust = Some bolus.NormDose
+            SubstanceDoseAdjustUnit = $"{bolus.Unit}/kg"
             SubstanceDoseText =
-                sprintf
-                    "%A %s (%A %s/kg)"
-                    d
-                    bolus.Unit
-                    (d / wght |> Math.fixPrecision 1)
-                    bolus.Unit
-            InterventionDoseText = sprintf "%A ml van %A %s/ml" v bolus.Concentration bolus.Unit
+                $"{d} {bolus.Unit} ({d / wght |> Math.fixPrecision 1} {bolus.Unit}/kg)"
             Text = adv bolus.Remark
         }
-
-    let joules =
-        [
-            1
-            2
-            3
-            5
-            7
-            10
-            20
-            30
-            50
-            70
-            100
-            150
-        ]
-        |> List.map float
 
 
     let createBolus indication medication dose min max conc unit remark =
@@ -797,7 +901,7 @@ module EmergencyTreatment =
         }
 
 
-    let getBolusMed (data : string [][]) =
+    let parse (data: string [] []) =
         match data with
         | data when data |> Array.length > 1 ->
             let cms = data |> Array.head
@@ -824,62 +928,41 @@ module EmergencyTreatment =
         | _ -> []
 
 
-    let getTableData2 age (weight : float option) (bolusMed: BolusMedication list) =
+    let calculate age weight (bolusMed: BolusMedication list) =
         [
+            // tube
             if age |> Option.isSome then
-                {
-                    (tube age.Value) with
-                        Indication = "reanimatie"
-                        Name = "tube maat"
-                        SubstanceDoseText = "4 + leeftijd / 4"
-                }
+                calcTube age.Value
+            // oral length
             if age |> Option.isSome then
-                { (oral age.Value) with
-                    Indication = "reanimatie"
-                    Name = "tube lengte oraal"
-                    Text = "12 + leeftijd / 2"
-                }
+                calcOralLength age.Value
+            // nasal length
             if age |> Option.isSome then
-                { (nasal age.Value) with
-                    Indication = "reanimatie"
-                    Name = "tube lengte nasaal"
-                    SubstanceDoseText = "15 + leeftijd / 2"
-
-                }
+                calcNasalLength age.Value
+            // adrenalin
             if weight |> Option.isSome then
-                { (epiIv weight.Value) with
-                    Indication = "reanimatie"
-                    Name = "adrenaline iv/io"
-                    SubstanceDoseText = "0,01 mg/kg"
-                }
+                yield!
+                    bolusMed
+                    |> List.filter (fun m -> m.Generic = "adrenaline")
+                    |> List.map (calcBolusMedication weight.Value)
+            // fluid bolus
             if weight |> Option.isSome then
-                { (epiIv2 weight.Value) with
-                    Indication = "reanimatie"
-                    Name = "adrenaline iv/io"
-                    SubstanceDoseText = "0,01 mg/kg"
-                }
+                calcFluidBolus weight.Value
+            // defibrillation
             if weight |> Option.isSome then
-                { (fluid weight.Value) with
-                    Indication = "reanimatie"
-                    Name = "vaatvulling"
-                    SubstanceDoseText = "10 ml/kg"
-                }
+                calcDefib weight.Value
+            // cardioversion
             if weight |> Option.isSome then
-                { (defib joules weight.Value) with
-                    Indication = "reanimatie"
-                    Name = "defibrillatie"
-                }
-            if weight |> Option.isSome then
-                { (cardio joules weight.Value)  with
-                    Indication = "reanimatie"
-                    Name = "cardioversie"
-                }
+                calcCardioVersion weight.Value
         ]
+        // add rest of bolus medication
         |> fun xs ->
             if weight.IsNone then
                 []
             else
-                bolusMed |> List.map (calcIntervention weight.Value)
+                bolusMed
+                |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
+                |> List.map (calcBolusMedication weight.Value)
             |> List.append xs
 
 
@@ -924,7 +1007,7 @@ module ContinuousMedication =
         }
 
 
-    let parse (data : string[][]) =
+    let parse (data: string [] []) =
         match data with
         | data when data |> Array.length > 1 ->
             let cms = data |> Array.head
@@ -998,7 +1081,9 @@ module ContinuousMedication =
             if vol = 0. then
                 []
             else
-                let d, u = calcDose qty vol med.Unit med.DoseUnit
+                let d, u =
+                    calcDose qty vol med.Unit med.DoseUnit
+
                 [
                     { Intervention.emptyIntervention with
                         Indication = med.Indication
@@ -1008,9 +1093,54 @@ module ContinuousMedication =
                         Total = Some vol
                         TotalUnit = "ml"
                         Solution = med.Solution
-                        InterventionDoseText =
-                                $"1 ml/uur = {d} {u}"
-                        SubstanceDoseText = (printAdv med.MinDose med.MaxDose med.DoseUnit)
+                        InterventionDose = Some 1.
+                        InterventionDoseUnit = "ml/uur"
+                        SubstanceMaxDose = Some med.AbsMax
+                        SubstanceDoseAdjust = Some d
+                        SubstanceDoseAdjustUnit = u
+                        SubstanceMinDoseAdjust = Some med.MinDose
+                        SubstanceMaxDoseAdjust = Some med.MaxDose
+                        SubstanceDoseText = $"1 ml/uur = {d} {u}"
+                        Text = (printAdv med.MinDose med.MaxDose med.DoseUnit)
                     }
                 ]
         )
+
+
+module Products =
+
+    open Utils
+    open Types
+    open Shared
+
+
+    let create ind med conc unit =
+        {
+            Indication = ind
+            Medication = med
+            Concentration = conc
+            Unit = unit
+        }
+
+
+    let parse (data: string [] []) =
+        match data with
+        | data when data |> Array.length > 1 ->
+            let cms = data |> Array.head
+
+            data
+            |> Array.skip 1
+            |> Array.map (fun sl ->
+                let getString n =
+                    Csv.getStringColumn cms sl n |> String.trim
+
+                let getFloat = Csv.getFloatColumn cms sl
+
+                create
+                    (getString "indication")
+                    (getString "medication")
+                    (getFloat "conc")
+                    (getString "unit")
+            )
+            |> Array.toList
+        | _ -> []

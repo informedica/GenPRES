@@ -70,15 +70,16 @@ module GoogleDocs =
     let inline getUrl parseResponse msg url =
         async {
             let! (statusCode, responseText) = Http.get url
+
             let result =
                 match statusCode with
                 | 200 ->
                     responseText
+                    |> Csv.parseCSV
                     |> parseResponse
                     |> Ok
                     |> Finished
-                | _ ->
-                    Finished(Error $"Status {statusCode} => {responseText}")
+                | _ -> Finished(Error $"Status {statusCode} => {responseText}")
                 |> msg
 
             return result
@@ -94,14 +95,19 @@ module GoogleDocs =
         "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
 
 
-    let loadContinuousMedication msg =
-        dataUrlId
-        |> createUrl "continuousmeds"
-        |> getUrl ContMeds.getContMed msg
-
-
     let loadBolusMedication msg =
         dataUrlId
         |> createUrl "emergencylist"
-        |> getUrl EmergencyTreatment.getBolusMed msg
+        |> getUrl EmergencyTreatment.parse msg
 
+
+    let loadContinuousMedication msg =
+        dataUrlId
+        |> createUrl "continuousmeds"
+        |> getUrl ContinuousMedication.parse msg
+
+
+    let loadProducts msg =
+        dataUrlId
+        |> createUrl "products"
+        |> getUrl Products.parse msg

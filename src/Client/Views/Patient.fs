@@ -48,9 +48,9 @@ module Patient =
     let init () = newState, Cmd.none
 
 
-    let show pat =
+    let show lang pat =
         match pat with
-        | Some p -> p |> Patient.toString true
+        | Some p -> p |> Patient.toString lang true
         | None -> ""
 
 
@@ -106,6 +106,9 @@ module Patient =
         (input: {| patient: Patient option
                    updatePatient: Patient option -> unit |})
         =
+        let lang =
+            React.useContext (Global.languageContext)
+
         let state, dispatch =
             React.useElmish (init, update input.updatePatient, [||])
 
@@ -114,8 +117,10 @@ module Patient =
         let summary =
             input.patient
             |> function
-                | None -> "Voer patient gegevens in ..."
-                | Some p -> p |> Patient.toString true
+                | None ->
+                    Localization.Terms.``Patient enter patient data``
+                    |> Localization.getTerm lang
+                | Some p -> p |> Patient.toString lang true
             |> Markdown.render //Utils.Typography.body1
 
         let inline renderSelect s msg v xs =
@@ -133,16 +138,41 @@ module Patient =
                         formGroup.row true
                         formGroup.children [
                             [ 0..18 ]
-                            |> renderSelect "Jaar" YearChange state.Year
+                            |> renderSelect
+                                (Localization.Terms.``Patient Years``
+                                 |> Localization.getTerm lang)
+                                YearChange
+                                state.Year
                             [ 0..11 ]
-                            |> renderSelect "Maand" MonthChange state.Month
+                            |> renderSelect
+                                (Localization.Terms.``Patient Months``
+                                 |> Localization.getTerm lang)
+                                MonthChange
+                                state.Month
                             [ 0..4 ]
-                            |> renderSelect "Week" WeekChange state.Week
-                            [ 0..6 ] |> renderSelect "Dag" DayChange state.Day
-                            [ 3. .. 100. ]
-                            |> renderSelect "Gewicht" WeightChange state.Weight
+                            |> renderSelect
+                                (Localization.Terms.``Patient Weeks``
+                                 |> Localization.getTerm lang)
+                                WeekChange
+                                state.Week
+                            [ 0..6 ]
+                            |> renderSelect
+                                (Localization.Terms.``Patient Days``
+                                 |> Localization.getTerm lang)
+                                DayChange
+                                state.Day
+                            [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
+                            |> renderSelect
+                                $"{(Localization.Terms.``Patient Weight``
+                                    |> Localization.getTerm lang)} (kg)"
+                                WeightChange
+                                state.Weight
                             [ 50. .. 200. ]
-                            |> renderSelect "Lengte" HeightChange state.Height
+                            |> renderSelect
+                                $"{(Localization.Terms.``Patient Length``
+                                    |> Localization.getTerm lang)} (cm)"
+                                HeightChange
+                                state.Height
                         ]
                     ]
 
@@ -153,7 +183,10 @@ module Patient =
                         button.variant.contained
                         button.children [
                             Mui.typography [
-                                prop.text "verwijder"
+                                prop.text (
+                                    Localization.Terms.``Patient remove patient data``
+                                    |> Localization.getTerm lang
+                                )
                                 typography.variant.body1
                             ]
                         ]

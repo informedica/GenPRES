@@ -19,47 +19,87 @@ module EmergencyList =
     type Msg = RowClick of int * string list
 
 
-    let joules =
-        [
-            1
-            2
-            3
-            5
-            7
-            10
-            20
-            30
-            50
-            70
-            100
-            150
-        ]
+    let createHeadersAndRows lang (bolusMed: Intervention list) =
+        let getTerm = Localization.getTerm lang
 
-
-    let createHeadersAndRows age wght (bolusMed: BolusMedication list) =
         let headers =
             [
-                ("Indicatie", true)
-                ("Interventie", true)
-                ("Berekend", false)
-                ("Bereiding", false)
-                ("Advies", false)
+                (Localization.Terms.``Emergency List Indication``
+                 |> getTerm,
+                 true)
+                (Localization.Terms.``Emergency List Intervention``
+                 |> getTerm,
+                 true)
+                (Localization.Terms.``Emergency List Calculated``
+                 |> getTerm,
+                 false)
+                (Localization.Terms.``Emergency List Preparation``
+                 |> getTerm,
+                 false)
+                (Localization.Terms.``Emergency List Advice``
+                 |> getTerm,
+                 false)
             ]
             |> List.map (fun (lbl, b) -> (lbl |> Utils.Typography.subtitle2, b))
 
         let rows =
-            EmergencyTreatment.getTableData2 age wght bolusMed
+            bolusMed
             |> List.map (fun row ->
-                match row with
-                | ind :: interv :: calc :: prep :: adv :: [] ->
-                    [
-                        (ind, TG.caption ind)
-                        (interv, TG.subtitle2 interv)
-                        (calc, TG.body2 calc)
-                        (prep, TG.body2 prep)
-                        (adv, Html.div [ prop.text adv ])
-                    ]
-                | _ -> []
+                let d =
+                    if row.SubstanceDose.IsNone then
+                        TG.subtitle2 row.SubstanceDoseText
+                    else
+                        Html.div [
+                            prop.style [ style.display.inlineFlex ]
+                            prop.children [
+                                TG.subtitle2
+                                    $"{row.SubstanceDose} {row.SubstanceDoseUnit}"
+                                if row.SubstanceDoseAdjust.IsSome then
+                                    Html.div [
+                                        prop.style [ style.paddingLeft 5 ]
+                                        prop.children [
+                                            Mui.typography [
+                                                typography.variant.subtitle2
+                                                typography.color.textSecondary
+                                                prop.text
+                                                    $"({row.SubstanceDoseAdjust} {row.SubstanceDoseAdjustUnit})"
+                                            ]
+                                        ]
+                                    ]
+                            ]
+                        ]
+
+                let p =
+                    if row.InterventionDoseText = "" then
+                        Html.div []
+                    else
+                        Html.div [
+                            prop.style [ style.display.inlineFlex ]
+                            prop.children [
+                                TG.subtitle2
+                                    $"{row.InterventionDose} {row.InterventionDoseUnit}"
+                                Html.div [
+                                    prop.style [ style.paddingLeft 5 ]
+                                    prop.children [
+                                        TG.body2
+                                            $"van {row.Quantity} {row.QuantityUnit}/ml"
+                                    ]
+                                ]
+                            ]
+                        ]
+
+                [
+                    (row.Indication, TG.caption row.Indication)
+                    (row.Name, TG.subtitle2 row.Name)
+                    (row.SubstanceDoseText, d) //TG.body2 row.SubstanceDoseText)
+                    (row.InterventionDoseText, p)
+                    (row.Text,
+                     Mui.typography [
+                         typography.variant.body2
+                         typography.color.textSecondary
+                         prop.text row.Text
+                     ])
+                ]
                 |> List.map (fun (s, l) -> s.ToLower(), l)
             )
 
@@ -77,26 +117,24 @@ module EmergencyList =
 
     [<ReactComponent>]
     let View
-        (input: {| age: float option
-                   weight: float option
-                   bolusMed : BolusMedication list
+        (input: {| bolusMed: Intervention list
                    handleRowClick: int * string list -> unit |})
         =
+        let lang =
+            React.useContext (Global.languageContext)
+
         let _, dispatch =
             React.useElmish (init, update input.handleRowClick, [||])
 
         let hs, rs =
-            input.bolusMed
-            |> createHeadersAndRows input.age input.weight
+            input.bolusMed |> createHeadersAndRows lang
 
         SortableTable.render hs rs (RowClick >> dispatch)
 
 
-    let render age weight bolusMed handleRowClick =
+    let render bolusMed handleRowClick =
         View(
             {|
-                age = age
-                weight = weight
                 bolusMed = bolusMed
                 handleRowClick = handleRowClick
             |}

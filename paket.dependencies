@@ -1,5 +1,10 @@
 source https://api.nuget.org/v3/index.json
 
+nuget Expecto
+nuget Expecto.BenchmarkDotNet
+nuget Expecto.FsCheck
+nuget Expecto.Hopac
+
 nuget Fable.SimpleHttp
 nuget Feliz.Markdown
 nuget Feliz.Router

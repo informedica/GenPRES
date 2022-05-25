@@ -1,78 +1,117 @@
 // this first to FSI
 #load "../Types.fs"
+#load "../Localization.fs"
 #load "../Data.fs"
 #load "../Domain.fs"
 
+open System
+open System.IO
+open System.Net
 open Shared
 
-Patient.create None (Some 1) None None None None
-|> Option.map (Patient.toString false)
+Patient.create None (Some 56) None None None None
+|> Option.map (Patient.toString Localization.English false)
 |> Option.defaultValue ""
 
 
-let emergencyCSV = """
-indication,medication,dose,min,max,conc,unit,remark
-reanimatie, glucose 10%,0.2,0,25,0.1, gram,
-reanimatie, NaBic 8.4,0.5,0,50,1, mmol,
-intubatie, propofol 1%,2,0,0,10, mg,
-intubatie, propofol 2%,2,0,0,20, mg,
-intubatie, midazolam,0.2,0,10,5, mg,
-intubatie, esketamine,0.5,0,5,5, mg,
-intubatie, etomidaat,0.5,0,20,2, mg,
-intubatie, fentanyl,1,0,50,50, mcg,
-intubatie, morfine,0.1,0,10,1, mg,
-intubatie, rocuronium,1,0,10,10, mg,
-intubatie, atropine,0.02,0.1,0.5,0.5, mg,
-stridor, dexamethason,0.15,0,14,4, mg,
-stridor, adrenaline vernevelen,5,5,5,1, mg, 5 mg/keer
-astma, prednisolon,2,0,25,12.5, mg,
-astma, magnesiumsulfaat 16%,40,0,2000,160, mg,
-astma, magnesiumsulfaat 50%,40,0,2000,500, mg,
-astma, salbutamol oplaad,15,0,0,500, microg,
-anafylaxie, adrenaline im,0.01,0,0.5,1, mg,
-anafylaxie, adrenaline vernevelen,5,5,5,1, mg, 5 mg/keer
-anafylaxie, clemastine,0.05,0,2,1, mg,
-anafylaxie, hydrocortison,4,0,100,10, mg,
-anti-arrythmica, adenosine 1e gift,100,0,12000,3000, microg,
-anti-arrythmica, adenosine 2e gift,200,0,12000,3000, microg,
-anti-arrythmica, adenosine 3e gift,300,0,12000,3000, microg,
-anti-arrythmica, amiodarone,5,0,300,50, mg,
-antidota, flumazine,0.02,0,0.3,0.1, mg,
-antidota, naloxon,0.01,0,0.5,0.02, mg,
-antidota, naloxon,0.01,0,0.5,0.02, mg,
-antidota, intralipid 20%,1.5,0,0,1, ml,
-antidota, fenytoine,5,0,1500,50, mg,
-hyperkaliemie, resonium klysma,1,0,0,0.15, gram,
-hyperkaliemie, furosemide,1,0,0,10, mg,
-hyperkaliemie, NaBic 8.4%,2.5,0,0,1, mmol,
-hyperkaliemie, calciumgluconaat,0.13,0,4.5,0.225, mg,
-anticonvulsiva, diazepam rect,0.5,0,0,4, mg,
-anticonvulsiva, diazepam iv,0.25,0,0,5, mg,
-anticonvulsiva, fenytoine,20,0,1500,50, mg,
-anticonvulsiva, midazolam,0.1,0,10,5, mg,
-anticonvulsiva, midazolam buc/nas/im,0.2,0,10,5, mg,
-anticonvulsiva, thiopental,5,0,0,25, mg,
-hersenoedeem, mannitol 15%,0.5,0,50,0.15, gram,
-hersenoedeem, NaCl 2.9%,3,0,0,1, ml,
-pijnstilling, paracetamol,20,0,100,10, mg,
-pijnstilling, diclofenac,1,0,75,25, mg,
-pijnstilling, fentanyl,1,0,0,50, microg,
-pijnstilling, morfine,0.1,0,0,1, mg,
-anti-emetica, dexamethason,0.1,0,8,4, mg,
-anti-emetica, ondansetron,0.1,0,4,2, mg,
-anti-emetica, droperidol,0.02,0,1.25,2.5, mg,
-anti-emetica, metoclopramide,0.1,0,10,5, mg,
-elektrolyten, kaliumchloride 7.4%,0.5,0,40,1, mmol,
-elektrolyten, calciumgluconaat,0.13,0,4.5,0.225, mmol,
-elektrolyten, magnesiumchloride 10%,0.08,0,0,0.5, mmol,
-lokaal anesthesie, licocaine 1%,5,0,200,10, mg,
-lokaal anesthesie, licocaine 2%,5,0,200,20, mg,
-lokaal anesthesie, bupivacaine,3,0,0,2.5, mg,
-lokaal anesthesie, bupivacaine/adrenaline,3,0,0,2.5, mg,
-"""
+
+let createUrl sheet id =
+    $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
+
+//https://docs.google.com/spreadsheets/d/1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM/edit?usp=sharing
+[<Literal>]
+let dataUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
 
 
-emergencyCSV
-|> fun s -> s.Replace(",", "\",\"")
+let download url =
+    async {
+        let req = WebRequest.Create(Uri(url))
+        use! resp = req.AsyncGetResponse()
+        use stream = resp.GetResponseStream()
+        use reader = new StreamReader(stream)
+        return reader.ReadToEnd()
+    }
+
+
+
+createUrl "emergencylist" dataUrlId
+|> download
+|> Async.RunSynchronously
 |> Csv.parseCSV
-|> EmergencyTreatment.getBolusMed
+|> EmergencyTreatment.parse
+|> EmergencyTreatment.calculate (Some 1.) (Some 10.)
+|> List.length
+
+createUrl "continuousmeds" dataUrlId
+|> download
+|> Async.RunSynchronously
+|> Csv.parseCSV
+|> ContinuousMedication.parse
+|> ContinuousMedication.calculate 10.
+
+
+open Localization
+
+getTerm Dutch Terms.``Patient enter patient data``
+
+
+open Types.Patient
+open Patient.Age
+
+
+let printDate (dt: DateTime) = $"""{dt.ToString("dd-MMM-yyyy")}"""
+
+
+let fromBirthDate (now: DateTime) (bdt: DateTime) =
+    if bdt > now then
+        failwith $"birthdate: {bdt} cannot be after current date: {now}"
+    // set day one day back if not a leap year and birthdate is at Feb 29 in a leap year
+    let day =
+        if (bdt.Month = 2 && bdt.Day = 29) |> not then
+            bdt.Day
+        else if DateTime.IsLeapYear(now.Year) then
+            bdt.Day
+        else
+            bdt.Day - 1
+    // calculated last birthdate and number of years ago
+    let last, yrs =
+        if now.Year - bdt.Year <= 0 then
+            bdt, 0
+        else
+            let cur = DateTime(now.Year, bdt.Month, day)
+
+            if cur <= now then
+                cur, cur.Year - bdt.Year
+            else
+                cur.AddYears(-1), cur.Year - bdt.Year - 1
+
+    printfn $"last birthdate: {last |> printDate}"
+    // calculate number of months since last birth date
+    let mos =
+        [ 1..11 ]
+        |> List.fold
+            (fun (mos, n) _ ->
+                let n = n + 1
+                printfn $"folding: {last.AddMonths(n) |> printDate}, {mos}"
+
+                if last.AddMonths(n) <= now then
+                    mos + 1, n
+                else
+                    mos, n)
+            (0, 0)
+        |> fst
+    // calculate number of days
+    let days =
+        if now.Day >= day then
+            now.Day - day
+        else
+            DateTime.DaysInMonth(now.Year, last.AddMonths(mos).Month)
+            - day
+            + now.Day
+
+    create yrs (Some mos) (Some(days / 7)) (Some(days - 7 * (days / 7)))
+
+
+DateTime(2005, 2, 19)
+|> fromBirthDate (DateTime(2022, 4, 8))
+|> Patient.Age.toString Localization.Dutch

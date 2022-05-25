@@ -14,10 +14,7 @@ module LifeSupport =
     open Utils
 
 
-    type State =
-        {
-            Dialog: string list
-        }
+    type State = { Dialog: string list }
 
 
     type Msg =
@@ -25,12 +22,10 @@ module LifeSupport =
         | CloseDialog
 
 
-    let init () =
-        { Dialog = [] },
-        Cmd.none
+    let init () = { Dialog = [] }, Cmd.none
 
 
-    let update updatePatient (msg: Msg) state =
+    let update (msg: Msg) state =
         match msg with
         | RowClick (i, xs) ->
             Logging.log "rowclick:" i
@@ -68,12 +63,12 @@ module LifeSupport =
 
 
     [<ReactComponent>]
-    let View
-        (input: {| patient: Patient option
-                   updatePatient: Patient option -> unit |})
-        =
+    let View (input: {| interventions: Deferred<Intervention list> |}) =
+        let lang =
+            React.useContext (Global.languageContext)
+
         let state, dispatch =
-            React.useElmish (init, update input.updatePatient, [||])
+            React.useElmish (init, update, [||])
 
         let classes_ = useStyles ()
 
@@ -85,23 +80,21 @@ module LifeSupport =
                         // prop.className classes.patientdetails
                         prop.style [ style.flexGrow 1 ]
                         prop.children [
-                            match input.patient, state.MedDefs with
-                            | Some p, Resolved(meds) ->
-                                let a = p |> Patient.getAgeInYears
-                                let w = p |> Patient.getWeight
-
-                                EmergencyList.render
-                                    a
-                                    w
-                                    meds
-                                    (RowClick >> dispatch)
+                            match input.interventions with
+                            | Resolved (meds) ->
+                                EmergencyList.render meds (RowClick >> dispatch)
                             | _ ->
                                 Html.div [
                                     prop.style [ style.paddingTop 20 ]
                                     prop.children [
-                                        Utils.Typography.h3 "Noodlijst"
-                                        Utils.Typography.h5
-                                            "Wordt getoond na invoer van patient gegevens"
+                                        Utils.Typography.h3 (
+                                            Localization.Terms.``Emergency List``
+                                            |> Localization.getTerm lang
+                                        )
+                                        Utils.Typography.h5 (
+                                            Localization.Terms.``Emergency List show when patient data``
+                                            |> Localization.getTerm lang
+                                        )
                                     ]
                                 ]
                         ]
@@ -174,10 +167,5 @@ module LifeSupport =
         ]
 
 
-    let render patient updatePatient =
-        View(
-            {|
-                patient = patient
-                updatePatient = updatePatient
-            |}
-        )
+    let render interventions =
+        View({| interventions = interventions |})

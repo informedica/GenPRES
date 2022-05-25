@@ -100,16 +100,16 @@ module Types =
             Solution: string
         }
 
-// CalculatedDose
-// MinDose
-// MaxDose
-// DoseUnit
-// CalculatedDoseAdjust
-// NormDoseAdjust
-// MinDoseAdjust
-// MaxDoseAdjust
-// DoseAdjustUnit
-// DoseText
+    // CalculatedDose
+    // MinDose
+    // MaxDose
+    // DoseUnit
+    // CalculatedDoseAdjust
+    // NormDoseAdjust
+    // MinDoseAdjust
+    // MaxDoseAdjust
+    // DoseAdjustUnit
+    // DoseText
     type Intervention =
         {
             // == Intervention ==
@@ -134,7 +134,7 @@ module Types =
             // Intervention dose unit
             InterventionDoseUnit: string
             // Text representation
-            InterventionDoseText : string
+            InterventionDoseText: string
             // Dose of the substance
             SubstanceDose: float option
             // Min dose of the substance
@@ -155,5 +155,14 @@ module Types =
             SubstanceDoseAdjustUnit: string
             // Dose remarks
             SubstanceDoseText: string
-            Text : string
+            Text: string
+        }
+
+
+    type Product =
+        {
+            Indication: string
+            Medication: string
+            Concentration: float
+            Unit: string
         }

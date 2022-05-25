@@ -942,13 +942,13 @@ module Csv =
         | StringData -> box (x.Trim())
         | FloatData ->
             match Double.TryParse(x) with
-            | true, dt -> dt |> box
+            | true, n -> n |> box
             | _ ->
                 $"cannot parse {x} to double"
                 |> failwith
         | FloatOptionData ->
-            match Int32.TryParse(x) with
-            | true, n -> n |> box
+            match Double.TryParse(x) with
+            | true, n -> n |> Some |> box
             | _ -> None |> box
 
 
@@ -959,7 +959,10 @@ module Csv =
             | None ->
                 $"""cannot find column {s} in {columns |> String.concat ", "}"""
                 |> failwith
-            | Some i -> sl |> Array.item i
+            | Some i -> 
+                sl 
+                |> Array.item i
+                |> tryCast dt
 
 
     let getStringColumn columns sl s =

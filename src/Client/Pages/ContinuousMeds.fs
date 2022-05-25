@@ -15,7 +15,7 @@ module ContinuousMeds =
     module TG = Utils.Typography
 
 
-    type State = { Dialog: string list }
+    type State = { Dialog: string }
 
 
     type Msg =
@@ -23,43 +23,62 @@ module ContinuousMeds =
         | CloseDialog
 
 
-    let init () = { Dialog = [] }, Cmd.none
+    let init () = { Dialog = "" }, Cmd.none
 
 
     let update (msg: Msg) state =
         match msg with
         | RowClick (i, xs) ->
-            Utils.Logging.log "rowclick:" i
-            { state with Dialog = xs }, Cmd.none
-        | CloseDialog -> { state with Dialog = [] }, Cmd.none
+            Utils.Logging.log "rowclick:" (i, xs)
+            { state with Dialog = xs[1] }, Cmd.none
+        | CloseDialog -> { state with Dialog = "" }, Cmd.none
 
 
-    let createHeadersAndRows w contMeds =
+    let createHeadersAndRows lang contMeds =
+        let getTerm = Localization.getTerm lang
+
         let headers =
             [
-                ("Indicatie", true)
-                ("Medicatie", true)
-                ("Hoeveelheid", false)
-                ("Oplossing", false)
-                ("Dosering", false)
-                ("Advies", false)
+                (Localization.Terms.``Continuous Medication Indication``
+                 |> getTerm,
+                 true)
+                (Localization.Terms.``Continuous Medication Medication``
+                 |> getTerm,
+                 true)
+                (Localization.Terms.``Continuous Medication Quantity``
+                 |> getTerm,
+                 false)
+                (Localization.Terms.``Continuous Medication Solution``
+                 |> getTerm,
+                 false)
+                (Localization.Terms.``Continuous Medication Dose``
+                 |> getTerm,
+                 false)
+                (Localization.Terms.``Continuous Medication Advice``
+                 |> getTerm,
+                 false)
             ]
             |> List.map (fun (lbl, b) -> (lbl |> Utils.Typography.subtitle2, b))
 
         let rows =
-            ContinuousMedication.calculate w contMeds
+            contMeds
             |> List.map (fun row ->
-                match row with
-                | ind :: med :: qty :: sol :: dose :: adv :: [] ->
-                    [
-                        (ind, TG.caption ind)
-                        (med, TG.subtitle2 med)
-                        (qty, TG.body2 qty)
-                        (sol, TG.body2 sol)
-                        (dose, TG.body2 dose)
-                        (adv, Html.div [ prop.text adv ])
-                    ]
-                | _ -> []
+                let q = $"{row.Quantity} {row.QuantityUnit}"
+                let s = $"{row.Total} ml {row.Solution}"
+
+                [
+                    (row.Indication, TG.caption row.Indication)
+                    (row.Name, TG.subtitle2 row.Name)
+                    (q, TG.body2 q)
+                    (s, TG.body2 s)
+                    (row.SubstanceDoseText, TG.body2 row.SubstanceDoseText)
+                    (row.Text,
+                     Mui.typography [
+                         typography.variant.body2
+                         typography.color.textSecondary
+                         prop.text row.Text
+                     ])
+                ]
                 |> List.map (fun (s, l) -> s.ToLower(), l)
             )
 
@@ -67,57 +86,61 @@ module ContinuousMeds =
 
 
 
-    let createDialog state dispatch =
-        let content =
-            state.Dialog
-            |> function
-                | [ ind; med; qty; sol; dose; adv ] ->
-                    [ ind; med; qty; sol; dose; adv ]
-                    |> List.zip [
-                        "indicatie"
-                        "medicatie"
-                        "hoeveelheid"
-                        "oplossing"
-                        "dosering"
-                        "advies"
-                       ]
-                    |> List.collect (fun (s1, s2) ->
-                        if s2 = "" then
-                            []
-                        else
-                            [
-                                Mui.listItem [
-                                    Mui.listItemText [
-                                        listItemText.primary s1
-                                        if s1 = "medicatie" || s1 = "dosering" then
-                                            listItemText.secondary (
-                                                $"**{s2}**"
-                                                |> Components.Markdown.render
-                                            )
-                                        else
-                                            listItemText.secondary s2
-                                    ]
-                                ]
-                                Mui.divider []
-                            ]
-                    )
-                    |> Mui.list
-                | _ ->
-                    [
-                        "No valid content" |> Components.Markdown.render
-                    ]
-                    |> React.fragment
+    let createDialog
+        (med: string)
+        (meds: Intervention list)
+        (prods: Product list)
+        dispatch
+        =
+        let med =
+            meds |> List.tryFind (fun m -> m.Name = med)
+
+        let title, content =
+            match med with
+            | Some med ->
+                let title =
+                    let q =
+                        med.Quantity |> Option.defaultValue 0.
+
+                    $"Bereiding voor {med.Name} {q} {med.QuantityUnit} in {med.Total} ml {med.Solution}"
+
+                let content =
+                    let prod =
+                        prods
+                        |> List.find (fun p -> p.Medication = med.Name)
+
+                    let q =
+                        (med.Quantity |> Option.defaultValue 0.)
+                        / prod.Concentration
+
+                    let t =
+                        med.Total
+                        |> Option.map (fun x ->
+                            if x - q <= 0. then 0. else x - q
+                        )
+                        |> Option.defaultValue 0.
+
+                    $"""{q} ml van {prod.Medication} {prod.Concentration} {prod.Unit}/ml
+                    + {t} ml {med.Solution}"""
+                    |> Utils.Typography.h5
+
+                title, content
+            | None -> "", Html.none
+
 
         Mui.dialog [
-            dialog.open' (state.Dialog |> List.isEmpty |> not)
+            dialog.open' (med |> Option.isSome)
+            dialog.maxWidth.xl
             dialog.children [
-                Mui.dialogTitle "Details"
+                Mui.dialogTitle title
                 Mui.dialogContent [
                     prop.style [ style.padding 40 ]
                     prop.children content
+                    dialogContent.dividers true
                 ]
                 Mui.dialogActions [
                     Mui.button [
+                        button.variant.outlined
                         prop.onClick (fun _ -> CloseDialog |> dispatch)
                         prop.text "OK"
                     ]
@@ -128,24 +151,45 @@ module ContinuousMeds =
 
 
     [<ReactComponent>]
-    let view (input: {| pat: Patient option; contMeds : ContinuousMedication list |}) =
+    let view
+        (input: {| pat: Patient option
+                   contMeds: Intervention list
+                   products: Product list |})
+        =
+        let lang =
+            React.useContext (Global.languageContext)
+
         let state, dispatch =
             React.useElmish (init, update, [| box input.pat |])
 
         match input.pat |> Option.bind Patient.getWeight with
-        | Some w when input.contMeds |> List.length > 1 ->
+        | Some _ when input.contMeds |> List.length > 1 ->
 
-            let hs, rs = createHeadersAndRows w input.contMeds
+            let hs, rs =
+                createHeadersAndRows lang input.contMeds
 
             Html.div [
                 prop.children [
-                    createDialog state dispatch
+                    createDialog
+                        state.Dialog
+                        input.contMeds
+                        input.products
+                        dispatch
                     SortableTable.render hs rs (RowClick >> dispatch)
                 ]
             ]
         | _ ->
             Html.div [
-                Utils.Typography.h3 "Voer leeftijd en/of gewicht in ..."
+                Localization.Terms.``Continuous Medication List show when patient data``
+                |> Localization.getTerm lang
+                |> Utils.Typography.h3
             ]
 
-    let render patient contMeds = view ({| pat = patient; contMeds = contMeds |})
+    let render patient contMeds prods =
+        view (
+            {|
+                pat = patient
+                contMeds = contMeds
+                products = prods
+            |}
+        )
