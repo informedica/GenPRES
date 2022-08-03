@@ -9,6 +9,7 @@ open Shared
 type Pages =
     | LifeSupport
     | ContinuousMeds
+    | Prescribe
 // | NormalValues
 // | PewsCalculator
 // | GCSCalculator
@@ -22,6 +23,7 @@ let pageToString locale page =
         Localization.getTerm
             locale
             Localization.Terms.``Continuous Medication List``
+    | Prescribe -> "GenPRES Demo"
 // | NormalValues -> "Normaal Waarden"
 // | PewsCalculator -> "PEWS Calculator"
 // | GCSCalculator -> "GCS Calculator"

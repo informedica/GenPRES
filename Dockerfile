@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:5.0 as build
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 as build
 
 # Install node
 RUN curl -sL https://deb.nodesource.com/setup_14.x | bash
@@ -25,7 +25,7 @@ COPY src/Client src/Client
 RUN dotnet fable src/Client --run webpack
 
 
-FROM mcr.microsoft.com/dotnet/aspnet:5.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:6.0
 COPY --from=server-build /workspace/deploy /app
 COPY --from=client-build /workspace/deploy /app
 WORKDIR /app

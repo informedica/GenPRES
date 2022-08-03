@@ -4,6 +4,7 @@ open Elmish
 open Elmish.HMR
 open Feliz
 open Feliz.Router
+open Fable.Remoting.Client
 open Shared
 open Types
 open Global
@@ -18,6 +19,7 @@ type Model =
         BolusMedication: Deferred<BolusMedication list>
         ContinuousMedication: Deferred<ContinuousMedication list>
         Products: Deferred<Product list>
+        Scenarios: Deferred<ScenarioResult>
     }
 
 
@@ -30,6 +32,15 @@ type Msg =
     | LoadContinuousMedication of
         AsyncOperationStatus<Result<ContinuousMedication list, string>>
     | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
+    | LoadScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
+    | UpdateScenarios of ScenarioResult
+
+
+let serverApi =
+    Remoting.createApi ()
+    |> Remoting.withRouteBuilder Api.routerPaths
+    |> Remoting.buildProxy<Api.IServerApi>
+
 
 // url needs to be in format: http://localhost:8080/#pat?ay=2&am=0&ad=1
 // * by: birth year
@@ -80,6 +91,7 @@ let init () : Model * Cmd<Msg> =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
+            Scenarios = HasNotStartedYet
         }
 
     let cmds =
@@ -87,6 +99,7 @@ let init () : Model * Cmd<Msg> =
             Cmd.ofMsg (LoadBolusMedication Started)
             Cmd.ofMsg (LoadContinuousMedication Started)
             Cmd.ofMsg (LoadProducts Started)
+            Cmd.ofMsg (LoadScenarios Started)
         ]
 
     initialState, cmds
@@ -95,7 +108,9 @@ let init () : Model * Cmd<Msg> =
 let update (msg: Msg) (state: Model) =
     match msg with
     | UpdateLanguage l -> { state with Language = l }, Cmd.none
-    | UpdatePatient p -> { state with Patient = p }, Cmd.none
+    | UpdatePatient p ->
+        { state with Patient = p },
+        Cmd.ofMsg (LoadScenarios Started)
     | UrlChanged sl ->
         Logging.log "url changed" sl
 
@@ -146,6 +161,48 @@ let update (msg: Msg) (state: Model) =
         Logging.error "cannot load products" s
         state, Cmd.none
 
+    | LoadScenarios Started ->
+        let scenarios =
+            match state.Scenarios with
+            | Resolved sc when state.Patient.IsSome ->
+                { sc with
+                    Weight =
+                        match state.Patient with
+                        | Some pat -> pat |> Patient.getWeight
+                        | None -> sc.Weight
+                }
+            | _ -> ScenarioResult.empty
+
+        let load =
+            async {
+                let! result = serverApi.getScenarioResult scenarios
+                return Finished result |> LoadScenarios
+            }
+
+        { state with Scenarios = InProgress }, Cmd.fromAsync load
+
+    | LoadScenarios (Finished (Ok scenarios)) ->
+        { state with
+            Scenarios = Resolved scenarios
+        },
+        Cmd.none
+
+    | LoadScenarios (Finished (Error msg)) ->
+        Logging.log "scenarios" msg
+        state, Cmd.none
+
+    | UpdateScenarios sc ->
+        let sc =
+            { sc with
+                Weight =
+                    match state.Patient with
+                    | Some pat -> pat |> Patient.getWeight
+                    | None -> sc.Weight
+            }
+
+        { state with Scenarios = Resolved sc },
+        Cmd.ofMsg (LoadScenarios Started)
+
 
 let calculatInterventions calc meds pat =
     meds
@@ -185,6 +242,8 @@ let render state dispatch =
             bm
             cm
             state.Products
+            state.Scenarios
+            (UpdateScenarios >> dispatch)
 
     React.router [
         router.onUrlChanged (UrlChanged >> dispatch)

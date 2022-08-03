@@ -121,9 +121,9 @@
 
 
 # Add test files
-!/test/
-!/test/ServerTests/
-!/test/ServerTests/Scripts/
-!/test/UITests/
-!/test/UITests/Scripts/
+!/tests/
+!/tests/Server
+!/tests/Server/Scripts/
+!/tests/UITests/
+!/tests/UITests/Scripts/
 

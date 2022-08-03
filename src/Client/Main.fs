@@ -32,6 +32,7 @@ let pages =
     [
         Pages.LifeSupport
         Pages.ContinuousMeds
+        Pages.Prescribe
     ]
 
 
@@ -88,7 +89,9 @@ let View
                updatePatient: Patient option -> unit
                bolusMedication: Deferred<Intervention list>
                continuousMedication: Deferred<Intervention list>
-               products: Deferred<Product list> |})
+               products: Deferred<Product list>
+               scenarios: Deferred<ScenarioResult>
+               updateScenarios : ScenarioResult -> unit |})
     =
     let lang =
         React.useContext (Global.languageContext)
@@ -170,6 +173,8 @@ let View
                                         input.patient
                                         []
                                         []
+                            | Pages.Prescribe ->
+                                Pages.Prescribe.render input.scenarios input.updateScenarios
                         ]
                     ]
                 ]
@@ -228,6 +233,8 @@ let render
     bolusMedication
     continuousMedication
     products
+    scenarios
+    updateScenarios
     =
     View(
         {|
@@ -237,5 +244,7 @@ let render
             bolusMedication = bolusMedication
             continuousMedication = continuousMedication
             products = products
+            scenarios = scenarios
+            updateScenarios = updateScenarios
         |}
     )

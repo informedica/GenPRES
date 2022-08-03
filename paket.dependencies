@@ -1,4 +1,5 @@
 source https://api.nuget.org/v3/index.json
+framework: auto-detect
 
 nuget Expecto
 nuget Expecto.BenchmarkDotNet
@@ -12,15 +13,16 @@ nuget FSharp.Core
 
 nuget Fake.Core.Target
 
-nuget Fable.Browser.DOM 2.4.4
-nuget Fable.Core 3.2.7
-nuget Fable.Fetch 2.3.1
+nuget Fable.Browser.DOM 
+nuget Fable.Core 
+nuget Fable.Fetch 
 nuget Fable.Elmish
 nuget Fable.Elmish.React
 nuget Fable.Elmish.Debugger
-nuget Fable.Elmish.HMR 4.1
+nuget Fable.Elmish.HMR 
 nuget Fable.Mocha
 nuget Fable.React
+nuget Fable.Remoting.Giraffe
 nuget Fable.Remoting.Client
 
 nuget Feliz
@@ -29,4 +31,6 @@ nuget Feliz.UseElmish
 nuget Fable.MaterialUI.Icons
 nuget Fable.MaterialUI.MaterialDesignIcons
 
-nuget Saturn 0.15.0-preview03 prerelease
+nuget Saturn
+
+nuget Informedica.GenOrder.Lib

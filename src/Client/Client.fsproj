@@ -1,7 +1,7 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <DefineConstants>FABLE_COMPILER</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -10,6 +10,7 @@
     <Compile Include="../Shared/Localization.fs" />
     <Compile Include="../Shared/Data.fs" />
     <Compile Include="../Shared/Domain.fs" />
+    <Compile Include="../Shared/Api.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Bindings.fs" />
@@ -25,6 +26,7 @@
     <Compile Include="./Views/EmergencyList.fs" />
     <Compile Include="./Pages/LifeSupport.fs" />
     <Compile Include="./Pages/ContinuousMeds.fs" />
+    <Compile Include="./Pages/Prescribe.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>

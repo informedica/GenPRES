@@ -3,6 +3,7 @@ namespace Shared
 
 /// This module defines shared types between
 /// the client and the server
+[<AutoOpen>]
 module Types =
 
     type DataType =
@@ -165,4 +166,17 @@ module Types =
             Medication: string
             Concentration: float
             Unit: string
+        }
+
+
+    type ScenarioResult =
+        {
+            Indications: string list
+            Medications: string list
+            Routes: string list
+            Scenarios: string list
+            Indication: string option
+            Medication: string option
+            Route: string option
+            Weight: float option
         }

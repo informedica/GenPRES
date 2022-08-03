@@ -182,10 +182,6 @@ module Utils =
             (mos / 12), (mos % 12)
 
 
-module Route =
-    let hello = "/api/hello"
-
-
 module Configuration =
 
     open Types
@@ -550,7 +546,7 @@ module Patient =
 
     /// Get either the measured weight or the
     /// estimated weight if measured weight = 0
-    let getWeight pat =
+    let getWeight (pat: Patient) =
         if pat.Weight.Measured.IsSome then
             pat.Weight.Measured
         else
@@ -576,7 +572,7 @@ module Patient =
         }
 
 
-    let calcBMI pat =
+    let calcBMI (pat: Patient) =
         match pat.Weight.Measured,
               pat.Weight.Estimated,
               pat.Height.Measured,
@@ -591,7 +587,7 @@ module Patient =
         | _ -> None
 
 
-    let calcBSA pat =
+    let calcBSA (pat: Patient) =
         match pat.Weight.Measured,
               pat.Weight.Estimated,
               pat.Height.Measured,
@@ -1144,3 +1140,20 @@ module Products =
             )
             |> Array.toList
         | _ -> []
+
+
+
+module ScenarioResult =
+
+    
+    let empty: ScenarioResult =
+        {
+            Indications = []
+            Medications = []
+            Routes = []
+            Scenarios = []
+            Indication = None
+            Medication = None
+            Route = None
+            Weight = None
+        }
