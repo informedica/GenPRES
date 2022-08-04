@@ -153,7 +153,7 @@ module Prescribe =
                 scs
                 |> List.map (fun sc ->
                     Mui.listItem [
-                        sc |> Typography.body1
+                        sc |> Components.Markdown.render
                     ]
                 )
                 |> Mui.list
@@ -161,13 +161,15 @@ module Prescribe =
         Html.div [
             prop.id "prescribe-div"
             prop.children [
-                renderSelect "Indicaties" IndicationChange state.Indication inds
+                renderSelect "Indicatie" IndicationChange state.Indication inds
 
                 renderSelect "Medicatie" MedicationChange state.Medication meds
 
-                renderSelect "Routes" RouteChange state.Route rts
+                renderSelect "Route" RouteChange state.Route rts
 
-                scenarioList
+                match input.scenarios with
+                | Resolved _ -> scenarioList
+                | _ -> Mui.circularProgress []
             ]
         ]
 

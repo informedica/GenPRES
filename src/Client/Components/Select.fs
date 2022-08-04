@@ -54,6 +54,11 @@ module Select =
                 [| box input.value |]
             )
 
+        let defaultVal = 
+            match input.items with
+            | [one] -> one |> string
+            | _ -> ""
+
         Mui.formControl [
             prop.className classes.formControl
             formControl.margin.dense
@@ -62,7 +67,7 @@ module Select =
                 Mui.select [
                     state.Selected
                     |> Option.map string
-                    |> Option.defaultValue ""
+                    |> Option.defaultValue defaultVal
                     |> select.value
 
                     input.items
