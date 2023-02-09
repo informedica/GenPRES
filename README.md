@@ -4,28 +4,35 @@ This template can be used to generate a full-stack web application using the [SA
 
 ## Install pre-requisites
 
-You'll need to install the following pre-requisites in order to build SAFE applications
+You'll need to install the following pre-requisites in order to build SAFE applications.
 
-* The [.NET Core SDK](https://www.microsoft.com/net/download) 3.1 or higher.
-* [npm](https://nodejs.org/en/download/) package manager.
-* [Node LTS](https://nodejs.org/en/download/).
+Current known build configuration
+
+* dotnet: 6.0.403
+* npm: 8.4.1
+* node: v17.5.0
 
 ## Starting the application
 
-Start the server:
+This will start up the application locally for development.
 
 ```bash
-cd src\Server\
-dotnet watch run
-```
-
-Start the client:
-
-```bash
-npm install
 dotnet tool restore
-dotnet fable watch src/Client --run webpack-dev-server
+dotnet run
 ```
+
+This will create a production ready docker image:
+
+```bash
+docker build -t [USERNAME]/genpres .
+```
+
+To run the docker image locally:
+
+```
+docker run -it -p 8080:8085 [USERNAME]/genpres
+```
+
 
 Open a browser to `http://localhost:8080` to view the site.
 

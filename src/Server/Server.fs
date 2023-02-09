@@ -31,14 +31,19 @@ let webApi =
     |> Remoting.buildHttpHandler
 
 
-let webApp = choose [ webApi; GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI" ]
+let webApp = 
+    choose [ 
+        webApi; 
+        GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI" 
+    ]
 
 
 
 let application = application {
     url ("http://*:" + port.ToString() + "/")
     use_router webApp
-    use_static publicPath
+    memory_cache
+    use_static "public" //publicPath
     use_gzip
     //use_iis
     

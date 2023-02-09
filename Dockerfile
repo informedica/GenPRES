@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:6.0 as build
 
 # Install node
 RUN curl -sL https://deb.nodesource.com/setup_14.x | bash
