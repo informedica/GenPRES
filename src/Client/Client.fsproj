@@ -11,10 +11,6 @@
     <Compile Include="../Shared/Data.fs" />
     <Compile Include="../Shared/Domain.fs" />
     <Compile Include="../Shared/Api.fs" />
-    <Compile Include="Extensions.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="Bindings.fs" />
-    <Compile Include="Global.fs" />
     <Compile Include="./MaterialUI/AppBar.fs"/>
     <Compile Include="./MaterialUI/Toolbar.fs"/>
     <Compile Include="./MaterialUI/IconButton.fs"/>
@@ -27,6 +23,10 @@
     <Compile Include="./MaterialUI/MenuItem.fs"/>
     <Compile Include="./MaterialUI/Color.fs"/>
     <Compile Include="./MaterialUI/Colors.fs"/>
+    <Compile Include="Extensions.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Bindings.fs" />
+    <Compile Include="Global.fs" />
     <Compile Include="./Components/Markdown.fs" />
     <Compile Include="./Components/Select.fs" />
     <Compile Include="./Components/SortableTable.fs" />
