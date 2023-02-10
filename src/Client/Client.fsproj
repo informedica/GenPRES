@@ -24,6 +24,9 @@
     <Compile Include="./MaterialUI/ListItem.fs"/>
     <Compile Include="./MaterialUI/Drawer.fs"/>
     <Compile Include="./MaterialUI/FormGroup.fs"/>
+    <Compile Include="./MaterialUI/FormControl.fs"/>
+    <Compile Include="./MaterialUI/InputLabel.fs"/>
+    <Compile Include="./MaterialUI/Select.fs"/>
     <Compile Include="./MaterialUI/Color.fs"/>
     <Compile Include="./MaterialUI/Colors.fs"/>
     <Compile Include="Extensions.fs" />

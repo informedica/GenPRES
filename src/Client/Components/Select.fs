@@ -6,7 +6,11 @@ module Select =
     open Elmish
     open Feliz
     open Feliz.UseElmish
-    open Feliz.MaterialUI
+    open MaterialUI.FormControl
+    open MaterialUI.InputLabel
+    open MaterialUI.Select
+    open MaterialUI.MenuItem
+    open MaterialUI.Typography
 
 
     type State<'a> = { Selected: 'a Option }
@@ -25,17 +29,17 @@ module Select =
             { state with Selected = s |> Some },
             Cmd.ofSub (fun _ -> s |> handleSelect)
 
-
-    let useStyles =
-        Styles.makeStyles (fun styles theme ->
-            {|
-                formControl =
-                    styles.create [
-                        style.minWidth "115px"
-                        style.margin 10
-                    ]
-            |}
-        )
+    //TODO Fix Styles
+    // let useStyles =
+    //     Styles.makeStyles (fun styles theme ->
+    //         {|
+    //             formControl =
+    //                 styles.create [
+    //                     style.minWidth "115px"
+    //                     style.margin 10
+    //                 ]
+    //         |}
+    //     )
 
 
     [<ReactComponent>]
@@ -45,7 +49,7 @@ module Select =
                    value: 'a option
                    handleSelect: 'a -> unit |})
         =
-        let classes = useStyles ()
+        //let classes = useStyles ()
 
         let state, dispatch =
             React.useElmish (
@@ -54,39 +58,43 @@ module Select =
                 [| box input.value |]
             )
 
-        let defaultVal = 
+        let defaultVal =
             match input.items with
             | [one] -> one |> string
             | _ -> ""
 
-        Mui.formControl [
-            prop.className classes.formControl
-            formControl.margin.dense
-            formControl.children [
-                Mui.inputLabel [ input.label ]
-                Mui.select [
+        MaterialFormControl.create [
+            //prop.className classes.formControl
+            MaterialFormControl.margin "dense"
+            prop.children [
+                MaterialInputLabel.create [
+                    prop.children[
+                        input.label
+                    ]
+                ]
+                MaterialSelect.create [
                     state.Selected
                     |> Option.map string
                     |> Option.defaultValue defaultVal
-                    |> select.value
+                    |> prop.value
 
                     input.items
                     |> List.mapi (fun i item ->
                         let s = item |> string
 
-                        Mui.menuItem [
+                        MaterialMenuItem.create [
                             prop.key i
                             prop.value s
                             prop.onClick (fun _ -> item |> Select |> dispatch)
-                            menuItem.children [
-                                Mui.typography [
-                                    typography.variant.h6
+                            prop.children [
+                                MaterialTypography.create [
+                                    MaterialTypography.variant "h6"
                                     prop.text s
                                 ]
                             ]
                         ]
                     )
-                    |> select.children
+                    |> prop.children
                 ]
             ]
         ]
