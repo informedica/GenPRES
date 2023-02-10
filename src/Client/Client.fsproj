@@ -21,6 +21,8 @@
     <Compile Include="./MaterialUI/Typography.fs"/>
     <Compile Include="./MaterialUI/Menu.fs"/>
     <Compile Include="./MaterialUI/MenuItem.fs"/>
+    <Compile Include="./MaterialUI/ListItem.fs"/>
+    <Compile Include="./MaterialUI/Drawer.fs"/>
     <Compile Include="./MaterialUI/Color.fs"/>
     <Compile Include="./MaterialUI/Colors.fs"/>
     <Compile Include="Extensions.fs" />

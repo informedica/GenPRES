@@ -10,6 +10,7 @@ module StatusBar =
 
     open MaterialUI.Colors
 
+    //TODO: Fix Styles
     // let styles (theme : ITheme) : IStyles list = []
     // let useStyles =
     //     Styles.makeStyles (fun styles theme -> {|  |}

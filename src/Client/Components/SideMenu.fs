@@ -2,11 +2,13 @@ namespace Components
 
 module SideMenu =
 
-    open Feliz.MaterialUI
     open Feliz
     open Feliz.UseElmish
     open Elmish
     open Global
+    open MaterialUI.Drawer
+    open MaterialUI.ListItem
+    open MaterialUI.Typography
 
 
     type Msg =
@@ -29,23 +31,24 @@ module SideMenu =
             Cmd.ofSub (fun _ -> x |> menuClick)
 
 
-    let useStyles =
-        Styles.makeStyles (fun styles theme ->
-            {|
-                list =
-                    styles.create [
-                        style.display.flex
-                        style.flexDirection.column
-                    ]
-            |}
-        )
+    //TODO: Fix Styles
+    // let useStyles =
+    //     Styles.makeStyles (fun styles theme ->
+    //         {|
+    //             list =
+    //                 styles.create [
+    //                     style.display.flex
+    //                     style.flexDirection.column
+    //                 ]
+    //         |}
+    //     )
 
 
     let listItemButton (txt: string) sel dispatch =
-        Mui.listItem [
+        MaterialListItem.create [
             prop.text txt
-            listItem.button true
-            listItem.selected sel
+            MaterialListItem.button true
+            MaterialListItem.selected sel
             prop.onClick (fun _ -> txt |> MenuClick |> dispatch)
         ]
 
@@ -54,11 +57,11 @@ module SideMenu =
         items
         |> List.map (fun (i, b) -> listItemButton i b dispatch)
         |> List.append [
-            Mui.listItem [
-                listItem.disableGutters false
+            MaterialListItem.create [
+                MaterialListItem.disableGutters false
                 prop.children [
-                    Mui.typography [
-                        typography.variant.h6
+                    MaterialTypography.create [
+                        MaterialTypography.variant "h6"
                         prop.text "Menu"
                     ]
                 ]
@@ -73,7 +76,8 @@ module SideMenu =
                    menuClick: string -> unit
                    onClose: unit -> unit |})
         =
-        let classes = useStyles ()
+
+        //let classes = useStyles ()
 
         let state, dispatch =
             React.useElmish (
@@ -82,12 +86,12 @@ module SideMenu =
                 [| box input.isOpen |]
             )
 
-        Mui.drawer [
-            prop.className classes.list
-            drawer.variant.temporary
-            drawer.onClose (fun _ -> ToggleMenu |> dispatch)
-            drawer.open' input.isOpen
-            drawer.children [
+        MaterialDrawer.create [
+            //prop.className classes.list
+            MaterialDrawer.variant "temporary"
+            MaterialDrawer.onClose (fun _ -> ToggleMenu |> dispatch)
+            MaterialDrawer.``open`` input.isOpen
+            prop.children [
                 Html.div [
                     prop.style [ style.padding 10]
                     prop.children (menuList input.menuItems dispatch)
