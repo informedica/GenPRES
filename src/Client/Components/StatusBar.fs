@@ -6,7 +6,9 @@ module StatusBar =
     open MaterialUI.BottomNavigation
     open MaterialUI.Typography
     open MaterialUI.Icons
-    //open MaterialUI.Colors
+    open MaterialUI.Button
+
+    open MaterialUI.Colors
 
     // let styles (theme : ITheme) : IStyles list = []
     // let useStyles =
@@ -25,27 +27,39 @@ module StatusBar =
             prop.style [
                 style.flexGrow 1
                 style.alignItems.center
-                //style.backgroundColor Colors.grey.``100``
+                style.backgroundColor Colors.grey.``100``
             ]
            // MaterialBottomNavigation.showLabels true
             prop.children [
                 MaterialBottomNavigationAction.create [
                     prop.children[
-                           MaterialCopyrightIcon.create[]
+                        MaterialButton.create[
+                            prop.children[
+                                MaterialCopyrightIcon.create[]
+                            ]
                         ]
+                    ]
                 ]
                 MaterialTypography.create[
                     prop.text "Informedica 2020"
                 ]
                 MaterialBottomNavigationAction.create [
                     prop.children[
-                            MaterialHelpIcon.create[]
+                        MaterialButton.create[
+                            prop.children[
+                                MaterialHelpIcon.create[]
+                            ]
                         ]
+                    ]
                 ]
                 MaterialBottomNavigationAction.create [
                     prop.children[
-                            MaterialGppGoodIcon.create[]
+                        MaterialButton.create[
+                            prop.children[
+                                MaterialGppGoodIcon.create[]
+                            ]
                         ]
+                    ]
                 ]
             ]
         ]
