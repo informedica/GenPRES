@@ -3,7 +3,6 @@ namespace Views
 module Patient =
 
     open System
-    open Feliz.MaterialUI
     open Feliz
     open Feliz.UseElmish
     open Feliz.Markdown
@@ -12,6 +11,10 @@ module Patient =
     open Types
     open Global
     open Components
+    open MaterialUI.Button
+    open MaterialUI.Typography
+    open MaterialUI.Accordion
+    open MaterialUI.FormGroup
 
     type State =
         {
@@ -78,27 +81,27 @@ module Patient =
             )
 
 
-
-    let useStyles =
-        Styles.makeStyles (fun styles theme ->
-            {|
-                form =
-                    styles.create [
-                        style.display.flex
-                        style.flexDirection.column
-                        style.flexGrow 1
-                    ]
-                button =
-                    styles.create [
-                        style.flexBasis.auto
-                        style.flexGrow 1
-                        style.marginTop 10
-                        style.color "white"
-                        style.backgroundColor theme.palette.success.light
-                    ]
-                show = styles.create [ style.paddingTop 20 ]
-            |}
-        )
+    //TODO: Fix Styles
+    // let useStyles =
+    //     Styles.makeStyles (fun styles theme ->
+    //         {|
+    //             form =
+    //                 styles.create [
+    //                     style.display.flex
+    //                     style.flexDirection.column
+    //                     style.flexGrow 1
+    //                 ]
+    //             button =
+    //                 styles.create [
+    //                     style.flexBasis.auto
+    //                     style.flexGrow 1
+    //                     style.marginTop 10
+    //                     style.color "white"
+    //                     style.backgroundColor theme.palette.success.light
+    //                 ]
+    //             show = styles.create [ style.paddingTop 20 ]
+    //         |}
+    //     )
 
 
     [<ReactComponent>]
@@ -112,7 +115,7 @@ module Patient =
         let state, dispatch =
             React.useElmish (init, update input.updatePatient, [||])
 
-        let classes = useStyles ()
+        //let classes = useStyles ()
 
         let summary =
             input.patient
@@ -128,15 +131,15 @@ module Patient =
 
         let details =
             Html.div [
-                prop.className classes.form
+                //prop.className classes.form
                 prop.children [
-                    Mui.formGroup [
+                    MaterialFormGroup.create [
                         prop.style [
                             style.display.flex
                             style.paddingBottom 10
                         ]
-                        formGroup.row true
-                        formGroup.children [
+                        MaterialFormGroup.row true
+                        prop.children [
                             [ 0..18 ]
                             |> renderSelect
                                 (Localization.Terms.``Patient Years``
@@ -176,18 +179,18 @@ module Patient =
                         ]
                     ]
 
-                    Mui.button [
+                    MaterialButton.create [
                         prop.style [ style.flexGrow 1 ]
-                        prop.className classes.button
+                        //prop.className classes.button
                         prop.onClick (fun _ -> ClearPatient |> dispatch)
-                        button.variant.contained
-                        button.children [
-                            Mui.typography [
+                        MaterialButton.variant "contained"
+                        prop.children [
+                            MaterialTypography.create [
                                 prop.text (
                                     Localization.Terms.``Patient remove patient data``
                                     |> Localization.getTerm lang
                                 )
-                                typography.variant.body1
+                                MaterialTypography.variant "body1"
                             ]
                         ]
                     ]
@@ -195,16 +198,18 @@ module Patient =
                     ]
             ]
 
-        Mui.accordion [
-            Mui.accordionSummary [
-                accordionSummary.expandIcon (
-                    Fable.MaterialUI.Icons.expandMoreIcon []
-                )
+        MaterialAccordion.create [
+            prop.children [
+                MaterialAccordionSummary.create [
+                    MaterialAccordionSummary.expandIcon (
+                        Fable.MaterialUI.Icons.expandMoreIcon []
+                    )
 
-                accordionSummary.children [ summary ]
-            ]
-            Mui.accordionDetails [
-                accordionDetails.children [ details ]
+                    prop.children [ summary ]
+                ]
+                MaterialAccordionDetails.create [
+                    prop.children [ details ]
+                ]
             ]
         ]
 
