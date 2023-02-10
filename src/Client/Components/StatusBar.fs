@@ -2,42 +2,50 @@ namespace Components
 
 module StatusBar =
 
-    open Feliz.MaterialUI
-    open Fable.MaterialUI
     open Feliz
-    open Elmish
-    open Global
+    open MaterialUI.BottomNavigation
+    open MaterialUI.Typography
+    open MaterialUI.Icons
+    //open MaterialUI.Colors
 
     // let styles (theme : ITheme) : IStyles list = []
-    let useStyles =
-        Styles.makeStyles (fun styles theme -> {|  |}
+    // let useStyles =
+    //     Styles.makeStyles (fun styles theme -> {|  |}
 
-        )
+    //     )
 
     [<ReactComponent>]
     let View
         (input: {| isOpen: bool
                    txt: string |})
         =
-        let classes = useStyles ()
+        //let classes = useStyles ()
 
-        Mui.bottomNavigation [
+        MaterialBottomNavigation.create [
             prop.style [
                 style.flexGrow 1
                 style.alignItems.center
-                style.backgroundColor Colors.grey.``100``
+                //style.backgroundColor Colors.grey.``100``
             ]
-            bottomNavigation.showLabels true
-            bottomNavigation.children [
-                Mui.bottomNavigationAction [
-                    bottomNavigationAction.icon (Icons.copyrightIcon [])
+           // MaterialBottomNavigation.showLabels true
+            prop.children [
+                MaterialBottomNavigationAction.create [
+                    prop.children[
+                           MaterialCopyrightIcon.create[]
+                        ]
                 ]
-                Mui.typography "Informedica 2020"
-                Mui.bottomNavigationAction [
-                    bottomNavigationAction.icon (Icons.helpIcon [])
+                MaterialTypography.create[
+                    prop.text "Informedica 2020"
                 ]
-                Mui.bottomNavigationAction [
-                    bottomNavigationAction.icon (Icons.verifiedUserIcon [])
+                MaterialBottomNavigationAction.create [
+                    prop.children[
+                            MaterialHelpIcon.create[]
+                        ]
+                ]
+                MaterialBottomNavigationAction.create [
+                    prop.children[
+                            MaterialGppGoodIcon.create[]
+                        ]
                 ]
             ]
         ]

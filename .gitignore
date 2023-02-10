@@ -111,6 +111,7 @@
 !/src/Client/Utils/
 !/src/Client/Domain/
 !/src/Client/Components/
+!/src/Client/MaterialUI/
 !/src/Client/Views/
 !/src/Client/Pages/
 

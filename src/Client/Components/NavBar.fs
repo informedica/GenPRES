@@ -2,13 +2,14 @@ namespace Components
 
 module NavBar =
 
-    open Fable.MaterialUI
-    open Fable.MaterialUI.Icons
-    open Feliz.MaterialUI
     open Feliz
     open Elmish
     open Global
     open Shared
+    open MaterialUI.AppBar
+    open MaterialUI.Toolbar
+    open MaterialUI.IconButton
+    open MaterialUI.Icons
 
 
     [<ReactComponent>]
@@ -27,21 +28,21 @@ module NavBar =
 
             Menu.render selected items input.langChange
 
-        Mui.appBar [
-            appBar.position.sticky
-            appBar.children [
-                Mui.toolbar [
-                    toolbar.children [
+        MaterialAppBar.create [
+            prop.style [style.position.sticky]
+            prop.children [
+                MaterialToolbar.create [
+                    prop.children [
                         Utils.Typography.h6 input.selected
                         Html.div [
                             prop.style [ style.flexGrow 1 ]
                         ]
                         langMenu
-                        Mui.iconButton [
-                            iconButton.color.inherit'
+                        MaterialIconButton.create [
+                            MaterialIconButton.color "inherit"
                             prop.onClick (fun _ -> input.menuClick ())
                             prop.children [
-                                menuIcon [
+                                MaterialMenuIcon.create [
                                     prop.style [ style.color color.white ]
                                 ]
                             ]
