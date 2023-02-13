@@ -8,6 +8,7 @@ open Feliz.MaterialUI
 open Shared
 open Types
 open Utils
+open MaterialUI.Container
 
 
 type Locales = Localization.Locales
@@ -206,7 +207,7 @@ let View
                         prop.children [ header ]
                     ]
                     sidemenu
-                    Mui.container [
+                    MaterialContainer.create [
                         prop.style [
                             style.display.flex
                             style.flexGrow 1
@@ -214,7 +215,7 @@ let View
                             style.marginTop 10
                             style.marginBottom 10
                         ]
-                        container.children[currentPage]
+                        prop.children[currentPage]
                     ]
                     Html.div [
                         prop.style [ style.flexShrink 0 ]

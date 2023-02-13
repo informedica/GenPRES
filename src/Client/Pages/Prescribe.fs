@@ -12,6 +12,7 @@ module Prescribe =
     open Types
     open Views
     open Utils
+    open MaterialUI.ListItem
 
 
     type State =
@@ -152,8 +153,10 @@ module Prescribe =
         let scenarioList =
                 scs
                 |> List.map (fun sc ->
-                    Mui.listItem [
-                        sc |> Components.Markdown.render
+                    MaterialListItem.create [
+                        prop.children[
+                            sc |> Components.Markdown.render
+                        ]
                     ]
                 )
                 |> Mui.list

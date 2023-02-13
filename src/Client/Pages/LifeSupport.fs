@@ -12,6 +12,10 @@ module LifeSupport =
     open Types
     open Views
     open Utils
+    open MaterialUI.List
+    open MaterialUI.Divider
+    open MaterialUI.ListItemText
+    open MaterialUI.ListItem
 
 
     type State = { Dialog: string list }
@@ -120,20 +124,22 @@ module LifeSupport =
                                 []
                             else
                                 [
-                                    Mui.listItem [
-                                        Mui.listItemText [
-                                            listItemText.primary s1
+                                    MaterialListItem.create [
+                                        prop.children[
+                                        MaterialListItemText.create [
+                                            MaterialListItemText.primary s1
                                             if s1 = "interventie"
                                                || s1 = "toediening" then
-                                                listItemText.secondary (
+                                                MaterialListItemText.secondary (
                                                     $"**{s2}**"
                                                     |> Components.Markdown.render
                                                 )
                                             else
-                                                listItemText.secondary s2
+                                                MaterialListItemText.secondary s2
+                                        ]
                                         ]
                                     ]
-                                    Mui.divider []
+                                    MaterialDivider.create []
                                 ]
                         )
                         |> Mui.list

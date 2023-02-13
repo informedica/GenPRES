@@ -6,6 +6,9 @@ module Markdown =
     open Feliz
     open Feliz.MaterialUI
     open Feliz.Markdown
+    open MaterialUI.Typography
+    open MaterialUI.ListItem
+
 
 
     let useStyles =
@@ -29,21 +32,21 @@ module Markdown =
             markdown.children props.text
             markdown.components [
                 markdown.components.h1 (fun props ->
-                    Mui.typography [
+                    MaterialTypography.create [
                         match props.level with
-                        | 1 -> typography.variant.h3
-                        | 2 -> typography.variant.h4
-                        | 3 -> typography.variant.h5
-                        | 4 -> typography.variant.h6
-                        | 5 -> typography.variant.body1
-                        | 6 -> typography.variant.body2
+                        | 1 -> MaterialTypography.variant "h3"
+                        | 2 -> MaterialTypography.variant "h4"
+                        | 3 -> MaterialTypography.variant "h5"
+                        | 4 -> MaterialTypography.variant "h6"
+                        | 5 -> MaterialTypography.variant "body1"
+                        | 6 -> MaterialTypography.variant "body2"
                         | _ -> ()
 
-                        typography.color.primary
+                        MaterialTypography.color "primary"
                         if props.level = 2 then
-                            prop.className classes.section
+                            prop.className "foo" //classes.section
                         prop.style [ style.marginTop 20 ]
-                        typography.children props.children
+                        prop.children props.children
                     ]
                 )
 
@@ -87,11 +90,11 @@ module Markdown =
                         listItem.divider true
                         listItem.button true
                         let children =
-                            Mui.typography [
-                                typography.variant.body1
+                            MaterialTypography.create [
+                                MaterialTypography.variant "body1"
                                 prop.style [ style.fontWeight.bold ]
-                                typography.color.textSecondary
-                                typography.children props.children
+                                MaterialTypography.color "textSecondary"
+                                prop.children props.children
                             ]
 
                         listItem.children children
@@ -107,9 +110,9 @@ module Markdown =
                         //     style.paddingLeft 0
                         // ]
                         // let children =
-                        Mui.typography [
-                            typography.color.textSecondary
-                            typography.children props.children
+                        MaterialTypography.create [
+                            MaterialTypography.color "textSecondary"
+                            prop.children props.children
                         ]
 
                         // container.children children

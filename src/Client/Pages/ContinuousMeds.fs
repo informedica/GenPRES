@@ -11,6 +11,7 @@ module ContinuousMeds =
     open Types
     open Views
     open Components
+    open MaterialUI.Typography
 
     module TG = Utils.Typography
 
@@ -73,9 +74,9 @@ module ContinuousMeds =
                     (s, TG.body2 s)
                     (row.SubstanceDoseText, TG.body2 row.SubstanceDoseText)
                     (row.Text,
-                     Mui.typography [
-                         typography.variant.body2
-                         typography.color.textSecondary
+                     MaterialTypography.create [
+                         MaterialTypography.variant "body2"
+                         MaterialTypography.color "textSecondary"
                          prop.text row.Text
                      ])
                 ]
