@@ -124,6 +124,8 @@ module Patient =
         let inline renderSelect s msg v xs =
             Select.render (Utils.Typography.body1 s) xs v (msg >> dispatch)
 
+        let highValues = [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
+
         let details =
             Html.div [
                 prop.className classes.form
@@ -169,6 +171,7 @@ module Patient =
                                         style.minWidth 110
                                     ]
                                     prop.onChange (fun (weightNumber:float) -> dispatch (WeightChange weightNumber))
+                                    textField.value state.Weight
                                 ]
                                 Mui.textField[
                                     textField.type' "number"
@@ -178,9 +181,11 @@ module Patient =
                                         style.margin 10
                                         style.minWidth 110
                                     ]
+                                    prop.onChange (fun (heightNumber:float) -> dispatch (HeightChange heightNumber))
+                                    textField.value state.Height
                                 ]
                             else
-                                [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
+                                highValues
                                 |> renderSelect
                                     $"{(Localization.Terms.``Patient Weight``
                                         |> Localization.getTerm lang)} (kg)"
