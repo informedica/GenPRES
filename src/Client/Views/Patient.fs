@@ -168,6 +168,7 @@ module Patient =
                                         style.margin 10
                                         style.minWidth 110
                                     ]
+                                    prop.onChange (fun (weightNumber:float) -> dispatch (WeightChange weightNumber))
                                 ]
                                 Mui.textField[
                                     textField.type' "number"
