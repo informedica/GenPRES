@@ -1,7 +1,8 @@
-module MaterialUI.Colors
+﻿//Code copied from https://github.com/ArtemyB/Feliz.MaterialUI
+
+namespace MaterialUI5
 
 open Fable.Core.JsInterop
-open MaterialUI.Color
 
 type Colors =
 

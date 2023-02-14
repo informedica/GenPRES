@@ -8,8 +8,8 @@ module SortableTable =
     open Elmish
     open Feliz
     open Feliz.UseElmish
-    open Fable.MaterialUI
-    open Feliz.MaterialUI
+    open MaterialUI5
+    open FSharp.Core
 
 
     type State<'a when 'a :> IComparable> =

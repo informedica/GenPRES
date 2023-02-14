@@ -6,13 +6,10 @@ module Prescribe =
     open Feliz
     open Feliz.UseElmish
     open Elmish
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Shared
-    open Global
-    open Types
-    open Views
     open Utils
-    open MaterialUI.ListItem
+    open FSharp.Core
 
 
     type State =
@@ -153,10 +150,8 @@ module Prescribe =
         let scenarioList =
                 scs
                 |> List.map (fun sc ->
-                    MaterialListItem.create [
-                        prop.children[
-                            sc |> Components.Markdown.render
-                        ]
+                    Mui.listItem [
+                        sc |> Components.Markdown.render
                     ]
                 )
                 |> Mui.list

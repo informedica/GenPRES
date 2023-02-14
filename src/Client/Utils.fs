@@ -4,50 +4,51 @@ namespace Utils
 module Typography =
 
     open Feliz
-    open MaterialUI.Typography
+    open MaterialUI5
 
     let private createTypography v a =
-        MaterialTypography.create [
+        Mui.typography [
             v
-            MaterialTypography.color "inherit"
+            //TODO Fix Color
+            //typography.color.inherit'
             prop.text (a |> string)
         ]
 
     let subtitle1 a =
-        a |> createTypography(MaterialTypography.variant "subtitle1")
+        a |> createTypography typography.variant.subtitle1
 
     let subtitle2 a =
-        a |> createTypography (MaterialTypography.variant "subtitle2")
+        a |> createTypography typography.variant.subtitle2
 
     let body1 a =
-        a |> createTypography (MaterialTypography.variant "body1")
+        a |> createTypography typography.variant.body1
 
     let body2 a =
-        a |> createTypography (MaterialTypography.variant "body2")
+        a |> createTypography typography.variant.body2
 
     let caption a =
-        a |> createTypography (MaterialTypography.variant "caption")
+        a |> createTypography typography.variant.caption
 
     let button a =
-        a |> createTypography (MaterialTypography.variant "button")
+        a |> createTypography typography.variant.button
 
     let h1 a =
-        a |> createTypography (MaterialTypography.variant "h1")
+        a |> createTypography typography.variant.h1
 
     let h2 a =
-        a |> createTypography (MaterialTypography.variant "h2")
+        a |> createTypography typography.variant.h2
 
     let h3 a =
-        a |> createTypography (MaterialTypography.variant "h3")
+        a |> createTypography typography.variant.h3
 
     let h4 a =
-        a |> createTypography (MaterialTypography.variant "h4")
+        a |> createTypography typography.variant.h4
 
     let h5 a =
-        a |> createTypography (MaterialTypography.variant "h5")
+        a |> createTypography typography.variant.h5
 
     let h6 a =
-        a |> createTypography (MaterialTypography.variant "h6")
+        a |> createTypography typography.variant.h6
 
 
 module Logging =

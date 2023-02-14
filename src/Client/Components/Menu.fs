@@ -2,12 +2,10 @@ namespace Components
 
 module Menu =
 
+    open Fable.MaterialUI
+    open MaterialUI5
     open Feliz
     open Elmish
-    open MaterialUI.Menu
-    open MaterialUI.MenuItem
-    open MaterialUI.Button
-    open MaterialUI.Icons
 
 
     [<ReactComponent>]
@@ -32,7 +30,7 @@ module Menu =
         let menuItems =
             input.items
             |> List.map (fun i ->
-                MaterialMenuItem.create [
+                Mui.menuItem [
                     prop.text i
                     prop.onClick (fun _ ->
                         setSelected i
@@ -42,20 +40,17 @@ module Menu =
                 ]
             )
 
-
         Html.div [
-            MaterialButton.create [
+            Mui.button [
                 prop.onClick (fun evt -> evt |> Some |> handleMenu)
-                MaterialButton.color "inherit"
-                prop.children[
-                    MaterialLanguageIcon.create[]
-                ]
+                button.color.inherit'
+                button.startIcon (Icons.languageIcon [])
                 prop.text selected
             ]
-            MaterialMenu.create [
-                MaterialMenu.keepMounted true
-                MaterialMenu.``open`` (anchorEl |> Option.isSome)
-                MaterialMenu.anchorEl anchorEl
+            Mui.menu [
+                menu.keepMounted true
+                menu.open' (anchorEl |> Option.isSome)
+                menu.anchorEl anchorEl
                 prop.children menuItems
             ]
         ]

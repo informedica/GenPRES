@@ -1,14 +1,12 @@
 module Main
 
 open Feliz
-open Feliz.Router
 open Feliz.UseElmish
 open Elmish
-open Feliz.MaterialUI
+open MaterialUI5
 open Shared
-open Types
 open Utils
-open MaterialUI.Container
+open FSharp.Core
 
 
 type Locales = Localization.Locales
@@ -183,7 +181,7 @@ let View
 
     let theme =
         Styles.createTheme [
-            theme.overrides.muiDialogTitle.root [
+            themeOverrides.theme.styleOverrides.muiDialogTitle.root [
                 style.backgroundColor.lightGray
             ]
             theme.palette.primary Colors.blue
@@ -207,7 +205,7 @@ let View
                         prop.children [ header ]
                     ]
                     sidemenu
-                    MaterialContainer.create [
+                    Mui.container [
                         prop.style [
                             style.display.flex
                             style.flexGrow 1
@@ -215,7 +213,7 @@ let View
                             style.marginTop 10
                             style.marginBottom 10
                         ]
-                        prop.children[currentPage]
+                        container.children[currentPage]
                     ]
                     Html.div [
                         prop.style [ style.flexShrink 0 ]

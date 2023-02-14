@@ -5,13 +5,11 @@ module ContinuousMeds =
     open Feliz
     open Feliz.UseElmish
     open Elmish
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Shared
-    open Global
-    open Types
     open Views
     open Components
-    open MaterialUI.Typography
+    open FSharp.Core
 
     module TG = Utils.Typography
 
@@ -74,9 +72,10 @@ module ContinuousMeds =
                     (s, TG.body2 s)
                     (row.SubstanceDoseText, TG.body2 row.SubstanceDoseText)
                     (row.Text,
-                     MaterialTypography.create [
-                         MaterialTypography.variant "body2"
-                         MaterialTypography.color "textSecondary"
+                     Mui.typography [
+                         typography.variant.body2
+                         //TODO Fix Color
+                         //typography.color.textSecondary
                          prop.text row.Text
                      ])
                 ]

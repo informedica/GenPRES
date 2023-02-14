@@ -2,15 +2,12 @@ namespace Views
 
 module EmergencyList =
 
-    open System
     open Feliz
     open Feliz.UseElmish
     open Elmish
+    open MaterialUI5
     open Shared
-    open Global
-    open Types
     open Components
-    open MaterialUI.Typography
 
 
     module TG = Utils.Typography
@@ -58,9 +55,10 @@ module EmergencyList =
                                     Html.div [
                                         prop.style [ style.paddingLeft 5 ]
                                         prop.children [
-                                            MaterialTypography.create [
-                                                MaterialTypography.variant "subtitle2"
-                                                MaterialTypography.color "textSecondary"
+                                            Mui.typography [
+                                                typography.variant.subtitle2
+                                                //TODO Fix Color
+                                                //typography.color.textSecondary
                                                 prop.text
                                                     $"({row.SubstanceDoseAdjust} {row.SubstanceDoseAdjustUnit})"
                                             ]
@@ -94,9 +92,10 @@ module EmergencyList =
                     (row.SubstanceDoseText, d) //TG.body2 row.SubstanceDoseText)
                     (row.InterventionDoseText, p)
                     (row.Text,
-                     MaterialTypography.create [
-                         MaterialTypography.variant "body2"
-                         MaterialTypography.color "textSecondary"
+                     Mui.typography [
+                         typography.variant.body2
+                         //TODO Fix Color
+                         //typography.color.textSecondary
                          prop.text row.Text
                      ])
                 ]

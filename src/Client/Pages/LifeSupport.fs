@@ -6,16 +6,10 @@ module LifeSupport =
     open Feliz
     open Feliz.UseElmish
     open Elmish
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Shared
-    open Global
-    open Types
     open Views
     open Utils
-    open MaterialUI.List
-    open MaterialUI.Divider
-    open MaterialUI.ListItemText
-    open MaterialUI.ListItem
 
 
     type State = { Dialog: string list }
@@ -124,22 +118,20 @@ module LifeSupport =
                                 []
                             else
                                 [
-                                    MaterialListItem.create [
-                                        prop.children[
-                                        MaterialListItemText.create [
-                                            MaterialListItemText.primary s1
+                                    Mui.listItem [
+                                        Mui.listItemText [
+                                            listItemText.primary s1
                                             if s1 = "interventie"
                                                || s1 = "toediening" then
-                                                MaterialListItemText.secondary (
+                                                listItemText.secondary (
                                                     $"**{s2}**"
                                                     |> Components.Markdown.render
                                                 )
                                             else
-                                                MaterialListItemText.secondary s2
-                                        ]
+                                                listItemText.secondary s2
                                         ]
                                     ]
-                                    MaterialDivider.create []
+                                    Mui.divider []
                                 ]
                         )
                         |> Mui.list

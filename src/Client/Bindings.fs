@@ -138,7 +138,7 @@ type markdown =
 
 
 /// Fixes createMuiTheme -> createTheme
-namespace Feliz.MaterialUI
+namespace MaterialUI5
 
 open System
 open System.ComponentModel
@@ -176,4 +176,3 @@ type Styles =
   /// Returns a default theme object.
   static member inline createTheme () : Theme =
     StyleImports.createTheme_unit ()
-
