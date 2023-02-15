@@ -110,7 +110,7 @@ module Patient =
 
         let classes = useStyles ()
 
-        let isMobile = Hooks.useMediaQuery "(max-width:500px)"
+        let isMobile = Hooks.useMediaQuery "(max-width:750px)"
 
         let summary =
             input.patient

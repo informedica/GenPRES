@@ -10,6 +10,7 @@ module ContinuousMeds =
     open Views
     open Components
     open FSharp.Core
+    open Localization
 
     module TG = Utils.Typography
 
@@ -31,6 +32,105 @@ module ContinuousMeds =
             Utils.Logging.log "rowclick:" (i, xs)
             { state with Dialog = xs[1] }, Cmd.none
         | CloseDialog -> { state with Dialog = "" }, Cmd.none
+
+    let quantity (intervention :Intervention) =
+        $"{intervention.Quantity} {intervention.QuantityUnit}"
+    let solution (intervention :Intervention) =
+        $"{intervention.Total} {intervention.Solution}"
+
+    let createCards (lang : Locales) (contMeds : Intervention list) =
+
+        let getTerm = Localization.getTerm lang
+
+        let cards = contMeds
+                    |> List.map (fun med ->
+                                Mui.card[
+                                    prop.style [ style.margin 10]
+                                    card.variant.outlined
+                                    card.raised true
+                                    card.children[
+                                        Mui.cardHeader[
+                                            prop.style[
+                                                    style.display.flex
+                                                ]
+                                            cardHeader.title [
+                                                Mui.typography[
+                                                    typography.variant.h6
+                                                    prop.text (Localization.Terms.``Continuous Medication Indication``|> getTerm)
+                                                ]
+                                                Mui.typography[
+                                                    typography.variant.subtitle1
+                                                    prop.text med.Indication
+                                                ]
+                                            ]
+                                        ]
+                                        Mui.cardContent[
+                                            Mui.grid[
+                                                grid.container
+                                                grid.spacing 2
+                                                grid.direction.row
+                                                grid.children[
+                                                     Mui.grid [
+                                                        grid.item
+                                                        grid.xs 6
+                                                        grid.children[
+                                                            Mui.typography[
+                                                                typography.variant.subtitle2
+                                                                prop.text (Localization.Terms.``Continuous Medication Medication``|> getTerm)
+                                                            ]
+                                                            Mui.typography[
+                                                                prop.text med.Name
+                                                            ]
+                                                            Mui.divider[]
+                                                            Mui.typography[
+                                                                typography.variant.subtitle2
+                                                                prop.text (Localization.Terms.``Continuous Medication Quantity``|> getTerm)
+                                                            ]
+                                                            Mui.typography[
+                                                                prop.text (quantity med)
+                                                            ]
+                                                            Mui.divider[]
+                                                            Mui.typography[
+                                                                typography.variant.subtitle2
+                                                                prop.text (Localization.Terms.``Continuous Medication Solution``|> getTerm)
+                                                            ]
+                                                            Mui.typography[
+                                                                prop.text (solution med)
+                                                            ]
+                                                        ]
+                                                     ]
+                                                     Mui.grid[
+                                                        grid.item
+                                                        grid.xs 6
+                                                        grid.children[
+                                                            Mui.typography[
+                                                                typography.variant.subtitle2
+                                                                prop.text (Localization.Terms.``Continuous Medication Dose``|> getTerm)
+                                                            ]
+                                                            Mui.typography[
+                                                                prop.text med.SubstanceDoseText
+                                                            ]
+                                                            Mui.divider[]
+                                                            Mui.typography[
+                                                                typography.variant.subtitle2
+                                                                prop.text (Localization.Terms.``Continuous Medication Advice``|> getTerm)
+                                                            ]
+                                                            Mui.typography[
+                                                                prop.text med.Text
+                                                            ]
+                                                        ]
+                                                     ]
+                                                ]
+
+                                            ]
+                                        ]
+                                        ]
+
+                                ] )
+        Html.div [
+            for card in cards do
+                card
+        ]
 
 
     let createHeadersAndRows lang contMeds =
@@ -62,8 +162,8 @@ module ContinuousMeds =
         let rows =
             contMeds
             |> List.map (fun row ->
-                let q = $"{row.Quantity} {row.QuantityUnit}"
-                let s = $"{row.Total} ml {row.Solution}"
+                let q = quantity row
+                let s = solution row
 
                 [
                     (row.Indication, TG.caption row.Indication)
@@ -159,6 +259,8 @@ module ContinuousMeds =
         let lang =
             React.useContext (Global.languageContext)
 
+        let isMobile = Hooks.useMediaQuery "(max-width:750px)"
+
         let state, dispatch =
             React.useElmish (init, update, [| box input.pat |])
 
@@ -168,22 +270,27 @@ module ContinuousMeds =
             let hs, rs =
                 createHeadersAndRows lang input.contMeds
 
-            Html.div [
-                prop.children [
-                    createDialog
-                        state.Dialog
-                        input.contMeds
-                        input.products
-                        dispatch
-                    SortableTable.render hs rs (RowClick >> dispatch)
+            if isMobile then
+                Html.div[
+                    createCards lang input.contMeds
                 ]
-            ]
-        | _ ->
-            Html.div [
-                Localization.Terms.``Continuous Medication List show when patient data``
-                |> Localization.getTerm lang
-                |> Utils.Typography.h3
-            ]
+            else
+                Html.div [
+                    prop.children [
+                        createDialog
+                            state.Dialog
+                            input.contMeds
+                            input.products
+                            dispatch
+                        SortableTable.render hs rs (RowClick >> dispatch)
+                    ]
+                ]
+         | _ ->
+             Html.div [
+                 Localization.Terms.``Continuous Medication List show when patient data``
+                 |> Localization.getTerm lang
+                 |> Utils.Typography.h3
+             ]
 
     let render patient contMeds prods =
         view (
