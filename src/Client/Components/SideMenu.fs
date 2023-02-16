@@ -2,11 +2,11 @@ namespace Components
 
 module SideMenu =
 
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Feliz
     open Feliz.UseElmish
     open Elmish
-    open Global
+    open FSharp.Core
 
 
     type Msg =

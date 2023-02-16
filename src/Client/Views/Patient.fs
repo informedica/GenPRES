@@ -2,15 +2,11 @@ namespace Views
 
 module Patient =
 
-    open System
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Feliz
     open Feliz.UseElmish
-    open Feliz.Markdown
     open Elmish
     open Shared
-    open Types
-    open Global
     open Components
 
     type State =
@@ -114,6 +110,8 @@ module Patient =
 
         let classes = useStyles ()
 
+        let isMobile = Hooks.useMediaQuery "(max-width:750px)"
+
         let summary =
             input.patient
             |> function
@@ -125,6 +123,8 @@ module Patient =
 
         let inline renderSelect s msg v xs =
             Select.render (Utils.Typography.body1 s) xs v (msg >> dispatch)
+
+        let highValues = [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
 
         let details =
             Html.div [
@@ -161,18 +161,42 @@ module Patient =
                                  |> Localization.getTerm lang)
                                 DayChange
                                 state.Day
-                            [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
-                            |> renderSelect
-                                $"{(Localization.Terms.``Patient Weight``
-                                    |> Localization.getTerm lang)} (kg)"
-                                WeightChange
-                                state.Weight
-                            [ 50. .. 200. ]
-                            |> renderSelect
-                                $"{(Localization.Terms.``Patient Length``
-                                    |> Localization.getTerm lang)} (cm)"
-                                HeightChange
-                                state.Height
+                            if not isMobile then
+                                Mui.textField[
+                                    textField.type' "number"
+                                    textField.label $"{(Localization.Terms.``Patient Weight``
+                                        |> Localization.getTerm lang)} (kg)"
+                                    prop.style[
+                                        style.margin 10
+                                        style.minWidth 110
+                                    ]
+                                    prop.onChange (fun (weightNumber:float) -> dispatch (WeightChange weightNumber))
+                                    textField.value state.Weight
+                                ]
+                                Mui.textField[
+                                    textField.type' "number"
+                                    textField.label  $"{(Localization.Terms.``Patient Length``
+                                        |> Localization.getTerm lang)} (cm)"
+                                    prop.style[
+                                        style.margin 10
+                                        style.minWidth 110
+                                    ]
+                                    prop.onChange (fun (heightNumber:float) -> dispatch (HeightChange heightNumber))
+                                    textField.value state.Height
+                                ]
+                            else
+                                highValues
+                                |> renderSelect
+                                    $"{(Localization.Terms.``Patient Weight``
+                                        |> Localization.getTerm lang)} (kg)"
+                                    WeightChange
+                                    state.Weight
+                                [ 50. .. 200. ]
+                                |> renderSelect
+                                    $"{(Localization.Terms.``Patient Length``
+                                        |> Localization.getTerm lang)} (cm)"
+                                    HeightChange
+                                    state.Height
                         ]
                     ]
 

@@ -1,13 +1,12 @@
 module Main
 
 open Feliz
-open Feliz.Router
 open Feliz.UseElmish
 open Elmish
-open Feliz.MaterialUI
+open MaterialUI5
 open Shared
-open Types
 open Utils
+open FSharp.Core
 
 
 type Locales = Localization.Locales
@@ -182,7 +181,7 @@ let View
 
     let theme =
         Styles.createTheme [
-            theme.overrides.muiDialogTitle.root [
+            themeOverrides.theme.styleOverrides.muiDialogTitle.root [
                 style.backgroundColor.lightGray
             ]
             theme.palette.primary Colors.blue

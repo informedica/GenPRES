@@ -6,7 +6,8 @@ module Select =
     open Elmish
     open Feliz
     open Feliz.UseElmish
-    open Feliz.MaterialUI
+    open MaterialUI5
+    open FSharp.Core
 
 
     type State<'a> = { Selected: 'a Option }
@@ -54,7 +55,7 @@ module Select =
                 [| box input.value |]
             )
 
-        let defaultVal = 
+        let defaultVal =
             match input.items with
             | [one] -> one |> string
             | _ -> ""

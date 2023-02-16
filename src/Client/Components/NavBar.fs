@@ -2,12 +2,9 @@ namespace Components
 
 module NavBar =
 
-    open Fable.MaterialUI
     open Fable.MaterialUI.Icons
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Feliz
-    open Elmish
-    open Global
     open Shared
 
 

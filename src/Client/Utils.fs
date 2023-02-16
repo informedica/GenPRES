@@ -4,12 +4,13 @@ namespace Utils
 module Typography =
 
     open Feliz
-    open Feliz.MaterialUI
+    open MaterialUI5
 
     let private createTypography v a =
         Mui.typography [
             v
-            typography.color.inherit'
+            //TODO Fix Color
+            //typography.color.inherit'
             prop.text (a |> string)
         ]
 

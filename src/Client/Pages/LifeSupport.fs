@@ -6,10 +6,8 @@ module LifeSupport =
     open Feliz
     open Feliz.UseElmish
     open Elmish
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Shared
-    open Global
-    open Types
     open Views
     open Utils
 

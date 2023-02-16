@@ -2,7 +2,7 @@ namespace Components
 
 module StatusBar =
 
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Fable.MaterialUI
     open Feliz
     open Elmish

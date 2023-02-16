@@ -4,7 +4,7 @@ namespace Components
 module Markdown =
 
     open Feliz
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Feliz.Markdown
 
 
@@ -39,7 +39,8 @@ module Markdown =
                         | 6 -> typography.variant.body2
                         | _ -> ()
 
-                        typography.color.primary
+                        //TODO Fix Color
+                        //typography.color.primary
                         if props.level = 2 then
                             prop.className classes.section
                         prop.style [ style.marginTop 20 ]
@@ -90,7 +91,8 @@ module Markdown =
                             Mui.typography [
                                 typography.variant.body1
                                 prop.style [ style.fontWeight.bold ]
-                                typography.color.textSecondary
+                                //TODO Fix Color
+                                //typography.color.textSecondary
                                 typography.children props.children
                             ]
 
@@ -108,7 +110,8 @@ module Markdown =
                         // ]
                         // let children =
                         Mui.typography [
-                            typography.color.textSecondary
+                            //TODO Fix Color
+                            //typography.color.textSecondary
                             typography.children props.children
                         ]
 

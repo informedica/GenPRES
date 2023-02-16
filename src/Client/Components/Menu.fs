@@ -3,10 +3,9 @@ namespace Components
 module Menu =
 
     open Fable.MaterialUI
-    open Feliz.MaterialUI
+    open MaterialUI5
     open Feliz
     open Elmish
-    open Global
 
 
     [<ReactComponent>]
