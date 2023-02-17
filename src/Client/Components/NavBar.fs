@@ -2,7 +2,6 @@ namespace Components
 
 module NavBar =
 
-    open Fable.MaterialUI.Icons
     open MaterialUI5
     open Feliz
     open Shared
@@ -38,7 +37,7 @@ module NavBar =
                             iconButton.color.inherit'
                             prop.onClick (fun _ -> input.menuClick ())
                             prop.children [
-                                menuIcon [
+                                Icons.menuIcon [
                                     prop.style [ style.color color.white ]
                                 ]
                             ]

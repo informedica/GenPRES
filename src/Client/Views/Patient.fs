@@ -221,7 +221,7 @@ module Patient =
         Mui.accordion [
             Mui.accordionSummary [
                 accordionSummary.expandIcon (
-                    Fable.MaterialUI.Icons.expandMoreIcon []
+                    Icons.expandMoreIcon []
                 )
 
                 accordionSummary.children [ summary ]
