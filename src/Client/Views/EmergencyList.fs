@@ -13,8 +13,16 @@ module EmergencyList =
 
     module TG = Utils.Typography
 
+    type Msg =
+         | RowClick of int * string list
+         | SortIndicationAsc
+         | SortIndicationDesc
+         | SortInterventionAsc
+         | SortInterventionDesc
 
-    type Msg = RowClick of int * string list
+    let sortableItems =
+        ["Indication ASC", SortIndicationAsc; "Indication DESC", SortIndicationDesc; "Intervention ASC", SortInterventionAsc; "Intervention DESC", SortInterventionDesc]
+
 
     let dose (intervention :Intervention) =
         if intervention.SubstanceDose.IsNone then
@@ -201,6 +209,10 @@ module EmergencyList =
         match msg with
         | RowClick (i, els) ->
             state, Cmd.ofSub (fun _ -> (i, els) |> handleRowClick)
+        | SortIndicationAsc -> state, Cmd.none
+        | SortIndicationDesc -> state, Cmd.none
+        | SortInterventionAsc -> state, Cmd.none
+        | SortInterventionDesc -> state, Cmd.none
 
 
     [<ReactComponent>]
@@ -219,13 +231,23 @@ module EmergencyList =
         let hs, rs =
             input.bolusMed |> createHeadersAndRows lang
 
-        if isMobile then
+        let label = Mui.formControlLabel[
+            formControlLabel.label "Sort By"
+        ]
+
+        let items = (sortableItems |> List.map (fun (label, _) -> label))
+        let sortValue = (Some(sortableItems.Head |> fst))
+        let handleSelect = (fun label -> sortableItems |> List.find (fun (key, value) ->  key = label) |> dispatch)
+
+        Html.div[
+            Select.render label items sortValue handleSelect
+            if isMobile then
              Html.div[
                     createCards lang input.bolusMed
                 ]
-        else
-            SortableTable.render hs rs (RowClick >> dispatch)
-
+            else
+                SortableTable.render hs rs (RowClick >> dispatch)
+        ]
 
     let render bolusMed handleRowClick =
         View(

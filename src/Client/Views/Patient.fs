@@ -124,7 +124,6 @@ module Patient =
         let inline renderSelect s msg v xs =
             Select.render (Utils.Typography.body1 s) xs v (msg >> dispatch)
 
-        let highValues = [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
 
         let details =
             Html.div [
@@ -185,7 +184,7 @@ module Patient =
                                     textField.value state.Height
                                 ]
                             else
-                                highValues
+                                [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
                                 |> renderSelect
                                     $"{(Localization.Terms.``Patient Weight``
                                         |> Localization.getTerm lang)} (kg)"
