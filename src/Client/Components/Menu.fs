@@ -2,7 +2,6 @@ namespace Components
 
 module Menu =
 
-    open Fable.MaterialUI
     open MaterialUI5
     open Feliz
     open Elmish

@@ -1,36 +1,33 @@
 source https://api.nuget.org/v3/index.json
 framework: auto-detect
 
-nuget Expecto
-nuget Expecto.BenchmarkDotNet
 nuget Expecto.FsCheck
 nuget Expecto.Hopac
 
-nuget Fable.SimpleHttp
-nuget Feliz.Markdown
-nuget Feliz.Router
-nuget FSharp.Core
+nuget Fable.SimpleHttp ~> 3.3
+nuget Feliz.Markdown ~> 1.3.1
+nuget Feliz.Router ~> 3.8
+nuget FSharp.Core ~> 6.0.5
 
 nuget Fake.Core.Target
 
-nuget Fable.Browser.DOM 
-nuget Fable.Core 
-nuget Fable.Fetch 
-nuget Fable.Elmish
-nuget Fable.Elmish.React
-nuget Fable.Elmish.Debugger
-nuget Fable.Elmish.HMR 
-nuget Fable.Mocha
-nuget Fable.React
-nuget Fable.Remoting.Giraffe
-nuget Fable.Remoting.Client
+nuget Fable.Browser.DOM ~> 2.10
+nuget Fable.Core ~> 3.7.1
+nuget Fable.Fetch ~> 2.6
+nuget Fable.Elmish ~> 3.1
+nuget Fable.Elmish.React ~> 3.0.1
+nuget Fable.Elmish.Debugger ~> 3.3
+nuget Fable.Elmish.HMR ~> 5.2
+nuget Fable.Mocha ~> 2.15
+nuget Fable.React ~> 8.0.1
+nuget Fable.Remoting.Giraffe ~> 5.9
+nuget Fable.Remoting.Client ~> 7.19
 
-nuget Feliz
-nuget Feliz.MaterialUI
-nuget Feliz.UseElmish
-nuget Fable.MaterialUI.Icons
-nuget Fable.MaterialUI.MaterialDesignIcons
+nuget Feliz ~> 1.65
+nuget Feliz.UseElmish ~> 1.6
 
 nuget Saturn
 
-nuget Informedica.GenOrder.Lib
+nuget FParsec
+
+nuget Informedica.GenOrder.Lib = 1.0.0

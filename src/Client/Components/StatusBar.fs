@@ -3,7 +3,6 @@ namespace Components
 module StatusBar =
 
     open MaterialUI5
-    open Fable.MaterialUI
     open Feliz
     open Elmish
     open Global

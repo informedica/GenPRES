@@ -11,6 +11,7 @@
         <Compile Include="../Shared/Data.fs"/>
         <Compile Include="../Shared/Domain.fs"/>
         <Compile Include="../Shared/Api.fs"/>
+        <Compile Include="MUI\MaterialIcons.fs"/>
         <Compile Include="MUI\Flatten.fs"/>
         <Compile Include="MUI\Misc.fs"/>
         <Compile Include="MUI\Bindings.fs"/>
