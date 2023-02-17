@@ -11,19 +11,25 @@ module ContinuousMeds =
     open Components
     open FSharp.Core
     open Localization
+    open Utils.Sort
 
     module TG = Utils.Typography
 
 
-    type State = { Dialog: string }
+    type State = {
+        Dialog: string
+        ContMeds : Intervention list
+        Sort: Sort
+         }
 
 
     type Msg =
         | RowClick of int * string list
+        | SetSort of Sort
         | CloseDialog
 
 
-    let init () = { Dialog = "" }, Cmd.none
+    let init (contMeds) = { Dialog = ""; ContMeds = contMeds; Sort = Sort.IndicationAsc }, Cmd.ofMsg(SetSort IndicationAsc)
 
 
     let update (msg: Msg) state =
@@ -32,6 +38,12 @@ module ContinuousMeds =
             Utils.Logging.log "rowclick:" (i, xs)
             { state with Dialog = xs[1] }, Cmd.none
         | CloseDialog -> { state with Dialog = "" }, Cmd.none
+        | SetSort sort ->
+            match sort with
+            | IndicationAsc -> {state with ContMeds = state.ContMeds |> List.sortBy (fun item -> item.Indication )}, Cmd.none
+            | IndicationDesc -> {state with ContMeds = state.ContMeds |> List.sortByDescending (fun item -> item.Indication )}, Cmd.none
+            | InterventionAsc -> {state with ContMeds = state.ContMeds |> List.sortBy (fun item -> item.Name )}, Cmd.none
+            | InterventionDesc -> {state with ContMeds = state.ContMeds |> List.sortByDescending (fun item -> item.Name )}, Cmd.none
 
     let quantity (intervention :Intervention) =
         $"{intervention.Quantity} {intervention.QuantityUnit}"
@@ -140,10 +152,10 @@ module ContinuousMeds =
             [
                 (Localization.Terms.``Continuous Medication Indication``
                  |> getTerm,
-                 true)
+                 false)
                 (Localization.Terms.``Continuous Medication Medication``
                  |> getTerm,
-                 true)
+                 false)
                 (Localization.Terms.``Continuous Medication Quantity``
                  |> getTerm,
                  false)
@@ -262,29 +274,35 @@ module ContinuousMeds =
         let isMobile = Hooks.useMediaQuery "(max-width:750px)"
 
         let state, dispatch =
-            React.useElmish (init, update, [| box input.pat |])
+            React.useElmish (init input.contMeds, update, [| box input.pat |])
+
+        let sortValue = (Some(sortableItems |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
+        let handleSelect = (fun item -> sortableItems |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
 
         match input.pat |> Option.bind Patient.getWeight with
         | Some _ when input.contMeds |> List.length > 1 ->
 
             let hs, rs =
-                createHeadersAndRows lang input.contMeds
+                createHeadersAndRows lang state.ContMeds
 
-            if isMobile then
-                Html.div[
-                    createCards lang input.contMeds
-                ]
-            else
-                Html.div [
-                    prop.children [
-                        createDialog
-                            state.Dialog
-                            input.contMeds
-                            input.products
-                            dispatch
-                        SortableTable.render hs rs (RowClick >> dispatch)
+            Html.div[
+                Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
+                if isMobile then
+                    Html.div[
+                        createCards lang state.ContMeds
                     ]
-                ]
+                else
+                    Html.div [
+                        prop.children [
+                            createDialog
+                                state.Dialog
+                                state.ContMeds
+                                input.products
+                                dispatch
+                            SortableTable.render hs rs (RowClick >> dispatch)
+                        ]
+                    ]
+            ]
          | _ ->
              Html.div [
                  Localization.Terms.``Continuous Medication List show when patient data``
