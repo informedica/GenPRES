@@ -1,5 +1,7 @@
 source https://api.nuget.org/v3/index.json
-framework: auto-detect
+
+framework: net6.0
+storage: none
 
 nuget Expecto.FsCheck
 nuget Expecto.Hopac
