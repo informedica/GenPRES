@@ -9,12 +9,19 @@ module EmergencyList =
     open Shared
     open Components
     open Localization
+    open Utils.Sort
 
 
     module TG = Utils.Typography
 
+    type Msg =
+        | RowClick of int * string list
+        | SetSort of Sort
 
-    type Msg = RowClick of int * string list
+    type Model = {
+        BolusMed : Intervention list
+        Sort: Sort
+    }
 
     let dose (intervention :Intervention) =
         if intervention.SubstanceDose.IsNone then
@@ -152,10 +159,10 @@ module EmergencyList =
             [
                 (Localization.Terms.``Emergency List Indication``
                  |> getTerm,
-                 true)
+                 false)
                 (Localization.Terms.``Emergency List Intervention``
                  |> getTerm,
-                 true)
+                 false)
                 (Localization.Terms.``Emergency List Calculated``
                  |> getTerm,
                  false)
@@ -194,13 +201,19 @@ module EmergencyList =
         headers, rows
 
 
-    let init () = (), Cmd.none
+    let init (bolusMed) = {BolusMed = bolusMed; Sort = Sort.IndicationAsc}, Cmd.ofMsg(SetSort IndicationAsc)
 
 
     let update handleRowClick msg state =
         match msg with
         | RowClick (i, els) ->
             state, Cmd.ofSub (fun _ -> (i, els) |> handleRowClick)
+        | SetSort sort ->
+            match sort with
+            | IndicationAsc -> {state with BolusMed = state.BolusMed |> List.sortBy (fun item -> item.Indication )}, Cmd.none
+            | IndicationDesc -> {state with BolusMed = state.BolusMed |> List.sortByDescending (fun item -> item.Indication )}, Cmd.none
+            | InterventionAsc -> {state with BolusMed = state.BolusMed |> List.sortBy (fun item -> item.Name )}, Cmd.none
+            | InterventionDesc -> {state with BolusMed = state.BolusMed |> List.sortByDescending (fun item -> item.Name )}, Cmd.none
 
 
     [<ReactComponent>]
@@ -208,24 +221,31 @@ module EmergencyList =
         (input: {| bolusMed: Intervention list
                    handleRowClick: int * string list -> unit |})
         =
+
         let lang =
             React.useContext (Global.languageContext)
 
         let isMobile = Hooks.useMediaQuery "(max-width:750px)"
 
-        let _, dispatch =
-            React.useElmish (init, update input.handleRowClick, [||])
+        let state, dispatch =
+            React.useElmish (init input.bolusMed, update input.handleRowClick,[||])
 
         let hs, rs =
-            input.bolusMed |> createHeadersAndRows lang
+            state.BolusMed |> createHeadersAndRows lang
 
-        if isMobile then
+        let sortValue = (Some(sortableItems |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
+        let handleSelect = (fun item -> sortableItems |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
+
+        Html.div[
+            Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
+
+            if isMobile then
              Html.div[
-                    createCards lang input.bolusMed
+                    createCards lang state.BolusMed
                 ]
-        else
-            SortableTable.render hs rs (RowClick >> dispatch)
-
+            else
+                SortableTable.render hs rs (RowClick >> dispatch)
+        ]
 
     let render bolusMed handleRowClick =
         View(

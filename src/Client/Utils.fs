@@ -112,3 +112,15 @@ module GoogleDocs =
         dataUrlId
         |> createUrl "products"
         |> getUrl Products.parse msg
+
+module Sort =
+
+        type Sort =
+        | IndicationAsc
+        | IndicationDesc
+        | InterventionAsc
+        | InterventionDesc
+
+        let sortableItems = ["Indication ASC", IndicationAsc; "Indication DESC", IndicationDesc; "Intervention ASC", InterventionAsc; "Intervention DESC", InterventionDesc]
+
+        let sortItems = (sortableItems |> List.map (fun (label, _) -> label))
