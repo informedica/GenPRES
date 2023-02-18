@@ -1,0 +1,766 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","aliases":[]}]}}
+
+#!markdown
+
+# Examples for the ``Informedica.GenSolver.Lib`` library
+
+#!markdown
+
+First load all required references and source files.
+
+#!fsharp
+
+#load "../Scripts/loadDLL.fsx"
+
+#!markdown
+
+Do some preprocessing.
+
+#!fsharp
+
+open System
+open System.IO
+
+open Informedica.GenUnits.Lib
+open Informedica.GenSolver.Lib
+open Informedica.Utils.Lib.BCL
+open MathNet.Numerics
+open Types
+
+module Api = Informedica.GenSolver.Lib.Api
+module Solver = Informedica.GenSolver.Lib.Solver
+module Name = Variable.Name
+module ValueRange = Variable.ValueRange
+module Minimum = ValueRange.Minimum
+module Maximum = ValueRange.Maximum
+module Increment = ValueRange.Increment
+module ValueSet = ValueRange.ValueSet
+module Units = ValueUnit.Units
+
+
+let (|>>) r f = 
+    match r with
+    | Ok x -> x |> f
+    | Error _ -> r
+
+
+let procss s = printfn $"%s{s} "
+
+
+let printEqs = function
+    | Ok eqs -> eqs |> Solver.printEqs true procss
+    | Error errs -> failwith "errors"
+
+
+let printEqsWithUnits = function
+    | Ok eqs -> eqs |> Solver.printEqs false procss
+    | Error errs -> failwith "errors"
+
+
+let setProp n p eqs =
+    let n = n |> Name.createExc
+    match eqs |> Api.setVariableValues true n p with
+    | Some var ->
+        eqs
+        |> List.map (fun e ->
+            e |> Equation.replace var
+        )
+    | None -> eqs
+
+let create c u v = 
+    [|v|] 
+    |> ValueUnit.create u
+    |> c
+
+let createMinIncl = create (Minimum.create true)
+let createMinExcl = create (Minimum.create false)
+let createMaxIncl = create (Maximum.create true)
+let createMaxExcl = create (Maximum.create false)
+let createIncr = create Increment.create
+let createValSet u v = 
+    v 
+    |> Array.ofSeq
+    |> ValueUnit.create u
+    |> ValueSet.create
+
+let setMinIncl u n min = min |> createMinIncl u |> MinProp|> setProp n
+let setMinExcl u n min = min |> createMinExcl u |> MinProp |> setProp n
+let setMaxIncl u n max = max |> createMaxIncl u |> MaxProp |> setProp n
+let setMaxExcl u n max = max |> createMaxExcl u |> MaxProp |> setProp n
+let setValues u n vals = vals |> createValSet u |> ValsProp |> setProp n
+
+let logger = 
+    fun (s : string) ->
+        File.AppendAllLines("examples.log", [s])
+    |> SolverLogging.logger 
+
+let solve n p eqs =
+    let n = n |> Name.createExc
+    Api.solve true id logger n p eqs
+
+let solveAll = Api.solveAll false logger
+
+let solveMinIncl u n min = solve n (min |> createMinIncl u |> MinProp)
+let solveMinExcl u n min = solve n (min |> createMinExcl u  |> MinProp)
+let solveMaxIncl u n max = solve n (max |> createMaxIncl u |> MaxProp)
+let solveMaxExcl u n max = solve n (max |> createMaxExcl u |> MaxProp)
+let solveIncr u n incr = solve n (incr |> createIncr u |> IncrProp)
+let solveValues u n vals = solve n (vals |> createValSet u |> ValsProp)
+
+let init     = Api.init
+let nonZeroNegative = Api.nonZeroNegative
+
+
+let solveCountMinIncl = solveMinIncl Units.Count.times
+let solveCountMaxExcl = solveMaxExcl Units.Count.times
+let solveCountValues u n vals = solveValues Units.Count.times u n vals
+
+#!markdown
+
+## Variables, equations and notation
+
+#!markdown
+
+The solver will "solve" an ``Equation`` or a set of equations. An equation can be either a product equation or a sum equation of ``Variables``. A ``Variable`` is identified with a name and can be constraint by:
+
+- No constraint, i.e. the variable can be any rational number
+- A lower and/or upper limit, i.e. the variable can be any rational number within the limits of a lower and/or upper limit. 
+- A limit can be inclusive or exclusive corresponding with ``>=, >, <, <=``.
+- A set of numbers, i.e. the variable can only be one of the set.
+
+When a variable is constraint to just one rational number, that variable is considered solved. When a variable is not solved the variable can have an further limitation until the variable is solved.
+
+A variable (with name a) is printed out as:
+
+- ``a <..>``
+- ``a <0..>``
+- ``a [0..>``
+- ``a [1, 2, 3]``
+
+When a variable is limited by, for example ``[0..5>``, then you can
+
+- increase the lower limit to at most, but excluding 5, 
+- lower the upper limit to and including 0,
+- set a value(-s) between >= 0 and < 5.
+
+Meaning you can only "shrink" a variable, not expand a variable.
+
+#!markdown
+
+### The simple "equals" equation.
+
+#!fsharp
+
+let simpleEq = [ "a = b" ] |> init
+simpleEq |> Ok |> printEqs |> ignore
+
+#!markdown
+
+We can limit the variables to a lower and upper limit.
+
+#!fsharp
+
+simpleEq |> Ok |> printEqs
+
+simpleEq
+|> solveCountMinIncl "b" 0N
+|> printEqs
+|> solveCountMaxExcl "b" 5N
+|> printEqs |> ignore
+
+#!markdown
+
+We can now try to change variable ``a``.
+
+#!fsharp
+
+printfn "=== Try setting 10 to variable a will throw an exception ==="
+try
+    simpleEq
+    |> solveCountMinIncl "b" 0N
+    |>> solveCountMaxExcl "b" 5N
+    |>> solveCountValues "a" [|10N|]
+    |> printEqs |> ignore
+with
+| e -> printfn "%A" e
+
+printfn "=== But setting 4 to variable a will succeed ==="
+simpleEq
+|> solveCountMinIncl "b" 0N
+|>> solveCountMaxExcl "b" 5N
+|>> solveCountValues "a" [|4N|]
+|> printEqs |> ignore
+
+printfn "=== Try setting a max 10 to variable a will be ignored ==="
+try
+    simpleEq
+    |> solveCountMinIncl "b" 0N
+    |>> solveCountMaxExcl "b" 5N
+    |>> solveCountMaxExcl "b" 10N
+    |> printEqs |> ignore
+with
+| e -> printfn "%A" e
+
+printfn "=== But setting a max 3 to variable a will succeed ==="
+simpleEq
+|> solveCountMinIncl "b" 0N
+|>> solveCountMaxExcl "b" 5N
+|>> solveCountMaxExcl "b" 3N
+|> printEqs |> ignore
+
+#!markdown
+
+### Define product and sum equations
+
+We can define product equations like: 
+
+``a = b * c``
+
+and sum equations like:
+
+``c = d + e + f``
+
+#!fsharp
+
+printfn "=== Product Equation ==="
+let prodEq1 = 
+    [
+        "a = b * c"  
+    ] 
+    |> init
+// print the equation
+prodEq1 |> Ok |> printEqs |> ignore
+
+printfn "=== Sum Equation ==="
+let sumEq1 = 
+    [
+        "c = d + e + f"  
+    ] 
+    |> init
+// print the equation
+sumEq1 |> Ok |> printEqs |> ignore
+
+#!markdown
+
+## Setting variables to single values
+
+#!markdown
+
+Variables can be set to a single value, each at a time. This will result in the calculation of dependent variables. This means the solver will look at the defined product equation 
+
+``a = b * c`` 
+
+as:
+
+- ``a = b * c`` 
+- ``b = a / c`` 
+- ``c = a / b``
+
+When both indepent variables in one of the equations above have a value or are in someway limited, the value or limitation is calculated for the dependent variable.
+
+A sum equation will be solved like:
+
+``c = d + e + f``
+
+as:
+
+- ``c = d + e + f``
+- ``d = c - e - f``
+- ``e = c - d - f``
+- ``f = c - d - e``
+
+#!markdown
+
+For example, we set the variable ``b`` in the product equation to 3.
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "b" [|3N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+And value 2 to variable ``c``.
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "b" [|3N|]
+|>> solveCountValues "c" [|2N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Or we first set variable ``a`` to 6 and then, for example variable ``c`` to 2.
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "a" [|6N|] 
+|>> solveCountValues "c" [|2N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+## Setting variables to sets of values
+
+#!markdown
+
+Set the variable ``b`` to 1, 2, 3, 6.
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "b" [|1N; 2N; 3N; 6N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Set the variable ``c`` to 60, 120, 240, 500, 1000
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "b" [|1N; 2N; 3N; 6N|]
+|>> solveCountValues "c" [|60N; 120N; 240N; 500N; 1000N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Or set variable ``a`` to 60, 120, 180, 240, 360, 480, 500, 720, 1000, 1440, 1500, 2000, 3000, 6000.
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "b" [|1N; 2N; 3N; 6N|]
+|>> solveCountValues "a" [|60N; 120N; 180N; 240N; 360N; 480N; 500N; 720N; 1000N; 1440N; 1500N; 2000N; 3000N; 6000N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Then set variable ``c`` to 60, 120, 240, 500, 100.
+
+#!fsharp
+
+prodEq1
+|> solveCountValues "b" [|1N; 2N; 3N; 6N|]
+|>> solveCountValues "a" [|60N; 120N; 180N; 240N; 360N; 480N; 500N; 720N; 1000N; 1440N; 1500N; 2000N; 3000N; 6000N|]
+|>> solveCountValues "c" [|60N; 120N; 240N; 500N; 1000N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+## Setting lower and/or upper limits
+
+#!markdown
+
+Setting lower and/or upper limits to variables is a complex proces, as this can result, depending on the calculation operator in the calculation of a resulting lower and/or upper limit. Limits can also be inclusive or exclusive. Thus the following props can be used:
+
+- ``MinProp`` with ``Incl`` ``true`` or ``false``
+- ``MaxProp`` with ``Incl`` ``true`` or ``false``
+
+And the following calculations have the performed:
+
+Inlc - Incl
+
+- ``MinInclProp * MinInclProp``  
+- ``MinInclProp / MinInclProp``  
+- ``MaxInclProp * MaxInclProp``  
+- ``MaxInclProp / MaxInclProp``  
+
+- ``MinInclProp * MaxInclProp``  
+- ``MinInclProp / MaxInclProp``  
+- ``MaxInclProp / MinInclProp``  
+
+- ``MinInclProp + MinInclProp``  
+- ``MinInclProp - MinInclProp``  
+- ``MaxInclProp + MaxInclProp``  
+- ``MaxInclProp - MaxInclProp``  
+
+- ``MinInclProp + MaxInclProp``  
+- ``MinInclProp - MaxInclProp``  
+- ``MaxInclProp - MinInclProp``  
+
+Excl - Excl
+
+- ``MinExclProp * MinExclProp``  
+- ``MinExclProp / MinExclProp``  
+- ``MaxExclProp * MaxExclProp``  
+- ``MaxExclProp / MaxExclProp``  
+
+- ``MinExclProp * MaxExclProp``  
+- ``MinExclProp / MaxExclProp``  
+- ``MaxExclProp / MinExclProp``  
+
+- ``MinExclProp + MinExclProp``  
+- ``MinExclProp - MinExclProp``  
+- ``MaxExclProp + MaxExclProp``  
+- ``MaxExclProp - MaxExclProp``  
+
+- ``MinExclProp + MaxExclProp``  
+- ``MinExclProp - MaxExclProp``  
+- ``MaxExclProp - MinExclProp``   
+
+Incl - Excl
+
+- ``MinInclProp * MinExclProp``  
+- ``MinInclProp / MinExclProp``  
+- ``MaxInclProp * MaxExclProp``  
+- ``MaxInclProp / MaxExclProp``  
+
+- ``MinInclProp / MaxExclProp``  
+- ``MaxInclProp / MinExclProp``  
+
+- ``MinInclProp - MinExclProp``  
+- ``MaxInclProp + MaxExclProp``  
+- ``MaxInclProp - MaxExclProp``  
+
+- ``MinInclProp - MaxExclProp``  
+- ``MaxInclProp - MinExclProp``  
+
+Excl - Incl
+
+
+- ``MinExclProp * MinInclProp``  
+- ``MinExclProp / MinInclProp``  
+- ``MaxExclProp * MaxInclProp``  
+- ``MaxExclProp / MaxInclProp``  
+
+- ``MinExclProp / MaxInclProp``  
+- ``MaxExclProp / MinInclProp``  
+
+- ``MinExclProp - MinInclProp``  
+- ``MaxExclProp + MaxInclProp``  
+- ``MaxExclProp - MaxInclProp``  
+
+- ``MinExclProp - MaxInclProp``  
+- ``MaxExclProp - MinInclProp``   
+
+#!markdown
+
+Limit ``b`` with a minimum inclusive of 0.
+
+#!fsharp
+
+prodEq1
+|> solveCountMinIncl "b" 0N
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Limit ``c`` as well to a minimum of inclusive 0
+
+#!fsharp
+
+prodEq1
+|> solveCountMinIncl "b" 0N
+|>> solveCountMinIncl "c" 0N
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Add a lower exclusive limit of 1 to ``a``.
+
+#!fsharp
+
+let solveCountMinExcl = solveMinExcl Units.Count.times
+
+prodEq1
+|> solveCountMinIncl "b" 0N
+|>> solveCountMinIncl "c" 0N
+|>> solveCountMinExcl "a" 1N
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Add an upper limit of exclusive 10 to ``a``.
+
+#!fsharp
+
+prodEq1
+|> solveCountMinIncl "b" 0N
+|>> solveCountMinIncl "c" 0N
+|>> solveCountMinExcl "a" 1N
+|>> solveCountMaxExcl "a" 10N
+|> printEqs 
+|> ignore
+
+#!markdown
+
+Add an exlusive upper limit of 2 to ``c``.
+
+#!fsharp
+
+prodEq1
+|> solveCountMinIncl "b" 0N
+|>> solveCountMinIncl "c" 0N
+|>> solveCountMinExcl "a" 1N
+|>> solveCountMaxExcl "a" 10N
+|>> solveCountMaxExcl "c" 2N
+|> printEqs 
+|> ignore
+
+#!markdown
+
+An example of limiting variable ``a`` with an lower and upper limit and setting values to ``b`` and ``c``.
+
+#!fsharp
+
+let solveCountMaxIncl = solveMaxIncl Units.Count.times
+
+printfn "=== Example without limits on a ==="
+prodEq1
+|> solveCountValues "b" [|1N; 2N; 3N; 6N|]
+|>> solveCountValues "c" [|60N; 120N; 240N; 500N; 1000N|]
+|> printEqs 
+|> ignore
+
+printfn "=== Example with limits on a ==="
+prodEq1
+|> solveCountMinIncl "a" 120N
+|>> solveCountMaxIncl "a" 1000N
+|>> solveCountValues "b" [|1N; 2N; 3N; 6N|]
+|>> solveCountValues "c" [|60N; 120N; 240N; 500N; 1000N|]
+|> printEqs 
+|> ignore
+
+#!markdown
+
+## Solving multiple equations
+
+#!markdown
+
+GenSolver can solve sets of equations following the rules and principle described above.
+
+#!fsharp
+
+prodEq1 @ sumEq1
+|> nonZeroNegative |> Ok
+|> printEqs
+|> ignore
+
+#!markdown
+
+For each equation an additional variable will be calculated when all but one of the other variables are limited in some way.
+
+#!fsharp
+
+prodEq1 @ sumEq1
+|> nonZeroNegative
+|> solveCountValues "c" [|4N|] 
+|> ignore
+
+prodEq1 @ sumEq1
+|> nonZeroNegative
+|> solveCountValues "c" [|4N|] 
+|>> solveCountValues "a" [|8N|]
+|> printEqs
+|> ignore
+
+
+prodEq1 @ sumEq1
+|> nonZeroNegative
+|> solveCountValues "c" [|4N|] 
+|>> solveCountValues "a" [|8N|]
+|>> solveCountValues "e" [|1N|]
+|>> solveCountValues "f" [|2N|]
+|> printEqs
+|> ignore
+
+#!markdown
+
+## Order of limiting/setting variables doesn't matter
+
+#!markdown
+
+The order in which variables are set or limited doesn't matter to the end result, as can be shown below.
+
+#!fsharp
+
+printfn "First run"
+prodEq1 @ sumEq1
+|> nonZeroNegative
+|> solveCountValues "c" [|4N|] 
+|>> solveCountValues "a" [|8N|]
+|>> solveCountValues "e" [|1N|]
+|>> solveCountValues "f" [|2N|]
+|> printEqs
+|> ignore
+
+printfn "Second run in reversed order"
+prodEq1 @ sumEq1
+|> nonZeroNegative
+|> solveCountValues "f" [|2N|]
+|>> solveCountValues "e" [|1N|]
+|>> solveCountValues "a" [|8N|]
+|>> solveCountValues "c" [|4N|] 
+|> printEqs
+|> ignore
+
+#!markdown
+
+## Real world example
+
+#!markdown
+
+Now, a real world example of usage of the GenSolver. The calculation of drug doses. In this example the following variables are used:
+
+- ``ParacetamolDoseTotal``: The total dose of paracetamol
+- ``ParacetamolDoseQuantity``: The dose quantity of paracetamol per administration
+- ``Frequency``: The administration frequency
+- ``ParacetamolDoseTotalAdjust``: The total dose of paracetamol adjusted by weight
+- ``ParacetamolSuppositoryConcentration``: The concentration of paracetamol per suppository
+- ``SuppositoryDoseQuantity``: The dose quantity of suppository per administration
+
+#!fsharp
+
+let pcmEqs =
+
+    [
+        "ParacetamolDoseTotal = ParacetamolDoseQuantity * Frequency"
+        "ParacetamolDoseTotal = ParacetamolDoseTotalAdjust * Adjust"
+        "ParacetamolDoseQuantity = ParacetamolSuppositoryConcentration * SuppositoryDoseQuantity"
+    ]
+    |> init
+//    |> nonZeroNegative
+
+pcmEqs |> Ok
+|> printEqs
+|> ignore
+
+#!markdown
+
+In the pharmacy the following suppository concentrations are available: 60, 120, 240, 500 and 1000 mg per suppository.
+
+#!fsharp
+
+let mg = Units.Mass.milliGram
+let supp = Units.General.general "supp"
+let mgPerSupp = (mg, OpPer, supp) |> CombiUnit
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|> printEqsWithUnits
+|> ignore
+
+#!markdown
+
+Also we cannot break a suppository we always need to give whole supps. So, each dose can just have 1 supp.
+
+#!fsharp
+
+let times = Units.Count.times
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|>> solveValues supp "SuppositoryDoseQuantity" [1N]
+|> printEqsWithUnits
+|> ignore
+
+#!markdown
+
+In the drug formulary we can read that the daily adjusted dose of paracetamol should be between 40 mg/kg/day and 90 mg/kg/day
+
+#!fsharp
+
+let kg = Units.Weight.kiloGram
+let mgPerKg = CombiUnit(mg, OpPer, kg)
+let day = Units.Time.day
+let mgPerKgPerDay = CombiUnit(mgPerKg, OpPer, day)
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|>> solveValues supp "SuppositoryDoseQuantity" [1N]
+|>> solveMinIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 40N
+|>> solveMaxIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 90N
+|> printEqsWithUnits
+|> ignore
+
+#!markdown
+
+But we should never give more than 1000 mg each time and 4000 mg total per day.
+
+#!fsharp
+
+let mgPerDay = CombiUnit(mg, OpPer, Units.Time.day)
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|>> solveValues supp "SuppositoryDoseQuantity" [1N]
+|>> solveMinIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 40N
+|>> solveMaxIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 90N
+|>> solveMaxIncl mg "ParacetamolDoseQuantity" 1000N
+|>> solveMaxIncl mgPerDay "ParacetamolDoseTotal" 4000N
+|> printEqsWithUnits
+|> ignore
+
+#!markdown
+
+The drug formulary also states that you should give a supp 2, 3, 4 or 6 times a day.
+
+#!fsharp
+
+let timesPerDay = CombiUnit(times, OpPer, day)
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|>> solveValues supp "SuppositoryDoseQuantity" [1N]
+|>> solveMinIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 40N
+|>> solveMaxIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 90N
+|>> solveMaxIncl mg "ParacetamolDoseQuantity" 1000N
+|>> solveMaxIncl mgPerDay "ParacetamolDoseTotal" 4000N
+|>> solveValues timesPerDay "Frequency" [2N; 3N; 4N; 6N]
+|> printEqsWithUnits
+|> ignore
+
+#!markdown
+
+This tells us that for example patients with weight 4/3 kg about 1.33 kg up to 100 kg can be prescribed within those limits.
+
+We can now set the weight of the patient to for example 10 kg.
+
+#!fsharp
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|>> solveValues supp "SuppositoryDoseQuantity" [1N]
+|>> solveMinIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 40N
+|>> solveMaxIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 90N
+|>> solveMaxIncl mg "ParacetamolDoseQuantity" 1000N
+|>> solveMaxIncl mgPerDay "ParacetamolDoseTotal" 4000N
+|>> solveValues timesPerDay "Frequency" [2N; 3N; 4N; 6N]
+|>> solveValues kg "Adjust" [10N]
+|> printEqsWithUnits
+|> ignore
+
+#!markdown
+
+And if we then pick a frequency of 3, there is a solved equation set.
+
+#!fsharp
+
+pcmEqs
+|> solveValues mgPerSupp "ParacetamolSuppositoryConcentration" [60N; 120N; 240N; 500N; 1000N]
+|>> solveValues supp "SuppositoryDoseQuantity" [1N]
+|>> solveMinIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 40N
+|>> solveMaxIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 90N
+|>> solveMaxIncl mg "ParacetamolDoseQuantity" 1000N
+|>> solveMaxIncl mgPerDay "ParacetamolDoseTotal" 4000N
+|>> solveValues timesPerDay "Frequency" [3N] // picked frequency = 3
+|>> solveValues kg "Adjust" [10N]
+//|>> solveAll 
+|> printEqsWithUnits
+|> ignore

@@ -1,0 +1,284 @@
+#!markdown
+
+# Demonstration of some of the concepts underlying `Informedica.GenUnits.Lib` #
+
+#!markdown
+
+## Setup
+
+#!markdown
+
+Do some basic setup:
+
+#!fsharp
+
+#load "../Scripts/load.fsx"
+
+open MathNet.Numerics
+open Informedica.GenUnits.Lib
+open Informedica.GenUnits.Lib.ValueUnit
+
+#!markdown
+
+Make some print functions to help with demos:
+
+#!fsharp
+
+[<AutoOpen>]
+module Print = 
+
+    /// Print the input to a function, then call the function with that input.
+    let (>>*) vu f =
+        $"{vu |> toStringFloatEngShort}" |> printfn "%s"
+        f vu
+
+    /// Print the input to a function, then call the function with that input,
+    /// ignoring the result.
+    let print vu = (>>*) vu ignore
+
+    /// A convenience alias for printfn "%A".
+    let inline pa x = printfn "%A" x 
+
+#!markdown
+
+## Units and CombiUnits
+
+#!markdown
+
+A ``Unit`` defines how a ``Value`` is measured. For example, 100 mg. So, there is the value ``100`` and the unit ``mg``. 
+
+But also
+
+- Units can be combined, ``CombiUnit``, for example 100 mg/ml
+- Units can also have a value to express for example 1 x / 36 hour. 
+
+In the last example the value is ``1`` and the unit is ``x / 36 hour``, which is in fact a ``CombiUnit`` of ``x`` and ``36 hour``.
+
+#!markdown
+
+Some basic units, that can be combined to `CombiUnit`
+
+#!fsharp
+
+// basic units
+let mg = Units.Mass.milliGram
+let ml = Units.Volume.milliLiter
+let hr = Units.Time.hour
+let d2 = Units.Time.nDay 2N
+
+$"Combining simple units:\n{(mg |> per ml |> per hr)}"
+|> printfn "%s"
+
+$"Units can be a unit with a value!:\n{d2}"
+|> printfn "%s"
+
+$"That enables things like:\n{mg |> per d2}"
+|> printfn "%s"
+
+$"Or like:\n{Units.Count.times |> per (Units.Time.nHour 36N)}"
+|> printfn "%s"
+
+#!markdown
+
+## ValueUnits
+
+#!markdown
+
+We can build `ValueUnit` instances from numeric values and units:
+
+#!fsharp
+
+// Some basic value units
+let mg400  = 400.  |> withUnit Units.Mass.milliGram    >>* id
+let ml50   = 50.   |> withUnit Units.Volume.milliLiter >>* id
+let ml5    = 5.    |> withUnit Units.Volume.milliLiter >>* id
+let l5     = 5.    |> withUnit Units.Volume.liter      >>* id
+let ml5000 = 5000. |> withUnit Units.Volume.milliLiter >>* id
+
+mg400 |> pa
+4. |> withUnit d2 |> pa
+
+#!markdown
+
+## The Count Unit Group
+
+#!markdown
+
+The `Count` group is a special unit group with only one unit: `times`:
+
+#!fsharp
+
+let times3 = 3. |> withUnit Units.Count.times >>* id
+
+#!fsharp
+
+// 3 times * 5 ml = 15 ml
+times3 * ml5 |> print
+
+#!markdown
+
+## Extracting unit to base and unit to unit value
+
+#!markdown
+
+Given a `ValueUnit`, we can extract its base value:
+
+#!fsharp
+
+ml5 |> toBase |> pa // 1/200N i.e. 5 ml = 1/200 = 0.005 l
+l5  |> toBase |> pa // 5N i.e. 5 l = 5 l
+
+#!markdown
+
+Given a `ValueUnit`, we can also extract its values as a "unit" value or "base" value:
+
+#!fsharp
+
+ml5 |> toUnit |> pa // 500N i.e. 5 l = 5000 ml
+l5  |> toUnit |> pa // 5 i.e. 5 l = 5 l
+
+ml5 |> toBase |> pa // base value = 5 / 1000 = 1 / 200
+l5  |> toBase |> pa // base value = 5 as liter is the reference unit
+
+#!markdown
+
+## ValueUnit comparison
+
+#!markdown
+
+We need special comparison operators to correctly compare `ValueUnit` instances:
+
+#!fsharp
+
+// Normal comparison operators don't work
+ml50 > l5 |> pa // Returns true, but is false
+
+// Use the specific comparison operators
+ml50   >?  l5  |> pa // Returns false
+ml50   >=? l5  |> pa // Returns false
+ml50   <?  l5  |> pa // Returns true
+ml50   <=? l5  |> pa // Returns true
+ml5    =?  l5  |> pa // Returns false
+ml5000 =?  l5  |> pa // Returns true
+
+#!markdown
+
+## Calculation with `ValueUnit` instances ##
+
+All four basic arithmetic operations can be performed:
+
+#!fsharp
+
+"Calculating with counts:\n" |> printfn "%s"
+// - multiplication
+times3 * times3 >>* ignore // = 9 times
+// - division
+times3 / times3 >>* ignore // = 1 times
+// - addition
+times3 + times3 >>* ignore // = 6 times
+// - subtraction 
+times3 - times3 >>* ignore // = 0 times
+
+"You calculate any unit with times\n" |> printfn "%s"
+times3 * ml5 >>* ignore // 3 * 5 ml = 15 ml
+(Units.Time.hour |> withValue 36N) / times3 >>* ignore // 36 hr / 3 = 12 hr
+
+"But calculating with other units yield combi units"
+(Units.Mass.milliGram |> withValue 200N) / ml5 >>* ignore // 200 mg / 5 ml = 40 mg / ml
+
+#!markdown
+
+Addition and subtraction can only be performed within the same unitgroup:
+
+#!fsharp
+
+ml50 + l5    >>* ignore // = 5.05 l
+mg400 + ml50 >>* ignore // System.Exception: cannot add or subtract different units Mass (MilliGram 1N) Volume (MilliLiter 1N)
+
+#!markdown
+
+When two `ValueUnit` instances with the same unitgroup are divided you get a `CountGroup`:
+
+#!fsharp
+
+let (_, u) = (l5 / ml50) >>* get  // = 100N times
+u |> Group.unitToGroup           // now is a count group
+
+#!markdown
+
+We can do more complicated calculations, such as starting with a concentration, multiplying and dividing by a volume, and ending up with a mass:
+
+#!fsharp
+
+((mg400 + mg400)/ ml50)     // (400 mg[Mass] + 400 mg[Mass]) / 50 ml[Volume] = 16 mg[Mass]/ml[Volume]
+>>* ((*) ml50)              // 16 mg[Mass]/ml[Volume] * 50 ml[Volume] = 800 mg[Mass] 
+>>* (fun vu -> vu / ml50)   // 800 mg[Mass] / 50 ml[Volume] = 16 mg[Mass]/ml[Volume]
+>>* ((*) ml50)              // 16 mg[Mass]/ml[Volume] * 50 ml[Volume] = 800 mg[Mass]
+>>* ignore
+
+#!markdown
+
+## Conversions ##
+
+`ValueUnit` instances can be converted to different units within the same unit group using the `==>` operator:
+
+#!fsharp
+
+l5                            // 5 l[Volume]
+==> Units.Volume.milliLiter   // = 5000 ml[Volume]
+>>* ignore
+
+#!markdown
+
+We can create arbitrary, labelled units and use them in calculations:
+
+#!fsharp
+
+let dose = Units.General.general "dose"
+
+// Calculate and get the resulting unit group
+4N
+|> create dose // 4 dose[General]
+>>* (fun vu -> vu / (1N |> create Units.Time.day)) // divide by 1 day[Time]
+>>* (fun vu -> vu ==> (dose |> per (Units.Time.week)))
+|> (fun (ValueUnit(_, u)) ->
+    u |> Group.unitToGroup)
+// GeneralGroup "dose", OpPer, TimeGroup -> i.e. Dose/Time
+
+#!markdown
+
+We can get all valid units for conversion:
+
+#!fsharp
+
+let d2 = 2. |> withUnit Units.Time.day
+let g4 = 0.4 |> withUnit Units.Mass.gram
+let mg400 = 400. |> withUnit Units.Mass.milliGram
+
+printfn "First example"
+// failing case, simplify doesn't work in this case
+calc false (/) (calc false (*) times3 mg400) g4
+|> fun x -> 
+    printfn "result without simplify:"
+    x |> pa; x
+|> simplify
+|> fun x ->
+    printfn "result with simplify:"
+    x |> pa
+
+printfn "Failing example"
+// failing case, simplify doesn't work in this case
+calc false (/) (calc false (/) mg400 ml50) d2
+|> fun x -> 
+    printfn "result without simplify:"
+    x |> pa; x
+|> simplify
+|> fun x ->
+    printfn "result with simplify:"
+    x |> pa
+
+// mg/kg/dag = mg * dag / kg 
+// a / c/ d
+
+// 60 mg/kg/2 dagen * 10 kg = 600 mg/2 dagen = 300 mg/dag
+// 60 mg/(kg / 2 dagen) * 10 kg = 600 mg / 2 dagen = 300 mg/dag

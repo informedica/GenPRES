@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Mapping.fs" />
+    <Compile Include="MinMax.fs" />
+    <Compile Include="Patient.fs" />
+    <Compile Include="DoseType.fs" />
+    <Compile Include="Product.fs" />
+    <Compile Include="Filter.fs" />
+    <Compile Include="DoseRule.fs" />
+    <Compile Include="SolutionRule.fs" />
+    <Compile Include="PrescriptionRule.fs" />
+    <None Include="Scripts\load.fsx" />
+    <None Include="Scripts\Scripts.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.ZForm.Lib\Informedica.ZForm.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.ZIndex.Lib\Informedica.ZIndex.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Measures.fs" />
+    <Compile Include="Aether.fs" />
+    <Compile Include="Validus.fs" />
+    <Compile Include="Calculations.fs" />
+    <Compile Include="ValueUnit.fs" />
+    <Compile Include="MinIncrMax.fs" />
+    <Compile Include="Patient.fs" />
+    <None Include="Scripts\load.fsx" />
+    <None Include="Scripts\Tests.fsx" />
+    <None Include="Scripts\Scripts.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenSolver.Lib\Informedica.GenSolver.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

@@ -1,0 +1,15 @@
+<Project>
+    <PropertyGroup>
+        <!-- summary is not migrated from project.json, but you can use the <Description> property for that if needed. -->
+        <PackageTags>f#, fsharp, medical</PackageTags>
+        <PackageProjectUrl>https://github.com/informedica/Informedica.GenOrder.Lib</PackageProjectUrl>
+        <PackageLicense>https://github.com/informedica/Informedica.GenOrder.Lib/blob/master/LICENSE.md</PackageLicense>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <RepositoryType>git</RepositoryType>
+        <PackageId>Informedica.GenOrder.Lib</PackageId>
+        <Version>1.0.5</Version>
+        <Authors>halcwb</Authors>
+        <Company>Informedica</Company>      
+        <RepositoryUrl>https://github.com/informedica/Informedica.GenOrder.Lib</RepositoryUrl>
+    </PropertyGroup>
+</Project>

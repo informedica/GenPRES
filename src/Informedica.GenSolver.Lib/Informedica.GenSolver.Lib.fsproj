@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <WarnOn>3390;$(WarnOn)</WarnOn>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Include="paket.references" />
+        <Compile Include="Types.fs" />
+        <Compile Include="Utils.fs" />
+        <Compile Include="Logging.fs" />
+        <Compile Include="Exceptions.fs" />
+        <Compile Include="Variable.fs" />
+        <Compile Include="Equation.fs" />
+        <Compile Include="Solver.fs" />
+        <Compile Include="Constraint.fs" />
+        <Compile Include="Api.fs" />
+        <Compile Include="SolverLogging.fs" />
+        <None Include="Scripts/load.fsx" />
+        <None Include="Scripts\Exceptions.fsx" />
+        <None Include="Scripts/MinMax.fsx" />
+        <None Include="Scripts/GentaEquations.fsx" />
+        <None Include="Scripts\DependencySolution.fsx" />
+        <None Include="Scripts\OrderEquations.fsx" />
+        <None Include="Scripts\Tests.fsx" />
+        <None Include="Scripts\Tests2.fsx" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+        <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    </ItemGroup>
+    <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

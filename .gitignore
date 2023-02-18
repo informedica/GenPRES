@@ -4,6 +4,7 @@
 # Add .gitignore and .gitattributes
 !.gitignore
 !.gitattributes
+!.dockerignore
 
 # Add license
 !LICENSE.txt
@@ -111,7 +112,6 @@
 !/src/Client/Utils/
 !/src/Client/Domain/
 !/src/Client/Components/
-!/src/Client/MUI/
 !/src/Client/Views/
 !/src/Client/Pages/
 
@@ -119,6 +119,58 @@
 !/src/Shared/Scripts/
 !/src/Server/
 !/src/Server/Scripts/
+!/src/Server/data
+!/src/Server/data/cache
+!/src/Server/data/*.cache
+
+# Add data folders
+!/data/
+!/data/cache/
+!/data/zindex/
+!/data/formulary/
+!/data/formulary/*.csv
+!/data/mapping/
+!/data/output/
+!/data/output/*.csv
+
+
+# Informedica.Utils.Lib
+!/src/Informedica.Utils.Lib/
+!/src/Informedica.Utils.Lib/BCL/
+!/src/Informedica.Utils.Lib/Scripts/
+!/src/Informedica.Utils.Lib/Notebooks/
+# Informedica.GenCore.Lib
+!/src/Informedica.GenCore.Lib/
+!/src/Informedica.GenCore.Lib/Scripts/
+!/src/Informedica.GenCore.Lib/Notebooks/
+# Informedica.GenUnits.Lib
+!/src/Informedica.GenUnits.Lib/
+!/src/Informedica.GenUnits.Lib/Scripts/
+!/src/Informedica.GenUnits.Lib/Notebooks/
+#Informedica.GenSolver.Lib
+!/src/Informedica.GenSolver.Lib/
+!/src/Informedica.GenSolver.Lib/Scripts/
+!/src/Informedica.GenSolver.Lib/Notebooks/
+#Informedica.ZIndex.Lib
+!/src/Informedica.ZIndex.Lib/
+!/src/Informedica.ZIndex.Lib/Scripts/
+!/src/Informedica.ZIndex.Lib/Notebooks/
+#Informedica.ZForm.Lib
+!/src/Informedica.ZForm.Lib/
+!/src/Informedica.ZForm.Lib/Scripts/
+!/src/Informedica.ZForm.Lib/Notebooks/
+#Informedica.MetaVision.Lib
+!/src/Informedica.MetaVision.Lib/
+!/src/Informedica.MetaVision.Lib/Scripts/
+!/src/Informedica.MetaVision.Lib/Notebooks/
+#Informedica.GenForm.Lib
+!/src/Informedica.GenForm.Lib/
+!/src/Informedica.GenForm.Lib/Scripts/
+!/src/Informedica.GenForm.Lib/Notebooks/
+#Informedica.GenOrder.Lib
+!/src/Informedica.GenOrder.Lib/
+!/src/Informedica.GenOrder.Lib/Scripts/
+!/src/Informedica.GenOrder.Lib/Notebooks/
 
 
 # Add test files
@@ -127,3 +179,4 @@
 !/tests/Server/Scripts/
 !/tests/UITests/
 !/tests/UITests/Scripts/
+

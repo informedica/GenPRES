@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Continuation.fs" />
+    <Compile Include="Memoization.fs" />
+    <Compile Include="Reflection.fs" />
+    <Compile Include="NullCheck.fs" />
+    <Compile Include="BCL\Boolean.fs" />
+    <Compile Include="BCL\Char.fs" />
+    <Compile Include="BCL\String.fs" />
+    <Compile Include="BCL\Int32.fs" />
+    <Compile Include="BCL\Double.fs" />
+    <Compile Include="BCL\BigInteger.fs" />
+    <Compile Include="BCL\BigRational.fs" />
+    <Compile Include="BCL\DateTime.fs" />
+    <Compile Include="BCL\Decimal.fs" />
+    <Compile Include="BCL\Tuple.fs" />
+    <Compile Include="Option.fs" />
+    <Compile Include="StringBuilder.fs" />
+    <Compile Include="Result.fs" />
+    <Compile Include="Array.fs" />
+    <Compile Include="List.fs" />
+    <Compile Include="Seq.fs" />
+    <Compile Include="Set.fs" />
+    <Compile Include="Path.fs" />
+    <Compile Include="File.fs" />
+    <Compile Include="Csv.fs" />
+    <Compile Include="Web.fs" />
+    <Compile Include="Env.fs" />
+    <Compile Include="App.fs" />
+    <None Include="Scripts/load.fsx" />
+    <None Include="Scripts/Scripts.fsx" />
+    <None Include="Scripts\Tests.fsx" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

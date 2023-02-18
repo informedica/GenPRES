@@ -1,0 +1,183 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","aliases":["c#","C#"],"languageName":"C#"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"vscode","languageName":null,"aliases":["frontend"]}]}}
+
+#!fsharp
+
+#load "../Scripts/load.fsx"
+
+open Informedica.GenSolver.Lib
+
+#!fsharp
+
+open System
+open System.IO
+
+open Informedica.GenSolver.Lib
+open Informedica.Utils.Lib.BCL
+open MathNet.Numerics
+open Types
+
+module Api = Informedica.GenSolver.Lib.Api
+module Solver = Informedica.GenSolver.Lib.Solver
+module Name = Variable.Name
+module ValueRange = Variable.ValueRange
+module Minimum = ValueRange.Minimum
+module Maximum = ValueRange.Maximum
+module Increment = ValueRange.Increment
+module ValueSet = ValueRange.ValueSet
+
+let procss s = printfn $"%s{s} "
+
+let printEqs = Solver.printEqs true procss
+
+let setProp n p eqs =
+    let n = n |> Name.createExc
+    match eqs |> Api.setVariableValues true None n p with
+    | Some var ->
+        eqs
+        |> List.map (fun e ->
+            e |> Equation.replace var
+        )
+    | None -> eqs
+
+let setMinIncl n min = min |> Minimum.create true |> MinProp |> setProp n
+let setMinExcl n min = min |> Minimum.create false |> MinProp |> setProp n
+let setMaxIncl n max = max |> Maximum.create true |> MaxProp |> setProp n
+let setMaxExcl n max = max |> Maximum.create true |> MaxProp |> setProp n
+let setValues n vals = vals |> ValueSet.create |> ValsProp |> setProp n
+
+let solve n p eqs =
+    let logger = 
+        fun (s : string) ->
+            File.AppendAllLines("examples.log", [s])
+        |> SolverLogging.logger 
+    let n = n |> Name.createExc
+    Api.solve true id logger None n p eqs
+
+let solveMinIncl n min = solve n (min |> Minimum.create true |> MinProp)
+let solveMinExcl n min = solve n (min |> Minimum.create false |> MinProp)
+let solveMaxIncl n max = solve n (max |> Maximum.create true |> MaxProp)
+let solveMaxExcl n max = solve n (max |> Maximum.create false |> MaxProp)
+let solveIncr n incr = solve n (set [incr] |> Increment.create |> IncrProp)
+let solveValues n vals = solve n (vals |> ValueSet.create |> ValsProp)
+
+let init     = Api.init
+let nonZeroNegative = Api.nonZeroNegative
+
+#!fsharp
+
+type Orb =
+    {
+        Components : Component list
+    }
+and Component =
+    {
+        Name : string
+        Items : string list
+    }
+
+let createEqs (orb : Orb) = 
+    [
+        "itm_cmp_qty = itm_cmp_cnc * cmp_qty"
+        "itm_orb_qty = itm_orb_cnc * orb_qty"
+        "itm_orb_qty = itm_cmp_cnc * cmp_orb_qty"
+        "itm_dos_qty = itm_cmp_cnc * cmp_dos_qty"
+        "itm_dos_qty = itm_orb_cnc * orb_dos_qty"
+        "itm_dos_qty = itm_dos_rte * pres_time"
+        "itm_dos_qty = itm_dos_qty_adj * ord_adj"
+        "itm_dos_tot = itm_cmp_cnc * cmp_dos_tot"
+        "itm_dos_tot = itm_orb_cnc * orb_dos_tot"
+        "itm_dos_tot = itm_dos_qty * pres_freq"
+        "itm_dos_tot = itm_dos_tot_adj * ord_adj"
+        "itm_dos_rte = itm_cmp_cnc * cmp_dos_rte"
+        "itm_dos_rte = itm_orb_cnc * orb_dos_rte"
+        "itm_dos_rte = itm_dos_rte_adj * ord_adj"
+        "itm_dos_ord = itm_dos_tot * ord_time"
+        "itm_dos_ord = itm_dos_rte * ord_time"
+        "itm_dos_qty_adj = itm_cmp_cnc * cmp_dos_qty_adj"
+        "itm_dos_qty_adj = itm_orb_cnc * orb_dos_qty_adj"
+        "itm_dos_qty_adj = itm_dos_rte_adj * pres_time"
+        "itm_dos_tot_adj = itm_cmp_cnc * cmp_dos_tot_adj"
+        "itm_dos_tot_adj = itm_orb_cnc * orb_dos_tot_adj"
+        "itm_dos_tot_adj = itm_dos_qty_adj * pres_freq"
+        "itm_dos_rte_adj = itm_cmp_cnc * cmp_dos_rte_adj"
+        "itm_dos_rte_adj = itm_orb_cnc * orb_dos_rte_adj"
+        "cmp_orb_qty = cmp_orb_cnc * orb_qty"
+        "cmp_orb_qty = cmp_qty * cmp_orb_cnt"
+        "cmp_ord_qty = cmp_qty * cmp_ord_cnt"
+        "cmp_ord_qty = cmp_dos_tot * ord_time"
+        "cmp_ord_qty = cmp_dos_rte * ord_time"
+        "cmp_dos_qty = cmp_orb_cnc * orb_dos_qty"
+        "cmp_dos_qty = cmp_dos_rte * pres_time"
+        "cmp_dos_qty = cmp_dos_qty_adj * ord_adj"
+        "cmp_dos_tot = cmp_orb_cnc * orb_dos_tot"
+        "cmp_dos_tot = cmp_dos_qty * pres_freq"
+        "cmp_dos_tot = cmp_dos_tot_adj * ord_adj"
+        "cmp_dos_rte = cmp_orb_cnc * orb_dos_rte"
+        "cmp_dos_rte = cmp_dos_rte_adj * ord_adj"
+        "cmp_dos_qty_adj = cmp_orb_cnc * orb_dos_qty_adj"
+        "cmp_dos_qty_adj = cmp_dos_rte_adj * pres_time"
+        "cmp_dos_tot_adj = cmp_orb_cnc * orb_dos_tot_adj"
+        "cmp_dos_tot_adj = cmp_dos_qty_adj * pres_freq"
+        "cmp_dos_rte_adj = cmp_orb_cnc * orb_dos_rte_adj"
+        "orb_ord_qty = orb_ord_cnt * orb_qty"
+        "orb_ord_qty = orb_dos_tot * ord_time"
+        "orb_ord_qty = orb_dos_rte * ord_time"
+        "orb_dos_qty = orb_dos_rte * pres_time"
+        "orb_dos_qty = orb_dos_qty_adj * ord_adj"
+        "orb_dos_tot = orb_dos_qty * pres_freq"
+        "orb_dos_tot = orb_dos_tot_adj * ord_adj"
+        "orb_dos_rte = orb_dos_rte_adj * ord_adj"
+        "orb_dos_qty_adj = orb_dos_rte_adj * pres_time"
+        "orb_dos_tot_adj = orb_dos_qty_adj * pres_freq"
+    ]
+    |> fun eqs ->
+        let eqs = eqs |> List.map (fun s -> $" {s}")
+        let itmEqs =
+            eqs
+            |> List.filter (fun e ->
+                e.Contains("itm")
+            )
+        let cmpEqs =
+            eqs
+            |> List.filter (fun e ->
+                itmEqs
+                |> List.exists ((=) e)
+                |> not &&
+                e.Contains("cmp")
+            )
+        let orbEqs = 
+            eqs
+            |> List.filter (fun e ->
+                itmEqs
+                |> List.exists ((=) e)
+                |> not &&
+                cmpEqs
+                |> List.exists((=) e)
+                |> not                
+            )
+        
+        orb.Components
+        |> List.fold (fun acc c ->
+            let itms =
+                c.Items
+                |> List.collect (fun i ->
+                    itmEqs
+                    |> List.map (fun s -> s.Replace(" cmp", $" {c.Name}").Replace(" itm", $" {i}"))
+                )
+
+            cmpEqs 
+            |> List.map (fun s1 ->
+                s1.Replace(" cmp", $" {c.Name}")
+            )
+            |> List.append itms
+            |> List.append acc
+        ) orbEqs
+        
+    |> Api.init
+    |> nonZeroNegative
+
+createEqs { Components = [ {Name = "pcm_supp"; Items = ["paracetamol"]} ] }
+|> printEqs
+|> ignore

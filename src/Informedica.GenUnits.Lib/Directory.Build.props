@@ -1,0 +1,15 @@
+<Project>
+    <PropertyGroup>
+        <!-- summary is not migrated from project.json, but you can use the <Description> property for that if needed. -->
+        <PackageTags>f#, fsharp</PackageTags>
+        <PackageProjectUrl>https://github.com/informedica/Informedica.GenUnits.Lib</PackageProjectUrl>
+        <PackageLicense>https://github.com/informedica/Informedica.GenUnits.Lib/blob/master/LICENSE.md</PackageLicense>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <RepositoryType>git</RepositoryType>
+        <PackageId>Informedica.GenUnits.Lib</PackageId>
+        <Version>1.0.3</Version>
+        <Authors>halcwb</Authors>
+        <Company>Informedica</Company>      
+        <RepositoryUrl>https://github.com/informedica/Informedica.GenUnits.Lib</RepositoryUrl>
+    </PropertyGroup>
+</Project>

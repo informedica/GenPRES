@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <OtherFlags>$(OtherFlags) --warnon:1182 </OtherFlags>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Markdown.fs" />
+    <Compile Include="Mapping.fs" />
+    <Compile Include="ValueUnit.fs" />
+    <Compile Include="Product.fs" />
+    <Compile Include="PatientCategory.fs" />
+    <Compile Include="DoseRule.fs" />
+    <Compile Include="GStand.fs" />
+    <Compile Include="Dto.fs" />
+    <None Include="Scripts\load.fsx" />
+    <None Include="Scripts\loadDLL.fsx" />
+    <None Include="Scripts\GStand.fsx" />
+    <None Include="Scripts\GenForm3.fsx" />
+    <None Include="Scripts\Dto.fsx" />
+    <None Include="Scripts\Scripts.fsx" />
+    <None Include="Scripts\Dto.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.ZIndex.Lib\Informedica.ZIndex.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

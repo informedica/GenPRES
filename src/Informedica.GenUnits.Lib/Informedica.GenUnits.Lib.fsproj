@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="paket.references" />
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="ValueUnit.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="Api.fs" />
+    <None Include="Scripts/load.fsx" />
+    <None Include="Scripts\Tests.fsx" />
+    <None Include="Scripts/Parser.fsx" />
+    <None Include="Scripts/Api.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

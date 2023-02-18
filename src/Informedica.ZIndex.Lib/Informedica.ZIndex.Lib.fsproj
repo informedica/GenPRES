@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="FilePath.fs" />
+    <Compile Include="Json.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="BST001T.fs" />
+    <Compile Include="BST000T.fs" />
+    <Compile Include="CodeGen.fs" />
+    <Compile Include="Zindex.fs" />
+    <Compile Include="Assortment.fs" />
+    <Compile Include="Names.fs" />
+    <Compile Include="Route.fs" />
+    <Compile Include="Substance.fs" />
+    <Compile Include="ConsumerProduct.fs" />
+    <Compile Include="TradeProduct.fs" />
+    <Compile Include="PrescriptionProduct.fs" />
+    <Compile Include="GenericProduct.fs" />
+    <Compile Include="GenPresProduct.fs" />
+    <Compile Include="DoseRule.fs" />
+    <Compile Include="ATCGroup.fs" />
+    <Compile Include="RuleFinder.fs" />
+    <None Include="Scripts\load.fsx" />
+    <None Include="Scripts\loadGenCode.fsx" />
+    <None Include="Scripts/GenCode.fsx" />
+    <None Include="Scripts/Script.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenCore.Lib\Informedica.GenCore.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
