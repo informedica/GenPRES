@@ -1,0 +1,133 @@
+# Use an opt-in strategy
+*
+
+# Add build files
+!build.sh
+!build.cmd
+
+# Add build props
+!Directory.Build.props
+
+# Add global json
+!global.json
+
+
+# Add local tools config
+!/.config/
+!/.config/*.json
+
+# Add paket targets
+!/.paket/
+!/.paket/Paket.Restore.targets
+
+
+# Add dependencies file
+!paket.dependencies
+!paket.lock
+!paket.references
+!paket.template
+
+!package.json
+!package-lock.json
+
+!webpack.config.js
+
+# Add yml files to ci on appveyor and travis
+!appveyor.yml
+!.travis.yml
+
+# Add solution file
+!*.sln
+
+# Add fsharp project files
+!*.fsproj
+
+# Add configurarion files
+!App.config
+
+# Add fsharp source files
+!*.fs
+
+# Add notebook files
+!*.dib
+
+# Add documentation tools
+!/docsTool/
+!/docsTool/templates/
+
+# Add documentation source files
+!/docsSrc/
+!/docsSrc/**
+
+# Add documentation
+!/docs/
+!/docs/**
+
+# Add source files
+!/scripts/
+!/src/
+
+!/src/Client/
+!/src/Client/Scripts/
+!/src/Client/public/
+!/src/Client/Utils/
+!/src/Client/Domain/
+!/src/Client/Components/
+!/src/Client/Views/
+!/src/Client/Pages/
+
+!/src/Shared/
+!/src/Shared/Scripts/
+!/src/Server/
+!/src/Server/Scripts/
+!/src/Server/data
+!/src/Server/data/cache
+!/src/Server/data/*.cache
+
+
+# Informedica.Utils.Lib
+!/src/Informedica.Utils.Lib/
+!/src/Informedica.Utils.Lib/BCL/
+!/src/Informedica.Utils.Lib/Scripts/
+!/src/Informedica.Utils.Lib/Notebooks/
+# Informedica.GenCore.Lib
+!/src/Informedica.GenCore.Lib/
+!/src/Informedica.GenCore.Lib/Scripts/
+!/src/Informedica.GenCore.Lib/Notebooks/
+# Informedica.GenUnits.Lib
+!/src/Informedica.GenUnits.Lib/
+!/src/Informedica.GenUnits.Lib/Scripts/
+!/src/Informedica.GenUnits.Lib/Notebooks/
+#Informedica.GenSolver.Lib
+!/src/Informedica.GenSolver.Lib/
+!/src/Informedica.GenSolver.Lib/Scripts/
+!/src/Informedica.GenSolver.Lib/Notebooks/
+#Informedica.ZIndex.Lib
+!/src/Informedica.ZIndex.Lib/
+!/src/Informedica.ZIndex.Lib/Scripts/
+!/src/Informedica.ZIndex.Lib/Notebooks/
+#Informedica.ZForm.Lib
+!/src/Informedica.ZForm.Lib/
+!/src/Informedica.ZForm.Lib/Scripts/
+!/src/Informedica.ZForm.Lib/Notebooks/
+#Informedica.MetaVision.Lib
+!/src/Informedica.MetaVision.Lib/
+!/src/Informedica.MetaVision.Lib/Scripts/
+!/src/Informedica.MetaVision.Lib/Notebooks/
+#Informedica.GenForm.Lib
+!/src/Informedica.GenForm.Lib/
+!/src/Informedica.GenForm.Lib/Scripts/
+!/src/Informedica.GenForm.Lib/Notebooks/
+#Informedica.GenOrder.Lib
+!/src/Informedica.GenOrder.Lib/
+!/src/Informedica.GenOrder.Lib/Scripts/
+!/src/Informedica.GenOrder.Lib/Notebooks/
+
+
+# Add test files
+!/tests/
+!/tests/Server
+!/tests/Server/Scripts/
+!/tests/UITests/
+!/tests/UITests/Scripts/
+
