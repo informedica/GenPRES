@@ -31,10 +31,12 @@ open Informedica.GenForm.Lib
 
 { Patient.patient with
     Department = "ICK"
-    Age = 365N * 4N |> Some
-    Weight = 17000N |> Some
+    Age = 365N * 18N |> Some
+    Weight = 68000N |> Some
     Location = CVL
 }
 |> PrescriptionRule.get
-|> Array.filter (fun r -> r.DoseRule.Generic = "acetazolamide")
+|> Array.filter (fun r -> r.DoseRule.Generic = "ceftriaxon" && r.DoseRule.Route = "iv")
+|> Array.map (fun r -> r.DoseRule)
+|> DoseRule.Print.toMarkdown
 |> Array.item 0

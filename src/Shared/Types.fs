@@ -178,5 +178,6 @@ module Types =
             Indication: string option
             Medication: string option
             Route: string option
+            Age : float option
             Weight: float option
         }

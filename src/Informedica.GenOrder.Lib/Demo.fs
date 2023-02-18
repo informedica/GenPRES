@@ -76,6 +76,8 @@ module Demo =
                             Generic = gen
                             Route = rte
                             Shape = shp
+                            Age = sc.Patient.Age
+                            Weight = sc.Patient.Weight
                         }
                         |> PrescriptionRule.filter
                         |> Array.collect (fun pr ->

@@ -544,6 +544,13 @@ module Patient =
         |> getAgeInYears
         |> Option.bind (fun ys -> ys * 12. |> Some)
 
+
+    let getAgeInDays p =
+        p
+        |> getAgeInYears
+        |> Option.bind (fun ys -> ys * 365. |> Some)
+
+
     /// Get either the measured weight or the
     /// estimated weight if measured weight = 0
     let getWeight (pat: Patient) =
@@ -610,7 +617,7 @@ module Patient =
         a
 
 
-    let toString lang markDown pat =
+    let toString lang markDown (pat : Patient) =
         let getTerm = Localization.getTerm lang
         let toStr s n = n |> Option.map (sprintf "%s%.1f" s)
 
@@ -1155,5 +1162,6 @@ module ScenarioResult =
             Indication = None
             Medication = None
             Route = None
+            Age = None
             Weight = None
         }

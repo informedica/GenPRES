@@ -20,20 +20,24 @@ let serverApi: IServerApi =
                     let msg (sc: ScenarioResult)=
                         $"""
 processing:
+Patient: {sc.Age} days, {sc.Weight} kg
 Indications: {sc.Indications |> List.length}
 Medications: {sc.Medications |> List.length}
 Routes: {sc.Routes |> List.length}
 Indication: {sc.Indication |> Option.defaultValue ""}
 Medication: {sc.Medication |> Option.defaultValue ""}
 Route: {sc.Route |> Option.defaultValue ""}
+Scenarios: {sc.Scenarios |> List.length}
 """
 
                     printfn $"{msg sc}"
-                    printfn $"{System.Environment.CurrentDirectory}"
 
                     let pat =
                         { Patient.patient with
                             Department = "ICK"
+                            Age = 
+                                sc.Age
+                                |> Option.bind BigRational.fromFloat
                             Weight =
                                 sc.Weight
                                 |> Option.map (fun w -> w * 1000.)

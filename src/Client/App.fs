@@ -166,6 +166,10 @@ let update (msg: Msg) (state: Model) =
             match state.Scenarios with
             | Resolved sc when state.Patient.IsSome ->
                 { sc with
+                    Age = 
+                        match state.Patient with
+                        | Some pat -> pat |> Patient.getAgeInDays
+                        | None -> sc.Age
                     Weight =
                         match state.Patient with
                         | Some pat -> pat |> Patient.getWeight
