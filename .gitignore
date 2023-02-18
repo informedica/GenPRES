@@ -121,7 +121,6 @@
 !/src/Server/Scripts/
 !/src/Server/data
 !/src/Server/data/cache
-!/src/Server/data/*.cache
 
 # Add data folders
 !/data/

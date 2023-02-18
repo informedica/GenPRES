@@ -13,5 +13,8 @@
     <Compile Include="ServerApi.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenOrder.Lib\Informedica.GenOrder.Lib.fsproj" />
+  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -30,8 +30,6 @@ nuget Feliz.UseElmish ~> 1.6
 
 nuget Saturn
 
-nuget Informedica.GenOrder.Lib = 1.0.0
-
 nuget FParsec
 nuget FsToolkit.ErrorHandling
 nuget MathNet.Numerics.FSharp

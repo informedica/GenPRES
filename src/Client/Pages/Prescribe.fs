@@ -147,23 +147,31 @@ module Prescribe =
         let inline renderSelect s msg v xs =
             Components.Select.render (Typography.body1 s) xs v (msg >> dispatch)
 
+
         let scenarioList =
                 scs
                 |> List.map (fun sc ->
                     Mui.listItem [
-                        sc |> Components.Markdown.render
+                        sc
+                        |> String.replace "[" ""
+                        |> String.replace "]" ""
+                        |> String.replace "<" ""
+                        |> String.replace ">" ""
+                        |> Components.Markdown.render
                     ]
                 )
                 |> Mui.list
 
+
         Html.div [
             prop.id "prescribe-div"
             prop.children [
-                renderSelect "Indicatie" IndicationChange state.Indication inds
-
-                renderSelect "Medicatie" MedicationChange state.Medication meds
-
-                renderSelect "Route" RouteChange state.Route rts
+                if inds |> List.isEmpty |> not then
+                    renderSelect "Indicatie" IndicationChange state.Indication inds
+                if meds |> List.isEmpty |> not then
+                    renderSelect "Medicatie" MedicationChange state.Medication meds
+                if rts |> List.isEmpty |> not then
+                    renderSelect "Route" RouteChange state.Route rts
 
                 match input.scenarios with
                 | Resolved _ -> scenarioList

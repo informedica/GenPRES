@@ -1,44 +1,13 @@
 [<AutoOpen>]
 module ServerApiImpl
 
-
+open MathNet.Numerics
 open Informedica.Utils.Lib.BCL
 open Informedica.GenOrder.Lib
 
 
 open Shared.Types
 open Shared.Api
-
-
-module Demo =
-
-
-    let toString (sc : Informedica.GenOrder.Lib.Types.Scenario) =
-        $"""
-- #### {sc.No}. {sc.Name} {sc.Shape} {sc.Route}
-- *Voorschrift*: {sc.Prescription}
-- *Bereiding*: {sc.Preparation}
-- *Toediening*: {sc.Administration |> String.replace "hr" "uur"} {sc.Route}
-
-"""
-
-    let create w ind med rte =
-        Demo.filter ind med rte
-        |> List.collect (fun (_, m, r, d, ns) ->
-            try
-                r
-                |> Demo.mapRoute
-                |> Examples.getOrders m 
-                |> List.collect (Examples.calculate w ns d)
-                |> List.map (fun sc -> { sc with Route = r })
-            with
-            | _ -> []
-        )
-        // correct for roundig problem. admin should not be rounded!
-        |> List.distinctBy (fun sc -> sc.Route, sc.Administration)
-        |> List.map Demo.translate
-        |> List.mapi (fun i sc -> { sc with No = i + 1 })
-        |> List.map toString
 
 
 /// An implementation of the Shared IServerApi protocol.
@@ -48,40 +17,61 @@ let serverApi: IServerApi =
             fun (sc: ScenarioResult) ->
 
                 async {
-                    printfn $"processing: {sc}"
+                    let msg (sc: ScenarioResult)=
+                        $"""
+processing:
+Indications: {sc.Indications |> List.length}
+Medications: {sc.Medications |> List.length}
+Routes: {sc.Routes |> List.length}
+Indication: {sc.Indication |> Option.defaultValue ""}
+Medication: {sc.Medication |> Option.defaultValue ""}
+Route: {sc.Route |> Option.defaultValue ""}
+"""
 
-                    let inds = Demo.filterIndications sc.Medication sc.Route |> List.sort
-                    let meds = Demo.filterMedications sc.Indication sc.Route |> List.sort
-                    let rtes = Demo.filterRoutes sc.Indication sc.Medication |> List.sort
+                    printfn $"{msg sc}"
+                    printfn $"{System.Environment.CurrentDirectory}"
 
-                    let someIfOne a = function
-                        | [x] when a |> Option.isNone -> Some x
-                        | _ -> a
+                    let pat =
+                        { Patient.patient with
+                            Department = "ICK"
+                            Weight =
+                                sc.Weight
+                                |> Option.map (fun w -> w * 1000.)
+                                |> Option.bind BigRational.fromFloat
+                            Height = Some 100N
+                        }
 
-                    let sc = 
-                            { sc with
-                                Indications = inds
-                                Medications = meds
-                                Routes = rtes
-                                Indication = inds |> someIfOne sc.Indication
-                                Medication = meds |> someIfOne sc.Medication
-                                Route = rtes |> someIfOne sc.Route
-                            }
-                            |> fun sc ->
-                                { sc with
-                                    Scenarios =
-                                        match sc.Weight, sc.Indication with
-                                        | Some w, Some ind ->
-                                            Demo.create
-                                                w
-                                                (Some ind)
-                                                sc.Medication
-                                                sc.Route
-                                        | _ -> []
+                    let newSc =
+                        { Demo.scenarioResult pat with
+                            Indications =
+                                if sc.Indication |> Option.isSome then [| sc.Indication |> Option.defaultValue "" |]
+                                else
+                                    sc.Indications |> List.toArray
+                            Generics =
+                                if sc.Medication |> Option.isSome then [| sc.Medication |> Option.defaultValue "" |]
+                                else
+                                sc.Medications |> List.toArray
+                            Routes =
+                                if sc.Route |> Option.isSome then [| sc.Route |> Option.defaultValue "" |]
+                                else
+                                    sc.Routes |> List.toArray
+                            Indication = sc.Indication
+                            Generic = sc.Medication
+                            Route = sc.Route
+                        }
+                        |> Demo.filter
 
-                                }
-
-
+                    let sc =
+                        { sc with
+                            Indications = newSc.Indications |> Array.toList
+                            Medications = newSc.Generics |> Array.toList
+                            Routes = newSc.Routes |> Array.toList
+                            Indication = newSc.Indication
+                            Medication = newSc.Generic
+                            Route = newSc.Route
+                            Scenarios = newSc.Scenarios |> Array.toList
+                        }
+                    printfn $"finished:\{msg sc}"
                     return sc |> Ok
                 }
     }
