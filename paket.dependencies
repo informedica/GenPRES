@@ -30,6 +30,15 @@ nuget Feliz.UseElmish ~> 1.6
 
 nuget Saturn
 
-nuget FParsec
-
 nuget Informedica.GenOrder.Lib = 1.0.0
+
+nuget FParsec
+nuget FsToolkit.ErrorHandling
+nuget MathNet.Numerics.FSharp
+nuget Microsoft.Net.Test.Sdk
+nuget Unquote
+nuget Validus
+nuget YoloDev.Expecto.TestSdk
+nuget Markdig
+nuget Aether
+nuget ClosedXML = 0.97
