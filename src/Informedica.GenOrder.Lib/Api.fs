@@ -117,7 +117,20 @@ module Api =
             |> Array.filter (fun dl -> dl.Substance |> String.isNullOrWhiteSpace)
             |> function
             | [|dl|] -> dl |> Some
-            | _ -> None
+            | _ -> 
+                // TODO: need to move this to genform
+                if (pr.DoseRule.Route = "rect" && 
+                   pr.DoseRule.Shape = "zetpil") |> not  then None
+                else
+                    { DoseRule.DoseLimit.limit with
+                        DoseUnit = "stuk"
+                        Quantity = 
+                            { MinMax.none with
+                                Minimum = Some 1N
+                                Maximum = Some 1N
+                            }
+                    }
+                    |> Some
 
         let noSubst =
             dose

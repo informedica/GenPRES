@@ -110,25 +110,25 @@ let getRule i pat =
     |> Array.item i
 
 
+let createScenarios () =
+    [
+        Patient.premature
+        Patient.newBorn
+        Patient.infant
+        Patient.toddler
+        Patient.child
+        Patient.teenager
+        Patient.adult
+    ]
+    // |> List.skip 4
+    // |> List.take 1
+    |> List.iter (fun pat ->
+        let n = getN pat
+        printfn $"=== Running pat: {pat |> Patient.toString}: {n} ==="
 
-[
-    Patient.premature
-    Patient.newBorn
-    Patient.infant
-    Patient.toddler
-    Patient.child
-    Patient.teenager
-    Patient.adult
-]
-// |> List.skip 4
-// |> List.take 1
-|> List.iter (fun pat ->
-    let n = getN pat
-    printfn $"=== Running pat: {pat |> Patient.toString}: {n} ==="
-
-    pat
-    |> run n
-)
+        pat
+        |> run n
+    )
 
 
 
