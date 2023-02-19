@@ -32,10 +32,18 @@ module Demo =
         match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
         | Some w, Some _, d when d |> String.notEmpty ->
 
-            let ind = sc.Indications |> Array.someIfOne
-            let gen = sc.Generics |> Array.someIfOne
-            let rte = sc.Routes |> Array.someIfOne
-            let shp = sc.Shapes |> Array.someIfOne
+            let ind = 
+                if sc.Indication.IsSome then sc.Indication
+                else sc.Indications |> Array.someIfOne
+            let gen =
+                if sc.Generic.IsSome then sc.Generic
+                else sc.Generics |> Array.someIfOne
+            let rte = 
+                if sc.Route.IsSome then sc.Route
+                else sc.Routes |> Array.someIfOne
+            let shp = 
+                if sc.Shape.IsSome then sc.Shape
+                else sc.Shapes |> Array.someIfOne
 
             let filter = 
                 { Filter.filter with

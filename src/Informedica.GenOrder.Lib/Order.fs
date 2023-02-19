@@ -161,6 +161,7 @@ module Order =
                     |> List.append es
                     |> List.map (String.replace "[orb]" $"{orbN |> Name.toString}")
                     |> List.map (String.replace "[ord]" $"{idN |> Name.toString}")
+                    |> List.distinct
                     |> ProductMapping
 
                 sumEqs, prodEqs

@@ -145,7 +145,7 @@ module Solver =
                                 |> replace vars
                                 |> function
                                 | rpl, rst ->
-                                    // replace vars in tail
+                                    // replace vars in the que tail
                                     let que =
                                         tail
                                         |> replace vars
@@ -213,9 +213,25 @@ module Solver =
                 Error (eqs, m)
 
 
+    //TODO: need to clean up the number check
     let solveVariable onlyMinIncrMax log sortQue vr eqs =
-        solve onlyMinIncrMax log sortQue (Some vr) eqs
+        let n1 = eqs |> List.length
 
+        match solve onlyMinIncrMax log sortQue (Some vr) eqs with
+        | Error (eqs, errs) -> Error (eqs, errs)
+        | Ok eqs ->
+            let n2 = eqs |> List.length 
+            if n2 <> n1 then failwith $"not the same number of eqs, was: {n1}, now {n2}"
+            else Ok eqs
+        
 
+    //TODO: need to clean up the number check
     let solveAll onlyMinIncrMax log eqs =
-        solve onlyMinIncrMax log sortQue None eqs
+        let n1 = eqs |> List.length
+
+        match solve onlyMinIncrMax log sortQue None eqs with
+        | Error (eqs, errs) -> Error (eqs, errs)
+        | Ok eqs ->
+            let n2 = eqs |> List.length 
+            if n2 <> n1 then failwith $"not the same number of eqs, was: {n1}, now {n2}"
+            else Ok eqs

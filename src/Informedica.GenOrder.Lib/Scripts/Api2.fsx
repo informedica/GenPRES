@@ -238,24 +238,22 @@ Patient.infant
 
 
 
+startLogger()
 
+Patient.child
+|> fun p -> 
+{ p with
+    Age = Some (10N * 365N)
 
-Patient.adult
+}
 |> Demo.scenarioResult
 |> Demo.filter
 |> fun scr -> 
     { scr with
-        Generics = scr.Generics |> Array.filter ((=) "ceftriaxon")
-    }
-|> Demo.filter
-|> fun scr -> 
-    { scr with
-        Indications = scr.Indications |> Array.take 1
-    }
-|> Demo.filter
-|> fun scr -> 
-    { scr with
-        Routes = scr.Routes |> Array.filter ((=) "iv")
+        Indication = Some "pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"
+        Generic = Some "paracetamol"
+        Route = Some "rect"
+
     }
 |> Demo.filter
 
