@@ -75,9 +75,9 @@ module Demo =
                 Route = rte
                 Shape = shp
                 Scenarios = 
-                    match gen, rte, shp with
-                    | Some _, Some _, _ 
-                    | Some _, _, Some _ ->
+                    match ind, gen, rte, shp with
+                    | Some _, Some _, Some _, _ 
+                    | Some _, Some _, _, Some _ ->
                         { filter with
                             Department = Some d
                             Indication = ind

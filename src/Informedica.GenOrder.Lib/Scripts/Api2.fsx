@@ -237,23 +237,3 @@ Patient.infant
 |> Array.iter (printfn "%s")
 
 
-
-startLogger()
-
-Patient.child
-|> fun p -> 
-{ p with
-    Age = Some (10N * 365N)
-
-}
-|> Demo.scenarioResult
-|> Demo.filter
-|> fun scr -> 
-    { scr with
-        Indication = Some "pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"
-        Generic = Some "paracetamol"
-        Route = Some "rect"
-
-    }
-|> Demo.filter
-

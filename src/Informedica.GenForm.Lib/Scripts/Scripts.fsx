@@ -36,7 +36,11 @@ open Informedica.GenForm.Lib
     Location = CVL
 }
 |> PrescriptionRule.get
-|> Array.filter (fun r -> r.DoseRule.Generic = "ceftriaxon" && r.DoseRule.Route = "iv")
-|> Array.map (fun r -> r.DoseRule)
-|> DoseRule.Print.toMarkdown
+|> Array.filter (fun r -> r.DoseRule.Generic = "paracetamol" && r.DoseRule.Route = "rect")
+|> Array.collect (fun r -> r.DoseRule.DoseLimits
+)
+//|> DoseRule.Print.toMarkdown
 |> Array.item 0
+
+
+Mapping.filterRouteShapeUnit "rect" "zetpil" ""

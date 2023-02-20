@@ -85,20 +85,18 @@ module Variable =
 
 
             let calc op incr1 incr2 =
-                let incr1 = incr1 |> ValueUnit.toBase
-                let incr2 = incr2 |> ValueUnit.toBase
-
                 match op with
                 // y.incr = x1.incr * x2.incr
                 | ValueUnit.Operators.Mult -> incr1 |> op <| incr2 |> create |> Some
 
                 // when y = x1 + x2 then y.incr = x1.incr and x2.incr
                 | ValueUnit.Operators.Add -> //| BigRational.Subtr ->
-                    let vs1 = incr1 |> ValueUnit.getValue
-                    let vs2 = incr2 |> ValueUnit.getValue
+                    let vs1 = incr1 |> ValueUnit.getBaseValue
+                    let vs2 = incr2 |> ValueUnit.getBaseValue
 
                     incr1
                     |> ValueUnit.setValue (Array.append vs1 vs2)
+                    |> ValueUnit.toUnit
                     |> create
                     |> Some
 

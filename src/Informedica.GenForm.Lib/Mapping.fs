@@ -65,15 +65,45 @@ module Mapping =
 
 
     let mappingRouteShape =
-        Web.getDataFromSheet Web.dataUrlId2  "ShapeRoute"
+        Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
+        |> fun data ->
+            let inline getColumn get =
+                data
+                |> Array.head
+                |> get
+
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let getStr = getColumn Csv.getStringColumn r
+                let getDec = getColumn Csv.getDecimalOptionColumn r
+
+                {
+                    Route = getStr "Route"
+                    Shape = getStr "Shape"
+                    Unit = getStr "Unit"
+                    DoseUnit = getStr "Unit"
+                    MinDoseQty = getDec "MinDoseQty"
+                    MaxDoseQty = getDec "MaxDoseQty"
+                    Timed = getStr "Timed" |> String.equalsCapInsens "true"
+                    Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
+                    IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
+                }
+            )
 
 
     let filterRouteShapeUnit rte shape unt =
         mappingRouteShape
         |> Array.filter (fun xs ->
-            let eqsRte = rte |> String.isNullOrWhiteSpace || rte |> String.trim |> String.equalsCapInsens xs[0]
-            let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens xs[1]
-            let eqsUnt = unt |> String.isNullOrWhiteSpace || unt |> String.trim |> String.equalsCapInsens xs[2]
+            let eqsRte = 
+                rte |> String.isNullOrWhiteSpace || 
+                rte |> String.trim |> String.equalsCapInsens xs.Route ||
+                xs.Route |> mapRoute |> Option.map (String.equalsCapInsens (rte |> String.trim)) |> Option.defaultValue false
+            let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens xs.Shape
+            let eqsUnt = 
+                unt |> String.isNullOrWhiteSpace || 
+                unt |> String.trim |> String.equalsCapInsens xs.Unit ||
+                xs.Unit |> mapUnit |> Option.map (String.equalsCapInsens (unt |> String.trim)) |> Option.defaultValue false
             eqsRte && eqsShp && eqsUnt
         )
 
@@ -83,6 +113,8 @@ module Mapping =
         |> Array.collect (fun rte ->
             filterRouteShapeUnit rte shape unt
         )
-        |> Array.map (fun xs -> xs[5] = "TRUE")
+        |> Array.map (fun xs -> xs.Reconstitute)
         |> Array.fold (fun acc b -> acc || b) false
 
+
+        
