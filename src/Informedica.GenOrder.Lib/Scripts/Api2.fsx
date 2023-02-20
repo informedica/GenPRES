@@ -154,12 +154,16 @@ stopLogger ()
 Patient.adult
 |> PrescriptionRule.get
 |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
-|> Array.filter (fun pr -> pr.DoseRule.Generic = "ceftriaxon" && pr.DoseRule.Route = "iv" && pr.DoseRule.Indication |> String.startsWith "bact")
-|> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> Array.filter (fun pr -> 
+    pr.DoseRule.Generic = "abatacept" && 
+    pr.DoseRule.Route = "iv" && 
+    pr.DoseRule.Indication |> String.startsWith "juveniele"
+)
+|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrder
 |> Order.Dto.fromDto
-|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")
 |> Order.solveMinMax true OrderLogger.logger.Logger
 |> function
 | Error (ord, msgs) ->
@@ -219,12 +223,19 @@ with
 
 
 let testDto =
-    Patient.infant
-    |> getRule 5
-    |> Api.createDrugOrder None
+    Patient.adult
+    |> PrescriptionRule.get
+    |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+    |> Array.filter (fun pr -> 
+        pr.DoseRule.Generic = "abatacept" && 
+        pr.DoseRule.Route = "iv" && 
+        pr.DoseRule.Indication |> String.startsWith "juveniele"
+    )
+    |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
+    |> fun pr -> pr |> Api.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
     |> DrugOrder.toOrder
 
-
+testDto.Prescription.Frequency.Constraints.Vals.Value.Unit
 
 
 Patient.infant

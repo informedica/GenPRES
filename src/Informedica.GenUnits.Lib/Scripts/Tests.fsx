@@ -33,6 +33,7 @@ module Tests =
     // with only one unit: times.
     let times3 = 3N |> createSingle Units.Count.times
     let times100 = 100N |> createSingle Units.Count.times
+    let weeks4 = 4N |> Units.Time.nWeek
 
 
     [<Tests>]
@@ -115,6 +116,27 @@ module Tests =
                         |> toUnitValue
                         |> create u
                 Expect.equal "" vu1 vu2
+            }
+        ]
+
+
+    let toStringTests =
+        testList "Print" [
+            test "4 weken unit to string should return 4 weken" {
+                weeks4
+                |> Units.toStringDutchShort
+                |> Expect.equal "should be equal" "4 week[Time]"
+            }
+
+            test "x[Count]/4 weken[Time] from string should return a combiunit" {
+                "x[Count]/4 weken[Time]"
+                |> Units.fromString
+                |> function
+                | None -> ""
+                | Some u ->
+                    u
+                    |> Units.toStringDutchShort
+                |> Expect.equal "x[Count]/4 weken[Time]"
             }
         ]
 
@@ -297,6 +319,7 @@ module Tests =
         ]
 
     let tests = testList "ValueUnit Tests" [
+            toStringTests
             calculationTests
             conversionTests
             comparisonTests
