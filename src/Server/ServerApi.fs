@@ -20,7 +20,7 @@ let serverApi: IServerApi =
                     let msg (sc: ScenarioResult)=
                         $"""
 processing:
-Patient: {sc.Age} days, {sc.Weight} kg
+Patient: {sc.Age} days, {sc.Weight} kg, {sc.Height} cm
 Indications: {sc.Indications |> List.length}
 Medications: {sc.Medications |> List.length}
 Routes: {sc.Routes |> List.length}

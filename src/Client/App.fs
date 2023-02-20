@@ -174,6 +174,10 @@ let update (msg: Msg) (state: Model) =
                         match state.Patient with
                         | Some pat -> pat |> Patient.getWeight
                         | None -> sc.Weight
+                    Height = 
+                        match state.Patient with
+                        | Some pat -> pat |> Patient.getHeight
+                        | None -> sc.Height
                 }
             | _ -> ScenarioResult.empty
 
