@@ -561,7 +561,7 @@ module Patient =
 
     /// Get either the measured height or the
     /// estimated height if measured weight = 0
-    let getHeight pat =
+    let getHeight (pat : Patient) =
         if pat.Height.Measured.IsSome then
             pat.Height.Measured
         else
@@ -608,7 +608,7 @@ module Patient =
         | None, Some w, Some h, _
         | None, Some w, None, Some h ->
             sqrt (w * ((h |> float)) / 3600.)
-            |> Math.fixPrecision 1
+            |> Math.fixPrecision 2
             |> Some
 
 
@@ -1164,4 +1164,5 @@ module ScenarioResult =
             Route = None
             Age = None
             Weight = None
+            Height = None
         }

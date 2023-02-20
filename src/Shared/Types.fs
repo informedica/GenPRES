@@ -180,4 +180,5 @@ module Types =
             Route: string option
             Age : float option
             Weight: float option
+            Height: float option
         }
