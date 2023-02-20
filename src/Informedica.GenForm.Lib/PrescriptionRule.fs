@@ -28,6 +28,7 @@ module PrescriptionRule =
                         }
             }
         )
+        |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 
 
     let get (pat : Patient) = 

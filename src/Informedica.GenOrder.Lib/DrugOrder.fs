@@ -146,9 +146,9 @@ module DrugOrder =
             match d.Dose with
             | Some dl -> dl.DoseUnit |> unitGroup
             | None -> ou
-        let ft = d.FreqUnit |> unitGroup
-        let ru = d.RateUnit |> unitGroup
-        let tu = d.TimeUnit |> unitGroup
+        let ft = $"{d.FreqUnit}[Time]" 
+        let ru = $"{d.RateUnit}[Time]"
+        let tu = $"{d.TimeUnit}[Time]"
 
         let ofu = $"{cu}/{ft}"
         let oru = $"{ml}/{ru}"
@@ -266,8 +266,8 @@ module DrugOrder =
                             | None -> ()
 
                             let setDoseRate (dl : DoseLimit) =
-                                let dru = $"{du}/{dl.RateUnit |> unitGroup}"
-                                let dra = $"{du}/{au}/{dl.RateUnit |> unitGroup}"
+                                let dru = $"{du}/{dl.RateUnit}[Time]"
+                                let dra = $"{du}/{au}/{dl.RateUnit}[Time]"
 
                                 itmDto.Dose.Rate.Constraints <-
                                     itmDto.Dose.Rate.Constraints
@@ -288,11 +288,11 @@ module DrugOrder =
 
                                     itmDto.Dose.PerTime.Constraints <-
                                         itmDto.Dose.PerTime.Constraints
-                                        |> MinMax.setConstraints $"{du}/{s.TimeUnit |> unitGroup}" dl.NormPerTime dl.PerTime
+                                        |> MinMax.setConstraints $"{du}/{s.TimeUnit}[Time]" dl.NormPerTime dl.PerTime
 
                                     itmDto.Dose.PerTimeAdjust.Constraints <-
                                         itmDto.Dose.PerTimeAdjust.Constraints
-                                        |> MinMax.setConstraints $"{du}/{au}/{s.TimeUnit |> unitGroup}" (dl.NormPerTimeAdjust |> toArr) dl.PerTimeAdjust
+                                        |> MinMax.setConstraints $"{du}/{au}/{s.TimeUnit}[Time]" (dl.NormPerTimeAdjust |> toArr) dl.PerTimeAdjust
 
 
                             match d.OrderType with
