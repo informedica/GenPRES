@@ -232,6 +232,10 @@ module DrugOrder =
                     cdto.ComponentQuantity.Constraints.Vals <- p.Quantities |> createValueUnitDto ou
                     if p.Divisible.IsSome then
                         cdto.OrderableQuantity.Constraints.Incr <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
+                    if d.Products |> List.length = 1 then
+                        if p.Divisible.IsSome then
+                            cdto.Dose.Quantity.Constraints.Incr <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
+
 
                     cdto.Items <- [
                         for s in p.Substances do

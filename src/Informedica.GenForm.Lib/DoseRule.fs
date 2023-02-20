@@ -457,6 +457,19 @@ module DoseRule =
                 let toArr = Option.map Array.singleton >> Option.defaultValue [||]
                 { dr with
                     DoseLimits =
+                        let shapeLimits =
+                             Mapping.filterRouteShapeUnit dr.Route dr.Shape ""
+                             |> Array.map (fun rsu ->
+                                { DoseLimit.limit with
+                                    Substance = ""
+                                    DoseUnit = rsu.DoseUnit
+                                    Quantity = 
+                                        let min = rsu.MinDoseQty |> Option.map BigRational.fromDecimal
+                                        let max = rsu.MaxDoseQty |> Option.map BigRational.fromDecimal
+                                        (min, max) |> MinMax.fromTuple
+                                }
+                             )
+                        
                         rs
                         |> Array.map (fun r ->
                             {
@@ -477,6 +490,8 @@ module DoseRule =
                                 RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple
                             }
                         )
+                        |> Array.append shapeLimits
+
                     Products =
                         Product.get ()
                         |> Product.filter

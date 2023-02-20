@@ -1239,7 +1239,7 @@ module ValueUnit =
 
     /// Create a ValueUnit from a value v
     /// (a bigrational array) and a unit u
-    /// Makes sure there are nog duplicates.
+    /// Makes sure there are nog duplicates and sorts the result.
     let create u v =
         (v |> Array.distinct |> Array.sort, u)
         |> ValueUnit
@@ -1299,6 +1299,7 @@ module ValueUnit =
     let getValue (ValueUnit (v, _)) = v
 
 
+    /// Just sets a value without calculation
     let setValue v (ValueUnit (_, u)) = v |> create u
 
 

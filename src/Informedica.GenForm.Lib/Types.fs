@@ -7,6 +7,20 @@ module Types =
     open MathNet.Numerics
 
 
+    type RouteShape =
+        {
+            Route : string
+            Shape : string
+            Unit : string
+            DoseUnit : string
+            MinDoseQty : decimal option
+            MaxDoseQty : decimal option
+            Timed : bool
+            Reconstitute : bool
+            IsSolution : bool
+        }
+
+
     type VenousAccess =
         | PVL
         | CVL
