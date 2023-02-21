@@ -8,6 +8,7 @@ open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 
 
+
 module Array =
 
     let removeBigRationalMultiples xs =
@@ -18,9 +19,14 @@ module Array =
             |> Array.fold
                 (fun acc x1 ->
                     acc
-                    |> Array.filter (fun x2 -> x1 = x2 || x2 |> BigRational.isMultiple x1 |> not)
+                    |> Array.filter (fun x2 ->
+                        x1 = x2 ||
+                        x2 |> BigRational.isMultiple x1
+                        |> not
+                    )
                 )
                 xs
+
 
 
 type Unit =
@@ -120,7 +126,6 @@ module Group =
 
 
 
-
 module Units =
 
 
@@ -134,88 +139,700 @@ module Units =
         | Short
 
 
-    type Language = { Eng: string; Dut: string }
+    type Name =
+        {
+            Eng: string
+            EngPlural: string
+            Dut: string
+            DutchPlural : string
+        }
 
 
-    let getDutch (lang: Language) = lang.Dut
+    let getDutch (lang: Name) = lang.Dut
 
 
-    let getEnglish (lang: Language) = lang.Eng
+    let getEnglish (lang: Name) = lang.Eng
+
+
+    let per = ValueUnit.per
 
 
     type UnitDetails =
         {
             Unit: Unit
             Group: Group.Group
-            Abbreviation: Language
-            Name: Language
+            Abbreviation: Name
+            Name: Name
             Synonyms: string list
         }
 
 
-    let apply f (ud: UnitDetails) = f ud
+
+    module UnitDetails =
 
 
-    let get = apply id
+        let apply f (ud: UnitDetails) = f ud
 
 
-    let getUnit ud = (ud |> get).Unit
+        let get = apply id
 
 
-    let per = ValueUnit.per
+        let getUnit ud = (ud |> get).Unit
 
 
-    let create un gr ab nm sy =
-        {
-            Unit = un
-            Group = gr
-            Abbreviation = ab
-            Name = nm
-            Synonyms = sy
-        }
+        let create un gr ab nm sy =
+            {
+                Unit = un
+                Group = gr
+                Abbreviation = ab
+                Name = nm
+                Synonyms = sy
+            }
 
 
-    let createGeneral n v =
-        let un = (n, v) |> General
-        let ab = { Eng = n; Dut = n }
-        let nm = { Eng = n; Dut = n }
+        let createGeneral n v =
+            let un = (n, v) |> General
+            let ab = { Eng = n; EngPlural = n; Dut = n; DutchPlural = n }
+            let nm = ab
 
-        create un (Group.GeneralGroup n) ab nm []
-
-
-    let getGroup ud = (ud |> get).Group
+            create un (Group.GeneralGroup n) ab nm []
 
 
-    let getName ud = (ud |> get).Name
+        let getGroup ud = (ud |> get).Group
 
 
-    let getAbbreviation ud = (ud |> get).Abbreviation
+        let getName ud = (ud |> get).Name
 
 
-    let getEnglishName = getName >> getEnglish
+        let getAbbreviation ud = (ud |> get).Abbreviation
 
 
-    let getDutchName = getName >> getDutch
+        let getEnglishName = getName >> getEnglish
 
 
-    let getEnglishAbbreviation =
-        getAbbreviation >> getEnglish
+        let getDutchName = getName >> getDutch
 
 
-    let getDutchAbbreviation =
-        getAbbreviation >> getDutch
+        let getEnglishAbbreviation = getAbbreviation >> getEnglish
 
 
-    let getUnitString loc verb =
-        match loc with
-        | English ->
-            match verb with
-            | Short -> getEnglishAbbreviation
-            | Long -> getEnglishName
-        | Dutch ->
-            match verb with
-            | Short -> getDutchAbbreviation
-            | Long -> getDutchName
+        let getDutchAbbreviation = getAbbreviation >> getDutch
+
+
+        let getUnitString loc verb =
+            match loc with
+            | English ->
+                match verb with
+                | Short -> getEnglishAbbreviation
+                | Long -> getEnglishName
+            | Dutch ->
+                match verb with
+                | Short -> getDutchAbbreviation
+                | Long -> getDutchName
+
+
+        let units =
+            [
+                {
+                    Unit = Count.times
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "x"
+                            Dut = "x"
+                            EngPlural = "x"
+                            DutchPlural = "x"
+                        }
+                    Name =
+                        {
+                            Eng = "times"
+                            Dut = "keer"
+                            EngPlural = "keer"
+                            DutchPlural = "keer"
+                        }
+                    Synonyms = []
+                }
+
+                {
+                    Unit = Mass.kiloGram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "kg"
+                            Dut = "kg"
+                            EngPlural = "kg"
+                            DutchPlural = "kg"
+                        }
+                    Name =
+                        {
+                            Eng = "kilogram"
+                            Dut = "kilogram"
+                            EngPlural = "kilogram"
+                            DutchPlural = "kilogram"
+                        }
+                    Synonyms = []
+                }
+                {
+                    Unit = Mass.gram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "g"
+                            Dut = "g"
+                            EngPlural = "g"
+                            DutchPlural = "g"
+                        }
+                    Name =
+                        {
+                            Eng = "gram"
+                            Dut = "gram"
+                            EngPlural = "gram"
+                            DutchPlural = "gram"
+                        }
+                    Synonyms = [ "gr" ]
+                }
+                {
+                    Unit = Mass.milliGram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "mg"
+                            Dut = "mg"
+                            EngPlural = "mg"
+                            DutchPlural = "mg"
+                        }
+                    Name =
+                        {
+                            Eng = "milligram"
+                            Dut = "milligram"
+                            EngPlural = "milligram"
+                            DutchPlural = "milligram"
+                        }
+                    Synonyms = [ "millig"; "milligr" ]
+                }
+                {
+                    Unit = Mass.microGram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "microg"
+                            Dut = "microg"
+                            EngPlural = "microg"
+                            DutchPlural = "microg"
+                        }
+                    Name =
+                        {
+                            Eng = "microgram"
+                            Dut = "microgram"
+                            EngPlural = "microgram"
+                            DutchPlural = "microgram"
+                        }
+                    Synonyms = [ "mcg"; "µg"; "mcgr" ]
+                }
+                {
+                    Unit = Mass.nanoGram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "nanog"
+                            Dut = "nanog"
+                            EngPlural = "nanog"
+                            DutchPlural = "nanog"
+                        }
+                    Name =
+                        {
+                            Eng = "nanogram"
+                            Dut = "nanogram"
+                            EngPlural = "nanogram"
+                            DutchPlural = "nanogram"
+                        }
+                    Synonyms = [ "nanogr"; "ng" ]
+                }
+
+                {
+                    Unit = Distance.meter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "m"
+                            Dut = "m"
+                            EngPlural = "meter"
+                            DutchPlural = "meter"
+                        }
+                    Name =
+                        {
+                            Eng = "meter"
+                            Dut = "meter"
+                            EngPlural = "meter"
+                            DutchPlural = "meter"
+                        }
+                    Synonyms = []
+                }
+                {
+                    Unit = Distance.centimeter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "cm"
+                            Dut = "cm"
+                            EngPlural = "cm"
+                            DutchPlural = "cm"
+                        }
+                    Name =
+                        {
+                            Eng = "centimeter"
+                            Dut = "centimeter"
+                            EngPlural = "centimeter"
+                            DutchPlural = "centimeter"
+                        }
+                    Synonyms = []
+                }
+                {
+                    Unit = Distance.millimeter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "mm"
+                            Dut = "mm"
+                            EngPlural = "mm"
+                            DutchPlural = "mm"
+                        }
+                    Name =
+                        {
+                            Eng = "millimeter"
+                            Dut = "millimeter"
+                            EngPlural = "millimeter"
+                            DutchPlural = "millimeter"
+                        }
+                    Synonyms = []
+                }
+
+
+                {
+                    Unit = Volume.liter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "l"
+                            Dut = "l"
+                            EngPlural = "l"
+                            DutchPlural = "l"
+                        }
+                    Name =
+                        {
+                            Eng = "liter"
+                            Dut = "liter"
+                            EngPlural = "liter"
+                            DutchPlural = "liter"
+                        }
+                    Synonyms = [ "ltr" ]
+                }
+                {
+                    Unit = Volume.deciLiter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "dl"
+                            Dut = "dl"
+                            EngPlural = "dl"
+                            DutchPlural = "dl"
+                        }
+                    Name =
+                        {
+                            Eng = "deciliter"
+                            Dut = "deciliter"
+                            EngPlural = "deciliter"
+                            DutchPlural = "deciliter"
+                        }
+                    Synonyms = [ "decil" ]
+                }
+                {
+                    Unit = Volume.milliLiter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "ml"
+                            Dut = "mL"
+                            EngPlural = "ml"
+                            DutchPlural = "mL"
+                        }
+                    Name =
+                        {
+                            Eng = "milliliter"
+                            Dut = "milliliter"
+                            EngPlural = "milliliter"
+                            DutchPlural = "milliliter"
+                        }
+                    Synonyms = [ "millil" ]
+                }
+                {
+                    Unit = Volume.microLiter
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "microL"
+                            Dut = "microL"
+                            EngPlural = "microL"
+                            DutchPlural = "microL"
+                        }
+                    Name =
+                        {
+                            Eng = "microliter"
+                            Dut = "microliter"
+                            EngPlural = "microliter"
+                            DutchPlural = "microliter"
+                        }
+                    Synonyms = [ "µl" ]
+                }
+                {
+                    Unit = Volume.droplet
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "droplet"
+                            Dut = "druppel"
+                            EngPlural = "droplets"
+                            DutchPlural = "druppels"
+                        }
+                    Name =
+                        {
+                            Eng = "droplet"
+                            Dut = "druppel"
+                            EngPlural = "droplets"
+                            DutchPlural = "druppels"
+                        }
+                    Synonyms = [ "drop"; "dr" ]
+                }
+
+                {
+                    Unit = Time.year
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "yr"
+                            Dut = "jaar"
+                            EngPlural = "yrs"
+                            DutchPlural = "jaar"
+                        }
+                    Name =
+                        {
+                            Eng = "year"
+                            Dut = "jaar"
+                            EngPlural = "yearrs"
+                            DutchPlural = "jaar"
+                        }
+                    Synonyms = [ "years"; "jaren" ]
+                }
+                {
+                    Unit = Time.month
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "mo"
+                            Dut = "maand"
+                            EngPlural = "mos"
+                            DutchPlural = "maanden"
+                        }
+                    Name =
+                        {
+                            Eng = "month"
+                            Dut = "maand"
+                            EngPlural = "months"
+                            DutchPlural = "maanden"
+                        }
+                    Synonyms = [ "months"; "maanden" ]
+                }
+                {
+                    Unit = Time.week
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "week"
+                            Dut = "week"
+                            EngPlural = "weeks"
+                            DutchPlural = "weken"
+                        }
+                    Name =
+                        {
+                            Eng = "week"
+                            Dut = "week"
+                            EngPlural = "weeks"
+                            DutchPlural = "weken"
+                        }
+                    Synonyms = [ "weeks"; "weken" ]
+                }
+                {
+                    Unit = Time.day
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "day"
+                            Dut = "dag"
+                            EngPlural = "days"
+                            DutchPlural = "dagen"
+                        }
+                    Name =
+                        {
+                            Eng = "day"
+                            Dut = "dag"
+                            EngPlural = "days"
+                            DutchPlural = "dagen"
+                        }
+                    Synonyms = [ "days"; "dagen" ]
+                }
+                {
+                    Unit = Time.hour
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "hr"
+                            Dut = "uur"
+                            EngPlural = "hr"
+                            DutchPlural = "uur"
+                        }
+                    Name =
+                        {
+                            Eng = "hour"
+                            Dut = "uur"
+                            EngPlural = "hours"
+                            DutchPlural = "uur"
+                        }
+                    Synonyms = [ "hours"; "uren" ]
+                }
+                {
+                    Unit = Time.minute
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "min"
+                            Dut = "min"
+                            EngPlural = "min"
+                            DutchPlural = "min"
+                        }
+                    Name =
+                        {
+                            Eng = "minute"
+                            Dut = "minuut"
+                            EngPlural = "minutes"
+                            DutchPlural = "minuten"
+                        }
+                    Synonyms = [ "minutes"; "minuten" ]
+                }
+                {
+                    Unit = Time.second
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "sec"
+                            Dut = "sec"
+                            EngPlural = "secs"
+                            DutchPlural = "sec"
+                        }
+                    Name =
+                        {
+                            Eng = "second"
+                            Dut = "seconde"
+                            EngPlural = "seconds"
+                            DutchPlural = "seconden"
+                        }
+                    Synonyms = [ "s" ]
+                }
+
+                {
+                    Unit = Molar.mol
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "mol"
+                            Dut = "mol"
+                            EngPlural = "mol"
+                            DutchPlural = "mol"
+                        }
+                    Name =
+                        {
+                            Eng = "mol"
+                            Dut = "mol"
+                            EngPlural = "mol"
+                            DutchPlural = "mol"
+                        }
+                    Synonyms = []
+                }
+                {
+                    Unit = Molar.milliMol
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "mmol"
+                            Dut = "mmol"
+                            EngPlural = "mmol"
+                            DutchPlural = "mmol"
+                        }
+                    Name =
+                        {
+                            Eng = "millimol"
+                            Dut = "millimol"
+                            EngPlural = "millimol"
+                            DutchPlural = "millimol"
+                        }
+                    Synonyms = []
+                }
+                {
+                    Unit = Molar.microMol
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "micromol"
+                            Dut = "micromol"
+                            EngPlural = "micromol"
+                            DutchPlural = "micromol"
+                        }
+                    Name =
+                        {
+                            Eng = "micromol"
+                            Dut = "micromol"
+                            EngPlural = "micromol"
+                            DutchPlural = "micromol"
+                        }
+                    Synonyms = [ "umol" ]
+                }
+
+                {
+                    Unit = InterNatUnit.iu
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "IU"
+                            Dut = "IE"
+                            EngPlural = "IU"
+                            DutchPlural = "IE"
+                        }
+                    Name =
+                        {
+                            Eng = "IU"
+                            Dut = "IE"
+                            EngPlural = "IU"
+                            DutchPlural = "IE"
+                        }
+                    Synonyms = [ "E"; "U"; "IU" ]
+                }
+                {
+                    Unit = InterNatUnit.mIU
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "milj-IU"
+                            Dut = "milj-IE"
+                            EngPlural = "miljIE"
+                            DutchPlural = "milj-IE"
+                        }
+                    Name =
+                        {
+                            Eng = "million-IU"
+                            Dut = "miljoen-IE"
+                            EngPlural = "miljIE"
+                            DutchPlural = "milj-IE"
+                        }
+                    Synonyms =
+                        [
+                            "miljoenIE"
+                            "milj.IE"
+                            "milj.E"
+                            "miljonIU"
+                            "milj.IU"
+                            "milj.U"
+                        ]
+                }
+                {
+                    Unit = InterNatUnit.milliIU
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "milliIU"
+                            Dut = "milliIE"
+                            EngPlural = "milliIU"
+                            DutchPlural = "milliIE"
+                        }
+                    Name =
+                        {
+                            Eng = "milliIU"
+                            Dut = "milliIE"
+                            EngPlural = "milliIU"
+                            DutchPlural = "milliIE"
+                        }
+                    Synonyms =
+                        [
+                            "milli-internationale eenheid"
+                            "mie"
+                        ]
+                }
+
+                {
+                    Unit = Weight.kiloGram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "kg"
+                            Dut = "kg"
+                            EngPlural = "kg"
+                            DutchPlural = "kg"
+                        }
+                    Name =
+                        {
+                            Eng = "kilogram"
+                            Dut = "kilogram"
+                            EngPlural = "kilogram"
+                            DutchPlural = "kilogram"
+                        }
+                    Synonyms = []
+                }
+
+                {
+                    Unit = Weight.gram
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "g"
+                            Dut = "g"
+                            EngPlural = "g"
+                            DutchPlural = "g"
+                        }
+                    Name =
+                        {
+                            Eng = "gram"
+                            Dut = "gram"
+                            EngPlural = "gram"
+                            DutchPlural = "gram"
+                        }
+                    Synonyms = [ "gr" ]
+                }
+
+                {
+                    Unit = BSA.m2
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "m2"
+                            Dut = "m2"
+                            EngPlural = "m2"
+                            DutchPlural = "m2"
+                        }
+                    Name =
+                        {
+                            Eng = "square meter"
+                            Dut = "vierkante meter"
+                            EngPlural = "square meter"
+                            DutchPlural = "vierkante meter"
+                        }
+                    Synonyms = [ "m^2" ]
+                }
+
+            ]
+            |> List.map (fun ud ->
+                { ud with
+                    Group = ud.Unit |> ValueUnit.Group.unitToGroup
+                }
+            )
+
 
 
     module General =
@@ -360,264 +977,6 @@ module Units =
         let m2 = 1N |> nM2
 
 
-    let units =
-        [
-            {
-                Unit = Count.times
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "x"; Dut = "x" }
-                Name = { Eng = "times"; Dut = "keer" }
-                Synonyms = []
-            }
-
-            {
-                Unit = Mass.kiloGram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "kg"; Dut = "kg" }
-                Name = { Eng = "kilogram"; Dut = "kilogram" }
-                Synonyms = []
-            }
-            {
-                Unit = Mass.gram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "g"; Dut = "g" }
-                Name = { Eng = "gram"; Dut = "gram" }
-                Synonyms = [ "gr" ]
-            }
-            {
-                Unit = Mass.milliGram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "mg"; Dut = "mg" }
-                Name = { Eng = "milligram"; Dut = "milligram" }
-                Synonyms = [ "millig"; "milligr" ]
-            }
-            {
-                Unit = Mass.microGram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "microg"; Dut = "microg" }
-                Name = { Eng = "microgram"; Dut = "microgram" }
-                Synonyms = [ "mcg"; "µg"; "mcgr" ]
-            }
-            {
-                Unit = Mass.nanoGram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "nanog"; Dut = "nanog" }
-                Name = { Eng = "nanogram"; Dut = "nanogram" }
-                Synonyms = [ "nanogr"; "ng" ]
-            }
-
-            {
-                Unit = Distance.meter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "m"; Dut = "m" }
-                Name = { Eng = "meter"; Dut = "meter" }
-                Synonyms = []
-            }
-            {
-                Unit = Distance.centimeter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "cm"; Dut = "cm" }
-                Name =
-                    {
-                        Eng = "centimeter"
-                        Dut = "centimeter"
-                    }
-                Synonyms = []
-            }
-            {
-                Unit = Distance.millimeter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "mm"; Dut = "mm" }
-                Name =
-                    {
-                        Eng = "millimeter"
-                        Dut = "millimeter"
-                    }
-                Synonyms = []
-            }
-
-
-            {
-                Unit = Volume.liter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "l"; Dut = "l" }
-                Name = { Eng = "liter"; Dut = "liter" }
-                Synonyms = [ "ltr" ]
-            }
-            {
-                Unit = Volume.deciLiter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "dl"; Dut = "dl" }
-                Name = { Eng = "deciliter"; Dut = "deciliter" }
-                Synonyms = [ "decil" ]
-            }
-            {
-                Unit = Volume.milliLiter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "ml"; Dut = "mL" }
-                Name =
-                    {
-                        Eng = "milliliter"
-                        Dut = "milliliter"
-                    }
-                Synonyms = [ "millil" ]
-            }
-            {
-                Unit = Volume.microLiter
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "microL"; Dut = "microL" }
-                Name =
-                    {
-                        Eng = "microliter"
-                        Dut = "microliter"
-                    }
-                Synonyms = [ "µl" ]
-            }
-            {
-                Unit = Volume.droplet
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "droplet"; Dut = "druppel" }
-                Name = { Eng = "droplet"; Dut = "druppel" }
-                Synonyms = [ "drop"; "dr" ]
-            }
-
-            {
-                Unit = Time.year
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "yr"; Dut = "jaar" }
-                Name = { Eng = "year"; Dut = "jaar" }
-                Synonyms = [ "years"; "jaren" ]
-            }
-            {
-                Unit = Time.month
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "mo"; Dut = "maand" }
-                Name = { Eng = "month"; Dut = "maand" }
-                Synonyms = [ "months"; "maanden" ]
-            }
-            {
-                Unit = Time.week
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "week"; Dut = "week" }
-                Name = { Eng = "week"; Dut = "week" }
-                Synonyms = [ "weeks"; "weken" ]
-            }
-            {
-                Unit = Time.day
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "day"; Dut = "dag" }
-                Name = { Eng = "day"; Dut = "dag" }
-                Synonyms = [ "days"; "dagen" ]
-            }
-            {
-                Unit = Time.hour
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "hr"; Dut = "uur" }
-                Name = { Eng = "hour"; Dut = "uur" }
-                Synonyms = [ "hours"; "uren" ]
-            }
-            {
-                Unit = Time.minute
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "min"; Dut = "min" }
-                Name = { Eng = "minute"; Dut = "minuut" }
-                Synonyms = [ "minutes"; "minuten" ]
-            }
-            {
-                Unit = Time.second
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "sec"; Dut = "sec" }
-                Name = { Eng = "second"; Dut = "seconde" }
-                Synonyms = [ "s" ]
-            }
-
-            {
-                Unit = Molar.mol
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "mol"; Dut = "mol" }
-                Name = { Eng = "mol"; Dut = "mol" }
-                Synonyms = []
-            }
-            {
-                Unit = Molar.milliMol
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "mmol"; Dut = "mmol" }
-                Name = { Eng = "millimol"; Dut = "millimol" }
-                Synonyms = []
-            }
-            {
-                Unit = Molar.microMol
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "micromol"; Dut = "micromol" }
-                Name = { Eng = "micromol"; Dut = "micromol" }
-                Synonyms = [ "umol" ]
-            }
-
-            {
-                Unit = InterNatUnit.iu
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "IE"; Dut = "IE" }
-                Name = { Eng = "IE"; Dut = "IE" }
-                Synonyms = [ "E"; "U"; "IU" ]
-            }
-            {
-                Unit = InterNatUnit.mIU
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "miljIE"; Dut = "milj-IE" }
-                Name =
-                    {
-                        Eng = "millionIE"
-                        Dut = "miljoen-ie"
-                    }
-                Synonyms = [ "milj.IE"; "milj.E" ]
-            }
-            {
-                Unit = InterNatUnit.milliIU
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "milliIU"; Dut = "milliIE" }
-                Name = { Eng = "milliIU"; Dut = "milliIE" }
-                Synonyms =
-                    [
-                        "milli-internationale eenheid"
-                        "mie"
-                    ]
-            }
-
-            {
-                Unit = Weight.kiloGram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "kg"; Dut = "kg" }
-                Name = { Eng = "kilogram"; Dut = "kilogram" }
-                Synonyms = []
-            }
-            {
-                Unit = Weight.gram
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "g"; Dut = "g" }
-                Name = { Eng = "gram"; Dut = "gram" }
-                Synonyms = [ "gr" ]
-            }
-
-            {
-                Unit = BSA.m2
-                Group = Group.NoGroup
-                Abbreviation = { Eng = "m2"; Dut = "m2" }
-                Name =
-                    {
-                        Eng = "square meter"
-                        Dut = "vierkante meter"
-                    }
-                Synonyms = [ "m^2" ]
-            }
-
-        ]
-        |> List.map (fun ud ->
-            { ud with
-                Group = ud.Unit |> ValueUnit.Group.unitToGroup
-            }
-        )
-
-
     /// Get the n value and unit but
     /// cannot do this with a combined unit!
     let nUnit =
@@ -685,9 +1044,34 @@ module Units =
     /// Try finds the unit details in
     /// a unit u
     let tryFind u =
-        match units |> List.tryFind (fun udt -> udt.Unit = u) with
+        match UnitDetails.units |> List.tryFind (fun udt -> udt.Unit = u) with
         | Some udt -> Some udt
         | None -> None
+
+
+    /// Append a group to a string that represents a unit
+    let stringWithGroup u =
+        UnitDetails.units
+        |> List.filter (fun ud ->
+            ud.Group <> Group.WeightGroup
+        )
+        |> List.tryFind (fun ud ->
+            [
+                ud.Abbreviation.Dut
+                ud.Abbreviation.Eng
+                ud.Name.Dut
+                ud.Name.Eng
+            ]
+            |> List.append ud.Synonyms
+            |> List.exists(String.equalsCapInsens (u |> String.replaceNumbers ""))
+        )
+        |> function
+        | Some ud ->
+            ud.Group
+            |> ValueUnit.Group.toString
+        | None -> "General"
+        |> sprintf "%s[%s]" u
+
 
 
     /// Creates a Unit from a string s, if possible
@@ -697,6 +1081,12 @@ module Units =
     let fromString s =
         match s |> String.splitAt '[' with
         | [| us; gs |] ->
+            let n, us =
+                match us |> String.splitAt ' ' with
+                | [|us|]    -> None, us
+                | [|n; us|] -> n |> Int32.tryParse, us
+                | _ -> None, ""
+
             let gs = gs |> String.replace "]" ""
 
             let eqsUnit (udt: UnitDetails) =
@@ -712,10 +1102,13 @@ module Units =
                 |> ValueUnit.Group.toString
                 |> String.equalsCapInsens gs
 
-            match units
+            match UnitDetails.units
                   |> List.tryFind (fun udt -> udt |> eqsUnit && udt |> eqsGroup)
                 with
-            | Some udt -> udt.Unit
+            | Some udt ->
+                match n with
+                | None   -> udt.Unit
+                | Some n -> udt.Unit |> ValueUnit.setUnitValue (n |> BigRational.fromInt) 
             | None -> ValueUnit.generalUnit 1N s
             |> Some
 
@@ -747,28 +1140,32 @@ module Units =
                     ustr
 
             | _ ->
-                let v, u = u |> nUnit
+                let n, u = u |> nUnit
 
                 match u |> tryFind with
                 | Some udt ->
                     match loc with
                     | English ->
                         match verb with
-                        | Short -> udt.Group |> gtost udt.Abbreviation.Eng
-                        | Long -> udt.Group |> gtost udt.Name.Eng
+                        | Short ->
+                            udt.Group
+                            |> gtost (if n > 1N then udt.Abbreviation.EngPlural else udt.Abbreviation.Eng)
+                        | Long ->
+                            udt.Group
+                            |> gtost (if n > 1N then udt.Name.EngPlural else udt.Name.Eng)
                     | Dutch ->
                         match verb with
-                        | Short -> udt.Group |> gtost udt.Abbreviation.Dut
-                        | Long -> udt.Group |> gtost udt.Name.Dut
+                        | Short ->
+                            udt.Group
+                            |> gtost (if n > 1N then udt.Abbreviation.DutchPlural else udt.Abbreviation.Dut)
+                        | Long ->
+                            udt.Group
+                            |> gtost (if n > 1N then udt.Name.DutchPlural else udt.Name.Dut)
                 | None -> ""
-                |> (fun s ->
-                    if s = "" then
-                        ""
-                    else if v = 1N then
-                        s
-                    else
-                        (v |> BigRational.toString) + " " + s
-                )
+                |> function
+                | s when s |> String.isNullOrWhiteSpace -> ""
+                | s when n = 1N -> s
+                | s -> (n |> BigRational.toString) + " " + s
 
         str u
 
@@ -785,17 +1182,15 @@ module Units =
 
 
 
-
-
 module ValueUnit =
 
 
     /// Transforms an operator to a string
     let opToStr op =
         match op with
-        | OpPer -> "/"
-        | OpTimes -> "x"
-        | OpPlus -> "+"
+        | OpPer   -> "/"
+        | OpTimes -> "*"
+        | OpPlus  -> "+"
         | OpMinus -> "-"
 
 
@@ -1935,16 +2330,6 @@ module ValueUnit =
     let valueCount = getValue >> Array.length
 
 
-    let toStr exact =
-        if exact then
-            toStringDutchShort
-            // getValue
-            // >> Array.toReadableString
-            >> String.removeBrackets
-        else
-            toReadableDutchStringWithPrec 3
-
-
     /// Get the user readable string version
     /// of a unit, i.e. without unit group between
     /// brackets
@@ -1975,22 +2360,22 @@ module ValueUnit =
     let toStringEngLong =
         toString BigRational.toString Units.English Units.Long
 
-    let toStringFloatDutchShort =
+    let toStringDecimalDutchShort =
         toString (BigRational.toDecimal >> string) Units.Dutch Units.Short
 
-    let toStringFloatDutchLong =
+    let toStringDecimalDutchLong =
         toString (BigRational.toDecimal >> string) Units.Dutch Units.Long
 
-    let toStringFloatEngShort =
+    let toStringDecimalEngShort =
         toString (BigRational.toDecimal >> string) Units.English Units.Short
 
-    let toStringFloatEngLong =
+    let toStringDecimalEngLong =
         toString (BigRational.toDecimal >> string) Units.English Units.Long
 
 
     /// Turn a `ValueUnit` `vu` into
     /// a string using precision `prec`.
-    let toReadableDutchStringWithPrec prec vu =
+    let toStringDecimalDutchShortWithPrec prec vu =
         let v, u = vu |> get
 
         let vs =
@@ -2011,18 +2396,17 @@ module ValueUnit =
             let dels = "#"
 
             let ufs s =
-                // ToDo doesn't work with units with spaces
                 match s |> String.trim |> String.split " " with
                 | [ ug ] ->
                     match Units.fromString ug with
                     | Some u' -> u' |> setUnitValue 1N
                     | None -> failwith <| $"Not a valid unit: %s{ug}"
 
-                | [ v; ug ] ->
-                    match v |> BigRational.tryParse with
+                | [ n; ug ] ->
+                    match n |> BigRational.tryParse with
                     | None ->
                         failwith
-                        <| $"Cannot parse string: %s{s} with value: %s{v}"
+                        <| $"Cannot parse string: %s{s} with value: %s{n}"
                     | Some v' ->
                         match Units.fromString ug with
                         | Some u' -> u' |> setUnitValue v'
@@ -2175,9 +2559,6 @@ module ValueUnit =
                 |> function
                     | Some u -> v |> create u |> Some
                     | _ -> None
-
-
-
 
 
 

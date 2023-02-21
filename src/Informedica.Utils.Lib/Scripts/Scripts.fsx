@@ -8,7 +8,5 @@ open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 
 
-BigRational.gcd 12N 6N
-
-[||] |> Array.toReadableString
-
+"9-87987"
+|> String.replaceNumbers ""

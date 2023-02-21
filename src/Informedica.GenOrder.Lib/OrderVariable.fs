@@ -128,7 +128,8 @@ module OrderVariable =
         (ovar.Variable
         |> Variable.getValueRange
         |> ValueRange.toString exact)
-
+        |> String.replace "x" "keer"
+        |> String.replace "*" "/"
 
 
     /// Returns the values with the string equivalents
@@ -142,16 +143,14 @@ module OrderVariable =
         |> Option.map (ValueSet.toSet >> ValueUnit.toStringDutchShort)
 
 
-
-
     let toValueUnitString get (prec : int) x =
         x
         |> get
         |> getVar
         |> Variable.getValueRange
         |> ValueRange.toString false //TODO: need something to set precision and number formatting
-
-
+        |> String.replace "x" "keer"
+        |> String.replace "*" "/"
 
 
     /// Type and functions to handle the `Dto`

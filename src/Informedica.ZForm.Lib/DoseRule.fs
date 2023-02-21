@@ -1170,7 +1170,7 @@ module DoseRule =
                 Rules = rs
             }
             =
-            let vuToStr = ValueUnit.toReadableDutchStringWithPrec 2
+            let vuToStr = ValueUnit.toStringDecimalDutchShortWithPrec 2
 
             let (>+) sl sr =
                 let l, s = sr

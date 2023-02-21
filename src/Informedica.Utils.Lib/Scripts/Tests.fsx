@@ -4,6 +4,7 @@
 
 #load "load.fsx"
 
+
 open Expecto
 
 
@@ -12,6 +13,7 @@ module Tests =
 
     open System
     open Expecto.Flip
+    open Swensen
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
 
@@ -271,6 +273,13 @@ module Tests =
                     "abc"
                     |> String.restString
                     |> equals "bc" "returns bc string"
+                }
+
+                test "replacing a string with only numbers with empty returns empty" {
+                    let act =
+                        "9798797"
+                        |> String.replaceNumbers ""
+                    Expect.equal act "" "should be empty"
                 }
 
             ]
