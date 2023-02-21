@@ -109,7 +109,9 @@ module Filter =
                                                 Mui.formGroup[
                                                     prop.children[
                                                         Mui.formControlLabel[
-                                                            formControlLabel.control Mui.checkbox[ checkbox.id value]
+                                                            formControlLabel.control Mui.checkbox[
+                                                                checkbox.id value
+                                                            ]
                                                             formControlLabel.label value
                                                         ]
                                                     ]
@@ -123,10 +125,12 @@ module Filter =
                         Mui.button[
                             button.variant.outlined
                             prop.text "Clear All"
+                            //prop.onClick (fun _ ->  CLEAR ALL checkboxes)
                         ]
                         Mui.button[
                             button.variant.outlined
                             prop.text "Apply"
+                            //prop.onClick (fun _ ->  apply filter)
                         ]
                     ]
                 ]
