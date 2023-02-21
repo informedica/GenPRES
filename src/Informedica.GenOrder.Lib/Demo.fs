@@ -48,6 +48,7 @@ module Demo =
             let filter = 
                 { Filter.filter with
                     Department = Some d
+                    Age = sc.Patient.Age
                     Weight = Some w
                     Indication = ind
                     Generic = gen

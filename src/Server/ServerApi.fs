@@ -46,19 +46,23 @@ Scenarios: {sc.Scenarios |> List.length}
                         }
 
                     let newSc =
+                        let r = Demo.scenarioResult pat
                         { Demo.scenarioResult pat with
                             Indications =
-                                if sc.Indication |> Option.isSome then [| sc.Indication |> Option.defaultValue "" |]
+                                if sc.Indication |> Option.isSome then
+                                    [| sc.Indication |> Option.defaultValue "" |]
                                 else
-                                    sc.Indications |> List.toArray
+                                    r.Indications 
                             Generics =
-                                if sc.Medication |> Option.isSome then [| sc.Medication |> Option.defaultValue "" |]
+                                if sc.Medication |> Option.isSome then
+                                    [| sc.Medication |> Option.defaultValue "" |]
                                 else
-                                sc.Medications |> List.toArray
+                                    r.Generics 
                             Routes =
-                                if sc.Route |> Option.isSome then [| sc.Route |> Option.defaultValue "" |]
+                                if sc.Route |> Option.isSome then
+                                    [| sc.Route |> Option.defaultValue "" |]
                                 else
-                                    sc.Routes |> List.toArray
+                                    r.Routes 
                             Indication = sc.Indication
                             Generic = sc.Medication
                             Route = sc.Route
