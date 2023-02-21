@@ -16,9 +16,9 @@ module Demo =
         let rules = pat |> PrescriptionRule.get
         {
             Indications = rules |> PrescriptionRule.indications
-            Generics = rules |> PrescriptionRule.indications
-            Routes = rules |> PrescriptionRule.indications
-            Shapes= rules |> PrescriptionRule.indications
+            Generics = rules |> PrescriptionRule.generics
+            Routes = rules |> PrescriptionRule.routes
+            Shapes= rules |> PrescriptionRule.shapes
             Indication = None
             Generic = None
             Route = None
