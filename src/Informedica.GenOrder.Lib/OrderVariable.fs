@@ -128,8 +128,6 @@ module OrderVariable =
         (ovar.Variable
         |> Variable.getValueRange
         |> ValueRange.toString exact)
-        |> String.replace "x" "keer"
-        |> String.replace "*" "/"
 
 
     /// Returns the values with the string equivalents
