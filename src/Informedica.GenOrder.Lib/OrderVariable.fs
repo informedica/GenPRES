@@ -156,7 +156,7 @@ module OrderVariable =
         |> get
         |> getVar
         |> Variable.getValueRange
-        |> ValueRange.toMarkdown prec //TODO: need something to set precision and number formatting
+        |> ValueRange.toMarkdown prec
         |> String.replace "x" "keer"
         |> String.replace "*" "/"
         |> String.replace "," ", "
