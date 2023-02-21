@@ -247,8 +247,8 @@ module EmergencyList =
                 Mui.formGroup[
                     formGroup.row true
                     formGroup.children[
-                        Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
                         Filter.view(filterValues)
+                        Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
                     ]
                 ]
             ]
