@@ -41,3 +41,10 @@ Api.eval "100 mg[Mass]/1 kg[Weight]"
     |> ValueUnit.simplify
     |> ValueUnit.toStringEngShort
 
+
+"4 weken"
+|> Units.stringWithGroup
+
+"1 x[Count]/4 weken[Time]"
+|> ValueUnit.fromString
+|> ValueUnit.toStringDutchShort

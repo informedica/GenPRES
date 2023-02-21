@@ -397,11 +397,11 @@ module GStand =
                        ) then
                         let s1 =
                             d.frequency
-                            |> ValueUnit.toReadableDutchStringWithPrec 1
+                            |> ValueUnit.toStringDecimalDutchShortWithPrec 1
 
                         let s2 =
                             frs
-                            |> List.map (ValueUnit.toReadableDutchStringWithPrec 1)
+                            |> List.map (ValueUnit.toStringDecimalDutchShortWithPrec 1)
                             |> String.concat ", "
 
                         failwith

@@ -36,7 +36,6 @@ module Tests =
     let weeks4 = 4N |> Units.Time.nWeek
 
 
-    [<Tests>]
     let unitTests =
 
         let toBase = toBaseValue >> (Array.map BigRational.toDecimal) >> Array.head
@@ -120,28 +119,33 @@ module Tests =
         ]
 
 
-    let toStringTests =
+        
+
+    let stringTests =
+
         testList "Print" [
             test "4 weken unit to string should return 4 weken" {
                 weeks4
                 |> Units.toStringDutchShort
-                |> Expect.equal "should be equal" "4 week[Time]"
+                |> Expect.equal "should be equal" "4 weken[Time]"
             }
 
-            test "x[Count]/4 weken[Time] from string should return a combiunit" {
-                "x[Count]/4 weken[Time]"
-                |> Units.fromString
-                |> function
-                | None -> ""
-                | Some u ->
-                    u
-                    |> Units.toStringDutchShort
-                |> Expect.equal "x[Count]/4 weken[Time]"
+            test "1 x[Count]/4 weken[Time] from string should return a combiunit" {
+                "1 x[Count]/4 weken[Time]"
+                |> ValueUnit.fromString
+                |> ValueUnit.toStringDutchShort
+                |> Expect.equal "should equal" "1 x[Count]/4 weken[Time]"
             }
+
+            test "unit with unit number can find group" {
+                "4 weken"
+                |> Units.stringWithGroup
+                |> Expect.equal "should be equal" "4 weken[Time]"
+            }
+
         ]
 
 
-    [<Tests>]
     let comparisonTests =
 
         testList "Comparison" [
@@ -168,7 +172,6 @@ module Tests =
         ]
 
 
-    [<Tests>]
     let calculationTests =
 
         let (>>?) res exp =
@@ -280,7 +283,6 @@ module Tests =
         ]
 
 
-    [<Tests>]
     let conversionTests =
 
         testList "Conversion" [
@@ -319,7 +321,7 @@ module Tests =
         ]
 
     let tests = testList "ValueUnit Tests" [
-            toStringTests
+            stringTests
             calculationTests
             conversionTests
             comparisonTests

@@ -58,6 +58,14 @@ module Utils =
         open ValueUnit
 
 
+        let toStr exact =
+            if exact then
+                toStringDutchShort
+                // getValue
+                // >> Array.toReadableString
+                >> String.removeBrackets
+            else
+                toStringDecimalDutchShortWithPrec 3
 
 
         module Operators =

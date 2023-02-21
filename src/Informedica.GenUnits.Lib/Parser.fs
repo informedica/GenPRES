@@ -80,4 +80,4 @@ module Parser =
                 printfn $"parsing failure: %s{msg}"
                 None
 
-    let parse = parseWitUnits Units.units
+    let parse = parseWitUnits Units.UnitDetails.units

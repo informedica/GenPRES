@@ -126,7 +126,15 @@ module String =
     /// **s2** caps insensitive
     let startsWithCapsInsens = startsWithEqs equalsCapInsens
 
+
     let regex s = new Regex(s)
+
+
+    let regexReplace regS (replS : string) (s : string) = (regS |> regex).Replace(s, replS) 
+
+
+    let replaceNumbers = regexReplace @"[\d-]"
+
 
     /// Count the number of times character
     /// c appears in string t

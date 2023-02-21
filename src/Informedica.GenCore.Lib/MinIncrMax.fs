@@ -59,8 +59,8 @@ module Limit =
         let s = if isMin then "Min" else "Max"
 
         match lim with
-        | Inclusive vu -> $"{s} Incl {vu |> ValueUnit.toReadableDutchStringWithPrec 3}"
-        | Exclusive vu -> $"{s} Excl {vu |> ValueUnit.toReadableDutchStringWithPrec 3}"
+        | Inclusive vu -> $"{s} Incl {vu |> ValueUnit.toStringDecimalDutchShortWithPrec 3}"
+        | Exclusive vu -> $"{s} Excl {vu |> ValueUnit.toStringDecimalDutchShortWithPrec 3}"
 
 
     let inclusive v = v |> Inclusive
@@ -1014,7 +1014,7 @@ module MinIncrMax =
                 | v, u when v >= [| 1000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
                 | _ -> vu
             )
-            |> ValueUnit.toReadableDutchStringWithPrec 2
+            |> ValueUnit.toStringDecimalDutchShortWithPrec 2
 
         let minToString min =
             match min with
