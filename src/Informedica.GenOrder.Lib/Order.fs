@@ -1375,6 +1375,7 @@ module Order =
 
         let printPrescription sn (o : Order) =
             let on = o.Orderable.Name |> Name.toString
+            let sn = sn |> Array.filter String.notEmpty
 
             let printItem get unt o =
                 o.Orderable.Components
@@ -1477,9 +1478,9 @@ module Order =
                         (fun i -> i.Dose.PerTimeAdjust)
                         (PerTimeAdjust.toValueUnitString 1)
 
-                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} = ({dt}) {rt}"
+                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
                 let prep = o |> printComponentQuantity
-                let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme}, {rt}"
+                let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme} = {rt}"
 
                 pres, prep, adm
 
