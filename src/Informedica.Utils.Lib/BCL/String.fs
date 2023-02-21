@@ -153,7 +153,8 @@ module String =
 
 
     let removeTextBetween start stop text =
-        let regs = @"\" + start + @"[^\" + stop + "]*]"
+        //@"\" + start + @"[^\" + stop + "]*]"
+        let regs = $"\{start}[^\{stop}]*\{stop}"
 
         (regex regs).Replace(text, "")
         |> trim

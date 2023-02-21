@@ -99,14 +99,19 @@ module Demo =
                                         |> Array.map (fun dl -> dl.Substance)
                                     let prs, prp, adm =
                                         ord
-                                        |> Order.Print.printPrescription ns
+                                        |> Order.Markdown.printPrescription ns
                                     [
-                                        $"- #### {pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toString} {pr.DoseRule.Indication}"
+                                        $"- {pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toString} {pr.DoseRule.Indication}"
                                         $"- Voorschrift: {prs}"
                                         $"- Bereiding: {prp}"
                                         $"- Toediening: {adm}"
                                     ]
                                     |> String.concat "\n"
+                                    |> String.replace "[" ""
+                                    |> String.replace "]" ""
+                                    |> String.replace "<" ""
+                                    |> String.replace ">" ""
+                                    |> String.replace "|" ""
 
                                 | Error (_, _, errs) -> 
                                     errs |> List.map string |> String.concat "\n"

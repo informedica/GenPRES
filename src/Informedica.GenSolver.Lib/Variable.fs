@@ -296,6 +296,12 @@ module Variable =
                 $"""{if b then "[" else "<"}{vu |> ValueUnit.toStr exact}"""
 
 
+            let toMarkdown prec min =
+                let b, vu = min |> toBoolValueUnit
+
+                $"""{if b then "[" else "<"}{vu |> ValueUnit.toMarkdown prec}"""
+
+
 
         module Maximum =
 
@@ -426,6 +432,12 @@ module Variable =
                 $"""{vu |> ValueUnit.toStr exact}{if b then "]" else ">"}"""
 
 
+            let toMarkdown prec max =
+                let b, vu = max |> toBoolValueUnit
+
+                $"""{vu |> ValueUnit.toMarkdown prec}{if b then "]" else ">"}"""
+
+
 
         module ValueSet =
 
@@ -510,6 +522,18 @@ module Variable =
                     let first3 = vs |> ValueUnit.takeFirst 3
                     let last3 = vs |> ValueUnit.takeLast 3
                     $"[{first3 |> ValueUnit.toStr exact} .. {last3 |> ValueUnit.toStr exact}]"
+
+
+            let toMarkdown prec (ValueSet vs) =
+                let count =
+                    ValueUnit.getValue >> Array.length
+
+                if vs |> count <= 10 then
+                    $"""[{vs |> ValueUnit.toMarkdown prec}]"""
+                else
+                    let first3 = vs |> ValueUnit.takeFirst 3
+                    let last3 = vs |> ValueUnit.takeLast 3
+                    $"[{first3 |> ValueUnit.toMarkdown prec} .. {last3 |> ValueUnit.toMarkdown prec}]"
 
 
         module Property =
@@ -1303,6 +1327,59 @@ module Variable =
 
             vr
             |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
+
+
+
+        /// Convert a `ValueRange` to a `string`.
+        let toMarkdown prec vr =
+            let print prec isNonZero min max vs =
+                if isNonZero then
+                    "<0..>"
+
+                else
+                    let printRange min max =
+                        let minToStr = Minimum.toMarkdown prec
+                        let maxToStr = Maximum.toMarkdown prec
+
+                        match min, max with
+                        | None, None -> $""
+                        | Some min, None -> $"{min |> minToStr} .."
+                        | None, Some max -> $".. {max |> maxToStr}"
+                        | Some min, Some max -> $"{min |> minToStr} .. {max |> maxToStr}"
+
+                    match vs with
+                    | Some vs -> $"{vs |> ValueSet.toMarkdown prec}"
+                    | None -> printRange min max
+
+            let fVs vs =
+                print prec false None None (Some vs)
+
+            let unr =
+                print prec false None None None
+
+            let nonZero =
+                print prec true None None None
+
+            let print min max = print prec false min max None
+
+            let fMin min = print (Some min) None
+
+            let fMax max = print None (Some max)
+
+            let fIncr incr = print None None
+
+            let fMinIncr (min, incr) = print (Some min) None
+
+            let fIncrMax (incr, max) = print None (Some max)
+
+            let fMinIncrMax (min, incr, max) = print (Some min) (Some max)
+
+            let fMinMax (min, max) = print (Some min) (Some max)
+
+            vr
+            |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
+
+
 
         /// Functions to calculate the `Minimum`
         /// and `Maximum` in a `ValueRange`.
