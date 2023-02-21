@@ -68,6 +68,18 @@ module Utils =
                 toStringDecimalDutchShortWithPrec 3
 
 
+        let toMarkdown prec vu =
+            vu
+            |> toStringDecimalDutchShortWithPrec prec
+            |> String.split " "
+            |> function
+            | v::u ->
+                let u = u |> String.concat " "
+                $"||{v}|| |{u}|"
+            | s -> s |> String.concat " "
+
+
+
         module Operators =
 
             /// Constant 0

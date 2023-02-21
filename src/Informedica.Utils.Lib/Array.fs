@@ -46,7 +46,7 @@ module Array =
     let inline toString xs = xs |> toString_ "[|" "|]" ";"
 
 
-    let inline toReadableString xs = xs |> toString_ "" "" ", "
+    let inline toReadableString xs = xs |> toString_ "" "" ","
 
 
     let allEqual succ fail xs =

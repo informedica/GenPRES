@@ -1336,6 +1336,7 @@ module Order =
             raise e
 
 
+
     module Print =
 
         let printItemConcentration (c : Component) =
@@ -1484,6 +1485,157 @@ module Order =
 
                 pres, prep, adm
 
+
+
+
+
+    module Markdown =
+
+        let printItemConcentration (c : Component) =
+            c.Items
+            |> Seq.map (fun i ->
+                i.ComponentConcentration
+                |> Concentration.toValueUnitMarkdown 1
+                |> fun s ->
+                    $"{s} {i.Name |> Name.toString}"
+            )
+            |> String.concat " + "
+
+
+        let printComponentQuantity o =
+            o.Orderable.Components
+            |> Seq.map (fun c ->
+                c.OrderableQuantity
+                |> Quantity.toValueUnitMarkdown 1
+                |> fun q ->
+                    let s =
+                        c
+                        |> printItemConcentration
+                        |> String.trim
+                        |> fun s ->
+                            if s |> String.isNullOrWhiteSpace then ""
+                            else
+                                $" ({s})"
+                    $"{q} {c.Name |> Name.toString}{s}"
+            )
+            |> String.concat " + "
+
+
+        let printOrderableDoseQuantity o =
+            o.Orderable.Dose.Quantity
+            |> Quantity.toValueUnitMarkdown 2
+
+
+        let printPrescription sn (o : Order) =
+            let on = o.Orderable.Name |> Name.toString
+            let sn = sn |> Array.filter String.notEmpty
+
+            let printItem get unt o =
+                o.Orderable.Components
+                |> Seq.collect (fun c ->
+                    c.Items
+                    |> Seq.collect (fun i ->
+                        let n = i.Name |> Name.toString
+                        if sn |> Seq.exists ((=) n) then
+                            i
+                            |> get
+                            |> unt
+                            |> fun s ->
+                                if on |> String.startsWith n then seq [ s ]
+                                else
+                                    seq [ $"{s} {n}" ]
+
+                        else Seq.empty
+                    )
+                )
+                |> String.concat " + "
+
+            match o.Prescription with
+            | Prescription.Discontinuous fr ->
+                // frequencies
+                let fr =
+                    fr
+                    |> Frequency.toValueUnitMarkdown 0
+
+                let dq =
+                    o
+                    |> printItem
+                        (fun i -> i.Dose.Quantity)
+                        (Quantity.toValueUnitMarkdown 3)
+
+                let dt =
+                    o
+                    |> printItem
+                        (fun i -> i.Dose.PerTimeAdjust)
+                        (PerTimeAdjust.toValueUnitMarkdown 2)
+
+                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
+                let prep = $"{o |> printComponentQuantity}"
+                let adm = $"{fr} {o |> printOrderableDoseQuantity}"
+
+                pres, prep, adm
+
+            | Prescription.Continuous ->
+                // infusion rate
+                let rt =
+                    o.Orderable.Dose.Rate
+                    |> Rate.toValueUnitMarkdown 1
+
+                let oq =
+                    o.Orderable.OrderableQuantity
+                    |> Quantity.toValueUnitMarkdown 2
+
+                let it =
+                    o
+                    |> printItem
+                        (fun i -> i.OrderableQuantity)
+                        (Quantity.toValueUnitMarkdown 2)
+
+                let dr =
+                    o
+                    |> printItem
+                        (fun i -> i.Dose.RateAdjust)
+                        (RateAdjust.toValueUnitMarkdown 2)
+
+                let pres = $"""{sn |> String.concat " + "} {dr}"""
+                let prep = o |> printComponentQuantity
+                let adm = $"""{sn |> String.concat " + "} {it} in {oq}, {rt}"""
+
+                pres, prep, adm
+
+            | Prescription.Timed (fr, tme) ->
+
+                // frequencies
+                let fr =
+                    fr
+                    |> Frequency.toValueUnitMarkdown 0
+
+                let tme =
+                    tme
+                    |> Time.toValueUnitMarkdown 2
+
+                // infusion rate
+                let rt =
+                    o.Orderable.Dose.Rate
+                    |> Rate.toValueUnitMarkdown 1
+
+                let dq =
+                    o
+                    |> printItem
+                        (fun i -> i.Dose.Quantity)
+                        (Quantity.toValueUnitMarkdown 3)
+
+                let dt =
+                    o
+                    |> printItem
+                        (fun i -> i.Dose.PerTimeAdjust)
+                        (PerTimeAdjust.toValueUnitMarkdown 1)
+
+                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
+                let prep = o |> printComponentQuantity
+                let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme} = {rt}"
+
+                pres, prep, adm
 
 
     module Dto =

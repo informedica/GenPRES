@@ -151,6 +151,18 @@ module OrderVariable =
         |> String.replace "*" "/"
 
 
+    let toValueUnitMarkdown get (prec : int) x =
+        x
+        |> get
+        |> getVar
+        |> Variable.getValueRange
+        |> ValueRange.toMarkdown prec //TODO: need something to set precision and number formatting
+        |> String.replace "x" "keer"
+        |> String.replace "*" "/"
+        |> String.replace "," ", "
+        
+
+
     /// Type and functions to handle the `Dto`
     /// data transfer type for a `VariableUnit`
     module Dto =
@@ -345,6 +357,8 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
 
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
@@ -392,6 +406,9 @@ module OrderVariable =
 
 
         let toValueUnitString = toValueUnitString toOrdVar
+
+
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
 
@@ -442,6 +459,9 @@ module OrderVariable =
 
 
         let toValueUnitString = toValueUnitString toOrdVar
+
+
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
 
@@ -496,6 +516,9 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
 
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
@@ -540,6 +563,9 @@ module OrderVariable =
 
 
         let toValueUnitString = toValueUnitString toOrdVar
+
+
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
 
@@ -592,6 +618,9 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
 
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
@@ -641,6 +670,9 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
 
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
@@ -685,6 +717,9 @@ module OrderVariable =
 
 
         let toValueUnitString = toValueUnitString toOrdVar
+
+
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
         let applyConstraints = toOrdVar >> applyConstraints >> Total
@@ -738,6 +773,9 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
 
@@ -789,6 +827,9 @@ module OrderVariable =
 
 
         let toValueUnitString = toValueUnitString toOrdVar
+
+
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
 
@@ -845,6 +886,9 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
 
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
@@ -894,6 +938,9 @@ module OrderVariable =
 
 
         let toValueUnitString = toValueUnitString toOrdVar
+
+
+        let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust

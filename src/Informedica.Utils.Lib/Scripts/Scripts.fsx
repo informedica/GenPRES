@@ -10,3 +10,9 @@ open Informedica.Utils.Lib.BCL
 
 "9-87987"
 |> String.replaceNumbers ""
+
+"[ab]"
+|> String.removeTextBetween "[" "]"
+
+"(ab)"
+|> String.removeTextBetween "(" ")"
