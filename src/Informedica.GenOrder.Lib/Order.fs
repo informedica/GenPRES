@@ -1612,6 +1612,7 @@ module Order =
                 let fr =
                     fr
                     |> Frequency.toValueUnitMarkdown 0
+                    |> String.replace "/" " per "
 
                 let tme =
                     tme
