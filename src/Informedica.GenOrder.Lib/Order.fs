@@ -1556,6 +1556,7 @@ module Order =
                 let fr =
                     fr
                     |> Frequency.toValueUnitMarkdown 0
+                    |> String.replace "/" " per "
 
                 let dq =
                     o
@@ -1573,7 +1574,9 @@ module Order =
                 let prep = $"{o |> printComponentQuantity}"
                 let adm = $"{fr} {o |> printOrderableDoseQuantity}"
 
-                pres, prep, adm
+                pres |> String.replace "()" "",
+                prep,
+                adm
 
             | Prescription.Continuous ->
                 // infusion rate
@@ -1635,7 +1638,9 @@ module Order =
                 let prep = o |> printComponentQuantity
                 let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme} = {rt}"
 
-                pres, prep, adm
+                pres |> String.replace "()" "",
+                prep,
+                adm
 
 
     module Dto =
