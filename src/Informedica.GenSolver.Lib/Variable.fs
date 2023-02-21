@@ -299,6 +299,7 @@ module Variable =
             let toMarkdown prec min =
                 let b, vu = min |> toBoolValueUnit
 
+
                 $"""{if b then "[" else "<"}{vu |> ValueUnit.toMarkdown prec}"""
 
 

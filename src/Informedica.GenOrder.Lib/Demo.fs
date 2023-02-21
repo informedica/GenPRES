@@ -114,7 +114,11 @@ module Demo =
                                     |> String.replace "|" ""
 
                                 | Error (_, _, errs) -> 
-                                    errs |> List.map string |> String.concat "\n"
+                                    errs
+                                    |> List.map string
+                                    |> String.concat "\n"
+                                    |> printfn "%s"
+                                    ""
                             )
                         )
 
