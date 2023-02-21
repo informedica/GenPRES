@@ -33,6 +33,7 @@
         <Compile Include="Utils.fs"/>
         <Compile Include="Bindings.fs"/>
         <Compile Include="Global.fs"/>
+        <Compile Include="./Components/Filter.fs"/>
         <Compile Include="./Components/Markdown.fs"/>
         <Compile Include="./Components/Select.fs"/>
         <Compile Include="./Components/SortableTable.fs"/>

@@ -10,6 +10,7 @@ module EmergencyList =
     open Components
     open Localization
     open Utils.Sort
+    open System.Collections.Generic
 
 
     module TG = Utils.Typography
@@ -236,8 +237,22 @@ module EmergencyList =
         let sortValue = (Some(sortableItems |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
         let handleSelect = (fun item -> sortableItems |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
 
+        let filterValues =  Map [
+            "Indication", state.BolusMed |> List.map (fun x -> x.Indication) |> List.distinct |> List.sort
+            "Intervention", state.BolusMed |> List.map (fun x -> x.Name) |> List.distinct |> List.sort
+        ]
+
         Html.div[
-            Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
+            Html.div[
+                Mui.formGroup[
+                    formGroup.row true
+                    formGroup.children[
+                        Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
+                        Filter.view(filterValues)
+                    ]
+                ]
+            ]
+
 
             if isMobile then
              Html.div[
