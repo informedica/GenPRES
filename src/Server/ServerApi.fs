@@ -45,41 +45,46 @@ Scenarios: {sc.Scenarios |> List.length}
                             Height = Some 100N
                         }
 
-                    let newSc =
-                        let r = Demo.scenarioResult pat
-                        { Demo.scenarioResult pat with
-                            Indications =
-                                if sc.Indication |> Option.isSome then
-                                    [| sc.Indication |> Option.defaultValue "" |]
-                                else
-                                    r.Indications 
-                            Generics =
-                                if sc.Medication |> Option.isSome then
-                                    [| sc.Medication |> Option.defaultValue "" |]
-                                else
-                                    r.Generics 
-                            Routes =
-                                if sc.Route |> Option.isSome then
-                                    [| sc.Route |> Option.defaultValue "" |]
-                                else
-                                    r.Routes 
-                            Indication = sc.Indication
-                            Generic = sc.Medication
-                            Route = sc.Route
-                        }
-                        |> Demo.filter
+                    try
+                        let newSc =
+                            let r = Demo.scenarioResult pat
+                            { Demo.scenarioResult pat with
+                                Indications =
+                                    if sc.Indication |> Option.isSome then
+                                        [| sc.Indication |> Option.defaultValue "" |]
+                                    else
+                                        r.Indications 
+                                Generics =
+                                    if sc.Medication |> Option.isSome then
+                                        [| sc.Medication |> Option.defaultValue "" |]
+                                    else
+                                        r.Generics 
+                                Routes =
+                                    if sc.Route |> Option.isSome then
+                                        [| sc.Route |> Option.defaultValue "" |]
+                                    else
+                                        r.Routes 
+                                Indication = sc.Indication
+                                Generic = sc.Medication
+                                Route = sc.Route
+                            }
+                            |> Demo.filter
 
-                    let sc =
-                        { sc with
-                            Indications = newSc.Indications |> Array.toList
-                            Medications = newSc.Generics |> Array.toList
-                            Routes = newSc.Routes |> Array.toList
-                            Indication = newSc.Indication
-                            Medication = newSc.Generic
-                            Route = newSc.Route
-                            Scenarios = newSc.Scenarios |> Array.toList
-                        }
-                    printfn $"finished:\{msg sc}"
-                    return sc |> Ok
+                        let sc =
+                            { sc with
+                                Indications = newSc.Indications |> Array.toList
+                                Medications = newSc.Generics |> Array.toList
+                                Routes = newSc.Routes |> Array.toList
+                                Indication = newSc.Indication
+                                Medication = newSc.Generic
+                                Route = newSc.Route
+                                Scenarios = newSc.Scenarios |> Array.toList
+                            }
+                        printfn $"finished:\{msg sc}"
+                        return sc |> Ok
+                    with
+                    | e ->
+                        printfn $"errored:\n{e}"
+                        return sc |> Ok
                 }
     }

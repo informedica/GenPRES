@@ -155,7 +155,7 @@ Patient.child
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr -> 
-    pr.DoseRule.Generic = "esmolol" && 
+    pr.DoseRule.Generic = "voriconazol" && 
     pr.DoseRule.Route = "iv" //&& 
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
@@ -163,7 +163,7 @@ Patient.child
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrder
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")
 |> Order.solveMinMax true OrderLogger.logger.Logger
 |> function
 | Error (ord, msgs) ->
@@ -179,6 +179,8 @@ Patient.child
 //    |> printfn "%A"
 
     ord
+    //|> Order.Markdown.printPrescription [|"insuline aspart"|]
+    //|> fun (prs, prep, adm) -> printfn $"{prs}"
     |> Order.toString
     |> String.concat "\n"
     |> printfn "%s"
@@ -227,7 +229,7 @@ let testDto =
     |> PrescriptionRule.get
     |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
     |> Array.filter (fun pr -> 
-        pr.DoseRule.Generic = "esmolol" && 
+        pr.DoseRule.Generic = "epoprostenol" && 
         pr.DoseRule.Route = "iv" //&& 
 //        pr.DoseRule.Indication |> String.startsWith "juveniele"
     )
@@ -263,8 +265,17 @@ PrescriptionRule.get Patient.patient
 |> Array.distinct
 |> Array.sort
 
-
-Informedica.ZIndex.Lib.GenPresProduct.search "esmolol"
+// quick check of products in assortment
+Informedica.ZIndex.Lib.GenPresProduct.search "voriconazol"
+|> Array.map (fun gpp -> $"{gpp.Name}, {gpp.Shape} {(gpp.GenericProducts |> Array.head).Id}")
+|> Array.distinct
+|> Array.sort
+|> Array.iter (printfn "%s")
 175552
 
+Informedica.ZIndex.Lib.GenPresProduct.findByGPK 47929
 "INFUSIEVLOEISTOF"
+
+"POEDER VOOR OPLOSSING VOOR INFUSIE"
+|> String.toLower
+
