@@ -98,7 +98,7 @@ module Decimal =
         Math.Round(d, d |> getPrecision n)
 
 
-    let toStringNumberNL p (d: decimal) = d.ToString("R" + p, CultureInfo.GetCultureInfo("nl"))
+    let toStringNumberNL p (d: decimal) = d.ToString("N" + p, CultureInfo.GetCultureInfo("nl"))
 
 
     let toStringNumberNLWithoutTrailingZeros =

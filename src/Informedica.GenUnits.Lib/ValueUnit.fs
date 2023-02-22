@@ -2381,7 +2381,7 @@ module ValueUnit =
         let vs =
             v
             |> Array.map BigRational.toDecimal
-            |> Array.map (Decimal.fixPrecision prec)
+            |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
             |> Array.toReadableString
 
         let us = u |> unitToReadableDutchString

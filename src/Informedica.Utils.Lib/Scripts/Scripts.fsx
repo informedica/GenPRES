@@ -16,3 +16,12 @@ open Informedica.Utils.Lib.BCL
 
 "(ab)"
 |> String.removeTextBetween "(" ")"
+
+
+1.123456m
+|> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+
+
+1000000.1
+|> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 3
+

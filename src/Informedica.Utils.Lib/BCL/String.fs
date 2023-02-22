@@ -183,7 +183,9 @@ module String =
         |> function
         | [|n; d|] ->
             let d = d |> removeTrailing ["0"]
-            n + "," + d
+            if d |> String.IsNullOrEmpty then n
+            else
+                n + "," + d
         | _ -> s
 
 
