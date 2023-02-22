@@ -125,11 +125,6 @@ module Api =
             dose
             |> Option.map (fun d -> d.DoseUnit = "keer")
             |> Option.defaultValue false
-        //TODO: ??
-        let prods =
-            pr.DoseRule.Products
-            |> createProductComponent noSubst pr.DoseRule.FreqUnit pr.DoseRule.DoseLimits
-            |> List.singleton
 
         { DrugOrder.drugOrder with
             Id = "1" //Guid.NewGuid().ToString()
@@ -189,7 +184,10 @@ module Api =
                                 |> Option.defaultValue "x"
 
                             parenteral
-                            |> Array.tryFind (fun p -> p.Generic |> String.startsWith s)
+                            |> Array.tryFind (fun p ->
+                                    s |> String.notEmpty &&
+                                    p.Generic |> String.startsWith s
+                                )
                             |> function
                             | Some p ->
                                 [|p|]
