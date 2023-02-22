@@ -153,17 +153,17 @@ stopLogger ()
 
 Patient.child
 |> PrescriptionRule.get
-|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+//|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr -> 
-    pr.DoseRule.Generic = "amoxicilline/clavulaanzuur" && 
-    pr.DoseRule.Route = "iv" && 
-    pr.DoseRule.Indication |> String.startsWith "Ernstige"
+    pr.DoseRule.Generic = "esmolol" && 
+    pr.DoseRule.Route = "iv" //&& 
+//    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> Api.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrder
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
 |> Order.solveMinMax true OrderLogger.logger.Logger
 |> function
 | Error (ord, msgs) ->
@@ -227,20 +227,15 @@ let testDto =
     |> PrescriptionRule.get
     |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
     |> Array.filter (fun pr -> 
-        pr.DoseRule.Generic = "abatacept" && 
-        pr.DoseRule.Route = "iv" && 
-        pr.DoseRule.Indication |> String.startsWith "juveniele"
+        pr.DoseRule.Generic = "esmolol" && 
+        pr.DoseRule.Route = "iv" //&& 
+//        pr.DoseRule.Indication |> String.startsWith "juveniele"
     )
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
     |> fun pr -> pr |> Api.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
     |> DrugOrder.toOrder
 
-testDto.Prescription.Frequency.Constraints.Vals.Value.Unit
-
-
-Patient.infant
-|> Api.getIndications
-|> Array.iter (printfn "%s")
+testDto.Orderable.Components |> List.length
 
 
 Patient.infant
@@ -248,3 +243,28 @@ Patient.infant
 |> Array.iter (printfn "%s")
 
 
+DoseRule.get ()
+|> Array.filter (fun dr -> dr.Generic = "amiodaron")
+
+
+let filter1 =
+    { Filter.filter with
+        Generic = Some "argipressine"
+        Route = Some "iv"
+    }
+    |> Filter.setPatient Patient.child
+
+DoseRule.get ()
+|> DoseRule.filter filter1
+|> Array.map (DoseRule.reconstitute "" AnyAccess)
+
+PrescriptionRule.get Patient.patient
+|> Array.map (fun pr -> pr.DoseRule.Generic)
+|> Array.distinct
+|> Array.sort
+
+
+Informedica.ZIndex.Lib.GenPresProduct.search "esmolol"
+175552
+
+"INFUSIEVLOEISTOF"
