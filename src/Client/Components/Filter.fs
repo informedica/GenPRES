@@ -14,8 +14,10 @@ module Filter =
     }
 
     type Msg =
-    //| Filter
+    | ApplyFilter
     | SetDialogState of bool
+    | UpdateSelectedItems
+    | ClearAll
 
     let useStyles =
         Styles.makeStyles (fun styles theme ->
@@ -36,12 +38,15 @@ module Filter =
 
     // the update function is intitiated with a handle to
     // report back to the parent which item is selected.
-    let update msg state =
-        match msg with
-            | SetDialogState s -> { state with DialogOpen = not state.DialogOpen}, Cmd.none
+    // let update msg state =
+    //     match msg with
+    //         | ApplyFilter
+    //         | SetDialogState s -> { state with DialogOpen = not state.DialogOpen}, Cmd.none
+    //         | UpdateSelectedItems //Updates the Selected Array.
+    //         | ClearAll //clears all checkboxes then send ApplyFilter Msg?
 
     [<ReactComponent>]
-    let view(items : Map<string, string list>, state, dispatch) : ReactElement =
+    let view(items : Map<string, string list>) : ReactElement =
 
         let classes = useStyles ()
 
@@ -56,6 +61,7 @@ module Filter =
                         prop.text "Filter"
                         button.endIcon Icons.filterListIcon[]
                         button.variant.outlined
+                        button.size.large
                     ]
                 ]
             ]
@@ -101,7 +107,7 @@ module Filter =
                                         grid.xs 6
                                         grid.children[
                                             Mui.typography[
-                                                typography.variant.h4
+                                                typography.variant.h5
                                                 prop.text key
                                             ]
                                             Mui.divider[]
