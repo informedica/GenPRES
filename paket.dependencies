@@ -34,6 +34,9 @@ nuget FParsec
 nuget FsToolkit.ErrorHandling
 nuget MathNet.Numerics.FSharp
 nuget Microsoft.Net.Test.Sdk
+nuget Thoth.Elmish
+nuget Thoth.Elmish.Debouncer
+nuget Thoth.Fetch
 nuget Unquote
 nuget Validus
 nuget YoloDev.Expecto.TestSdk

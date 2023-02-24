@@ -34,6 +34,7 @@
         <Compile Include="Bindings.fs"/>
         <Compile Include="Global.fs"/>
         <Compile Include="./Components/Markdown.fs"/>
+        <Compile Include="./Components/NumericInput.fs"/>
         <Compile Include="./Components/Select.fs"/>
         <Compile Include="./Components/SortableTable.fs"/>
         <Compile Include="./Components/StatusBar.fs"/>

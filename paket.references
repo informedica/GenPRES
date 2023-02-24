@@ -1,3 +1,6 @@
 Fake.Core.Target
 Fake.IO.FileSystem
 Expecto
+Thoth.Fetch
+Thoth.Elmish
+Thoth.Elmish.Debouncer
