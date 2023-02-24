@@ -720,23 +720,24 @@ module Units =
                     Group = Group.NoGroup
                     Abbreviation =
                         {
-                            Eng = "milj-IU"
-                            Dut = "milj-IE"
+                            Eng = "miljIU"
+                            Dut = "miljIE"
                             EngPlural = "miljIE"
-                            DutchPlural = "milj-IE"
+                            DutchPlural = "miljIE"
                         }
                     Name =
                         {
-                            Eng = "million-IU"
-                            Dut = "miljoen-IE"
+                            Eng = "millionIU"
+                            Dut = "miljoenIE"
                             EngPlural = "miljIE"
-                            DutchPlural = "milj-IE"
+                            DutchPlural = "miljIE"
                         }
                     Synonyms =
                         [
                             "miljoenIE"
                             "milj.IE"
                             "milj.E"
+                            "miljIE"
                             "miljonIU"
                             "milj.IU"
                             "milj.U"
