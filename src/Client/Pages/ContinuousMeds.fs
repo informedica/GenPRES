@@ -82,7 +82,7 @@ module ContinuousMeds =
                                                 grid.spacing 2
                                                 grid.direction.row
                                                 grid.children[
-                                                     Mui.grid [
+                                                    Mui.grid [
                                                         grid.item
                                                         grid.xs 6
                                                         grid.children[
@@ -93,7 +93,6 @@ module ContinuousMeds =
                                                             Mui.typography[
                                                                 prop.text med.Name
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Continuous Medication Quantity``|> getTerm)
@@ -101,7 +100,6 @@ module ContinuousMeds =
                                                             Mui.typography[
                                                                 prop.text (quantity med)
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Continuous Medication Solution``|> getTerm)
@@ -110,8 +108,8 @@ module ContinuousMeds =
                                                                 prop.text (solution med)
                                                             ]
                                                         ]
-                                                     ]
-                                                     Mui.grid[
+                                                    ]
+                                                    Mui.grid[
                                                         grid.item
                                                         grid.xs 6
                                                         grid.children[
@@ -122,7 +120,6 @@ module ContinuousMeds =
                                                             Mui.typography[
                                                                 prop.text med.SubstanceDoseText
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Continuous Medication Advice``|> getTerm)
@@ -131,7 +128,7 @@ module ContinuousMeds =
                                                                 prop.text med.Text
                                                             ]
                                                         ]
-                                                     ]
+                                                    ]
                                                 ]
 
                                             ]

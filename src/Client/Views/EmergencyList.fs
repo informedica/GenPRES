@@ -18,17 +18,19 @@ module EmergencyList =
     type Msg =
         | RowClick of int * string list
         | SetSort of Sort
-        | FilterIndications of string
-        | FilterInterventions of string
+        | SetIntervention of string
+        | SetIndication of string
+        | Filter
         | ResetFilter
 
     type Model = {
         BolusMed : Intervention list
-        FilteredBolusMed : Intervention list
+        FilteredList : Intervention list
         Sort: Sort
         Indications: string list
         SelectedIndication : Option<string>
         Interventions: string list
+        SelectedIntervention: Option<string>
     }
 
     let dose (intervention :Intervention) =
@@ -120,13 +122,11 @@ module EmergencyList =
                                                             Mui.typography[
                                                                 prop.text med.Name
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Emergency List Calculated``|> getTerm)
                                                             ]
                                                             dose med
-                                                            Mui.divider[]
                                                         ]
                                                     ]
                                                     Mui.grid[
@@ -138,7 +138,6 @@ module EmergencyList =
                                                                 prop.text (Localization.Terms.``Emergency List Preparation``|> getTerm)
                                                             ]
                                                             interventionDose med
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Emergency List Advice``|> getTerm)
@@ -211,36 +210,60 @@ module EmergencyList =
 
     let init (bolusMed) = {
         BolusMed = bolusMed;
-        FilteredBolusMed = bolusMed
+        FilteredList = bolusMed
         Sort = Sort.IndicationAsc;
         Interventions = bolusMed |> List.map (fun x -> x.Name) |> List.distinct |> List.sort;
         Indications = bolusMed |> List.map (fun x -> x.Indication) |> List.distinct |> List.sort;
-        SelectedIndication = Option.None;}, Cmd.ofMsg(SetSort IndicationAsc;)
+        SelectedIndication = Option.None;
+        SelectedIntervention = Option.None}, Cmd.ofMsg(SetSort IndicationAsc;)
 
+    let doSortAndFilter(state : Model): Intervention list =
+
+        Browser.Dom.console.table state
+        let indicationList = match state.SelectedIndication with
+                                | Some s -> state.FilteredList |> List.filter (fun bolus -> bolus.Indication = s)
+                                | None -> state.FilteredList
+
+        let interventionList = match state.SelectedIntervention with
+                                | Some s -> indicationList |> List.filter (fun bolus -> bolus.Name = s)
+                                | None -> indicationList
+
+        let sortedList = match state.Sort with
+                            | IndicationAsc -> interventionList |> List.sortBy (fun item -> item.Indication )
+                            | IndicationDesc -> interventionList |> List.sortByDescending (fun item -> item.Indication )
+                            | InterventionAsc -> interventionList |> List.sortBy (fun item -> item.Name )
+                            | InterventionDesc -> interventionList |> List.sortByDescending (fun item -> item.Name )
+
+        sortedList
+
+    let indications indications =
+       indications |> List.distinct |> List.sort
+
+    let interventions (state: Model) =
+        match state.SelectedIndication with
+        | Some  s -> state.BolusMed
+                    |> List.filter(fun bolus -> bolus.Indication = s)
+                    |> List.map(fun item -> item.Name)
+                    |> List.distinct
+        | None -> state.BolusMed
+                    |> List.map(fun item -> item.Name)
+                    |> List.distinct
 
     let update handleRowClick msg state =
+
+        Browser.Dom.console.table msg
         match msg with
         | RowClick (i, els) ->
             state, Cmd.ofSub (fun _ -> (i, els) |> handleRowClick)
-        | SetSort sort ->
-            match sort with
-            | IndicationAsc -> {state with BolusMed = state.BolusMed |> List.sortBy (fun item -> item.Indication )}, Cmd.none
-            | IndicationDesc -> {state with BolusMed = state.BolusMed |> List.sortByDescending (fun item -> item.Indication )}, Cmd.none
-            | InterventionAsc -> {state with BolusMed = state.BolusMed |> List.sortBy (fun item -> item.Name )}, Cmd.none
-            | InterventionDesc -> {state with BolusMed = state.BolusMed |> List.sortByDescending (fun item -> item.Name )}, Cmd.none
-        | FilterIndications s -> { state with BolusMed = state.BolusMed |> List.filter (fun bolus -> bolus.Indication = s)}, Cmd.none
-        | FilterInterventions s -> {state with BolusMed = state.BolusMed|> List.filter (fun bolus -> bolus.Name = s)}, Cmd.none
-        | ResetFilter -> { state with BolusMed = state.BolusMed }, Cmd.none
+        | SetSort _ ->  state, Cmd.ofMsg Filter
+        | SetIndication s -> { state with SelectedIndication = Some(s); Interventions = interventions state}, Cmd.ofMsg Filter
+        | SetIntervention s -> {state with SelectedIntervention = Some(s);}, Cmd.ofMsg Filter
+        | Filter -> {state with FilteredList = doSortAndFilter(state)}, Cmd.none
+        | ResetFilter -> {
+                state with FilteredList = state.BolusMed |> List.sortBy( fun x-> x.Indication);
+                            SelectedIndication = Option.None;
+                            SelectedIntervention = Option.None}, Cmd.none
 
-
-    let indications state =
-        state.Indications |> List.map (fun x -> x) |> List.distinct |> List.sort
-
-    let interventions (state: Model) =
-        state.BolusMed
-            |> List.filter(fun bolus -> (indications state |> List.exists (fun indication -> indication = bolus.Indication)))
-            |> List.map(fun item -> item.Name)
-            |> List.distinct
 
     [<ReactComponent>]
     let View
@@ -257,13 +280,12 @@ module EmergencyList =
             React.useElmish (init input.bolusMed, update input.handleRowClick,[||])
 
         let hs, rs =
-            state.BolusMed |> createHeadersAndRows lang
+            state.FilteredList |> createHeadersAndRows lang
 
         let sortValue = (Some(sortableItems |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
         let handleSortSelect = (fun item -> sortableItems |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
-        let handleIndicationSelect =  (fun item -> indications state |> List.find ( fun key -> key = item) |> FilterIndications |> dispatch )
-        let handleInterventionSelect =  (fun item -> interventions state |> List.find ( fun key -> key = item) |> FilterInterventions |> dispatch )
-
+        let handleIndicationSelect =  (fun item -> indications state.Indications |> List.find ( fun key -> key = item) |> SetIndication |> dispatch )
+        let handleInterventionSelect =  (fun item -> interventions state |> List.find ( fun key -> key = item) |> SetIntervention |> dispatch )
 
         Html.div[
             Html.div[
@@ -271,8 +293,8 @@ module EmergencyList =
                     formGroup.row true
                     prop.style[style.display.flex]
                     formGroup.children[
-                        Select.render (Utils.Typography.body1 (Localization.Terms.``Emergency List Indication`` |> getTerm lang)) (indications state) Option.None handleIndicationSelect
-                        Select.render (Utils.Typography.body1 (Localization.Terms.``Emergency List Intervention`` |> getTerm lang)) (interventions state) Option.None handleInterventionSelect
+                        Select.render (Utils.Typography.body1 (Localization.Terms.``Emergency List Indication`` |> getTerm lang)) (indications state.Indications) state.SelectedIndication handleIndicationSelect
+                        Select.render (Utils.Typography.body1 (Localization.Terms.``Emergency List Intervention`` |> getTerm lang)) (interventions state) state.SelectedIntervention handleInterventionSelect
                         Mui.button[
                             prop.text "Reset Filter"
                             button.variant.outlined
@@ -286,7 +308,7 @@ module EmergencyList =
 
             if isMobile then
                 Html.div[
-                    createCards lang state.BolusMed
+                    createCards lang state.FilteredList
                 ]
             else
                 SortableTable.render hs rs (RowClick >> dispatch)
