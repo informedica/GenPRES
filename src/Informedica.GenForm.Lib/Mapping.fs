@@ -61,7 +61,7 @@ module Mapping =
         |> Array.tryFind (fun r ->
             r.Long |> String.equalsCapInsens unt
         )
-        |> Option.map (fun r -> r.MV)
+        |> Option.map (fun r -> r.Short)
 
 
     let mappingRouteShape =

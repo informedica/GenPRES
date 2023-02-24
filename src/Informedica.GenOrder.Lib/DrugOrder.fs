@@ -101,30 +101,7 @@ module DrugOrder =
         }
 
 
-    // TODO: replace with UnitDetails.stringWithGroup
-    let unitGroup u =
-        if u = "kg" then "kg[Weight]"
-        else
-            Units.UnitDetails.units
-            |> List.filter (fun ud ->
-                ud.Group <> Group.WeightGroup
-            )
-            |> List.tryFind (fun ud ->
-                [
-                    ud.Abbreviation.Dut
-                    ud.Abbreviation.Eng
-                    ud.Name.Dut
-                    ud.Name.Eng
-                ]
-                |> List.append ud.Synonyms
-                |> List.exists(String.equalsCapInsens u)
-            )
-            |> function
-            | Some ud ->
-                ud.Group
-                |> ValueUnit.Group.toString
-            | None -> "General"
-            |> sprintf "%s[%s]" u
+    let unitGroup = Informedica.GenUnits.Lib.Units.stringWithGroup
 
 
     let toOrder (d : DrugOrder) =
@@ -256,6 +233,7 @@ module DrugOrder =
 
                             match s.Solution with
                             | Some sl ->
+                                let su = sl.Unit |> unitGroup // note the solution substance unit can differ from the component substance unit!
                                 itmDto.OrderableQuantity.Constraints.MinIncl <- sl.Quantity.Minimum.IsSome
                                 itmDto.OrderableQuantity.Constraints.Min <- sl.Quantity.Minimum |> Option.bind (createSingleValueUnitDto su)
                                 itmDto.OrderableQuantity.Constraints.MaxIncl <- sl.Quantity.Maximum.IsSome
