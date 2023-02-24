@@ -1,55 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
-        <DefineConstants>FABLE_COMPILER</DefineConstants>
-    </PropertyGroup>
-    <ItemGroup>
-        <None Include="index.html"/>
-        <Compile Include="../Shared/Types.fs"/>
-        <Compile Include="../Shared/Localization.fs"/>
-        <Compile Include="../Shared/Data.fs"/>
-        <Compile Include="../Shared/Domain.fs"/>
-        <Compile Include="../Shared/Api.fs"/>
-        <Compile Include="MUI\MaterialIcons.fs"/>
-        <Compile Include="MUI\Flatten.fs"/>
-        <Compile Include="MUI\Misc.fs"/>
-        <Compile Include="MUI\Bindings.fs"/>
-        <Compile Include="MUI\DatePickersModels.fs"/>
-        <Compile Include="MUI\Autocomplete.fs"/>
-        <Compile Include="MUI\Hooks.fs"/>
-        <Compile Include="MUI\Colors.fs"/>
-        <Compile Include="MUI\Localization.fs"/>
-        <Compile Include="MUI\Styles.fs"/>
-        <Compile Include="MUI\Theme.fs"/>
-        <Compile Include="MUI\ThemeOverrides.fs"/>
-        <Compile Include="MUI\ThemeProps.fs"/>
-        <Compile Include="MUI\ClassNames.fs"/>
-        <Compile Include="MUI\ClassesProps.fs"/>
-        <Compile Include="MUI\MuiComponents.fs"/>
-        <Compile Include="MUI\Props.fs"/>
-        <Compile Include="MUI\Mui.fs"/>
-        <Compile Include="Extensions.fs"/>
-        <Compile Include="Utils.fs"/>
-        <Compile Include="Bindings.fs"/>
-        <Compile Include="Global.fs"/>
-        <Compile Include="./Components/Markdown.fs"/>
-        <Compile Include="./Components/Select.fs"/>
-        <Compile Include="./Components/SortableTable.fs"/>
-        <Compile Include="./Components/StatusBar.fs"/>
-        <Compile Include="./Components/SideMenu.fs"/>
-        <Compile Include="./Components/Menu.fs"/>
-        <Compile Include="./Components/NavBar.fs"/>
-        <Compile Include="./Views/Patient.fs"/>
-        <Compile Include="./Views/EmergencyList.fs"/>
-        <Compile Include="./Pages/LifeSupport.fs"/>
-        <Compile Include="./Pages/ContinuousMeds.fs"/>
-        <Compile Include="./Pages/Prescribe.fs"/>
-        <Compile Include="Main.fs"/>
-        <Compile Include="App.fs"/>
-    </ItemGroup>
-    <ItemGroup>
-        <EmbeddedResource Remove="MaterialUI\**"/>
-    </ItemGroup>
-    <Import Project="..\..\.paket\Paket.Restore.targets"/>
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <DefineConstants>FABLE_COMPILER</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="index.html" />
+    <Compile Include="../Shared/Types.fs" />
+    <Compile Include="../Shared/Localization.fs" />
+    <Compile Include="../Shared/Data.fs" />
+    <Compile Include="../Shared/Domain.fs" />
+    <Compile Include="../Shared/Api.fs" />
+    <Compile Include="Extensions.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Global.fs" />
+    <Compile Include="GenPres.fs" />
+    <Compile Include="App.fs" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

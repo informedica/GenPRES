@@ -3,13 +3,13 @@
   "isRoot": true,
   "tools": {
     "paket": {
-      "version": "6.2.1",
+      "version": "7.2.0",
       "commands": [
         "paket"
       ]
     },
     "femto": {
-      "version": "0.12.0",
+      "version": "0.17.1",
       "commands": [
         "femto"
       ]
@@ -21,9 +21,15 @@
       ]
     },
     "fable": {
-      "version": "3.7.0",
+      "version": "4.0.0-theta-011",
       "commands": [
         "fable"
+      ]
+    },
+    "fantomas": {
+      "version": "5.2.2",
+      "commands": [
+        "fantomas"
       ]
     }
   }

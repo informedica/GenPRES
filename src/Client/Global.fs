@@ -31,6 +31,3 @@ let pageToString locale page =
 
 let languageContext =
     React.createContext (name = "language", defaultValue = Localization.Dutch)
-
-
-//let renderContext

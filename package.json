@@ -1,34 +1,23 @@
 {
-    "private": true,
+    "name": "genpres",
+    "version": "1.0.0",
+    "description": "Generic Medication Order Entry",
+      "private": true,
     "scripts": {
-        "start": "webpack-dev-server --mode development",
-        "build": "webpack --mode production",
-        "test:live": "webpack-dev-server --mode development --env test"
+        "postinstall": "dotnet tool restore && dotnet restore GenPres.sln",
+        "start": "dotnet fable watch src/Client -o dist .js -e .jsx --run vite"
     },
     "devDependencies": {
-        "copy-webpack-plugin": "^10.0.0",
-        "css-loader": "^6.5.1",
-        "file-loader": "^6.2.0",
-        "html-webpack-plugin": "^5.5.0",
-        "mini-css-extract-plugin": "^2.4.5",
-        "mocha": "^8.3.2",
-        "remotedev": "^0.2.9",
-        "sass": "^1.43.4",
-        "sass-loader": "^12.3.0",
-        "source-map-loader": "^3.0.0",
-        "style-loader": "^3.3.1",
-        "webpack": "^5.64.2",
-        "webpack-cli": "^4.9.1",
-        "webpack-dev-server": "^4.5.0"
+        "@vitejs/plugin-react": "^3.0.1",
+        "vite": "^4.0.4"
     },
     "dependencies": {
         "@emotion/react": "^11.10.5",
         "@emotion/styled": "^11.10.5",
+        "@fontsource/roboto": "^4.5.8",
         "@mui/icons-material": "^5.11.0",
-        "@mui/material": "^5.11.7",
-        "@mui/styles": "^5.11.7",
-        "react": "^17.0.2",
-        "react-dom": "^17.0.2",
-        "react-markdown": "^8.0.0"
+        "@mui/material": "^5.11.3",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
     }
 }
