@@ -246,6 +246,7 @@ module EmergencyList =
                     |> List.map(fun item -> item.Name)
                     |> List.distinct
         | None -> state.BolusMed
+
                     |> List.map(fun item -> item.Name)
                     |> List.distinct
 
@@ -255,7 +256,7 @@ module EmergencyList =
         match msg with
         | RowClick (i, els) ->
             state, Cmd.ofSub (fun _ -> (i, els) |> handleRowClick)
-        | SetSort _ ->  state, Cmd.ofMsg Filter
+        | SetSort s -> { state with Sort = s}, Cmd.ofMsg Filter
         | SetIndication s -> { state with SelectedIndication = Some(s); Interventions = interventions state}, Cmd.ofMsg Filter
         | SetIntervention s -> {state with SelectedIntervention = Some(s);}, Cmd.ofMsg Filter
         | Filter -> {state with FilteredList = doSortAndFilter(state)}, Cmd.none
