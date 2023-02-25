@@ -13,6 +13,12 @@ open Shared.Api
 /// An implementation of the Shared IServerApi protocol.
 let serverApi: IServerApi =
     {
+        test =
+            fun () ->
+                async {
+                    return "Hello world!"
+                }
+                
         getScenarioResult =
             fun (sc: ScenarioResult) ->
 
@@ -35,7 +41,7 @@ Scenarios: {sc.Scenarios |> List.length}
                     let pat =
                         { Patient.patient with
                             Department = "ICK"
-                            Age = 
+                            Age =
                                 sc.Age
                                 |> Option.bind BigRational.fromFloat
                             Weight =
@@ -53,17 +59,17 @@ Scenarios: {sc.Scenarios |> List.length}
                                     if sc.Indication |> Option.isSome then
                                         [| sc.Indication |> Option.defaultValue "" |]
                                     else
-                                        r.Indications 
+                                        r.Indications
                                 Generics =
                                     if sc.Medication |> Option.isSome then
                                         [| sc.Medication |> Option.defaultValue "" |]
                                     else
-                                        r.Generics 
+                                        r.Generics
                                 Routes =
                                     if sc.Route |> Option.isSome then
                                         [| sc.Route |> Option.defaultValue "" |]
                                     else
-                                        r.Routes 
+                                        r.Routes
                                 Indication = sc.Indication
                                 Generic = sc.Medication
                                 Route = sc.Route

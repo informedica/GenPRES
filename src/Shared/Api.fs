@@ -13,6 +13,6 @@ module Api =
     /// to learn more, read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
     type IServerApi =
         {
-            getScenarioResult: ScenarioResult
-                -> Async<Result<ScenarioResult, string>>
+            getScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
+            test : unit -> Async<string>
         }
