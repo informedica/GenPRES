@@ -71,6 +71,7 @@
 
 !webpack.config.js
 !vite.config.js
+!index.html
 
 # Add yml files to ci on appveyor and travis
 !appveyor.yml
