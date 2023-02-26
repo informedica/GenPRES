@@ -28,15 +28,22 @@ module private Elmish =
 
     type State =
         {
+            DrawerIsOpen : bool
             Test: Deferred<string>
         }
 
     type Msg =
+        | ToggleDrawer
         | Test of AsyncOperationStatus<string>
 
 
 
-    let init () = { Test = HasNotStartedYet }, Cmd.ofMsg (Test Started)
+    let init () =
+        {
+            DrawerIsOpen = true
+            Test = HasNotStartedYet
+        },
+        Cmd.ofMsg (Test Started)
 
 
     let update (msg: Msg) (state: State) =
@@ -51,6 +58,8 @@ module private Elmish =
 
         | Test (Finished s) ->
             { state with Test = Resolved s}, Cmd.none
+        | ToggleDrawer ->
+            { state with DrawerIsOpen = state.DrawerIsOpen |> not }, Cmd.none
 
 
 module private Components =
@@ -58,7 +67,7 @@ module private Components =
 
 
     [<JSX.Component>]
-    let AppBar (props: {| title: string |}) =
+    let AppBar (props: {| title: string; dispatch : Msg -> unit |}) =
         JSX.jsx
             $"""
         import AppBar from '@mui/material/AppBar';
@@ -78,8 +87,10 @@ module private Components =
                         color="inherit"
                         aria-label="menu"
                         sx={ {| mr = 2 |} }
+                        onClick={fun _ -> ToggleDrawer |> props.dispatch}
                         >
                         <MenuIcon />
+
                     </IconButton>
                     <Typography variant="h6" component="div" sx={ {| flexGrow = 1 |} }>
                         {props.title}
@@ -91,9 +102,73 @@ module private Components =
         """
 
 
+    [<JSX.Component>]
+    let List (prop : {| items : string[] |}) =
+        let items =
+            prop.items
+            |> Array.map (fun text ->
+                JSX.jsx
+                    $"""
+                <ListItem key={text} disablePadding>
+                    <ListItemButton>
+                    <ListItemText primary={text} />
+                    </ListItemButton>
+                </ListItem>
+                """
+            )
+
+        JSX.jsx
+            $"""
+        import List from '@mui/material/List';
+        import Divider from '@mui/material/Divider';
+        import ListItem from '@mui/material/ListItem';
+        import ListItemButton from '@mui/material/ListItemButton';
+        import ListItemIcon from '@mui/material/ListItemIcon';
+        import ListItemText from '@mui/material/ListItemText';
+
+        <List>
+            {items}
+        </List>
+        """
+
+
+    [<JSX.Component>]
+    let Drawer (props : {| anchor : string; isOpen : bool; toggle : unit -> unit |}) =
+        let drawerWidth = 240
+
+        let menu =
+            {|
+                items = [|
+                    "Noodlijst"
+                    "Continue Medicatie"
+                    "Voorschrijven"
+                    "Voeding"
+                    "Formularium"
+                |]
+            |}
+            |> List
+
+        JSX.jsx
+            $"""
+        import Drawer from '@mui/material/Drawer';
+        import Typography from '@mui/material/Typography';
+
+        <div>
+            <Drawer
+                anchor={props.anchor}
+                width={drawerWidth}
+                open={props.isOpen}
+                onClose={props.toggle}
+            >
+            {menu}
+            </Drawer>
+        </div>
+        """
+
 
 open Elmish
 open Components
+
 
 [<JSX.Component>]
 let App () =
@@ -101,10 +176,17 @@ let App () =
 
     JSX.jsx
         $"""
-    <div className="container mx-4 mt-4">
-        {AppBar ({| title = "GenPRES 2023" |})}
-        <p>
-            {match model.Test with | Resolved s -> s | _ -> "Still waiting"}
-        </p>
+    import CssBaseline from '@mui/material/CssBaseline';
+    import Box from '@mui/material/Box';
+    import Container from '@mui/material/Container';
+    <div>
+        <Box sx={ {| display="flex"; height="100vh" |} }>
+            <CssBaseline />
+            {AppBar ({| title = "GenPRES 2023"; dispatch = dispatch |})}
+            <p>
+                {match model.Test with | Resolved s -> s | _ -> "Still waiting"}
+            </p>
+            {Drawer ({| anchor = "left"; isOpen = model.DrawerIsOpen; toggle = fun _ -> ToggleDrawer |> dispatch |})}
+        </Box>
     </div>
     """
