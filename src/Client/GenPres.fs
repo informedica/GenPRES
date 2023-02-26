@@ -169,6 +169,14 @@ module private Components =
 open Elmish
 open Components
 
+[<Literal>]
+let private themeDef = """createTheme({
+})""" 
+
+[<Import("createTheme", from="@mui/material/styles")>] 
+[<Emit(themeDef)>]
+let private theme : obj = jsNative
+
 
 [<JSX.Component>]
 let App () =
@@ -176,17 +184,22 @@ let App () =
 
     JSX.jsx
         $"""
+    import {{ ThemeProvider}} from '@mui/material/styles';
     import CssBaseline from '@mui/material/CssBaseline';
+    import React from "react";
     import Box from '@mui/material/Box';
     import Container from '@mui/material/Container';
-    <div>
-        <Box sx={ {| display="flex"; height="100vh" |} }>
-            <CssBaseline />
-            {AppBar ({| title = "GenPRES 2023"; dispatch = dispatch |})}
-            <p>
-                {match model.Test with | Resolved s -> s | _ -> "Still waiting"}
-            </p>
-            {Drawer ({| anchor = "left"; isOpen = model.DrawerIsOpen; toggle = fun _ -> ToggleDrawer |> dispatch |})}
-        </Box>
-    </div>
+
+    <React.StrictMode>
+        <ThemeProvider theme={theme}>
+            <Box sx={ {| display="flex"; height="100vh" |} }>
+                <CssBaseline />
+                {AppBar ({| title = "GenPRES 2023"; dispatch = dispatch |})}
+                <p>
+                    {match model.Test with | Resolved s -> s | _ -> "Still waiting"}
+                </p>
+                {Drawer ({| anchor = "left"; isOpen = model.DrawerIsOpen; toggle = fun _ -> ToggleDrawer |> dispatch |})}
+            </Box>
+        </ThemeProvider>
+    </React.StrictMode>
     """
