@@ -104,20 +104,21 @@ module Filter =
             let state, dispatch =
                     React.useElmish (init props.interventionList, update publish,[||])
 
-            let sortValue = (Some(sortableItems |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
-            let handleSortSelect = (fun item -> sortableItems |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
+            let sortValue = (Some(sortableItems props.lang |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
+            let handleSortSelect = (fun item -> sortableItems props.lang |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
             let handleIndicationSelect =  (fun item -> indications state.Indications |> List.find ( fun key -> key = item) |> SetIndication |> dispatch )
             let handleInterventionSelect = (fun item -> interventions(state) |> List.find ( fun key -> key = item) |> SetIntervention |> dispatch )
 
-            Html.div[
+            Mui.box[
                     Mui.formGroup[
                         formGroup.row true
                         prop.style[style.display.flex]
                         formGroup.children[
                             Select.render props.indicationLabel (indications state.Indications) state.SelectedIndication handleIndicationSelect
                             Select.render props.interventionLabel (interventions state) state.SelectedIntervention handleInterventionSelect
-                            Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm props.lang)) sortItems sortValue handleSortSelect
+                            Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm props.lang)) (sortItems props.lang) sortValue handleSortSelect
                             Mui.button[
+                                prop.style [style.height 65]
                                 prop.text (Localization.Terms.``Reset Filter`` |> getTerm props.lang)
                                 button.variant.outlined
                                 prop.onClick (fun _ -> ResetFilter |> dispatch)

@@ -66,6 +66,7 @@ module Select =
             formControl.children [
                 Mui.inputLabel [ input.label ]
                 Mui.select [
+                    select.label input.label
                     state.Selected
                     |> Option.map string
                     |> Option.defaultValue defaultVal
@@ -79,12 +80,7 @@ module Select =
                             prop.key i
                             prop.value s
                             prop.onClick (fun _ -> item |> Select |> dispatch)
-                            menuItem.children [
-                                Mui.typography [
-                                    typography.variant.h6
-                                    prop.text s
-                                ]
-                            ]
+                            prop.text s
                         ]
                     )
                     |> select.children
