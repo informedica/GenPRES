@@ -110,6 +110,8 @@ module Filter =
             let handleInterventionSelect = (fun item -> interventions(state) |> List.find ( fun key -> key = item) |> SetIntervention |> dispatch )
 
             Mui.box[
+                prop.style [style.display.flex; style.alignItems.center]
+                prop.children[
                     Mui.formGroup[
                         formGroup.row true
                         prop.style[style.display.flex]
@@ -117,15 +119,21 @@ module Filter =
                             Select.render props.indicationLabel (indications state.Indications) state.SelectedIndication handleIndicationSelect
                             Select.render props.interventionLabel (interventions state) state.SelectedIntervention handleInterventionSelect
                             Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm props.lang)) (sortItems props.lang) sortValue handleSortSelect
-                            Mui.button[
-                                prop.style [style.height 65]
-                                prop.text (Localization.Terms.``Reset Filter`` |> getTerm props.lang)
-                                button.variant.outlined
-                                prop.onClick (fun _ -> ResetFilter |> dispatch)
+                            Mui.formControl[
+                                formControl.margin.dense
+                                formControl.children[
+                                    Mui.button[
+                                        prop.style [style.height 65]
+                                        prop.text (Localization.Terms.``Reset Filter`` |> getTerm props.lang)
+                                        button.variant.contained
+                                        prop.onClick (fun _ -> ResetFilter |> dispatch)
+                                    ]
+                                ]
                             ]
                         ]
                     ]
                 ]
+            ]
 
 
     let render publish
