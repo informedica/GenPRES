@@ -14,3 +14,4 @@ Feliz.Markdown
 Fable.Promise
 Feliz.Router
 Fable.SimpleHttp
+Thoth.Elmish.Debouncer

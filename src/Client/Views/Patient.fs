@@ -190,7 +190,6 @@ module Patient =
                                 state.Day
                             if not isMobile then
                                 Mui.textField[textField.type' "number"
-
                                               textField.label
                                                   $"{(Localization.Terms.``Patient Weight``
                                                       |> Localization.getTerm lang)} (kg)"

@@ -10,12 +10,6 @@ module NumericInput =
     open System
 
     open Elmish
-    open Elmish.React
-    open Fable.React
-    open Fable.React.Props
-    open Fetch.Types
-    open Thoth.Fetch
-    open Thoth.Json
     open Thoth.Elmish
     open Feliz
     open Feliz.UseElmish
