@@ -19,18 +19,20 @@ module ContinuousMeds =
     type State = {
         Dialog: string
         ContMeds : Intervention list
-        Sort: Sort
-         }
+        FilteredList : Intervention list
+        }
 
 
     type Msg =
         | RowClick of int * string list
-        | SetSort of Sort
         | CloseDialog
+        | Filter of Intervention list
 
 
-    let init (contMeds) = { Dialog = ""; ContMeds = contMeds; Sort = Sort.IndicationAsc }, Cmd.ofMsg(SetSort IndicationAsc)
-
+    let init (contMeds) =
+            { Dialog = "";
+            ContMeds = contMeds;
+            FilteredList = contMeds }, Cmd.none
 
     let update (msg: Msg) state =
         match msg with
@@ -38,12 +40,7 @@ module ContinuousMeds =
             Utils.Logging.log "rowclick:" (i, xs)
             { state with Dialog = xs[1] }, Cmd.none
         | CloseDialog -> { state with Dialog = "" }, Cmd.none
-        | SetSort sort ->
-            match sort with
-            | IndicationAsc -> {state with ContMeds = state.ContMeds |> List.sortBy (fun item -> item.Indication )}, Cmd.none
-            | IndicationDesc -> {state with ContMeds = state.ContMeds |> List.sortByDescending (fun item -> item.Indication )}, Cmd.none
-            | InterventionAsc -> {state with ContMeds = state.ContMeds |> List.sortBy (fun item -> item.Name )}, Cmd.none
-            | InterventionDesc -> {state with ContMeds = state.ContMeds |> List.sortByDescending (fun item -> item.Name )}, Cmd.none
+        | Filter filteredList-> {state with FilteredList = filteredList}, Cmd.none
 
     let quantity (intervention :Intervention) =
         $"{intervention.Quantity} {intervention.QuantityUnit}"
@@ -82,7 +79,7 @@ module ContinuousMeds =
                                                 grid.spacing 2
                                                 grid.direction.row
                                                 grid.children[
-                                                     Mui.grid [
+                                                    Mui.grid [
                                                         grid.item
                                                         grid.xs 6
                                                         grid.children[
@@ -93,7 +90,6 @@ module ContinuousMeds =
                                                             Mui.typography[
                                                                 prop.text med.Name
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Continuous Medication Quantity``|> getTerm)
@@ -101,7 +97,6 @@ module ContinuousMeds =
                                                             Mui.typography[
                                                                 prop.text (quantity med)
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Continuous Medication Solution``|> getTerm)
@@ -110,8 +105,8 @@ module ContinuousMeds =
                                                                 prop.text (solution med)
                                                             ]
                                                         ]
-                                                     ]
-                                                     Mui.grid[
+                                                    ]
+                                                    Mui.grid[
                                                         grid.item
                                                         grid.xs 6
                                                         grid.children[
@@ -122,7 +117,6 @@ module ContinuousMeds =
                                                             Mui.typography[
                                                                 prop.text med.SubstanceDoseText
                                                             ]
-                                                            Mui.divider[]
                                                             Mui.typography[
                                                                 typography.variant.subtitle2
                                                                 prop.text (Localization.Terms.``Continuous Medication Advice``|> getTerm)
@@ -131,7 +125,7 @@ module ContinuousMeds =
                                                                 prop.text med.Text
                                                             ]
                                                         ]
-                                                     ]
+                                                    ]
                                                 ]
 
                                             ]
@@ -276,20 +270,25 @@ module ContinuousMeds =
         let state, dispatch =
             React.useElmish (init input.contMeds, update, [| box input.pat |])
 
-        let sortValue = (Some(sortableItems |> List.find (fun (_, sort) -> sort = state.Sort) |> fst))
-        let handleSelect = (fun item -> sortableItems |> List.find (fun (key, value) ->  key = item ) |> snd |> SetSort |> dispatch)
-
         match input.pat |> Option.bind Patient.getWeight with
         | Some _ when input.contMeds |> List.length > 1 ->
 
             let hs, rs =
-                createHeadersAndRows lang state.ContMeds
+                createHeadersAndRows lang state.FilteredList
+
+            let publish filteredList = dispatch (Filter filteredList)
 
             Html.div[
-                Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm lang)) sortItems sortValue handleSelect
+                Filter.render publish{|
+                    indicationLabel = (Utils.Typography.body1 (Localization.Terms.``Continuous Medication Indication`` |> getTerm lang))
+                    interventionLabel = (Utils.Typography.body1 (Localization.Terms.``Continuous Medication Medication`` |> getTerm lang))
+                    interventionList = input.contMeds
+                    lang = lang
+                |}
+
                 if isMobile then
                     Html.div[
-                        createCards lang state.ContMeds
+                        createCards lang state.FilteredList
                     ]
                 else
                     Html.div [

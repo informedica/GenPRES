@@ -41,6 +41,7 @@
         <Compile Include="./Components/Menu.fs"/>
         <Compile Include="./Components/NavBar.fs"/>
         <Compile Include="./Views/Patient.fs"/>
+        <Compile Include="./Views/Filter.fs"/>
         <Compile Include="./Views/EmergencyList.fs"/>
         <Compile Include="./Pages/LifeSupport.fs"/>
         <Compile Include="./Pages/ContinuousMeds.fs"/>

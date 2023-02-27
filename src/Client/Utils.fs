@@ -1,6 +1,5 @@
 namespace Utils
 
-
 module Typography =
 
     open Feliz
@@ -115,12 +114,18 @@ module GoogleDocs =
 
 module Sort =
 
+    open Shared.Localization
+
         type Sort =
         | IndicationAsc
         | IndicationDesc
         | InterventionAsc
         | InterventionDesc
 
-        let sortableItems = ["Indication ASC", IndicationAsc; "Indication DESC", IndicationDesc; "Intervention ASC", InterventionAsc; "Intervention DESC", InterventionDesc]
 
-        let sortItems = (sortableItems |> List.map (fun (label, _) -> label))
+        let indication(lang) = Terms.``Emergency List Indication`` |> getTerm lang
+        let intervention(lang) = Terms.``Emergency List Intervention`` |> getTerm lang
+
+        let sortableItems(lang) = [$"{indication lang} ASC", IndicationAsc; $"{indication lang} DESC", IndicationDesc; $"{intervention lang} ASC", InterventionAsc; $"{intervention lang} DESC", InterventionDesc]
+
+        let sortItems(lang) = (sortableItems lang |> List.map (fun (label, _) -> label))
