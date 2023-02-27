@@ -9,8 +9,6 @@ module EmergencyList =
     open Shared
     open Components
     open Localization
-    open Utils.Sort
-    open System.Collections.Generic
 
 
     module TG = Utils.Typography

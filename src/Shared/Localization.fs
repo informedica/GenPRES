@@ -68,6 +68,7 @@ module Localization =
             | ``Continuous Medication Dose``
             | ``Continuous Medication Advice``
             | ``Sort By``
+            | ``Reset Filter``
 
     open Terms
 
@@ -112,6 +113,7 @@ module Localization =
             | ``Continuous Medication Dose`` -> "Dose"
             | ``Continuous Medication Advice`` -> "Advice"
             | ``Sort By`` -> "Sort By"
+            | ``Reset Filter`` -> "Reset Filter"
 
         | Dutch ->
             match term with
@@ -152,3 +154,4 @@ module Localization =
             | ``Continuous Medication Dose`` -> "Dosering"
             | ``Continuous Medication Advice`` -> "Advies"
             | ``Sort By`` -> "Sorteren op"
+            | ``Reset Filter`` -> "filter resetten"

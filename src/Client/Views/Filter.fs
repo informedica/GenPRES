@@ -118,7 +118,7 @@ module Filter =
                             Select.render props.interventionLabel (interventions state) state.SelectedIntervention handleInterventionSelect
                             Select.render (Utils.Typography.body1 (Localization.Terms.``Sort By`` |> getTerm props.lang)) sortItems sortValue handleSortSelect
                             Mui.button[
-                                prop.text "Reset Filter"
+                                prop.text (Localization.Terms.``Reset Filter`` |> getTerm props.lang)
                                 button.variant.outlined
                                 prop.onClick (fun _ -> ResetFilter |> dispatch)
                             ]
