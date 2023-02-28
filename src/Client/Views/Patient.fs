@@ -8,6 +8,7 @@ module Patient =
     open Elmish
     open Shared
     open Components
+    open System
 
     type State =
         {
@@ -19,7 +20,6 @@ module Patient =
             Height: float option
         }
 
-
     type Msg =
         | ClearPatient
         | YearChange of int
@@ -28,7 +28,8 @@ module Patient =
         | DayChange of int
         | WeightChange of float
         | HeightChange of float
-
+        | WeightChangeString of string
+        | HeightChangeString of string
 
     let newState =
         {
@@ -43,12 +44,15 @@ module Patient =
 
     let init () = newState, Cmd.none
 
-
     let show lang pat =
         match pat with
         | Some p -> p |> Patient.toString lang true
         | None -> ""
 
+    let parseStringToFloat str =
+        match Utils.Float.tryParseFloat str with
+              | Some s -> s
+              | None -> 0
 
     let update updatePatient msg state =
 
@@ -60,6 +64,12 @@ module Patient =
         | DayChange n -> { state with Day = Some n }
         | WeightChange n -> { state with Weight = Some n }
         | HeightChange n -> { state with Height = Some n }
+        | WeightChangeString s ->
+                let weight = Double.Parse s
+                {state with Weight = Some(weight)}
+        | HeightChangeString s ->
+                let Height = Double.Parse s
+                {state with Weight = Some(Height)}
         |> fun state ->
             state,
             Cmd.ofSub (fun _ ->
@@ -72,8 +82,6 @@ module Patient =
                     state.Height
                 |> updatePatient
             )
-
-
 
     let useStyles =
         Styles.makeStyles (fun styles theme ->
@@ -95,6 +103,33 @@ module Patient =
                 show = styles.create [ style.paddingTop 20 ]
             |}
         )
+
+    let textFields lang dispatch =
+            let render =
+                Components.NumericInput.renderWithProps
+            let props =
+                Components.NumericInput.defaultProps
+            [
+                {| props with
+                    min = Some 0.
+                    max = Some 200.
+                    label =
+                        $"{(Localization.Terms.``Patient Weight``
+                            |> Localization.getTerm lang)}"
+                    adorn = "kg"
+                    dispatch = WeightChangeString >> dispatch
+                |}
+                {| props with
+                    min = Some 0.
+                    max = Some 150.
+                    label =
+                        $"{(Localization.Terms.``Patient Length``
+                            |> Localization.getTerm lang)}"
+                    adorn = "cm"
+                    dispatch = HeightChangeString >> dispatch
+                |}
+            ]
+            |> List.map render
 
 
     [<ReactComponent>]
@@ -125,33 +160,7 @@ module Patient =
         let inline renderSelect s msg v xs =
             Select.render (Utils.Typography.body1 s) xs v (msg >> dispatch)
 
-        let textFields dispatch =
-            let render =
-                Components.NumericInput.renderWithProps
-
-            let props =
-                Components.NumericInput.defaultProps
-
-            [
-                {| props with
-                    max = Some 300.
-                    label =
-                        $"{(Localization.Terms.``Patient Weight``
-                            |> Localization.getTerm lang)}"
-                    adorn = "kg"
-                    dispatch = WeightChange >> dispatch
-                |}
-                {| props with
-                    min = Some -20.
-                    max = Some 20.
-                    label =
-                        $"{(Localization.Terms.``Patient Length``
-                            |> Localization.getTerm lang)}"
-                    adorn = "mEg/L or mmol/L"
-                    dispatch = HeightChange >> dispatch
-                |}
-            ]
-            |> List.map render
+        let textFields = textFields lang dispatch
 
         let details =
             Html.div [
@@ -189,38 +198,7 @@ module Patient =
                                 DayChange
                                 state.Day
                             if not isMobile then
-                                Mui.textField[textField.type' "number"
-                                              textField.label
-                                                  $"{(Localization.Terms.``Patient Weight``
-                                                      |> Localization.getTerm lang)} (kg)"
-
-                                              prop.style[style.margin 10
-                                                         style.minWidth 110]
-
-                                              prop.onChange (fun (weightNumber: float) ->
-                                                  dispatch (
-                                                      WeightChange weightNumber
-                                                  )
-                                              )
-
-                                              textField.value state.Weight]
-
-                                Mui.textField[textField.type' "number"
-
-                                              textField.label
-                                                  $"{(Localization.Terms.``Patient Length``
-                                                      |> Localization.getTerm lang)} (cm)"
-
-                                              prop.style[style.margin 10
-                                                         style.minWidth 110]
-
-                                              prop.onChange (fun (heightNumber: float) ->
-                                                  dispatch (
-                                                      HeightChange heightNumber
-                                                  )
-                                              )
-
-                                              textField.value state.Height]
+                                for e in textFields do e
                             else
                                 [ 3. .. 100. ] @ [ 105.0..5.0..150.0 ]
                                 |> renderSelect

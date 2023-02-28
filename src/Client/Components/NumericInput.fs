@@ -16,8 +16,7 @@ module NumericInput =
     open MaterialUI5
     open Fable.Core.JsInterop
     open Browser
-
-
+    open Shared
 
     /// The debouncer keeps tracks of the bounce time
     /// before the UserInput is actually used.
@@ -27,7 +26,6 @@ module NumericInput =
             Error: bool
             UserInput: string
         }
-
 
     type Msg =
         | DebouncerSelfMsg of Debouncer.SelfMessage<Msg>
@@ -41,20 +39,19 @@ module NumericInput =
            step: float
            label: string
            adorn: string
-           dispatch: string -> unit |}
+           dispatch: string -> unit
+           value: string |}
 
-
-    let private init () =
+    let private init (props: Props) =
         {
             Debouncer = Debouncer.create ()
             Error = false
-            UserInput = ""
+            UserInput = props.value
         },
         Cmd.none
 
-
     let private update (props: Props) msg state =
-        let parse = Shared.Utils.tryParseFloat
+        let parse = Utils.Float.tryParseFloat
 
         let isErr (s: string) =
             if s.Trim() = "" then
@@ -115,8 +112,8 @@ module NumericInput =
             {|
                 field =
                     styles.create [
-                        style.minWidth (theme.spacing 14)
-                        style.marginTop (theme.spacing 1)
+                        style.minWidth 115
+                        style.margin 10
                     ]
                 input =
                     styles.create [
@@ -142,6 +139,7 @@ module NumericInput =
             label = ""
             adorn = ""
             dispatch = (fun (s: string) -> ())
+            value = ""
         |}
 
 
@@ -150,60 +148,56 @@ module NumericInput =
             "numericinput",
             fun (props: Props) ->
                 let state, dispatch =
-                    React.useElmish (init, update props, [||])
+                    React.useElmish (init props, update props, [||])
 
                 let classes = (useStyles state.Error) ()
 
+                Mui.formControl[
+                    formControl.margin.dense
+                    formControl.children[
+                        Mui.textField [
+                            prop.className classes.field
+                            textField.error state.Error
+                            textField.label (
+                                Mui.typography [
 
-                Mui.textField [
-                    prop.className classes.field
-                    textField.error state.Error
-                    textField.label (
-                        Mui.typography [
-
-                            typography.variant.body2
-                            typography.children [ props.label ]
-                        ]
-                    )
-
-                    textField.value state.UserInput
-                    textField.onChange (ChangeValue >> dispatch)
-
-                    // dirty fix to disable number field typ in FF
-                    let isFF =
-                        navigator.userAgent.ToLower().Contains("firefox")
-
-                    if not isFF then
-                        textField.type' "number"
-
-                    textField.size.small
-
-                    textField.InputProps [
-                        input.inputProps [
-                            prop.step props.step
-                            match props.min with
-                            | Some m -> prop.min m
-                            | None -> prop.min 0.
-                            match props.max with
-                            | Some m -> prop.max m
-                            | None -> ()
-                        ]
-
-                        // sets the color of the input value
-                        prop.className classes.input
-                        // adds a unit (adornment) to a value
-                        input.endAdornment (
-                            Mui.inputAdornment [
-                                inputAdornment.position.end'
-                                inputAdornment.children [
-                                    Mui.typography [
-                                        typography.color.textSecondary
-                                        typography.variant.body2
-                                        typography.children [ props.adorn ]
-                                    ]
+                                    typography.variant.body2
+                                    typography.children [ props.label ]
                                 ]
+                            )
+
+                            textField.value state.UserInput
+                            textField.onChange (ChangeValue >> dispatch)
+
+                            textField.size.small
+
+                            textField.InputProps [
+                                input.inputProps [
+                                    prop.step props.step
+                                    match props.min with
+                                    | Some m -> prop.min m
+                                    | None -> prop.min 0.
+                                    match props.max with
+                                    | Some m -> prop.max m
+                                    | None -> ()
+                                ]
+
+                                // sets the color of the input value
+                                prop.className classes.input
+                                // adds a unit (adornment) to a value
+                                input.endAdornment (
+                                    Mui.inputAdornment [
+                                        inputAdornment.position.end'
+                                        inputAdornment.children [
+                                            Mui.typography [
+                                                typography.variant.body2
+                                                typography.children [ props.adorn ]
+                                            ]
+                                        ]
+                                    ]
+                                )
                             ]
-                        )
+                        ]
                     ]
                 ]
         )

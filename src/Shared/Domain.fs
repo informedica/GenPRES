@@ -5,6 +5,11 @@ module Utils =
 
     open System
 
+    module Float =
+         let tryParseFloat (s: string) =
+            match Double.TryParse(s) with
+            | true, f    -> Some f
+            | false, _   -> None
 
     module String =
 
@@ -1152,7 +1157,7 @@ module Products =
 
 module ScenarioResult =
 
-    
+
     let empty: ScenarioResult =
         {
             Indications = []
