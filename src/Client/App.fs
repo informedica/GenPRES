@@ -97,11 +97,6 @@ module private Elmish =
                 Patient =
                     Router.currentUrl ()
                     |> parseUrlToPatient
-                    |> function
-                    | Some p -> p |> Some
-                    | None ->
-                        Shared.Patient.create
-                            (Some 1) None None None None None
                 BolusMedication = HasNotStartedYet
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet

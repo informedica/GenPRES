@@ -50,12 +50,21 @@ module private Pages =
                     | Clear    -> None, Cmd.none
                     | Select s -> Some s, Cmd.none
                     |> fun (s, c) ->
-                        s, (fun _ -> s |> dispatch) |> Cmd.ofEffect
+                        s |> dispatch
+                        s, Cmd.none
 
 
 
-            let ElmishSelect (props : {| label : string; selected : string option; values : (int *string) []; dispatch : string option -> unit |}) =
-                let state, dispatch = React.useElmish(ElmishSelect.init props.selected, ElmishSelect.update props.dispatch, [||])
+            let ElmishSelect (props :
+                    {|
+                        label : string
+                        selected : string option
+                        values : (int *string) []
+                        dispatch : string option -> unit
+                    |}
+                ) =
+                let depArr = [||] //[| box props.dispatch |]
+                let state, dispatch = React.useElmish(ElmishSelect.init props.selected, ElmishSelect.update props.dispatch, depArr)
 
                 let handleChange =
                     fun ev ->
@@ -77,13 +86,15 @@ module private Pages =
                         """
                     )
 
+                let isClear = state |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+
                 let clearButton =
                     JSX.jsx
                         $"""
                     import ClearIcon from '@mui/icons-material/Clear';
                     import IconButton from "@mui/material/IconButton";
 
-                    <IconButton sx={ {| visibility = if state |> Option.isNone then "hidden" else "visible" |} } onClick={clear}>
+                    <IconButton sx={ {| visibility = if isClear then "hidden" else "visible" |} } onClick={clear}>
                         <ClearIcon/>
                     </IconButton>
                     """
@@ -105,7 +116,7 @@ module private Pages =
                     value={state |> Option.defaultValue ""}
                     onChange={handleChange}
                     label={props.label}
-                    sx={ {| ``& .MuiSelect-icon`` = {| visibility = if state |> Option.isNone then "visible" else "hidden" |} |} }
+                    sx={ {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |} }
                     endAdornment={clearButton}
                     >
                         {items}
@@ -116,24 +127,31 @@ module private Pages =
 
 
 
-            let StateSelect (props : {| label : string; selected : string option; values : (int *string) []; dispatch : string option -> unit |}) =
-                let state, setState = React.useState None
+            let StateSelect (props :
+                    {|
+                        label : string
+                        selected : string option
+                        values : (int *string) []
+                        dispatch : string option -> unit
+                    |}
+                ) =
+                let state, setState = React.useState props.selected
+
+                let applyState v =
+                    v |> setState
+                    v |> props.dispatch
 
                 let handleChange =
                     fun ev ->
-                        let value =
-                            ev?target?value
-                            |> string
-                            |> function
-                            | s when s |> String.IsNullOrWhiteSpace -> None
-                            | s -> s |> Some
-
-
-                        value |> setState
-                        value |> props.dispatch
+                        ev?target?value
+                        |> string
+                        |> function
+                        | s when s |> String.IsNullOrWhiteSpace -> None
+                        | s -> s |> Some
+                        |> applyState
 
                 let clear =
-                    fun _ -> None |> setState
+                    fun _ -> None |> applyState
 
 
                 let items =
@@ -145,13 +163,15 @@ module private Pages =
                         """
                     )
 
+                let isClear = state |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+
                 let clearButton =
                     JSX.jsx
                         $"""
                     import ClearIcon from '@mui/icons-material/Clear';
                     import IconButton from "@mui/material/IconButton";
 
-                    <IconButton sx={ {| visibility = if state |> Option.isNone then "hidden" else "visible" |} } onClick={clear}>
+                    <IconButton sx={ {| visibility = if isClear then "hidden" else "visible" |} } onClick={clear}>
                         <ClearIcon/>
                     </IconButton>
                     """
@@ -173,7 +193,79 @@ module private Pages =
                     value={state |> Option.defaultValue ""}
                     onChange={handleChange}
                     label={props.label}
-                    sx={ {| ``& .MuiSelect-icon`` = {| visibility = if state |> Option.isNone then "visible" else "hidden" |} |} }
+                    sx={ {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |} }
+                    endAdornment={clearButton}
+                    >
+                        {items}
+                    </Select>
+                </FormControl>
+                </div>
+                """
+
+
+
+            let SimpleSelect (props :
+                    {|
+                        label : string
+                        selected : string option
+                        values : (int *string) []
+                        dispatch : string option -> unit
+                    |}
+                ) =
+
+                let handleChange =
+                    fun ev ->
+                        let value = ev?target?value
+
+                        value
+                        |> string
+                        |> function
+                        | s when s |> String.IsNullOrWhiteSpace -> None
+                        | s -> s |> Some
+                        |> props.dispatch
+
+                let clear = fun _ -> None |> props.dispatch
+
+                let items =
+                    props.values
+                    |> Array.map (fun (k, v) ->
+                        JSX.jsx
+                            $"""
+                        <MenuItem key={k} value={k}>{v}</MenuItem>
+                        """
+                    )
+
+                let isClear = props.selected |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+
+                let clearButton =
+                    JSX.jsx
+                        $"""
+                    import ClearIcon from '@mui/icons-material/Clear';
+                    import IconButton from "@mui/material/IconButton";
+
+                    <IconButton sx={ {| visibility = if isClear then "hidden" else "visible" |} } onClick={clear}>
+                        <ClearIcon/>
+                    </IconButton>
+                    """
+
+                JSX.jsx
+                    $"""
+                import * as React from 'react';
+                import InputLabel from '@mui/material/InputLabel';
+                import MenuItem from '@mui/material/MenuItem';
+                import FormControl from '@mui/material/FormControl';
+                import Select from '@mui/material/Select';
+
+                <div>
+                <FormControl variant="standard" sx={ {| m = 1; minWidth = 120 |} }>
+                    <InputLabel id="demo-simple-select-standard-label">{props.label}</InputLabel>
+                    <Select
+                    labelId="demo-simple-select-standard-label"
+                    id="demo-simple-select-standard"
+                    value={props.selected |> Option.defaultValue ""}
+                    onChange={handleChange}
+                    label={props.label}
+                    sx={ {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |} }
                     endAdornment={clearButton}
                     >
                         {items}
@@ -303,8 +395,6 @@ module private Pages =
                 | UpdateDay of string option
                 | UpdateWeight of string option
                 | UpdateHeight of string option
-                | SelectMsg of Components.ElmishSelect.Msg
-
 
 
             let tryParse (s : string) = match Int32.TryParse(s) with | false, _ -> None | true, v -> v |> Some
@@ -411,11 +501,11 @@ module private Pages =
             let update dispatch msg (state : State) : State * Cmd<Msg> =
                 printfn "update was called"
                 match msg with
-                | Clear    -> None, Cmd.none
-                | UpdateYear s -> state |> setYear s, Cmd.none
-                | UpdateMonth s -> state |> setMonth s, Cmd.none
-                | UpdateWeek s -> state |> setWeek s, Cmd.none
-                | UpdateDay s -> state |> setDay s, Cmd.none
+                | Clear          -> None, Cmd.none
+                | UpdateYear s   -> state |> setYear s, Cmd.none
+                | UpdateMonth s  -> state |> setMonth s, Cmd.none
+                | UpdateWeek s   -> state |> setWeek s, Cmd.none
+                | UpdateDay s    -> state |> setDay s, Cmd.none
                 | UpdateWeight s -> state |> setWeight s, Cmd.none
                 | UpdateHeight s -> state |> setHeight s, Cmd.none
                 |> fun (state, cmd) ->
@@ -425,21 +515,31 @@ module private Pages =
 
             let show pat =
                 match pat with
-                | Some p -> p |> Shared.Patient.toString Shared.Localization.Dutch true
+                | Some p ->
+                    p
+                    |> Patient.toString Shared.Localization.Dutch true
+                    //TODO: use markdown
+                    |> fun s -> s.Replace("*", "")
                 | None -> "Voer patient gegevens in"
 
 
         [<JSX.Component>]
-        let Patient (props : {| patient : Shared.Types.Patient option; dispatch : Shared.Types.Patient option -> unit |}) =
+        let Patient (props :
+                {|
+                    patient : Shared.Types.Patient option
+                    dispatch : Shared.Types.Patient option -> unit
+                |}
+            ) =
             let isExpanded, setExpanded = React.useState true
-            let pat, dispatch = React.useElmish(Patient.init props.patient, Patient.update props.dispatch, [| |])
+            let depArr = [| box props.dispatch |]
+            let pat, dispatch = React.useElmish(Patient.init props.patient, Patient.update props.dispatch, depArr)
 
             let handleChange = fun _ -> isExpanded |> not |> setExpanded
 
-            let createSelect label changeValue vs =
-                Components.StateSelect({|
+            let createSelect label sel changeValue vs =
+                Components.SimpleSelect({|
                     label = label
-                    selected = None
+                    selected = sel |> Option.map string
                     values = vs
                     dispatch = changeValue
                 |})
@@ -448,6 +548,10 @@ module private Pages =
                 [|21000..1000..100000|]
                 |> Array.append [|10500..500..20000|]
                 |> Array.append [|2000..100..10000|]
+
+            let zeroToNone = function
+                | Some v -> if v = 0 then None else v |> Some
+                | None -> None
 
             JSX.jsx
                 $"""
@@ -473,29 +577,47 @@ module private Pages =
                         <Stack direction={ {| sm = "column"; md = "row"  |} } spacing={3}>
                             {[|0..19|]
                             |> Array.map (fun k -> k, if k > 18 then "> 18" else $"{k}")
-                            |> createSelect "jaren" (Patient.UpdateYear >> dispatch)}
+                            |> createSelect
+                                "jaren"
+                                (pat |> Option.bind Shared.Patient.getAgeYears)
+                                (Patient.UpdateYear >> dispatch)}
 
                             {[|1..11|]
                             |> Array.map (fun k -> k, $"{k}")
-                            |> createSelect "maanden" (Patient.UpdateMonth >> dispatch)}
+                            |> createSelect
+                                "maanden"
+                                (pat |> Option.bind Shared.Patient.getAgeMonths |> zeroToNone)
+                                (Patient.UpdateMonth >> dispatch)}
 
                             {[|1..3|]
                             |> Array.map (fun k -> k, $"{k}")
-                            |> createSelect "weken" (Patient.UpdateWeek >> dispatch)}
+                            |> createSelect
+                                "weken"
+                                (pat |> Option.bind Shared.Patient.getAgeWeeks |> zeroToNone)
+                                (Patient.UpdateWeek >> dispatch)}
 
                             {[|1..6|]
                             |> Array.map (fun k -> k, $"{k}")
-                            |> createSelect "dagen" (Patient.UpdateDay >> dispatch)}
+                            |> createSelect
+                                "dagen"
+                                (pat |> Option.bind Shared.Patient.getAgeDays |> zeroToNone)
+                                (Patient.UpdateDay >> dispatch)}
 
                             { wghts
                             |> Array.map (fun k -> k, $"{(k |> float)/1000.}")
-                            |> createSelect "gewicht (kg)"(Patient.UpdateWeight >> dispatch)}
+                            |> createSelect
+                                "gewicht (kg)"
+                                (pat |> Option.bind Shared.Patient.getWeight)
+                                (Patient.UpdateWeight >> dispatch)}
 
                             {[|40..220|]
                             |> Array.map (fun k -> k, $"{k}")
-                            |> createSelect "lengte (cm)" (Patient.UpdateHeight >> dispatch)}
+                            |> createSelect
+                                "lengte (cm)"
+                                (pat |> Option.bind Shared.Patient.getHeight)
+                                (Patient.UpdateHeight >> dispatch)}
                         </Stack>
-                        <Button variant="contained" >
+                        <Button variant="contained" onClick={fun _ -> Patient.Clear |> dispatch}>
                             Verwijderen
                         </Button>
                     </Stack>
@@ -516,10 +638,6 @@ module private Pages =
                 {|  field = "calculated"; headerName = "Berekend"; width = 200; filterable = false; sortable = false |}
                 {|  field = "preparation"; headerName = "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
                 {|  field = "advice"; headerName = "Advice"; width = 200; filterable = false; sortable = false |}
-                    //description = "This column has a value getter and is not sortable.";
-                    //sortable = false;
-                    //valueGetter = (params = GridValueGetterParams) =>
-                    //`${| params.row.firstName || ""|} ${| params.row.lastName || ""|}`;
             |]
 
             let rows2 =
@@ -670,12 +788,12 @@ let GenPres
 
     let init = Elmish.init Localization.Dutch
     let update = Elmish.update Localization.Dutch props.updateLang
-
-    let model, dispatch = React.useElmish (init, update, [| box props.patient |])
+    let depArr = [| box props.patient |]
+    let model, dispatch = React.useElmish (init, update, depArr)
 
     JSX.jsx
         $"""
-    import {{ ThemeProvider}} from '@mui/material/styles';
+    import {{ ThemeProvider }} from '@mui/material/styles';
     import CssBaseline from '@mui/material/CssBaseline';
     import React from "react";
     import Box from '@mui/material/Box';
@@ -683,7 +801,7 @@ let GenPres
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
-            <Box sx={ {| height="100vh"; ``overflow-y``="hidden" |} }>
+            <Box sx={ {| height="100vh"; ``overflowY``="hidden" |} }>
                 <CssBaseline />
                 <Box>
                     {Pages.Views.Components.AppBar ({| title = "GenPRES 2023"; onMenuClick = (fun _ -> "" |> SideMenuClick |> dispatch) |})}
