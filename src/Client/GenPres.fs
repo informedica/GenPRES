@@ -549,8 +549,18 @@ module private Pages =
                 |> Array.append [|10500..500..20000|]
                 |> Array.append [|2000..100..10000|]
 
+            let hghts = [|40..220|]
+
             let zeroToNone = function
                 | Some v -> if v = 0 then None else v |> Some
+                | None -> None
+
+            let weightToNone = function
+                | Some v -> wghts |> Array.tryFind ((=) (int (v * 1000.)))
+                | None -> None
+
+            let heightToNone = function
+                | Some v -> hghts |> Array.tryFind ((=) (int v))
                 | None -> None
 
             JSX.jsx
@@ -607,14 +617,14 @@ module private Pages =
                             |> Array.map (fun k -> k, $"{(k |> float)/1000.}")
                             |> createSelect
                                 "gewicht (kg)"
-                                (pat |> Option.bind Shared.Patient.getWeight)
+                                (pat |> Option.bind (Shared.Patient.getWeight >> weightToNone))
                                 (Patient.UpdateWeight >> dispatch)}
 
                             {[|40..220|]
                             |> Array.map (fun k -> k, $"{k}")
                             |> createSelect
                                 "lengte (cm)"
-                                (pat |> Option.bind Shared.Patient.getHeight)
+                                (pat |> Option.bind (Shared.Patient.getHeight >> heightToNone))
                                 (Patient.UpdateHeight >> dispatch)}
                         </Stack>
                         <Button variant="contained" onClick={fun _ -> Patient.Clear |> dispatch}>
