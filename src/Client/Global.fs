@@ -23,7 +23,7 @@ let pageToString locale page =
         Localization.getTerm
             locale
             Localization.Terms.``Continuous Medication List``
-    | Prescribe -> "GenPRES Demo"
+    | Prescribe -> "Voorschrijven"
 // | NormalValues -> "Normaal Waarden"
 // | PewsCalculator -> "PEWS Calculator"
 // | GCSCalculator -> "GCS Calculator"

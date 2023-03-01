@@ -698,8 +698,6 @@ module private Views =
         """
 
 
-
-
     [<JSX.Component>]
     let ContinuousMedication (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
 
@@ -755,6 +753,112 @@ module private Views =
         </Box>
         """
 
+
+    module Prescribe =
+
+        open Feliz
+        open Feliz.UseElmish
+        open Elmish
+        open Shared
+        open Utils
+        open FSharp.Core
+
+
+        type State =
+            {
+                Dialog: string list
+                Indication: string option
+                Medication: string option
+                Route: string option
+            }
+
+
+        type Msg =
+            | RowClick of int * string list
+            | CloseDialog
+            | IndicationChange of string
+            | MedicationChange of string
+            | RouteChange of string
+
+
+        let init (scenarios: Deferred<ScenarioResult>) =
+            let state =
+                match scenarios with
+                | Resolved sc ->
+                    {
+                        Dialog = []
+                        Indication = sc.Indication
+                        Medication = sc.Medication
+                        Route = sc.Route
+                    }
+                | _ ->
+                    {
+                        Dialog = []
+                        Indication = None
+                        Medication = None
+                        Route = None
+                    }
+            state, Cmd.none
+
+
+        let update
+            (scenarios: Deferred<ScenarioResult>)
+            updateScenarios
+            (msg: Msg)
+            state
+            =
+            match msg with
+            | RowClick (i, xs) ->
+                Logging.log "rowclick:" i
+                { state with Dialog = xs }, Cmd.none
+            | CloseDialog -> { state with Dialog = [] }, Cmd.none
+            | IndicationChange s ->
+                match scenarios with
+                | Resolved sc ->
+                    { sc with Indication = Some s }
+                    |> updateScenarios
+                | _ -> ()
+
+                { state with Indication = Some s }, Cmd.none
+            | MedicationChange s ->
+                match scenarios with
+                | Resolved sc ->
+                    { sc with Medication = Some s }
+                    |> updateScenarios
+                | _ -> ()
+
+                { state with Medication = Some s }, Cmd.none
+            | RouteChange s ->
+                match scenarios with
+                | Resolved sc ->
+                    { sc with Route = Some s }
+                    |> updateScenarios
+                | _ -> ()
+
+                { state with Route = Some s }, Cmd.none
+
+
+    [<JSX.Component>]
+    let Prescribe (props:
+        {|
+            scenarios: Deferred<Shared.Types.ScenarioResult>
+            dispatch: Shared.Types.ScenarioResult -> unit
+        |}) =
+        let state, dispatch =
+            React.useElmish (
+                Prescribe.init props.scenarios,
+                Prescribe.update props.scenarios props.dispatch,
+                [| box props.scenarios |]
+            )
+
+        JSX.jsx
+            $"""
+        import CircularProgress from '@mui/material/CircularProgress';
+
+            <Box sx={ {| mt = 5; display = "flex" |} }>
+            <CircularProgress />
+            </Box>
+        """
 
 
 
@@ -917,6 +1021,8 @@ let GenPres
                             Views.EmergencyList ({| interventions = props.bolusMedication |})
                         | Some Global.Pages.ContinuousMeds ->
                             Views.ContinuousMedication ({| interventions = props.continuousMedication |})
+                        | Some Global.Pages.Prescribe ->
+                            Views.Prescribe ({| scenarios = props.scenarios; dispatch = props.updateScenarios |})
                         | _ -> notFound
                     }
                     </Stack>
