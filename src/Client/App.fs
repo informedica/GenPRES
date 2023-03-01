@@ -258,8 +258,7 @@ let App () =
 
         calculatInterventions calc state.ContinuousMedication state.Patient
 
-
-    GenPres.GenPres({|
+    Main.GenPres({|
         updateLang = (UpdateLanguage >> dispatch)
         patient = state.Patient
         updatePatient = (UpdatePatient >> dispatch)

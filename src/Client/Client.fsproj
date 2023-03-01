@@ -15,7 +15,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
     <Compile Include="MUI.fs" />
-    <Compile Include="GenPres.fs" />
+    <Compile Include="Main.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
