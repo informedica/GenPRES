@@ -6,7 +6,7 @@ open Fable.React
 
 
 module private Elmish =
-    
+
     open Elmish
     open Feliz
     open Feliz.Router
@@ -60,7 +60,7 @@ module private Elmish =
         match sl with
         | [] -> None
         | [ "pat"
-            Route.Query [ 
+            Route.Query [
                 "by", Route.Int by
                 "bm", Route.Int bm
                 "bd", Route.Int bd
@@ -94,7 +94,14 @@ module private Elmish =
             {
                 Configuration = None
                 Language = Localization.Dutch
-                Patient = Router.currentUrl () |> parseUrlToPatient
+                Patient =
+                    Router.currentUrl ()
+                    |> parseUrlToPatient
+                    |> function
+                    | Some p -> p |> Some
+                    | None ->
+                        Shared.Patient.create
+                            (Some 1) None None None None None
                 BolusMedication = HasNotStartedYet
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
@@ -174,7 +181,7 @@ module private Elmish =
                 match state.Scenarios with
                 | Resolved sc when state.Patient.IsSome ->
                     { sc with
-                        Age = 
+                        Age =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getAgeInDays
                             | None -> sc.Age
@@ -182,7 +189,7 @@ module private Elmish =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getWeight
                             | None -> sc.Weight
-                        Height = 
+                        Height =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getHeight
                             | None -> sc.Height
@@ -238,7 +245,7 @@ open Shared
 // for Vite Hot Reload to work
 
 [<JSX.Component>]
-let App () = 
+let App () =
     let state, dispatch = React.useElmish (init, update, [||])
 
     let bm =

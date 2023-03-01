@@ -2,7 +2,7 @@
     "name": "genpres",
     "version": "1.0.0",
     "description": "Generic Medication Order Entry",
-      "private": true,
+    "private": true,
     "scripts": {
         "postinstall": "dotnet tool restore && dotnet restore GenPres.sln",
         "start": "dotnet fable watch src/Client -o dist .js -e .jsx --run vite"
@@ -17,6 +17,7 @@
         "@fontsource/roboto": "^4.5.8",
         "@mui/icons-material": "^5.11.0",
         "@mui/material": "^5.11.10",
+        "@mui/x-data-grid": "^5.17.25",
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
     }
