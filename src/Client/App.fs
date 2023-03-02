@@ -20,6 +20,9 @@ module private Elmish =
 
     type Model =
         {
+            CurrentPage: Pages Option
+            SideMenuItems: (string * bool) []
+            SideMenuIsOpen: bool
             Configuration: Configuration Option
             Language: Localization.Locales
             Patient: Patient option
@@ -31,6 +34,9 @@ module private Elmish =
 
 
     type Msg =
+        | SideMenuClick of string
+        | ToggleMenu
+        | LanguageChange of string
         | UpdateLanguage of Localization.Locales
         | UpdatePatient of Patient option
         | UrlChanged of string list
@@ -40,7 +46,7 @@ module private Elmish =
             AsyncOperationStatus<Result<ContinuousMedication list, string>>
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
         | LoadScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
-        | UpdateScenarios of ScenarioResult
+        | UpdateScenarios of ScenarioResult option
 
 
     let serverApi =
@@ -88,6 +94,14 @@ module private Elmish =
             None
 
 
+    let pages =
+        [
+            Pages.LifeSupport
+            Pages.ContinuousMeds
+            Pages.Prescribe
+        ]
+
+
     let init () : Model * Cmd<Msg> =
 
         let initialState =
@@ -101,6 +115,16 @@ module private Elmish =
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
                 Scenarios = HasNotStartedYet
+                CurrentPage = Pages.LifeSupport |> Some
+                SideMenuItems =
+                    pages
+                    |> List.toArray
+                    |> Array.map (fun p ->
+                        p
+                        |> pageToString Localization.Dutch,
+                        false
+                    )
+                SideMenuIsOpen = false
             }
 
         let cmds =
@@ -116,6 +140,40 @@ module private Elmish =
 
     let update (msg: Msg) (state: Model) =
         match msg with
+        | ToggleMenu ->
+            { state with
+                SideMenuIsOpen = not state.SideMenuIsOpen
+            },
+            Cmd.none
+
+        | SideMenuClick s ->
+            let pageToString = Global.pageToString Localization.Dutch
+
+            { state with
+                CurrentPage =
+                    pages
+                    |> List.map (fun p -> p |> pageToString, p)
+                    |> List.tryFind (fst >> ((=) s))
+                    |> Option.map snd
+
+                SideMenuItems =
+                    state.SideMenuItems
+                    |> Array.map (fun (item, _) ->
+                        if item = s then
+                            printfn $"{s} true"
+                            (item, true)
+                        else
+                            printfn $"{s} false"
+                            (item, false)
+                    )
+            },
+            Cmd.none
+
+
+        | LanguageChange s ->
+            //TODO: doesn't work anymore
+            state, Cmd.none
+
         | UpdateLanguage l -> { state with Language = l }, Cmd.none
         | UpdatePatient p ->
             Logging.log "update patient app" p
@@ -210,16 +268,19 @@ module private Elmish =
             state, Cmd.none
 
         | UpdateScenarios sc ->
-            let sc =
-                { sc with
-                    Weight =
-                        match state.Patient with
-                        | Some pat -> pat |> Patient.getWeight
-                        | None -> sc.Weight
-                }
+            match sc with
+            | Some sc ->
+                let sc =
+                    { sc with
+                        Weight =
+                            match state.Patient with
+                            | Some pat -> pat |> Patient.getWeight
+                            | None -> sc.Weight
+                    }
 
-            { state with Scenarios = Resolved sc },
-            Cmd.ofMsg (LoadScenarios Started)
+                { state with Scenarios = Resolved sc },
+                Cmd.ofMsg (LoadScenarios Started)
+            | None -> state, Cmd.none
 
 
     let calculatInterventions calc meds pat =
@@ -265,8 +326,13 @@ let App () =
         bolusMedication = bm
         continuousMedication = cm
         products = state.Products
-        scenarios = state.Scenarios
+        scenarios = Some state.Scenarios
         updateScenarios = (UpdateScenarios >> dispatch)
+        toggleMenu = (fun _ -> ToggleMenu |> dispatch)
+        currentPage = state.CurrentPage
+        sideMenuIsOpen = state.SideMenuIsOpen
+        sideMenuClick = SideMenuClick >> dispatch
+        sideMenuItems = state.SideMenuItems
     |})
 
 let root = ReactDomClient.createRoot (document.getElementById ("genpres-app"))

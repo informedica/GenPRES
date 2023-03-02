@@ -147,7 +147,6 @@ module private Components =
         let clear =
             fun _ -> None |> applyState
 
-
         let items =
             props.values
             |> Array.map (fun (k, v) ->
@@ -270,14 +269,14 @@ module private Components =
 
 
     [<JSX.Component>]
-    let List (prop : {| items : (string * (string -> unit))[] |}) =
+    let List (props : {| dispatch : string -> unit; items : (string * bool)[] |}) =
         let items =
-            prop.items
-            |> Array.map (fun (text, onclick) ->
+            props.items
+            |> Array.map (fun (text, selected) ->
                 JSX.jsx
                     $"""
-                <ListItem key={text} disablePadding>
-                    <ListItemButton onClick={onclick}>
+                <ListItem key={text} >
+                    <ListItemButton selected={selected} onClick={fun _ -> text |> props.dispatch}>
                     <ListItemText primary={text} />
                     </ListItemButton>
                 </ListItem>
@@ -342,20 +341,15 @@ module private Components =
                 isOpen : bool
                 toggle : unit -> unit
                 dispatch : string -> unit
+                items : (string * bool)[]
             |}
         ) =
         let drawerWidth = 240
 
         let menu =
             {|
-                items = [|
-                    "Noodlijst"
-                    "Continue Medicatie"
-                    "Voorschrijven"
-                    "Voeding"
-                    "Formularium"
-                |]
-                |> Array.map (fun s -> s, fun _ -> s |> props.dispatch)
+                dispatch = props.dispatch
+                items = props.items
             |}
             |> List
 
@@ -776,15 +770,15 @@ module private Views =
         type Msg =
             | RowClick of int * string list
             | CloseDialog
-            | IndicationChange of string
-            | MedicationChange of string
-            | RouteChange of string
+            | IndicationChange of string option
+            | MedicationChange of string option
+            | RouteChange of string option
 
 
-        let init (scenarios: Deferred<ScenarioResult>) =
+        let init (scenarios: Deferred<ScenarioResult> option) =
             let state =
                 match scenarios with
-                | Resolved sc ->
+                | Some (Resolved sc) ->
                     {
                         Dialog = []
                         Indication = sc.Indication
@@ -802,8 +796,8 @@ module private Views =
 
 
         let update
-            (scenarios: Deferred<ScenarioResult>)
-            updateScenarios
+            (scenarios: Deferred<ScenarioResult> option)
+            dispatch
             (msg: Msg)
             state
             =
@@ -811,38 +805,52 @@ module private Views =
             | RowClick (i, xs) ->
                 Logging.log "rowclick:" i
                 { state with Dialog = xs }, Cmd.none
+
             | CloseDialog -> { state with Dialog = [] }, Cmd.none
+
             | IndicationChange s ->
-                match scenarios with
-                | Resolved sc ->
-                    { sc with Indication = Some s }
-                    |> updateScenarios
-                | _ -> ()
+                printfn $"indication change {s}"
+                let effect =
+                    fun _ ->
+                    match scenarios with
+                    | Some (Resolved sc) ->
+                        { sc with Indication = s }
+                        |> Some
+                        |> dispatch
+                    | _ -> None |> dispatch
 
-                { state with Indication = Some s }, Cmd.none
+                { state with Indication = s }, Cmd.ofEffect effect
+
             | MedicationChange s ->
-                match scenarios with
-                | Resolved sc ->
-                    { sc with Medication = Some s }
-                    |> updateScenarios
-                | _ -> ()
+                let effect =
+                    fun _ ->
+                        match scenarios with
+                        | Some (Resolved sc) ->
+                            { sc with Medication = s }
+                            |> Some
+                            |> dispatch
+                        | _ -> None |> dispatch
 
-                { state with Medication = Some s }, Cmd.none
+                { state with Medication = s }, Cmd.ofEffect effect
+
             | RouteChange s ->
-                match scenarios with
-                | Resolved sc ->
-                    { sc with Route = Some s }
-                    |> updateScenarios
-                | _ -> ()
+                let effect =
+                    fun _ ->
+                    match scenarios with
+                    | Some (Resolved sc) ->
+                        { sc with Route = s }
+                        |>Some
+                        |> dispatch
+                    | _ -> None |> dispatch
 
-                { state with Route = Some s }, Cmd.none
+                { state with Route = s }, Cmd.ofEffect effect
 
 
     [<JSX.Component>]
     let Prescribe (props:
         {|
-            scenarios: Deferred<Shared.Types.ScenarioResult>
-            dispatch: Shared.Types.ScenarioResult -> unit
+            scenarios: Deferred<Shared.Types.ScenarioResult> option
+            dispatch: Shared.Types.ScenarioResult option -> unit
         |}) =
         let state, dispatch =
             React.useElmish (
@@ -851,94 +859,75 @@ module private Views =
                 [| box props.scenarios |]
             )
 
+        let select lbl selected dispatch xs =
+            Components.StateSelect ({|
+                dispatch = dispatch
+                label = lbl
+                selected = selected
+                values = xs
+            |})
+
+        let content =
+            match props.scenarios with
+            | Some (Resolved scs) ->
+                JSX.jsx
+                    $"""
+                <CardContent>
+                    <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
+                    Medicatie scenario's
+                    </Typography>
+                    <Stack direction="row">
+                        {
+                            scs.Indications
+                            |> List.mapi (fun i s -> i, s)
+                            |> List.toArray
+                            |> select "Indicaties" None (Prescribe.IndicationChange >> dispatch)
+                        }
+                    </Stack>
+                </CardContent>
+                """
+            | _ ->
+                    JSX.jsx
+                        $"""
+                    import CircularProgress from '@mui/material/CircularProgress';
+
+                    <CardContent>
+                        <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
+                        Medicatie scenario's
+                        </Typography>
+                        <Stack direction="row">
+                            {
+                                []
+                                |> List.mapi (fun i s -> i, s)
+                                |> List.toArray
+                                |> select "Indicaties" None (Prescribe.IndicationChange >> dispatch)
+                            }
+                            <Box sx={ {| mt = 5; display = "flex"; p = 20 |} }>
+                                <CircularProgress />
+                            </Box>
+                        </Stack>
+                    </CardContent>
+                    """
+
         JSX.jsx
             $"""
-        import CircularProgress from '@mui/material/CircularProgress';
+        import * as React from 'react';
+        import Box from '@mui/material/Box';
+        import Card from '@mui/material/Card';
+        import CardActions from '@mui/material/CardActions';
+        import CardContent from '@mui/material/CardContent';
+        import Button from '@mui/material/Button';
+        import Typography from '@mui/material/Typography';
 
-            <Box sx={ {| mt = 5; display = "flex" |} }>
-            <CircularProgress />
-            </Box>
+        <Box sx={ {| mt=5 |} }>
+            <Card sx={ {| minWidth = 275 |}  }>
+                {content}
+            <CardActions>
+                <Button size="small">Bewerken</Button>
+            </CardActions>
+            </Card>
+        </Box>
         """
-
-
-
-module private Main =
-
-    open Elmish
-    open Shared
-
-    type Pages = Global.Pages
-
-    type State =
-        {
-            CurrentPage: Pages Option
-            SideMenuItems: (string * bool) list
-            SideMenuIsOpen: bool
-        }
-
-
-    type Msg =
-        | SideMenuClick of string
-        | ToggleMenu
-        | LanguageChange of string
-
-
-    let pages =
-        [
-            Pages.LifeSupport
-            Pages.ContinuousMeds
-            Pages.Prescribe
-        ]
-
-
-    let init lang : State * Cmd<Msg> =
-        let pageToString = Global.pageToString lang
-
-        let initialState =
-            {
-                CurrentPage = Pages.LifeSupport |> Some
-                SideMenuItems =
-                    pages
-                    |> List.map (fun p -> p |> pageToString, false)
-                SideMenuIsOpen = false
-            }
-
-        initialState, Cmd.none
-
-
-    let update lang updateLang msg state =
-        match msg with
-        | ToggleMenu ->
-            { state with
-                SideMenuIsOpen = not state.SideMenuIsOpen
-            },
-            Cmd.none
-
-        | SideMenuClick s ->
-            printfn $"side menu {s} was clicked"
-            let pageToString = Global.pageToString lang
-
-            { state with
-                CurrentPage =
-                    pages
-                    |> List.map (fun p -> p |> pageToString, p)
-                    |> List.tryFind (fst >> ((=) s))
-                    |> Option.map snd
-                SideMenuItems =
-                    state.SideMenuItems
-                    |> List.map (fun (s, _) ->
-                        if s = s then
-                            (s, true)
-                        else
-                            (s, false)
-                    )
-            },
-            Cmd.none
-
-
-        | LanguageChange s ->
-            //TODO: doesn't work anymore
-            state, Cmd.ofEffect (fun _ -> s |> Localization.fromString |> updateLang)
 
 
 
@@ -964,18 +953,13 @@ let GenPres
                bolusMedication: Deferred<Intervention list>
                continuousMedication: Deferred<Intervention list>
                products: Deferred<Product list>
-               scenarios: Deferred<ScenarioResult>
-               updateScenarios : ScenarioResult -> unit |}) =
-
-    let init = Main.init Localization.Dutch
-    let update = Main.update Localization.Dutch props.updateLang
-    let depArr = [| box props.patient |]
-    let state, dispatch = React.useElmish (init, update, depArr)
-
-    let currentPage =
-        state.CurrentPage
-        |> Option.map (Global.pageToString Shared.Localization.Dutch)
-        |> Option.defaultValue ""
+               scenarios: Deferred<ScenarioResult> option
+               updateScenarios : ScenarioResult option -> unit
+               toggleMenu : unit -> unit
+               currentPage : Global.Pages option
+               sideMenuIsOpen : bool
+               sideMenuClick : string -> unit
+               sideMenuItems : (string * bool) array |}) =
 
     let notFound =
         JSX.jsx
@@ -1002,21 +986,22 @@ let GenPres
                 <CssBaseline />
                 <Box>
                     {Components.AppBar ({|
-                        title = $"GenPRES 2023 {currentPage}"
-                        toggleSideMenu = fun _ -> Main.ToggleMenu |> dispatch
+                        title = $"GenPRES 2023 {props.currentPage}"
+                        toggleSideMenu = fun _ -> props.toggleMenu ()
                     |})}
                 </Box>
                 {Components.SideMenu ({|
                         anchor = "left"
-                        isOpen = state.SideMenuIsOpen
-                        toggle = fun _ -> Main.ToggleMenu |> dispatch
-                        dispatch = Main.SideMenuClick >> dispatch
+                        isOpen = props.sideMenuIsOpen
+                        toggle = props.toggleMenu
+                        dispatch = props.sideMenuClick
+                        items =  props.sideMenuItems
                     |})}
                 <Container sx={ {| mt= 5 |} } >
                     <Stack>
                     { Views.Patient ({| patient = props.patient; dispatch = props.updatePatient |}) }
                     {
-                        match state.CurrentPage with
+                        match props.currentPage with
                         | Some Global.Pages.LifeSupport ->
                             Views.EmergencyList ({| interventions = props.bolusMedication |})
                         | Some Global.Pages.ContinuousMeds ->
