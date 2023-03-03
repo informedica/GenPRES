@@ -119,12 +119,16 @@ module DrugOrder =
         let ml = "ml[Volume]"
 
         let ou = d.Unit |> unitGroup
-        let au = d.AdjustUnit |> unitGroup
+        let au =
+            match d.AdjustUnit with
+            | s when s = "kg" -> "kg[Weight]"
+            | s when s = "m2" -> "m2[BSA]"
+            | _ -> $"cannot parse adjust unit: {d.AdjustUnit}" |> failwith
         let du =
             match d.Dose with
             | Some dl -> dl.DoseUnit |> unitGroup
             | None -> ou
-        let ft = $"{d.FreqUnit}[Time]" 
+        let ft = $"{d.FreqUnit}[Time]"
         let ru = $"{d.RateUnit}[Time]"
         let tu = $"{d.TimeUnit}[Time]"
 
@@ -323,13 +327,13 @@ module DrugOrder =
         dto.Prescription.Time.Constraints.MaxIncl <- d.Time.Maximum.IsSome
         dto.Prescription.Time.Constraints.Max <- d.Time.Maximum |> Option.bind (createSingleValueUnitDto tu)
 
-        if au |> String.contains "kg" then 
-            dto.Adjust.Constraints.Min <- 
+        if au |> String.contains "kg" then
+            dto.Adjust.Constraints.Min <-
                 (200N /1000N) |> createSingleValueUnitDto au
 
-        if au |> String.contains "kg" then 
+        if au |> String.contains "kg" then
             dto.Adjust.Constraints.Max <- 150N |> createSingleValueUnitDto au
-    
+
         dto.Adjust.Constraints.Vals <-
             d.Adjust
             |> Option.bind (createSingleValueUnitDto au)

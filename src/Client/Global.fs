@@ -23,7 +23,7 @@ let pageToString locale page =
         Localization.getTerm
             locale
             Localization.Terms.``Continuous Medication List``
-    | Prescribe -> "Voorschrijven"
+    | Prescribe -> "GenPRES Demo"
 // | NormalValues -> "Normaal Waarden"
 // | PewsCalculator -> "PEWS Calculator"
 // | GCSCalculator -> "GCS Calculator"
@@ -31,3 +31,6 @@ let pageToString locale page =
 
 let languageContext =
     React.createContext (name = "language", defaultValue = Localization.Dutch)
+
+
+//let renderContext

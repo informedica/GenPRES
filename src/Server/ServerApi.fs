@@ -18,14 +18,14 @@ let serverApi: IServerApi =
                 async {
                     return "Hello world!"
                 }
-                
+
         getScenarioResult =
             fun (sc: ScenarioResult) ->
 
                 async {
-                    let msg (sc: ScenarioResult)=
+                    let msg stage (sc: ScenarioResult)=
                         $"""
-processing:
+{stage}:
 Patient: {sc.Age} days, {sc.Weight} kg, {sc.Height} cm
 Indications: {sc.Indications |> List.length}
 Medications: {sc.Medications |> List.length}
@@ -36,7 +36,7 @@ Route: {sc.Route |> Option.defaultValue ""}
 Scenarios: {sc.Scenarios |> List.length}
 """
 
-                    printfn $"{msg sc}"
+                    printfn $"""{msg "processing" sc}"""
 
                     let pat =
                         { Patient.patient with
@@ -48,7 +48,9 @@ Scenarios: {sc.Scenarios |> List.length}
                                 sc.Weight
                                 |> Option.map (fun w -> w * 1000.)
                                 |> Option.bind BigRational.fromFloat
-                            Height = Some 100N
+                            Height =
+                                sc.Height
+                                |> Option.bind BigRational.fromFloat
                         }
 
                     try
@@ -86,7 +88,11 @@ Scenarios: {sc.Scenarios |> List.length}
                                 Route = newSc.Route
                                 Scenarios = newSc.Scenarios |> Array.toList
                             }
-                        printfn $"finished:\{msg sc}"
+                        printfn $"""{msg "finished" sc}"""
+                        let s =
+                            sc.Scenarios
+                            |> String.concat "\n"
+                        printfn $"{s}"
                         return sc |> Ok
                     with
                     | e ->

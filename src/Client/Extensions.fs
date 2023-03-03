@@ -74,7 +74,7 @@ module Cmd =
 
             Async.StartImmediate delayedDispatch
 
-        Cmd.ofEffect delayedCmd
+        Cmd.ofSub delayedCmd
 
 [<RequireQualifiedAccess>]
 module StaticFile =
