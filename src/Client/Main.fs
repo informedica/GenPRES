@@ -38,13 +38,13 @@ module private Components =
         let init s : State * Cmd<Msg> = s, Cmd.none
 
 
-        let update dispatch (msg : Msg) _ : State * Cmd<Msg> =
+        let update updateSelected (msg : Msg) _ : State * Cmd<Msg> =
             printfn "handle change is called"
             match msg with
             | Clear    -> None, Cmd.none
             | Select s -> Some s, Cmd.none
             |> fun (s, c) ->
-                s |> dispatch
+                s |> updateSelected
                 s, Cmd.none
 
 
@@ -54,11 +54,11 @@ module private Components =
                 label : string
                 selected : string option
                 values : (int *string) []
-                dispatch : string option -> unit
+                updateSelected : string option -> unit
             |}
         ) =
         let depArr = [||] //[| box props.dispatch |]
-        let state, dispatch = React.useElmish(ElmishSelect.init props.selected, ElmishSelect.update props.dispatch, depArr)
+        let state, dispatch = React.useElmish(ElmishSelect.init props.selected, ElmishSelect.update props.updateSelected, depArr)
 
         let handleChange =
             fun ev ->
@@ -126,14 +126,14 @@ module private Components =
                 label : string
                 selected : string option
                 values : (int *string) []
-                dispatch : string option -> unit
+                updateSelected : string option -> unit
             |}
         ) =
         let state, setState = React.useState props.selected
 
         let applyState v =
             v |> setState
-            v |> props.dispatch
+            v |> props.updateSelected
 
         let handleChange =
             fun ev ->
@@ -202,7 +202,7 @@ module private Components =
                 label : string
                 selected : string option
                 values : (string * string) []
-                dispatch : string option -> unit
+                updateSelected : string option -> unit
             |}
         ) =
 
@@ -215,16 +215,16 @@ module private Components =
                 |> function
                 | s when s |> String.IsNullOrWhiteSpace -> None
                 | s -> s |> Some
-                |> props.dispatch
+                |> props.updateSelected
 
-        let clear = fun _ -> None |> props.dispatch
+        let clear = fun _ -> None |> props.updateSelected
 
         let items =
             props.values
-            |> Array.map (fun (k, v) ->
+            |> Array.mapi (fun i (k, v) ->
                 JSX.jsx
                     $"""
-                <MenuItem value={k}>{v}</MenuItem>
+                <MenuItem key={i} value={k}>{v}</MenuItem>
                 """
             )
 
@@ -269,14 +269,14 @@ module private Components =
 
 
     [<JSX.Component>]
-    let List (props : {| dispatch : string -> unit; items : (string * bool)[] |}) =
+    let List (props : {| updateSelected : string -> unit; items : (string * bool)[] |}) =
         let items =
             props.items
             |> Array.map (fun (text, selected) ->
                 JSX.jsx
                     $"""
                 <ListItem key={text} >
-                    <ListItemButton selected={selected} onClick={fun _ -> text |> props.dispatch}>
+                    <ListItemButton selected={selected} onClick={fun _ -> text |> props.updateSelected}>
                     <ListItemText primary={text} />
                     </ListItemButton>
                 </ListItem>
@@ -340,7 +340,7 @@ module private Components =
                 anchor : string
                 isOpen : bool
                 toggle : unit -> unit
-                dispatch : string -> unit
+                menuClick : string -> unit
                 items : (string * bool)[]
             |}
         ) =
@@ -348,7 +348,7 @@ module private Components =
 
         let menu =
             {|
-                dispatch = props.dispatch
+                updateSelected = props.menuClick
                 items = props.items
             |}
             |> List
@@ -528,12 +528,16 @@ module private Views =
     let Patient (props :
             {|
                 patient : Shared.Types.Patient option
-                dispatch : Shared.Types.Patient option -> unit
+                updatePatient : Shared.Types.Patient option -> unit
             |}
         ) =
         let isExpanded, setExpanded = React.useState true
-        let depArr = [| box props.dispatch |]
-        let pat, dispatch = React.useElmish(Patient.init props.patient, Patient.update props.dispatch, depArr)
+        let depArr = [| box props.updatePatient |]
+        let pat, dispatch =
+            React.useElmish(
+                    Patient.init props.patient,
+                    Patient.update props.updatePatient,
+                    depArr)
 
         let handleChange = fun _ -> isExpanded |> not |> setExpanded
 
@@ -542,7 +546,7 @@ module private Views =
                 label = label
                 selected = sel |> Option.map string
                 values = vs
-                dispatch = changeValue
+                updateSelected = changeValue
             |})
 
         let wghts =
@@ -796,7 +800,7 @@ module private Views =
 
         let update
             (scenarios: Deferred<ScenarioResult>)
-            dispatch
+            updateScenario
             (msg: Msg)
             state
             =
@@ -812,7 +816,7 @@ module private Views =
                 match scenarios with
                 | Resolved sc ->
                     { sc with Indication = s }
-                    |> dispatch
+                    |> updateScenario
                 | _ -> ()
 
                 { state with Indication = s }, Cmd.none
@@ -821,7 +825,7 @@ module private Views =
                 match scenarios with
                 | Resolved sc ->
                     { sc with Medication = s }
-                    |> dispatch
+                    |> updateScenario
                 | _ -> ()
 
                 { state with Medication = s }, Cmd.none
@@ -830,7 +834,7 @@ module private Views =
                 match scenarios with
                 | Resolved sc ->
                     { sc with Route = s }
-                    |> dispatch
+                    |> updateScenario
                 | _ -> ()
 
                 { state with Route = s }, Cmd.none
@@ -840,18 +844,18 @@ module private Views =
     let Prescribe (props:
         {|
             scenarios: Deferred<Shared.Types.ScenarioResult>
-            dispatch: Shared.Types.ScenarioResult -> unit
+            updateScenario: Shared.Types.ScenarioResult -> unit
         |}) =
         let state, dispatch =
             React.useElmish (
                 Prescribe.init props.scenarios,
-                Prescribe.update props.scenarios props.dispatch,
-                [| box props.scenarios; box props.dispatch |]
+                Prescribe.update props.scenarios props.updateScenario,
+                [| box props.scenarios; box props.updateScenario |]
             )
 
         let select lbl selected dispatch xs =
             Components.SimpleSelect ({|
-                dispatch = dispatch
+                updateSelected = dispatch
                 label = lbl
                 selected = selected
                 values = xs
@@ -883,7 +887,7 @@ module private Views =
             | Some _ ->
                 let list =
                     Components.List({|
-                        dispatch = ignore
+                        updateSelected = ignore
                         items =
                             sc.Split('-')
                             |> Array.tail
@@ -995,8 +999,8 @@ let GenPres
                bolusMedication: Deferred<Intervention list>
                continuousMedication: Deferred<Intervention list>
                products: Deferred<Product list>
-               scenarios: Deferred<ScenarioResult>
-               updateScenarios : ScenarioResult -> unit
+               scenario: Deferred<ScenarioResult>
+               updateScenario : ScenarioResult -> unit
                toggleMenu : unit -> unit
                currentPage : Global.Pages option
                sideMenuIsOpen : bool
@@ -1036,12 +1040,12 @@ let GenPres
                         anchor = "left"
                         isOpen = props.sideMenuIsOpen
                         toggle = props.toggleMenu
-                        dispatch = props.sideMenuClick
+                        menuClick = props.sideMenuClick
                         items =  props.sideMenuItems
                     |})}
                 <Container sx={ {| mt= 5 |} } >
                     <Stack>
-                    { Views.Patient ({| patient = props.patient; dispatch = props.updatePatient |}) }
+                    { Views.Patient ({| patient = props.patient; updatePatient = props.updatePatient |}) }
                     {
                         match props.currentPage with
                         | Some Global.Pages.LifeSupport ->
@@ -1049,7 +1053,7 @@ let GenPres
                         | Some Global.Pages.ContinuousMeds ->
                             Views.ContinuousMedication ({| interventions = props.continuousMedication |})
                         | Some Global.Pages.Prescribe ->
-                            Views.Prescribe ({| scenarios = props.scenarios; dispatch = props.updateScenarios |})
+                            Views.Prescribe ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
                         | _ -> notFound
                     }
                     </Stack>
