@@ -878,6 +878,26 @@ module private Views =
             <Typography>{s}</Typography>
             """
 
+        let displayScenarios (sc : String) =
+            match sc.Split('-') |> Array.tryHead with
+            | Some _ ->
+                let list =
+                    Components.List({|
+                        dispatch = ignore
+                        items =
+                            sc.Split('-')
+                            |> Array.tail
+                            |> Array.map (fun s -> s, false)
+                    |})
+
+                JSX.jsx
+                    $"""
+                <Box>
+                    {list}
+                </Box>
+                """
+            | _ -> JSX.jsx """<></>"""
+
         let content =
             JSX.jsx
                 $"""
@@ -917,15 +937,14 @@ module private Views =
                             |> select "Routes" sel (Prescribe.RouteChange >> dispatch)
                     }
                 </Stack>
-                <Stack direction="column" sx={ {| mt = 2|} } >
+                <Stack direction="column" sx={ {| mt = 1 |} } >
                     {
                         match props.scenarios with
                         | Resolved sc ->
                             sc.Scenarios
                             |> List.toArray
-                            |> Array.collect (fun s -> s.Split('-'))
                         | _ -> [||]
-                        |> Array.map typoGraphy
+                        |> Array.map displayScenarios
                     }
                 </Stack>
             </CardContent>
