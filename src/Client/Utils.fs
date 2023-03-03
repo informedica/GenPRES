@@ -1,54 +1,39 @@
-namespace Utils
+[<AutoOpen>]
+module Utils
+
+open Fable.Core
+open Feliz
+open Browser.Types
+
+let inline toJsx (el: ReactElement) : JSX.Element = unbox el
+let inline toReact (el: JSX.Element) : ReactElement = unbox el
+
+/// Enables use of Feliz styles within a JSX hole
+let inline toStyle (styles: IStyleAttribute list) : obj = JsInterop.createObj (unbox styles)
 
 
-module Typography =
+let toClass (classes: (string * bool) list) : string =
+    classes
+    |> List.choose (fun (c, b) ->
+        match c.Trim(), b with
+        | "", _
+        | _, false -> None
+        | c, true -> Some c)
+    |> String.concat " "
 
-    open Feliz
-    open MaterialUI5
 
-    let private createTypography v a =
-        Mui.typography [
-            v
-            //TODO Fix Color
-            //typography.color.inherit'
-            prop.text (a |> string)
-        ]
+let onEnterOrEscape dispatchOnEnter dispatchOnEscape (ev: KeyboardEvent) =
+    let el = ev.target :?> HTMLInputElement
 
-    let subtitle1 a =
-        a |> createTypography typography.variant.subtitle1
-
-    let subtitle2 a =
-        a |> createTypography typography.variant.subtitle2
-
-    let body1 a =
-        a |> createTypography typography.variant.body1
-
-    let body2 a =
-        a |> createTypography typography.variant.body2
-
-    let caption a =
-        a |> createTypography typography.variant.caption
-
-    let button a =
-        a |> createTypography typography.variant.button
-
-    let h1 a =
-        a |> createTypography typography.variant.h1
-
-    let h2 a =
-        a |> createTypography typography.variant.h2
-
-    let h3 a =
-        a |> createTypography typography.variant.h3
-
-    let h4 a =
-        a |> createTypography typography.variant.h4
-
-    let h5 a =
-        a |> createTypography typography.variant.h5
-
-    let h6 a =
-        a |> createTypography typography.variant.h6
+    match ev.key with
+    | "Enter" ->
+        dispatchOnEnter el.value
+        el.value <- ""
+    | "Escape" ->
+        dispatchOnEscape ()
+        el.value <- ""
+        el.blur ()
+    | _ -> ()
 
 
 module Logging =
@@ -113,14 +98,3 @@ module GoogleDocs =
         |> createUrl "products"
         |> getUrl Products.parse msg
 
-module Sort =
-
-        type Sort =
-        | IndicationAsc
-        | IndicationDesc
-        | InterventionAsc
-        | InterventionDesc
-
-        let sortableItems = ["Indication ASC", IndicationAsc; "Indication DESC", IndicationDesc; "Intervention ASC", InterventionAsc; "Intervention DESC", InterventionDesc]
-
-        let sortItems = (sortableItems |> List.map (fun (label, _) -> label))
