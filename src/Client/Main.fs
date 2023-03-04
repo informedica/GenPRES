@@ -272,14 +272,16 @@ module private Components =
     let List (props : {| updateSelected : string -> unit; items : (string * bool)[] |}) =
         let items =
             props.items
-            |> Array.map (fun (text, selected) ->
+            |> Array.mapi (fun i (text, selected) ->
                 JSX.jsx
                     $"""
-                <ListItem key={text} >
-                    <ListItemButton selected={selected} onClick={fun _ -> text |> props.updateSelected}>
-                    <ListItemText primary={text} />
-                    </ListItemButton>
-                </ListItem>
+                <React.Fragment key={i} >
+                    <ListItem value={text} >
+                        <ListItemButton selected={selected} onClick={fun _ -> text |> props.updateSelected}>
+                        <ListItemText primary={text} />
+                        </ListItemButton>
+                    </ListItem>
+                </React.Fragment>
                 """
             )
 
