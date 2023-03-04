@@ -168,15 +168,23 @@ module Types =
             Unit: string
         }
 
+    type Scenario = 
+        {
+            Shape : string
+            Prescription : string
+            Preparation : string
+            Administration : string
+        }
 
     type ScenarioResult =
         {
-            Indications: string list
-            Medications: string list
-            Routes: string list
-            Scenarios: string list
+            Indications: string []
+            Medications: string []
+            Routes: string []
+            Scenarios: Scenario []
             Indication: string option
             Medication: string option
+            Shape : string option
             Route: string option
             Age : float option
             Weight: float option

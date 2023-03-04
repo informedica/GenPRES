@@ -12,6 +12,16 @@ module Demo =
     open Informedica.GenSolver.Lib
 
 
+
+    let replace s =
+        s
+        |> String.replace "[" ""
+        |> String.replace "]" ""
+        |> String.replace "<" ""
+        |> String.replace ">" ""
+        |> String.replace "|" ""
+
+
     let scenarioResult pat =
         let rules = pat |> PrescriptionRule.get
         {
@@ -92,33 +102,35 @@ module Demo =
                         |> Array.collect (fun pr ->
                             pr
                             |> Api.evaluate OrderLogger.logger.Logger
-                            |> Array.map (function
-                                | Ok (ord, pr) ->
+                            |> Array.mapi (fun i r -> (i, r))
+                            |> Array.choose (function
+                                | i, Ok (ord, pr) ->
                                     let ns =
                                         pr.DoseRule.DoseLimits
                                         |> Array.map (fun dl -> dl.Substance)
+
                                     let prs, prp, adm =
                                         ord
                                         |> Order.Markdown.printPrescription ns
-                                    [
-                                        $"- {pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toString} {pr.DoseRule.Indication}"
-                                        $"- Voorschrift: {prs}"
-                                        $"- Bereiding: {prp}"
-                                        $"- Toediening: {adm}"
-                                    ]
-                                    |> String.concat "\n"
-                                    |> String.replace "[" ""
-                                    |> String.replace "]" ""
-                                    |> String.replace "<" ""
-                                    |> String.replace ">" ""
-                                    |> String.replace "|" ""
 
-                                | Error (_, _, errs) -> 
+                                    {
+                                        No = i
+                                        Indication = pr.DoseRule.Indication
+                                        Name = pr.DoseRule.Generic
+                                        Shape = pr.DoseRule.Shape
+                                        Route = pr.DoseRule.Route
+                                        Prescription = prs |> replace
+                                        Preparation =prp |> replace
+                                        Administration = adm |> replace
+                                    }
+                                    |> Some
+
+                                | i, Error (_, _, errs) -> 
                                     errs
                                     |> List.map string
                                     |> String.concat "\n"
                                     |> printfn "%s"
-                                    ""
+                                    None
                             )
                         )
 

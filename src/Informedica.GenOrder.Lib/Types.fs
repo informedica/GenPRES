@@ -343,7 +343,7 @@ module Types =
                 Route: string option
                 Shape: string option
                 Patient: Patient
-                Scenarios: string []
+                Scenarios: Scenario []
             }
 
 

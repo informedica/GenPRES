@@ -259,9 +259,6 @@ module private Elmish =
             { state with Scenarios = InProgress }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
-            let text = result.Scenarios |> String.concat "\n"
-            if result.Scenarios |> List.length> 0 then printfn $"scenarios: |{text}|"
-
             { state with
                 Scenarios = Resolved result
             },
@@ -320,7 +317,7 @@ let App () =
 
         calculatInterventions calc state.ContinuousMedication state.Patient
 
-    Main.GenPres({|
+    Home.GenPres({|
         updateLang = (UpdateLanguage >> dispatch)
         patient = state.Patient
         updatePatient = (UpdatePatient >> dispatch)

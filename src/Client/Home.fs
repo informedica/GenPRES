@@ -1,4 +1,4 @@
-module Main
+module Home
 
 open System
 open Fable.Core
@@ -224,7 +224,9 @@ module private Components =
             |> Array.mapi (fun i (k, v) ->
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={k}>{v}</MenuItem>
+                <MenuItem key={i} value={k} sx = { {| maxWidth = 300 |} }>
+                    {v}
+                </MenuItem>
                 """
             )
 
@@ -250,7 +252,7 @@ module private Components =
         import Select from '@mui/material/Select';
 
         <div>
-        <FormControl variant="standard" sx={ {| m = 1; minWidth = 120 |} }>
+        <FormControl variant="standard" sx={ {| m = 1; minWidth = 120; maxWidth = 200 |} }>
             <InputLabel id="demo-simple-select-standard-label">{props.label}</InputLabel>
             <Select
             labelId="demo-simple-select-standard-label"
@@ -707,8 +709,8 @@ module private Views =
             {|  field = "medication"; headerName = "Medicatie"; width = 200; filterable = true; sortable = true |}
             {|  field = "quantity"; headerName = "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
             {|  field = "solution"; headerName = "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "dose"; headerName = "Dosering"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = "Advies"; width = 200; filterable = false; sortable = false |}
+            {|  field = "dose"; headerName = "Dosering"; width = 230; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "advice"; headerName = "Advies"; width = 190; filterable = false; sortable = false |}
         |]
 
         let rows =
@@ -722,7 +724,7 @@ module private Views =
                         indication = m.Indication
                         medication = m.Name
                         quantity = $"{m.Quantity} {m.QuantityUnit}"
-                        solution =  $"{m.Total} {m.Solution}"
+                        solution =  $"{m.Total} ml {m.Solution}"
                         dose = m.SubstanceDoseText
                         advice = m.Text
                     |}
@@ -884,16 +886,21 @@ module private Views =
             <Typography>{s}</Typography>
             """
 
-        let displayScenarios (sc : String) =
-            match sc.Split('-') |> Array.tryHead with
-            | Some _ ->
+        let displayScenarios med (sc : Shared.Types.Scenario) =
+            if med |> Option.isNone then JSX.jsx $"""<>/</>"""
+            else
+                let med = med |> Option.defaultValue ""
+
                 let list =
                     Components.List({|
                         updateSelected = ignore
                         items =
-                            sc.Split('-')
-                            |> Array.tail
-                            |> Array.map (fun s -> s, false)
+                            [|
+                                $"{med} {sc.Shape}", false
+                                $"{sc.Prescription}", false
+                                $"{sc.Preparation}", false
+                                $"{sc.Administration}", false
+                            |]
                     |})
 
                 JSX.jsx
@@ -902,7 +909,6 @@ module private Views =
                     {list}
                 </Box>
                 """
-            | _ -> JSX.jsx """<></>"""
 
         let content =
             JSX.jsx
@@ -911,35 +917,32 @@ module private Views =
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
                 Medicatie scenario's
                 </Typography>
-                <Stack direction="row">
+                <Stack direction="row" spacing={3} >
                     {
                         match props.scenarios with
                         | Resolved scrs -> scrs.Indication, scrs.Indications
-                        | _ -> None, []
+                        | _ -> None, [||]
                         |> fun (sel, items) ->
                             items
-                            |> List.map (fun s -> s, s)
-                            |> List.toArray
+                            |> Array.map (fun s -> s, s)
                             |> select "Indicaties" sel (Prescribe.IndicationChange >> dispatch)
                     }
                     {
                         match props.scenarios with
                         | Resolved scrs -> scrs.Medication, scrs.Medications
-                        | _ -> None, []
+                        | _ -> None, [||]
                         |> fun (sel, items) ->
                             items
-                            |> List.map (fun s -> s, s)
-                            |> List.toArray
+                            |> Array.map (fun s -> s, s)
                             |> select "Medicatie" sel (Prescribe.MedicationChange >> dispatch)
                     }
                     {
                         match props.scenarios with
                         | Resolved scrs -> scrs.Route, scrs.Routes
-                        | _ -> None, []
+                        | _ -> None, [||]
                         |> fun (sel, items) ->
                             items
-                            |> List.map (fun s -> s, s)
-                            |> List.toArray
+                            |> Array.map (fun s -> s, s)
                             |> select "Routes" sel (Prescribe.RouteChange >> dispatch)
                     }
                 </Stack>
@@ -947,10 +950,12 @@ module private Views =
                     {
                         match props.scenarios with
                         | Resolved sc ->
+                            sc.Medication,
                             sc.Scenarios
-                            |> List.toArray
-                        | _ -> [||]
-                        |> Array.map displayScenarios
+                        | _ -> None, [||]
+                        |> fun (med, scs) ->
+                            scs
+                            |> Array.map (displayScenarios med)
                     }
                 </Stack>
             </CardContent>
@@ -1034,7 +1039,7 @@ let GenPres
                 <CssBaseline />
                 <Box>
                     {Components.AppBar ({|
-                        title = $"GenPRES 2023 {props.currentPage}"
+                        title = $"GenPRES 2023 {props.currentPage |> Option.map (Global.pageToString Localization.Dutch)}"
                         toggleSideMenu = fun _ -> props.toggleMenu ()
                     |})}
                 </Box>

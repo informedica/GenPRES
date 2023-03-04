@@ -1152,15 +1152,25 @@ module Products =
 
 module ScenarioResult =
 
+
+    let createScenario shp prs prep adm =
+        {
+            Shape = shp
+            Prescription = prs
+            Preparation = prep
+            Administration = adm
+        }
+
     
     let empty: ScenarioResult =
         {
-            Indications = []
-            Medications = []
-            Routes = []
-            Scenarios = []
+            Indications = [||]
+            Medications = [||]
+            Routes = [||]
+            Scenarios = [||]
             Indication = None
             Medication = None
+            Shape = None
             Route = None
             Age = None
             Weight = None

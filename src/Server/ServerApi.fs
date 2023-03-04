@@ -27,13 +27,13 @@ let serverApi: IServerApi =
                         $"""
 {stage}:
 Patient: {sc.Age} days, {sc.Weight} kg, {sc.Height} cm
-Indications: {sc.Indications |> List.length}
-Medications: {sc.Medications |> List.length}
-Routes: {sc.Routes |> List.length}
+Indications: {sc.Indications |> Array.length}
+Medications: {sc.Medications |> Array.length}
+Routes: {sc.Routes |> Array.length}
 Indication: {sc.Indication |> Option.defaultValue ""}
 Medication: {sc.Medication |> Option.defaultValue ""}
 Route: {sc.Route |> Option.defaultValue ""}
-Scenarios: {sc.Scenarios |> List.length}
+Scenarios: {sc.Scenarios |> Array.length}
 """
 
                     printfn $"""{msg "processing" sc}"""
@@ -67,6 +67,11 @@ Scenarios: {sc.Scenarios |> List.length}
                                         [| sc.Medication |> Option.defaultValue "" |]
                                     else
                                         r.Generics
+                                Shapes = 
+                                    if sc.Shape |> Option.isSome then
+                                        [| sc.Shape |> Option.defaultValue "" |]
+                                    else
+                                        r.Shapes
                                 Routes =
                                     if sc.Route |> Option.isSome then
                                         [| sc.Route |> Option.defaultValue "" |]
@@ -74,23 +79,30 @@ Scenarios: {sc.Scenarios |> List.length}
                                         r.Routes
                                 Indication = sc.Indication
                                 Generic = sc.Medication
+                                Shape = sc.Shape
                                 Route = sc.Route
                             }
                             |> Demo.filter
 
                         let sc =
                             { sc with
-                                Indications = newSc.Indications |> Array.toList
-                                Medications = newSc.Generics |> Array.toList
-                                Routes = newSc.Routes |> Array.toList
+                                Indications = newSc.Indications 
+                                Medications = newSc.Generics 
+                                Routes = newSc.Routes 
                                 Indication = newSc.Indication
                                 Medication = newSc.Generic
+                                Shape = newSc.Shape
                                 Route = newSc.Route
-                                Scenarios = newSc.Scenarios |> Array.toList
+                                Scenarios = 
+                                    newSc.Scenarios
+                                    |> Array.map (fun sc ->
+                                        Shared.ScenarioResult.createScenario sc.Shape sc.Prescription sc.Preparation sc.Administration
+                                    )
                             }
                         printfn $"""{msg "finished" sc}"""
                         let s =
                             sc.Scenarios
+                            |> Array.collect (fun sc -> [| sc.Prescription; sc.Preparation; sc.Administration |])
                             |> String.concat "\n"
                         printfn $"{s}"
                         return sc |> Ok
