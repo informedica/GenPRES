@@ -2,6 +2,12 @@
 
 A project to enable a generic prescription solution for Safe and Efficient medication prescriptions, preparation and administration. 
 
+---
+
+![](docs/pcm%20example.gif)
+
+---
+
 Some more background information can be found at:
 
 - https://github.com/informedica/Informedica.GenPres.Lib/wiki/Informedica.GenOrder.Lib
