@@ -375,6 +375,110 @@ module private Components =
         """
 
 
+    module ResponsiveTable =
+
+
+        [<JSX.Component>]
+        let CardRows (props : 
+            {| 
+                columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
+                rows : (string * string) [][]
+            |}) =
+            let cards =
+                props.rows
+                |> Array.map (fun row ->
+                    let content = 
+                        row 
+                        |> Array.skip 1
+                        |> Array.map (fun (n, s) ->
+                            if String.IsNullOrWhiteSpace(s) then JSX.jsx "<></>"
+                            else
+                                let n = $"{n}: "
+                                JSX.jsx 
+                                    $"""
+                                <Stack direction="row" spacing={2} sx={ {| ``align-items``="center" |} } >
+                                    <Typography variant="body2">
+                                        {n}
+                                    </Typography>
+                                    <Typography variant="subtitle1">
+                                        {s}
+                                    </Typography>
+                                </Stack>
+                                """
+//                            |> toReact
+                        )
+
+                    JSX.jsx 
+                        $"""
+                    import Card from '@mui/material/Card';
+                    import CardActions from '@mui/material/CardActions';
+                    import CardContent from '@mui/material/CardContent';
+                    import Button from '@mui/material/Button';
+                    import Typography from '@mui/material/Typography';                    
+
+                    <Grid item width={380}>
+                        <Card raised={true} >
+                            <CardContent>
+                                {content}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    """
+                )
+        
+            JSX.jsx
+                $"""
+            import Grid from '@mui/material/Grid';
+
+            <Box sx={ {| p=2; display="flex"; flexDirection="column"; mt=5; overflowY="scroll"; height=800 |} }>
+                <Grid container rowSpacing={4} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
+                    {cards}
+                </Grid>            
+            </Box>
+            """
+
+
+    [<JSX.Component>]
+    let ResponsiveTable (props : 
+        {| 
+            columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
+            rows : (string * string) [][]
+            rowCreate : string[] -> obj
+        |}) =
+
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"    
+
+        if isMobile then
+            {| columns = props.columns; rows = props.rows |} 
+            |> ResponsiveTable.CardRows 
+        else
+            let rows = 
+                props.rows 
+                |> Array.map (Array.map fst)
+                |> Array.map props.rowCreate 
+
+            JSX.jsx
+                $"""
+            import * as React from 'react';
+            import {{DataGrid}} from '@mui/x-data-grid';
+
+            <Box sx={ {| height=600; width="100%"; mt=2; mb=2 |} }>
+                <DataGrid
+                    rows={rows}
+                    columns=
+                        {
+                            props.columns
+                            |> Array.map (fun c ->
+                                match c.headerName with
+                                | s when s = "id" -> {| c with hide = true |} |> box
+                                | _ -> c |> box
+                            )
+                        }
+                    pageSize={100}
+                    autoPageSize={true}
+                />
+            </Box>
+            """
 
 
 module private Views =
@@ -697,6 +801,58 @@ module private Views =
             />
         </Box>
         """
+
+
+
+    [<JSX.Component>]
+    let ResponsiveEmergencyList (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
+
+        let columns = [|
+            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
+            {|  field = "indication"; headerName = "Indicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "intervention"; headerName = "Interventie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "calculated"; headerName = "Berekend"; width = 200; filterable = false; sortable = false |}
+            {|  field = "preparation"; headerName = "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "advice"; headerName = "Advice"; width = 200; filterable = false; sortable = false |}
+        |]
+
+        let rows =
+            match props.interventions with
+            | Resolved items ->
+                items
+                |> List.toArray
+                |> Array.mapi (fun i m ->
+                    [|
+                        "id", $"{i + 1}"
+                        "indication", $"{m.Indication}"
+                        "intervention", $"{m.Name}"
+                        "calculated", $"{m.SubstanceDoseText}"
+                        "preparation", $"{m.InterventionDoseText}"
+                        "advice", $"{m.Text}"
+                    |]
+                )
+            | _ -> [||]
+
+        let rowCreate (fields : string []) =
+            if fields |> Array.length <> 6 then
+                failwith $"cannot create row with {fields}"
+            else
+                {|
+                    id = fields[0]
+                    indication = fields[1]
+                    intervention = fields[2]
+                    calculated = fields[3]
+                    preparation = fields[4]
+                    advice = fields[5]
+                |}
+            |> box
+
+        Components.ResponsiveTable({|
+            columns = columns
+            rows = rows 
+            rowCreate = rowCreate
+        |})
+
 
 
     [<JSX.Component>]
@@ -1056,7 +1212,7 @@ let GenPres
                     {
                         match props.currentPage with
                         | Some Global.Pages.LifeSupport ->
-                            Views.EmergencyList ({| interventions = props.bolusMedication |})
+                            Views.ResponsiveEmergencyList ({| interventions = props.bolusMedication |})
                         | Some Global.Pages.ContinuousMeds ->
                             Views.ContinuousMedication ({| interventions = props.continuousMedication |})
                         | Some Global.Pages.Prescribe ->
