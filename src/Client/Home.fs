@@ -8,18 +8,6 @@ open Browser.Types
 
 
 
-module private Api =
-
-    open Fable.Remoting.Client
-
-    let serverApi =
-        Remoting.createApi ()
-        |> Remoting.withRouteBuilder
-            Shared.Api.routerPaths
-        |> Remoting.buildProxy<Shared.Api.IServerApi>
-
-
-
 module private Components =
 
     open Elmish
@@ -379,13 +367,49 @@ module private Components =
 
 
         [<JSX.Component>]
-        let CardRows (props : 
+        let CardTable (props : 
             {| 
                 columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
                 rows : (string * string) [][]
             |}) =
+            let state, setState = React.useState None
+
+            let columnFilter = 
+                if props.rows |> Array.isEmpty then None
+                else
+                    props.columns
+                    |> Array.tryFind (fun c -> c.filterable)
+
+            let filter =
+                columnFilter
+                |> function
+                | None   -> JSX.jsx "<></>"
+                | Some c ->
+                    let data = 
+                        props.rows
+                        |> Array.map (Array.filter (fst >> ((=) c.field)))
+                        |> Array.collect (Array.map snd)
+                        |> Array.distinct
+
+                    SimpleSelect({|
+                        label = "Filter"
+                        selected = state
+                        updateSelected = setState
+                        values = data |> Array.map (fun s -> s, s)
+                    |})
+                    
             let cards =
                 props.rows
+                |> Array.filter (fun r ->
+                    match columnFilter with
+                    | None -> true
+                    | Some c ->
+                        r
+                        |> Array.exists (fun (k, v) ->
+                            k = c.field && 
+                            (state |> Option.isNone || state.Value = v)
+                        )
+                )
                 |> Array.map (fun row ->
                     let content = 
                         row 
@@ -396,8 +420,8 @@ module private Components =
                                 let n = $"{n}: "
                                 JSX.jsx 
                                     $"""
-                                <Stack direction="row" spacing={2} sx={ {| ``align-items``="center" |} } >
-                                    <Typography variant="body2">
+                                <Stack direction="row" spacing={2} sx={ {| alignItems="center" |} } >
+                                    <Typography minWidth={80} variant="body2">
                                         {n}
                                     </Typography>
                                     <Typography variant="subtitle1">
@@ -405,7 +429,6 @@ module private Components =
                                     </Typography>
                                 </Stack>
                                 """
-//                            |> toReact
                         )
 
                     JSX.jsx 
@@ -431,6 +454,9 @@ module private Components =
             import Grid from '@mui/material/Grid';
 
             <Box sx={ {| p=2; display="flex"; flexDirection="column"; mt=5; overflowY="scroll"; height=800 |} }>
+                <Box sx={ {| mb=5 |} }>
+                    {filter}
+                </Box>
                 <Grid container rowSpacing={4} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
                     {cards}
                 </Grid>            
@@ -450,7 +476,7 @@ module private Components =
 
         if isMobile then
             {| columns = props.columns; rows = props.rows |} 
-            |> ResponsiveTable.CardRows 
+            |> ResponsiveTable.CardTable 
         else
             let rows = 
                 props.rows 
@@ -858,7 +884,6 @@ module private Views =
     [<JSX.Component>]
     let ContinuousMedication (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
 
-
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
             {|  field = "indication"; headerName = "Indicatie"; width = 200; filterable = true; sortable = true |}
@@ -909,6 +934,60 @@ module private Views =
             />
         </Box>
         """
+
+
+
+    [<JSX.Component>]
+    let ResponsiveContinuousMedication (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
+
+        let columns = [|
+            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
+            {|  field = "indication"; headerName = "Indicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "medication"; headerName = "Medicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "quantity"; headerName = "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
+            {|  field = "solution"; headerName = "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "dose"; headerName = "Dosering"; width = 230; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "advice"; headerName = "Advies"; width = 190; filterable = false; sortable = false |}
+        |]
+
+        let rows =
+            match props.interventions with
+            | Resolved items ->
+                items
+                |> List.toArray
+                |> Array.mapi (fun i m ->
+                    [|
+                        "id", $"{i + 1}"
+                        "indication", $"{m.Indication}"
+                        "medication", $"{m.Name}"
+                        "quantity", $"{m.Quantity} {m.QuantityUnit}"
+                        "solution", $"{m.Total} ml {m.Solution}"
+                        "dose", m.SubstanceDoseText
+                        "advice", m.Text
+                    |]
+                )
+            | _ -> [||]
+
+        let rowCreate (fields : string []) =
+            if fields |> Array.length <> 6 then
+                failwith $"cannot create row with {fields}"
+            else
+                {|
+                    id = fields[0]
+                    indication = fields[1]
+                    medication = fields[2]
+                    quantity = fields[3]
+                    solution = fields[4]
+                    dose = fields[5]
+                    advice = fields[6]
+                |}
+            |> box
+
+        Components.ResponsiveTable({|
+            columns = columns
+            rows = rows 
+            rowCreate = rowCreate
+        |})
 
 
     module Prescribe =
@@ -1214,7 +1293,7 @@ let GenPres
                         | Some Global.Pages.LifeSupport ->
                             Views.ResponsiveEmergencyList ({| interventions = props.bolusMedication |})
                         | Some Global.Pages.ContinuousMeds ->
-                            Views.ContinuousMedication ({| interventions = props.continuousMedication |})
+                            Views.ResponsiveContinuousMedication ({| interventions = props.continuousMedication |})
                         | Some Global.Pages.Prescribe ->
                             Views.Prescribe ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
                         | _ -> notFound
