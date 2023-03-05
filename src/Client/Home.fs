@@ -7,6 +7,33 @@ open Feliz
 open Browser.Types
 
 
+module private Static =
+
+
+        [<JSX.Component>]
+        let prescribe =
+            let av =
+                JSX.jsx
+                    $"""
+                <Avatar alt="Natacha" src="public/prescribe.svg" />
+                """
+
+            JSX.jsx
+                $"""
+                import * as React from 'react';
+                import Avatar from '@mui/material/Avatar';
+                import Chip from '@mui/material/Chip';
+                import Stack from '@mui/material/Stack';
+
+                <Chip
+                    avatar={av}
+                    label="Prescribe"
+                    variant="outlined"
+                />
+            """
+
+
+
 
 module private Components =
 
@@ -367,14 +394,14 @@ module private Components =
 
 
         [<JSX.Component>]
-        let CardTable (props : 
-            {| 
+        let CardTable (props :
+            {|
                 columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
                 rows : (string * string) [][]
             |}) =
             let state, setState = React.useState None
 
-            let columnFilter = 
+            let columnFilter =
                 if props.rows |> Array.isEmpty then None
                 else
                     props.columns
@@ -385,7 +412,7 @@ module private Components =
                 |> function
                 | None   -> JSX.jsx "<></>"
                 | Some c ->
-                    let data = 
+                    let data =
                         props.rows
                         |> Array.map (Array.filter (fst >> ((=) c.field)))
                         |> Array.collect (Array.map snd)
@@ -397,7 +424,7 @@ module private Components =
                         updateSelected = setState
                         values = data |> Array.map (fun s -> s, s)
                     |})
-                    
+
             let cards =
                 props.rows
                 |> Array.filter (fun r ->
@@ -406,13 +433,13 @@ module private Components =
                     | Some c ->
                         r
                         |> Array.exists (fun (k, v) ->
-                            k = c.field && 
+                            k = c.field &&
                             (state |> Option.isNone || state.Value = v)
                         )
                 )
                 |> Array.map (fun row ->
-                    let content = 
-                        row 
+                    let content =
+                        row
                         |> Array.skip 1
                         |> Array.map (fun (n, s) ->
                             if String.IsNullOrWhiteSpace(s) then JSX.jsx "<></>"
@@ -423,8 +450,12 @@ module private Components =
                                     | _ when s.Contains("*") -> "h5", s.Replace("*", "")
                                     | _ -> "subtitle2", s
                                 let n = $"{n}: "
-                                JSX.jsx 
+
+                                JSX.jsx
                                     $"""
+                                    import * as React from 'react';
+                                    import Stack from '@mui/material/Stack';
+
                                 <Stack direction="row" spacing={2} sx={ {| alignItems="center" |} } >
                                     <Typography minWidth={80} variant="body2">
                                         {n}
@@ -436,13 +467,13 @@ module private Components =
                                 """
                         )
 
-                    JSX.jsx 
+                    JSX.jsx
                         $"""
                     import Card from '@mui/material/Card';
                     import CardActions from '@mui/material/CardActions';
                     import CardContent from '@mui/material/CardContent';
                     import Button from '@mui/material/Button';
-                    import Typography from '@mui/material/Typography';                    
+                    import Typography from '@mui/material/Typography';
 
                     <Grid item width={400}>
                         <Card raised={true} >
@@ -453,7 +484,7 @@ module private Components =
                     </Grid>
                     """
                 )
-        
+
             JSX.jsx
                 $"""
             import Grid from '@mui/material/Grid';
@@ -464,29 +495,29 @@ module private Components =
                 </Box>
                 <Grid container rowSpacing={4} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
                     {cards}
-                </Grid>            
+                </Grid>
             </Box>
             """
 
 
     [<JSX.Component>]
-    let ResponsiveTable (props : 
-        {| 
+    let ResponsiveTable (props :
+        {|
             columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
             rows : (string * string) [][]
             rowCreate : string[] -> obj
         |}) =
 
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"    
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
         if isMobile then
-            {| columns = props.columns; rows = props.rows |} 
-            |> ResponsiveTable.CardTable 
+            {| columns = props.columns; rows = props.rows |}
+            |> ResponsiveTable.CardTable
         else
-            let rows = 
-                props.rows 
+            let rows =
+                props.rows
                 |> Array.map (Array.map snd)
-                |> Array.map props.rowCreate 
+                |> Array.map props.rowCreate
 
             JSX.jsx
                 $"""
@@ -881,7 +912,7 @@ module private Views =
 
         Components.ResponsiveTable({|
             columns = columns
-            rows = rows 
+            rows = rows
             rowCreate = rowCreate
         |})
 
@@ -991,7 +1022,7 @@ module private Views =
 
         Components.ResponsiveTable({|
             columns = columns
-            rows = rows 
+            rows = rows
             rowCreate = rowCreate
         |})
 

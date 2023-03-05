@@ -5,7 +5,8 @@
     "private": true,
     "scripts": {
         "postinstall": "dotnet tool restore && dotnet restore GenPres.sln",
-        "start": "dotnet fable watch src/Client -o dist .js -e .jsx --run vite"
+        "init-assets": "cp -r src/Client/public dist && cp src/Client/index.html dist/.",
+        "start": "npm run init-assets && dotnet fable watch src/Client -o dist .js -e .jsx --run vite"
     },
     "devDependencies": {
         "@vitejs/plugin-react": "^3.0.1",

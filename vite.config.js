@@ -7,6 +7,7 @@ export default defineConfig({
     // build: {
     //     outDir : "../../dist"
     // },
+    root: "dist",
     server: {
         proxy: {
             '/api' : {
