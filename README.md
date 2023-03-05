@@ -14,6 +14,15 @@ Some more background information can be found at:
 - https://medicatieveiligensnel.nl (website in Dutch)
 
 
+## Build
+
+GitHub Actions |
+:---: |
+[![GitHub Actions](https://github.com/halcwb/GenPres2/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPres2/actions?query=branch%3Amaster) |
+[![Build History](https://buildstats.info/github/chart/halcwb/GenPres2)](https://github.com/halcwb/GenPres2/actions?query=branch%3Amaster) |
+
+
+
 
 ## Install pre-requisites
 
