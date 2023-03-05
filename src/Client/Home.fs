@@ -417,6 +417,11 @@ module private Components =
                         |> Array.map (fun (n, s) ->
                             if String.IsNullOrWhiteSpace(s) then JSX.jsx "<></>"
                             else
+                                let b, s =
+                                    match s with
+                                    | _ when s.Contains("**") -> "h6", s.Replace("**", "")
+                                    | _ when s.Contains("*") -> "h5", s.Replace("*", "")
+                                    | _ -> "subtitle2", s
                                 let n = $"{n}: "
                                 JSX.jsx 
                                     $"""
@@ -424,7 +429,7 @@ module private Components =
                                     <Typography minWidth={80} variant="body2">
                                         {n}
                                     </Typography>
-                                    <Typography variant="subtitle1">
+                                    <Typography variant={b}>
                                         {s}
                                     </Typography>
                                 </Stack>
@@ -439,7 +444,7 @@ module private Components =
                     import Button from '@mui/material/Button';
                     import Typography from '@mui/material/Typography';                    
 
-                    <Grid item width={380}>
+                    <Grid item width={400}>
                         <Card raised={true} >
                             <CardContent>
                                 {content}
@@ -848,12 +853,13 @@ module private Views =
                 items
                 |> List.toArray
                 |> Array.mapi (fun i m ->
+                    let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
                     [|
                         "id", $"{i + 1}"
                         "indication", $"{m.Indication}"
-                        "intervention", $"{m.Name}"
-                        "calculated", $"{m.SubstanceDoseText}"
-                        "preparation", $"{m.InterventionDoseText}"
+                        "intervention", $"**{m.Name}**"
+                        "calculated", if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText
+                        "preparation",  if b then "" else $"*{m.InterventionDoseText}*"
                         "advice", $"{m.Text}"
                     |]
                 )
@@ -865,11 +871,11 @@ module private Views =
             else
                 {|
                     id = fields[0]
-                    indication = fields[1]
-                    intervention = fields[2]
-                    calculated = fields[3]
-                    preparation = fields[4]
-                    advice = fields[5]
+                    indication = fields[1].Replace("*", "")
+                    intervention = fields[2].Replace("*", "")
+                    calculated = fields[3].Replace("*", "")
+                    preparation = fields[4].Replace("*", "")
+                    advice = fields[5].Replace("*", "")
                 |}
             |> box
 
@@ -903,7 +909,7 @@ module private Views =
                     {|
                         id = i + 1
                         indication = m.Indication
-                        medication = m.Name
+                        medication = $"{m.Name}"
                         quantity = $"{m.Quantity} {m.QuantityUnit}"
                         solution =  $"{m.Total} ml {m.Solution}"
                         dose = m.SubstanceDoseText
@@ -959,10 +965,10 @@ module private Views =
                     [|
                         "id", $"{i + 1}"
                         "indication", $"{m.Indication}"
-                        "medication", $"{m.Name}"
+                        "medication", $"**{m.Name}**"
                         "quantity", $"{m.Quantity} {m.QuantityUnit}"
                         "solution", $"{m.Total} ml {m.Solution}"
-                        "dose", m.SubstanceDoseText
+                        "dose", $"{m.SubstanceDoseText}"
                         "advice", m.Text
                     |]
                 )
@@ -974,12 +980,12 @@ module private Views =
             else
                 {|
                     id = fields[0]
-                    indication = fields[1]
-                    medication = fields[2]
-                    quantity = fields[3]
-                    solution = fields[4]
-                    dose = fields[5]
-                    advice = fields[6]
+                    indication = fields[1].Replace("*", "")
+                    medication = fields[2].Replace("*", "")
+                    quantity = fields[3].Replace("*", "")
+                    solution = fields[4].Replace("*", "")
+                    dose = fields[5].Replace("*", "")
+                    advice = fields[6].Replace("*", "")
                 |}
             |> box
 
