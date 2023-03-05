@@ -480,7 +480,7 @@ module private Components =
         else
             let rows = 
                 props.rows 
-                |> Array.map (Array.map fst)
+                |> Array.map (Array.map snd)
                 |> Array.map props.rowCreate 
 
             JSX.jsx
@@ -969,7 +969,7 @@ module private Views =
             | _ -> [||]
 
         let rowCreate (fields : string []) =
-            if fields |> Array.length <> 6 then
+            if fields |> Array.length <> 7 then
                 failwith $"cannot create row with {fields}"
             else
                 {|
