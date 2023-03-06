@@ -1,6 +1,6 @@
 # The GenPRES project
 
-A project to enable a generic prescription solution for Safe and Efficient medication prescriptions, preparation and administration. 
+A project to enable a generic prescription solution for Safe and Efficient medication prescriptions, preparation and administration.
 
 ---
 
@@ -40,12 +40,17 @@ A demo cache file will be made public, but this is work in progress.
 
 ## Starting the application
 
-This will start up the application locally for development.
+Currently, the project is moving to using Vite and the current build system has been updated using package.json scripts and plain commands.
 
-```bash
-dotnet tool restore
-dotnet run
-```
+For the time being the application can be started by the following procedure:
+
+1. `npm install` will perform a tool restore and install all dependencies
+2. `dotnet watch --project src/Server/Server.fsproj` will start the server
+3. `npm start` will start the fable compilation and the Vite development server
+4. `npm run build` will create a deployment to a `deploy` folder
+
+Open a browser to `http://localhost:5173` to view the site.
+
 
 This will create a production ready docker image:
 
@@ -59,16 +64,6 @@ To run the docker image locally:
 docker run -it -p 8080:8085 [USERNAME]/genpres
 ```
 
-**Note!**
-Currently, the project is moving to using Vite and the current build system hasn't been updated yet. 
-
-For the time being the application can be started by the following procedure:
-
-1. `npm install` will perform a tool restore and install all dependencies
-2. `dotnet watch --project src/Server/Server.fsproj` will start the server
-3. `npm start` will start the fable compilation and the Vite development server
-
-Open a browser to `http://localhost:8080` to view the site.
 
 ## SAFE Stack Documentation
 
