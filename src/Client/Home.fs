@@ -423,7 +423,13 @@ module private Components =
                                     | _ when s.Contains("**") -> "h6", s.Replace("**", "")
                                     | _ when s.Contains("*") -> "h5", s.Replace("*", "")
                                     | _ -> "subtitle2", s
-                                let n = $"{n}: "
+
+                                let h =
+                                    props.columns
+                                    |> Array.tryFind (fun c -> c.field = n)
+                                    |> function
+                                    | Some h -> $"{h.headerName.ToLower()}: "
+                                    | None -> $"{n}: "
 
                                 JSX.jsx
                                     $"""
@@ -432,7 +438,7 @@ module private Components =
 
                                 <Stack direction="row" spacing={2} sx={ {| alignItems="center" |} } >
                                     <Typography minWidth={80} variant="body2">
-                                        {n}
+                                        {h}
                                     </Typography>
                                     <Typography variant={b}>
                                         {s}
@@ -849,7 +855,7 @@ module private Views =
             {|  field = "intervention"; headerName = "Interventie"; width = 200; filterable = true; sortable = true |}
             {|  field = "calculated"; headerName = "Berekend"; width = 200; filterable = false; sortable = false |}
             {|  field = "preparation"; headerName = "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = "Advice"; width = 200; filterable = false; sortable = false |}
+            {|  field = "advice"; headerName = "Advies"; width = 200; filterable = false; sortable = false |}
         |]
 
         let rows =
@@ -1167,7 +1173,7 @@ module private Views =
                 import Avatar from '@mui/material/Avatar';
                 import Typography from '@mui/material/Typography';
 
-                <Box sx={ {| mt=3 |} } >
+                <Box sx={ {| mt=3; overflowY="scroll"; height=800 |} } >
                     <Typography variant="h6">
                         {med}
                     </Typography>

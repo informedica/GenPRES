@@ -40,9 +40,9 @@ let application = application {
     url ("http://*:" + port.ToString() + "/")
     use_router webApp
     memory_cache
-    use_static "public" //publicPath
     use_gzip
     use_mime_types [".svg", "image/svg+xml"]
+    use_static "public" //publicPath
     //use_iis
 
     //service_config serviceConfig
