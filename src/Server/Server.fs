@@ -41,7 +41,10 @@ let application = application {
     use_router webApp
     memory_cache
     use_gzip
-    use_mime_types [".svg", "image/svg+xml"]
+    use_mime_types [
+            ".svg", "image/svg+xml"
+            ".png", "image/png"
+        ]
     use_static "public" //publicPath
     //use_iis
 

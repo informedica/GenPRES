@@ -718,6 +718,59 @@ module private Views =
             | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
 
+        let items =
+            [|
+                [|0..19|]
+                |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
+                |> createSelect
+                    "jaren"
+                    (pat |> Option.bind Shared.Patient.getAgeYears)
+                    (Patient.UpdateYear >> dispatch)
+
+                [|1..11|]
+                |> Array.map (fun k -> $"{k}", $"{k}")
+                |> createSelect
+                    "maanden"
+                    (pat |> Option.bind Shared.Patient.getAgeMonths |> zeroToNone)
+                    (Patient.UpdateMonth >> dispatch)
+
+                [|1..3|]
+                |> Array.map (fun k -> $"{k}", $"{k}")
+                |> createSelect
+                    "weken"
+                    (pat |> Option.bind Shared.Patient.getAgeWeeks |> zeroToNone)
+                    (Patient.UpdateWeek >> dispatch)
+
+                [|1..6|]
+                |> Array.map (fun k -> $"{k}", $"{k}")
+                |> createSelect
+                    "dagen"
+                    (pat |> Option.bind Shared.Patient.getAgeDays |> zeroToNone)
+                    (Patient.UpdateDay >> dispatch)
+
+                wghts
+                |> Array.map (fun k -> $"{k}", $"{(k |> float)/1000.}")
+                |> createSelect
+                    "gewicht (kg)"
+                    (pat |> Option.bind (Shared.Patient.getWeight >> weightToNone))
+                    (Patient.UpdateWeight >> dispatch)
+
+                [|40..220|]
+                |> Array.map (fun k -> $"{k}", $"{k}")
+                |> createSelect
+                    "lengte (cm)"
+                    (pat |> Option.bind (Shared.Patient.getHeight >> heightToNone))
+                    (Patient.UpdateHeight >> dispatch)
+
+            |]
+            |> Array.map (fun el ->
+                JSX.jsx
+                    $"""
+                <Grid item sx={3}>{el}</Grid>
+                """
+            )
+
+
         JSX.jsx
             $"""
         import * as React from 'react';
@@ -738,54 +791,14 @@ module private Views =
             { pat|> Patient.show }
             </AccordionSummary>
             <AccordionDetails>
-                <Stack spacing={3}>
-                    <Stack direction={ {| sm = "column"; md = "row"  |} } spacing={3}>
-                        {[|0..19|]
-                        |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
-                        |> createSelect
-                            "jaren"
-                            (pat |> Option.bind Shared.Patient.getAgeYears)
-                            (Patient.UpdateYear >> dispatch)}
-
-                        {[|1..11|]
-                        |> Array.map (fun k -> $"{k}", $"{k}")
-                        |> createSelect
-                            "maanden"
-                            (pat |> Option.bind Shared.Patient.getAgeMonths |> zeroToNone)
-                            (Patient.UpdateMonth >> dispatch)}
-
-                        {[|1..3|]
-                        |> Array.map (fun k -> $"{k}", $"{k}")
-                        |> createSelect
-                            "weken"
-                            (pat |> Option.bind Shared.Patient.getAgeWeeks |> zeroToNone)
-                            (Patient.UpdateWeek >> dispatch)}
-
-                        {[|1..6|]
-                        |> Array.map (fun k -> $"{k}", $"{k}")
-                        |> createSelect
-                            "dagen"
-                            (pat |> Option.bind Shared.Patient.getAgeDays |> zeroToNone)
-                            (Patient.UpdateDay >> dispatch)}
-
-                        { wghts
-                        |> Array.map (fun k -> $"{k}", $"{(k |> float)/1000.}")
-                        |> createSelect
-                            "gewicht (kg)"
-                            (pat |> Option.bind (Shared.Patient.getWeight >> weightToNone))
-                            (Patient.UpdateWeight >> dispatch)}
-
-                        {[|40..220|]
-                        |> Array.map (fun k -> $"{k}", $"{k}")
-                        |> createSelect
-                            "lengte (cm)"
-                            (pat |> Option.bind (Shared.Patient.getHeight >> heightToNone))
-                            (Patient.UpdateHeight >> dispatch)}
-                    </Stack>
-                    <Button variant="contained" onClick={fun _ -> Patient.Clear |> dispatch}>
-                        Verwijderen
+                <Grid container spacing={2}>
+                {items}
+                </Grid>
+                <Box sx={ {| mt=2 |} }>
+                    <Button variant="text" onClick={fun _ -> Patient.Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
+                        verwijderen
                     </Button>
-                </Stack>
+                </Box>
             </AccordionDetails>
         </Accordion>
         </div>
@@ -951,7 +964,6 @@ module private Views =
             />
         </Box>
         """
-
 
 
     [<JSX.Component>]
