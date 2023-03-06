@@ -31,6 +31,7 @@
 !package-lock.json
 
 !webpack.config.js
+!vite.config.js
 
 # Add yml files to ci on appveyor and travis
 !appveyor.yml

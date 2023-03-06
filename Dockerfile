@@ -28,15 +28,15 @@ RUN cd src/Server && dotnet publish -c release -o ../../deploy
 FROM build as client-build
 COPY package.json package-lock.json ./
 RUN npm install
-COPY webpack.config.js ./
+COPY vite.config.js ./
 COPY src/Shared src/Shared
 COPY src/Client src/Client
-RUN dotnet fable src/Client --run webpack
+RUN npm run build
 
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0
 COPY --from=server-build /workspace/deploy /app
-COPY --from=client-build /workspace/deploy /app
+COPY --from=client-build /workspace/deploy /app/public
 COPY src/Server/data /app/data
 
 WORKDIR /app

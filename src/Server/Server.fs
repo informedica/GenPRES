@@ -10,18 +10,15 @@ open Shared
 open Shared.Api
 
 
-let tryGetEnv key = 
+let tryGetEnv key =
     match Environment.GetEnvironmentVariable key with
-    | x when String.IsNullOrWhiteSpace x -> None 
+    | x when String.IsNullOrWhiteSpace x -> None
     | x -> Some x
 
 
 let port =
     "SERVER_PORT"
     |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
-
-
-let publicPath = Path.GetFullPath "../Client/public"
 
 
 let webApi =
@@ -31,10 +28,10 @@ let webApi =
     |> Remoting.buildHttpHandler
 
 
-let webApp = 
-    choose [ 
-        webApi; 
-        GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI" 
+let webApp =
+    choose [
+        webApi;
+        GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI"
     ]
 
 
@@ -45,8 +42,9 @@ let application = application {
     memory_cache
     use_static "public" //publicPath
     use_gzip
+    use_mime_types [".svg", "image/svg+xml"]
     //use_iis
-    
+
     //service_config serviceConfig
     //host_config Env.configureHost
 }

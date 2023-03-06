@@ -7,32 +7,6 @@ open Feliz
 open Browser.Types
 
 
-module private Static =
-
-
-        [<JSX.Component>]
-        let prescribe =
-            let av =
-                JSX.jsx
-                    $"""
-                <Avatar alt="Natacha" src="public/prescribe.svg" />
-                """
-
-            JSX.jsx
-                $"""
-                import * as React from 'react';
-                import Avatar from '@mui/material/Avatar';
-                import Chip from '@mui/material/Chip';
-                import Stack from '@mui/material/Stack';
-
-                <Chip
-                    avatar={av}
-                    label="Prescribe"
-                    variant="outlined"
-                />
-            """
-
-
 
 
 module private Components =
@@ -1161,26 +1135,76 @@ module private Views =
         let displayScenarios med (sc : Shared.Types.Scenario) =
             if med |> Option.isNone then JSX.jsx $"""<>/</>"""
             else
-                let med = med |> Option.defaultValue ""
+                let med =
+                    med |> Option.defaultValue ""
+                    |> fun s -> $"{s} {sc.Shape}"
 
-                let list =
-                    Components.List({|
-                        updateSelected = ignore
-                        items =
-                            [|
-                                $"{med} {sc.Shape}", false
-                                $"{sc.Prescription}", false
-                                $"{sc.Preparation}", false
-                                $"{sc.Administration}", false
-                            |]
-                    |})
+                let text s =
+                    JSX.jsx
+                        $"""
+                    <React.Fragment>
+                        <Typography
+                            sx={ {| display= "inline" |} }
+                            component="span"
+                            variant="body1"
+                            color="text.primary"
+                        >
+                            {s}
+                        </Typography>
+                    </React.Fragment>
+                    """
+
+
 
                 JSX.jsx
                     $"""
-                <Box>
-                    {list}
+                import * as React from 'react';
+                import List from '@mui/material/List';
+                import ListItem from '@mui/material/ListItem';
+                import Divider from '@mui/material/Divider';
+                import ListItemText from '@mui/material/ListItemText';
+                import ListItemAvatar from '@mui/material/ListItemAvatar';
+                import Avatar from '@mui/material/Avatar';
+                import Typography from '@mui/material/Typography';
+
+                <Box sx={ {| mt=3 |} } >
+                    <Typography variant="h6">
+                        {med}
+                    </Typography>
+                    <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
+                    <ListItem alignItems="flex-start">
+                        <ListItemAvatar>
+                        <Avatar alt="Prescription" src="prescribe.png" />
+                        </ListItemAvatar>
+                        <ListItemText
+                            primary="Voorschrift"
+                            secondary={sc.Prescription |> text}
+                        />
+                    </ListItem>
+                    <Divider variant="inset" component="li" />
+                    <ListItem alignItems="flex-start">
+                        <ListItemAvatar>
+                        <Avatar alt="Preparation" src="prepare.png" />
+                        </ListItemAvatar>
+                        <ListItemText
+                            primary="Bereiding"
+                            secondary={sc.Preparation |> text}
+                        />
+                    </ListItem>
+                    <Divider variant="inset" component="li" />
+                    <ListItem alignItems="flex-start">
+                        <ListItemAvatar>
+                        <Avatar alt="Administration" src="administer.png" />
+                        </ListItemAvatar>
+                        <ListItemText
+                            primary="Toediening"
+                            secondary={sc.Administration |> text}
+                        />
+                    </ListItem>
+                    </List>
                 </Box>
                 """
+
 
         let content =
             JSX.jsx
