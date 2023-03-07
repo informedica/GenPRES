@@ -73,7 +73,7 @@ module Tests =
             testList "renal function" [
 
                 test "renal function using creat 2009 formula" {
-                    let creat = 
+                    let creat =
                         181.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     let age = 57.<year>
@@ -86,7 +86,7 @@ module Tests =
                 }
 
                 test "renal function using creat 2021 formula" {
-                    let creat = 
+                    let creat =
                         181.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     let age = 57.<year>
@@ -98,7 +98,7 @@ module Tests =
                 }
 
                 test "renal function using cystatin creatinine 2012 formula" {
-                    let creat = 
+                    let creat =
                         181.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     let cystatin = 1.5<mg/L> |> Calculations.Renal.CystatinMilligramPerLiter
@@ -112,7 +112,7 @@ module Tests =
                 }
 
                 test "renal function using cystatin creatinine 2021 formula" {
-                    let creat = 
+                    let creat =
                         181.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     let cystatin = 1.5<mg/L> |> Calculations.Renal.CystatinMilligramPerLiter
@@ -135,7 +135,7 @@ module Tests =
                 }
 
                 test "renal function using MDRD" {
-                    let creat = 
+                    let creat =
                         181.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     let age = 57.<year>
@@ -148,7 +148,7 @@ module Tests =
                 }
 
                 test "renal function using pediatric Schwartz" {
-                    let creat = 
+                    let creat =
                         181.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     let height = 100.<cm>
@@ -158,7 +158,7 @@ module Tests =
                 }
 
                 test "renal function using KCID" {
-                    let creat = 
+                    let creat =
                         100.<microMol/L>
                         |> Calculations.Renal.CreatinineMicroMolePerLiter
                     // printfn $"{100.<microMol/L> |>  Conversions.Creatinine.toMilliGramPerDeciLiter} mg/dl"
@@ -176,7 +176,7 @@ module Tests =
         ]
 
 
-        
+
 
 
     module MinIncrMaxTests =
@@ -498,7 +498,7 @@ module Tests =
 
             testList "in range" [
                 for v, mm, b in inRange do
-                    test $"%s{v |> ValueUnit.toReadableDutchStringWithPrec 0} in range: %s{mm |> mmToStr} = %A{MinIncrMax.inRange v mm}" {
+                    test $"%s{v |> ValueUnit.toStringDecimalDutchShortWithPrec 0} in range: %s{mm |> mmToStr} = %A{MinIncrMax.inRange v mm}" {
                         MinIncrMax.inRange v mm
                         |> Expect.equal $"should be {b}" b
                     }
@@ -618,11 +618,11 @@ module Tests =
 
         module EnteralAccessTests =
 
-            let enteralAccessGenerator n = 
+            let enteralAccessGenerator n =
                 Arb.generate<EnteralAccess>
                 |> Gen.sample 0 10
 
-            let samples = 
+            let samples =
                 enteralAccessGenerator 10
                 |> List.mapi (fun i ea -> i, if ea = UnknownEnteral then "" else $"{ea}" |> String.toLower)
 
@@ -633,7 +633,7 @@ module Tests =
                         |> EnteralAccess.fromString
                         |> Expect.isOk "should be ok"
                     }
-            
+
                 test "cannot create enteral access from xxx" {
                     "xxx"
                     |> EnteralAccess.fromString
@@ -644,11 +644,11 @@ module Tests =
 
         module VenousAccessTests =
 
-            let venousAccessGenerator n = 
+            let venousAccessGenerator n =
                 Arb.generate<VenousAccess>
                 |> Gen.sample 0 10
 
-            let samples = 
+            let samples =
                 venousAccessGenerator 10
                 |> List.mapi (fun i ea -> i, if ea = UnknownVenous then "" else $"{ea}" |> String.toLower)
 
@@ -659,7 +659,7 @@ module Tests =
                         |> VenousAccess.fromString
                         |> Expect.isOk "should be ok"
                     }
-            
+
                 test "cannot create venous access from xxx" {
                     "xxx"
                     |> VenousAccess.fromString
@@ -983,7 +983,7 @@ module Tests =
                 let newBorn =
                     NewBorn
                     |> Patient.fromAgeType UnknownGender DateTime.Now
-                
+
                 newBorn
                 |> Patient.Dto.toDto
                 |> Patient.Dto.fromDto
