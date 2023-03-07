@@ -13,7 +13,6 @@
     <Compile Include="MinIncrMax.fs" />
     <Compile Include="Patient.fs" />
     <None Include="Scripts\load.fsx" />
-    <None Include="Scripts\Tests.fsx" />
     <None Include="Scripts\Scripts.fsx" />
   </ItemGroup>
   <ItemGroup>
