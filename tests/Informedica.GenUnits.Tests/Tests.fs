@@ -1,27 +1,109 @@
-module Tests
+namespace Informedica.GenUnits.Tests
 
-open Expecto
-open Expecto.Flip
-open Expecto.Logging
 
-open MathNet.Numerics
-open Informedica.Utils.Lib.BCL
-open Informedica.GenUnits.Lib
 
-open Informedica.GenUnits.Lib.ValueUnit
+module Unquote =
 
-let run = runTestsWithCLIArgs [ CLIArguments.Verbosity LogLevel.Verbose ] [||]
+
+    open Swensen.Unquote
+    open MathNet.Numerics
+    open Informedica.GenUnits.Lib
+    open Informedica.GenUnits.Lib.ValueUnit
+    open Informedica.GenUnits.Lib.ValueUnit.Operators
+
+    let x = create Units.Count.times
+    let mg = create Units.Mass.milliGram
+    let mcg = create Units.Mass.microGram
+    let ml = create Units.Volume.milliLiter
+    let kg = create Units.Mass.kiloGram
+    let hr = create Units.Time.hour
+    let day = create Units.Time.day
+    let day2 = create (Units.Time.nDay 2N)
+    let min = create Units.Time.minute
+    let week2 = create (Units.Time.nWeek 2N)
+    let day14 = create (Units.Time.nDay 14N)
+
+    let tests () =
+        [
+
+            // Test that 10 ml / 5 ml = 2
+            test<@
+                ([|10N|] |> ml) / ([|5N|] |> ml) =? ([|2N|] |> x)
+            @>
+
+            // Test that 1 kg / 1000 mg = 1000
+            test<@
+                ([|1N|] |> kg) / ([|1000N|] |> mg) =? ([|1000N|] |> x)
+            @>
+
+            // Test that 10 * 2 mg = 20 mg
+            test<@
+                ([|10N|] |> x) * ([|1N|] |> mg) =? ([|10N|] |> mg)
+            @>
+
+            // Test that 10 mg * (2 x / day) = 20 mg / day
+            test<@
+                ([|10N|] |> mg) * (([|2N|] |> x) / ([|1N|] |> day)) =? (([|20N|] |> mg) / ([|1N|] |> day))
+            @>
+
+            // Test that 20 mg * (1 x / 2 day) = 10 mg / day
+            test<@
+                ([|20N|] |> mg) * (([|1N|] |> x) / ([|2N|] |> day)) =? (([|10N|] |> mg) / ([|1N|] |> day))
+            @>
+
+
+            // Test that 20 mg * (1 x / 2 day) = 10 mg / day
+            test<@
+                ([|20N|] |> mg) * (([|1N|] |> x) / ([|1N|] |> day2)) =? (([|10N|] |> mg) / ([|1N|] |> day))
+            @>
+
+            // Test that 2 day / 1 day = 2
+            test<@
+                ([|1N|] |> day2) / ([|1N|] |> day) =? ([|2N|] |> x)
+            @>
+
+
+
+            // Test that 1 x / 2 week divide by 1 x / 14 days yields 1
+            test<@
+                (([|1N|] |> x ) / ([|1N|] |> week2)) / (([|1N|] |> x) / ([|1N|] |> day14)) = ([|1N|] |> x)
+            @>
+
+
+            test<@
+                ([|1000N|] |> mcg) =? ([|1N|] |> mg)
+            @>
+        ]
+
+
+
+    // let mgPerKgPerDay =
+    //     (CombiUnit (Units.Mass.milliGram, OpPer, Units.Weight.kiloGram), OpPer,
+    //     Units.Time.day)
+    //     |> CombiUnit
+
+
+    // ([|90N|] |> create mgPerKgPerDay) >? ([|3000N|] |> create mgPerKgPerDay)
+    // ([|3000N|] |> create mgPerKgPerDay) >? ([|90N|] |> create mgPerKgPerDay)
+
+
+
+
+
 
 
 module Tests =
 
-    open MathNet.Numerics
     open Expecto
     open Expecto.Flip
+    open Expecto.Logging
 
-    open Informedica.GenUnits.Lib
+    open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
-    open ValueUnit
+    open Informedica.GenUnits.Lib
+
+    open Informedica.GenUnits.Lib.ValueUnit
+
 
     let toString = toStringEngShort
 
@@ -29,7 +111,7 @@ module Tests =
         u |> printfn "%A"
         f u
 
-    // Some basic units
+    // Some basic value units
     let mg400 = 400N |> createSingle Units.Mass.milliGram
     let gram2 = 2N   |> createSingle Units.Mass.gram
     let ml50  = 50N  |> createSingle Units.Volume.milliLiter
@@ -37,14 +119,15 @@ module Tests =
     let l5 = 5N      |> createSingle Units.Volume.liter
     let day2 = 2N    |> createSingle Units.Time.day
     let hour3 = 3N   |> createSingle Units.Time.hour
+    let kg10 = 10N   |> createSingle Units.Weight.kiloGram
 
     // The count group is a special unit group
     // with only one unit: times.
     let times3 = 3N |> createSingle Units.Count.times
     let times100 = 100N |> createSingle Units.Count.times
+    let weeks4 = 4N |> Units.Time.nWeek
 
 
-    [<Tests>]
     let unitTests =
 
         let toBase = toBaseValue >> (Array.map BigRational.toDecimal) >> Array.head
@@ -128,7 +211,31 @@ module Tests =
         ]
 
 
-    [<Tests>]
+    let stringTests =
+
+        testList "Print" [
+            test "4 weken unit to string should return 4 weken" {
+                weeks4
+                |> Units.toStringDutchShort
+                |> Expect.equal "should be equal" "4 weken[Time]"
+            }
+
+            test "1 x[Count]/4 weken[Time] from string should return a combiunit" {
+                "1 x[Count]/4 weken[Time]"
+                |> ValueUnit.fromString
+                |> ValueUnit.toStringDutchShort
+                |> Expect.equal "should equal" "1 x[Count]/4 weken[Time]"
+            }
+
+            test "unit with unit number can find group" {
+                "4 weken"
+                |> Units.stringWithGroup
+                |> Expect.equal "should be equal" "4 weken[Time]"
+            }
+
+        ]
+
+
     let comparisonTests =
 
         testList "Comparison" [
@@ -155,7 +262,6 @@ module Tests =
         ]
 
 
-    [<Tests>]
     let calculationTests =
 
         let (>>?) res exp =
@@ -251,10 +357,22 @@ module Tests =
              Expect.equal "" (mg400 / day2) vu
             }
 
+            test "divsion resulting in combi with 3 units" {
+                mg400/kg10/day2
+                |> toStringEngShort
+                |> Expect.equal "should be equal" "20 mg[Mass]/kg[Weight]/day[Time]"
+
+            }
+
+            test "multiplying with a combi with 3 units with the middle unit" {
+                (mg400/kg10/day2) * kg10
+                |> toStringEngShort
+                |> Expect.equal "should be equal" "200 mg[Mass]/day[Time]"
+            }
+
         ]
 
 
-    [<Tests>]
     let conversionTests =
 
         testList "Conversion" [
@@ -292,10 +410,23 @@ module Tests =
 
         ]
 
+
     let tests = testList "ValueUnit Tests" [
+            stringTests
             calculationTests
             conversionTests
             comparisonTests
             unitTests
+
+            test "Unquote tests" {
+                try
+                    Unquote.tests () |> ignore
+                    true
+                with
+                | _ -> false
+                |> Expect.isTrue "should all be true"
+            }
+
         ]
+
 
