@@ -8,6 +8,9 @@ module BigRational =
     open System
     open MathNet.Numerics
 
+    //----------------------------------------------------------------------------
+    // Error management
+    //----------------------------------------------------------------------------
 
     /// Message type to be used when
     /// an exception message is warranted
@@ -21,9 +24,14 @@ module BigRational =
     exception BigRationalException of Message
 
 
+
     /// Raise exception with message `m`
     let raiseExc m = m |> BigRationalException |> raise
 
+
+    //----------------------------------------------------------------------------
+    // Identity functions
+    //----------------------------------------------------------------------------
 
     /// Apply a `f` to bigrational `x`
     let apply f (x: BigRational) = f x
@@ -31,6 +39,11 @@ module BigRational =
 
     /// Utility to enable type inference
     let id = apply id
+
+
+    //----------------------------------------------------------------------------
+    // Parsing
+    //----------------------------------------------------------------------------
 
 
     /// Parse a string and pass the result
@@ -57,11 +70,90 @@ module BigRational =
         parseCont Some (fun _ -> None)
 
 
+    //----------------------------------------------------------------------------
+    // Conversion functions
+    //----------------------------------------------------------------------------
+
     /// Create a bigrational from an int
     let fromInt = BigRational.FromInt
 
 
     let fromBigInt = BigRational.FromBigInt
+
+
+    let toDouble br = BigRational.ToDouble(br)
+
+
+    let fixPrecision n = toDouble >> (Double.fixPrecision n)
+
+    /// Try to convert a float `f` to
+    /// a `BigRational`.
+    let fromFloat f =
+        f
+        |> Double.floatToFract
+        |> Option.bind (fun (n, d) -> BigRational.FromBigInt(n) / BigRational.FromBigInt(d) |> Some)
+
+
+    /// Convert a BigRational to a float
+    let toFloat br =
+        ((br |> id).Numerator |> float) / (br.Denominator |> float)
+
+
+    let fromDecimal = BigRational.FromDecimal
+
+
+    let toDecimal = toFloat >> decimal
+
+
+    let denominator (br: BigRational) = br.Denominator
+
+    let numerator (br: BigRational) = br.Numerator
+
+
+    //----------------------------------------------------------------------------
+    // String functions
+    //----------------------------------------------------------------------------
+
+
+    /// Convert a bigrational to a string
+    let toString v = (v |> id).ToString()
+
+
+    /// Convert an optional `BigRational` to a `string`.
+    /// If `None` then return empty `string`.
+    let optToString = function
+        | Some v' -> v' |> toString
+        | None    -> ""
+
+
+    let toStringNl (br : BigRational) =
+        if br.Denominator = 1I then
+            br |> BigRational.ToInt32 |> Int32.toStringNumberNL
+        else
+            br |> toFloat |> Double.toStringNumberNLWithoutTrailingZeros
+
+
+    //----------------------------------------------------------------------------
+    // Constants
+    //----------------------------------------------------------------------------
+
+
+    /// Constant 0
+    let zero = 0N
+
+    /// Constant 1
+    let one = 1N
+
+    /// Constant 2
+    let two = 2N
+
+    /// Constant 3
+    let three = 3N
+
+
+    //----------------------------------------------------------------------------
+    // Math functions
+    //----------------------------------------------------------------------------
 
 
     /// Get the greatest common divisor
@@ -70,23 +162,6 @@ module BigRational =
         let den = a.Denominator * b.Denominator
         let num = BigInteger.gcd (a.Numerator * b.Denominator) (b.Numerator * a.Denominator)
         (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
-
-
-    /// Convert a bigrational to a string
-    let toString v = (v |> id).ToString()
-
-
-    let toDouble br = BigRational.ToDouble(br)
-
-
-    let fixPrecision n = toDouble >> (Double.fixPrecision n)
-
-
-    /// Convert an optional `BigRational` to a `string`.
-    /// If `None` then return empty `string`.
-    let optToString = function
-        | Some v' -> v' |> toString
-        | None    -> ""
 
 
     /// Convert `n` to a multiple of `d`.
@@ -116,17 +191,6 @@ module BigRational =
         else
             (v.Numerator * incr.Denominator) % (incr.Numerator * v.Denominator) = 0I
 
-    /// Constant 0
-    let zero = 0N
-
-    /// Constant 1
-    let one = 1N
-
-    /// Constant 2
-    let two = 2N
-
-    /// Constant 3
-    let three = 3N
 
     /// Check whether the operator is subtraction
     let opIsSubtr op = (three |> op <| two) = three - two // = 1
@@ -152,24 +216,6 @@ module BigRational =
         | _ when op |> opIsSubtr -> Subtr
         | _ -> NoMatch
 
-
-    /// Try to convert a float `f` to
-    /// a `BigRational`.
-    let fromFloat f =
-        f
-        |> Double.floatToFract
-        |> Option.bind (fun (n, d) -> BigRational.FromBigInt(n) / BigRational.FromBigInt(d) |> Some)
-
-
-    /// Convert a BigRational to a float
-    let toFloat br =
-        ((br |> id).Numerator |> float) / (br.Denominator |> float)
-
-
-    let fromDecimal = BigRational.FromDecimal
-
-
-    let toDecimal = toFloat >> decimal
 
 
     /// Perform a calculation when
@@ -210,16 +256,6 @@ module BigRational =
                 let fn, fd = f
                 let r = (fn |> BigRational.FromBigInt) / (fd |> BigRational.FromBigInt)
                 yield r * conc } |> Seq.cache
-
-
-    // let rec BigPow (a:bigint) (p:bigint) :bigint =
-    //   match p with
-    //     | _ when (p = 0I) -> 1I
-    //     | _ when (p >= 1I) -> a * (BigPow (a) (p - 1I))
-    //     | _ -> failwith "Shouldn't Happen"
-
-
-    // let ( ** ) : bigint -> bigint -> bigint = BigPow
 
 
     /// Generic function to calculate all divisors
@@ -371,15 +407,3 @@ module BigRational =
     let minInclMultipleOf = calcMinOrMaxToMultiple false true
 
     let minExclMultipleOf = calcMinOrMaxToMultiple false false
-
-
-    let toStringNl (br : BigRational) =
-        if br.Denominator = 1I then
-            br |> BigRational.ToInt32 |> Int32.toStringNumberNL
-        else
-            br |> toFloat |> Double.toStringNumberNLWithoutTrailingZeros
-
-
-    let denominator (br: BigRational) = br.Denominator
-
-    let numerator (br: BigRational) = br.Numerator

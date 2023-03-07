@@ -12,6 +12,11 @@ module List =
     let prepend xs1 xs2 = xs1 |> List.append xs2
 
 
+    //----------------------------------------------------------------------------
+    // Change lists
+    //----------------------------------------------------------------------------
+
+
     /// ToDo: not the best implementation
     let remove pred xs =
         match xs |> List.tryFindIndex pred with
@@ -32,7 +37,7 @@ module List =
             (xs |> Seq.skip (ind + 1) |> Seq.toList)
         | None -> xs
 
-
+    /// filter a list of lists
     let listFilter p xs =
         xs
         |> List.filter (fun r ->
@@ -52,29 +57,6 @@ module List =
         | _ -> [ for i in pl -> xs.[i] ]
 
 
-    let inline toString xs =
-        match xs with
-        | [] -> "[]"
-        | _ ->
-            let s =
-                xs
-                |> List.fold (fun s x -> s + (string) x + ";") "["
-            (s
-            |> String.subString 0 ((s |> String.length) - 1)) + "]"
-
-
-    let hasExactlyOne pred xs =
-        xs
-        |> List.filter pred
-        |> List.length = 1
-
-
-    let tryFindInList pred xs =
-        xs
-        |> List.collect id
-        |> List.tryFind pred
-
-
     let removeFirst pred =
         List.fold (fun acc x ->
             let b, xs = acc
@@ -85,6 +67,27 @@ module List =
         ) (false, [])
         >> snd
 
+
+
+    //----------------------------------------------------------------------------
+    // Logic
+    //----------------------------------------------------------------------------
+
+    let hasExactlyOne pred xs =
+        xs
+        |> List.filter pred
+        |> List.length = 1
+
+
+    //----------------------------------------------------------------------------
+    // Find
+    //----------------------------------------------------------------------------
+
+
+    let tryFindInList pred xs =
+        xs
+        |> List.collect id
+        |> List.tryFind pred
 
     /// Try find the first element with **n**
     /// in a list of list **xsl**
@@ -108,12 +111,9 @@ module List =
         find None xs []
 
 
-    let inline toString2 xs =
-        xs
-        |> toString
-        |> String.replace "[" ""
-        |> String.replace "]" ""
-        |> String.replace ";" ","
+    //----------------------------------------------------------------------------
+    // Other
+    //----------------------------------------------------------------------------
 
 
     let headTail xs =
@@ -198,3 +198,27 @@ module List =
     let someIfOne = function
         | [x] -> Some x
         | _   -> None
+
+
+
+    //----------------------------------------------------------------------------
+    // String functions
+    //----------------------------------------------------------------------------
+
+    let inline toString xs =
+        match xs with
+        | [] -> "[]"
+        | _ ->
+            let s =
+                xs
+                |> List.fold (fun s x -> s + (string) x + ";") "["
+            (s
+            |> String.subString 0 ((s |> String.length) - 1)) + "]"
+
+
+    let inline toString2 xs =
+        xs
+        |> toString
+        |> String.replace "[" ""
+        |> String.replace "]" ""
+        |> String.replace ";" ","

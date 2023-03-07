@@ -12,6 +12,10 @@ module Double =
     open MathNet.Numerics
 
 
+    //----------------------------------------------------------------------------
+    // Logic
+    //----------------------------------------------------------------------------
+
     /// Check whether a `Double` is a `NaN` value
     let isNaN = Double.IsNaN
 
@@ -28,6 +32,18 @@ module Double =
          n >= Double.MaxValue ||
          n <= Double.MinValue) |> not
 
+
+    /// Check whether a float has any
+    /// decimal digits
+    let floatHasDecimals (v: float) =
+        v <> 0. &&
+        (if v  > 0. then v > float(BigInteger v)
+         else v < float(BigInteger v))
+
+
+    //----------------------------------------------------------------------------
+    // Parsing
+    //----------------------------------------------------------------------------
 
     /// Get the double value of a string
     /// using `InvariantCulture`
@@ -50,6 +66,11 @@ module Double =
         match s |> tryParse with
         | Some v -> float32 v
         | None -> 0.f
+
+
+    //----------------------------------------------------------------------------
+    // Precision
+    //----------------------------------------------------------------------------
 
 
     /// Calculates the number of decimal digits that
@@ -102,8 +123,6 @@ module Double =
             1
 
 
-
-
     /// Fix the precision of a float f to
     /// match a minimum of non zero digits n
     /// * 66.666 |> fixPrecision 1 = 67
@@ -124,12 +143,9 @@ module Double =
         Math.Round(f, f |> getPrecision n)
 
 
-    /// Check whether a float has any
-    /// decimal digits
-    let floatHasDecimals (v: float) =
-        v <> 0. &&
-        (if v  > 0. then v > float(BigInteger v)
-         else v < float(BigInteger v))
+    //----------------------------------------------------------------------------
+    // Math functions
+    //----------------------------------------------------------------------------
 
 
     /// Return a float as a fraction of
@@ -145,6 +161,10 @@ module Double =
             |> (fun (n, d) -> (n, d.Numerator))
             |> Some
 
+
+    //----------------------------------------------------------------------------
+    // String functions
+    //----------------------------------------------------------------------------
 
     let toStringNumberNL p (n: float) = n.ToString("R" + p, CultureInfo.GetCultureInfo("nl"))
 

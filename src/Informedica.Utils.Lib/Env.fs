@@ -37,6 +37,7 @@ module Env =
             if not (variables.ContainsKey(key)) && key <> "PATH" then variables.Add(key, value)
         variables
 
+
     let getItem s =
         let vars = environmentVars()
         if not (vars.ContainsKey(s)) then None

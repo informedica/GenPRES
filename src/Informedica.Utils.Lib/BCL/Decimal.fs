@@ -8,8 +8,18 @@ module Decimal =
     open System.Globalization
 
 
+    //----------------------------------------------------------------------------
+    // Constants
+    //----------------------------------------------------------------------------
+
+
     let Ten = 10m
 
+
+
+    //----------------------------------------------------------------------------
+    // Parsing
+    //----------------------------------------------------------------------------
 
     /// Get the double value of a string
     /// using `InvariantCulture`
@@ -24,6 +34,11 @@ module Decimal =
         | true, v -> Some v
         | false, _ -> None
 
+
+
+    //----------------------------------------------------------------------------
+    // Precision
+    //----------------------------------------------------------------------------
 
 
     /// Calculates the number of decimal digits that
@@ -96,6 +111,11 @@ module Decimal =
     /// If n < 0 then n = 0 is used.
     let fixPrecision n (d: decimal) =
         Math.Round(d, d |> getPrecision n)
+
+
+    //----------------------------------------------------------------------------
+    // String functions
+    //----------------------------------------------------------------------------
 
 
     let toStringNumberNL p (d: decimal) = d.ToString("N" + p, CultureInfo.GetCultureInfo("nl"))

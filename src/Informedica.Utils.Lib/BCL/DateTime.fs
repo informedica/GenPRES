@@ -6,6 +6,11 @@ module DateTime =
 
     open System
 
+
+    //----------------------------------------------------------------------------
+    // Identity create functions
+    //----------------------------------------------------------------------------
+
     let apply f (dt: DateTime) = f dt
 
 
@@ -21,13 +26,33 @@ module DateTime =
     let date (dt: DateTime) = DateTime(dt.Year, dt.Month, dt.Day)
 
 
+    let optionToDate yr mo dy =
+        match yr, mo, dy with
+        | Some y, Some m, Some d -> new DateTime(y, m, d) |> Some
+        | _ -> None
+
+
+    //----------------------------------------------------------------------------
+    // Constants
+    //----------------------------------------------------------------------------
+
+
+    let daysInWeek = 7
+
+
+    //----------------------------------------------------------------------------
+    // Conversions functions
+    //----------------------------------------------------------------------------
+
     let daysInYear () = ((now ()).AddYears(1) - now ()).Days
 
 
     let daysInMonth () = daysInYear () / 12
 
 
-    let daysInWeek = 7
+    //----------------------------------------------------------------------------
+    // Calculation functions
+    //----------------------------------------------------------------------------
 
 
     let addYears yr dt =
@@ -44,6 +69,38 @@ module DateTime =
 
     let addDays (ds: int) dt =
         (dt |> get).AddDays(ds |> float)
+
+
+    let dateDiff dt1 dt2 = (dt1 |> get) - (dt2 |> get)
+
+
+    let dateDiffDays dt1 dt2 = (dateDiff dt1 dt2).Days
+
+
+    let dateDiffMonths dt1 dt2 =
+        (dateDiffDays dt1 dt2)
+        |> float
+        |> (fun x -> x / 365.)
+        |> ((*) 12.)
+
+
+    let dateDiffYearsMonths dt1 dt2 =
+        let mos = (dateDiffMonths dt1 dt2) |> int
+        (mos / 12), (mos % 12)
+
+
+    //----------------------------------------------------------------------------
+    // String functions
+    //----------------------------------------------------------------------------
+
+
+    let formattedString (s: String) (dt : DateTime) =
+        dt.ToString(s)
+
+
+    //----------------------------------------------------------------------------
+    // Age functions
+    //----------------------------------------------------------------------------
 
 
     let age (date1:DateTime) (date2: DateTime) =
@@ -113,30 +170,3 @@ module DateTime =
 
     let getAgeFromDate = ageNow >> ageToStringDutch
 
-
-    let formattedString (s: String) (dt : DateTime) =
-        dt.ToString(s)
-
-
-    let optionToDate yr mo dy =
-        match yr, mo, dy with
-        | Some y, Some m, Some d -> new DateTime(y, m, d) |> Some
-        | _ -> None
-
-
-    let dateDiff dt1 dt2 = (dt1 |> get) - (dt2 |> get)
-
-
-    let dateDiffDays dt1 dt2 = (dateDiff dt1 dt2).Days
-
-
-    let dateDiffMonths dt1 dt2 =
-        (dateDiffDays dt1 dt2)
-        |> float
-        |> (fun x -> x / 365.)
-        |> ((*) 12.)
-
-
-    let dateDiffYearsMonths dt1 dt2 =
-        let mos = (dateDiffMonths dt1 dt2) |> int
-        (mos / 12), (mos % 12)
