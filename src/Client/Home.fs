@@ -1046,6 +1046,15 @@ module private Views =
             | RouteChange of string option
 
 
+        let empty =
+            {
+                Dialog = []
+                Indication = None
+                Medication = None
+                Route = None
+            }
+
+
         let init (scenarios: Deferred<ScenarioResult>) =
             let state =
                 match scenarios with
@@ -1056,13 +1065,7 @@ module private Views =
                         Medication = sc.Medication
                         Route = sc.Route
                     }
-                | _ ->
-                    {
-                        Dialog = []
-                        Indication = None
-                        Medication = None
-                        Route = None
-                    }
+                | _ -> empty
             state, Cmd.none
 
 
@@ -1072,6 +1075,13 @@ module private Views =
             (msg: Msg)
             state
             =
+            let clear (sc : ScenarioResult) =
+                { sc with
+                    Indication = None
+                    Medication = None
+                    Route = None
+                }
+
             match msg with
             | RowClick (i, xs) ->
                 Logging.log "rowclick:" i
@@ -1083,7 +1093,9 @@ module private Views =
                 printfn $"indication change {s}"
                 match scenarios with
                 | Resolved sc ->
-                    { sc with Indication = s }
+                    if s |> Option.isNone then ScenarioResult.empty
+                    else
+                        { sc with Indication = s }
                     |> updateScenario
                 | _ -> ()
 
@@ -1092,7 +1104,9 @@ module private Views =
             | MedicationChange s ->
                 match scenarios with
                 | Resolved sc ->
-                    { sc with Medication = s }
+                    if s |> Option.isNone then ScenarioResult.empty
+                    else
+                        { sc with Medication = s }
                     |> updateScenario
                 | _ -> ()
 
@@ -1101,7 +1115,9 @@ module private Views =
             | RouteChange s ->
                 match scenarios with
                 | Resolved sc ->
-                    { sc with Route = s }
+                    if s |> Option.isNone then ScenarioResult.empty
+                    else
+                        { sc with Route = s }
                     |> updateScenario
                 | _ -> ()
 
@@ -1223,6 +1239,8 @@ module private Views =
                 </Box>
                 """
 
+        let stackDirection =
+            if  Mui.Hooks.useMediaQuery "(max-width:900px)" then "column" else "row"
 
         let content =
             JSX.jsx
@@ -1231,7 +1249,7 @@ module private Views =
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
                 Medicatie scenario's
                 </Typography>
-                <Stack direction="row" spacing={3} >
+                <Stack direction={stackDirection} spacing={3} >
                     {
                         match props.scenarios with
                         | Resolved scrs -> scrs.Indication, scrs.Indications
