@@ -317,7 +317,7 @@ module private Components =
                         <MenuIcon />
 
                     </IconButton>
-                    <Typography variant="h6" component="div" sx={ {| flexGrow = 1 |} }>
+                    <Typography variant="body1" component="div" sx={ {| flexGrow = 1 |} }>
                         {props.title}
                     </Typography>
                     <Button color="inherit">Login</Button>
@@ -455,7 +455,7 @@ module private Components =
                     import Button from '@mui/material/Button';
                     import Typography from '@mui/material/Typography';
 
-                    <Grid item width={400}>
+                    <Grid item width={400} sx={ {| mb = 5 |} } >
                         <Card raised={true} >
                             <CardContent>
                                 {content}
@@ -469,14 +469,14 @@ module private Components =
                 $"""
             import Grid from '@mui/material/Grid';
 
-            <Box sx={ {| p=2; display="flex"; flexDirection="column"; mt=5; overflowY="scroll"; height=800 |} }>
-                <Box sx={ {| mb=5 |} }>
+            <Stack id="responsive-card-table" >
+                <Box sx={ {| mb=3 |} }>
                     {filter}
                 </Box>
                 <Grid container rowSpacing={4} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
                     {cards}
                 </Grid>
-            </Box>
+            </Stack>
             """
 
 
@@ -504,7 +504,7 @@ module private Components =
             import * as React from 'react';
             import {{DataGrid}} from '@mui/x-data-grid';
 
-            <Box sx={ {| height=600; width="100%"; mt=2; mb=2 |} }>
+            <Box sx={ {| height="80vh" |} } >
                 <DataGrid
                     rows={rows}
                     columns=
@@ -781,7 +781,7 @@ module private Views =
         import Typography from '@mui/material/Typography';
         import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
-        <div>
+        <React.Fragment>
         <Accordion expanded={isExpanded} onChange={handleChange}>
             <AccordionSummary
             expandIcon={{ <ExpandMoreIcon /> }}
@@ -801,7 +801,7 @@ module private Views =
                 </Box>
             </AccordionDetails>
         </Accordion>
-        </div>
+        </React.Fragment>
         """
 
 
@@ -1012,11 +1012,19 @@ module private Views =
                 |}
             |> box
 
-        Components.ResponsiveTable({|
-            columns = columns
-            rows = rows
-            rowCreate = rowCreate
-        |})
+        JSX.jsx
+            $"""
+        <Box sx={ {| height="100%" |} } >
+            {
+                Components.ResponsiveTable({|
+                    columns = columns
+                    rows = rows
+                    rowCreate = rowCreate
+                |})
+            }
+
+        </Box>
+        """
 
 
     module Prescribe =
@@ -1201,7 +1209,7 @@ module private Views =
                 import Avatar from '@mui/material/Avatar';
                 import Typography from '@mui/material/Typography';
 
-                <Box sx={ {| mt=3; overflowY="scroll"; height=800 |} } >
+                <Box sx={ {| mt=3; height="100%" |} } >
                     <Typography variant="h6">
                         {med}
                     </Typography>
@@ -1303,7 +1311,7 @@ module private Views =
         import Button from '@mui/material/Button';
         import Typography from '@mui/material/Typography';
 
-        <Box sx={ {| mt=5 |} }>
+        <Box sx={ {| height="100%" |} }>
             <Card sx={ {| minWidth = 275 |}  }>
                 {content}
                 {progress}
@@ -1367,7 +1375,7 @@ let GenPres
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
-            <Box sx={ {| height="100vh"; ``overflowY``="hidden" |} }>
+            <Box sx={ {| height= "100vh"; overflowY = "hidden" |} }>
                 <CssBaseline />
                 <Box>
                     {Components.AppBar ({|
@@ -1382,19 +1390,23 @@ let GenPres
                         menuClick = props.sideMenuClick
                         items =  props.sideMenuItems
                     |})}
-                <Container sx={ {| mt= 5 |} } >
-                    <Stack>
-                    { Views.Patient ({| patient = props.patient; updatePatient = props.updatePatient |}) }
-                    {
-                        match props.currentPage with
-                        | Some Global.Pages.LifeSupport ->
-                            Views.ResponsiveEmergencyList ({| interventions = props.bolusMedication |})
-                        | Some Global.Pages.ContinuousMeds ->
-                            Views.ResponsiveContinuousMedication ({| interventions = props.continuousMedication |})
-                        | Some Global.Pages.Prescribe ->
-                            Views.Prescribe ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
-                        | _ -> notFound
-                    }
+                <Container sx={ {| height="87%"; mt= 4 |} } >
+                    <Stack sx={ {| height="100%" |} }>
+                    <Box sx={ {| flexBasis=1 |} } >
+                        { Views.Patient ({| patient = props.patient; updatePatient = props.updatePatient |}) }
+                    </Box>
+                    <Box sx={ {| maxHeight = "60%"; mt=4; overflowY="auto" |} }>
+                        {
+                            match props.currentPage with
+                            | Some Global.Pages.LifeSupport ->
+                                Views.ResponsiveEmergencyList ({| interventions = props.bolusMedication |})
+                            | Some Global.Pages.ContinuousMeds ->
+                                Views.ResponsiveContinuousMedication ({| interventions = props.continuousMedication |})
+                            | Some Global.Pages.Prescribe ->
+                                Views.Prescribe ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
+                            | _ -> notFound
+                        }
+                    </Box>
                     </Stack>
                 </Container>
             </Box>

@@ -8,6 +8,7 @@ open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
 open Shared
 open Shared.Api
+open Microsoft.Extensions.DependencyInjection
 
 
 let tryGetEnv key =
@@ -35,7 +36,6 @@ let webApp =
     ]
 
 
-
 let application = application {
     url ("http://*:" + port.ToString() + "/")
     use_router webApp
@@ -48,7 +48,7 @@ let application = application {
     use_static "public" //publicPath
     //use_iis
 
-    //service_config serviceConfig
+    //service_config configureServices
     //host_config Env.configureHost
 }
 
