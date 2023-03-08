@@ -436,7 +436,7 @@ module private Components =
                                     import * as React from 'react';
                                     import Stack from '@mui/material/Stack';
 
-                                <Stack direction="row" spacing={2} sx={ {| alignItems="center" |} } >
+                                <Stack direction="row" spacing={3} sx={ {| alignItems="center" |} } >
                                     <Typography minWidth={80} variant="body2">
                                         {h}
                                     </Typography>
@@ -455,7 +455,7 @@ module private Components =
                     import Button from '@mui/material/Button';
                     import Typography from '@mui/material/Typography';
 
-                    <Grid item width={400} sx={ {| mb = 5 |} } >
+                    <Grid item width={400} sx={ {| mb = 1 |} } >
                         <Card raised={true} >
                             <CardContent>
                                 {content}
@@ -473,7 +473,7 @@ module private Components =
                 <Box sx={ {| mb=3 |} }>
                     {filter}
                 </Box>
-                <Grid container rowSpacing={4} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
+                <Grid container rowSpacing={1} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
                     {cards}
                 </Grid>
             </Stack>
