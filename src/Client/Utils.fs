@@ -1,6 +1,14 @@
 [<AutoOpen>]
 module Utils
 
+open System
+
+
+module String =
+
+    let replace (oldS: string) newS  (s : string) = s.Replace(oldS, newS)
+
+
 open Fable.Core
 open Feliz
 open Browser.Types

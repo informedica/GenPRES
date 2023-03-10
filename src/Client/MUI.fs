@@ -46,7 +46,7 @@ module Icons =
         import PieChart from '@mui/icons-material/PieChart';
         <PieChart />
     """
-    
+
     // MenuIcon
     [<JSX.Component>]
     let Menu = JSX.jsx $"""
@@ -60,7 +60,7 @@ module Icons =
         import ChevronRight from '@mui/icons-material/ChevronRight';
         <ChevronRight />
     """
-    
+
     //chevronLeftIcon
     [<JSX.Component>]
     let ChevronLeft = JSX.jsx $"""
@@ -137,7 +137,7 @@ module Icons =
     """
 
     //playlistaddcheck
-    [<JSX.Component>]   
+    [<JSX.Component>]
     let PlaylistAddCheck = JSX.jsx $"""
         import PlaylistAddCheck from '@mui/icons-material/PlaylistAddCheck';
         <PlaylistAddCheck />
@@ -185,6 +185,49 @@ module Icons =
         <Info />
     """
 
+    //info icon
+    [<JSX.Component>]
+    let Create = JSX.jsx $"""
+        import Create from '@mui/icons-material/Create';
+        <Create />
+    """
+
+    //info icon
+    [<JSX.Component>]
+    let Medication = JSX.jsx $"""
+        import Medication from '@mui/icons-material/Medication';
+        <Medication />
+    """
+
+    //info icon
+    [<JSX.Component>]
+    let MedicationLiquid = JSX.jsx $"""
+        import MedicationLiquid from '@mui/icons-material/MedicationLiquid';
+        <MedicationLiquid />
+    """
+
+    //info icon
+    [<JSX.Component>]
+    let Vaccines = JSX.jsx $"""
+        import Vaccines from '@mui/icons-material/Vaccines';
+        <Vaccines />
+    """
+
+    //info icon
+    [<JSX.Component>]
+    let Notes = JSX.jsx $"""
+        import Notes from '@mui/icons-material/Notes';
+        <Notes />
+    """
+
+    //info icon
+    [<JSX.Component>]
+    let CampaignIcon = JSX.jsx $"""
+        import CampaignIcon from '@mui/icons-material/Campaign';
+        <CampaignIcon />
+    """
+
+
 type Color = {|
     ``50`` : string;
     ``100`` : string;
@@ -210,42 +253,42 @@ type PaletteColor = {|
 |}
 
 [<Erase>]
-type Theme = 
+type Theme =
     abstract member palette : {|
-        common: {| 
+        common: {|
             black: string;
             white: string;
         |}
         mode: string;
         contrastThreshold: float;
         tonalOffset: float;
-        primary: PaletteColor;           
+        primary: PaletteColor;
         secondary: PaletteColor;
         error: PaletteColor;
         warning: PaletteColor;
         info: PaletteColor;
         success: PaletteColor;
         grey: Color;
-        text: {| 
+        text: {|
             primary: string;
             secondary: string;
             disabled: string;
         |}
         divider: string;
 
-        background: {| 
+        background: {|
             paper: string;
             ``default``: string;
         |}
-        
+
         getContrastText: string -> string;
     |}
 
     abstract member shadows : string[]
-    
+
     abstract member spacing : int -> string
 
-    abstract member zIndex : {|         
+    abstract member zIndex : {|
         mobileStepper: int;
         speedDial: int;
         appBar: int;
@@ -263,91 +306,91 @@ type Theme =
         fontWeightRegular: int;
         fontWeightMedium: int;
         fontWeightBold: int;
-        h1: {| 
+        h1: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        h2: {| 
+        h2: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        h3: {| 
+        h3: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        h4: {| 
+        h4: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        h5: {| 
+        h5: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        h6: {| 
+        h6: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        subtitle1: {| 
+        subtitle1: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        subtitle2: {| 
+        subtitle2: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        body1: {| 
+        body1: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        body2: {| 
+        body2: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        button: {| 
+        button: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        caption: {| 
+        caption: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
             lineHeight: string;
             letterSpacing: string;
         |}
-        overline: {| 
+        overline: {|
             fontFamily: string;
             fontWeight: int;
             fontSize: string;
@@ -356,15 +399,15 @@ type Theme =
         |}
     |}
 
-    abstract member transitions : {| 
-        easing: {| 
+    abstract member transitions : {|
+        easing: {|
             easeInOut: string;
             easeOut: string;
             easeIn: string;
             sharp: string;
         |}
 
-        duration: {| 
+        duration: {|
             shortest: string;
             shorter: string;
             short: string;
@@ -379,8 +422,8 @@ type Theme =
     |}
 
 
-[<Import("useTheme", from="@mui/material/styles")>] 
-let useTheme() : Theme = jsNative 
+[<Import("useTheme", from="@mui/material/styles")>]
+let useTheme() : Theme = jsNative
 
 [<Erase>]
 module Colors =
@@ -399,7 +442,7 @@ module Colors =
         static member A200 = "#ffd740"
         static member A400 = "#ffc400"
         static member A700 = "#ffab00"
-    
+
     type Blue =
         static member ``50`` = "#e3f2fd"
         static member ``100`` = "#bbdefb"
@@ -512,7 +555,7 @@ module Colors =
         static member ``800`` = "#424242"
         static member ``900`` = "#212121"
 
-    type Indigo =  
+    type Indigo =
         static member ``50`` = "#e8eaf6"
         static member ``100`` = "#c5cae9"
         static member ``200`` = "#9fa8da"
@@ -526,7 +569,7 @@ module Colors =
         static member A100 = "#8c9eff"
         static member A200 = "#536dfe"
         static member A400 = "#3d5afe"
-        
+
     type LightBlue =
         static member ``50`` = "#e1f5fe"
         static member ``100`` = "#b3e5fc"

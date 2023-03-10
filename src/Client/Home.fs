@@ -8,6 +8,15 @@ open Browser.Types
 
 
 
+module private Speech =
+
+    open Fable.Core
+
+    [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
+    let speak s = ()
+
+
+
 
 module private Components =
 
@@ -371,7 +380,7 @@ module private Components =
         let CardTable (props :
             {|
                 columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
-                rows : (string * string) [][]
+                rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             |}) =
             let state, setState = React.useState None
 
@@ -385,11 +394,14 @@ module private Components =
                 columnFilter
                 |> function
                 | None   -> JSX.jsx "<></>"
-                | Some c ->
+                | Some column ->
                     let data =
                         props.rows
-                        |> Array.map (Array.filter (fst >> ((=) c.field)))
-                        |> Array.collect (Array.map snd)
+                        |> Array.map (fun r -> r.cells)
+                        |> Array.map (Array.filter (fun cell ->
+                            cell.field = column.field
+                        ))
+                        |> Array.collect (Array.map (fun cell -> cell.value))
                         |> Array.distinct
 
                     SimpleSelect({|
@@ -404,46 +416,49 @@ module private Components =
                 |> Array.filter (fun r ->
                     match columnFilter with
                     | None -> true
-                    | Some c ->
-                        r
-                        |> Array.exists (fun (k, v) ->
-                            k = c.field &&
-                            (state |> Option.isNone || state.Value = v)
+                    | Some column ->
+                        r.cells
+                        |> Array.exists (fun cell ->
+                            cell.field = column.field &&
+                            (state |> Option.isNone || state.Value = cell.value)
                         )
                 )
                 |> Array.map (fun row ->
                     let content =
-                        row
-                        |> Array.skip 1
-                        |> Array.map (fun (n, s) ->
-                            if String.IsNullOrWhiteSpace(s) then JSX.jsx "<></>"
+                        row.cells
+                        |> Array.map (fun cell ->
+                            if cell.field = "id" || String.IsNullOrWhiteSpace(cell.value) then JSX.jsx "<></>"
                             else
                                 let b, s =
                                     match s with
-                                    | _ when s.Contains("**") -> "h6", s.Replace("**", "")
-                                    | _ when s.Contains("*") -> "h5", s.Replace("*", "")
-                                    | _ -> "subtitle2", s
+                                    | _ when cell.value.Contains("**") -> "h6", cell.value.Replace("**", "")
+                                    | _ when cell.value.Contains("*") -> "h5", cell.value.Replace("*", "")
+                                    | _ -> "subtitle2", cell.value
 
                                 let h =
                                     props.columns
-                                    |> Array.tryFind (fun c -> c.field = n)
+                                    |> Array.tryFind (fun c -> c.field = cell.field)
                                     |> function
                                     | Some h -> $"{h.headerName.ToLower()}: "
-                                    | None -> $"{n}: "
+                                    | None   -> $"{cell.field}: "
 
                                 JSX.jsx
                                     $"""
                                     import * as React from 'react';
                                     import Stack from '@mui/material/Stack';
-
-                                <Stack direction="row" spacing={3} sx={ {| alignItems="center" |} } >
-                                    <Typography minWidth={80} variant="body2">
-                                        {h}
-                                    </Typography>
-                                    <Typography variant={b}>
-                                        {s}
-                                    </Typography>
-                                </Stack>
+                                <React.Fragment>
+                                    <Stack direction="column" spacing={1} >
+                                        <Stack direction="row" spacing={3} alignItems="flex-end" >
+                                            <Typography minHeight={40} minWidth={80} variant="body2" align="left" >
+                                                {h}
+                                            </Typography>
+                                            <Typography minHeight={40} variant={b} align="left" >
+                                                {s}
+                                            </Typography>
+                                        </Stack>
+                                    <Divider variant="middle" />
+                                    </Stack>
+                                </React.Fragment>
                                 """
                         )
 
@@ -455,11 +470,16 @@ module private Components =
                     import Button from '@mui/material/Button';
                     import Typography from '@mui/material/Typography';
 
-                    <Grid item width={400} sx={ {| mb = 1 |} } >
+                    <Grid item width={500} sx={ {| mb = 1 |} } >
                         <Card raised={true} >
                             <CardContent>
                                 {content}
                             </CardContent>
+                            {
+                                match row.actions with
+                                | None -> JSX.jsx "<>/</>" |> toReact
+                                | Some acts -> acts
+                            }
                         </Card>
                     </Grid>
                     """
@@ -484,7 +504,7 @@ module private Components =
     let ResponsiveTable (props :
         {|
             columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
-            rows : (string * string) [][]
+            rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             rowCreate : string[] -> obj
         |}) =
 
@@ -496,7 +516,8 @@ module private Components =
         else
             let rows =
                 props.rows
-                |> Array.map (Array.map snd)
+                |> Array.map (fun r -> r.cells)
+                |> Array.map (Array.map (fun r -> r.value))
                 |> Array.map props.rowCreate
 
             JSX.jsx
@@ -566,8 +587,8 @@ module private Views =
                     (p |> Patient.getAgeMonths)
                     (p |> Patient.getAgeWeeks)
                     (p |> Patient.getAgeDays)
-                    (p |> Patient.getWeight)
-                    (p |> Patient.getHeight)
+                    None
+                    None
 
         let setMonth s (p : Patient option) =
             match p with
@@ -582,8 +603,8 @@ module private Views =
                     (s |> Option.bind tryParse)
                     (p |> Patient.getAgeWeeks)
                     (p |> Patient.getAgeDays)
-                    (p |> Patient.getWeight)
-                    (p |> Patient.getHeight)
+                    None
+                    None
 
         let setWeek s (p : Patient option) =
             match p with
@@ -598,8 +619,8 @@ module private Views =
                     (p |> Patient.getAgeMonths)
                     (s |> Option.bind tryParse)
                     (p |> Patient.getAgeDays)
-                    (p |> Patient.getWeight)
-                    (p |> Patient.getHeight)
+                    None
+                    None
 
         let setDay s (p : Patient option) =
             match p with
@@ -614,8 +635,8 @@ module private Views =
                     (p |> Patient.getAgeMonths)
                     (p |> Patient.getAgeWeeks)
                     (s |> Option.bind tryParse)
-                    (p |> Patient.getWeight)
-                    (p |> Patient.getHeight)
+                    None
+                    None
 
         let setWeight s (p : Patient option) =
             match p with
@@ -871,6 +892,30 @@ module private Views =
             {|  field = "advice"; headerName = "Advies"; width = 200; filterable = false; sortable = false |}
         |]
 
+
+        let speakAct s =
+            let speak = fun _ -> s |> Speech.speak
+            JSX.jsx
+                $"""
+            <CardActions disableSpacing>
+                <IconButton onClick={speak}>
+                    {Mui.Icons.CampaignIcon}
+                </IconButton>
+            </CardActions>
+            """
+            |> toReact
+            |> Some
+
+        let repl s =
+            s
+            |> String.replace "ml" "milli liter"
+            |> String.replace "mg" "milli gram"
+            |> String.replace "mcg" "micro gram"
+            |> String.replace "/" " per "
+            |> String.replace " (" ", "
+            |> String.replace ")" ""
+            |> String.replace "-" " tot, "
+
         let rows =
             match props.interventions with
             | Resolved items ->
@@ -878,28 +923,35 @@ module private Views =
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
-                    [|
-                        "id", $"{i + 1}"
-                        "indication", $"{m.Indication}"
-                        "intervention", $"**{m.Name}**"
-                        "calculated", if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText
-                        "preparation",  if b then "" else $"*{m.InterventionDoseText}*"
-                        "advice", $"{m.Text}"
-                    |]
+                    let sentence =
+                        let s = if b then m.SubstanceDoseText |> repl else m.InterventionDoseText |> repl
+                        $"{m.Name}, {s}"
+                    {|
+                        cells =
+                            [|
+                                {| field = "id"; value = $"{i + 1}" |}
+                                {| field = "indication"; value = $"{m.Indication}" |}
+                                {| field = "intervention"; value = $"**{m.Name}**" |}
+                                {| field = "calculated"; value = (if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText)  |}
+                                {| field = "preparation"; value =  (if b then "" else $"*{m.InterventionDoseText}*") |}
+                                {| field = "advice"; value = $"{m.Text}" |}
+                            |]
+                        actions = sentence |> speakAct
+                    |}
                 )
             | _ -> [||]
 
-        let rowCreate (fields : string []) =
-            if fields |> Array.length <> 6 then
-                failwith $"cannot create row with {fields}"
+        let rowCreate (cells : string []) =
+            if cells |> Array.length <> 6 then
+                failwith $"cannot create row with {cells}"
             else
                 {|
-                    id = fields[0]
-                    indication = fields[1].Replace("*", "")
-                    intervention = fields[2].Replace("*", "")
-                    calculated = fields[3].Replace("*", "")
-                    preparation = fields[4].Replace("*", "")
-                    advice = fields[5].Replace("*", "")
+                    id = cells[0]
+                    indication = cells[1].Replace("*", "")
+                    intervention = cells[2].Replace("*", "")
+                    calculated = cells[3].Replace("*", "")
+                    preparation = cells[4].Replace("*", "")
+                    advice = cells[5].Replace("*", "")
                 |}
             |> box
 
@@ -985,30 +1037,34 @@ module private Views =
                 items
                 |> List.toArray
                 |> Array.mapi (fun i m ->
-                    [|
-                        "id", $"{i + 1}"
-                        "indication", $"{m.Indication}"
-                        "medication", $"**{m.Name}**"
-                        "quantity", $"{m.Quantity} {m.QuantityUnit}"
-                        "solution", $"{m.Total} ml {m.Solution}"
-                        "dose", $"{m.SubstanceDoseText}"
-                        "advice", m.Text
-                    |]
+                    {|
+                        cells =
+                            [|
+                                {| field = "id"; value = $"{i + 1}" |}
+                                {| field = "indication"; value = $"{m.Indication}" |}
+                                {| field = "medication"; value = $"**{m.Name}**" |}
+                                {| field = "quantity"; value = $"{m.Quantity} {m.QuantityUnit}" |}
+                                {| field = "solution"; value = $"{m.Total} ml {m.Solution}" |}
+                                {| field = "dose"; value = $"{m.SubstanceDoseText}" |}
+                                {| field = "advice"; value = m.Text |}
+                            |]
+                        actions = None
+                    |}
                 )
             | _ -> [||]
 
-        let rowCreate (fields : string []) =
-            if fields |> Array.length <> 7 then
-                failwith $"cannot create row with {fields}"
+        let rowCreate (cells : string []) =
+            if cells |> Array.length <> 7 then
+                failwith $"cannot create row with {cells}"
             else
                 {|
-                    id = fields[0]
-                    indication = fields[1].Replace("*", "")
-                    medication = fields[2].Replace("*", "")
-                    quantity = fields[3].Replace("*", "")
-                    solution = fields[4].Replace("*", "")
-                    dose = fields[5].Replace("*", "")
-                    advice = fields[6].Replace("*", "")
+                    id = cells[0]
+                    indication = cells[1].Replace("*", "")
+                    medication = cells[2].Replace("*", "")
+                    quantity = cells[3].Replace("*", "")
+                    solution = cells[4].Replace("*", "")
+                    dose = cells[5].Replace("*", "")
+                    advice = cells[6].Replace("*", "")
                 |}
             |> box
 
@@ -1022,7 +1078,6 @@ module private Views =
                     rowCreate = rowCreate
                 |})
             }
-
         </Box>
         """
 
@@ -1215,9 +1270,9 @@ module private Views =
                     </Typography>
                     <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
                     <ListItem alignItems="flex-start">
-                        <ListItemAvatar>
-                        <Avatar alt="Prescription" src="prescribe.png" />
-                        </ListItemAvatar>
+                        <ListItemIcon>
+                            {Mui.Icons.Notes}
+                        </ListItemIcon>
                         <ListItemText
                             primary="Voorschrift"
                             secondary={sc.Prescription |> text}
@@ -1225,9 +1280,9 @@ module private Views =
                     </ListItem>
                     <Divider variant="inset" component="li" />
                     <ListItem alignItems="flex-start">
-                        <ListItemAvatar>
-                        <Avatar alt="Preparation" src="prepare.png" />
-                        </ListItemAvatar>
+                        <ListItemIcon>
+                            {Mui.Icons.Vaccines}
+                        </ListItemIcon>
                         <ListItemText
                             primary="Bereiding"
                             secondary={sc.Preparation |> text}
@@ -1235,9 +1290,9 @@ module private Views =
                     </ListItem>
                     <Divider variant="inset" component="li" />
                     <ListItem alignItems="flex-start">
-                        <ListItemAvatar>
-                        <Avatar alt="Administration" src="administer.png" />
-                        </ListItemAvatar>
+                        <ListItemIcon>
+                            {Mui.Icons.MedicationLiquid}
+                        </ListItemIcon>
                         <ListItemText
                             primary="Toediening"
                             secondary={sc.Administration |> text}
@@ -1395,7 +1450,7 @@ let GenPres
                     <Box sx={ {| flexBasis=1 |} } >
                         { Views.Patient ({| patient = props.patient; updatePatient = props.updatePatient |}) }
                     </Box>
-                    <Box sx={ {| maxHeight = "60%"; mt=4; overflowY="auto" |} }>
+                    <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
                         {
                             match props.currentPage with
                             | Some Global.Pages.LifeSupport ->
