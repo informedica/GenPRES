@@ -227,6 +227,20 @@ module Icons =
         <CampaignIcon />
     """
 
+    //info icon
+    [<JSX.Component>]
+    let Downloading = JSX.jsx $"""
+        import Downloading from '@mui/icons-material/Downloading';
+        <Downloading />
+    """
+
+    //info icon
+    [<JSX.Component>]
+    let Clear = JSX.jsx $"""
+        import Clear from '@mui/icons-material/Clear';
+        <Clear />
+    """
+
 
 type Color = {|
     ``50`` : string;

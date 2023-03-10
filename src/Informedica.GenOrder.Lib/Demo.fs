@@ -42,20 +42,20 @@ module Demo =
         match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
         | Some w, Some _, d when d |> String.notEmpty ->
 
-            let ind = 
+            let ind =
                 if sc.Indication.IsSome then sc.Indication
                 else sc.Indications |> Array.someIfOne
             let gen =
                 if sc.Generic.IsSome then sc.Generic
                 else sc.Generics |> Array.someIfOne
-            let rte = 
+            let rte =
                 if sc.Route.IsSome then sc.Route
                 else sc.Routes |> Array.someIfOne
-            let shp = 
+            let shp =
                 if sc.Shape.IsSome then sc.Shape
                 else sc.Shapes |> Array.someIfOne
 
-            let filter = 
+            let filter =
                 { Filter.filter with
                     Department = Some d
                     Age = sc.Patient.Age
@@ -85,9 +85,9 @@ module Demo =
                 Generic = gen
                 Route = rte
                 Shape = shp
-                Scenarios = 
+                Scenarios =
                     match ind, gen, rte, shp with
-                    | Some _, Some _, Some _, _ 
+                    | Some _, Some _, Some _, _
                     | Some _, Some _, _, Some _ ->
                         { filter with
                             Department = Some d
@@ -116,6 +116,7 @@ module Demo =
                                     {
                                         No = i
                                         Indication = pr.DoseRule.Indication
+                                        DoseType = pr.DoseRule.DoseType |> DoseType.toString
                                         Name = pr.DoseRule.Generic
                                         Shape = pr.DoseRule.Shape
                                         Route = pr.DoseRule.Route
@@ -125,7 +126,7 @@ module Demo =
                                     }
                                     |> Some
 
-                                | i, Error (_, _, errs) -> 
+                                | i, Error (_, _, errs) ->
                                     errs
                                     |> List.map string
                                     |> String.concat "\n"

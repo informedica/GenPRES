@@ -1153,15 +1153,16 @@ module Products =
 module ScenarioResult =
 
 
-    let createScenario shp prs prep adm =
+    let createScenario shp dst prs prep adm =
         {
             Shape = shp
+            DoseType = dst
             Prescription = prs
             Preparation = prep
             Administration = adm
         }
 
-    
+
     let empty: ScenarioResult =
         {
             Indications = [||]

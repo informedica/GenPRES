@@ -27,7 +27,7 @@ module Api =
     let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.shapes
 
 
-    let filterIndictions = PrescriptionRule.filter >> PrescriptionRule.indications 
+    let filterIndictions = PrescriptionRule.filter >> PrescriptionRule.indications
 
     let filterGenerics = PrescriptionRule.filter >> PrescriptionRule.generics
 
@@ -114,7 +114,7 @@ module Api =
 
         let dose =
             pr.DoseRule.DoseLimits
-            |> Array.filter (fun dl -> 
+            |> Array.filter (fun dl ->
                 dl.Substance |> String.isNullOrWhiteSpace
             )
             |> function
@@ -250,7 +250,7 @@ module Api =
                         { pr with
                             DoseRule =
                                 { pr.DoseRule with
-                                    Products = 
+                                    Products =
                                         pr.DoseRule.Products
                                         |> Array.map (fun p ->
                                             { p with
@@ -278,6 +278,7 @@ module Api =
                 {
                     No = i
                     Indication = ind
+                    DoseType = ""
                     Name = o.Orderable.Name |> Informedica.GenSolver.Lib.Variable.Name.toString
                     Shape = o.Orderable.Components[0].Shape
                     Route = o.Route
@@ -287,5 +288,5 @@ module Api =
                 }
         )
 
-        
+
 

@@ -323,6 +323,7 @@ module Types =
             {
                 No : int
                 Indication : string
+                DoseType : string
                 Name : string
                 Shape : string
                 Route : string

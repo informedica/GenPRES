@@ -201,6 +201,7 @@ module private Components =
                 selected : string option
                 values : (string * string) []
                 updateSelected : string option -> unit
+                isLoading : bool
             |}
         ) =
 
@@ -236,8 +237,8 @@ module private Components =
             import ClearIcon from '@mui/icons-material/Clear';
             import IconButton from "@mui/material/IconButton";
 
-            <IconButton sx={ {| visibility = if isClear then "hidden" else "visible" |} } onClick={clear}>
-                <ClearIcon/>
+            <IconButton sx={ {| visibility = if isClear && not props.isLoading then "hidden" else "visible" |} } onClick={clear}>
+                {if props.isLoading then Mui.Icons.Downloading else Mui.Icons.Clear}
             </IconButton>
             """
 
@@ -258,8 +259,9 @@ module private Components =
             value={props.selected |> Option.defaultValue ""}
             onChange={handleChange}
             label={props.label}
-            sx={ {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |} }
+            sx={ {| ``& .MuiSelect-icon`` = {| visibility = if isClear && not props.isLoading then "visible" else "hidden" |} |} }
             endAdornment={clearButton}
+            isLoading={props.isLoading}
             >
                 {items}
             </Select>
@@ -409,6 +411,7 @@ module private Components =
                         selected = state
                         updateSelected = setState
                         values = data |> Array.map (fun s -> s, s)
+                        isLoading = false
                     |})
 
             let cards =
@@ -718,6 +721,7 @@ module private Views =
                 selected = sel |> Option.map string
                 values = vs
                 updateSelected = changeValue
+                isLoading = false
             |})
 
         let wghts =
@@ -806,8 +810,8 @@ module private Views =
         <Accordion expanded={isExpanded} onChange={handleChange}>
             <AccordionSummary
             expandIcon={{ <ExpandMoreIcon /> }}
-            aria-controls="panel1bh-content"
-            id="panel1bh-header"
+            aria-controls="patient"
+            id="patient-details"
             >
             { pat|> Patient.show }
             </AccordionSummary>
@@ -1200,12 +1204,13 @@ module private Views =
                 [| box props.scenarios; box props.updateScenario |]
             )
 
-        let select lbl selected dispatch xs =
+        let select isLoading lbl selected dispatch xs =
             Components.SimpleSelect ({|
                 updateSelected = dispatch
                 label = lbl
                 selected = selected
                 values = xs
+                isLoading = isLoading
             |})
 
         let progress =
@@ -1230,11 +1235,11 @@ module private Views =
             """
 
         let displayScenarios med (sc : Shared.Types.Scenario) =
-            if med |> Option.isNone then JSX.jsx $"""<>/</>"""
+            if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let med =
                     med |> Option.defaultValue ""
-                    |> fun s -> $"{s} {sc.Shape}"
+                    |> fun s -> $"{s} {sc.Shape} {sc.DoseType}"
 
                 let text s =
                     JSX.jsx
@@ -1250,8 +1255,6 @@ module private Views =
                         </Typography>
                     </React.Fragment>
                     """
-
-
 
                 JSX.jsx
                     $"""
@@ -1315,30 +1318,30 @@ module private Views =
                 <Stack direction={stackDirection} spacing={3} >
                     {
                         match props.scenarios with
-                        | Resolved scrs -> scrs.Indication, scrs.Indications
-                        | _ -> None, [||]
-                        |> fun (sel, items) ->
+                        | Resolved scrs -> false, scrs.Indication, scrs.Indications
+                        | _ -> true, None, [||]
+                        |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select "Indicaties" sel (Prescribe.IndicationChange >> dispatch)
+                            |> select isLoading "Indicaties" sel (Prescribe.IndicationChange >> dispatch)
                     }
                     {
                         match props.scenarios with
-                        | Resolved scrs -> scrs.Medication, scrs.Medications
-                        | _ -> None, [||]
-                        |> fun (sel, items) ->
+                        | Resolved scrs -> false, scrs.Medication, scrs.Medications
+                        | _ -> true, None, [||]
+                        |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select "Medicatie" sel (Prescribe.MedicationChange >> dispatch)
+                            |> select isLoading "Medicatie" sel (Prescribe.MedicationChange >> dispatch)
                     }
                     {
                         match props.scenarios with
-                        | Resolved scrs -> scrs.Route, scrs.Routes
-                        | _ -> None, [||]
-                        |> fun (sel, items) ->
+                        | Resolved scrs -> false, scrs.Route, scrs.Routes
+                        | _ -> true, None, [||]
+                        |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select "Routes" sel (Prescribe.RouteChange >> dispatch)
+                            |> select isLoading "Routes" sel (Prescribe.RouteChange >> dispatch)
                     }
                 </Stack>
                 <Stack direction="column" sx={ {| mt = 1 |} } >

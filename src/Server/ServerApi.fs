@@ -67,7 +67,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                                         [| sc.Medication |> Option.defaultValue "" |]
                                     else
                                         r.Generics
-                                Shapes = 
+                                Shapes =
                                     if sc.Shape |> Option.isSome then
                                         [| sc.Shape |> Option.defaultValue "" |]
                                     else
@@ -86,17 +86,17 @@ Scenarios: {sc.Scenarios |> Array.length}
 
                         let sc =
                             { sc with
-                                Indications = newSc.Indications 
-                                Medications = newSc.Generics 
-                                Routes = newSc.Routes 
+                                Indications = newSc.Indications
+                                Medications = newSc.Generics
+                                Routes = newSc.Routes
                                 Indication = newSc.Indication
                                 Medication = newSc.Generic
                                 Shape = newSc.Shape
                                 Route = newSc.Route
-                                Scenarios = 
+                                Scenarios =
                                     newSc.Scenarios
                                     |> Array.map (fun sc ->
-                                        Shared.ScenarioResult.createScenario sc.Shape sc.Prescription sc.Preparation sc.Administration
+                                        Shared.ScenarioResult.createScenario sc.Shape sc.DoseType sc.Prescription sc.Preparation sc.Administration
                                     )
                             }
                         printfn $"""{msg "finished" sc}"""

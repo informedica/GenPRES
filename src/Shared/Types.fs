@@ -168,9 +168,10 @@ module Types =
             Unit: string
         }
 
-    type Scenario = 
+    type Scenario =
         {
             Shape : string
+            DoseType : string
             Prescription : string
             Preparation : string
             Administration : string
