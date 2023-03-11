@@ -1,12 +1,31 @@
 # The GenPRES project
 
-A project to enable a generic prescription solution for Safe and Efficient medication prescriptions, preparation and administration.
+The GenPRES project is an open source software initiative to enable a generic medication order entry solution for **Safe and Efficient** medication prescriptions, preparation and administration.
+
+This project is initially aimed at the Dutch medical setting, but can easily be applied to any medical setting.
+
 
 ---
 
 ![](docs/pcm%20example.gif)
 
 ---
+
+
+## Background
+
+Medication errors are one of the most common sources of medical complications. However, the medication proces, prescribing, preparing and adminstration of medication is als one of the most thoroughly protocolized medical processes.
+
+In order to achief a safe and efficient medication workflow the following human error prone activities can be solved by Clinical Decision Support Software (CDSS):
+
+1. Looking up rules and constraints
+2. Calculations
+3. Vefification of correct applications of rules and constraints and subsequent calculations
+
+
+With the assumption that software will not err in basic lookup and calculation activities, given the correct implementation, it can be assumed that such CDSS can achieve a significant reduction in medical errors and increase efficiency of workflow.
+
+The current solution runs at: http://genpres.nl.
 
 Some more background information can be found at:
 
@@ -36,7 +55,7 @@ Current known build configuration
 
 For the full application to run a propreitary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
-A demo cache file will be made public, but this is work in progress.
+A demo cache file with medication product data will be made public, but this is work in progress.
 
 ## Starting the application
 
@@ -51,6 +70,7 @@ For the time being the application can be started by the following procedure:
 
 Open a browser to `http://localhost:5173` to view the site.
 
+### Deployment using Docker
 
 This will create a production ready docker image:
 
@@ -76,3 +96,19 @@ You will find more documentation about the used F# components at the following p
 * [Saturn](https://saturnframework.org/)
 * [Fable](https://fable.io/docs/)
 * [Elmish](https://elmish.github.io/elmish/)
+
+
+## Collaboration
+
+Any help or collaboration is welcome! You can fork this repository, post issues, ask questions or get on [slack](https://genpresworkspace.slack.com).
+
+Some specifics:
+
+- An opt-in strategy is used in the `.gitignore` file, i.e. you have to specifically define what should be included instead of the otherway around.
+- commits are tagged with
+    - chore: something that needs to be done
+    - feat: a new feature
+    - refact: a refactoring
+    - fix: a bug fix, or otherwise
+    - docs: documentation
+    - tests: testing code
