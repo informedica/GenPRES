@@ -480,7 +480,7 @@ module private Components =
                             </CardContent>
                             {
                                 match row.actions with
-                                | None -> JSX.jsx "<>/</>" |> toReact
+                                | None -> JSX.jsx "<></>" |> toReact
                                 | Some acts -> acts
                             }
                         </Card>
