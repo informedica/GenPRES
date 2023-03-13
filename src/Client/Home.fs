@@ -230,15 +230,19 @@ module private Components =
         let isClear = props.selected |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
 
         let clearButton =
-            JSX.jsx
-                $"""
-            import ClearIcon from '@mui/icons-material/Clear';
-            import IconButton from "@mui/material/IconButton";
+            match props.isLoading, isClear with
+            | true, _      -> Mui.Icons.Downloading
+            | false, true  -> JSX.jsx "<></>"
+            | false, false ->
+                JSX.jsx
+                    $"""
+                import ClearIcon from '@mui/icons-material/Clear';
+                import IconButton from "@mui/material/IconButton";
 
-            <IconButton sx={ {| visibility = if isClear && not props.isLoading then "hidden" else "visible" |} } onClick={clear}>
-                {if props.isLoading then Mui.Icons.Downloading else Mui.Icons.Clear}
-            </IconButton>
-            """
+                <IconButton onClick={clear}>
+                    {Mui.Icons.Clear}
+                </IconButton>
+                """
 
         JSX.jsx
             $"""
@@ -258,14 +262,13 @@ module private Components =
             label={props.label}
             endAdornment={clearButton}
             sx=
-                { 
-                    {| ``& .MuiSelect-icon`` = 
-                        {| 
-                            visibility = if isClear && not props.isLoading then "visible" else "hidden" 
-                        |} 
+                {
+                    {| ``& .MuiSelect-icon`` =
+                        {|
+                            visibility = if isClear && not props.isLoading then "visible" else "hidden"
+                        |}
                     |}
                 }
-            isLoading={props.isLoading}
             >
                 {items}
             </Select>
@@ -549,7 +552,7 @@ module private Components =
                             props.columns
                             |> Array.map (fun c ->
                                 match c.field with
-                                | s when s = "id" -> 
+                                | s when s = "id" ->
                                     {| c with hide = true |} |> box
                                 | _ -> c |> box
                             )
