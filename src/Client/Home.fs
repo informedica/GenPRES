@@ -93,7 +93,6 @@ module private Components =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import InputLabel from '@mui/material/InputLabel';
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
@@ -169,7 +168,6 @@ module private Components =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import InputLabel from '@mui/material/InputLabel';
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
@@ -244,7 +242,6 @@ module private Components =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import InputLabel from '@mui/material/InputLabel';
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
@@ -259,8 +256,15 @@ module private Components =
             value={props.selected |> Option.defaultValue ""}
             onChange={handleChange}
             label={props.label}
-            sx={ {| ``& .MuiSelect-icon`` = {| visibility = if isClear && not props.isLoading then "visible" else "hidden" |} |} }
             endAdornment={clearButton}
+            sx=
+                { 
+                    {| ``& .MuiSelect-icon`` = 
+                        {| 
+                            visibility = if isClear && not props.isLoading then "visible" else "hidden" 
+                        |} 
+                    |}
+                }
             isLoading={props.isLoading}
             >
                 {items}
@@ -383,49 +387,11 @@ module private Components =
             {|
                 columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
                 rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
+                filter : ReactElement option
             |}) =
-            let state, setState = React.useState None
-
-            let columnFilter =
-                if props.rows |> Array.isEmpty then None
-                else
-                    props.columns
-                    |> Array.tryFind (fun c -> c.filterable)
-
-            let filter =
-                columnFilter
-                |> function
-                | None   -> JSX.jsx "<></>"
-                | Some column ->
-                    let data =
-                        props.rows
-                        |> Array.map (fun r -> r.cells)
-                        |> Array.map (Array.filter (fun cell ->
-                            cell.field = column.field
-                        ))
-                        |> Array.collect (Array.map (fun cell -> cell.value))
-                        |> Array.distinct
-
-                    SimpleSelect({|
-                        label = "Filter"
-                        selected = state
-                        updateSelected = setState
-                        values = data |> Array.map (fun s -> s, s)
-                        isLoading = false
-                    |})
 
             let cards =
                 props.rows
-                |> Array.filter (fun r ->
-                    match columnFilter with
-                    | None -> true
-                    | Some column ->
-                        r.cells
-                        |> Array.exists (fun cell ->
-                            cell.field = column.field &&
-                            (state |> Option.isNone || state.Value = cell.value)
-                        )
-                )
                 |> Array.map (fun row ->
                     let content =
                         row.cells
@@ -447,7 +413,6 @@ module private Components =
 
                                 JSX.jsx
                                     $"""
-                                    import * as React from 'react';
                                     import Stack from '@mui/material/Stack';
                                 <React.Fragment>
                                     <Stack direction="column" spacing={1} >
@@ -494,7 +459,7 @@ module private Components =
 
             <Stack id="responsive-card-table" >
                 <Box sx={ {| mb=3 |} }>
-                    {filter}
+                    {props.filter |> Option.defaultValue (JSX.jsx "<></>" |> toReact)}
                 </Box>
                 <Grid container rowSpacing={1} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
                     {cards}
@@ -510,33 +475,82 @@ module private Components =
             rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             rowCreate : string[] -> obj
         |}) =
+        let state, setState = React.useState None
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
+        let columnFilter =
+            if props.rows |> Array.isEmpty then None
+            else
+                props.columns
+                |> Array.tryFind (fun c -> c.filterable)
+
+        let filter =
+            columnFilter
+            |> function
+            | None   -> JSX.jsx "<></>"
+            | Some column ->
+                let data =
+                    props.rows
+                    |> Array.map (fun r -> r.cells)
+                    |> Array.map (Array.filter (fun cell ->
+                        cell.field = column.field
+                    ))
+                    |> Array.collect (Array.map (fun cell -> cell.value))
+                    |> Array.distinct
+
+                SimpleSelect({|
+                    label = "Filter"
+                    selected = state
+                    updateSelected = setState
+                    values = data |> Array.map (fun s -> s, s)
+                    isLoading = false
+                |})
+            |> toReact
+
+        let rows =
+            props.rows
+            |> Array.filter (fun r ->
+                match columnFilter with
+                | None -> true
+                | Some column ->
+                    r.cells
+                    |> Array.exists (fun cell ->
+                        cell.field = column.field &&
+                        (state |> Option.isNone || state.Value = cell.value)
+                    )
+            )
+
         if isMobile then
-            {| columns = props.columns; rows = props.rows |}
+            {| columns = props.columns; rows = rows; filter = Some filter |}
             |> ResponsiveTable.CardTable
         else
             let rows =
-                props.rows
+                rows
                 |> Array.map (fun r -> r.cells)
                 |> Array.map (Array.map (fun r -> r.value))
                 |> Array.map props.rowCreate
 
             JSX.jsx
                 $"""
-            import * as React from 'react';
             import {{DataGrid}} from '@mui/x-data-grid';
 
             <Box sx={ {| height="80vh" |} } >
+                <Box sx={ {| mb=3 |} }>
+                    {filter}
+                </Box>
                 <DataGrid
                     rows={rows}
+                    initialState = {
+                        {| columns = {| columnVisibilityModel = {| id = false |} |} |}
+                    }
                     columns=
                         {
                             props.columns
                             |> Array.map (fun c ->
-                                match c.headerName with
-                                | s when s = "id" -> {| c with hide = true |} |> box
+                                match c.field with
+                                | s when s = "id" -> 
+                                    {| c with hide = true |} |> box
                                 | _ -> c |> box
                             )
                         }
@@ -798,7 +812,6 @@ module private Views =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import Stack from '@mui/material/Stack';
         import Accordion from '@mui/material/Accordion';
         import AccordionDetails from '@mui/material/AccordionDetails';
@@ -861,21 +874,15 @@ module private Views =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import {{DataGrid}} from '@mui/x-data-grid';
 
         <Box sx={ {| height=600; width="100%"; mt=2; mb=2 |} }>
             <DataGrid
                 rows={rows}
-                columns=
-                    {
-                        columns
-                        |> Array.map (fun c ->
-                            match c.headerName with
-                            | s when s = "id" -> {| c with hide = true |} |> box
-                            | _ -> c |> box
-                        )
-                    }
+                initialState = {
+                    {| columns = {| columnVisibilityModel = {| id = false |} |} |}
+                }
+                columns= {columns}
                 pageSize={100}
                 autoPageSize={true}
             />
@@ -888,7 +895,7 @@ module private Views =
     let ResponsiveEmergencyList (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
 
         let columns = [|
-            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
+            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |}
             {|  field = "indication"; headerName = "Indicatie"; width = 200; filterable = true; sortable = true |}
             {|  field = "intervention"; headerName = "Interventie"; width = 200; filterable = true; sortable = true |}
             {|  field = "calculated"; headerName = "Berekend"; width = 200; filterable = false; sortable = false |}
@@ -1000,7 +1007,6 @@ module private Views =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import {{DataGrid}} from '@mui/x-data-grid';
 
         <Box sx={ {| height=600; width="100%"; mt=2; mb=2 |} }>
@@ -1258,7 +1264,6 @@ module private Views =
 
                 JSX.jsx
                     $"""
-                import * as React from 'react';
                 import List from '@mui/material/List';
                 import ListItem from '@mui/material/ListItem';
                 import Divider from '@mui/material/Divider';
@@ -1361,7 +1366,6 @@ module private Views =
 
         JSX.jsx
             $"""
-        import * as React from 'react';
         import Box from '@mui/material/Box';
         import Card from '@mui/material/Card';
         import CardActions from '@mui/material/CardActions';
