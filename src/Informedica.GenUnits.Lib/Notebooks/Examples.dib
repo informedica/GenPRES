@@ -1,3 +1,7 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","aliases":["c#","C#"],"languageName":"C#"},{"name":"vscode","languageName":null,"aliases":["frontend"]}]}}
+
 #!markdown
 
 # Demonstration of some of the concepts underlying `Informedica.GenUnits.Lib` #
@@ -15,6 +19,7 @@ Do some basic setup:
 #load "../Scripts/load.fsx"
 
 open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenUnits.Lib.ValueUnit
 
@@ -29,7 +34,7 @@ module Print =
 
     /// Print the input to a function, then call the function with that input.
     let (>>*) vu f =
-        $"{vu |> toStringFloatEngShort}" |> printfn "%s"
+        $"{vu |> toStringDecimalEngShort}" |> printfn "%s"
         f vu
 
     /// Print the input to a function, then call the function with that input,
@@ -88,15 +93,17 @@ We can build `ValueUnit` instances from numeric values and units:
 
 #!fsharp
 
+let withUnit u v = [| v |> BigRational.fromDecimal |] |> withUnit u
+
 // Some basic value units
-let mg400  = 400.  |> withUnit Units.Mass.milliGram    >>* id
-let ml50   = 50.   |> withUnit Units.Volume.milliLiter >>* id
-let ml5    = 5.    |> withUnit Units.Volume.milliLiter >>* id
-let l5     = 5.    |> withUnit Units.Volume.liter      >>* id
-let ml5000 = 5000. |> withUnit Units.Volume.milliLiter >>* id
+let mg400  = 400m  |> withUnit Units.Mass.milliGram    >>* id
+let ml50   = 50m   |> withUnit Units.Volume.milliLiter >>* id
+let ml5    = 5m    |> withUnit Units.Volume.milliLiter >>* id
+let l5     = 5m    |> withUnit Units.Volume.liter      >>* id
+let ml5000 = 5000m |> withUnit Units.Volume.milliLiter >>* id
 
 mg400 |> pa
-4. |> withUnit d2 |> pa
+4m |> withUnit d2 |> pa
 
 #!markdown
 
@@ -108,7 +115,7 @@ The `Count` group is a special unit group with only one unit: `times`:
 
 #!fsharp
 
-let times3 = 3. |> withUnit Units.Count.times >>* id
+let times3 = 3m |> withUnit Units.Count.times >>* id
 
 #!fsharp
 
@@ -169,6 +176,8 @@ All four basic arithmetic operations can be performed:
 
 #!fsharp
 
+let withValue v u = withValue [| v |> BigRational.fromDecimal |] u
+
 "Calculating with counts:\n" |> printfn "%s"
 // - multiplication
 times3 * times3 >>* ignore // = 9 times
@@ -181,10 +190,10 @@ times3 - times3 >>* ignore // = 0 times
 
 "You calculate any unit with times\n" |> printfn "%s"
 times3 * ml5 >>* ignore // 3 * 5 ml = 15 ml
-(Units.Time.hour |> withValue 36N) / times3 >>* ignore // 36 hr / 3 = 12 hr
+(Units.Time.hour |> withValue 36m) / times3 >>* ignore // 36 hr / 3 = 12 hr
 
 "But calculating with other units yield combi units"
-(Units.Mass.milliGram |> withValue 200N) / ml5 >>* ignore // 200 mg / 5 ml = 40 mg / ml
+(Units.Mass.milliGram |> withValue 200m) / ml5 >>* ignore // 200 mg / 5 ml = 40 mg / ml
 
 #!markdown
 
@@ -234,12 +243,14 @@ We can create arbitrary, labelled units and use them in calculations:
 
 #!fsharp
 
+let create u v = create u [| v |> BigRational.fromDecimal |]
+
 let dose = Units.General.general "dose"
 
 // Calculate and get the resulting unit group
-4N
+4m
 |> create dose // 4 dose[General]
->>* (fun vu -> vu / (1N |> create Units.Time.day)) // divide by 1 day[Time]
+>>* (fun vu -> vu / (1m |> create Units.Time.day)) // divide by 1 day[Time]
 >>* (fun vu -> vu ==> (dose |> per (Units.Time.week)))
 |> (fun (ValueUnit(_, u)) ->
     u |> Group.unitToGroup)
@@ -251,9 +262,9 @@ We can get all valid units for conversion:
 
 #!fsharp
 
-let d2 = 2. |> withUnit Units.Time.day
-let g4 = 0.4 |> withUnit Units.Mass.gram
-let mg400 = 400. |> withUnit Units.Mass.milliGram
+let d2 = 2m |> withUnit Units.Time.day
+let g4 = 0.4m |> withUnit Units.Mass.gram
+let mg400 = 400m |> withUnit Units.Mass.milliGram
 
 printfn "First example"
 // failing case, simplify doesn't work in this case
