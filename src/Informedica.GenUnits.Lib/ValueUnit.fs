@@ -2003,7 +2003,7 @@ module ValueUnit =
     /// Get a list of the units in a unit u
     let rec getUnits u =
         match u with
-        | CombiUnit (ul, _, ur) -> ul |> getUnits |> List.append (ur |> getUnits)
+        | CombiUnit (ul, _, ur) -> ul |> getUnits |> List.prepend (ur |> getUnits)
         | _ -> [ u ]
 
 

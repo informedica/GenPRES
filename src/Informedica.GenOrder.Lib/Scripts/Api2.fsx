@@ -16,7 +16,18 @@ open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
 
 
+let mg5 = Units.Mass.milliGram |> ValueUnit.withSingleValue 5N
+let kg10 = Units.Weight.kiloGram |> ValueUnit.withSingleValue 10N
+let day1 = Units.Time.day |> ValueUnit.withSingleValue 1N
 
+kg10 |> ValueUnit.getUnit |> ValueUnit.isAdjust
+
+(mg5 / day1 / kg10)
+|> ValueUnit.getUnit
+|> ValueUnit.getUnits
+
+(mg5 / day1 / kg10)
+|> ValueUnit.correctAdjustOrder
 
 let path = Some $"{__SOURCE_DIRECTORY__}/log.txt"
 let startLogger () =

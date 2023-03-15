@@ -55,6 +55,16 @@ module OrderVariable =
                 |> ValueUnit.toStringDutchShort
 
 
+        let map fMin fMax fIncr fVals (cs : Constraints) =
+            { cs with
+                Min = cs.Min |> Option.map fMin
+                Max = cs.Max |> Option.map fMax
+                Incr = cs.Incr |> Option.map fIncr
+                Values = cs.Values |> Option.map fVals
+
+            }
+
+
     /// Create a `OrderVariable` with preset values
     let create n min incr max vs cs =
         ValueRange.create true min incr max vs
@@ -77,6 +87,18 @@ module OrderVariable =
 
     /// Apply **f** to `VariableUnit` **vru**
     let apply f (ovar: OrderVariable) = ovar |> f
+
+
+    let map f (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                { ovar.Variable with
+                    Values =
+                        ovar.Variable.Values
+                        |> ValueRange.mapValueUnit f
+                }
+                
+        }
 
 
     /// Utility function to facilitate type inference
@@ -795,12 +817,12 @@ module OrderVariable =
         let toDto = toOrdVar >> Dto.toDto
 
 
-        let fromDto dto = dto |> Dto.fromDto |> PerTimeAdjust
+        let fromDto dto = dto |> Dto.fromDto |> (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
 
 
         /// Set a `TotalAdjust` with a `Variable`
         /// in a list fromVariable` lists
-        let fromOrdVar = fromOrdVar toOrdVar PerTimeAdjust
+        let fromOrdVar = fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
 
 
         /// Create a `TotalAdjust` with name **n**
@@ -852,12 +874,12 @@ module OrderVariable =
         let toDto = toOrdVar >> Dto.toDto
 
 
-        let fromDto dto = dto |> Dto.fromDto |> RateAdjust
+        let fromDto dto = dto |> Dto.fromDto |> (map ValueUnit.correctAdjustOrder >> RateAdjust)
 
 
         /// Set a `TotalAdjust` with a `Variable`
         /// in a list fromVariable` lists
-        let fromOrdVar = fromOrdVar toOrdVar RateAdjust
+        let fromOrdVar = fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> RateAdjust)
 
 
         /// Create a `TotalAdjust` with name **n**

@@ -61,6 +61,23 @@ module ValueUnit =
             |> snd
 
 
+    let isAdjust (u : Unit) =
+        u |> Group.eqsGroup (Units.Weight.kiloGram) ||
+        u |> Group.eqsGroup (Units.BSA.m2)
+
+
+    let correctAdjustOrder vu =
+        let v, u = vu |> get
+        match u |> getUnits with
+        | [u1; u2; u3] when u3 |> isAdjust ->
+            printfn $"correct adjust order for {u1} {u2} {u3}"
+            u1
+            |> Units.per u3 |> Units.per u2
+            |> withValue v
+        | _ -> vu
+
+
+
     module Units =
 
         let noUnit = NoUnit

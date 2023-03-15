@@ -173,6 +173,7 @@ module Variable =
             let map fIncl fExcl =
                 apply (fIncl >> (create true)) (fExcl >> (create false))
 
+
             /// Checks whether `Minimum` **m2** > **m1**
             /// Note that the fact that a Minimum is inclusive or exclusive
             /// must be taken into account.
@@ -605,6 +606,19 @@ module Variable =
             | IncrMax (incr, max) -> (incr, max) |> fIncrMax |> IncrMax
             | MinIncrMax (min, incr, max) -> (min, incr, max) |> fMinIncrMax |> MinIncrMax
             | ValSet vs -> vs |> fValueSet |> ValSet
+
+
+        let mapValueUnit f vr =
+            vr
+            |> map
+                (Minimum.map f f)
+                (Maximum.map f f)
+                (fun (min, max) -> (min |> Minimum.map f f, max |> Maximum.map f f))
+                (Increment.map f)
+                (fun (min, incr) -> (min |> Minimum.map f f, incr |> Increment.map f))
+                (fun (incr, max) -> (incr |> Increment.map f, max |> Maximum.map f f))
+                (fun (min, incr, max) -> (min |> Minimum.map f f, incr |> Increment.map f, max |> Maximum.map f f))
+                (ValueSet.map f)
 
 
         let apply unr nonz fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
