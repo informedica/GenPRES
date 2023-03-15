@@ -1109,7 +1109,7 @@ module Units =
             | Some udt ->
                 match n with
                 | None   -> udt.Unit
-                | Some n -> udt.Unit |> ValueUnit.setUnitValue (n |> BigRational.fromInt) 
+                | Some n -> udt.Unit |> ValueUnit.setUnitValue (n |> BigRational.fromInt)
             | None -> ValueUnit.generalUnit 1N s
             |> Some
 
@@ -1186,6 +1186,11 @@ module Units =
 module ValueUnit =
 
 
+    //----------------------------------------------------------------------------
+    // Operator String functions
+    //----------------------------------------------------------------------------
+
+
     /// Transforms an operator to a string
     let opToStr op =
         match op with
@@ -1205,6 +1210,11 @@ module ValueUnit =
         | _ when s = "+" -> OpPer
         | _ when s = "-" -> OpPer
         | _ -> failwith <| $"Cannot parse %s{s} to operand"
+
+
+    //----------------------------------------------------------------------------
+    // Apply and Map
+    //----------------------------------------------------------------------------
 
 
     /// Apply a function f to the
@@ -1278,6 +1288,11 @@ module ValueUnit =
             | CombiUnit (u1, op, u2) -> (app u1, op, app u2) |> CombiUnit
 
         app u
+
+
+    //----------------------------------------------------------------------------
+    // Unit Setters and Getters
+    //----------------------------------------------------------------------------
 
 
     /// Change the value of a unit
@@ -1633,6 +1648,11 @@ module ValueUnit =
             get u 1N
 
 
+    //----------------------------------------------------------------------------
+    // Create functions
+    //----------------------------------------------------------------------------
+
+
     /// Create a ValueUnit from a value v
     /// (a bigrational array) and a unit u
     /// Makes sure there are nog duplicates and sorts the result.
@@ -1687,120 +1707,9 @@ module ValueUnit =
     let generalSingleValueUnit v n s = generalValueUnit [| v |] n s
 
 
-    /// Get the value and the unit of a ValueUnit
-    let get (ValueUnit (v, u)) = v, u
-
-
-    /// Get the value of a ValueUnit
-    let getValue (ValueUnit (v, _)) = v
-
-
-    /// Just sets a value without calculation
-    let setValue v (ValueUnit (_, u)) = v |> create u
-
-
-    let setSingleValue v = setValue [| v |]
-
-
-    /// Get the unit of a ValueUnit
-    let getUnit (ValueUnit (_, u)) = u
-
-
-    /// Get the full unit group of a unit.
-    /// For example mg[Mass]/ml[Volume] ->
-    /// Mass/Volume
-    let getGroup = getUnit >> Group.unitToGroup
-
-
-    /// Check whether the unit is a count unit, i.e.
-    /// belongs to the Count group
-    let isCountUnit =
-        Group.eqsGroup (1N |> Times |> Count)
-
-
-    /// Checks whether a ValueUnit has an
-    /// empty value
-    let isEmpty = getValue >> Array.isEmpty
-
-
-    let hasZeroUnit = getUnit >> ((=) ZeroUnit)
-
-
-    /// Check whether a ValueUnit is a single value
-    let isSingleValue =
-        getValue >> Array.length >> ((=) 1)
-
-
-    /// Convert a value to v to the
-    /// base value of unit u.
-    /// For example u = mg v = 1 -> 1/1000
-    let valueToBase u v =
-        v
-        |> Multipliers.toBase (u |> Multipliers.getMultiplier)
-
-    /// Get the value of a ValueUnit as
-    /// a base value.
-    /// For example ValueUnit(1000, mg) -> 1
-    let toBaseValue (ValueUnit (v, u)) = v |> Array.map (valueToBase u)
-
-
-    /// Convert a value to v to the
-    /// unit value of unit u.
-    /// For example u = mg v = 1 -> 1000
-    let valueToUnit u v =
-        v
-        |> Multipliers.toUnit (u |> Multipliers.getMultiplier)
-
-
-    /// Get the value of a ValueUnit as
-    /// a unit value ValueUnit(1, mg) -> 1000
-    let toUnitValue (ValueUnit (v, u)) = v |> Array.map (valueToUnit u)
-
-
-    /// Transforms a ValueUnit to its base.
-    /// For example ValueUnit(1000, mg) -> ValueUnit(1, mg)
-    let toBase vu =
-        let v, u = vu |> get
-        v |> Array.map (valueToBase u) |> create u
-
-
-    /// Transforms a ValueUnit to its unit.
-    /// For example ValueUnit(1, mg) -> ValueUnit(1000, mg)
-    let toUnit vu =
-        let v, u = vu |> get
-        v |> Array.map (valueToUnit u) |> create u
-
-
-    /// Create a 'zero' with unit u
-    let zero u = [| 0N |] |> create u
-
-
-    /// Create a 'one' with unit u
-    let one u = [| 1N |] |> create u
-
-
-    let setZeroNonNegative vu =
-        if vu |> getUnit = NoUnit then ZeroUnit |> zero
-        else
-            let vu = vu |> filter (fun br -> br > 0N)
-
-            if vu |> isEmpty |> not then
-                vu
-            else
-                vu |> setValue [| 0N |]
-
-
-    /// A 'count' unit with n = 1
-    let count = 1N |> Times |> Count
-
-
-    /// Checks whether vu1 is of the
-    /// same unit group as vu2
-    let eqsGroup vu1 vu2 =
-        let u1 = vu1 |> getUnit
-        let u2 = vu2 |> getUnit
-        u1 |> Group.eqsGroup u2
-
+    //----------------------------------------------------------------------------
+    // Create CombiUnit
+    //----------------------------------------------------------------------------
 
 
     /// Create a CombiUnit with u1, Operator op and unit u2.
@@ -1894,6 +1803,85 @@ module ValueUnit =
         | _ -> (u1, OpMinus, u2) |> createCombiUnit
 
 
+    //----------------------------------------------------------------------------
+    // ValueUnit Setters and Getters
+    //----------------------------------------------------------------------------
+
+
+    /// Get the value and the unit of a ValueUnit
+    let get (ValueUnit (v, u)) = v, u
+
+
+    /// Get the value of a ValueUnit
+    let getValue (ValueUnit (v, _)) = v
+
+
+    /// Just sets a value without calculation
+    let setValue v (ValueUnit (_, u)) = v |> create u
+
+
+    let setSingleValue v = setValue [| v |]
+
+
+    /// Get the unit of a ValueUnit
+    let getUnit (ValueUnit (_, u)) = u
+
+
+    /// Get the full unit group of a unit.
+    /// For example mg[Mass]/ml[Volume] ->
+    /// Mass/Volume
+    let getGroup = getUnit >> Group.unitToGroup
+
+
+    //----------------------------------------------------------------------------
+    // Constants
+    //----------------------------------------------------------------------------
+
+
+    /// Create a 'zero' with unit u
+    let zero u = [| 0N |] |> create u
+
+
+    /// Create a 'one' with unit u
+    let one u = [| 1N |] |> create u
+
+
+    /// A 'count' unit with n = 1
+    let count = 1N |> Times |> Count
+
+
+    //----------------------------------------------------------------------------
+    // Logic functions
+    //----------------------------------------------------------------------------
+
+
+    /// Check whether the unit is a count unit, i.e.
+    /// belongs to the Count group
+    let isCountUnit =
+        Group.eqsGroup (1N |> Times |> Count)
+
+
+    /// Checks whether a ValueUnit has an
+    /// empty value
+    let isEmpty = getValue >> Array.isEmpty
+
+
+    let hasZeroUnit = getUnit >> ((=) ZeroUnit)
+
+
+    /// Check whether a ValueUnit is a single value
+    let isSingleValue =
+        getValue >> Array.length >> ((=) 1)
+
+
+    /// Checks whether vu1 is of the
+    /// same unit group as vu2
+    let eqsGroup vu1 vu2 =
+        let u1 = vu1 |> getUnit
+        let u2 = vu2 |> getUnit
+        u1 |> Group.eqsGroup u2
+
+
     /// Checks wheter u1 has a unit u2
     let hasUnit u2 u1 =
         let rec has u =
@@ -1914,6 +1902,63 @@ module ValueUnit =
         match u with
         | CombiUnit _ -> false
         | _ -> true
+
+
+    //----------------------------------------------------------------------------
+    // Conversions
+    //----------------------------------------------------------------------------
+
+
+    /// Convert a value to v to the
+    /// base value of unit u.
+    /// For example u = mg v = 1 -> 1/1000
+    let valueToBase u v =
+        v
+        |> Multipliers.toBase (u |> Multipliers.getMultiplier)
+
+    /// Get the value of a ValueUnit as
+    /// a base value.
+    /// For example ValueUnit(1000, mg) -> 1
+    let toBaseValue (ValueUnit (v, u)) = v |> Array.map (valueToBase u)
+
+
+    /// Convert a value to v to the
+    /// unit value of unit u.
+    /// For example u = mg v = 1 -> 1000
+    let valueToUnit u v =
+        v
+        |> Multipliers.toUnit (u |> Multipliers.getMultiplier)
+
+
+    /// Get the value of a ValueUnit as
+    /// a unit value ValueUnit(1, mg) -> 1000
+    let toUnitValue (ValueUnit (v, u)) = v |> Array.map (valueToUnit u)
+
+
+    /// Transforms a ValueUnit to its base.
+    /// For example ValueUnit(1000, mg) -> ValueUnit(1, mg)
+    let toBase vu =
+        let v, u = vu |> get
+        v |> Array.map (valueToBase u) |> create u
+
+
+    /// Transforms a ValueUnit to its unit.
+    /// For example ValueUnit(1, mg) -> ValueUnit(1000, mg)
+    let toUnit vu =
+        let v, u = vu |> get
+        v |> Array.map (valueToUnit u) |> create u
+
+
+    let setZeroNonNegative vu =
+        if vu |> getUnit = NoUnit then ZeroUnit |> zero
+        else
+            let vu = vu |> filter (fun br -> br > 0N)
+
+            if vu |> isEmpty |> not then
+                vu
+            else
+                vu |> setValue [| 0N |]
+
 
 
     module private UnitItem =
@@ -1947,6 +1992,12 @@ module ValueUnit =
                         | _ -> u
 
             toUnit ul NoUnit
+
+
+    //----------------------------------------------------------------------------
+    // Operations
+    //----------------------------------------------------------------------------
+
 
 
     /// Get a list of the units in a unit u
@@ -2158,45 +2209,6 @@ module ValueUnit =
     let ste = cmp (<=)
 
 
-    /// Returns a operator for comparison to a string
-    let cmpToStr cp =
-        let z = 1N |> Times |> Count |> zero
-        let o = 1N |> Times |> Count |> one
-
-        match cp with
-        | _ when
-            (z |> cp <| z)
-            && not (z |> cp <| o)
-            && not (o |> cp <| z)
-            ->
-            "="
-        | _ when
-            (z |> cp <| z)
-            && (z |> cp <| o)
-            && not (o |> cp <| z)
-            ->
-            "<="
-        | _ when
-            (z |> cp <| z)
-            && not (z |> cp <| o)
-            && (o |> cp <| z)
-            ->
-            ">="
-        | _ when
-            not (z |> cp <| z)
-            && (z |> cp <| o)
-            && not (o |> cp <| z)
-            ->
-            "<"
-        | _ when
-            not (z |> cp <| z)
-            && not (z |> cp <| o)
-            && (o |> cp <| z)
-            ->
-            ">"
-        | _ -> "unknown comparison"
-
-
     /// Convert a ValueUnit vu to
     /// a unit u.
     /// For example 1 gram -> 1000 mg:
@@ -2329,6 +2341,50 @@ module ValueUnit =
 
     // ToDo replace with this
     let valueCount = getValue >> Array.length
+
+
+    //----------------------------------------------------------------------------
+    // ValueUnit string functions
+    //----------------------------------------------------------------------------
+
+
+    /// Returns a operator for comparison to a string
+    let cmpToStr cp =
+        let z = 1N |> Times |> Count |> zero
+        let o = 1N |> Times |> Count |> one
+
+        match cp with
+        | _ when
+            (z |> cp <| z)
+            && not (z |> cp <| o)
+            && not (o |> cp <| z)
+            ->
+            "="
+        | _ when
+            (z |> cp <| z)
+            && (z |> cp <| o)
+            && not (o |> cp <| z)
+            ->
+            "<="
+        | _ when
+            (z |> cp <| z)
+            && not (z |> cp <| o)
+            && (o |> cp <| z)
+            ->
+            ">="
+        | _ when
+            not (z |> cp <| z)
+            && (z |> cp <| o)
+            && not (o |> cp <| z)
+            ->
+            "<"
+        | _ when
+            not (z |> cp <| z)
+            && not (z |> cp <| o)
+            && (o |> cp <| z)
+            ->
+            ">"
+        | _ -> "unknown comparison"
 
 
     /// Get the user readable string version
@@ -2476,15 +2532,10 @@ module ValueUnit =
         let (==>) vu u = vu |> convertTo u
 
 
-
     module Dto =
 
+        module Group = ValueUnit.Group
 
-        [<Literal>]
-        let english = "english"
-
-        [<Literal>]
-        let dutch = "dutch"
 
         type Dto() =
             member val Value = [||] with get, set
@@ -2492,6 +2543,13 @@ module ValueUnit =
             member val Group = "" with get, set
             member val Short = true with get, set
             member val Language = "" with get, set
+
+
+        [<Literal>]
+        let english = "english"
+
+        [<Literal>]
+        let dutch = "dutch"
 
         let dto () = Dto()
 
@@ -2519,7 +2577,7 @@ module ValueUnit =
                     else
                         Units.Long
 
-                let v, u = vu |> get
+                let v, u = vu |> ValueUnit.get
                 let v = v |> Array.map BigRational.toDecimal
 
                 let g =
@@ -2549,8 +2607,8 @@ module ValueUnit =
             if dto.Group |> String.isNullOrWhiteSpace then
                 try
                     $"1 {dto.Unit}"
-                    |> fromString
-                    |> setValue v
+                    |> ValueUnit.fromString
+                    |> ValueUnit.setValue v
                     |> Some
                 with
                 | _ -> None
@@ -2558,7 +2616,7 @@ module ValueUnit =
                 $"%s{dto.Unit}[%s{dto.Group}]"
                 |> Units.fromString
                 |> function
-                    | Some u -> v |> create u |> Some
+                    | Some u -> v |> ValueUnit.create u |> Some
                     | _ -> None
 
 
