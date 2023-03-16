@@ -68,7 +68,7 @@ module Utils =
                 toStringDecimalDutchShortWithPrec 3
 
 
-        let toMarkdown prec vu =
+        let toDelimitedString prec vu =
             let u =
                 vu
                 |> ValueUnit.getUnit
@@ -90,9 +90,14 @@ module Utils =
             |> function
             | v::u ->
                 let u = u |> String.concat " "
-                $"||{v}|| |{u}|"
-            | s -> s |> String.concat " "
+                let v =
+                    v
+                    |> String.split ";"
+                    |> List.map (sprintf "#%s#")
+                    |> String.concat ", "
 
+                $"{v} |{u}|"
+            | s -> s |> String.concat " "
 
 
         module Operators =

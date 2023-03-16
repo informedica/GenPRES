@@ -300,3 +300,41 @@ Informedica.ZIndex.Lib.GenPresProduct.findByGPK 47929
 "MACROGOL/NATRIUMCHLORIDE/NATRIUMWATERSTOFCARBONAAT/KALIUMCHLORIDE"
 |> String.toLower
 
+
+type TextItem =
+    | Normal of string
+    | Bold of string
+    | Italic of string
+
+
+let parseTextItem (s: string) =
+    s
+    |> Seq.map (id >> string)
+    |> Seq.fold(fun acc c ->
+        match c |> string, acc |> fst with
+        | s, Normal _ when s = "#" ->
+            Bold "", (acc |> fst)::(acc |> snd)
+        | s, Italic _ when s = "#" ->
+            Bold s, (acc |> fst)::(acc |> snd)
+        | s, Bold b when s = "#" ->
+            Normal "", (acc |> fst)::(acc |> snd)
+        | s, Bold b ->
+            Bold $"{b}{s}", (acc |> snd)
+
+        | s, Normal _ when s = "|" ->
+            Italic "", (acc |> fst)::(acc |> snd)
+        | s, Italic i when s = "|" ->
+            Normal "", (acc |> fst)::(acc |> snd)
+        | s, Italic i ->
+            Italic $"{i}{s}", (acc |> snd)
+
+        | s2, Normal s1 -> Normal $"{s1}{s2}", acc |> snd
+
+    ) (Normal "", [])
+    |> fun (md, acc) -> md::acc
+    |> Seq.rev
+
+
+"benzylpenicilline #4#, #5#, #6# |keer per dag| #940.000# |IE| .. #5.640.000# |IE| (#100.000# |IE/kg/dag| .. #400.000# |IE/kg/dag|)"
+|> parseTextItem
+|> Seq.iter (printfn "%A")

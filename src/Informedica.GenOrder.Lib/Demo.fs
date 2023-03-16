@@ -19,7 +19,7 @@ module Demo =
         |> String.replace "]" ""
         |> String.replace "<" ""
         |> String.replace ">" ""
-        |> String.replace "|" ""
+//        |> String.replace "|" ""
 
 
     let scenarioResult pat =

@@ -160,6 +160,13 @@ module Types =
         }
 
 
+    type TextItem =
+        | Normal of string
+        | Bold of string
+        | Italic of string
+
+
+
     type Product =
         {
             Indication: string
@@ -168,14 +175,16 @@ module Types =
             Unit: string
         }
 
+
     type Scenario =
         {
             Shape : string
             DoseType : string
-            Prescription : string
-            Preparation : string
-            Administration : string
+            Prescription : TextItem[]
+            Preparation : TextItem[]
+            Administration : TextItem[]
         }
+
 
     type ScenarioResult =
         {

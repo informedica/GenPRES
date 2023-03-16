@@ -713,6 +713,65 @@ module Colors =
         static member A700 = "#ffd600"
 
 
+module TypoGraphy =
+
+    let create v text =
+        JSX.jsx
+            $"""
+        import Typography from "@mui/material/Typography";
+
+        <Typography
+            variant={v}
+            display="inline"
+            >
+            {text}
+        </Typography>
+        """
+
+    let createStrong v text =
+        JSX.jsx
+            $"""
+        import Typography from "@mui/material/Typography";
+
+        <Typography
+            variant={v}
+            display="inline"
+            >
+            <strong>{text}</strong>
+        </Typography>
+        """
+
+    let createWithColors bc fc v text =
+        JSX.jsx
+            $"""
+        import Typography from "@mui/material/Typography";
+
+        <Typography
+            backgroundColor={bc}
+            color={fc}
+            variant={v}
+            display="inline"
+            >
+            {text}
+        </Typography>
+        """
+
+    let createStrongWithColors bc fc v text =
+        JSX.jsx
+            $"""
+        import Typography from "@mui/material/Typography";
+
+        <Typography
+            backgroundColor={bc}
+            color={fc}
+            variant={v}
+            display="inline"
+            >
+            <strong>{text}</strong>
+        </Typography>
+        """
+
+
 open System.ComponentModel
 open Fable.Core.JsInterop
 

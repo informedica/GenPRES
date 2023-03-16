@@ -100,11 +100,6 @@ Scenarios: {sc.Scenarios |> Array.length}
                                     )
                             }
                         printfn $"""{msg "finished" sc}"""
-                        let s =
-                            sc.Scenarios
-                            |> Array.collect (fun sc -> [| sc.Prescription; sc.Preparation; sc.Administration |])
-                            |> String.concat "\n"
-                        printfn $"{s}"
                         return sc |> Ok
                     with
                     | e ->

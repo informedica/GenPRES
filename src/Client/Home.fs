@@ -544,9 +544,10 @@ module private Components =
                 </Box>
                 <DataGrid
                     rows={rows}
-                    initialState = {
-                        {| columns = {| columnVisibilityModel = {| id = false |} |} |}
-                    }
+                    initialState =
+                        {
+                            {| columns = {| columnVisibilityModel = {| id = false |} |} |}
+                        }
                     columns=
                         {
                             props.columns
@@ -882,9 +883,10 @@ module private Views =
         <Box sx={ {| height=600; width="100%"; mt=2; mb=2 |} }>
             <DataGrid
                 rows={rows}
-                initialState = {
-                    {| columns = {| columnVisibilityModel = {| id = false |} |} |}
-                }
+                initialState =
+                    {
+                        {| columns = {| columnVisibilityModel = {| id = false |} |} |}
+                    }
                 columns= {columns}
                 pageSize={100}
                 autoPageSize={true}
@@ -1235,12 +1237,42 @@ module private Views =
                 </Box>
                 """
 
-        let typoGraphy (s : string) =
+        let typoGraphy (items : Shared.Types.TextItem[]) =
+            let print item =
+                match item with
+                | Shared.Types.Normal s ->
+                    JSX.jsx
+                        $"""
+                    <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
+                    """
+                | Shared.Types.Bold s ->
+                    JSX.jsx
+                        $"""
+                    <Typography
+                    color={Mui.Colors.BlueGrey.``700``}
+                    display="inline"
+                    >
+                    <strong> {s} </strong>
+                    </Typography>
+                    """
+                | Shared.Types.Italic s ->
+                    JSX.jsx
+                        $"""
+                    <Typography
+                    color={Mui.Colors.Grey.``700``}
+                    display="inline"
+                    >
+                    <strong> {s} </strong>
+                    </Typography>
+                    """
+
             JSX.jsx
                 $"""
             import Typography from '@mui/material/Typography';
 
-            <Typography>{s}</Typography>
+            <Box display="inline" >
+                {items |> Array.map print}
+            </Box>
             """
 
         let displayScenarios med (sc : Shared.Types.Scenario) =
@@ -1286,7 +1318,7 @@ module private Views =
                         </ListItemIcon>
                         <ListItemText
                             primary="Voorschrift"
-                            secondary={sc.Prescription |> text}
+                            secondary={sc.Prescription |> typoGraphy}
                         />
                     </ListItem>
                     <Divider variant="inset" component="li" />
@@ -1296,7 +1328,7 @@ module private Views =
                         </ListItemIcon>
                         <ListItemText
                             primary="Bereiding"
-                            secondary={sc.Preparation |> text}
+                            secondary={sc.Preparation |> typoGraphy}
                         />
                     </ListItem>
                     <Divider variant="inset" component="li" />
@@ -1306,7 +1338,7 @@ module private Views =
                         </ListItemIcon>
                         <ListItemText
                             primary="Toediening"
-                            secondary={sc.Administration |> text}
+                            secondary={sc.Administration |> typoGraphy}
                         />
                     </ListItem>
                     </List>
