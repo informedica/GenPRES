@@ -181,7 +181,6 @@ module OrderVariable =
         |> ValueRange.toMarkdown prec
         |> String.replace "x" "keer"
         |> String.replace "*" "/"
-        |> String.replace "," ", "
         
 
 

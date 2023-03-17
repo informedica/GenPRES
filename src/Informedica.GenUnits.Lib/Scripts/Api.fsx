@@ -48,3 +48,7 @@ Api.eval "100 mg[Mass]/1 kg[Weight]"
 "1 x[Count]/4 weken[Time]"
 |> ValueUnit.fromString
 |> ValueUnit.toStringDutchShort
+
+
+Api.eval "1 mg[Mass] / 3 mL[Volume]"
+|> ValueUnit.toStringDecimalDutchShortWithPrec 2

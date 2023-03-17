@@ -335,6 +335,5 @@ let parseTextItem (s: string) =
     |> Seq.rev
 
 
-"benzylpenicilline #4#, #5#, #6# |keer per dag| #940.000# |IE| .. #5.640.000# |IE| (#100.000# |IE/kg/dag| .. #400.000# |IE/kg/dag|)"
-|> parseTextItem
+"1 mL .. 10 mL injectievloeistof ( 0, 1 , 0, 5 , 1 mg/mL adrenaline) + 40 mL .. 49 mL oplosvloeistof"|> parseTextItem
 |> Seq.iter (printfn "%A")
