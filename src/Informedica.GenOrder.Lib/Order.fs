@@ -1294,8 +1294,10 @@ module Order =
         ord |> fromOrdVars ovars
 
 
-    let solveMinMax printErr logger (ord: Order) =
-        let ord = ord |> applyConstraints
+    let solve minMax printErr logger (ord: Order) =
+        let ord =
+            if minMax then ord |> applyConstraints
+            else ord
 
         let mapping =
             match ord.Prescription with
@@ -1312,7 +1314,9 @@ module Order =
         try
             oEqs
             |> Solver.mapToSolverEqs
-            |> Solver.solveMinMax logger
+            |> fun eqs ->
+                if minMax then eqs |> Solver.solveMinMax logger
+                else eqs |> Solver.solve logger
             |> function
             | Ok eqs ->
                 eqs
@@ -1335,6 +1339,10 @@ module Order =
 
             raise e
 
+
+    let solveMinMax printErr logger = solve true printErr logger
+
+    let solveOrder printErr logger = solve false printErr logger
 
 
     module Print =
@@ -1484,8 +1492,6 @@ module Order =
                 let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme} = {rt}"
 
                 pres, prep, adm
-
-
 
 
 
@@ -1642,6 +1648,7 @@ module Order =
                 pres |> String.replace "()" "",
                 prep,
                 adm
+
 
 
     module Dto =

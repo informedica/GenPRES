@@ -207,6 +207,7 @@ module Api =
             |> DrugOrder.toOrder
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
+//            |> Result.bind (Order.solveOrder false logger)
             |> function
             | Ok ord ->
                 let dto = ord |> Order.Dto.toDto
@@ -287,6 +288,4 @@ module Api =
                     Administration = adm
                 }
         )
-
-
 

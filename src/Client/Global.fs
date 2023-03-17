@@ -10,9 +10,8 @@ type Pages =
     | LifeSupport
     | ContinuousMeds
     | Prescribe
-// | NormalValues
-// | PewsCalculator
-// | GCSCalculator
+    | Formulary
+    | Parenteralia
 
 
 let pageToString locale page =
@@ -24,10 +23,19 @@ let pageToString locale page =
             locale
             Localization.Terms.``Continuous Medication List``
     | Prescribe -> "Voorschrijven"
-// | NormalValues -> "Normaal Waarden"
-// | PewsCalculator -> "PEWS Calculator"
-// | GCSCalculator -> "GCS Calculator"
+    | Formulary -> "Formularium"
+    | Parenteralia -> "Parenteralia"
 
 
 let languageContext =
     React.createContext (name = "language", defaultValue = Localization.Dutch)
+
+
+
+module Speech =
+
+    open Fable.Core
+
+    [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
+    let speak s = ()
+

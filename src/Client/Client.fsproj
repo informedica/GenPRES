@@ -15,6 +15,17 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
     <Compile Include="MUI.fs" />
+    <Compile Include="./Components/ElmishSelect.fs" />
+    <Compile Include="./Components/StateSelect.fs" />
+    <Compile Include="./Components/SimpleSelect.fs" />
+    <Compile Include="./Components/SelectableList.fs" />
+    <Compile Include="./Components/AppBar.fs" />
+    <Compile Include="./Components/SideBar.fs" />
+    <Compile Include="./Components/ResponsiveTable.fs" />
+    <Compile Include="./Views/Patient.fs" />
+    <Compile Include="./Views/EmergencyList.fs" />
+    <Compile Include="./Views/ContinuousMeds.fs" />
+    <Compile Include="./Views/Prescribe.fs" />
     <Compile Include="Home.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>

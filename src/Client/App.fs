@@ -96,9 +96,11 @@ module private Elmish =
 
     let pages =
         [
-            Pages.LifeSupport
-            Pages.ContinuousMeds
-            Pages.Prescribe
+            LifeSupport
+            ContinuousMeds
+            Prescribe
+            Formulary
+            Parenteralia
         ]
 
 

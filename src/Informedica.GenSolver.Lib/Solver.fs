@@ -170,7 +170,7 @@ module Solver =
 
                             | eq, Errored m ->
                                 [],
-                                [eq]
+                                [eq] // TODO: check if this is right
                                 |> List.append acc
                                 |> List.append que
                                 |> fun eqs ->
