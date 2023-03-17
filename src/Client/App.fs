@@ -20,11 +20,6 @@ module private Elmish =
 
     type Model =
         {
-            CurrentPage: Pages Option
-            SideMenuItems: (string * bool) []
-            SideMenuIsOpen: bool
-            Configuration: Configuration Option
-            Language: Localization.Locales
             Patient: Patient option
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
@@ -34,10 +29,6 @@ module private Elmish =
 
 
     type Msg =
-        | SideMenuClick of string
-        | ToggleMenu
-        | LanguageChange of string
-        | UpdateLanguage of Localization.Locales
         | UpdatePatient of Patient option
         | UrlChanged of string list
         | LoadBolusMedication of
@@ -108,8 +99,6 @@ module private Elmish =
 
         let initialState =
             {
-                Configuration = None
-                Language = Localization.Dutch
                 Patient =
                     Router.currentUrl ()
                     |> parseUrlToPatient
@@ -117,16 +106,6 @@ module private Elmish =
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
                 Scenarios = HasNotStartedYet
-                CurrentPage = Pages.LifeSupport |> Some
-                SideMenuItems =
-                    pages
-                    |> List.toArray
-                    |> Array.map (fun p ->
-                        p
-                        |> pageToString Localization.Dutch,
-                        false
-                    )
-                SideMenuIsOpen = false
             }
 
         let cmds =
@@ -142,41 +121,6 @@ module private Elmish =
 
     let update (msg: Msg) (state: Model) =
         match msg with
-        | ToggleMenu ->
-            { state with
-                SideMenuIsOpen = not state.SideMenuIsOpen
-            },
-            Cmd.none
-
-        | SideMenuClick s ->
-            let pageToString = Global.pageToString Localization.Dutch
-
-            { state with
-                CurrentPage =
-                    pages
-                    |> List.map (fun p -> p |> pageToString, p)
-                    |> List.tryFind (fst >> ((=) s))
-                    |> Option.map snd
-
-                SideMenuItems =
-                    state.SideMenuItems
-                    |> Array.map (fun (item, _) ->
-                        if item = s then
-                            printfn $"{s} true"
-                            (item, true)
-                        else
-                            printfn $"{s} false"
-                            (item, false)
-                    )
-            },
-            Cmd.none
-
-
-        | LanguageChange s ->
-            //TODO: doesn't work anymore
-            state, Cmd.none
-
-        | UpdateLanguage l -> { state with Language = l }, Cmd.none
 
         | UpdatePatient p ->
             Logging.log "update patient app" p
@@ -319,20 +263,14 @@ let App () =
 
         calculatInterventions calc state.ContinuousMedication state.Patient
 
-    Home.GenPres({|
-        updateLang = (UpdateLanguage >> dispatch)
+    Pages.GenPres.View({|
         patient = state.Patient
-        updatePatient = (UpdatePatient >> dispatch)
+        updatePatient = UpdatePatient >> dispatch
         bolusMedication = bm
         continuousMedication = cm
         products = state.Products
         scenario = state.Scenarios
         updateScenario = (UpdateScenarios >> dispatch)
-        toggleMenu = (fun _ -> ToggleMenu |> dispatch)
-        currentPage = state.CurrentPage
-        sideMenuIsOpen = state.SideMenuIsOpen
-        sideMenuClick = SideMenuClick >> dispatch
-        sideMenuItems = state.SideMenuItems
     |})
 
 let root = ReactDomClient.createRoot (document.getElementById ("genpres-app"))

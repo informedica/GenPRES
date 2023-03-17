@@ -26,7 +26,7 @@
     <Compile Include="./Views/EmergencyList.fs" />
     <Compile Include="./Views/ContinuousMeds.fs" />
     <Compile Include="./Views/Prescribe.fs" />
-    <Compile Include="Home.fs" />
+    <Compile Include="./Pages/GenPres.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
