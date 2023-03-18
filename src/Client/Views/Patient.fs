@@ -11,6 +11,7 @@ module Patient =
 
     open Elmish
 
+
     module private Elmish =
 
         open Shared.Types
@@ -251,7 +252,7 @@ module Patient =
             |> Array.map (fun el ->
                 JSX.jsx
                     $"""
-                <Grid item sx={3}>{el}</Grid>
+                <Grid item xs={2}>{el}</Grid>
                 """
             )
 
@@ -270,25 +271,25 @@ module Patient =
         import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
         <React.Fragment>
-        <Accordion expanded={isExpanded} onChange={handleChange}>
-            <AccordionSummary
-            expandIcon={{ <ExpandMoreIcon /> }}
-            aria-controls="patient"
-            id="patient-details"
-            >
-            { pat |> show }
-            </AccordionSummary>
-            <AccordionDetails>
-                <Grid container spacing={2}>
-                {React.fragment (items |> unbox)}
-                </Grid>
-                <Box sx={ {| mt=2 |} }>
-                    <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
-                        verwijderen
-                    </Button>
-                </Box>
-            </AccordionDetails>
-        </Accordion>
+            <Accordion expanded={isExpanded} onChange={handleChange}>
+                <AccordionSummary
+                expandIcon={{ <ExpandMoreIcon /> }}
+                aria-controls="patient"
+                id="patient-details"
+                >
+                { pat |> show }
+                </AccordionSummary>
+                <AccordionDetails>
+                    <Grid container spacing={2}>
+                    {React.fragment (items |> unbox)}
+                    </Grid>
+                    <Box sx={ {| mt=2 |} }>
+                        <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
+                            verwijderen
+                        </Button>
+                    </Box>
+                </AccordionDetails>
+            </Accordion>
         </React.Fragment>
         """
 

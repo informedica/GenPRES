@@ -73,7 +73,6 @@ module SimpleSelect =
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
 
-        <div id={props.label} key={props.label}>
         <FormControl variant="standard" sx={ {| m = 1; minWidth = 120; maxWidth = 200 |} }>
             <InputLabel id={props.label}>{props.label}</InputLabel>
             <Select
@@ -95,6 +94,5 @@ module SimpleSelect =
                 {items}
             </Select>
         </FormControl>
-        </div>
         """
 
