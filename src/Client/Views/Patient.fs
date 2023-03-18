@@ -280,7 +280,7 @@ module Patient =
             </AccordionSummary>
             <AccordionDetails>
                 <Grid container spacing={2}>
-                {items}
+                {React.fragment (items |> unbox)}
                 </Grid>
                 <Box sx={ {| mt=2 |} }>
                     <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >

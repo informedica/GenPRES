@@ -31,6 +31,7 @@ module SelectableList =
 
                 <React.Fragment key={i} >
                     <ListItem value={text} >
+                        <ListItemIcon>{Mui.Icons.AccountTree}</ListItemIcon>
                         <ListItemButton selected={selected} onClick={fun _ -> text |> props.updateSelected}>
                         <ListItemText primary={text} />
                         </ListItemButton>

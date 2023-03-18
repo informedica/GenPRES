@@ -142,7 +142,7 @@ module Localization =
             | ``Emergency List Calculated`` -> "Berekend"
             | ``Emergency List Preparation`` -> "Bereiding"
             | ``Emergency List Advice`` -> "Advies"
-            | ``Continuous Medication List`` -> "Continue Medicatie"
+            | ``Continuous Medication List`` -> "Infuuspomp"
             | ``Continuous Medication List show when patient data`` ->
                 "Wordt getoond na invoer van patient gegevens"
             | ``Continuous Medication Indication`` -> "Indicatie"

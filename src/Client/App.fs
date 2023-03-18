@@ -245,7 +245,7 @@ open Shared
 // for Vite Hot Reload to work
 
 [<JSX.Component>]
-let App () =
+let View () =
     let state, dispatch = React.useElmish (init, update, [||])
 
     let bm =
@@ -273,5 +273,6 @@ let App () =
         updateScenario = (UpdateScenarios >> dispatch)
     |})
 
+
 let root = ReactDomClient.createRoot (document.getElementById ("genpres-app"))
-root.render (App() |> toReact)
+root.render (View() |> toReact)
