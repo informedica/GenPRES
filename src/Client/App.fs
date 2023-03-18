@@ -53,30 +53,44 @@ module private Elmish =
     // * wt: weight (kg)
     // * ln: length (cm)
     let parseUrlToPatient sl =
-
         match sl with
         | [] -> None
-        | [ "pat"
-            Route.Query [
-                "by", Route.Int by
-                "bm", Route.Int bm
-                "bd", Route.Int bd
-                "wt", Route.Number wt ] ] ->
-            Logging.log "query params:" $"by: {by}"
+        | [ "patient"; Route.Query queryParams ] ->
+            let queryParamsMap = Map.ofList queryParams
+            match Map.tryFind "by" queryParamsMap with
+            | Some (Route.Int year) -> 
+                // birthday year is required
+                let month = 
+                    match Map.tryFind "bm" queryParamsMap with
+                    | Some (Route.Int months) -> months
+                    | _ -> 1 // january is the default
 
-            let age =
-                Patient.Age.fromBirthDate DateTime.Now (DateTime(by, bm, bd))
+                let day =
+                    match Map.tryFind "bd" queryParamsMap with
+                    | Some (Route.Int days) -> days
+                    | _ -> 1 // first day of the month is the default
 
-            Patient.create
-                (Some age.Years)
-                (Some age.Months)
-                (Some age.Weeks)
-                (Some age.Days)
-                (wt |> Some)
+                let weight =
+                    match Map.tryFind "wt" queryParamsMap with
+                    | Some (Route.Number weight) -> Some weight
+                    | _ -> None
+
+                let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
+
+                let patient =
+                    Patient.create
+                        (Some age.Years)
+                        (Some age.Months)
+                        (Some age.Weeks)
+                        (Some age.Days)
+                        weight
+                        None
+                Logging.log "parsed: " patient
+                patient
+            | _ ->
+                Logging.warning "could not parse url to patient" sl
                 None
-            |> fun p ->
-                Logging.log "parsed: " p
-                p
+
         | _ ->
             sl
             |> String.concat ""
@@ -271,6 +285,7 @@ let App () =
         products = state.Products
         scenario = state.Scenarios
         updateScenario = (UpdateScenarios >> dispatch)
+        onUrlChanged = (UrlChanged >> dispatch)
     |})
 
 let root = ReactDomClient.createRoot (document.getElementById ("genpres-app"))

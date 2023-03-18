@@ -166,7 +166,7 @@ module Patient =
             |}
         ) =
         let isExpanded, setExpanded = React.useState true
-        let depArr = [| box props.updatePatient |]
+        let depArr = [| box props.patient; box props.updatePatient |]
         let pat, dispatch =
             React.useElmish(
                     init props.patient,

@@ -73,12 +73,12 @@ module SimpleSelect =
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
 
-        <div>
+        <div id={props.label} key={props.label}>
         <FormControl variant="standard" sx={ {| m = 1; minWidth = 120; maxWidth = 200 |} }>
-            <InputLabel id="demo-simple-select-standard-label">{props.label}</InputLabel>
+            <InputLabel id={props.label}>{props.label}</InputLabel>
             <Select
-            labelId="demo-simple-select-standard-label"
-            id="demo-simple-select-standard"
+            labelId={props.label}
+            id={props.label}
             value={props.selected |> Option.defaultValue ""}
             onChange={handleChange}
             label={props.label}
