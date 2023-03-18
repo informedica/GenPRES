@@ -15,6 +15,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
     <Compile Include="MUI.fs" />
+    <Compile Include="./Components/Router.fs" />
     <Compile Include="./Components/ElmishSelect.fs" />
     <Compile Include="./Components/StateSelect.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />

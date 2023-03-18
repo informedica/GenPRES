@@ -129,7 +129,8 @@ module GenPres =
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
             scenario: Deferred<ScenarioResult>
-            updateScenario : ScenarioResult -> unit |}) =
+            updateScenario : ScenarioResult -> unit
+            onUrlChanged : string list -> unit |}) =
 
         let state, dispatch = React.useElmish (init, update, [||])
 
@@ -157,6 +158,10 @@ module GenPres =
             <ThemeProvider theme={theme}>
                 <Box sx={ {| height= "100vh"; overflowY = "hidden" |} }>
                     <CssBaseline />
+                    {
+                        Components.Router.View {| onUrlChanged = props.onUrlChanged |}
+                    }
+
                     <Box>
                         {Components.AppBar.View({|
                             title = $"GenPRES 2023 {state.CurrentPage |> Option.map (Global.pageToString Localization.Dutch)}"
