@@ -203,3 +203,4 @@ module ResponsiveTable =
                 />
             </Box>
             """
+

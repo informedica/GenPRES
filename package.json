@@ -7,8 +7,8 @@
         "postinstall": "dotnet tool restore && dotnet restore GenPres.sln",
         "init-assets": "[ -d dist ] || mkdir dist && cp src/Client/public/*.* dist/.",
 		"watch-server": "dotnet watch --project src/Server/Server.fsproj",
-        "start": "npm run init-assets && dotnet fable watch src/Client -o dist .js -e .jsx --run vite",
-        "build": "dotnet fable src/Client -o dist .js -e .jsx && npm run init-assets && vite build --outDir ./../deploy"
+        "start": "npm run init-assets && dotnet fable watch src/Client -o dist -e .jsx --run vite",
+        "build": "dotnet fable src/Client -o dist -e .jsx && npm run init-assets && vite build --outDir ./../deploy"
     },
     "devDependencies": {
         "@vitejs/plugin-react": "^3.0.1",
