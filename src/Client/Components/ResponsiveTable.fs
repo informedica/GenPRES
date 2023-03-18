@@ -79,7 +79,7 @@ module ResponsiveTable =
                     <Grid item width={500} sx={ {| mb = 1 |} } >
                         <Card raised={true} >
                             <CardContent>
-                                {content}
+                                {React.fragment (content |> unbox)}
                             </CardContent>
                             {
                                 match row.actions with
@@ -102,7 +102,7 @@ module ResponsiveTable =
                     {props.filter |> Option.defaultValue (JSX.jsx "<></>" |> toReact)}
                 </Box>
                 <Grid container rowSpacing={1} columnSpacing={ {| xs=1; sm=2; md=3 |} } >
-                    {cards}
+                    {React.fragment (cards |> unbox)}
                 </Grid>
             </Stack>
             """

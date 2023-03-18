@@ -252,7 +252,7 @@ module Patient =
             |> Array.map (fun el ->
                 JSX.jsx
                     $"""
-                <Grid item xs={2}>{el}</Grid>
+                <Grid item xs={12} md={3} lg={2}>{el}</Grid>
                 """
             )
 
