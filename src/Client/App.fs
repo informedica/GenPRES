@@ -76,7 +76,7 @@ module private Elmish =
 
                     let weight =
                         match Map.tryFind "wt" queryParamsMap with
-                        | Some (Route.Number weight) -> Some weight
+                        | Some (Route.Number weight) -> Some (weight / 1000.)
                         | _ -> None
 
                     let height =
@@ -205,7 +205,7 @@ module private Elmish =
                 Products = prods |> Resolved
             },
             Cmd.none
-            
+
         | LoadProducts (Finished (Error s)) ->
             Logging.error "cannot load products" s
             state, Cmd.none
