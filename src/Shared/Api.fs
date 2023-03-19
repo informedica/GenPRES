@@ -14,5 +14,6 @@ module Api =
     type IServerApi =
         {
             getScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
+            getFormulary : Formulary -> Async<Result<Formulary, string>>
             test : unit -> Async<string>
         }

@@ -200,3 +200,21 @@ module Types =
             Weight: float option
             Height: float option
         }
+
+
+    type Formulary = 
+        {
+            Generics : string []
+            Indications : string []
+            Routes : string []
+            Patients : string []
+            Products : string []
+            Generic: string option
+            Indication: string option
+            Route: string option
+            Patient : string option
+            Age : float option
+            Weight: float option
+            Height: float option
+            Markdown : string
+        }

@@ -1205,3 +1205,23 @@ module ScenarioResult =
             Weight = None
             Height = None
         }
+
+
+module Formulary =
+
+    let empty : Formulary =
+        {
+            Generics = [||]
+            Indications = [||]
+            Routes = [||]
+            Patients = [||]
+            Products = [||]
+            Generic= None
+            Indication= None
+            Route= None
+            Patient = None
+            Age = None
+            Weight= None
+            Height= None
+            Markdown = ""
+        }

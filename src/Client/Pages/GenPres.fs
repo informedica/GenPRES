@@ -183,6 +183,8 @@ module GenPres =
                                 Views.ContinuousMeds.View ({| interventions = props.continuousMedication |})
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
+                            | Global.Pages.Formulary ->
+                                Views.Formulary.View ({| formulary = HasNotStartedYet; updateFormulary = ignore |})
                             | _ -> notFound
                         }
                     </Box>

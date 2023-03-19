@@ -3,6 +3,7 @@ module ServerApiImpl
 
 open MathNet.Numerics
 open Informedica.Utils.Lib.BCL
+open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
 
@@ -17,6 +18,39 @@ let serverApi: IServerApi =
             fun () ->
                 async {
                     return "Hello world!"
+                }
+
+        getFormulary = 
+            fun (form : Formulary) ->
+
+                async {
+                    let pat =
+                        { Patient.patient with
+                            Department = "ICK"
+                            Age =
+                                form.Age
+                                |> Option.bind BigRational.fromFloat
+                            Weight =
+                                form.Weight
+                                |> Option.map (fun w -> w * 1000.)
+                                |> Option.bind BigRational.fromFloat
+                            Height =
+                                form.Height
+                                |> Option.bind BigRational.fromFloat
+                        }
+
+                    let form =  
+                        { form with
+                            Markdown =
+                                DoseRule.get ()
+                                |> DoseRule.filter
+                                    { Filter.filter with
+                                        Age = pat.Age
+                                    }
+                                |> DoseRule.Print.toMarkdown
+                        }
+
+                    return Ok form
                 }
 
         getScenarioResult =
