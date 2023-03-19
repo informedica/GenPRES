@@ -12,7 +12,7 @@ open Elmish
 open Fable.Core.JsInterop
 
 
-module AppBar =
+module TitleBar =
 
 
     [<JSX.Component>]

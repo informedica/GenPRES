@@ -241,6 +241,25 @@ module Icons =
         <Clear />
     """
 
+    [<JSX.Component>]
+    let FireExtinguisher = JSX.jsx $"""
+        import FireExtinguisher from '@mui/icons-material/FireExtinguisher';
+        <FireExtinguisher />
+    """
+
+    [<JSX.Component>]
+    let LocalPharmacy = JSX.jsx $"""
+        import LocalPharmacy from '@mui/icons-material/LocalPharmacy';
+        <LocalPharmacy />
+    """
+
+    [<JSX.Component>]
+    let Bloodtype = JSX.jsx $"""
+        import Bloodtype from '@mui/icons-material/Bloodtype';
+        <Bloodtype />
+    """
+
+
 
 type Color = {|
     ``50`` : string;

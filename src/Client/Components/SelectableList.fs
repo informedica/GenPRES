@@ -16,22 +16,31 @@ module SelectableList =
 
 
     [<JSX.Component>]
-    let View (props : {| updateSelected : string -> unit; items : (string * bool)[] |}) =
+    let View (props : {| updateSelected : string -> unit; items : (JSX.Element option * string * bool)[] |}) =
         let items =
             props.items
-            |> Array.mapi (fun i (text, selected) ->
+            |> Array.mapi (fun i (el, text, selected) ->
+                let icon =
+                    match el with
+                    | None -> JSX.jsx "<></>"
+                    | Some el -> 
+                        JSX.jsx
+                            $"""
+                        import ListItemIcon from '@mui/material/ListItemIcon';
+                        <ListItemIcon>{el}</ListItemIcon>
+                        """
+
                 JSX.jsx
                     $"""
                 import React from 'react';
                 import Divider from '@mui/material/Divider';
                 import ListItem from '@mui/material/ListItem';
                 import ListItemButton from '@mui/material/ListItemButton';
-                import ListItemIcon from '@mui/material/ListItemIcon';
                 import ListItemText from '@mui/material/ListItemText';
 
                 <React.Fragment key={i} >
                     <ListItem value={text} >
-                        <ListItemIcon>{Mui.Icons.AccountTree}</ListItemIcon>
+                        {icon}
                         <ListItemButton selected={selected} onClick={fun _ -> text |> props.updateSelected}>
                         <ListItemText primary={text} />
                         </ListItemButton>

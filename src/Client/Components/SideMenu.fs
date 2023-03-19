@@ -11,7 +11,7 @@ open Elmish
 open Fable.Core.JsInterop
 
 
-module SideBar =
+module SideMenu =
 
 
     [<JSX.Component>]
@@ -21,7 +21,7 @@ module SideBar =
                 isOpen : bool
                 toggle : unit -> unit
                 menuClick : string -> unit
-                items : (string * bool)[]
+                items : (JSX.Element option * string * bool)[]
             |}
         ) =
         let drawerWidth = 240

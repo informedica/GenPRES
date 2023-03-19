@@ -24,7 +24,7 @@ module GenPres =
         type State =
             {
                 CurrentPage: Pages
-                SideMenuItems: (string * bool) []
+                SideMenuItems: (JSX.Element option * string * bool) []
                 SideMenuIsOpen: bool
                 Configuration: Configuration Option
                 Language: Localization.Locales
@@ -57,10 +57,15 @@ module GenPres =
                         pages
                         |> List.toArray
                         |> Array.map (fun p ->
-                            p
-                            |> pageToString Localization.Dutch,
-                            false
+                            match p |> pageToString Localization.Dutch with
+                            | s when p = LifeSupport -> (Mui.Icons.FireExtinguisher |> Some), s, false
+                            | s when p = ContinuousMeds -> (Mui.Icons.Vaccines |> Some), s, false
+                            | s when p = Prescribe -> (Mui.Icons.Message |> Some), s, false
+                            | s when p = Formulary -> (Mui.Icons.LocalPharmacy |> Some), s, false
+                            | s when p = Parenteralia -> (Mui.Icons.Bloodtype |> Some), s, false
+                            | s -> None, s, false
                         )
+
                     SideMenuIsOpen = false
                     Configuration = None
                     Language = Localization.Dutch
@@ -90,13 +95,13 @@ module GenPres =
 
                     SideMenuItems =
                         state.SideMenuItems
-                        |> Array.map (fun (item, _) ->
+                        |> Array.map (fun (icon, item, _) ->
                             if item = s then
                                 printfn $"{s} true"
-                                (item, true)
+                                (icon, item, true)
                             else
                                 printfn $"{s} false"
-                                (item, false)
+                                (icon, item, false)
                         )
                 },
                 Cmd.none
@@ -148,14 +153,14 @@ module GenPres =
 
         <React.Fragment>
             <Box>
-                {Components.AppBar.View({|
+                {Components.TitleBar.View({|
                     title = $"GenPRES 2023 {state.CurrentPage |> (Global.pageToString Localization.Dutch)}"
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch
                 |})}
             </Box>
             <React.Fragment>
                 {
-                    Components.SideBar.View({|
+                    Components.SideMenu.View({|
                         anchor = "left"
                         isOpen = state.SideMenuIsOpen
                         toggle = (fun _ -> ToggleMenu |> dispatch)

@@ -20,8 +20,8 @@
     <Compile Include="./Components/StateSelect.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
     <Compile Include="./Components/SelectableList.fs" />
-    <Compile Include="./Components/AppBar.fs" />
-    <Compile Include="./Components/SideBar.fs" />
+    <Compile Include="./Components/TitleBar.fs" />
+    <Compile Include="./Components/SideMenu.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
     <Compile Include="./Views/Patient.fs" />
     <Compile Include="./Views/EmergencyList.fs" />
