@@ -31,7 +31,6 @@ let languageContext =
     React.createContext (name = "language", defaultValue = Localization.Dutch)
 
 
-
 module Speech =
 
     open Fable.Core

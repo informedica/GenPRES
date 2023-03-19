@@ -23,7 +23,7 @@ module GenPres =
 
         type State =
             {
-                CurrentPage: Pages Option
+                CurrentPage: Pages
                 SideMenuItems: (string * bool) []
                 SideMenuIsOpen: bool
                 Configuration: Configuration Option
@@ -48,11 +48,11 @@ module GenPres =
             ]
 
 
-        let init () : State * Cmd<Msg> =
+        let init page : State * Cmd<Msg> =
 
             let state =
                 {
-                    CurrentPage = Pages.LifeSupport |> Some
+                    CurrentPage = page |> Option.defaultValue LifeSupport
                     SideMenuItems =
                         pages
                         |> List.toArray
@@ -86,6 +86,7 @@ module GenPres =
                         |> List.map (fun p -> p |> pageToString, p)
                         |> List.tryFind (fst >> ((=) s))
                         |> Option.map snd
+                        |> Option.defaultValue LifeSupport
 
                     SideMenuItems =
                         state.SideMenuItems
@@ -110,15 +111,6 @@ module GenPres =
     open Elmish
 
 
-    [<Literal>]
-    let private themeDef = """createTheme({
-    })"""
-
-    [<Import("createTheme", from="@mui/material/styles")>]
-    [<Emit(themeDef)>]
-    let private theme : obj = jsNative
-
-
 
     [<JSX.Component>]
     let View
@@ -130,9 +122,9 @@ module GenPres =
             products: Deferred<Product list>
             scenario: Deferred<ScenarioResult>
             updateScenario : ScenarioResult -> unit
-            onUrlChanged : string list -> unit |}) =
+            page : Global.Pages option |}) =
 
-        let state, dispatch = React.useElmish (init, update, [||])
+        let state, dispatch = React.useElmish (init props.page, update, [| box props.page |])
 
         let notFound =
             JSX.jsx
@@ -154,47 +146,42 @@ module GenPres =
         import Container from '@mui/material/Container';
         import Typography from '@mui/material/Typography';
 
-        <React.StrictMode>
-            <ThemeProvider theme={theme}>
-                <Box sx={ {| height= "100vh"; overflowY = "hidden" |} }>
-                    <CssBaseline />
-                    {
-                        Components.Router.View {| onUrlChanged = props.onUrlChanged |}
-                    }
-
-                    <Box>
-                        {Components.AppBar.View({|
-                            title = $"GenPRES 2023 {state.CurrentPage |> Option.map (Global.pageToString Localization.Dutch)}"
-                            toggleSideMenu = fun _ -> ToggleMenu |> dispatch
-                        |})}
+        <React.Fragment>
+            <Box>
+                {Components.AppBar.View({|
+                    title = $"GenPRES 2023 {state.CurrentPage |> (Global.pageToString Localization.Dutch)}"
+                    toggleSideMenu = fun _ -> ToggleMenu |> dispatch
+                |})}
+            </Box>
+            <React.Fragment>
+                {
+                    Components.SideBar.View({|
+                        anchor = "left"
+                        isOpen = state.SideMenuIsOpen
+                        toggle = (fun _ -> ToggleMenu |> dispatch)
+                        menuClick = SideMenuClick >> dispatch
+                        items =  state.SideMenuItems
+                    |})
+                }
+            </React.Fragment>
+            <Container sx={ {| height="87%"; mt= 4 |} } >
+                <Stack sx={ {| height="100%" |} }>
+                    <Box sx={ {| flexBasis=1 |} } >
+                        { Views.Patient.View({| patient = props.patient; updatePatient = props.updatePatient |}) }
                     </Box>
-                    {Components.SideBar.View({|
-                            anchor = "left"
-                            isOpen = state.SideMenuIsOpen
-                            toggle = (fun _ -> ToggleMenu |> dispatch)
-                            menuClick = SideMenuClick >> dispatch
-                            items =  state.SideMenuItems
-                        |})}
-                    <Container sx={ {| height="87%"; mt= 4 |} } >
-                        <Stack sx={ {| height="100%" |} }>
-                        <Box sx={ {| flexBasis=1 |} } >
-                            { Views.Patient.View({| patient = props.patient; updatePatient = props.updatePatient |}) }
-                        </Box>
-                        <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
-                            {
-                                match state.CurrentPage with
-                                | Some Global.Pages.LifeSupport ->
-                                    Views.EmergencyList.View ({| interventions = props.bolusMedication |})
-                                | Some Global.Pages.ContinuousMeds ->
-                                    Views.ContinuousMeds.View ({| interventions = props.continuousMedication |})
-                                | Some Global.Pages.Prescribe ->
-                                    Views.Prescribe.View ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
-                                | _ -> notFound
-                            }
-                        </Box>
-                        </Stack>
-                    </Container>
-                </Box>
-            </ThemeProvider>
-        </React.StrictMode>
+                    <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
+                        {
+                            match state.CurrentPage with
+                            | Global.Pages.LifeSupport ->
+                                Views.EmergencyList.View ({| interventions = props.bolusMedication |})
+                            | Global.Pages.ContinuousMeds ->
+                                Views.ContinuousMeds.View ({| interventions = props.continuousMedication |})
+                            | Global.Pages.Prescribe ->
+                                Views.Prescribe.View ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
+                            | _ -> notFound
+                        }
+                    </Box>
+                </Stack>
+            </Container>
+        </React.Fragment>
         """

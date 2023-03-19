@@ -20,6 +20,7 @@ module private Elmish =
 
     type Model =
         {
+            Page : Global.Pages option
             Patient: Patient option
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
@@ -47,75 +48,84 @@ module private Elmish =
 
 
     // url needs to be in format: http://localhost:8080/#pat?ay=2&am=0&ad=1
+    // * pg : el (emergency list) cm (continuous medication)
     // * by: birth year
     // * bm: birth month
     // * bd: birth day
-    // * wt: weight (kg)
-    // * ln: length (cm)
-    let parseUrlToPatient sl =
+    // * wt: weight (gram)
+    // * ht: height (cm)
+    let parseUrl sl =
         match sl with
-        | [] -> None
+        | [] -> None, None
         | [ "patient"; Route.Query queryParams ] ->
             let queryParamsMap = Map.ofList queryParams
-            match Map.tryFind "by" queryParamsMap with
-            | Some (Route.Int year) -> 
-                // birthday year is required
-                let month = 
-                    match Map.tryFind "bm" queryParamsMap with
-                    | Some (Route.Int months) -> months
-                    | _ -> 1 // january is the default
 
-                let day =
-                    match Map.tryFind "bd" queryParamsMap with
-                    | Some (Route.Int days) -> days
-                    | _ -> 1 // first day of the month is the default
+            let pat = 
+                match Map.tryFind "by" queryParamsMap with
+                | Some (Route.Int year) -> 
+                    // birthday year is required
+                    let month = 
+                        match Map.tryFind "bm" queryParamsMap with
+                        | Some (Route.Int months) -> months
+                        | _ -> 1 // january is the default
 
-                let weight =
-                    match Map.tryFind "wt" queryParamsMap with
-                    | Some (Route.Number weight) -> Some weight
-                    | _ -> None
+                    let day =
+                        match Map.tryFind "bd" queryParamsMap with
+                        | Some (Route.Int days) -> days
+                        | _ -> 1 // first day of the month is the default
 
-                let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
+                    let weight =
+                        match Map.tryFind "wt" queryParamsMap with
+                        | Some (Route.Number weight) -> Some weight
+                        | _ -> None
 
-                let patient =
-                    Patient.create
-                        (Some age.Years)
-                        (Some age.Months)
-                        (Some age.Weeks)
-                        (Some age.Days)
-                        weight
-                        None
-                Logging.log "parsed: " patient
-                patient
-            | _ ->
-                Logging.warning "could not parse url to patient" sl
-                None
+                    let height =
+                        match Map.tryFind "ht" queryParamsMap with
+                        | Some (Route.Number weight) -> Some weight
+                        | _ -> None
+
+                    let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
+
+                    let patient =
+                        Patient.create
+                            (Some age.Years)
+                            (Some age.Months)
+                            (Some age.Weeks)
+                            (Some age.Days)
+                            weight
+                            height
+                    Logging.log "parsed: " patient
+                    patient
+                | _ ->
+                    Logging.warning "could not parse url to patient" sl
+                    None
+
+            let page =
+                match queryParamsMap |> Map.tryFind "pg" with
+                | Some s when s = "el" -> Some Global.LifeSupport 
+                | Some s when s = "cm" -> Some Global.ContinuousMeds
+                | Some s when s = "pr" -> Some Global.Prescribe
+                | Some s when s = "fm" -> Some Global.Formulary
+                | Some s when s = "pe" -> Some Global.Parenteralia
+                | _ -> None
+
+            pat, page
 
         | _ ->
             sl
             |> String.concat ""
             |> Logging.warning "could not parse url"
 
-            None
-
-
-    let pages =
-        [
-            LifeSupport
-            ContinuousMeds
-            Prescribe
-            Formulary
-            Parenteralia
-        ]
+            None, None
 
 
     let init () : Model * Cmd<Msg> =
+        let pat, page = Router.currentUrl () |> parseUrl
 
         let initialState =
             {
-                Patient =
-                    Router.currentUrl ()
-                    |> parseUrlToPatient
+                Page = page
+                Patient = pat
                 BolusMedication = HasNotStartedYet
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
@@ -137,21 +147,24 @@ module private Elmish =
         match msg with
 
         | UpdatePatient p ->
-            Logging.log "update patient app" p
             { state with Patient = p },
             Cmd.ofMsg (LoadScenarios Started)
+
         | UrlChanged sl ->
-            Logging.log "url changed" sl
+            let pat, page = sl |> parseUrl
 
             { state with
-                Patient = sl |> parseUrlToPatient
+                Page = page
+                Patient = pat
             },
             Cmd.none
+
         | LoadBolusMedication Started ->
             { state with
                 BolusMedication = InProgress
             },
             Cmd.fromAsync (GoogleDocs.loadBolusMedication LoadBolusMedication)
+
         | LoadBolusMedication (Finished (Ok meds)) ->
 
             { state with
@@ -161,6 +174,7 @@ module private Elmish =
         | LoadBolusMedication (Finished (Error s)) ->
             Logging.error "cannot load emergency treatment" s
             state, Cmd.none
+
         | LoadContinuousMedication Started ->
             { state with
                 ContinuousMedication = InProgress
@@ -168,18 +182,21 @@ module private Elmish =
             Cmd.fromAsync (
                 GoogleDocs.loadContinuousMedication LoadContinuousMedication
             )
+
         | LoadContinuousMedication (Finished (Ok meds)) ->
 
             { state with
                 ContinuousMedication = meds |> Resolved
             },
             Cmd.none
+
         | LoadContinuousMedication (Finished (Error s)) ->
             Logging.error "cannot load continuous medication" s
             state, Cmd.none
         | LoadProducts Started ->
             { state with Products = InProgress },
             Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
+
         | LoadProducts (Finished (Ok prods)) ->
 
             { state with
@@ -255,6 +272,17 @@ module private Elmish =
 open Elmish
 open Shared
 
+
+
+[<Literal>]
+let private themeDef = """createTheme({
+})"""
+
+[<Import("createTheme", from="@mui/material/styles")>]
+[<Emit(themeDef)>]
+let private theme : obj = jsNative
+
+
 // Entry point must be in a separate file
 // for Vite Hot Reload to work
 
@@ -277,16 +305,36 @@ let View () =
 
         calculatInterventions calc state.ContinuousMedication state.Patient
 
-    Pages.GenPres.View({|
-        patient = state.Patient
-        updatePatient = UpdatePatient >> dispatch
-        bolusMedication = bm
-        continuousMedication = cm
-        products = state.Products
-        scenario = state.Scenarios
-        updateScenario = (UpdateScenarios >> dispatch)
-        onUrlChanged = (UrlChanged >> dispatch)
-    |})
+    JSX.jsx
+        $"""
+    import {{ ThemeProvider }} from '@mui/material/styles';
+    import CssBaseline from '@mui/material/CssBaseline';
+    import React from "react";
+    import Box from '@mui/material/Box';
+
+    <React.StrictMode>
+        <ThemeProvider theme={theme}>
+            <Box sx={ {| height= "100vh"; overflowY = "hidden" |} }>
+                <CssBaseline />
+                {
+                    Components.Router.View {| onUrlChanged = UrlChanged >> dispatch |}
+                }
+                {
+                    Pages.GenPres.View({|
+                        patient = state.Patient
+                        updatePatient = UpdatePatient >> dispatch
+                        bolusMedication = bm
+                        continuousMedication = cm
+                        products = state.Products
+                        scenario = state.Scenarios
+                        updateScenario = UpdateScenarios >> dispatch
+                        page = state.Page
+                    |})
+                }
+            </Box>
+        </ThemeProvider>
+    </React.StrictMode>
+    """
 
 
 let root = ReactDomClient.createRoot (document.getElementById ("genpres-app"))

@@ -13,8 +13,9 @@ open Fable.Core.JsInterop
 
 
 module Router =
-    [<ReactComponent>]
 
+
+    [<ReactComponent>]
     let View(props: {| onUrlChanged: string list -> unit |}) = 
         React.router [
             router.onUrlChanged props.onUrlChanged

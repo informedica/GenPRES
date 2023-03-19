@@ -73,7 +73,7 @@ module SimpleSelect =
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
 
-        <FormControl variant="standard" sx={ {| m = 1; minWidth = 120; maxWidth = 200 |} }>
+        <FormControl variant="standard" sx={ {| minWidth = 120; maxWidth = 200 |} }>
             <InputLabel id={props.label}>{props.label}</InputLabel>
             <Select
             labelId={props.label}

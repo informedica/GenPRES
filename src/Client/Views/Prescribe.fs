@@ -277,7 +277,7 @@ module Prescribe =
 
             <CardContent>
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                Medicatie scenario's
+                    Medicatie scenario's
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {
