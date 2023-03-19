@@ -466,7 +466,7 @@ module Patient =
 
 
     let getAgeWeeks p =
-        p |> getAge |> Option.map (fun a -> a.Months)
+        p |> getAge |> Option.map (fun a -> a.Weeks)
 
 
     let getAgeDays p =

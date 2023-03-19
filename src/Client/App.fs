@@ -171,6 +171,7 @@ module private Elmish =
                 BolusMedication = meds |> Resolved
             },
             Cmd.none
+
         | LoadBolusMedication (Finished (Error s)) ->
             Logging.error "cannot load emergency treatment" s
             state, Cmd.none
@@ -193,6 +194,7 @@ module private Elmish =
         | LoadContinuousMedication (Finished (Error s)) ->
             Logging.error "cannot load continuous medication" s
             state, Cmd.none
+
         | LoadProducts Started ->
             { state with Products = InProgress },
             Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
@@ -203,6 +205,7 @@ module private Elmish =
                 Products = prods |> Resolved
             },
             Cmd.none
+            
         | LoadProducts (Finished (Error s)) ->
             Logging.error "cannot load products" s
             state, Cmd.none
