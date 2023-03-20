@@ -13,6 +13,15 @@ open Shared.Api
 
 /// An implementation of the Shared IServerApi protocol.
 let serverApi: IServerApi =
+    let mapFormularyToFilter (form: Formulary)=
+        { Filter.filter with
+            Generic = form.Generic
+            Indication = form.Indication
+            Route = form.Route
+            Age = form.Age |> Option.bind BigRational.fromFloat
+            Weight = form.Weight |> Option.bind BigRational.fromFloat
+        }
+
     {
         test =
             fun () ->
@@ -20,34 +29,30 @@ let serverApi: IServerApi =
                     return "Hello world!"
                 }
 
-        getFormulary = 
+        getFormulary =
             fun (form : Formulary) ->
+                printfn "getting formulary"
 
                 async {
-                    let pat =
-                        { Patient.patient with
-                            Department = "ICK"
-                            Age =
-                                form.Age
-                                |> Option.bind BigRational.fromFloat
-                            Weight =
-                                form.Weight
-                                |> Option.map (fun w -> w * 1000.)
-                                |> Option.bind BigRational.fromFloat
-                            Height =
-                                form.Height
-                                |> Option.bind BigRational.fromFloat
-                        }
+                    let filter = form |> mapFormularyToFilter
 
-                    let form =  
+                    let dsrs =
+                        DoseRule.get ()
+                        |> DoseRule.filter filter
+
+                    let form =
                         { form with
+                            Generics = dsrs |> DoseRule.generics
+                            Indications = dsrs |> DoseRule.indications
+                            Routes = dsrs |> DoseRule.routes
+                            Patients = dsrs |> DoseRule.patients
                             Markdown =
-                                DoseRule.get ()
-                                |> DoseRule.filter
-                                    { Filter.filter with
-                                        Age = pat.Age
-                                    }
-                                |> DoseRule.Print.toMarkdown
+                                match form.Generic, form.Indication, form.Route, form.Patient with
+                                | Some _, Some _, Some _, Some _ ->
+                                    dsrs
+                                    |> DoseRule.filter filter
+                                    |> DoseRule.Print.toMarkdown
+                                | _ -> ""
                         }
 
                     return Ok form

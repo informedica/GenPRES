@@ -111,6 +111,7 @@
 !/src/Client/
 !/src/Client/Scripts/
 !/src/Client/public/
+!/src/Client/public/*
 !/src/Client/Utils/
 !/src/Client/Domain/
 !/src/Client/Components/

@@ -127,6 +127,8 @@ module GenPres =
             products: Deferred<Product list>
             scenario: Deferred<ScenarioResult>
             updateScenario : ScenarioResult -> unit
+            formulary: Deferred<Formulary>
+            updateFormulary : Formulary -> unit
             page : Global.Pages option |}) =
 
         let state, dispatch = React.useElmish (init props.page, update, [| box props.page |])
@@ -184,7 +186,7 @@ module GenPres =
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View ({| scenarios = props.scenario; updateScenario = props.updateScenario |})
                             | Global.Pages.Formulary ->
-                                Views.Formulary.View ({| formulary = HasNotStartedYet; updateFormulary = ignore |})
+                                Views.Formulary.View ({| formulary = props.formulary; updateFormulary = props.updateFormulary |})
                             | _ -> notFound
                         }
                     </Box>

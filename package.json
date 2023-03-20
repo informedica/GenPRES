@@ -6,7 +6,7 @@
     "scripts": {
         "postinstall": "dotnet tool restore && dotnet restore GenPres.sln",
         "init-assets": "[ -d dist ] || mkdir dist && cp src/Client/public/*.* dist/.",
-		"watch-server": "dotnet watch --project src/Server/Server.fsproj",
+        "watch-server": "dotnet watch --project src/Server/Server.fsproj",
         "start": "npm run init-assets && dotnet fable watch src/Client -o dist -e .jsx --run vite",
         "build": "dotnet fable src/Client -o dist -e .jsx && npm run init-assets && vite build --outDir ./../deploy"
     },
@@ -22,6 +22,7 @@
         "@mui/material": "^5.11.11",
         "@mui/x-data-grid": "^6.0.0",
         "react": "^18.2.0",
-        "react-dom": "^18.2.0"
+        "react-dom": "^18.2.0",
+        "react-markdown": "^8.0.5"
     }
 }

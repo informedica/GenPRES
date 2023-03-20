@@ -26,6 +26,7 @@ module private Elmish =
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
             Scenarios: Deferred<ScenarioResult>
+            Formulary: Deferred<Formulary>
         }
 
 
@@ -39,6 +40,8 @@ module private Elmish =
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
         | LoadScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
         | UpdateScenarios of ScenarioResult
+        | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
+        | UpdateFormulary of Formulary
 
 
     let serverApi =
@@ -60,11 +63,11 @@ module private Elmish =
         | [ "patient"; Route.Query queryParams ] ->
             let queryParamsMap = Map.ofList queryParams
 
-            let pat = 
+            let pat =
                 match Map.tryFind "by" queryParamsMap with
-                | Some (Route.Int year) -> 
+                | Some (Route.Int year) ->
                     // birthday year is required
-                    let month = 
+                    let month =
                         match Map.tryFind "bm" queryParamsMap with
                         | Some (Route.Int months) -> months
                         | _ -> 1 // january is the default
@@ -102,7 +105,7 @@ module private Elmish =
 
             let page =
                 match queryParamsMap |> Map.tryFind "pg" with
-                | Some s when s = "el" -> Some Global.LifeSupport 
+                | Some s when s = "el" -> Some Global.LifeSupport
                 | Some s when s = "cm" -> Some Global.ContinuousMeds
                 | Some s when s = "pr" -> Some Global.Prescribe
                 | Some s when s = "fm" -> Some Global.Formulary
@@ -130,6 +133,7 @@ module private Elmish =
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
                 Scenarios = HasNotStartedYet
+                Formulary = HasNotStartedYet
             }
 
         let cmds =
@@ -138,6 +142,7 @@ module private Elmish =
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
                 Cmd.ofMsg (LoadScenarios Started)
+                Cmd.ofMsg (LoadFormulary Started)
             ]
 
         initialState, cmds
@@ -260,6 +265,44 @@ module private Elmish =
             { state with Scenarios = Resolved sc },
             Cmd.ofMsg (LoadScenarios Started)
 
+        | LoadFormulary Started ->
+            let form =
+                match state.Formulary with
+                | Resolved form when state.Patient.IsSome ->
+                    { form with
+                        Age =
+                            match state.Patient with
+                            | Some pat -> pat |> Patient.getAgeInDays
+                            | None -> form.Age
+                        Weight =
+                            match state.Patient with
+                            | Some pat -> pat |> Patient.getWeight
+                            | None -> form.Weight
+                    }
+                | Resolved form -> form
+                | _ -> Formulary.empty
+
+            let load =
+                async {
+                    let! result = serverApi.getFormulary form
+                    return Finished result |> LoadFormulary
+                }
+
+            { state with Scenarios = InProgress }, Cmd.fromAsync load
+
+        | LoadFormulary (Finished (Ok form)) ->
+            { state with
+                Formulary = Resolved form
+            },
+            Cmd.none
+
+        | UpdateFormulary form ->
+            let state =
+                { state with
+                    Formulary = Resolved form
+                }
+            state, Cmd.ofMsg (LoadFormulary Started)
+
 
     let calculatInterventions calc meds pat =
         meds
@@ -331,6 +374,8 @@ let View () =
                         products = state.Products
                         scenario = state.Scenarios
                         updateScenario = UpdateScenarios >> dispatch
+                        formulary = state.Formulary
+                        updateFormulary = UpdateFormulary >> dispatch
                         page = state.Page
                     |})
                 }

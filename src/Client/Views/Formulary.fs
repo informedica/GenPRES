@@ -205,6 +205,7 @@ module Formulary =
             import CardContent from '@mui/material/CardContent';
             import Typography from '@mui/material/Typography';
             import Stack from '@mui/material/Stack';
+            import Paper from '@mui/material/Paper';
 
             <CardContent>
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
@@ -240,7 +241,7 @@ module Formulary =
                     }
                     {
                         match props.formulary with
-                        | Resolved form -> false, form.Route, form.Routes
+                        | Resolved form -> false, form.Patient, form.Patients
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
                             items
@@ -248,8 +249,20 @@ module Formulary =
                             |> select isLoading "Patienten" sel (PatientChange >> dispatch)
                     }
                 </Stack>
-                <Stack direction="column" sx={ {| mt = 1 |} } >
-                </Stack>
+                <Paper sx={ {| mt = 2; color = Mui.Colors.Indigo.``900`` |} } >
+                    {
+                        match props.formulary with
+                        | Resolved form ->
+                            form.Markdown
+                            |> Markdown.markdown.children
+                            |> List.singleton
+                            |> Feliz.Markdown.Markdown.markdown
+                        | _ ->
+                            JSX.jsx "<></>"
+                            |> toReact
+
+                    }
+                </Paper>
             </CardContent>
             """
 
@@ -263,13 +276,8 @@ module Formulary =
         import Typography from '@mui/material/Typography';
 
         <Box sx={ {| height="100%" |} }>
-            <Card sx={ {| minWidth = 275 |}  }>
                 {content}
                 {progress}
-            <CardActions>
-                <Button size="small">Bewerken</Button>
-            </CardActions>
-            </Card>
         </Box>
         """
 
