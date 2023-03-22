@@ -187,7 +187,7 @@ module Prescribe =
             import Typography from '@mui/material/Typography';
 
             <Box display="inline" >
-                {items |> Array.map print}
+                {items |> Array.map print |> unbox |> React.fragment}
             </Box>
             """
 
@@ -198,26 +198,23 @@ module Prescribe =
                     med |> Option.defaultValue ""
                     |> fun s -> $"{s} {sc.Shape} {sc.DoseType}"
 
-                let text s =
-                    JSX.jsx
+                let item icon prim sec =
+                    JSX.jsx 
                         $"""
-                    import React from 'react';
-                    import Typography from '@mui/material/Typography';
-
-                    <React.Fragment>
-                        <Typography
-                            sx={ {| display= "inline" |} }
-                            component="span"
-                            variant="body1"
-                            color="text.primary"
-                        >
-                            {s}
-                        </Typography>
-                    </React.Fragment>
+                    <ListItem>
+                        <ListItemIcon>
+                            {icon}
+                        </ListItemIcon>
+                        <Box sx={ {| display="flex"; flexDirection="column" |} }>
+                            {prim}
+                            {sec |> typoGraphy}
+                        </Box>
+                    </ListItem>
                     """
 
                 JSX.jsx
                     $"""
+                import React from 'react';
                 import Box from '@mui/material/Box';
                 import List from '@mui/material/List';
                 import ListItem from '@mui/material/ListItem';
@@ -232,35 +229,15 @@ module Prescribe =
                         {med}
                     </Typography>
                     <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
-                    <ListItem alignItems="flex-start">
-                        <ListItemIcon>
-                            {Mui.Icons.Notes}
-                        </ListItemIcon>
-                        <ListItemText
-                            primary="Voorschrift"
-                            secondary={sc.Prescription |> typoGraphy}
-                        />
-                    </ListItem>
-                    <Divider variant="inset" component="li" />
-                    <ListItem alignItems="flex-start">
-                        <ListItemIcon>
-                            {Mui.Icons.Vaccines}
-                        </ListItemIcon>
-                        <ListItemText
-                            primary="Bereiding"
-                            secondary={sc.Preparation |> typoGraphy}
-                        />
-                    </ListItem>
-                    <Divider variant="inset" component="li" />
-                    <ListItem alignItems="flex-start">
-                        <ListItemIcon>
-                            {Mui.Icons.MedicationLiquid}
-                        </ListItemIcon>
-                        <ListItemText
-                            primary="Toediening"
-                            secondary={sc.Administration |> typoGraphy}
-                        />
-                    </ListItem>
+                        {
+                            [|
+                                item Mui.Icons.Notes "Voorschrift" sc.Prescription
+                                item Mui.Icons.Vaccines "Bereiding" sc.Preparation
+                                item Mui.Icons.MedicationLiquid "Toediening" sc.Administration
+                            |]
+                            |> unbox
+                            |> React.fragment
+                        }
                     </List>
                 </Box>
                 """
@@ -318,6 +295,7 @@ module Prescribe =
                         |> fun (med, scs) ->
                             scs
                             |> Array.map (displayScenarios med)
+                        |> unbox |> React.fragment
                     }
                 </Stack>
             </CardContent>

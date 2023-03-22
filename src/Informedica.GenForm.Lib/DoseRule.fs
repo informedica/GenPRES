@@ -474,10 +474,21 @@ module DoseRule =
                         |> Array.map (fun r ->
                             {
                                 Substance = r.Substance
-                                DoseUnit = r.DoseUnit
+                                DoseUnit = 
+                                    if r.Substance |> String.isNullOrWhiteSpace |> not then r.DoseUnit
+                                    else
+                                        match shapeLimits |> Array.tryHead with
+                                        | Some sl -> sl.DoseUnit
+                                        | None -> ""
                                 RateUnit = r.RateUnit
                                 NormQuantity = r.NormQty |> toArr
-                                Quantity = (r.MinQty, r.MaxQty) |> MinMax.fromTuple
+                                Quantity = 
+                                    if r.Substance |> String.isNullOrWhiteSpace |> not then 
+                                        (r.MinQty, r.MaxQty) |> MinMax.fromTuple
+                                    else
+                                        match shapeLimits |> Array.tryHead with
+                                        | Some sl -> sl.Quantity
+                                        | None -> (None, None) |> MinMax.fromTuple
                                 NormQuantityAdjust = r.NormQtyAdj
                                 QuantityAdjust = (r.MinQtyAdj, r.MaxQtyAdj) |> MinMax.fromTuple
                                 NormPerTime = r.NormPerTime |> toArr
@@ -490,7 +501,7 @@ module DoseRule =
                                 RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple
                             }
                         )
-                        |> Array.append shapeLimits
+//                        |> Array.append shapeLimits
 
                     Products =
                         Product.get ()
