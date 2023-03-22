@@ -44,3 +44,8 @@ open Informedica.GenForm.Lib
 
 
 Mapping.filterRouteShapeUnit "rect" "zetpil" ""
+
+let x = System.Diagnostics.Process.GetCurrentProcess()
+for item in x.Modules do
+    if item.FileName.Contains("fsi.dll") then
+        printfn "%A" item.FileName

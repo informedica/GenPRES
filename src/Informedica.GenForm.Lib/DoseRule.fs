@@ -56,6 +56,7 @@ module DoseRule =
                     |> Array.map BigRational.ToInt32
                     |> Array.map string
                     |> String.concat ", "
+
                 if frs |> String.isNullOrWhiteSpace then ""
                 else
                     if r.FreqUnit |> String.isNullOrWhiteSpace then $"{frs} x"
@@ -158,8 +159,6 @@ module DoseRule =
             )
 
 
-
-
         /// See for use of anonymous record in
         /// fold: https://github.com/dotnet/fsharp/issues/6699
         let toMarkdown (rules : DoseRule array) =
@@ -209,12 +208,13 @@ module DoseRule =
                 ("", rules |> Array.groupBy (fun d -> d.DoseType))
                 ||> Array.fold (fun acc (dt, ds) ->
                     let dose =
-                        ds
-                        |> Array.map (printDose "**")
-                        |> Array.distinct
-                        |> function
-                        | [| d |] -> d |> String.concat "\n"
-                        | _ -> ""
+                        if ds |> Array.isEmpty then ""
+                        else
+                            ds
+                            |> Array.collect (printDose "**")
+                            |> Array.distinct
+                            |> String.concat " "
+                            |> fun s -> $"{s}\n"
 
                     let freqs =
                         if dose = "" then ""
@@ -463,13 +463,13 @@ module DoseRule =
                                 { DoseLimit.limit with
                                     Substance = ""
                                     DoseUnit = rsu.DoseUnit
-                                    Quantity = 
+                                    Quantity =
                                         let min = rsu.MinDoseQty |> Option.map BigRational.fromDecimal
                                         let max = rsu.MaxDoseQty |> Option.map BigRational.fromDecimal
                                         (min, max) |> MinMax.fromTuple
                                 }
                              )
-                        
+
                         rs
                         |> Array.map (fun r ->
                             {

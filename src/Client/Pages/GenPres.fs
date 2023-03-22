@@ -23,7 +23,6 @@ module GenPres =
 
         type State =
             {
-                CurrentPage: Pages
                 SideMenuItems: (JSX.Element option * string * bool) []
                 SideMenuIsOpen: bool
                 Configuration: Configuration Option
@@ -52,18 +51,18 @@ module GenPres =
 
             let state =
                 {
-                    CurrentPage = page |> Option.defaultValue LifeSupport
                     SideMenuItems =
                         pages
                         |> List.toArray
                         |> Array.map (fun p ->
+                            let b = p = page
                             match p |> pageToString Localization.Dutch with
-                            | s when p = LifeSupport -> (Mui.Icons.FireExtinguisher |> Some), s, false
-                            | s when p = ContinuousMeds -> (Mui.Icons.Vaccines |> Some), s, false
-                            | s when p = Prescribe -> (Mui.Icons.Message |> Some), s, false
-                            | s when p = Formulary -> (Mui.Icons.LocalPharmacy |> Some), s, false
-                            | s when p = Parenteralia -> (Mui.Icons.Bloodtype |> Some), s, false
-                            | s -> None, s, false
+                            | s when p = LifeSupport -> (Mui.Icons.FireExtinguisher |> Some), s, b
+                            | s when p = ContinuousMeds -> (Mui.Icons.Vaccines |> Some), s, b
+                            | s when p = Prescribe -> (Mui.Icons.Message |> Some), s, b
+                            | s when p = Formulary -> (Mui.Icons.LocalPharmacy |> Some), s, b
+                            | s when p = Parenteralia -> (Mui.Icons.Bloodtype |> Some), s, b
+                            | s -> None, s, b
                         )
 
                     SideMenuIsOpen = false
@@ -74,7 +73,7 @@ module GenPres =
             state, Cmd.none
 
 
-        let update (msg: Msg) (state: State) =
+        let update updatePage (msg: Msg) (state: State) =
             match msg with
             | ToggleMenu ->
                 { state with
@@ -85,13 +84,14 @@ module GenPres =
             | SideMenuClick s ->
                 let pageToString = Global.pageToString Localization.Dutch
 
+                pages
+                |> List.map (fun p -> p |> pageToString, p)
+                |> List.tryFind (fst >> ((=) s))
+                |> Option.map snd
+                |> Option.defaultValue LifeSupport
+                |> updatePage
+
                 { state with
-                    CurrentPage =
-                        pages
-                        |> List.map (fun p -> p |> pageToString, p)
-                        |> List.tryFind (fst >> ((=) s))
-                        |> Option.map snd
-                        |> Option.defaultValue LifeSupport
 
                     SideMenuItems =
                         state.SideMenuItems
@@ -122,6 +122,7 @@ module GenPres =
         (props: {|
             patient: Patient option
             updatePatient: Patient option -> unit
+            updatePage: Global.Pages -> unit
             bolusMedication: Deferred<Intervention list>
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
@@ -129,9 +130,9 @@ module GenPres =
             updateScenario : ScenarioResult -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
-            page : Global.Pages option |}) =
+            page : Global.Pages |}) =
 
-        let state, dispatch = React.useElmish (init props.page, update, [| box props.page |])
+        let state, dispatch = React.useElmish (init props.page, update props.updatePage, [| box props.page; box props.updatePage |])
 
         let notFound =
             JSX.jsx
@@ -156,7 +157,7 @@ module GenPres =
         <React.Fragment>
             <Box>
                 {Components.TitleBar.View({|
-                    title = $"GenPRES 2023 {state.CurrentPage |> (Global.pageToString Localization.Dutch)}"
+                    title = $"GenPRES 2023 {props.page |> (Global.pageToString Localization.Dutch)}"
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch
                 |})}
             </Box>
@@ -178,7 +179,7 @@ module GenPres =
                     </Box>
                     <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
                         {
-                            match state.CurrentPage with
+                            match props.page with
                             | Global.Pages.LifeSupport ->
                                 Views.EmergencyList.View ({| interventions = props.bolusMedication |})
                             | Global.Pages.ContinuousMeds ->

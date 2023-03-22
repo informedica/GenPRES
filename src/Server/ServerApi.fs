@@ -22,6 +22,11 @@ let serverApi: IServerApi =
             Weight = form.Weight |> Option.bind BigRational.fromFloat
         }
 
+    let selectIfOne sel xs =
+        match sel, xs with
+        | None, [|x|] -> Some x
+        | _ -> sel
+
     {
         test =
             fun () ->
@@ -46,14 +51,24 @@ let serverApi: IServerApi =
                             Indications = dsrs |> DoseRule.indications
                             Routes = dsrs |> DoseRule.routes
                             Patients = dsrs |> DoseRule.patients
-                            Markdown =
-                                match form.Generic, form.Indication, form.Route, form.Patient with
-                                | Some _, Some _, Some _, Some _ ->
-                                    dsrs
-                                    |> DoseRule.filter filter
-                                    |> DoseRule.Print.toMarkdown
-                                | _ -> ""
                         }
+                        |> fun form ->
+                            { form with
+                                Generic = form.Generics |> selectIfOne form.Generic
+                                Indication = form.Indications |> selectIfOne form.Indication
+                                Route = form.Routes |> selectIfOne form.Route
+                                Patient = form.Patients |> selectIfOne form.Patient
+                            }
+                        |> fun form ->
+                            { form with
+                                Markdown =
+                                    match form.Generic, form.Indication, form.Route, form.Patient with
+                                    | Some _, Some _, Some _, Some _ ->
+                                        dsrs
+                                        |> DoseRule.filter filter
+                                        |> DoseRule.Print.toMarkdown
+                                    | _ -> ""
+                            }
 
                     return Ok form
                 }

@@ -161,43 +161,8 @@ module Formulary =
                 </Box>
                 """
 
-        let typoGraphy (items : Shared.Types.TextItem[]) =
-            let print item =
-                match item with
-                | Shared.Types.Normal s ->
-                    JSX.jsx
-                        $"""
-                    <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
-                    """
-                | Shared.Types.Bold s ->
-                    JSX.jsx
-                        $"""
-                    <Typography
-                    color={Mui.Colors.BlueGrey.``700``}
-                    display="inline"
-                    >
-                    <strong> {s} </strong>
-                    </Typography>
-                    """
-                | Shared.Types.Italic s ->
-                    JSX.jsx
-                        $"""
-                    <Typography
-                    color={Mui.Colors.Grey.``700``}
-                    display="inline"
-                    >
-                    <strong> {s} </strong>
-                    </Typography>
-                    """
-
-            JSX.jsx
-                $"""
-            import Typography from '@mui/material/Typography';
-
-            <Box display="inline" >
-                {items |> Array.map print}
-            </Box>
-            """
+        let stackDirection =
+            if  Mui.Hooks.useMediaQuery "(max-width:900px)" then "column" else "row"
 
         let content =
             JSX.jsx
@@ -211,7 +176,7 @@ module Formulary =
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
                     Formularium
                 </Typography>
-                <Stack direction="column" spacing={3} >
+                <Stack direction={stackDirection} spacing={3} >
                     {
                         match props.formulary with
                         | Resolved form -> false, form.Generic, form.Generics
@@ -249,7 +214,7 @@ module Formulary =
                             |> select isLoading "Patienten" sel (PatientChange >> dispatch)
                     }
                 </Stack>
-                <Paper sx={ {| mt = 2; color = Mui.Colors.Indigo.``900`` |} } >
+                <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {
                         match props.formulary with
                         | Resolved form ->
@@ -262,7 +227,7 @@ module Formulary =
                             |> toReact
 
                     }
-                </Paper>
+                </Box>
             </CardContent>
             """
 

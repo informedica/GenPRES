@@ -20,7 +20,7 @@ module private Elmish =
 
     type Model =
         {
-            Page : Global.Pages option
+            Page : Global.Pages
             Patient: Patient option
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
@@ -32,6 +32,7 @@ module private Elmish =
 
     type Msg =
         | UpdatePatient of Patient option
+        | UpdatePage of Global.Pages
         | UrlChanged of string list
         | LoadBolusMedication of
             AsyncOperationStatus<Result<BolusMedication list, string>>
@@ -127,7 +128,7 @@ module private Elmish =
 
         let initialState =
             {
-                Page = page
+                Page = page |> Option.defaultValue Global.LifeSupport
                 Patient = pat
                 BolusMedication = HasNotStartedYet
                 ContinuousMedication = HasNotStartedYet
@@ -141,8 +142,6 @@ module private Elmish =
                 Cmd.ofMsg (LoadBolusMedication Started)
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
-                Cmd.ofMsg (LoadScenarios Started)
-                Cmd.ofMsg (LoadFormulary Started)
             ]
 
         initialState, cmds
@@ -159,10 +158,34 @@ module private Elmish =
             let pat, page = sl |> parseUrl
 
             { state with
-                Page = page
+                Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
             },
             Cmd.none
+
+        | UpdatePage page ->
+            printfn $"update page: {page}"
+            let cmd =
+                match page with
+                | p when p = Prescribe ->
+                    match state.Scenarios with
+                    | Resolved _ -> Cmd.none
+                    | _ ->
+                        printfn "load scenarios started"
+                        LoadScenarios Started |> Cmd.ofMsg
+                | p when p = Formulary ->
+                    match state.Formulary with
+                    | Resolved _ -> Cmd.none
+                    | _ ->
+                        printfn "load formulary started"
+                        LoadFormulary Started |> Cmd.ofMsg
+
+                | _ -> Cmd.none
+
+            { state with
+                Page = page
+            }
+            , cmd
 
         | LoadBolusMedication Started ->
             { state with
@@ -368,6 +391,7 @@ let View () =
                 {
                     Pages.GenPres.View({|
                         patient = state.Patient
+                        updatePage = UpdatePage >> dispatch
                         updatePatient = UpdatePatient >> dispatch
                         bolusMedication = bm
                         continuousMedication = cm
