@@ -55,7 +55,7 @@ Current known build configuration
 
 For the full application to run a propreitary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
-A demo cache file with medication product data will be made public, but this is work in progress.
+A demo cache file with medication product data is include in this repository. This contains some sample medication data from a much larger drug formulary database.
 
 ## Starting the application
 
@@ -64,7 +64,7 @@ Currently, the project is moving to using Vite and the current build system has 
 For the time being the application can be started by the following procedure:
 
 1. `npm install` will perform a tool restore and install all dependencies
-2. `dotnet watch --project src/Server/Server.fsproj` will start the server
+2. `npm run watch-server` will start the server
 3. `npm start` will start the fable compilation and the Vite development server
 4. `npm run build` will create a deployment to a `deploy` folder
 
