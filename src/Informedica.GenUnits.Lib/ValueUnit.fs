@@ -2620,6 +2620,14 @@ module ValueUnit =
                     | _ -> None
 
 
+        let fixPrecision n (dto : Dto) =
+            dto.Value <-
+                dto.Value
+                |> Array.map (Decimal.fixPrecision n)
+            
+            dto
+
+
 
 type ValueUnit with
 

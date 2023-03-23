@@ -88,17 +88,19 @@ module Variable =
                 match op with
                 // y.incr = x1.incr * x2.incr
                 | ValueUnit.Operators.Mult -> incr1 |> op <| incr2 |> create |> Some
-
+                // TODO: really need to check this!!
                 // when y = x1 + x2 then y.incr = x1.incr and x2.incr
                 | ValueUnit.Operators.Add -> //| BigRational.Subtr ->
                     let vs1 = incr1 |> ValueUnit.getBaseValue
                     let vs2 = incr2 |> ValueUnit.getBaseValue
 
-                    incr1
-                    |> ValueUnit.setValue (Array.append vs1 vs2)
-                    |> ValueUnit.toUnit
-                    |> create
-                    |> Some
+                    if vs1 |> Array.forall (fun br -> vs2 |> Array.exists ((=) br)) |> not then None
+                    else
+                        incr1
+                        |> ValueUnit.setValue vs1
+                        |> ValueUnit.toUnit
+                        |> create
+                        |> Some
 
                 // incr cannot be calculated based on division
                 | _ -> None

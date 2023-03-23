@@ -282,6 +282,19 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            let fixPrecision n (dos: Dose) =
+                let qty = dos.Quantity |> Quantity.fixPrecision n
+                let ptm = dos.PerTime 
+                let rte = dos.Rate //|> Rate.fixPrecision n
+                let tot = dos.Total 
+                let qty_adj = dos.QuantityAdjust 
+                let ptm_adj = dos.PerTimeAdjust
+                let rte_adj = dos.RateAdjust
+                let tot_adj = dos.TotalAdjust
+
+                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+
+
 
             /// Turn an `Item` to a list of `string`s,
             /// each string containing the variable
@@ -468,7 +481,6 @@ module Order =
             /// each string containing the variable
             /// `Name`, `ValueRange` and `Unit`
             let toString = toOrdVars >> List.map (OrderVariable.toString false)
-
 
 
             module Dto =
@@ -860,6 +872,16 @@ module Order =
         let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
+        let fixPrecision n orb =
+            let ord_qty = (orb |> get).OrderQuantity 
+            let orb_qty = orb.OrderableQuantity      
+            let ord_cnt = orb.OrderCount             
+            let dos_cnt = orb.DoseCount              
+            let dos = orb.Dose |> Dose.fixPrecision n
+
+            orb.Components
+            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+
 
         module Dto =
 
@@ -1244,6 +1266,12 @@ module Order =
             reraise()
 
 
+    let fixPrecision n (ord : Order) =
+        { ord with
+            Orderable = ord.Orderable |> Orderable.fixPrecision n
+        }
+
+
     let mapToEquations eqs (ord: Order)  =
         let ovars = ord |> toOrdVars
 
@@ -1351,7 +1379,7 @@ module Order =
             c.Items
             |> Seq.map (fun i ->
                 i.ComponentConcentration
-                |> Concentration.toValueUnitString 1
+                |> Concentration.toValueUnitString 0
                 |> fun s ->
                     $"{s} {i.Name |> Name.toString}"
             )
@@ -1362,7 +1390,7 @@ module Order =
             o.Orderable.Components
             |> Seq.map (fun c ->
                 c.OrderableQuantity
-                |> Quantity.toValueUnitString 1
+                |> Quantity.toValueUnitString 0
                 |> fun q ->
                     let s =
                         c
@@ -1379,7 +1407,7 @@ module Order =
 
         let printOrderableDoseQuantity o =
             o.Orderable.Dose.Quantity
-            |> Quantity.toValueUnitString 2
+            |> Quantity.toValueUnitString 0
 
 
         let printPrescription sn (o : Order) =
@@ -1501,7 +1529,7 @@ module Order =
             c.Items
             |> Seq.map (fun i ->
                 i.ComponentConcentration
-                |> Concentration.toValueUnitMarkdown 1
+                |> Concentration.toValueUnitMarkdown 0
                 |> fun s ->
                     $"{s} {i.Name |> Name.toString}"
             )
@@ -1512,7 +1540,7 @@ module Order =
             o.Orderable.Components
             |> Seq.map (fun c ->
                 c.OrderableQuantity
-                |> Quantity.toValueUnitMarkdown 1
+                |> Quantity.toValueUnitMarkdown 0
                 |> fun q ->
                     let s =
                         c
@@ -1529,7 +1557,7 @@ module Order =
 
         let printOrderableDoseQuantity o =
             o.Orderable.Dose.Quantity
-            |> Quantity.toValueUnitMarkdown 2
+            |> Quantity.toValueUnitMarkdown 0
 
 
         let printPrescription sn (o : Order) =

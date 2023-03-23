@@ -99,18 +99,18 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 1 = 7
     /// * 0.6666 |> fixPrecision 1 = 0.7
     /// * 0.0666 |> fixPrecision 1 = 0.07
-    /// * 0.0666 |> fixPrecision 0 = 0
     /// * 0.0666 |> fixPrecision 1 = 0.07
     /// * 0.0666 |> fixPrecision 2 = 0.067
     /// * 0.0666 |> fixPrecision 3 = 0.0666
-    /// * 6.6666 |> fixPrecision 0 = 7
     /// * 6.6666 |> fixPrecision 1 = 7
     /// * 6.6666 |> fixPrecision 2 = 6.7
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
     /// If n < 0 then n = 0 is used.
     let fixPrecision n (d: decimal) =
-        Math.Round(d, d |> getPrecision n)
+        if n = 0 then d
+        else
+            Math.Round(d, d |> getPrecision n)
 
 
     //----------------------------------------------------------------------------

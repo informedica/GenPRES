@@ -162,16 +162,16 @@ startLogger ()
 stopLogger ()
 
 
-Patient.child
+Patient.toddler
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr -> 
-    pr.DoseRule.Generic = "benzylpenicilline" && 
+    pr.DoseRule.Generic = "amikacine" && 
     pr.DoseRule.Route = "iv" //&& 
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[1] |> Some)  //|> printfn "%A"
+|> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrder
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")

@@ -207,7 +207,16 @@ module Api =
             |> DrugOrder.toOrder
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
-//            |> Result.bind (Order.solveOrder false logger)
+            |> Result.bind (fun ord ->
+                ord 
+                |> Order.fixPrecision 2
+                |> Order.solveMinMax false logger
+            )
+            |> Result.bind (fun ord ->
+                ord 
+                |> Order.fixPrecision 2
+                |> Order.solveMinMax false logger
+            )
             |> function
             | Ok ord ->
                 let dto = ord |> Order.Dto.toDto

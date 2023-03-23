@@ -335,6 +335,26 @@ module OrderVariable =
             dto
 
 
+        // TODO: this is ugly, need to improve this and not use dto
+        let fixPrecision n (dto : Dto) =
+            let rec fixPrec cmp op i (minOrMax : decimal[]) =
+                let recurse = fixPrec cmp op i
+                let v = minOrMax |> Array.map (Decimal.fixPrecision n)
+                printfn $"""fix: {v |> Array.map string |> String.concat ", "}"""
+                if v |> Array.forall (fun v1 -> minOrMax |> Array.forall (fun v2 -> v1 |> cmp <| v2)) then v
+                else 
+                    let minOrMax = minOrMax |> Array.map (fun v -> v |> op <| (i |> Array.min))
+                    recurse minOrMax
+                    
+            match dto.Variable.Incr with
+            | None -> ()
+            | Some i -> 
+                let i = i.Value
+                dto.Variable.Min <- dto.Variable.Min |> Option.map (fun vu -> vu.Value <- vu.Value |> fixPrec (>=) (+) i; vu)
+                dto.Variable.Max <- dto.Variable.Max |> Option.map (fun vu -> vu.Value <- vu.Value |> fixPrec (<=) (-) i; vu)
+
+            dto
+
 
     /// Type and functions that represent a count
     module Count =
@@ -589,8 +609,14 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
+
+
+        let fixPrecision n qty =
+            qty 
+            |> toDto 
+            |> Dto.fixPrecision n
+            |> fromDto
 
 
 
@@ -697,6 +723,12 @@ module OrderVariable =
 
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
+
+        let fixPrecision n rate =
+            rate 
+            |> toDto 
+            |> Dto.fixPrecision n
+            |> fromDto
 
 
     /// Type and functions that represent a total
