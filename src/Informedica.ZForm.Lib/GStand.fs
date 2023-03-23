@@ -35,7 +35,7 @@ module GStand =
 
     let config =
         {
-            UseAll = true
+            GPKs = []
             IsRate = false
             SubstanceUnit = None
             TimeUnit = None
@@ -802,7 +802,7 @@ module GStand =
             )
             |> Seq.collect (fun rte ->
                 RF.createFilter age wght bsa gpk gpp.Name gpp.Shape rte
-                |> RF.find cfg.UseAll
+                |> RF.find cfg.GPKs
                 |> getPatients cfg
                 |> Seq.sortBy (fun pats -> pats.patientCategory.Age.Min, pats.patientCategory.Weight.Min)
                 |> Seq.collect (fun pats ->
@@ -871,7 +871,7 @@ module GStand =
 
     let createDoseRules (cfg: CreateConfig) age wght bsa gpk gen shp rte =
 
-        GPP.filter cfg.UseAll gen shp rte
+        GPP.filter gen shp rte
         |> Seq.filter (fun gpp ->
             match gpk with
             | None -> true

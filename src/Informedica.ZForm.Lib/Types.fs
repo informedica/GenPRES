@@ -385,7 +385,7 @@ module Types =
 
 
     type UnitMapping =
-        { 
+        {
             ZIndexLong : string
             ZIndexShort : string
             MetaVision : string
@@ -402,13 +402,13 @@ module Types =
             MetaVision2 : string
             Frequency : BigRational
             Unit : Unit
-        }            
+        }
 
 
 
     type CreateConfig =
         {
-            UseAll : bool
+            GPKs : int list
             IsRate : bool
             SubstanceUnit : Unit Option
             TimeUnit : Unit Option

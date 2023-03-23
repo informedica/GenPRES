@@ -20,8 +20,9 @@ module GenPresProduct =
         }
 
 
-    let private parse (prs : Assortment []) =
-        let gpks =  prs |> Array.map (fun pr -> pr.GPK)
+
+    let private parse gpks =
+        let gpks =  gpks |> List.toArray
 
         GenericProduct.get (gpks |> Array.toList)
         |> Array.map (fun gp ->
@@ -38,7 +39,7 @@ module GenPresProduct =
             let gps = xs |> Array.map (fun (_, gp) -> gp)
 
             let dpn =
-                prs
+                Assortment.assortment ()
                 |> Array.filter (fun pr ->
                         gps
                         |> Array.exists (fun gp ->
@@ -85,50 +86,33 @@ module GenPresProduct =
             create nm sh rt ph gps dpn unt [||])
 
 
-    let private _get (prs : Assortment []) =
-        if FilePath.productCache |> File.exists then
-            FilePath.productCache
+    let private _get gpks =
+        if (FilePath.productCache true) |> File.exists then
+            FilePath.productCache true
             |> Json.getCache
             |> (fun gpps ->
-                if prs |> Array.isEmpty then gpps
+                if gpks |> List.isEmpty then gpps
                 else
                     gpps
                     |> Array.filter (fun gpp ->
                         gpp.GenericProducts
                         |> Array.exists (fun gp ->
-                            prs
-                            |> Array.exists (fun pr -> pr.GPK = gp.Id)
+                            gpks
+                            |> List.exists (fun gpk -> gp.Id = gpk)
                         )
                     )
             )
         else
             printfn "No cache creating GenPresProduct"
-            let gsps = parse prs
-            gsps |> Json.cache FilePath.productCache
+            let gsps = parse gpks
+            gsps |> Json.cache (FilePath.productCache false)
             gsps
 
 
     let private memGet = Memoization.memoize _get
 
 
-    let private getAssortment () =
-        let gpks =
-            Assortment.assortment ()
-            |> Array.map (fun pr -> pr.GPK)
-
-        Array.empty
-        |> memGet
-        |> Array.filter (fun pr ->
-            gpks
-            |> Array.exists (fun gpk -> pr.GenericProducts |> Array.exists (fun gp -> gp.Id = gpk))
-        )
-
-
-    let private getAll () =
-        Array.empty |> memGet
-
-
-    let get all = if all then getAll () else getAssortment ()
+    let get = memGet
 
 
     let getGPKS all =
@@ -144,8 +128,8 @@ module GenPresProduct =
         gpp.Name + " " + gpp.Shape + " " + (gpp.Routes |> String.concat "/")
 
 
-    let filter all n s r =
-        if all then getAll () else getAssortment ()
+    let filter n s r =
+        get []
         |> Array.filter (fun gpp ->
             (n = "" || gpp.Name   |> String.equalsCapInsens n) &&
             (s = "" || gpp.Shape  |> String.equalsCapInsens s) &&
@@ -154,21 +138,19 @@ module GenPresProduct =
 
 
     let findByGPK gpk =
-        getAll ()
+        get []
         |> Array.filter (fun gpp ->
             gpp.GenericProducts
             |> Array.exists (fun gp -> gp.Id = gpk)
         )
 
 
-    let load all =
-        if all then getAll () else getAssortment ()
-        |> ignore
+    let load = get >> ignore
 
 
     let getRoutes =
         fun () ->
-            getAll ()
+            get []
             |> Array.collect (fun gpp ->
                 gpp.Routes
             )
@@ -179,7 +161,7 @@ module GenPresProduct =
 
     let getShapes =
         fun () ->
-            getAll ()
+            get []
             |> Array.map (fun gpp ->
                 gpp.Shape
             )
@@ -190,7 +172,7 @@ module GenPresProduct =
 
     let getUnits =
         fun () ->
-            getAll ()
+            get []
             |> Array.map (fun gpp ->
                 gpp.Unit
             )
@@ -201,7 +183,7 @@ module GenPresProduct =
 
     let getShapeRoutes =
         fun () ->
-            getAssortment ()
+            get []
             |> Array.map (fun gpp ->
                 gpp.Shape, gpp.Routes
             )
@@ -218,7 +200,7 @@ module GenPresProduct =
 
     let getShapeUnits =
         fun () ->
-            getAssortment ()
+            get []
             |> Array.map (fun gpp ->
                 gpp.Shape, gpp.Unit
             )
@@ -229,7 +211,7 @@ module GenPresProduct =
 
     let getSubstanceUnits =
         fun () ->
-            getAll ()
+            get []
             |> Array.collect (fun gpp ->
                 gpp.GenericProducts
                 |> Array.collect (fun gp ->
@@ -245,7 +227,7 @@ module GenPresProduct =
 
     let getGenericUnits =
         fun () ->
-            getAll ()
+            get []
             |> Array.collect (fun gpp ->
                 gpp.GenericProducts
                 |> Array.collect (fun gp ->
@@ -259,7 +241,7 @@ module GenPresProduct =
 
 
     let getSubstQtyUnit gpk =
-        getAll ()
+        get []
         |> Array.collect (fun gpp ->
             gpp.GenericProducts
             |> Array.filter (fun gp -> gp.Id = gpk)
@@ -273,7 +255,7 @@ module GenPresProduct =
 
 
     let getGenericProducts () =
-        get true
+        get []
         |> Array.collect (fun gpp -> gpp.GenericProducts)
 
 
@@ -281,7 +263,7 @@ module GenPresProduct =
     let search n =
         let contains = String.containsCapsInsens
 
-        get true
+        get []
         |> Array.filter (fun gpp ->
             gpp.Name |> contains n ||
             gpp.GenericProducts

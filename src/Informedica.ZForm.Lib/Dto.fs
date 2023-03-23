@@ -137,9 +137,9 @@ module Dto =
 
     let loadGenForm () =
         printfn "Start loading GenPresProducts ..."
-        GPP.load true
+        GPP.load []
         printfn "Start loading DoseRules ..."
-        DR.load ()
+        DR.load []
         printfn "Start loading ATCGroups ..."
         ATC.load ()
         printfn "Finisched loading"
@@ -154,7 +154,7 @@ module Dto =
         let gpps =
             let ps = dto.GPK |> GPP.findByGPK
             if ps |> Array.length = 0 then
-                GPP.filter true dto.Generic dto.Shape rte
+                GPP.filter dto.Generic dto.Shape rte
             else ps
             |> Array.toList
 
@@ -320,20 +320,20 @@ module Dto =
                     |> Some
                     // TODO: check mapping
                     //|> ValueUnit.unitFromAppString
-                    
+
 
             let tu =
                 if dto.RateUnit = "" then None
                 else
-                    dto.RateUnit 
-                    |> Mapping.stringToUnit (Mapping.getUnitMapping ())                    
+                    dto.RateUnit
+                    |> Mapping.stringToUnit (Mapping.getUnitMapping ())
                     |> Some
                     // TODO: check mapping
                     //|> ValueUnit.unitFromAppString
 
             let cfg : CreateConfig =
                 {
-                    UseAll = true
+                    GPKs = []
                     IsRate = dto.IsRate
                     SubstanceUnit = su
                     TimeUnit = tu

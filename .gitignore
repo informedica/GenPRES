@@ -124,17 +124,18 @@
 !/src/Server/Scripts/
 !/src/Server/data
 !/src/Server/data/cache
+!/src/Server/data/cache/*.demo
 
 # Add data folders
 !/data/
 !/data/cache/
+!/data/cache/*.demo
 !/data/zindex/
 !/data/formulary/
 !/data/formulary/*.csv
 !/data/mapping/
 !/data/output/
 !/data/output/*.csv
-
 
 # Informedica.Utils.Lib
 !/src/Informedica.Utils.Lib/

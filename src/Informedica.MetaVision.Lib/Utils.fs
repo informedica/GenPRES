@@ -304,7 +304,7 @@ module Utils =
 
 
     let getSynonyms (gp: GenericProduct) =
-        GenPresProduct.get true
+        GenPresProduct.get []
         |> Array.filter (fun gpp -> gpp.GenericProducts |> Array.exists ((=) gp))
         |> Array.collect (fun gpp ->
             gpp.GenericProducts

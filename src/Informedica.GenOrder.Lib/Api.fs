@@ -208,12 +208,11 @@ module Api =
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
             |> Result.bind (fun ord ->
-                ord 
-                |> Order.fixPrecision 2
-                |> Order.solveMinMax false logger
+                // TODO: implement increment rounding
+                ord |> Ok
             )
             |> Result.bind (fun ord ->
-                ord 
+                ord
                 |> Order.fixPrecision 2
                 |> Order.solveMinMax false logger
             )

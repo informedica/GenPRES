@@ -144,13 +144,13 @@ module ATCGroup =
 
 
     let _get () =
-        if FilePath.groupCache |> File.exists then
-            FilePath.groupCache
+        if (FilePath.groupCache true) |> File.exists then
+            FilePath.groupCache true
             |> Json.getCache
         else
             printfn "No cache creating group.cache"
-            let grps = GenPresProduct.getGPKS true |> parse
-            grps |> Json.cache FilePath.groupCache
+            let grps = GenPresProduct.getGPKS [] |> parse
+            grps |> Json.cache (FilePath.groupCache false)
             grps
 
 

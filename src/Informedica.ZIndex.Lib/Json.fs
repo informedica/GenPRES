@@ -22,10 +22,10 @@ module Json =
         |> File.writeTextToFile p
 
     let clearCache () =
-        File.Delete(FilePath.groupCache)
-        File.Delete(FilePath.substanceCache)
-        File.Delete(FilePath.productCache)
-        File.Delete(FilePath.ruleCache)
+        File.Delete(FilePath.groupCache false)
+        File.Delete(FilePath.substanceCache false)
+        File.Delete(FilePath.productCache false)
+        File.Delete(FilePath.ruleCache false)
 
     let getCache<'T> p =
         printfn $"Reading cache: %s{p}"

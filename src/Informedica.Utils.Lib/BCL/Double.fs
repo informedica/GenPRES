@@ -136,9 +136,9 @@ module Double =
     /// * 6.6666 |> fixPrecision 2 = 6.7
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
-    /// If n < 0 then n = 0 is used.
+    /// If n < 0 then the value is not changed.
     let fixPrecision n (f: float) =
-        if n = 0 then f
+        if n < 0 then f
         else
             Math.Round(f, f |> getPrecision n)
 

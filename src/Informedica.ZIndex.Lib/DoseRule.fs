@@ -227,7 +227,7 @@ module DoseRule =
         |> Array.toList
         |> GenericProduct.get
         *)
-        
+
         GenPresProduct.getGenericProducts ()
         |> Array.map (fun gp ->
             let unt =
@@ -456,21 +456,21 @@ module DoseRule =
         ))
 
 
-    let _get () =
-        if FilePath.ruleCache |> File.exists then
-            FilePath.ruleCache
+    let _get gpks =
+        if FilePath.ruleCache true |> File.exists then
+            FilePath.ruleCache true
             |> Json.getCache<DoseRule[]>
         else
             printfn "No cache creating DoseRule"
-            let rules = GenPresProduct.getGPKS true |> parse
-            rules |> Json.cache FilePath.ruleCache
+            let rules = GenPresProduct.getGPKS gpks |> parse
+            rules |> Json.cache (FilePath.ruleCache false)
             rules
 
 
-    let get : unit -> DoseRule [] = Memoization.memoize _get
+    let get : List<int> -> DoseRule [] = Memoization.memoize _get
 
 
-    let load () = get () |> ignore
+    let load = get >> ignore
 
 
     let toString2 (dr : DoseRule) =

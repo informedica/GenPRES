@@ -106,9 +106,9 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 2 = 6.7
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
-    /// If n < 0 then n = 0 is used.
+    /// If n < 0 then the value is not changed.
     let fixPrecision n (d: decimal) =
-        if n = 0 then d
+        if n < 0 then d
         else
             Math.Round(d, d |> getPrecision n)
 

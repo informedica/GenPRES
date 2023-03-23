@@ -56,7 +56,7 @@ module MetaVision =
 
 
     let routeShapeUnits () =
-        GenPresProduct.get true
+        GenPresProduct.get []
         //|> Array.filter (fun gpp -> gpp.Shape |> String.toLower |> String.contains "concentraat" )
         |> Array.collect (fun gpp -> gpp.GenericProducts)
         |> Array.collect (fun gp ->
@@ -119,7 +119,7 @@ module MetaVision =
         |> Array.map (fun (id, s) ->
             let s = s |> String.toLower
             let rts =
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.filter (fun gpp -> gpp.Shape |> String.equalsCapInsens s)
                 |> Array.collect (fun gpp -> gpp.Routes)
                 |> Array.collect (String.splitAt ',')
@@ -472,7 +472,7 @@ module MetaVision =
                         ""
                         ""
                         ""
-                    |> RuleFinder.find true
+                    |> RuleFinder.find []
 
                 let name =
                     gp.Name

@@ -20,7 +20,7 @@ module Substance =
         }
 
 
-    let cache (sbs : Substance []) = Json.cache FilePath.substanceCache sbs
+    let cache (sbs : Substance []) = Json.cache (FilePath.substanceCache false) sbs
 
 
     let parse () =
@@ -37,13 +37,13 @@ module Substance =
 
 
     let _get _ =
-        if FilePath.substanceCache  |> File.exists then
-            FilePath.substanceCache
+        if FilePath.substanceCache true |> File.exists then
+            FilePath.substanceCache true
             |> Json.getCache
         else
             printfn "No cache creating Substance"
             let substs = parse ()
-            substs |> Json.cache FilePath.substanceCache
+            substs |> Json.cache (FilePath.substanceCache false)
             substs
 
 

@@ -2624,7 +2624,7 @@ module ValueUnit =
             dto.Value <-
                 dto.Value
                 |> Array.map (Decimal.fixPrecision n)
-            
+
             dto
 
 

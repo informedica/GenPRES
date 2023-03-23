@@ -282,12 +282,13 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            // TODO rewrite
             let fixPrecision n (dos: Dose) =
-                let qty = dos.Quantity |> Quantity.fixPrecision n
-                let ptm = dos.PerTime 
+                let qty = dos.Quantity
+                let ptm = dos.PerTime
                 let rte = dos.Rate //|> Rate.fixPrecision n
-                let tot = dos.Total 
-                let qty_adj = dos.QuantityAdjust 
+                let tot = dos.Total
+                let qty_adj = dos.QuantityAdjust
                 let ptm_adj = dos.PerTimeAdjust
                 let rte_adj = dos.RateAdjust
                 let tot_adj = dos.TotalAdjust
@@ -873,10 +874,10 @@ module Order =
 
 
         let fixPrecision n orb =
-            let ord_qty = (orb |> get).OrderQuantity 
-            let orb_qty = orb.OrderableQuantity      
-            let ord_cnt = orb.OrderCount             
-            let dos_cnt = orb.DoseCount              
+            let ord_qty = (orb |> get).OrderQuantity
+            let orb_qty = orb.OrderableQuantity
+            let ord_cnt = orb.OrderCount
+            let dos_cnt = orb.DoseCount
             let dos = orb.Dose |> Dose.fixPrecision n
 
             orb.Components
@@ -1379,7 +1380,7 @@ module Order =
             c.Items
             |> Seq.map (fun i ->
                 i.ComponentConcentration
-                |> Concentration.toValueUnitString 0
+                |> Concentration.toValueUnitString -1
                 |> fun s ->
                     $"{s} {i.Name |> Name.toString}"
             )
@@ -1390,7 +1391,7 @@ module Order =
             o.Orderable.Components
             |> Seq.map (fun c ->
                 c.OrderableQuantity
-                |> Quantity.toValueUnitString 0
+                |> Quantity.toValueUnitString -1
                 |> fun q ->
                     let s =
                         c
@@ -1407,7 +1408,7 @@ module Order =
 
         let printOrderableDoseQuantity o =
             o.Orderable.Dose.Quantity
-            |> Quantity.toValueUnitString 0
+            |> Quantity.toValueUnitString -1
 
 
         let printPrescription sn (o : Order) =
@@ -1435,11 +1436,11 @@ module Order =
                 |> String.concat " + "
 
             match o.Prescription with
-            | Prescription.Discontinuous fr ->
+            | Discontinuous fr ->
                 // frequencies
                 let fr =
                     fr
-                    |> Frequency.toValueUnitString 0
+                    |> Frequency.toValueUnitString -1
 
                 let dq =
                     o
@@ -1459,15 +1460,15 @@ module Order =
 
                 pres, prep, adm
 
-            | Prescription.Continuous ->
+            | Continuous ->
                 // infusion rate
                 let rt =
                     o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitString 1
+                    |> Rate.toValueUnitString -1
 
                 let oq =
                     o.Orderable.OrderableQuantity
-                    |> Quantity.toValueUnitString 2
+                    |> Quantity.toValueUnitString -1
 
                 let it =
                     o
@@ -1487,12 +1488,12 @@ module Order =
 
                 pres, prep, adm
 
-            | Prescription.Timed (fr, tme) ->
+            | Timed (fr, tme) ->
 
                 // frequencies
                 let fr =
                     fr
-                    |> Frequency.toValueUnitString 0
+                    |> Frequency.toValueUnitString -1
 
                 let tme =
                     tme
@@ -1501,7 +1502,7 @@ module Order =
                 // infusion rate
                 let rt =
                     o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitString 1
+                    |> Rate.toValueUnitString -1
 
                 let dq =
                     o
@@ -1529,7 +1530,7 @@ module Order =
             c.Items
             |> Seq.map (fun i ->
                 i.ComponentConcentration
-                |> Concentration.toValueUnitMarkdown 0
+                |> Concentration.toValueUnitMarkdown -1
                 |> fun s ->
                     $"{s} {i.Name |> Name.toString}"
             )
@@ -1540,7 +1541,7 @@ module Order =
             o.Orderable.Components
             |> Seq.map (fun c ->
                 c.OrderableQuantity
-                |> Quantity.toValueUnitMarkdown 0
+                |> Quantity.toValueUnitMarkdown -1
                 |> fun q ->
                     let s =
                         c
@@ -1557,7 +1558,7 @@ module Order =
 
         let printOrderableDoseQuantity o =
             o.Orderable.Dose.Quantity
-            |> Quantity.toValueUnitMarkdown 0
+            |> Quantity.toValueUnitMarkdown -1
 
 
         let printPrescription sn (o : Order) =
@@ -1585,11 +1586,11 @@ module Order =
                 |> String.concat " + "
 
             match o.Prescription with
-            | Prescription.Discontinuous fr ->
+            | Discontinuous fr ->
                 // frequencies
                 let fr =
                     fr
-                    |> Frequency.toValueUnitMarkdown 0
+                    |> Frequency.toValueUnitMarkdown -1
                     |> String.replace "/" " per "
 
                 let dq =
@@ -1612,15 +1613,15 @@ module Order =
                 prep,
                 adm
 
-            | Prescription.Continuous ->
+            | Continuous ->
                 // infusion rate
                 let rt =
                     o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitMarkdown 1
+                    |> Rate.toValueUnitMarkdown -1
 
                 let oq =
                     o.Orderable.OrderableQuantity
-                    |> Quantity.toValueUnitMarkdown 2
+                    |> Quantity.toValueUnitMarkdown -1
 
                 let it =
                     o
@@ -1640,12 +1641,12 @@ module Order =
 
                 pres, prep, adm
 
-            | Prescription.Timed (fr, tme) ->
+            | Timed (fr, tme) ->
 
                 // frequencies
                 let fr =
                     fr
-                    |> Frequency.toValueUnitMarkdown 0
+                    |> Frequency.toValueUnitMarkdown -1
                     |> String.replace "/" " per "
 
                 let tme =
@@ -1655,7 +1656,7 @@ module Order =
                 // infusion rate
                 let rt =
                     o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitMarkdown 1
+                    |> Rate.toValueUnitMarkdown -1
 
                 let dq =
                     o
