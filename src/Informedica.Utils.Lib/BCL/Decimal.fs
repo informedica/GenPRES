@@ -59,38 +59,26 @@ module Decimal =
     /// * 6.6666 |> getPrecision 3 = 2
     /// etc
     /// If n < 0 then n = 0 is used.
-    let getPrecision n d =
-        try
-            let n = if n < 0 then 0 else n
-            if d = 0m || n = 0 then n
+    let getPrecision n (d: Decimal) =
+        let n = if n < 0 then 0 else n
+        if d = 0m || n = 0 then n
+        else
+            let absF = abs d
+            let s = absF.ToString("G")
+            if s.Contains "E" then
+                let eIndex = s.IndexOf("E") + 2
+                let h = int s[eIndex..]
+                h + n - 1
             else
-                let s = (d |> abs |> string)
-                // chech whether the string is of type "1E-05"
-                if(s.Contains "E") then
-                    let k = s.IndexOf("E")+2 // get the index of the number after the "-"
-                    let h = s[k..] |> int // get int 5
-                    let p = h + n - 1  // precision is 5 + n -1
-                    p
-                else
-                let s = s.Split([|'.'|])
-                // calculate number of remaining decimal digits (after '.')
-                let p = n - (if s[0] = "0" then 0 else s[0].Length)
+                let parts = s.Split('.')
+                let leftPart = parts[0]
+                let p = n - (if leftPart = "0" then 0 else leftPart.Length)
                 let p = if p < 0 then 0 else p
-                //printfn $"parse int: {s.[0]}"
-                if (int s[0]) > 0 then // s.[0] |> int64 > 0L if (*)
-                    p
+                if int leftPart > 0 then p
                 else
-                    // calculate the the first occurance of a non-zero decimal digit
-                    let c = (s[1] |> String.countFirstChar '0')
-                    c + p
-        with
-        | e ->
-            printfn $"cannot get precision %i{n} for %A{d}"
-            printfn $"catching error %A{e}"
-            printfn "returning 1 as default value"
-            1
-
-
+                    let rightPart = parts[1]
+                    let zeroCount = rightPart |> Seq.takeWhile (fun c -> c = '0') |> Seq.length
+                    zeroCount + p
 
 
     /// Fix the precision of a float f to
