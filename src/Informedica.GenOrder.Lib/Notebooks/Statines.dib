@@ -1,0 +1,190 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!markdown
+
+## Sample code to demonstrate statine drug calculations
+
+#!markdown
+
+### First load the libs
+
+#!fsharp
+
+#load "load.fsx"
+
+open System
+open System.IO
+open MathNet.Numerics
+
+open Informedica.Utils.Lib
+open Informedica.ZIndex.Lib
+open Informedica.GenUnits.Lib
+open Informedica.GenOrder.Lib
+
+let zindexPath = __SOURCE_DIRECTORY__ |> Path.combineWith "../../../"
+
+printfn $"{__SOURCE_DIRECTORY__}"
+Environment.CurrentDirectory <- zindexPath
+
+#!markdown
+
+First define some data structures to hold patient and minimal drug information
+
+#!fsharp
+
+type Patient = 
+    { 
+        Id : string 
+        Prescriptions : DrugInfo list
+        History : DrugHistory list
+    }
+
+and DrugInfo =
+    {
+        GPK : int
+        FreqPerDay : int
+        Quantity : float
+        Unit : string
+        Start : DateTime
+        Stop : DateTime option
+    }
+and DrugHistory =
+    {
+        Date : DateTime
+        Drug : string
+        DailyDose : float
+        Unit : string
+    }
+
+#!markdown
+
+Now these are the GPK's of some statines
+
+#!fsharp
+
+let statines =
+    [
+        79553 // pravastatine
+        79561 // pravastatine
+        100811 // pravastatine
+        116572 // simvastatine
+        116580 // simvastatine
+        116599 // simvastatine
+        137197 // atorvastatine
+        137200 // atorvastatine
+        137219 // atorvastatine        
+    ]
+
+#!markdown
+
+Create a sample patient
+
+#!fsharp
+
+let pat1 =
+    {
+        Id = "sample pat 1"
+        Prescriptions = 
+            [
+                { GPK = statines[0]; FreqPerDay = 1; Quantity = 1; Unit = "stuk"; Start = DateTime(2023, 1, 1); Stop = DateTime(2023, 1, 5) |> Some }
+                { GPK = statines[2]; FreqPerDay = 1; Quantity = 1; Unit = "stuk"; Start = DateTime(2023, 1, 3); Stop = DateTime(2023, 1, 8) |> Some }
+                { GPK = statines[4]; FreqPerDay = 2; Quantity = 1; Unit = "stuk"; Start = DateTime(2023, 1, 8); Stop = DateTime (2023, 1, 10) |> Some }
+            ]
+        History = []
+    }
+
+#!markdown
+
+Some helper functions
+
+#!fsharp
+
+let inline getFromGPP getter defVal gpk =
+    gpk
+    |> GenPresProduct.findByGPK
+    |> Array.tryHead
+    |> Option.map getter
+    |> Option.defaultValue defVal
+
+
+let getDrugName = getFromGPP (fun gpp -> gpp.Name) ""
+
+
+let getQuantity = 
+    let getter =
+        fun gpp -> 
+            gpp.GenericProducts
+            |> Array.tryHead
+            |> Option.map (fun gp -> 
+                if gp.Substances |> Array.length <> 1 then 0m
+                else 
+                    gp.Substances[0].GenericQuantity                
+            )
+            |> Option.defaultValue 0m
+
+    getFromGPP getter 0m
+
+
+let getUnit = 
+    let getter =
+        fun gpp -> 
+            gpp.GenericProducts
+            |> Array.tryHead
+            |> Option.map (fun gp -> 
+                if gp.Substances |> Array.length <> 1 then ""
+                else 
+                    gp.Substances[0].GenericUnit                
+            )
+            |> Option.defaultValue ""
+
+    getFromGPP getter ""
+
+
+let findPrescription (pat : Patient) dt =
+    pat.Prescriptions 
+    |> List.filter (fun pr -> 
+        match pr.Stop with
+        | Some stop -> pr.Start <= dt && dt <= stop
+        | None -> pr.Start <= dt
+    )
+    |> List.sortByDescending (fun pr -> pr.Stop |> Option.defaultValue DateTime.Now)
+    |> List.tryHead
+
+
+let createHistory (pat : Patient) =
+    let start = 
+        pat.Prescriptions
+        |> List.sortBy (fun pr -> pr.Start)
+        |> List.tryHead 
+        |> Option.map (fun pr -> pr.Start)
+
+    let stop = 
+        pat.Prescriptions
+        |> List.sortBy (fun pr -> pr.Start)
+        |> List.tryLast 
+        |> Option.bind (fun pr -> pr.Stop)
+
+    match start, stop with
+    | Some start, _  -> 
+        let days = ((stop |> Option.defaultValue DateTime.Now) - start).Days
+        [0..1..(days - 1)]
+        |> List.map (fun i -> start.AddDays(float i))
+        |> List.map (fun dt -> dt, dt |> findPrescription pat)
+        |> List.filter (snd >> Option.isSome)
+        |> List.map (fun (dt, pr) ->
+            { 
+                Date = dt
+                Drug = pr.Value.GPK |> getDrugName
+                DailyDose = (pr.Value.GPK |> getQuantity |> float) * (float pr.Value.FreqPerDay)
+                Unit = (pr.Value.GPK |> getUnit)
+            }
+        )
+    | _ -> 
+        []
+
+#!fsharp
+
+pat1
+|> createHistory

@@ -20,7 +20,6 @@ module GenPresProduct =
         }
 
 
-
     let private parse gpks =
         let gpks =  gpks |> List.toArray
 

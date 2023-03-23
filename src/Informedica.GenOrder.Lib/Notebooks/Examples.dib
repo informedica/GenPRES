@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","aliases":[]},{"name":".NET","languageName":null,"aliases":[]},{"name":"html","languageName":"HTML","aliases":[]},{"name":"vscode","languageName":null,"aliases":["frontend"]}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":".NET"},{"aliases":[],"name":"csharp"},{"aliases":[],"languageName":"HTML","name":"html"},{"aliases":["frontend"],"name":"vscode"}]}}
 
 #!markdown
 
@@ -12,7 +12,7 @@ First load all the required references and source files
 
 #!fsharp
 
-#load "../Scripts/load.fsx"
+#load "load.fsx"
 
 open System
 open MathNet.Numerics

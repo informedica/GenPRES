@@ -14,6 +14,8 @@ open Informedica.ZIndex.Lib
 // File
 File.exists <| FilePath.GStandPath + "BST000T"
 
+FilePath.productCache true
+|> File.exists
 
 Json.clearCache ()
 // Load all
