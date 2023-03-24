@@ -1,4 +1,4 @@
-﻿namespace Informedica.ZIndex.Lib
+namespace Informedica.ZIndex.Lib
 
 
 module Substance =
@@ -41,10 +41,12 @@ module Substance =
             FilePath.substanceCache true
             |> Json.getCache
         else
-            printfn "No cache creating Substance"
-            let substs = parse ()
-            substs |> Json.cache (FilePath.substanceCache false)
-            substs
+            fun () ->
+                printfn "No cache creating Substance"
+                let substs = parse ()
+                substs |> Json.cache (FilePath.substanceCache false)
+                substs
+            |> StopWatch.clockFunc
 
 
     let get : unit -> Substance [] =

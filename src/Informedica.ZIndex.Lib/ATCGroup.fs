@@ -148,10 +148,12 @@ module ATCGroup =
             FilePath.groupCache true
             |> Json.getCache
         else
-            printfn "No cache creating group.cache"
-            let grps = GenPresProduct.getGPKS [] |> parse
-            grps |> Json.cache (FilePath.groupCache false)
-            grps
+            fun () ->
+                printfn "No cache creating group.cache"
+                let grps = GenPresProduct.getGPKS [] |> parse
+                grps |> Json.cache (FilePath.groupCache false)
+                grps
+            |> StopWatch.clockFunc
 
 
     let get : unit -> ATCGroup [] = Memoization.memoize _get

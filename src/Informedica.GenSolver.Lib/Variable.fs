@@ -1982,6 +1982,9 @@ module Variable =
         getValueRange >> ValueRange.isUnrestricted
 
 
+    let isMinIncrMax = getValueRange >> ValueRange.isMinIncrMax
+
+
     /// Apply the operator **op** to **v1** and **v2**
     /// return an intermediate *result* `Variable`.
     let calc op (v1, v2) =
@@ -2000,6 +2003,30 @@ module Variable =
             raise e
 
 
+    let increaseIncrement incr var =
+        if var |> isMinIncrMax |> not then var
+        else
+            { var with
+                Values =
+                    incr
+                    |> List.fold (fun acc i ->
+                        printfn $"try setting increment {i}"
+                        match acc |> ValueRange.getMin, acc |> ValueRange.getMax with
+                        | Some oldMin, Some oldMax ->
+                            let newVr =
+                                acc
+                                |> ValueRange.setIncr true i 
+                            match newVr |> ValueRange.getMin, newVr |> ValueRange.getMax with
+                            | Some newMin, Some newMax ->
+                                if newMin |> Minimum.minGTmin oldMin ||
+                                   newMax |> Maximum.maxSTmax oldMax then newVr
+                                else acc
+                            | _ -> acc
+                        | _ -> acc
+                    ) var.Values
+            }
+
+
     module Operators =
 
         let inline (^*) vr1 vr2 = calc (^*) (vr1, vr2)
@@ -2010,8 +2037,7 @@ module Variable =
 
         let inline (^-) vr1 vr2 = calc (^-) (vr1, vr2)
 
-        let inline (^<-) vr1 vr2 =
-            vr2 |> getValueRange |> setValueRange false vr1
+        let inline (^<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange false vr1
 
 
         let inline (@*) vr1 vr2 = calc (@*) (vr1, vr2)
@@ -2022,8 +2048,7 @@ module Variable =
 
         let inline (@-) vr1 vr2 = calc (@-) (vr1, vr2)
 
-        let inline (@<-) vr1 vr2 =
-            vr2 |> getValueRange |> setValueRange true vr1
+        let inline (@<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange true vr1
 
 
         /// Constant 1

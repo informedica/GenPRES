@@ -128,6 +128,12 @@ module OrderVariable =
         }
 
 
+    let increaseIncrement incr (ovar : OrderVariable) =
+        { ovar with
+            Variable = ovar.Variable |> Variable.increaseIncrement incr
+        }
+
+
     let fromOrdVar toOvar c ovars a =
         ovars
         |> List.tryFind (eqsName (a |> toOvar))
@@ -589,6 +595,9 @@ module OrderVariable =
 
 
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
+
+
+        let increaseIncrement incr = toOrdVar >> increaseIncrement incr >> Quantity
 
 
 

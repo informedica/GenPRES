@@ -34,9 +34,9 @@
     <Compile Include="Web.fs" />
     <Compile Include="Env.fs" />
     <Compile Include="App.fs" />
+    <Compile Include="StopWatch.fs" />
     <None Include="Scripts/load.fsx" />
     <None Include="Scripts/Scripts.fsx" />
-    <None Include="Scripts\Tests.fsx" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

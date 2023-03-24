@@ -461,10 +461,12 @@ module DoseRule =
             FilePath.ruleCache true
             |> Json.getCache<DoseRule[]>
         else
-            printfn "No cache creating DoseRule"
-            let rules = GenPresProduct.getGPKS gpks |> parse
-            rules |> Json.cache (FilePath.ruleCache false)
-            rules
+            fun () ->
+                printfn "No cache creating DoseRule"
+                let rules = GenPresProduct.getGPKS gpks |> parse
+                rules |> Json.cache (FilePath.ruleCache false)
+                rules
+            |> StopWatch.clockFunc
 
 
     let get : List<int> -> DoseRule [] = Memoization.memoize _get

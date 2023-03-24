@@ -208,13 +208,27 @@ module Api =
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
             |> Result.bind (fun ord ->
-                // TODO: implement increment rounding
-                ord |> Ok
-            )
-            |> Result.bind (fun ord ->
-                ord
-                |> Order.fixPrecision 2
-                |> Order.solveMinMax false logger
+                let dto = ord |> Order.Dto.toDto
+
+                match dto.Orderable.Dose.Quantity.Variable.Min,
+                      dto.Orderable.Dose.Quantity.Variable.Incr,
+                      dto.Orderable.Dose.Quantity.Variable.Max with
+                | Some min, Some incr, Some max when min.Unit |> String.equalsCapInsens "ml" ->
+                    let incr =
+                        [0.1m; 0.5m; 1m; 5m; 10m]
+                        |> List.choose (fun i ->
+                            incr.Value <- [| i |]
+                            incr
+                            |> ValueUnit.Dto.fromDto
+                        )
+                        |> List.map (fun vu ->
+                            vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
+                        )
+
+                    ord
+                    |> Order.increaseIncrement incr
+                    |> Order.solveMinMax false logger
+                | _ -> ord |> Ok
             )
             |> function
             | Ok ord ->

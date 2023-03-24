@@ -1,4 +1,4 @@
-﻿namespace Informedica.ZIndex.Lib
+namespace Informedica.ZIndex.Lib
 
 
 module GenPresProduct =
@@ -102,10 +102,12 @@ module GenPresProduct =
                     )
             )
         else
-            printfn "No cache creating GenPresProduct"
-            let gsps = parse gpks
-            gsps |> Json.cache (FilePath.productCache false)
-            gsps
+            fun () ->
+                printfn "No cache creating GenPresProduct"
+                let gsps = parse gpks
+                gsps |> Json.cache (FilePath.productCache false)
+                gsps
+            |> StopWatch.clockFunc
 
 
     let private memGet = Memoization.memoize _get

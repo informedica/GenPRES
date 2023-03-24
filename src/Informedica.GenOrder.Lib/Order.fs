@@ -283,8 +283,8 @@ module Order =
 
 
             // TODO rewrite
-            let fixPrecision n (dos: Dose) =
-                let qty = dos.Quantity
+            let increaseIncrement incr (dos: Dose) =
+                let qty = dos.Quantity |> Quantity.increaseIncrement incr
                 let ptm = dos.PerTime
                 let rte = dos.Rate //|> Rate.fixPrecision n
                 let tot = dos.Total
@@ -873,12 +873,12 @@ module Order =
         let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
-        let fixPrecision n orb =
+        let increaseIncrement incr orb =
             let ord_qty = (orb |> get).OrderQuantity
             let orb_qty = orb.OrderableQuantity
             let ord_cnt = orb.OrderCount
             let dos_cnt = orb.DoseCount
-            let dos = orb.Dose |> Dose.fixPrecision n
+            let dos = orb.Dose |> Dose.increaseIncrement incr
 
             orb.Components
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
@@ -1267,9 +1267,9 @@ module Order =
             reraise()
 
 
-    let fixPrecision n (ord : Order) =
+    let increaseIncrement incr (ord : Order) =
         { ord with
-            Orderable = ord.Orderable |> Orderable.fixPrecision n
+            Orderable = ord.Orderable |> Orderable.increaseIncrement incr
         }
 
 
