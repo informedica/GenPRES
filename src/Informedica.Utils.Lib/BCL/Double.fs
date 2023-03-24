@@ -95,7 +95,7 @@ module Double =
         if f = 0. || n = 0 then n
         else
             let absF = abs f
-            let s = absF.ToString("G")
+            let s = absF.ToString("G", CultureInfo.InvariantCulture)
             if s.Contains "E" then
                 let eIndex = s.IndexOf("E") + 2
                 let h = int s[eIndex..]

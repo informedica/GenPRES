@@ -64,7 +64,7 @@ module Decimal =
         if d = 0m || n = 0 then n
         else
             let absF = abs d
-            let s = absF.ToString("G")
+            let s = absF.ToString("G", CultureInfo.InvariantCulture)
             if s.Contains "E" then
                 let eIndex = s.IndexOf("E") + 2
                 let h = int s[eIndex..]
