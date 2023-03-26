@@ -144,16 +144,16 @@ module ATCGroup =
 
 
     let _get () =
-        if (FilePath.groupCache true) |> File.exists then
-            FilePath.groupCache true
-            |> Json.getCache
-        else
-            fun () ->
-                printfn "No cache creating group.cache"
+        fun () ->
+            if (FilePath.groupCache true) |> File.exists then
+                FilePath.groupCache true
+                |> Json.getCache
+            else
+                ConsoleWriter.writeInfoMessage "No cache creating group.cache" true false
                 let grps = GenPresProduct.getGPKS [] |> parse
                 grps |> Json.cache (FilePath.groupCache false)
                 grps
-            |> StopWatch.clockFunc
+        |> StopWatch.clockFunc "Getting ATC groups"
 
 
     let get : unit -> ATCGroup [] = Memoization.memoize _get

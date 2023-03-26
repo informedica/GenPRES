@@ -70,11 +70,11 @@ module Solver =
                 cache.Value <- cache.Value.Add(e, r)
                 r
 
-    let sortQue que =
+    let sortQue onlyMinMax que =
         if que |> List.length = 0 then que
         else
             que
-            |> List.sortBy Equation.count //Equation.countProduct
+            |> List.sortBy (Equation.count onlyMinMax) //Equation.countProduct
 
 
     /// Create the equation solver using a
@@ -220,18 +220,18 @@ module Solver =
         match solve onlyMinIncrMax log sortQue (Some vr) eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
         | Ok eqs ->
-            let n2 = eqs |> List.length 
+            let n2 = eqs |> List.length
             if n2 <> n1 then failwith $"not the same number of eqs, was: {n1}, now {n2}"
             else Ok eqs
-        
+
 
     //TODO: need to clean up the number check
     let solveAll onlyMinIncrMax log eqs =
         let n1 = eqs |> List.length
 
-        match solve onlyMinIncrMax log sortQue None eqs with
+        match solve onlyMinIncrMax log (sortQue onlyMinIncrMax) None eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
         | Ok eqs ->
-            let n2 = eqs |> List.length 
+            let n2 = eqs |> List.length
             if n2 <> n1 then failwith $"not the same number of eqs, was: {n1}, now {n2}"
             else Ok eqs

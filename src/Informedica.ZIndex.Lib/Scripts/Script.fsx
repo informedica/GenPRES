@@ -315,3 +315,5 @@ DoseRule.load gpks
 printfn "Loading Substance"
 Substance.load ()
 
+
+GenPresProduct.search "amikacine"

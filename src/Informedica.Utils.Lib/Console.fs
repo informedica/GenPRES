@@ -1,12 +1,4 @@
-//#I __SOURCE_DIRECTORY__
-
-#load "load.fsx"
-
-open System
-open MathNet.Numerics
-open Informedica.Utils.Lib
-open Informedica.Utils.Lib.BCL
-open System.Globalization
+namespace Informedica.Utils.Lib
 
 
 [<RequireQualifiedAccess>]
@@ -54,7 +46,7 @@ module ConsoleWriter =
         WarningMessageBackColor = ConsoleColor.Black
     }
 
-    let lock f = 
+    let lock f =
         let lockObj = obj()
 
         lock lockObj f
@@ -72,6 +64,8 @@ module ConsoleWriter =
 
     let writeColoredText symbol (text: string) (frontColor: ConsoleColor) (backgroundColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
         fun () ->
+            Console.ResetColor()
+
             if writeCurrentTime then
                 let clock =
                     Constants.HTMLCodeSymbols.TryFind "clock"
@@ -83,22 +77,21 @@ module ConsoleWriter =
 
             match symbol with
             | None   -> ()
-            | Some s -> 
+            | Some s ->
                 Console.ForegroundColor <- colors.StandardFrontColor
                 Console.BackgroundColor <- colors.StandardBackColor
                 Console.Out.Write($"%s{s} ")
 
             Console.ForegroundColor <- frontColor
             Console.BackgroundColor <- backgroundColor
-            
+
             if writeLine then
                 Console.Out.WriteLine(text)
             else
                 Console.Out.Write(text)
 
-            Console.ForegroundColor <- colors.StandardFrontColor
-            Console.BackgroundColor <- colors.StandardBackColor
-            
+            Console.ResetColor ()
+
             Console.Out.Flush()
 
         |> lock
@@ -127,7 +120,7 @@ module ConsoleWriter =
         writeColoredText None text colors.ErrorMessageFrontColor colors.ErrorMessageBackColor writeLine false
 
     let writeWarningMessage (text: string) (_: bool) (writeTime: bool) =
-        let warning = Constants.HTMLCodeSymbols.TryFind "warning" 
+        let warning = Constants.HTMLCodeSymbols.TryFind "warning"
 
         writeColoredText warning "WARNING:" colors.WarningFrontColor colors.WarningBackColor false writeTime
         writeSpace ()
@@ -135,17 +128,3 @@ module ConsoleWriter =
 
     let writeColoredTextWithStandardBackColor (text: string) (frontColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
         writeColoredText None text frontColor colors.StandardBackColor writeLine writeCurrentTime
-
-
-ConsoleWriter.writeQuestionMessage "there is a question" true true
-ConsoleWriter.writeSeperator '-'
-
-ConsoleWriter.writeInfoMessage "just some info" true true
-ConsoleWriter.writeSeperator '-'
-
-ConsoleWriter.writeErrorMessage "oeps there was an error" true true
-ConsoleWriter.writeSeperator '-'
-
-ConsoleWriter.writeWarningMessage "look out!" true true
-ConsoleWriter.writeSeperator '-'
-

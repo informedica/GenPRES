@@ -212,6 +212,7 @@ module Tests =
                 br |> BigRational.maxInclMultipleOf incr
             else
                 br |> BigRational.maxExclMultipleOf incr
+            |> fun br -> (true, br)
 
 
         let minMultipleOf incr min =
@@ -221,6 +222,7 @@ module Tests =
                 br |> BigRational.minInclMultipleOf incr
             else
                 br |> BigRational.minExclMultipleOf incr
+            |> fun br -> (true, br)
 
 
         let minGTmax (maxIncl, max) (minIncl, min) =

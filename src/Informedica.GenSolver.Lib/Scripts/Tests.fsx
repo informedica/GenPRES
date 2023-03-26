@@ -1073,4 +1073,50 @@ let mcgPerHour =
 let piece = Units.General.general "stuk"
 
 
+module ValueRange = Variable.ValueRange
+module Minimum = Variable.ValueRange.Minimum
+module Maximum = Variable.ValueRange.Maximum
+module Increment = Variable.ValueRange.Increment
+
+
+// This variable:
+// [1.amikacine.injectievloeistof.amikacine]_dos_qty [170079/500 mg..267/500;25 mg..50997/100 mg]
+// cannot be set with this range:[170079/500 mg..267/500 mg..50997/100 mg]
+
+let min1 = [| 170079N/500N |] |> ValueUnit.create Units.Mass.milliGram |> Minimum.create true
+let incr1 =
+        [|
+            267N/500N
+            25N
+        |] |> ValueUnit.create Units.Mass.milliGram |> Increment.create
+let max1 = [| 50997N/100N |] |> ValueUnit.create Units.Mass.milliGram |> Maximum.create true
+let vr1 = (min1, incr1, max1) |> MinIncrMax
+vr1 |> ValueRange.toString false
+
+let min2 = [| 170079N/500N |] |> ValueUnit.create Units.Mass.milliGram |> Minimum.create true
+let incr2 =
+        [|
+            267N/500N
+        |] |> ValueUnit.create Units.Mass.milliGram |> Increment.create
+let max2 = [| 50997N/100N |] |> ValueUnit.create Units.Mass.milliGram |> Maximum.create true
+let vr2 = (min2, incr2, max2) |> MinIncrMax
+vr2 |> ValueRange.toString false
+
+vr1 |> ValueRange.applyExpr true (incr2 |> Types.ValueRange.Incr)
+
+min1 |> Minimum.multipleOf incr2
+max1 |> Maximum.multipleOf incr2
+
+vr1 |> ValueRange.setIncr true incr2
+
+incr1 |> Increment.restrict incr2
+
+
+incr2 |> Increment.toValueUnit
+|> ValueUnit.filter (fun i1 ->
+    (incr1 |> Increment.toValueUnit)
+    |> ValueUnit.getBaseValue
+    |> Array.exists (fun i2 -> i1 |> BigRational.isMultiple i2)
+)
+//|> ValueUnit.toUnit
 

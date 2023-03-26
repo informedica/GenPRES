@@ -474,7 +474,7 @@ module DoseRule =
                         |> Array.map (fun r ->
                             {
                                 Substance = r.Substance
-                                DoseUnit = 
+                                DoseUnit =
                                     if r.Substance |> String.isNullOrWhiteSpace |> not then r.DoseUnit
                                     else
                                         match shapeLimits |> Array.tryHead with
@@ -482,8 +482,8 @@ module DoseRule =
                                         | None -> ""
                                 RateUnit = r.RateUnit
                                 NormQuantity = r.NormQty |> toArr
-                                Quantity = 
-                                    if r.Substance |> String.isNullOrWhiteSpace |> not then 
+                                Quantity =
+                                    if r.Substance |> String.isNullOrWhiteSpace |> not then
                                         (r.MinQty, r.MaxQty) |> MinMax.fromTuple
                                     else
                                         match shapeLimits |> Array.tryHead with
@@ -509,6 +509,7 @@ module DoseRule =
                             { Filter.filter with
                                 Generic = dr.Generic |> Some
                                 Shape = dr.Shape |> Some
+                                Route = dr.Route |> Some
                             }
                 }
             )

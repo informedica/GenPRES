@@ -160,6 +160,7 @@ module TestSolver =
         |> ValueUnit.create u
         |> ValueSet.create
 
+    let setIncr u n vals = vals |> createIncr u |> IncrProp |> setProp n
     let setMinIncl u n min = min |> createMinIncl u |> MinProp|> setProp n
     let setMinExcl u n min = min |> createMinExcl u |> MinProp |> setProp n
     let setMaxIncl u n max = max |> createMaxIncl u |> MaxProp |> setProp n
@@ -176,6 +177,8 @@ module TestSolver =
         Api.solve true id logger n p eqs
 
     let solveAll = Api.solveAll false logger
+
+    let solveMinMax = Api.solveAll true logger
 
     let solveMinIncl u n min = solve n (min |> createMinIncl u |> MinProp)
     let solveMinExcl u n min = solve n (min |> createMinExcl u  |> MinProp)
@@ -283,19 +286,26 @@ module Tests =
                         |> Generators.testProp "calc mult with one gives identical result"
 
                         fun xs ->
+                            let xs =
+                                xs
+                                |> Array.map abs
+                                |> Array.filter ((<>) 0N)
+                                |> Array.distinct
                             try
                                 let incr1 = xs |> create |> Some
                                 let incr2 = [|1N|] |> create |> Some
                                 match Increment.calcOpt (+) incr1 incr2 with
                                 | Some (Increment res) ->
+                                    printfn $"result incr: {res}"
                                     xs
-                                    |> Array.filter ((<) 0N)
                                     |> Array.forall (fun x1 ->
                                         res
                                         |> ValueUnit.getValue
-                                        |> Array.forall (fun x2 -> x2 <= x1)
+                                        |> Array.forall (fun x2 -> x2 = x1)
                                     )
-                                | None -> false
+                                | None ->
+                                    xs
+                                    |> Array.forall ((<>) 1N)
                             with
                             | _ -> true
                         |> Generators.testProp "calc add with one gives gcd which is <= original incr"
@@ -321,6 +331,60 @@ module Tests =
                             with
                             | _ -> true
                         |> Generators.testProp "setting an incr with different incr"
+
+                        test "can restrict 0.1 with 0.5" {
+                            let oldIncr = [| 1N/10N |] |> create
+                            let newIncr = [| 5N/10N |] |> create
+                            oldIncr
+                            |> Increment.restrict newIncr
+                            |> Expect.equal "should be 0.5" newIncr
+                        }
+
+                        test "can restrict 1 with 2" {
+                            let oldIncr = [| 1N |] |> create
+                            let newIncr = [| 2N |] |> create
+                            oldIncr
+                            |> Increment.restrict newIncr
+                            |> Expect.equal "should be 2" newIncr
+                        }
+
+                        test "can restrict 0.1 ml with 0.5 ml" {
+                            let oldIncr =
+                                [| 1N/10N |]
+                                |> ValueUnit.create Units.Volume.milliLiter
+                                |> Increment.create
+                            let newIncr =
+                                [| 5N/10N |]
+                                |> ValueUnit.create Units.Volume.milliLiter
+                                |> Increment.create
+
+                            oldIncr
+                            |> Increment.restrict newIncr
+                            |> Expect.equal "should be 0.5 ml" newIncr
+                        }
+
+                        test "can restrict 0.1 l with 0.5 l" {
+                            let oldIncr =
+                                [| 1N/10N |]
+                                |> ValueUnit.create Units.Volume.liter
+                                |> Increment.create
+                            let newIncr =
+                                [| 5N/10N |]
+                                |> ValueUnit.create Units.Volume.liter
+                                |> Increment.create
+
+                            oldIncr
+                            |> Increment.restrict newIncr
+                            |> Expect.equal "should be 0.5 liter" newIncr
+                        }
+
+                        test "cannot restrict 0.5 with 0.1" {
+                            let oldIncr = [| 5N/10N |] |> create
+                            let newIncr = [| 1N/10N |] |> create
+                            oldIncr
+                            |> Increment.restrict newIncr
+                            |> Expect.equal "should be 0.5" oldIncr
+                        }
 
                     ]
 
@@ -592,6 +656,11 @@ module Tests =
                 |> ValueUnit.withSingleValue br
                 |> Maximum.create isIncl
 
+            let createIncr br =
+                Units.Count.times
+                |> ValueUnit.withSingleValue br
+                |> Increment.create
+
 
             open ValueRange.Operators
 
@@ -681,6 +750,24 @@ module Tests =
                         |> Expect.notEqual "should not be equal" ((min, max1) |> MinMax)
                     }
 
+                    test "min max can be set with an incr" {
+                        let min = createMin true 1N
+                        let incr = createIncr 1N
+                        let max = createMax true 5N
+                        ((min, max) |> MinMax)
+                        |> ValueRange.setIncr true incr
+                        |> Expect.equal "should be equal" ((min, incr, max) |> MinIncrMax)
+                    }
+
+                    test "min max can be set with a more restrictive incr" {
+                        let min = createMin true 2N
+                        let incr = createIncr 1N
+                        let max = createMax true 6N
+                        ((min, incr, max) |> MinIncrMax)
+                        |> ValueRange.setIncr true (createIncr 2N)
+                        |> Expect.equal "should be equal" ((min, (createIncr 2N), max) |> MinIncrMax)
+                    }
+
                     test "max 90 mg/kg/day cannot be replaced by 300 mg/kg/day" {
                         let mgPerKgPerDay =
                             (CombiUnit (Units.Mass.milliGram, OpPer, Units.Weight.kiloGram), OpPer,
@@ -695,6 +782,30 @@ module Tests =
                         (max1 |> Max)
                         |> ValueRange.setMax true max2
                         |> Expect.notEqual "should not be equal" (max2 |> Max)
+                    }
+
+                    // [1.amikacine.injectievloeistof.amikacine]_dos_qty [170079/500 mg..267/500;25 mg..50997/100 mg]
+                    // cannot be set with this range:[170079/500 mg..267/500 mg..50997/100 mg]
+                    test "failing case: [170079/500 mg..267/500;25 mg..50997/100 mg] should be able to set with [170079/500 mg..267/500..50997/100 mg]" {
+                        let min1 = [| 170079N/500N |] |> ValueUnit.create Units.Mass.milliGram |> Minimum.create true
+                        let incr1 =
+                                [|
+                                    267N/500N
+                                    25N
+                                |] |> ValueUnit.create Units.Mass.milliGram |> Increment.create
+                        let max1 = [| 50997N/100N |] |> ValueUnit.create Units.Mass.milliGram |> Maximum.create true
+                        let vr1 = (min1, incr1, max1) |> MinIncrMax
+
+                        let min2 = [| 170079N/500N |] |> ValueUnit.create Units.Mass.milliGram |> Minimum.create true
+                        let incr2 =
+                                [|
+                                    267N/500N
+                                |] |> ValueUnit.create Units.Mass.milliGram |> Increment.create
+                        let max2 = [| 50997N/100N |] |> ValueUnit.create Units.Mass.milliGram |> Maximum.create true
+                        let vr2 = (min2, incr2, max2) |> MinIncrMax
+
+                        vr1 @<- vr2
+                        |> Expect.equal "should equal vr2" vr2
                     }
 
                     test "max 300 mg/kg/day can be replaced by 90 mg/kg/day" {
@@ -817,6 +928,31 @@ module Tests =
                     }
 
                 ]
+
+                testList "increaseIncrement" [
+                    test "can increase increment of 48 1/10 719/10 ml with 5/10" {
+                        let min =
+                            [| 48N |] |> ValueUnit.create Units.Volume.milliLiter
+                            |> Minimum.create true
+                        let incr =
+                            [| 1N/10N |] |> ValueUnit.create Units.Volume.milliLiter
+                            |> Increment.create
+                        let max =
+                            [| 719N/10N |] |> ValueUnit.create Units.Volume.milliLiter
+                            |> Maximum.create true
+                        let newIncr =
+                            [| 5N/10N |] |> ValueUnit.create Units.Volume.milliLiter
+                            |> Increment.create
+
+                        (min, incr, max)
+                        |> MinIncrMax
+                        |> ValueRange.increaseIncrement [newIncr]
+                        |> Expect.equal "should be with new incr"
+                            ((min, newIncr, max) |> MinIncrMax)
+
+                    }
+
+                ]
             ]
 
 
@@ -832,6 +968,10 @@ module Tests =
         let kg = Units.Weight.kiloGram
         let mgPerDay = CombiUnit(mg, OpPer, day)
         let mgPerKgPerDay = (CombiUnit (mg, OpPer, kg), OpPer, day) |> CombiUnit
+        let ml = Units.Volume.milliLiter
+        let mlPerDay = (ml, OpPer, day) |> CombiUnit
+        let freqPerDay = (Units.Count.times, OpPer, day) |> CombiUnit
+
 
         // ParacetamolDoseTotal [180..3000] = ParacetamolDoseTotalAdjust [40..90] x Adjust <..100]
         let tests = testList "Equations" [
@@ -849,6 +989,41 @@ module Tests =
                 true |> Expect.isTrue "should run"
             }
 
+            // [1.benzylpenicilline]_orb_qty [0,2 mL..0,1 mL..500 mL] =
+            // [1.benzylpenicilline]_dos_cnt [1 x] * [1.benzylpenicilline]_dos_qty [0,2 mL..500 mL]
+            test "failing case: a [0,2 mL..0,1 mL..500 mL] = b [1 x] * c [0,2 mL..500 mL]" {
+                [ "a = b * c" ]
+                |> TestSolver.init
+                |> TestSolver.setMinIncl Units.Volume.milliLiter "a" (2N/10N)
+                |> TestSolver.setIncr Units.Volume.milliLiter "a" (1N/10N)
+                |> TestSolver.setMaxIncl Units.Volume.milliLiter "a" 500N
+                |> TestSolver.setValues Units.Count.times "b" [1N]
+                |> TestSolver.setMinIncl Units.Volume.milliLiter "c" (2N/10N)
+                |> TestSolver.setMaxIncl Units.Volume.milliLiter "c" 500N
+                |> TestSolver.solveMinMax
+                |> function
+                    | Ok eqs -> eqs |> List.map (Equation.toString true) |> String.concat ""
+                    | Error (_, errs) -> errs |> List.map string |> String.concat ""
+                |> Expect.equal "c should have an incr" "a [1/5 mL..1/10 mL..500 mL] = b [1 x] * c [1/5 mL..1/10 mL..500 mL]"
+            }
+
+            // [1.benzylpenicilline]_dos_ptm [2,3 mL/dag..460 mL/dag] =
+            // [1.benzylpenicilline]_dos_qty [0,2 mL..0,1 mL..500 mL] * [1]_prs_frq [4;5;6 x/dag]
+            test "failing case: a [2,3 mL/dag..460 mL/dag] = b [0,2 mL..0,1 mL..500 mL] * c [4;5;6 x/dag]" {
+                [ "a = b * c" ]
+                |> TestSolver.init
+                |> TestSolver.setMinIncl mlPerDay "a" (23N/10N)
+                |> TestSolver.setMaxIncl mlPerDay "a" 460N
+                |> TestSolver.setMinIncl ml "b" (2N/10N)
+                |> TestSolver.setIncr ml "b" (1N/10N)
+                |> TestSolver.setMaxIncl ml "b" 500N
+                |> TestSolver.setValues freqPerDay "c" [4N; 5N; 6N]
+                |> TestSolver.solveMinMax
+                |> function
+                    | Ok eqs -> eqs |> List.map (Equation.toString true) |> String.concat ""
+                    | Error (_, errs) -> errs |> List.map string |> String.concat ""
+                |> Expect.equal "a should have an incr" "a [12/5 mL/dag..2/5;1/2;3/5 mL/dag..460 mL/dag] = b [2/5 mL..1/10 mL..115 mL] * c [4;5;6 x/dag]"
+            }
         ]
 
 
@@ -864,7 +1039,6 @@ module Tests =
             VariableTests.ValueRangeTests.MaximumTests.tests
 
         ]
-        |> List.take 2
         |> testList "GenSolver"
 
 

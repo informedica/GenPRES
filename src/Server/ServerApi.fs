@@ -2,6 +2,7 @@
 module ServerApiImpl
 
 open MathNet.Numerics
+open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
@@ -36,7 +37,7 @@ let serverApi: IServerApi =
 
         getFormulary =
             fun (form : Formulary) ->
-                printfn "getting formulary"
+                ConsoleWriter.writeInfoMessage "getting formulary" true true
 
                 async {
                     let filter = form |> mapFormularyToFilter
@@ -90,7 +91,7 @@ Route: {sc.Route |> Option.defaultValue ""}
 Scenarios: {sc.Scenarios |> Array.length}
 """
 
-                    printfn $"""{msg "processing" sc}"""
+                    ConsoleWriter.writeInfoMessage $"""{msg "processing" sc}""" true true
 
                     let pat =
                         { Patient.patient with
@@ -153,11 +154,11 @@ Scenarios: {sc.Scenarios |> Array.length}
                                         Shared.ScenarioResult.createScenario sc.Shape sc.DoseType sc.Prescription sc.Preparation sc.Administration
                                     )
                             }
-                        printfn $"""{msg "finished" sc}"""
+                        ConsoleWriter.writeInfoMessage $"""{msg "finished" sc}""" true true
                         return sc |> Ok
                     with
                     | e ->
-                        printfn $"errored:\n{e}"
+                        ConsoleWriter.writeErrorMessage $"errored:\n{e}" true true
                         return sc |> Ok
                 }
     }

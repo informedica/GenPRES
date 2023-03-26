@@ -8,50 +8,55 @@ module Mapping =
 
 
     let routeMapping =
-        Web.getDataFromSheet Web.dataUrlId2 "Routes"
-        |> fun data ->
-            let getColumn =
+        fun () ->
+            Web.getDataFromSheet Web.dataUrlId2 "Routes"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get = getColumn r
-
-                {|
-                    Long = get "ZIndex"
-                    Short = get "ShortDutch"
-                |}
-            )
-
+                    {|
+                        Long = get "ZIndex"
+                        Short = get "ShortDutch"
+                    |}
+                )
+        |> StopWatch.clockFunc "Getting Routes"
 
     let unitMapping =
-        Web.getDataFromSheet Web.dataUrlId2 "Units"
-        |> fun data ->
-            let getColumn =
+        fun () ->
+            Web.getDataFromSheet Web.dataUrlId2 "Units"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get = getColumn r
-
-                {|
-                    Long = get "ZIndexUnitLong"
-                    Short = get "Unit"
-                    MV = get "MetaVisionUnit"
-                |}
-            )
+                    {|
+                        Long = get "ZIndexUnitLong"
+                        Short = get "Unit"
+                        MV = get "MetaVisionUnit"
+                    |}
+                )
+        |> StopWatch.clockFunc "Getting Units"
 
 
     let mapRoute rte =
         routeMapping
         |> Array.tryFind (fun r ->
-            r.Long |> String.equalsCapInsens rte
+            r.Long |> String.equalsCapInsens rte ||
+            r.Short |> String.equalsCapInsens rte
+
         )
         |> Option.map (fun r -> r.Short)
 
@@ -59,49 +64,52 @@ module Mapping =
     let mapUnit unt =
         unitMapping
         |> Array.tryFind (fun r ->
-            r.Long |> String.equalsCapInsens unt
+            r.Long |> String.equalsCapInsens unt ||
+            r.Short |> String.equalsCapInsens unt
         )
         |> Option.map (fun r -> r.Short)
 
 
     let mappingRouteShape =
-        Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
-        |> fun data ->
-            let inline getColumn get =
+        fun () ->
+            Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
+            |> fun data ->
+                let inline getColumn get =
+                    data
+                    |> Array.head
+                    |> get
+
                 data
-                |> Array.head
-                |> get
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let getStr = getColumn Csv.getStringColumn r
+                    let getDec = getColumn Csv.getDecimalOptionColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let getStr = getColumn Csv.getStringColumn r
-                let getDec = getColumn Csv.getDecimalOptionColumn r
-
-                {
-                    Route = getStr "Route"
-                    Shape = getStr "Shape"
-                    Unit = getStr "Unit"
-                    DoseUnit = getStr "Unit"
-                    MinDoseQty = getDec "MinDoseQty"
-                    MaxDoseQty = getDec "MaxDoseQty"
-                    Timed = getStr "Timed" |> String.equalsCapInsens "true"
-                    Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
-                    IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
-                }
-            )
+                    {
+                        Route = getStr "Route"
+                        Shape = getStr "Shape"
+                        Unit = getStr "Unit"
+                        DoseUnit = getStr "Unit"
+                        MinDoseQty = getDec "MinDoseQty"
+                        MaxDoseQty = getDec "MaxDoseQty"
+                        Timed = getStr "Timed" |> String.equalsCapInsens "true"
+                        Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
+                        IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
+                    }
+                )
+        |> StopWatch.clockFunc "Getting ShapeRoutes"
 
 
     let filterRouteShapeUnit rte shape unt =
         mappingRouteShape
         |> Array.filter (fun xs ->
-            let eqsRte = 
-                rte |> String.isNullOrWhiteSpace || 
+            let eqsRte =
+                rte |> String.isNullOrWhiteSpace ||
                 rte |> String.trim |> String.equalsCapInsens xs.Route ||
                 xs.Route |> mapRoute |> Option.map (String.equalsCapInsens (rte |> String.trim)) |> Option.defaultValue false
             let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens xs.Shape
-            let eqsUnt = 
-                unt |> String.isNullOrWhiteSpace || 
+            let eqsUnt =
+                unt |> String.isNullOrWhiteSpace ||
                 unt |> String.trim |> String.equalsCapInsens xs.Unit ||
                 xs.Unit |> mapUnit |> Option.map (String.equalsCapInsens (unt |> String.trim)) |> Option.defaultValue false
             eqsRte && eqsShp && eqsUnt
@@ -117,4 +125,4 @@ module Mapping =
         |> Array.fold (fun acc b -> acc || b) false
 
 
-        
+

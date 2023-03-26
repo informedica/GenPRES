@@ -28,7 +28,8 @@ module Json =
         File.Delete(FilePath.ruleCache false)
 
     let getCache<'T> p =
-        printfn $"Reading cache: %s{p}"
+        ConsoleWriter.writeInfoMessage $"Reading cache: %s{p}" true false
+
         File.readAllLines p
         |> String.concat ""
         |> deSerialize<'T>

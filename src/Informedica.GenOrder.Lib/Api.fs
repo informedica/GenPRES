@@ -208,26 +208,30 @@ module Api =
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
             |> Result.bind (fun ord ->
+                printfn "checking increase incr"
                 let dto = ord |> Order.Dto.toDto
 
-                match dto.Orderable.Dose.Quantity.Variable.Min,
-                      dto.Orderable.Dose.Quantity.Variable.Incr,
-                      dto.Orderable.Dose.Quantity.Variable.Max with
-                | Some min, Some incr, Some max when min.Unit |> String.equalsCapInsens "ml" ->
-                    let incr =
-                        [0.1m; 0.5m; 1m; 5m; 10m]
-                        |> List.choose (fun i ->
-                            incr.Value <- [| i |]
-                            incr
-                            |> ValueUnit.Dto.fromDto
-                        )
-                        |> List.map (fun vu ->
-                            vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
-                        )
+                match dto.Orderable.OrderableQuantity.Variable.Min,
+                      dto.Orderable.OrderableQuantity.Variable.Incr,
+                      dto.Orderable.OrderableQuantity.Variable.Max with
+                | Some min, Some incr, Some _ ->
+                    printfn $"unit to recalc: {min.Unit}"
+                    if min.Unit |> String.equalsCapInsens "ml" |> not then ord |> Ok
+                    else
+                        let incr =
+                            [0.5m; 1m; 5m; 10m]
+                            |> List.choose (fun i ->
+                                incr.Value <- [| i |]
+                                incr
+                                |> ValueUnit.Dto.fromDto
+                            )
+                            |> List.map (fun vu ->
+                                vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
+                            )
 
-                    ord
-                    |> Order.increaseIncrement incr
-                    |> Order.solveMinMax false logger
+                        ord
+                        |> Order.increaseIncrement incr
+                        |> Order.solveMinMax false logger
                 | _ -> ord |> Ok
             )
             |> function

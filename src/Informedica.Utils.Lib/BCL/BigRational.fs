@@ -379,26 +379,19 @@ module BigRational =
     let calcMinOrMaxToMultiple isMax isIncl incrs minOrMax =
         incrs
         |> Set.filter ((<) 0N) // only accept positive incrs
-        |> Set.fold (fun (b, acc) i ->
+        |> Set.map (fun i ->
             let ec = if isMax then (>=) else (<=)
-            let nc = if isMax then (>) else (<)
             let ad = if isMax then (-) else (+)
 
             let m =
                 if isMax then minOrMax |> toMaxMultipleOf i
                 else minOrMax |> toMinMultipleOf i
 
-            let m =
-                if (isIncl |> not) && (m |> ec <| minOrMax) then
-                    (m |> ad <| i)
-                else m
-
-            match acc with
-            | Some a -> if (m |> nc <| a) then (true, Some m) else (b, Some a)
-            | None   -> (true, Some m)
-        ) (isIncl, None)
-        |> fun (b, r) -> b, r |> Option.defaultValue minOrMax
-
+            if (isIncl |> not) && (m |> ec <| minOrMax) then
+                (m |> ad <| i)
+            else m
+        )
+        |> Seq.minBy (fun x -> if isMax then -x else x)
 
     let maxInclMultipleOf = calcMinOrMaxToMultiple true true
 

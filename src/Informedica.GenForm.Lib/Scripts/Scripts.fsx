@@ -49,3 +49,17 @@ let x = System.Diagnostics.Process.GetCurrentProcess()
 for item in x.Modules do
     if item.FileName.Contains("fsi.dll") then
         printfn "%A" item.FileName
+
+Product.get ()
+|> Array.filter (fun p -> p.Generic = "amikacine")
+
+
+Informedica.ZIndex.Lib.GenPresProduct.search "amikacine"
+|> Array.collect (fun gpp ->
+    gpp.Routes
+)
+|> Array.distinct
+|> Array.map Mapping.mapRoute
+
+
+Product.generics

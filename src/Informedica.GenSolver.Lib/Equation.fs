@@ -93,7 +93,7 @@ module Equation =
         apply f f
 
 
-    let count eq =
+    let count onlyMinMax eq =
         let vars = eq |> toVars
         let b =
             let n =
@@ -103,11 +103,20 @@ module Equation =
             (vars |> List.length) - n = 1
         if b then -100
         else
-            eq
-            |> toVars
-            |> List.fold (fun (acc : int) v ->
-                (+) (v |> Variable.count) acc
-            ) 0
+            if onlyMinMax &&
+               eq
+               |> toVars
+               |> List.exists (fun var ->
+                   var.Values
+                   |> ValueRange.isValueSet
+               )
+               then -50
+            else
+                eq
+                |> toVars
+                |> List.fold (fun (acc : int) v ->
+                    (+) (v |> Variable.count) acc
+                ) 0
 
 
     let countProduct eq =
@@ -269,11 +278,11 @@ module Equation =
                             // recalculate x
                             x <== (y |> op2 <| (xs |> without x |> List.reduce op1))
 
-                (xChanged || (x.Values |> ValueRange.eqs newX.Values |> not)) 
+                (xChanged || (x.Values |> ValueRange.eqs newX.Values |> not))
                 |> calcXs op1 op2 y (xs |> replAdd newX) tail
 
         let calcY op1 y xs =
-            if y |> Variable.isSolved then 
+            if y |> Variable.isSolved then
                 y, false
             else
                 // log the calculation

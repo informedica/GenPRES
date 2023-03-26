@@ -2,6 +2,7 @@
 #r "nuget: MathNet.Numerics.FSharp"
 
 #load "../Continuation.fs"
+#load "../Constants.fs"
 #load "../Memoization.fs"
 #load "../Reflection.fs"
 #load "../NullCheck.fs"
@@ -23,3 +24,6 @@
 #load "../Csv.fs"
 #load "../Env.fs"
 #load "../App.fs"
+#load "../StopWatch.fs"
+#load "../Console.fs"
+

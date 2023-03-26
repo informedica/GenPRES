@@ -86,28 +86,28 @@ module GenPresProduct =
 
 
     let private _get gpks =
-        if (FilePath.productCache true) |> File.exists then
-            FilePath.productCache true
-            |> Json.getCache
-            |> (fun gpps ->
-                if gpks |> List.isEmpty then gpps
-                else
-                    gpps
-                    |> Array.filter (fun gpp ->
-                        gpp.GenericProducts
-                        |> Array.exists (fun gp ->
-                            gpks
-                            |> List.exists (fun gpk -> gp.Id = gpk)
+        fun () ->
+            if (FilePath.productCache true) |> File.exists then
+                FilePath.productCache true
+                |> Json.getCache
+                |> (fun gpps ->
+                    if gpks |> List.isEmpty then gpps
+                    else
+                        gpps
+                        |> Array.filter (fun gpp ->
+                            gpp.GenericProducts
+                            |> Array.exists (fun gp ->
+                                gpks
+                                |> List.exists (fun gpk -> gp.Id = gpk)
+                            )
                         )
-                    )
-            )
-        else
-            fun () ->
-                printfn "No cache creating GenPresProduct"
+                )
+            else
+                ConsoleWriter.writeInfoMessage "No cache creating GenPresProduct" true false
                 let gsps = parse gpks
                 gsps |> Json.cache (FilePath.productCache false)
                 gsps
-            |> StopWatch.clockFunc
+        |> StopWatch.clockFunc "Getting GenPresProducts"
 
 
     let private memGet = Memoization.memoize _get

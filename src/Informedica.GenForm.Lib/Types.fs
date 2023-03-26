@@ -82,6 +82,7 @@ module Types =
             Product : string
             Label : string
             Shape : string
+            Routes : string []
             ShapeQuantities : BigRational []
             ShapeUnit : string
             RequiresReconstitution : bool

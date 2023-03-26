@@ -37,16 +37,16 @@ module Substance =
 
 
     let _get _ =
-        if FilePath.substanceCache true |> File.exists then
-            FilePath.substanceCache true
-            |> Json.getCache
-        else
-            fun () ->
-                printfn "No cache creating Substance"
-                let substs = parse ()
-                substs |> Json.cache (FilePath.substanceCache false)
-                substs
-            |> StopWatch.clockFunc
+        fun () ->
+            if FilePath.substanceCache true |> File.exists then
+                FilePath.substanceCache true
+                |> Json.getCache
+            else
+                    ConsoleWriter.writeInfoMessage "No cache creating Substance" true false
+                    let substs = parse ()
+                    substs |> Json.cache (FilePath.substanceCache false)
+                    substs
+        |> StopWatch.clockFunc "Getting Substances"
 
 
     let get : unit -> Substance [] =

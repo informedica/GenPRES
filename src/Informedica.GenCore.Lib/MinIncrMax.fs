@@ -359,7 +359,7 @@ module Limit =
         let calc toMult vu =
             vu
             |> ValueUnit.toBase
-            |> ValueUnit.mapValues (toMult brs >> snd)
+            |> ValueUnit.mapValues (toMult brs)
             |> ValueUnit.toUnit
             |> Inclusive
 

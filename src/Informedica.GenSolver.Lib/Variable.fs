@@ -102,8 +102,14 @@ module Variable =
                         |> create
                         |> Some
 
-                // incr cannot be calculated based on division
+                // incr cannot be calculated based on division except when dividing
+                // by the identity value of 1 times
+                | ValueUnit.Operators.Div when incr2 = ValueUnit.one Units.Count.times ->
+                    incr1
+                    |> create
+                    |> Some
                 | _ -> None
+
 
             /// Calculate an increment with
             /// **incr1** of x1 and **incr2** of x2
@@ -125,18 +131,17 @@ module Variable =
                 incr |> ValueUnit.getValue |> Array.length
 
 
+            /// restrict an oldIncr with a newIncr
             let restrict (Increment newIncr) (Increment oldIncr) =
                 if newIncr =? oldIncr then
                     oldIncr
                 else
                     newIncr
-                    |> ValueUnit.toBase
                     |> ValueUnit.filter (fun i1 ->
                         oldIncr
                         |> ValueUnit.getBaseValue
                         |> Array.exists (fun i2 -> i1 |> BigRational.isMultiple i2)
                     )
-                    |> ValueUnit.toUnit
                 |> fun vu ->
                     if vu |> ValueUnit.isEmpty then
                         oldIncr
@@ -283,7 +288,7 @@ module Variable =
                 apply fIncl fExcl
 
 
-
+            /// restrict an oldMin with a newMin
             let restrict newMin oldMin =
                 newMin |> checkTooSmall
 
@@ -1263,6 +1268,16 @@ module Variable =
                 fValueSet
 
 
+        let increaseIncrement incr vr =
+            incr
+            |> List.fold (fun acc i ->
+                try
+                    acc |> setIncr true i
+                with
+                | _ -> acc
+            ) vr
+
+
         let eqs vr1 vr2 =
             match vr1, vr2 with
             | Unrestricted, Unrestricted
@@ -1938,7 +1953,7 @@ module Variable =
             |> Exceptions.VariableCannotSetValueRange
             |> raiseExc errs
         | e ->
-            printfn $"couldn't catch exeption:\{e}"
+            printfn $"couldn't catch exeption:{e}"
             raise e
 
     /// Set the values to a `ValueRange`
@@ -2006,25 +2021,12 @@ module Variable =
     let increaseIncrement incr var =
         if var |> isMinIncrMax |> not then var
         else
-            { var with
-                Values =
-                    incr
-                    |> List.fold (fun acc i ->
-                        printfn $"try setting increment {i}"
-                        match acc |> ValueRange.getMin, acc |> ValueRange.getMax with
-                        | Some oldMin, Some oldMax ->
-                            let newVr =
-                                acc
-                                |> ValueRange.setIncr true i 
-                            match newVr |> ValueRange.getMin, newVr |> ValueRange.getMax with
-                            | Some newMin, Some newMax ->
-                                if newMin |> Minimum.minGTmin oldMin ||
-                                   newMax |> Maximum.maxSTmax oldMax then newVr
-                                else acc
-                            | _ -> acc
-                        | _ -> acc
-                    ) var.Values
-            }
+            let res =
+                { var with
+                    Values = var.Values |> ValueRange.increaseIncrement incr
+                }
+            printfn $"increase increment to: {res}"
+            res
 
 
     module Operators =

@@ -875,10 +875,10 @@ module Order =
 
         let increaseIncrement incr orb =
             let ord_qty = (orb |> get).OrderQuantity
-            let orb_qty = orb.OrderableQuantity
+            let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement incr
             let ord_cnt = orb.OrderCount
             let dos_cnt = orb.DoseCount
-            let dos = orb.Dose |> Dose.increaseIncrement incr
+            let dos = orb.Dose
 
             orb.Components
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos

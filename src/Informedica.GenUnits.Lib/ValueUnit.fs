@@ -2269,7 +2269,7 @@ module ValueUnit =
             let incr =
                 incr |> getBaseValue |> Set.ofArray
 
-            vs |> Array.map (f incr) |> Array.map snd
+            vs |> Array.map (f incr) //|> Array.map snd
         )
         |> toUnit
 
@@ -2295,6 +2295,10 @@ module ValueUnit =
         getValue >> (Array.map BigRational.numerator)
 
 
+    /// Filter the value of a value unit using
+    /// a predicate function pred. This function
+    /// is parameterized on the base value of the value
+    /// unit.
     let filter pred =
         toBase
         >> applyToValue (Array.filter pred)

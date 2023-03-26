@@ -16,18 +16,6 @@ open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
 
 
-let mg5 = Units.Mass.milliGram |> ValueUnit.withSingleValue 5N
-let kg10 = Units.Weight.kiloGram |> ValueUnit.withSingleValue 10N
-let day1 = Units.Time.day |> ValueUnit.withSingleValue 1N
-
-kg10 |> ValueUnit.getUnit |> ValueUnit.isAdjust
-
-(mg5 / day1 / kg10)
-|> ValueUnit.getUnit
-|> ValueUnit.getUnits
-
-(mg5 / day1 / kg10)
-|> ValueUnit.correctAdjustOrder
 
 let path = Some $"{__SOURCE_DIRECTORY__}/log.txt"
 let startLogger () =
@@ -143,31 +131,16 @@ let createScenarios () =
 
 
 
-test Patient.premature 111
-|> Array.iter (function
-    | Ok (pat, ind, (prs, prep, adm)) ->
-        [
-            $"Patient: {pat |> Patient.toString}"
-            $"Indicatie: {ind}"
-            $"Voorschrift: {prs}"
-            if prep |> String.notEmpty then $"Bereiding: {prep}"
-            $"Toediening: {adm}"
-        ]
-        |> List.iter (printfn "%s")
-    | Error _ -> ()
-)
-
-
 startLogger ()
 stopLogger ()
 
 
-Patient.toddler
+Patient.infant
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
-|> Array.filter (fun pr -> 
-    pr.DoseRule.Generic = "amikacine" && 
-    pr.DoseRule.Route = "iv" //&& 
+|> Array.filter (fun pr ->
+    pr.DoseRule.Generic = "benzylpenicilline" &&
+    pr.DoseRule.Route = "iv" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
@@ -197,6 +170,23 @@ Patient.toddler
     |> String.concat "\n"
     |> printfn "%s"
 
+
+
+
+
+test Patient.premature 111
+|> Array.iter (function
+    | Ok (pat, ind, (prs, prep, adm)) ->
+        [
+            $"Patient: {pat |> Patient.toString}"
+            $"Indicatie: {ind}"
+            $"Voorschrift: {prs}"
+            if prep |> String.notEmpty then $"Bereiding: {prep}"
+            $"Toediening: {adm}"
+        ]
+        |> List.iter (printfn "%s")
+    | Error _ -> ()
+)
 
 
 open Order
@@ -240,9 +230,9 @@ let testDto =
     Patient.adult
     |> PrescriptionRule.get
     |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
-    |> Array.filter (fun pr -> 
-        pr.DoseRule.Generic = "benzylpenicilline" && 
-        pr.DoseRule.Route = "iv" //&& 
+    |> Array.filter (fun pr ->
+        pr.DoseRule.Generic = "benzylpenicilline" &&
+        pr.DoseRule.Route = "iv" //&&
 //        pr.DoseRule.Indication |> String.startsWith "juveniele"
     )
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
