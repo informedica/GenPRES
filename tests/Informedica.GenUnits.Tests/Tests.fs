@@ -27,50 +27,50 @@ module Unquote =
         [
 
             // Test that 10 ml / 5 ml = 2
-            test<@
+            test <@
                 ([|10N|] |> ml) / ([|5N|] |> ml) =? ([|2N|] |> x)
             @>
 
             // Test that 1 kg / 1000 mg = 1000
-            test<@
+            test <@
                 ([|1N|] |> kg) / ([|1000N|] |> mg) =? ([|1000N|] |> x)
             @>
 
             // Test that 10 * 2 mg = 20 mg
-            test<@
+            test <@
                 ([|10N|] |> x) * ([|1N|] |> mg) =? ([|10N|] |> mg)
             @>
 
             // Test that 10 mg * (2 x / day) = 20 mg / day
-            test<@
+            test <@
                 ([|10N|] |> mg) * (([|2N|] |> x) / ([|1N|] |> day)) =? (([|20N|] |> mg) / ([|1N|] |> day))
             @>
 
             // Test that 20 mg * (1 x / 2 day) = 10 mg / day
-            test<@
+            test <@
                 ([|20N|] |> mg) * (([|1N|] |> x) / ([|2N|] |> day)) =? (([|10N|] |> mg) / ([|1N|] |> day))
             @>
 
 
             // Test that 20 mg * (1 x / 2 day) = 10 mg / day
-            test<@
+            test <@
                 ([|20N|] |> mg) * (([|1N|] |> x) / ([|1N|] |> day2)) =? (([|10N|] |> mg) / ([|1N|] |> day))
             @>
 
             // Test that 2 day / 1 day = 2
-            test<@
+            test <@
                 ([|1N|] |> day2) / ([|1N|] |> day) =? ([|2N|] |> x)
             @>
 
 
 
             // Test that 1 x / 2 week divide by 1 x / 14 days yields 1
-            test<@
+            test <@
                 (([|1N|] |> x ) / ([|1N|] |> week2)) / (([|1N|] |> x) / ([|1N|] |> day14)) = ([|1N|] |> x)
             @>
 
 
-            test<@
+            test <@
                 ([|1000N|] |> mcg) =? ([|1N|] |> mg)
             @>
         ]
@@ -98,6 +98,7 @@ module Tests =
     open Expecto.Flip
     open Expecto.Logging
 
+    open FParsec
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
@@ -223,6 +224,9 @@ module Tests =
             test "1 x[Count]/4 weken[Time] from string should return a combiunit" {
                 "1 x[Count]/4 weken[Time]"
                 |> ValueUnit.fromString
+                |> function
+                | Success (vu, _, _)  -> vu
+                | Failure (err, _, _) -> $"can't run this test: {err}" |> failwith 
                 |> ValueUnit.toStringDutchShort
                 |> Expect.equal "should equal" "1 x[Count]/4 weken[Time]"
             }
@@ -265,8 +269,13 @@ module Tests =
     let calculationTests =
 
         let (>>?) res exp =
-            res = (exp |> fromString)
-            |> Expect.isTrue  ""
+            match exp |> fromString with
+            | Success (exp, _, _) ->
+                res = exp
+                |> Expect.isTrue  ""
+            | _ ->
+                false |> Expect.isTrue ""
+                failwith "can't run the test"
             res
 
 

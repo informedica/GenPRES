@@ -3,6 +3,7 @@ namespace Informedica.ZForm.Lib
 
 module GStand =
 
+    open FParsec
     open MathNet.Numerics
 
     open Informedica.Utils.Lib
@@ -155,6 +156,11 @@ module GStand =
             | _ -> ""
         )
         |> ValueUnit.fromString
+        |> function
+        | Failure (err, _, _) ->
+            ConsoleWriter.writeErrorMessage $"Cannot parse freq value unit: {err}" true false
+            err |> failwith
+        | Success (vu, _, _) -> vu
         |> map
 
 

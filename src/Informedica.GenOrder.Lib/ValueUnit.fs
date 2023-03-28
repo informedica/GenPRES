@@ -30,17 +30,11 @@ module ValueUnit =
             try
                 // ugly hack need to fix this
                 // in the units lib
-                let s =
-                    s
-                    |> String.replace "x[Count]" "#"
-                    |> String.replace "x" "/"
-                    |> String.replace "#" "x[Count]"
-
-                "1 " + s
-                |> fromString
-                |> get
-                |> snd
-                |> Some
+                s
+                |> String.replace "x[Count]" "#"
+                |> String.replace "x" "/"
+                |> String.replace "#" "x[Count]"
+                |> Units.fromString
             with
             | e ->
                 // printfn $"could not parse to unit: %s{s}\{e}"

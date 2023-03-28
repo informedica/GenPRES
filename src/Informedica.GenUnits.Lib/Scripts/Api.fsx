@@ -9,64 +9,140 @@ open MathNet.Numerics
 open Informedica.GenUnits.Lib
 open Informedica.Utils.Lib.BCL
 
-// (mg/piece) / (mass/mass) = (mg/piece) / count = mg/piece
-Api.eval "1 mg[Mass] / 1 piece[General]"
-|> fun vu -> vu / (Api.eval "1 mg[Mass] / 1 mg[Mass]")
-|> ValueUnit.toStringEngShort
-
-Api.eval "100 mg[Mass] * 200 mg[Mass] / 5 ml[Volume] / 10 times[Count]"
-|> ValueUnit.toStringEngShort
-
-let vu =
-    Api.eval "100 mg[Mass] * 1 x[Count]/day[Time]"
-//|> ValueUnit.toStringEngShort
-vu
-|> ValueUnit.simplify
-|> ValueUnit.toStringEngShort
-|> ignore
 
 
-Api.eval "1 piece[General]/kg[Weight]/day[Time]"
-|> ValueUnit.simplify
+module Parser =
 
-4. / 2. / 2. = 4. / (2. * 2.)
-
-4. / (2. / 2.)
-
-// (mg / kg) * (x / day) = mg / kg * day = mg / kg / day
-
-Api.eval "100 mg[Mass]/1 kg[Weight]"
-|> fun vu ->
-    vu / (Api.eval "1 day[Time]/1 times[Count]")
-    |> ValueUnit.simplify
-    |> ValueUnit.toStringEngShort
+    open MathNet.Numerics
+    open Informedica.Utils.Lib
+    open FParsec
 
 
-"4 weken"
-|> Units.stringWithGroup
-
-"1 x[Count]/4 weken[Time]"
-|> ValueUnit.fromString
-|> ValueUnit.toStringDutchShort
+    let setUnitValue u v =
+        u
+        |> ValueUnit.apply (fun _ -> v)
 
 
-Api.eval "1 mg[Mass] / 3 mL[Volume]"
-|> ValueUnit.toStringDecimalDutchShortWithPrec 2
+    let ws = spaces
 
-let oldIncr =
-    [| 1N/10N |]
-    |> ValueUnit.create Units.Volume.milliLiter
-let newIncr =
-    [| 5N/10N |]
-    |> ValueUnit.create Units.Volume.milliLiter
 
-newIncr
-|> ValueUnit.filter (fun i1 ->
-    oldIncr
-    |> ValueUnit.getBaseValue
-    |> Array.exists (fun i2 ->
-        printfn $"{i2} is multiple of {i1}"
-        i1 |> BigRational.isMultiple i2
-    )
-)
-|> ValueUnit.toUnit
+    let str_ws s = pstring s >>. ws
+
+
+    let pnumber = pfloat .>> ws
+
+
+    let pBigRat =
+        pnumber
+        |>> (BigRational.fromFloat >> Option.defaultValue 0N)
+
+
+    let pUnitGroup (u : string) g =
+        let pu = u.ToLower () |> pstring
+        let pg = $"[{g}]" |> pstring
+        (pu .>> ws .>> (opt pg))
+
+
+    let pUnit =
+        Units.UnitDetails.units
+        |> List.collect (fun ud ->
+            [
+                {| unit = ud.Abbreviation.Eng; grp = ud.Group; f = setUnitValue ud.Unit |}
+                {| unit = ud.Abbreviation.Dut; grp = ud.Group; f = setUnitValue ud.Unit |}
+                {| unit = ud.Name.Eng; grp = ud.Group; f = setUnitValue ud.Unit |}
+                {| unit = ud.Name.Dut; grp = ud.Group; f = setUnitValue ud.Unit |}
+                {| unit = ud.Name.EngPlural; grp = ud.Group; f = setUnitValue ud.Unit |}
+                {| unit = ud.Name.DutchPlural; grp = ud.Group; f = setUnitValue ud.Unit |}
+                yield!
+                    ud.Synonyms
+                    |> List.map (fun s ->
+                        {| unit = s; grp = ud.Group; f = setUnitValue ud.Unit |}
+                    )
+            ]
+        )
+        |> List.distinctBy (fun r -> r.unit, r.grp)
+        |> List.filter (fun r ->
+            (r.unit = "kg" && r.grp = Group.MassGroup ||
+            r.unit = "kilogram" && r.grp = Group.MassGroup)
+            |> not
+        )
+        |> List.map (fun r ->
+            let g = $"{r.grp |> ValueUnit.Group.toString}"
+
+            pUnitGroup r.unit g >>% r.f
+        )
+        |> choice
+        |> fun p ->
+            opt pfloat
+            .>> ws
+            .>>. p
+            |>> (fun (f, u) ->
+                f
+                |> Option.map (decimal >> BigRational.fromDecimal)
+                |> Option.defaultValue 1N |> u
+            )
+
+
+    let parseUnit =
+
+        let opp  = OperatorPrecedenceParser<Unit, unit, unit>()
+        let expr = opp.ExpressionParser
+
+        opp.TermParser <-
+            pUnit <|> between (str_ws "(") (str_ws ")") expr
+
+        let ( *! ) u1 u2 = (u1, OpTimes, u2) |> CombiUnit
+        let ( /! ) u1 u2 = (u1, OpPer, u2) |> CombiUnit
+
+        opp.AddOperator (InfixOperator("*", ws, 1, Associativity.Left, ( *! )))
+        opp.AddOperator (InfixOperator("/", ws, 1, Associativity.Left, ( /! )))
+
+        ws >>. expr .>> eof
+
+
+    let parse s =
+        let pBigRatList =
+            sepBy pBigRat (ws >>. (pstring ";") .>> ws)
+
+        let pValue =
+            (between (pstring "[") (pstring "]") pBigRatList)
+            <|> (many pBigRat)
+
+        let p =
+            pValue .>>. parseUnit
+            |>> (fun (brs, u) ->
+                brs
+                |> List.toArray
+                |> ValueUnit.create u
+            )
+        s |> run p
+
+
+
+open FParsec
+
+
+let test s =
+    match s |> Parser.parse with
+    | Success(result, _, _)   -> printfn "Success: %A" result
+    | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
+
+let testParser s p =
+    match s |> run p with
+    | Success(result, _, _)   -> printfn "Success: %A" result
+    | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
+
+
+
+"1 x/36 uur"
+|> run (Parser.parseUnit)
+
+
+
+"[1.4;  2] mg[Mass]/kg/2 dag[Time]"
+|> test
+
+
+"[1.4;  2] mg/kg[Weight]/day"
+|> test
+

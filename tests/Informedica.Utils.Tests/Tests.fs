@@ -726,7 +726,7 @@ module Tests =
                     "trailing "
                     |> parseString
                     |> fun s1 ->
-                        Swensen.Unquote.Assertions.test<@ s1 = "trailing " @>
+                        Swensen.Unquote.Assertions.test <@ s1 = "trailing " @>
                 }
 
                 fun (i : int) ->
@@ -757,7 +757,7 @@ module Tests =
                     "trailing spaces "
                     |> Csv.tryCast<string> Csv.StringData
                     |> fun r ->
-                        Swensen.Unquote.Assertions.test<@ r = "trailing spaces" @>
+                        Swensen.Unquote.Assertions.test <@ r = "trailing spaces" @>
                 }
 
                 test "without option fails" {
@@ -765,10 +765,10 @@ module Tests =
                         "cannot cast to integer"
                         |> Csv.tryCast<int> Csv.Int32Data
                         |> ignore
-                        Swensen.Unquote.Assertions.test<@ false @>
+                        Swensen.Unquote.Assertions.test <@ false @>
                     with
                     | _ ->
-                        Swensen.Unquote.Assertions.test<@ true @>
+                        Swensen.Unquote.Assertions.test <@ true @>
                 }
 
                 fun x ->

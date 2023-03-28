@@ -3,8 +3,5 @@
 #r "nuget: FParsec"
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net6.0/Informedica.Utils.Lib.dll"
+#r "../bin/Debug/net6.0/Informedica.GenUnits.Lib.dll"
 
-#load "../AssemblyInfo.fs" 
-#load "../ValueUnit.fs" 
-#load "../Parser.fs" 
-#load "../Api.fs" 
