@@ -11,11 +11,12 @@ open Informedica.Utils.Lib.BCL
 
 
 
+
 module Parser =
 
-    open MathNet.Numerics
-    open Informedica.Utils.Lib
     open FParsec
+
+    open Units
 
 
     let setUnitValue u v =
@@ -37,9 +38,12 @@ module Parser =
         |>> (BigRational.fromFloat >> Option.defaultValue 0N)
 
 
+    /// <summary>
+    /// Parse a unit with an optional group
+    /// </summary>
     let pUnitGroup (u : string) g =
-        let pu = u.ToLower () |> pstring
-        let pg = $"[{g}]" |> pstring
+        let pu = u |> pstringCI
+        let pg = $"[%s{g}]" |> pstringCI
         (pu .>> ws .>> (opt pg))
 
 
@@ -66,23 +70,29 @@ module Parser =
             r.unit = "kilogram" && r.grp = Group.MassGroup)
             |> not
         )
+        |> List.sortByDescending (fun r -> r.unit)
         |> List.map (fun r ->
+            printfn $"{r.unit}[{r.grp}]"
             let g = $"{r.grp |> ValueUnit.Group.toString}"
 
-            pUnitGroup r.unit g >>% r.f
+            attempt (
+                opt pfloat
+                .>> ws
+                .>>. (pUnitGroup r.unit g >>% r.f)
+                |>> (fun (f, u) ->
+                    f
+                    |> Option.map (decimal >> BigRational.fromDecimal)
+                    |> Option.defaultValue 1N |> u
+                )
+            )
         )
         |> choice
-        |> fun p ->
-            opt pfloat
-            .>> ws
-            .>>. p
-            |>> (fun (f, u) ->
-                f
-                |> Option.map (decimal >> BigRational.fromDecimal)
-                |> Option.defaultValue 1N |> u
-            )
 
 
+    /// <summary>
+    /// Parse a complex unit using FParsec's OperatorPrecedenceParser
+    /// </summary>
+    /// <returns>Parser of Unit, unit</returns>
     let parseUnit =
 
         let opp  = OperatorPrecedenceParser<Unit, unit, unit>()
@@ -134,7 +144,7 @@ let testParser s p =
 
 
 
-"1 x/36 uur"
+"mL[volume]"
 |> run (Parser.parseUnit)
 
 

@@ -24,23 +24,6 @@ module ValueUnit =
         Units.toString Units.Dutch Units.Short
 
 
-    let unitFromString s =
-        if s |> String.isNullOrWhiteSpace then None
-        else
-            try
-                // ugly hack need to fix this
-                // in the units lib
-                s
-                |> String.replace "x[Count]" "#"
-                |> String.replace "x" "/"
-                |> String.replace "#" "x[Count]"
-                |> Units.fromString
-            with
-            | e ->
-                // printfn $"could not parse to unit: %s{s}\{e}"
-                None
-
-
     let calcUnit op u1 u2 =
 
         match u1, u2 with

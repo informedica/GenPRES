@@ -161,8 +161,8 @@ module Parser =
     /// Parse a unit with an optional group
     /// </summary>
     let pUnitGroup (u : string) g =
-        let pu = u.ToLower () |> pstring
-        let pg = $"[%s{g}]" |> pstring
+        let pu = u |> pstringCI
+        let pg = $"[%s{g}]" |> pstringCI
         (pu .>> ws .>> (opt pg))
 
 
@@ -189,21 +189,22 @@ module Parser =
             r.unit = "kilogram" && r.grp = Group.MassGroup)
             |> not
         )
+        |> List.sortByDescending (fun r -> r.unit)
         |> List.map (fun r ->
             let g = $"{r.grp |> ValueUnit.Group.toString}"
 
-            pUnitGroup r.unit g >>% r.f
+            attempt (
+                opt pfloat
+                .>> ws
+                .>>. (pUnitGroup r.unit g >>% r.f)
+                |>> (fun (f, u) ->
+                    f
+                    |> Option.map (decimal >> BigRational.fromDecimal)
+                    |> Option.defaultValue 1N |> u
+                )
+            )
         )
         |> choice
-        |> fun p ->
-            opt pfloat
-            .>> ws
-            .>>. p
-            |>> (fun (f, u) ->
-                f
-                |> Option.map (decimal >> BigRational.fromDecimal)
-                |> Option.defaultValue 1N |> u
-            )
 
 
     /// <summary>
@@ -641,7 +642,7 @@ module Units =
                         {
                             Eng = "year"
                             Dut = "jaar"
-                            EngPlural = "yearrs"
+                            EngPlural = "years"
                             DutchPlural = "jaar"
                         }
                     Synonyms = [ "years"; "jaren" ]
@@ -1203,11 +1204,27 @@ module Units =
     /// the n value of a unit! So, for example, the unit
     /// 36 hour can be parsed correctly.
     let fromString s =
-        match s |> run Parser.parseUnit with
-        | Success (u, _, _) -> Some u
-        | Failure(err, _ , _) ->
-            ConsoleWriter.writeErrorMessage $"Unit from string error: {err}" true false
-            None
+        if s |> String.isNullOrWhiteSpace then None
+        else
+
+            // TODO: ugly hack need to fix this
+            s
+            |> String.replace "x[Count]" "#"
+            |> String.replace "x" "/"
+            |> String.replace "#" "x[Count]"
+            |> String.split "/"
+            |> function
+            | us when us |> List.length >= 1 && (us |> List.length <= 3) ->
+                us
+                |> List.map (fun s ->
+                    match s |> run Parser.parseUnit with
+                    | Success (u, _, _) -> u
+                    | Failure(err, _ , _) ->
+                        s |> Units.General.general
+                )
+                |> List.reduce (fun u1 u2 -> u1 |> Units.per u2)
+                |> Some
+            | _ -> None
 
 
     /// Turn a unit u to a string with
