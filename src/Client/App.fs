@@ -139,6 +139,7 @@ module private Elmish =
 
         let cmds =
             Cmd.batch [
+                Cmd.ofMsg (pat |> UpdatePatient)
                 Cmd.ofMsg (LoadBolusMedication Started)
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
@@ -151,6 +152,7 @@ module private Elmish =
         match msg with
 
         | UpdatePatient p ->
+            printfn $"load patient: {p}"
             { state with Patient = p },
             Cmd.ofMsg (LoadScenarios Started)
 
@@ -161,7 +163,7 @@ module private Elmish =
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
             },
-            Cmd.none
+            Cmd.ofMsg (pat |> UpdatePatient)
 
         | UpdatePage page ->
             printfn $"update page: {page}"
@@ -317,6 +319,11 @@ module private Elmish =
             { state with
                 Formulary = Resolved form
             },
+            Cmd.none
+
+        | LoadFormulary (Finished(Error err)) ->
+            printfn $"LoadFormulary error: {err}"
+            state,
             Cmd.none
 
         | UpdateFormulary form ->

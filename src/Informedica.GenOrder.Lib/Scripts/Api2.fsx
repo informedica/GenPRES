@@ -136,10 +136,11 @@ stopLogger ()
 
 
 Patient.infant
+|> fun p -> { p with Weight = Some 10000N }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "benzylpenicilline" &&
+    pr.DoseRule.Generic = "gentamicine" &&
     pr.DoseRule.Route = "iv" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
