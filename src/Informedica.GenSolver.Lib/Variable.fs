@@ -1723,15 +1723,16 @@ module Variable =
             match x1, x2 with
             | Unrestricted, Unrestricted -> unrestricted
             | ValSet s1, ValSet s2 ->
-                let min1, max1 = x1 |> getMin, x1 |> getMax
-                let min2, max2 = x2 |> getMin, x2 |> getMax
-
-                let min, max =
-                    calcMinMax min1 max1 min2 max2
-
-                if not onlyMinIncrMax then
+                if not onlyMinIncrMax ||
+                   (s1 |> ValueSet.count = 1 && (s2 |> ValueSet.count = 1)) then
                     ValueSet.calc op s1 s2 |> ValSet
                 else
+                    let min1, max1 = x1 |> getMin, x1 |> getMax
+                    let min2, max2 = x2 |> getMin, x2 |> getMax
+
+                    let min, max =
+                        calcMinMax min1 max1 min2 max2
+
                     match min, max with
                     | None, None -> unrestricted
                     | _ -> create onlyMinIncrMax min None max None

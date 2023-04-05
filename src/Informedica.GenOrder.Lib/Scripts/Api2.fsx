@@ -150,7 +150,8 @@ Patient.infant
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
 
-|> Order.solveMinMax true OrderLogger.logger.Logger
+|> Order.solveMinMax true OrderLogger.noLogger
+|> Result.bind (Api.increaseIncrement OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
     printfn "oeps error"
@@ -291,3 +292,9 @@ Informedica.ZIndex.Lib.GenPresProduct.findByGPK 47929
 "MACROGOL/NATRIUMCHLORIDE/NATRIUMWATERSTOFCARBONAAT/KALIUMCHLORIDE"
 |> String.toLower
 
+//[1.gentamicine.vlstf]_orb_qty [1 mL..0,1 mL..12,8 mL] + [1.gentamicine.oplosvlstf]_orb_qty [18,7 mL..0,1 mL..63,1 mL]
+[1.0 .. 0.1 .. 12.8] 
+|> List.allPairs [18.7 .. 0.1 .. 63.1]
+|> List.map (fun (x1, x2) -> x1 * x2)
+|> List.distinct
+|> List.length
