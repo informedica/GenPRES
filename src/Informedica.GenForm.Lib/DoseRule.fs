@@ -482,13 +482,7 @@ module DoseRule =
                                         | None -> ""
                                 RateUnit = r.RateUnit
                                 NormQuantity = r.NormQty |> toArr
-                                Quantity =
-                                    if r.Substance |> String.isNullOrWhiteSpace |> not then
-                                        (r.MinQty, r.MaxQty) |> MinMax.fromTuple
-                                    else
-                                        match shapeLimits |> Array.tryHead with
-                                        | Some sl -> sl.Quantity
-                                        | None -> (None, None) |> MinMax.fromTuple
+                                Quantity = (r.MinQty, r.MaxQty) |> MinMax.fromTuple
                                 NormQuantityAdjust = r.NormQtyAdj
                                 QuantityAdjust = (r.MinQtyAdj, r.MaxQtyAdj) |> MinMax.fromTuple
                                 NormPerTime = r.NormPerTime |> toArr
@@ -501,7 +495,7 @@ module DoseRule =
                                 RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple
                             }
                         )
-//                        |> Array.append shapeLimits
+                        |> Array.append shapeLimits
 
                     Products =
                         Product.get ()
