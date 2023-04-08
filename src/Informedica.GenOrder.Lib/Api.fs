@@ -200,7 +200,7 @@ module Api =
                     }
 
 
-    let increaseIncrement logger ord = 
+    let increaseIncrement logger ord =
         printfn "checking increase incr"
         let dto = ord |> Order.Dto.toDto
 
@@ -225,6 +225,9 @@ module Api =
                 ord
                 |> Order.increaseIncrement incr
                 |> Order.solveMinMax false logger
+                |> function
+                | Error _ -> ord |> Ok // original order
+                | Ok ord  -> ord |> Ok // new increased incr order
         | _ -> ord |> Ok
 
 

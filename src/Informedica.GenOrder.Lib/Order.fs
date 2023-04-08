@@ -670,6 +670,20 @@ module Order =
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
+            let increaseIncrement incr cmp =
+                let cmp_qty = (cmp |> get).ComponentQuantity
+                let orb_qty = cmp.OrderableQuantity |> Quantity.increaseIncrement incr
+                let orb_cnt = cmp.OrderableCount
+                let orb_cnc = cmp.OrderableConcentration
+                let ord_qty = cmp.OrderQuantity
+                let ord_cnt = cmp.OrderCount
+                let dos = cmp.Dose
+
+                cmp.Items
+                |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+
+
+
             /// Create a string list from a
             /// component where each string is
             /// a variable name with the value range
@@ -881,6 +895,7 @@ module Order =
             let dos = orb.Dose
 
             orb.Components
+            |> List.map (Component.increaseIncrement incr)
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
