@@ -1683,7 +1683,7 @@ module Order =
                     o
                     |> printItem
                         (fun i -> i.Dose.PerTimeAdjust)
-                        (PerTimeAdjust.toValueUnitMarkdown 1)
+                        (PerTimeAdjust.toValueUnitMarkdown 2)
 
                 let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
                 let prep = o |> printComponentQuantity

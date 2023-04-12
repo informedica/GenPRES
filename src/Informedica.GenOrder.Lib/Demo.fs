@@ -86,7 +86,7 @@ module Demo =
                 Shape = shp
                 Scenarios =
                     match ind, gen, rte, shp with
-                    | Some _, Some _, Some _, _
+                    | Some _, Some _,    Some _, _
                     | Some _, Some _, _, Some _ ->
                         { filter with
                             Department = Some d

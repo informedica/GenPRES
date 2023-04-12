@@ -208,7 +208,6 @@ module Api =
                 dto.Orderable.OrderableQuantity.Variable.Incr,
                 dto.Orderable.OrderableQuantity.Variable.Max with
         | Some min, Some incr, Some _ ->
-            printfn $"unit to recalc: {min.Unit}"
             if min.Unit |> String.equalsCapInsens "ml" |> not then ord |> Ok
             else
                 let incr =
