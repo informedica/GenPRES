@@ -222,12 +222,16 @@ module Api =
                         vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
                     )
 
-                ord
-                |> Order.increaseIncrement incr
-                |> Order.solveMinMax false logger
-                |> function
-                | Error _ -> ord |> Ok // original order
-                | Ok ord  -> ord |> Ok // new increased incr order
+                incr
+                |> List.fold (fun acc i ->
+                    acc
+                    |> Order.increaseIncrement [i]
+                    |> Order.solveMinMax false logger
+                    |> function
+                    | Error _ -> acc // original order
+                    | Ok ord  -> ord // new increased incr order
+                ) ord
+                |> Ok
         | _ -> ord |> Ok
 
 

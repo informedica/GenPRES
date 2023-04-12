@@ -172,6 +172,25 @@ Patient.infant
     |> String.concat "\n"
     |> printfn "%s"
 
+    ord
+    |> Order.solveOrder true OrderLogger.noLogger
+    |> function
+        | Error (_, msgs) ->
+            printfn "oeps error"
+            printfn $"{msgs |> List.map string}"
+            // ord
+            // |> Order.toString
+            // |> String.concat "\n"
+            // |> printfn "%s"
+        | Ok ord  ->
+            ord
+            |> Order.Markdown.printPrescription [|"gentamincine"|]
+            |> fun (prs, prep, adm) -> printfn $"{prs}"
+            // ord
+            // |> Order.toString
+            // |> String.concat "\n"
+            // |> printfn "%s"
+
 
 
 
@@ -293,7 +312,7 @@ Informedica.ZIndex.Lib.GenPresProduct.findByGPK 47929
 |> String.toLower
 
 //[1.gentamicine.vlstf]_orb_qty [1 mL..0,1 mL..12,8 mL] + [1.gentamicine.oplosvlstf]_orb_qty [18,7 mL..0,1 mL..63,1 mL]
-[1.0 .. 0.1 .. 12.8] 
+[1.0 .. 0.1 .. 12.8]
 |> List.allPairs [18.7 .. 0.1 .. 63.1]
 |> List.map (fun (x1, x2) -> x1 * x2)
 |> List.distinct
