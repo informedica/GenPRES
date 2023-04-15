@@ -208,10 +208,16 @@ module Api =
                 dto.Orderable.OrderableQuantity.Variable.Incr,
                 dto.Orderable.OrderableQuantity.Variable.Max with
         | Some min, Some incr, Some _ ->
-            if min.Unit |> String.equalsCapInsens "ml" |> not then ord |> Ok
+            if min.Unit |> String.equalsCapInsens "ml" |> not then
+                ord
+                |> Order.solveOrder false logger
+                |> function
+                    | Error _ -> ord // original order
+                    | Ok ord  -> ord // calculated order
+                |> Ok
             else
                 let incr =
-                    [0.5m; 1m; 5m; 10m]
+                    [0.1m; 0.5m; 1m; 5m; 10m; 20m]
                     |> List.choose (fun i ->
                         incr.Value <- [| i |]
                         incr
@@ -222,14 +228,48 @@ module Api =
                     )
 
                 incr
-                |> List.fold (fun acc i ->
-                    acc
-                    |> Order.increaseIncrement [i]
-                    |> Order.solveMinMax false logger
-                    |> function
-                    | Error _ -> acc // original order
-                    | Ok ord  -> ord // new increased incr order
-                ) ord
+                |> List.fold (fun (b, acc) i ->
+                    if b then (b, acc)
+                    else
+                        acc
+                        |> Order.increaseIncrement [i]
+                        |> Order.solveMinMax false logger
+                        |> function
+                        | Error (_, errs) ->
+                            errs
+                            |> List.iter (fun e ->
+                                Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
+                                    $"{e}"
+                                    true
+                                    false
+                            )
+                            (true, acc) // original order
+                        | Ok ord  ->
+                            Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                                "calculated order with increased increment"
+                                true
+                                false
+                            ord
+                            |> Order.solveOrder false logger
+                            |> function
+                                | Error (_, errs) ->
+                                    errs
+                                    |> List.iter (fun e ->
+                                        Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
+                                            $"{e}"
+                                            true
+                                            false
+                                    )
+                                    (false, ord) // increased incr order
+                                | Ok ord ->
+                                    Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                                        "order with increased increment and values"
+                                        true
+                                        false
+
+                                    (true, ord) // calculated order
+                ) (false, ord)
+                |> snd
                 |> Ok
         | _ -> ord |> Ok
 

@@ -505,11 +505,6 @@ module Variable =
             let calc op (ValueSet s1) (ValueSet s2) =
                 let count =
                     ValueUnit.getValue >> Array.length
-                // When one of the sets does not contain any value then the result of
-                // of the calculation cannot contain any value either
-                // if s1 |> Set.isEmpty || s2 |> Set.isEmpty then
-                //     Exceptions.ValueRangeEmptyValueSet
-                //     |> raiseExc
                 // make sure the calculation doesn't take too long
                 if (s1 |> count) + (s2 |> count) > Constants.MAX_CALC_COUNT then
                     (s1 |> count) + (s2 |> count)
