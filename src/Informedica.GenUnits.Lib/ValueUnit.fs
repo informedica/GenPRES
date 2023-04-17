@@ -2517,7 +2517,7 @@ module ValueUnit =
     let toString brf loc verb vu =
         let v, u = vu |> get
 
-        $"{v |> Array.map brf |> Array.toReadableString} {Units.toString loc verb u}"
+        $"{v |> Array.map brf |> Array.distinct |> Array.toReadableString} {Units.toString loc verb u}"
 
 
     let toStringDutchShort =
@@ -2554,6 +2554,7 @@ module ValueUnit =
             v
             |> Array.map BigRational.toDecimal
             |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
+            |> Array.distinct
             |> Array.toReadableString
 
         let us = u |> unitToReadableDutchString

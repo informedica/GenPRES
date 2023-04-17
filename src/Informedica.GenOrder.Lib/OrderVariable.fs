@@ -128,9 +128,9 @@ module OrderVariable =
         }
 
 
-    let increaseIncrement incr (ovar : OrderVariable) =
+    let increaseIncrement lim incr (ovar : OrderVariable) =
         { ovar with
-            Variable = ovar.Variable |> Variable.increaseIncrement incr
+            Variable = ovar.Variable |> Variable.increaseIncrement lim incr
         }
 
 
@@ -597,7 +597,7 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
-        let increaseIncrement incr = toOrdVar >> increaseIncrement incr >> Quantity
+        let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Quantity
 
 
 
@@ -701,8 +701,11 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
+
+
+        let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Rate
+
 
 
     /// Type and functions that represent a total

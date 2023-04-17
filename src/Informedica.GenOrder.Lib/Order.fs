@@ -282,11 +282,10 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
-            // TODO rewrite
-            let increaseIncrement incr (dos: Dose) =
-                let qty = dos.Quantity |> Quantity.increaseIncrement incr
+            let increaseIncrement lim incr (dos: Dose) =
+                let qty = dos.Quantity
                 let ptm = dos.PerTime
-                let rte = dos.Rate //|> Rate.fixPrecision n
+                let rte = dos.Rate |> Rate.increaseIncrement lim incr
                 let tot = dos.Total
                 let qty_adj = dos.QuantityAdjust
                 let ptm_adj = dos.PerTimeAdjust
@@ -294,7 +293,6 @@ module Order =
                 let tot_adj = dos.TotalAdjust
 
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
-
 
 
             /// Turn an `Item` to a list of `string`s,
@@ -670,9 +668,9 @@ module Order =
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
-            let increaseIncrement incr cmp =
+            let increaseIncrement lim incr cmp =
                 let cmp_qty = (cmp |> get).ComponentQuantity
-                let orb_qty = cmp.OrderableQuantity |> Quantity.increaseIncrement incr
+                let orb_qty = cmp.OrderableQuantity |> Quantity.increaseIncrement lim incr
                 let orb_cnt = cmp.OrderableCount
                 let orb_cnc = cmp.OrderableConcentration
                 let ord_qty = cmp.OrderQuantity
@@ -887,15 +885,56 @@ module Order =
         let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
-        let increaseIncrement incr orb =
+        let increaseQuantityIncrement lim incr orb =
+            // first calculate the minimum increment increase for the orderable and components
+            let incr =
+                let ord_qty = (orb |> get).OrderQuantity
+                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement lim incr
+                let ord_cnt = orb.OrderCount
+                let dos_cnt = orb.DoseCount
+                let dos = orb.Dose //|> Dose.increaseIncrement incr
+
+                orb.Components
+                |> List.map (Component.increaseIncrement lim incr)
+                |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+
+                |> fun orb ->
+                    [
+                        (orb.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+                        yield! orb.Components
+                        |> List.map (fun c ->
+                            (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+                        )
+                    ]
+                    |> List.choose (Variable.ValueRange.getIncr)
+                    |> List.minBy (fun i ->
+                        i
+                        |> Variable.ValueRange.Increment.toValueUnit
+                        |> ValueUnit.getBaseValue
+                    )
+
+            printfn $"the minimum increment is {incr}"
+
+            // apply the minimum increment increase to the orderable and components
             let ord_qty = (orb |> get).OrderQuantity
-            let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement incr
+            let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement lim [incr]
             let ord_cnt = orb.OrderCount
             let dos_cnt = orb.DoseCount
-            let dos = orb.Dose
+            let dos = orb.Dose //|> Dose.increaseIncrement incr
 
             orb.Components
-            |> List.map (Component.increaseIncrement incr)
+            |> List.map (Component.increaseIncrement lim [incr])
+            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+
+
+        let increaseRateIncrement lim incr orb =
+            let ord_qty = (orb |> get).OrderQuantity
+            let orb_qty = orb.OrderableQuantity //|> Quantity.increaseIncrement incr
+            let ord_cnt = orb.OrderCount
+            let dos_cnt = orb.DoseCount
+            let dos = orb.Dose |> Dose.increaseIncrement lim incr
+
+            orb.Components
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
@@ -1282,9 +1321,15 @@ module Order =
             reraise()
 
 
-    let increaseIncrement incr (ord : Order) =
+    let increaseQuantityIncrement lim incr (ord : Order) =
         { ord with
-            Orderable = ord.Orderable |> Orderable.increaseIncrement incr
+            Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement lim incr
+        }
+
+
+    let increaseRateIncrement lim incr (ord : Order) =
+        { ord with
+            Orderable = ord.Orderable |> Orderable.increaseRateIncrement lim incr
         }
 
 

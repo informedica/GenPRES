@@ -227,49 +227,74 @@ module Api =
                         vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
                     )
 
-                incr
-                |> List.fold (fun (b, acc) i ->
-                    if b then (b, acc)
-                    else
-                        acc
-                        |> Order.increaseIncrement [i]
-                        |> Order.solveMinMax false logger
-                        |> function
-                        | Error (_, errs) ->
-                            errs
-                            |> List.iter (fun e ->
-                                Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
-                                    $"{e}"
-                                    true
-                                    false
-                            )
-                            (true, acc) // original order
-                        | Ok ord  ->
-                            Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
-                                "calculated order with increased increment"
+                ord
+                |> Order.increaseQuantityIncrement 10N incr
+                // not sure if this is needed
+                // |> fun o ->
+                //
+                //     match dto.Orderable.Dose.Rate.Variable.Min,
+                //             dto.Orderable.Dose.Rate.Variable.Incr,
+                //             dto.Orderable.Dose.Rate.Variable.Max with
+                //     | Some _, Some incr, Some _ ->
+                //         let incr =
+                //             [0.1m; 0.5m; 1m; 5m; 10m; 20m]
+                //             |> List.choose (fun i ->
+                //                 incr.Value <- [| i |]
+                //                 incr
+                //                 |> ValueUnit.Dto.fromDto
+                //             )
+                //             |> List.map (fun vu ->
+                //                 vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
+                //             )
+                //
+                //         o
+                //         |> Order.increaseRateIncrement 50N incr
+                //         |> fun o ->
+                //             let s = o |> Order.toString |> String.concat "\n"
+                //             Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                //                 $"order with increased increment:\n {s}"
+                //                 true
+                //                 false
+                //             o
+                //     | _ -> o
+                |> Order.solveMinMax false logger
+                |> function
+                | Error (_, errs) ->
+                    errs
+                    |> List.iter (fun e ->
+                        Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
+                            $"{e}"
+                            true
+                            false
+                    )
+                    ord // original order
+                | Ok ord ->
+                    Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                        "solved order with increased increment"
+                        true
+                        false
+
+                    ord // increased increment order
+                    |> Order.solveOrder false logger
+
+                    |> function
+                    | Error (_, errs) ->
+                        errs
+                        |> List.iter (fun e ->
+                            Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
+                                $"{e}"
                                 true
                                 false
-                            ord
-                            |> Order.solveOrder false logger
-                            |> function
-                                | Error (_, errs) ->
-                                    errs
-                                    |> List.iter (fun e ->
-                                        Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
-                                            $"{e}"
-                                            true
-                                            false
-                                    )
-                                    (false, ord) // increased incr order
-                                | Ok ord ->
-                                    Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
-                                        "order with increased increment and values"
-                                        true
-                                        false
+                        )
+                        ord // increased increment order
+                    | Ok ord ->
+                        let s = ord |> Order.toString |> String.concat "\n"
+                        Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                            $"solved order with increased increment and values:\n {s}"
+                            true
+                            false
 
-                                    (true, ord) // calculated order
-                ) (false, ord)
-                |> snd
+                        ord // calculated order
                 |> Ok
         | _ -> ord |> Ok
 

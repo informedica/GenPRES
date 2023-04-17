@@ -296,7 +296,6 @@ module Tests =
                                 let incr2 = [|1N|] |> create |> Some
                                 match Increment.calcOpt (+) incr1 incr2 with
                                 | Some (Increment res) ->
-                                    printfn $"result incr: {res}"
                                     xs
                                     |> Array.forall (fun x1 ->
                                         res
@@ -391,7 +390,58 @@ module Tests =
 
                     ]
 
+                    testList "increase increment" [
+
+                        // test ValueRange.increaseIncrement
+                        test "ValueRange.increaseIncrement 1 to 10000 should increase to 100" {
+                            Variable.ValueRange.create
+                                true
+                                (1N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true |> Some)
+                                (create [| 1N |] |> Some)
+                                (10000N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create true |> Some)
+                                None
+                            |> Variable.ValueRange.increaseIncrement 100N
+                                   [
+                                       create [| 2N |]
+                                       create [| 10N |]
+                                       create [| 100N |]
+                                       create [| 1000N |]
+                                       create [| 100000N |]
+                                   ]
+                            |> Variable.ValueRange.getIncr
+                            |> function
+                                | None -> failwith "no incr"
+                                | Some incr ->
+                                    incr
+                                    |> Expect.equal "should be 100" (create [| 100N |])
+                        }
+
+                        test "failing case: 40.5 ml/hour to 163.5 ml/hour with incr: 0.1" {
+                            let u =
+                                Units.Volume.milliLiter
+                                |> Units.per Units.Time.hour
+
+                            Variable.ValueRange.create
+                                true
+                                ((81N/2N) |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
+                                ((816N/5N) |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                None
+                            |> Variable.ValueRange.increaseIncrement 50N
+                                   ([0.1m; 0.5m; 1m; 5m; 10m; 20m] |> List.map BigRational.fromDecimal
+                                   |> List.map (ValueUnit.singleWithUnit u >> Increment.create))
+                            |> Variable.ValueRange.getIncr
+                            |> function
+                                | None -> failwith "no incr"
+                                | Some incr ->
+                                    incr
+                                    |> Expect.equal "should be 5" (5N |> ValueUnit.singleWithUnit u |> Increment.create)
+
+                        }
+                    ]
+
                 ]
+
 
 
             module MinimumTests =
@@ -949,9 +999,36 @@ module Tests =
 
                         (min, incr, max)
                         |> MinIncrMax
-                        |> ValueRange.increaseIncrement [newIncr]
+                        |> ValueRange.increaseIncrement 100N [newIncr]
                         |> Expect.equal "should be with new incr and new max"
                             ((min, newIncr, ([| 143N/2N |] |> ValueUnit.create Units.Volume.milliLiter |> Maximum.create true)) |> MinIncrMax)
+
+                    }
+
+                    test "failing case: 31 ml/hour to 125 ml/hour with incr: 0.1" {
+                        let u =
+                            Units.Volume.milliLiter
+                            |> Units.per Units.Time.hour
+
+                        {
+                            Name = Variable.Name.createExc "[1.gentamicine]_dos_rte"
+                            Values =
+                                Variable.ValueRange.create
+                                    true
+                                    ((31N) |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                    ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
+                                    ((125N) |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                    None
+                        }
+                        |> Variable.increaseIncrement 50N
+                               ([0.1m; 0.5m; 1m; 5m; 10m; 20m] |> List.map BigRational.fromDecimal
+                               |> List.map (ValueUnit.singleWithUnit u >> Increment.create))
+                        |> fun v -> v.Values |> Variable.ValueRange.getIncr
+                        |> function
+                            | None -> failwith "no incr"
+                            | Some incr ->
+                                incr
+                                |> Expect.equal "should be 5" (5N |> ValueUnit.singleWithUnit u |> Increment.create)
 
                     }
 

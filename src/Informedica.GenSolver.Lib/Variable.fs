@@ -515,6 +515,36 @@ module Variable =
                     s1 |> op <| s2 |> create
 
 
+            let minIncrMaxToValueSet lim min incr max =
+                    let min =
+                        min
+                        |> Minimum.toValueUnit
+                        |> ValueUnit.getBaseValue
+
+                    let max =
+                        max
+                        |> Maximum.toValueUnit
+                        |> ValueUnit.getBaseValue
+
+                    incr
+                    |> Increment.toValueUnit
+                    |> ValueUnit.toBase
+                    |> ValueUnit.applyToValue (fun incr ->
+                        [|
+                            for i in incr do
+                                for mi in min do
+                                    for ma in max do
+                                        if (ma - mi) / i > lim then
+                                            printfn $"calculating valset is too expensive with limit: {lim}"
+                                        else
+                                            [| mi..i..ma |]
+                        |]
+                        |> Array.collect id
+                    )
+                    |> ValueUnit.toUnit
+                    |> create
+
+
             // ToDo refactor
             let toString exact (ValueSet vs) =
                 let count =
@@ -939,36 +969,11 @@ module Variable =
                 |> raiseExc []
             else if onlyMinIncrMax && (min |> minEQmax max |> not) then
                 MinIncrMax(min, incr, max)
+
             else
                 // TODO: ugly hack to prevent expensive calc
                 try
-                    let min =
-                        min
-                        |> Minimum.toValueUnit
-                        |> ValueUnit.getBaseValue
-
-                    let max =
-                        max
-                        |> Maximum.toValueUnit
-                        |> ValueUnit.getBaseValue
-
-                    incr
-                    |> Increment.toValueUnit
-                    |> ValueUnit.toBase
-                    |> ValueUnit.applyToValue (fun incr ->
-                        [|
-                            for i in incr do
-                                for mi in min do
-                                    for ma in max do
-                                        if (ma - mi) / i > 10000N then
-                                            printfn "calculating valset is too expensive"
-                                        else
-                                            [| mi..i..ma |]
-                        |]
-                        |> Array.collect id
-                    )
-                    |> ValueUnit.toUnit
-                    |> ValueSet.create
+                    ValueSet.minIncrMaxToValueSet 10000N min incr max
                     |> ValSet
                 with
                 | _ -> MinIncrMax(min, incr, max)
@@ -1029,6 +1034,7 @@ module Variable =
 
             | Some vs -> vs |> filter min incr max |> ValSet
 
+
         /// Get an optional `Minimum` in a `ValueRange`
         let getMin =
             apply
@@ -1042,6 +1048,7 @@ module Variable =
                 Option.none
                 (Tuple.fstOf3 >> Some)
                 ValueSet.getMin
+
 
         /// Get an optional `Maximum` in a `ValueRange`
         let getIncr =
@@ -1057,6 +1064,7 @@ module Variable =
                 (Tuple.sndOf3 >> Some)
                 Option.none
 
+
         /// Get an optional `Maximum` in a `ValueRange`
         let getMax =
             apply
@@ -1071,9 +1079,11 @@ module Variable =
                 (Tuple.thrdOf3 >> Some)
                 ValueSet.getMax
 
+
         /// Get an optional `ValueSet` in a `ValueRange`
         let getValSet =
             apply None None Option.none Option.none Option.none Option.none Option.none Option.none Option.none Some
+
 
         /// Check whether a `ValueRange` **vr** contains
         /// a `BigRational` **v**.
@@ -1263,14 +1273,49 @@ module Variable =
                 fValueSet
 
 
-        let increaseIncrement incr vr =
-            incr
-            |> List.fold (fun acc i ->
-                try
-                    acc |> setIncr true i
-                with
-                | _ -> acc
-            ) vr
+        let minIncrMaxCount min incr max =
+                let min =
+                    min
+                    |> Minimum.toValueUnit
+                    |> ValueUnit.getBaseValue
+
+                let max =
+                    max
+                    |> Maximum.toValueUnit
+                    |> ValueUnit.getBaseValue
+
+                incr
+                |> Increment.toValueUnit
+                |> ValueUnit.getBaseValue
+                |> Array.map (fun i ->
+                    [|
+                        for mi in min do
+                            for ma in max do
+                                if i > (ma - mi) then 0N
+                                else
+                                    (ma - mi) / i
+                    |]
+                    |> Array.sum
+                )
+                |> Array.sum
+
+
+        let increaseIncrement lim incr vr =
+            match vr with
+            | MinIncrMax (min, _, max) ->
+                incr
+                |> List.fold (fun (b, acc) i ->
+                    if b then (b, acc)
+                    else
+                        let b = minIncrMaxCount min i max <= lim
+                        try
+                            let acc = acc |> setIncr true i
+                            (b, acc)
+                        with
+                        | _ -> (false, acc)
+                ) (false, vr)
+            | _ -> (false, vr)
+            |> snd
 
 
         let eqs vr1 vr2 =
@@ -1952,6 +1997,7 @@ module Variable =
             printfn $"couldn't catch exeption:{e}"
             raise e
 
+
     /// Set the values to a `ValueRange`
     /// that prevents zero or negative values.
     let setNonZeroOrNegative v =
@@ -2014,15 +2060,12 @@ module Variable =
             raise e
 
 
-    let increaseIncrement incr var =
+    let increaseIncrement lim incr var =
         if var |> isMinIncrMax |> not then var
         else
-            let res =
-                { var with
-                    Values = var.Values |> ValueRange.increaseIncrement incr
-                }
-            printfn $"increase increment to: {res}"
-            res
+            { var with
+                Values = var.Values |> ValueRange.increaseIncrement lim incr
+            }
 
 
     module Operators =
