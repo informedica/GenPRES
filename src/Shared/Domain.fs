@@ -1188,6 +1188,7 @@ module ScenarioResult =
             Prescription = prs |> parseTextItem
             Preparation = prep |> parseTextItem
             Administration = adm |> parseTextItem
+// not working            Dto = Dto.Dto ()
         }
 
 

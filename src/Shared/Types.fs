@@ -67,6 +67,135 @@ module Types =
         }
 
 
+
+    module Dto =
+
+        open System
+
+
+        module ValueUnit =
+
+            type Dto() =
+                member val Value : string [] = [||] with get, set
+                member val Unit = "" with get, set
+                member val Group = "" with get, set
+                member val Short = true with get, set
+                member val Language = "" with get, set
+
+            let dto () = Dto()
+
+
+        module OrderVariable =
+
+
+            type VarDto () =
+                member val Min : ValueUnit.Dto option = None with get, set
+                member val MinIncl = false with get, set
+                member val Incr : ValueUnit.Dto option = None with get, set
+                member val Max : ValueUnit.Dto option = None with get, set
+                member val MaxIncl = false with get, set
+                member val Vals : ValueUnit.Dto option = None with get, set
+
+
+            type Dto () =
+                member val Name = "" with get, set
+                member val Constraints = VarDto () with get, set
+                member val Variable = VarDto () with get, set
+
+
+            let dto () = Dto ()
+
+
+        module Prescription =
+
+
+            type Dto () =
+                member val IsContinuous = false with get, set
+                member val IsDiscontinuous = false with get, set
+                member val IsTimed = false with get, set
+                member val Frequency = OrderVariable.dto () with get, set
+                member val Time = OrderVariable.dto () with get, set
+
+
+            let dto () = Dto ()
+
+
+        module Dose =
+
+
+            type Dto () =
+                member val Quantity = OrderVariable.dto () with get, set
+                member val PerTime = OrderVariable.dto () with get, set
+                member val Rate = OrderVariable.dto () with get, set
+                member val Total = OrderVariable.dto () with get, set
+                member val QuantityAdjust = OrderVariable.dto () with get, set
+                member val PerTimeAdjust = OrderVariable.dto () with get, set
+                member val RateAdjust = OrderVariable.dto () with get, set
+                member val TotalAdjust = OrderVariable.dto () with get, set
+
+
+            let dto () = Dto ()
+
+
+        module Item =
+
+            type Dto () =
+                member val Name = "" with get, set
+                member val ComponentQuantity = OrderVariable.dto () with get, set
+                member val OrderableQuantity = OrderVariable.dto () with get, set
+                member val ComponentConcentration = OrderVariable.dto () with get, set
+                member val OrderableConcentration = OrderVariable.dto () with get, set
+                member val Dose = Dose.dto () with get, set
+
+
+
+        module Component =
+
+
+            type Dto () =
+                member val Id = "" with get, set
+                member val Name = "" with get, set
+                member val Shape = "" with get, set
+                member val ComponentQuantity = OrderVariable.dto () with get, set
+                member val OrderableQuantity = OrderVariable.dto () with get, set
+                member val OrderableCount = OrderVariable.dto () with get, set
+                member val OrderQuantity = OrderVariable.dto () with get, set
+                member val OrderCount = OrderVariable.dto () with get, set
+                member val OrderableConcentration = OrderVariable.dto () with get, set
+                member val Dose = Dose.dto () with get, set
+                member val Items : Item.Dto [] = [||] with get, set
+
+
+
+        module Orderable =
+
+
+            type Dto () =
+                member val Name = "" with get, set
+                member val OrderableQuantity = OrderVariable.dto () with get, set
+                member val OrderQuantity = OrderVariable.dto () with get, set
+                member val OrderCount = OrderVariable.dto () with get, set
+                member val DoseCount = OrderVariable.dto () with get, set
+                member val Dose = Dose.dto () with get, set
+                member val Components : Component.Dto [] = [||] with get, set
+
+
+            let dto () = Dto ()
+
+
+        type Dto() =
+            member val Id = "" with get, set
+            member val Adjust = OrderVariable.dto () with get, set
+            member val Orderable = Orderable.dto () with get, set
+            member val Prescription = Prescription.dto () with get, set
+            member val Route = "" with get, set
+            member val Duration = OrderVariable.dto () with get, set
+            member val Start = DateTime.Now with get, set
+            member val Stop : DateTime option = None with get, set
+
+
+
+
     type Medication =
         | Bolus of BolusMedication
         | Continuous of ContinuousMedication
@@ -183,6 +312,7 @@ module Types =
             Prescription : TextItem[]
             Preparation : TextItem[]
             Administration : TextItem[]
+// not working            Dto: Dto.Dto
         }
 
 
@@ -202,7 +332,7 @@ module Types =
         }
 
 
-    type Formulary = 
+    type Formulary =
         {
             Generics : string []
             Indications : string []

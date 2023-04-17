@@ -1,6 +1,7 @@
 [<AutoOpen>]
 module ServerApiImpl
 
+open DocumentFormat.OpenXml.EMMA
 open MathNet.Numerics
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
@@ -12,7 +13,19 @@ open Shared.Types
 open Shared.Api
 
 
+let mapToDto (dto : Order.Dto.Dto) : Shared.Types.Dto.Dto =
+    let mappedDto = Dto.Dto()
+
+    mappedDto
 /// An implementation of the Shared IServerApi protocol.
+
+
+let mapFromDto (dto: Dto.Dto) : Order.Dto.Dto =
+    let mappedDto = Order.Dto.Dto(dto.Id, dto.Orderable.Name)
+
+    mappedDto
+
+
 let serverApi: IServerApi =
     let mapFormularyToFilter (form: Formulary)=
         { Filter.filter with

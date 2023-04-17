@@ -269,13 +269,14 @@ module private Elmish =
             { state with Scenarios = InProgress }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
+            //Logging.log "result" result
             { state with
                 Scenarios = Resolved result
             },
             Cmd.none
 
         | LoadScenarios (Finished (Error msg)) ->
-            Logging.log "scenarios" msg
+            Logging.error "error" msg
             state, Cmd.none
 
         | UpdateScenarios sc ->
