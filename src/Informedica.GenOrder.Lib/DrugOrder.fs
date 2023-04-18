@@ -19,7 +19,13 @@ module DrugOrder =
         if u |> String.isNullOrWhiteSpace then None
         else
             let vuDto = ValueUnit.Dto.dto()
-            vuDto.Value <- br |> Seq.toArray |> Array.map BigRational.toDecimal
+            vuDto.Value <-
+                br
+                |> Seq.toArray
+                |> Array.map (fun v ->
+                    v |> string,
+                    v |> BigRational.toDecimal
+                )
             vuDto.Unit <- u
             vuDto |> Some
 

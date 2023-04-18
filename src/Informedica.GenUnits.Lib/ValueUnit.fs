@@ -2590,7 +2590,7 @@ module ValueUnit =
 
 
         type Dto() =
-            member val Value = [||] with get, set
+            member val Value : (string * decimal) [] = [||] with get, set
             member val Unit = "" with get, set
             member val Group = "" with get, set
             member val Short = true with get, set
@@ -2630,7 +2630,11 @@ module ValueUnit =
                         Units.Long
 
                 let v, u = vu |> ValueUnit.get
-                let v = v |> Array.map BigRational.toDecimal
+                let v =
+                    v |> Array.map (fun v ->
+                        v |> string,
+                        v |> BigRational.toDecimal
+                    )
 
                 let g =
                     u |> Group.unitToGroup |> Group.toString
@@ -2652,9 +2656,9 @@ module ValueUnit =
         let toDtoEnglishShort vu = vu |> toDto true english |> Option.get
         let toDtoEnglishLong vu = vu |> toDto false english |> Option.get
 
-        let fromDto (dto: Dto) =
+        let fromDto (dto: Dto ) =
             let v =
-                dto.Value |> Array.map BigRational.fromDecimal
+                dto.Value |> Array.map (fst >> BigRational.parse)
 
             dto.Unit
             |> Units.fromString

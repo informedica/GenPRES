@@ -1149,6 +1149,131 @@ module Products =
         | _ -> []
 
 
+module Order =
+
+
+    module ValueUnit =
+
+        // create Shared.Types.ValueUnit
+        let create v u g s l =
+            {
+                Value = v
+                Unit = u
+                Group = g
+                Short = s
+                Language = l
+            }
+
+
+    module ValueRange =
+
+        let create min minIncl incr max maxIncl vals =
+            {
+                Min = min
+                MinIncl = minIncl
+                Incr = incr
+                Max = max
+                MaxIncl = maxIncl
+                Vals = vals
+            }
+
+
+    module OrderVariable =
+
+        let create n c v =
+            {
+                Name = n
+                Constraints = c
+                Variable = v
+            }
+
+
+    module Prescription =
+
+        let create isC isD isT f t =
+            {
+                IsContinuous = isC
+                IsDiscontinuous = isD
+                IsTimed = isT
+                Frequency = f
+                Time = t
+            }
+
+
+    module Dose =
+
+
+        let create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj =
+            {
+                Quantity = qty
+                PerTime = ptm
+                Rate = rte
+                Total = tot
+                QuantityAdjust = qty_adj
+                PerTimeAdjust = ptm_adj
+                RateAdjust = rte_adj
+                TotalAdjust = tot_adj
+            }
+
+
+    module Item =
+
+        let create n cmp_qty orb_qty cmp_cnc orb_cnc dos =
+            {
+                Name = n
+                ComponentQuantity = cmp_qty
+                OrderableQuantity = orb_qty
+                ComponentConcentration = cmp_cnc
+                OrderableConcentration = orb_cnc
+                Dose = dos
+            }
+
+
+    module Component =
+
+        let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii =
+            {
+                Id = id
+                Name = nm
+                Shape = sh
+                ComponentQuantity = cmp_qty
+                OrderableQuantity = orb_qty
+                OrderableCount = orb_cnt
+                OrderQuantity = ord_qty
+                OrderCount = ord_cnt
+                OrderableConcentration = orb_cnc
+                Dose = dos
+                Items = ii
+            }
+
+
+    module Orderable =
+
+        let create n orb_qty ord_qty ord_cnt dos_cnt dos cc =
+            {
+                Name = n
+                OrderableQuantity = orb_qty
+                OrderQuantity = ord_qty
+                OrderCount = ord_cnt
+                DoseCount = dos_cnt
+                Dose = dos
+                Components = cc
+            }
+
+
+
+    let create id adj_qty orb prs rte tme sta sto =
+        {
+            Id = id
+            Adjust = adj_qty
+            Orderable = orb
+            Prescription = prs
+            Route = rte
+            Duration = tme
+            Start = sta
+            Stop = sto
+        }
+
 
 module ScenarioResult =
 

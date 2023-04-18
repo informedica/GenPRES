@@ -13,11 +13,49 @@ open Shared.Types
 open Shared.Api
 
 
-let mapToDto (dto : Order.Dto.Dto) : Shared.Types.Dto.Dto =
-    let mappedDto = Dto.Dto()
+let mapToValueUnit (dto : Informedica.GenUnits.Lib.ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
+    let value =
+        dto.Value
+        |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3)
+    Shared.Order.ValueUnit.create
+        (dto.Value |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3))
+        dto.Unit "" true ""
 
-    mappedDto
-/// An implementation of the Shared IServerApi protocol.
+
+let mapToValueRange (dto : ValueRange.Dto.Dto) : Shared.Types.ValueRange =
+    let valueRange =
+        Shared.Order.ValueRange.create
+            dto.Min
+            dto.Max
+    valueRange
+
+
+let mapToOrderVariable (dto : OrderVariable.Dto.Dto) : Shared.Types.OrderVariable =
+    let orderVariable =
+        Shared.Order.OrderVariable.create
+            dto.Name
+            dto.Variable.Incr
+            dto.Unit
+    orderVariable
+
+
+let mapToOrderable (dto : Order.Orderable.Dto.Dto) : Shared.Types.Orderable =
+    let orderable =
+        Shared.Order.Orderable.create
+            dto.Name
+            (dto.OrderableQuantity |> mapToOrderVariable)
+            dto.Strength
+            dto.Unit
+            dto.Shape
+            dto.DoseType
+    orderable
+
+let mapToOrder (dto : Order.Dto.Dto) : Shared.Types.Order =
+    let order =
+        Shared.Order.create
+            dto.Id
+            dto.Orderable
+    order
 
 
 let mapFromDto (dto: Dto.Dto) : Order.Dto.Dto =
@@ -26,6 +64,7 @@ let mapFromDto (dto: Dto.Dto) : Order.Dto.Dto =
     mappedDto
 
 
+/// An implementation of the Shared IServerApi protocol.
 let serverApi: IServerApi =
     let mapFormularyToFilter (form: Formulary)=
         { Filter.filter with

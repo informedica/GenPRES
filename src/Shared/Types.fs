@@ -6,6 +6,9 @@ namespace Shared
 [<AutoOpen>]
 module Types =
 
+    open System
+
+
     type DataType =
         | StringData
         | FloatData
@@ -67,132 +70,110 @@ module Types =
         }
 
 
-
-    module Dto =
-
-        open System
-
-
-        module ValueUnit =
-
-            type Dto() =
-                member val Value : string [] = [||] with get, set
-                member val Unit = "" with get, set
-                member val Group = "" with get, set
-                member val Short = true with get, set
-                member val Language = "" with get, set
-
-            let dto () = Dto()
+    type ValueUnit =
+        {
+            Value : (string * string) []
+            Unit : string
+            Group : string
+            Short : bool
+            Language : string
+        }
 
 
-        module OrderVariable =
+    type ValueRange =
+        {
+            Min : ValueUnit option
+            MinIncl : bool
+            Incr : ValueUnit option
+            Max : ValueUnit option
+            MaxIncl : bool
+            Vals : ValueUnit option
+        }
 
 
-            type VarDto () =
-                member val Min : ValueUnit.Dto option = None with get, set
-                member val MinIncl = false with get, set
-                member val Incr : ValueUnit.Dto option = None with get, set
-                member val Max : ValueUnit.Dto option = None with get, set
-                member val MaxIncl = false with get, set
-                member val Vals : ValueUnit.Dto option = None with get, set
-
-
-            type Dto () =
-                member val Name = "" with get, set
-                member val Constraints = VarDto () with get, set
-                member val Variable = VarDto () with get, set
-
-
-            let dto () = Dto ()
-
-
-        module Prescription =
-
-
-            type Dto () =
-                member val IsContinuous = false with get, set
-                member val IsDiscontinuous = false with get, set
-                member val IsTimed = false with get, set
-                member val Frequency = OrderVariable.dto () with get, set
-                member val Time = OrderVariable.dto () with get, set
-
-
-            let dto () = Dto ()
-
-
-        module Dose =
-
-
-            type Dto () =
-                member val Quantity = OrderVariable.dto () with get, set
-                member val PerTime = OrderVariable.dto () with get, set
-                member val Rate = OrderVariable.dto () with get, set
-                member val Total = OrderVariable.dto () with get, set
-                member val QuantityAdjust = OrderVariable.dto () with get, set
-                member val PerTimeAdjust = OrderVariable.dto () with get, set
-                member val RateAdjust = OrderVariable.dto () with get, set
-                member val TotalAdjust = OrderVariable.dto () with get, set
-
-
-            let dto () = Dto ()
-
-
-        module Item =
-
-            type Dto () =
-                member val Name = "" with get, set
-                member val ComponentQuantity = OrderVariable.dto () with get, set
-                member val OrderableQuantity = OrderVariable.dto () with get, set
-                member val ComponentConcentration = OrderVariable.dto () with get, set
-                member val OrderableConcentration = OrderVariable.dto () with get, set
-                member val Dose = Dose.dto () with get, set
+    type OrderVariable =
+        {
+            Name : string
+            Constraints : ValueRange
+            Variable : ValueRange
+        }
 
 
 
-        module Component =
-
-
-            type Dto () =
-                member val Id = "" with get, set
-                member val Name = "" with get, set
-                member val Shape = "" with get, set
-                member val ComponentQuantity = OrderVariable.dto () with get, set
-                member val OrderableQuantity = OrderVariable.dto () with get, set
-                member val OrderableCount = OrderVariable.dto () with get, set
-                member val OrderQuantity = OrderVariable.dto () with get, set
-                member val OrderCount = OrderVariable.dto () with get, set
-                member val OrderableConcentration = OrderVariable.dto () with get, set
-                member val Dose = Dose.dto () with get, set
-                member val Items : Item.Dto [] = [||] with get, set
+    type Prescription =
+        {
+            IsContinuous : bool
+            IsDiscontinuous : bool
+            IsTimed : bool
+            Frequency : OrderVariable
+            Time : OrderVariable
+        }
 
 
 
-        module Orderable =
+    type Dose =
+        {
+            Quantity : OrderVariable
+            PerTime : OrderVariable
+            Rate : OrderVariable
+            Total : OrderVariable
+            QuantityAdjust : OrderVariable
+            PerTimeAdjust : OrderVariable
+            RateAdjust : OrderVariable
+            TotalAdjust : OrderVariable
+        }
 
 
-            type Dto () =
-                member val Name = "" with get, set
-                member val OrderableQuantity = OrderVariable.dto () with get, set
-                member val OrderQuantity = OrderVariable.dto () with get, set
-                member val OrderCount = OrderVariable.dto () with get, set
-                member val DoseCount = OrderVariable.dto () with get, set
-                member val Dose = Dose.dto () with get, set
-                member val Components : Component.Dto [] = [||] with get, set
+    type Item =
+        {
+            Name : string
+            ComponentQuantity : OrderVariable
+            OrderableQuantity : OrderVariable
+            ComponentConcentration : OrderVariable
+            OrderableConcentration : OrderVariable
+            Dose : Dose
+        }
 
 
-            let dto () = Dto ()
+    type Component =
+        {
+            Id : string
+            Name : string
+            Shape : string
+            ComponentQuantity : OrderVariable
+            OrderableQuantity : OrderVariable
+            OrderableCount : OrderVariable
+            OrderQuantity : OrderVariable
+            OrderCount : OrderVariable
+            OrderableConcentration : OrderVariable
+            Dose : Dose
+            Items : Item[]
+        }
 
 
-        type Dto() =
-            member val Id = "" with get, set
-            member val Adjust = OrderVariable.dto () with get, set
-            member val Orderable = Orderable.dto () with get, set
-            member val Prescription = Prescription.dto () with get, set
-            member val Route = "" with get, set
-            member val Duration = OrderVariable.dto () with get, set
-            member val Start = DateTime.Now with get, set
-            member val Stop : DateTime option = None with get, set
+    type Orderable =
+        {
+            Name : string
+            OrderableQuantity : OrderVariable
+            OrderQuantity : OrderVariable
+            OrderCount : OrderVariable
+            DoseCount : OrderVariable
+            Dose : Dose
+            Components : Component[]
+        }
 
+
+    type Order =
+        {
+            Id : string
+            Adjust : OrderVariable
+            Orderable : Orderable
+            Prescription : Prescription
+            Route : string
+            Duration : OrderVariable
+            Start : DateTime
+            Stop : DateTime option
+        }
 
 
 
@@ -312,7 +293,7 @@ module Types =
             Prescription : TextItem[]
             Preparation : TextItem[]
             Administration : TextItem[]
-// not working            Dto: Dto.Dto
+// not working            Dto: Dto
         }
 
 

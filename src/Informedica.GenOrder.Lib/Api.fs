@@ -219,7 +219,7 @@ module Api =
                 let incr =
                     [0.1m; 0.5m; 1m; 5m; 10m; 20m]
                     |> List.choose (fun i ->
-                        incr.Value <- [| i |]
+                        incr.Value <- [| i |> BigRational.fromDecimal |> string, i |]
                         incr
                         |> ValueUnit.Dto.fromDto
                     )
@@ -315,7 +315,10 @@ module Api =
                     dto.Orderable.Components
                     |> List.choose (fun cDto -> cDto.ComponentQuantity.Variable.Vals)
                     |> List.toArray
-                    |> Array.collect (fun dto -> dto.Value |> Array.map BigRational.fromDecimal)
+                    |> Array.collect (fun dto ->
+                        dto.Value
+                        |> Array.map (fst >> BigRational.parse)
+                    )
 
                 let sbsts =
                     dto.Orderable.Components
@@ -328,7 +331,7 @@ module Api =
                             |> Option.map (fun v ->
                                 iDto.Name,
                                 v.Value
-                                |> Array.map BigRational.fromDecimal
+                                |> Array.map (fst >> BigRational.parse)
                                 |> Array.tryHead
                             )
                         )
