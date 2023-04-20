@@ -1,6 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
 
+
 module DrugOrder =
 
     open MathNet.Numerics
@@ -36,7 +37,7 @@ module DrugOrder =
 
     module MinMax =
 
-        let setConstraints un (brs : BigRational []) (minMax : MinMax) (dto: OrderVariable.Dto.VarDto) =
+        let setConstraints un (brs : BigRational []) (minMax : MinMax) (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) =
             let min =
                 match minMax.Minimum, brs with
                 | None, [|br|] -> br - br / 10N |> Some

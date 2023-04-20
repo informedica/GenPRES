@@ -122,6 +122,7 @@ module Demo =
                                         Prescription = prs |> replace
                                         Preparation =prp |> replace
                                         Administration = adm |> replace
+                                        Order = Some ord
                                     }
                                     |> Some
 

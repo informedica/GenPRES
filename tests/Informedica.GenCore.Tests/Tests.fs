@@ -594,12 +594,12 @@ module Tests =
                         test "MinIncrMax dto setting min and max" {
                             // Add min and max to dto and there and back again
                             let dto = dto ()
-                            dto.Min.Value <- [| 1m |]
+                            dto.Min.Value <- [| $"{1N}", 1m |]
                             dto.Min.Unit <- "mg"
                             dto.Min.Group <- "mass"
                             dto.HasMin <- true
                             dto.MinIncl <- false
-                            dto.Max.Value <- [| 2m |]
+                            dto.Max.Value <- [| $"{2N}", 2m |]
                             dto.Max.Unit <- "g"
                             dto.Max.Group <- "mass"
                             dto.HasMax <- true
@@ -616,12 +616,12 @@ module Tests =
                         test "MinIncrMax that is not valid will not return from dto" {
                             let dto = dto ()
 
-                            dto.Min.Value <- [| 1m |]
+                            dto.Min.Value <- [| $"{1N}", 1m |]
                             dto.Min.Unit <- "g"
                             dto.Min.Group <- "mass"
                             dto.HasMin <- true
                             dto.MinIncl <- false
-                            dto.Max.Value <- [| 1m |]
+                            dto.Max.Value <- [| $"{1N}", 1m |]
                             dto.Max.Unit <- "mg"
                             dto.Max.Group <- "mass"
                             dto.HasMax <- true

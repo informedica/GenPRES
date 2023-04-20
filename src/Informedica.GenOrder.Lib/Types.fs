@@ -139,7 +139,7 @@ module Types =
         /// Models in a `Component` in and `Orderable`
         type Component =
             {
-                Id : Id
+                Id : Id //TODO: remove
                 /// The name of a `Component`
                 Name: Name
                 // The shape of an component
@@ -330,6 +330,7 @@ module Types =
                 Prescription : string
                 Preparation : string
                 Administration : string
+                Order : Order option
             }
 
 

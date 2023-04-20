@@ -1149,6 +1149,7 @@ module Products =
         | _ -> []
 
 
+
 module Order =
 
 
@@ -1165,10 +1166,12 @@ module Order =
             }
 
 
-    module ValueRange =
+    module Variable =
 
-        let create min minIncl incr max maxIncl vals =
+        let create n nonZ min minIncl incr max maxIncl vals =
             {
+                Name = n
+                IsNonZeroNegative = nonZ
                 Min = min
                 MinIncl = minIncl
                 Incr = incr
@@ -1306,14 +1309,14 @@ module ScenarioResult =
         |> Seq.toArray
 
 
-    let createScenario shp dst prs prep adm =
+    let createScenario shp dst prs prep adm o =
         {
             Shape = shp
             DoseType = dst
             Prescription = prs |> parseTextItem
             Preparation = prep |> parseTextItem
             Administration = adm |> parseTextItem
-// not working            Dto = Dto.Dto ()
+            Order = o
         }
 
 

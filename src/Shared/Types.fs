@@ -72,7 +72,7 @@ module Types =
 
     type ValueUnit =
         {
-            Value : (string * string) []
+            Value : (string * decimal) []
             Unit : string
             Group : string
             Short : bool
@@ -80,8 +80,10 @@ module Types =
         }
 
 
-    type ValueRange =
+    type Variable =
         {
+            Name : string
+            IsNonZeroNegative : bool
             Min : ValueUnit option
             MinIncl : bool
             Incr : ValueUnit option
@@ -94,8 +96,8 @@ module Types =
     type OrderVariable =
         {
             Name : string
-            Constraints : ValueRange
-            Variable : ValueRange
+            Constraints : Variable
+            Variable : Variable
         }
 
 
@@ -293,7 +295,7 @@ module Types =
             Prescription : TextItem[]
             Preparation : TextItem[]
             Administration : TextItem[]
-// not working            Dto: Dto
+            Order : Order option
         }
 
 

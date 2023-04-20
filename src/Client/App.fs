@@ -269,7 +269,10 @@ module private Elmish =
             { state with Scenarios = InProgress }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
-            //Logging.log "result" result
+            result.Scenarios
+            |> Array.iter (fun s ->
+                Logging.log "order" $"order: {s.Order}"
+            )
             { state with
                 Scenarios = Resolved result
             },

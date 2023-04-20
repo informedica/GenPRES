@@ -2150,7 +2150,7 @@ module Variable =
         /// The `Dto` representation of a `Variable`
         type Dto() =
             member val Name = "" with get, set
-            member val isNonZeroNegative = false with get, set
+            member val IsNonZeroNegative = false with get, set
             member val Min: ValueUnit.Dto.Dto option = None with get, set
             member val MinIncl = false with get, set
             member val Incr: ValueUnit.Dto.Dto option = None with get, set
@@ -2164,7 +2164,7 @@ module Variable =
             && dto.Max.IsNone
             && dto.Incr.IsNone
             && dto.Vals.IsNone
-            && not dto.isNonZeroNegative
+            && not dto.IsNonZeroNegative
 
 
         let dto () = Dto()
@@ -2217,7 +2217,7 @@ module Variable =
                 )
 
             let vr =
-                if dto.isNonZeroNegative then
+                if dto.IsNonZeroNegative then
                     NonZeroNoneNegative
                 else
                     ValueRange.create true min incr max vs
@@ -2239,7 +2239,7 @@ module Variable =
             match v.Values with
             | Unrestricted -> dto
             | NonZeroNoneNegative ->
-                dto.isNonZeroNegative <- true
+                dto.IsNonZeroNegative <- true
                 dto
             | _ ->
                 let incr =

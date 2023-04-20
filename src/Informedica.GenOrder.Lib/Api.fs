@@ -388,6 +388,7 @@ module Api =
                     Prescription = pres
                     Preparation = prep
                     Administration = adm
+                    Order = Some o
                 }
         )
 

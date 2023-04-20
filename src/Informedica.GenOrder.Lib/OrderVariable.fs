@@ -195,19 +195,10 @@ module OrderVariable =
     module Dto =
 
 
-        type VarDto () =
-            member val Min : ValueUnit.Dto.Dto option = None with get, set
-            member val MinIncl = false with get, set
-            member val Incr : ValueUnit.Dto.Dto option = None with get, set
-            member val Max : ValueUnit.Dto.Dto option = None with get, set
-            member val MaxIncl = false with get, set
-            member val Vals : ValueUnit.Dto.Dto option = None with get, set
-
-
         type Dto () =
             member val Name = "" with get, set
-            member val Constraints = VarDto () with get, set
-            member val Variable = VarDto () with get, set
+            member val Constraints = Variable.Dto.dto () with get, set
+            member val Variable = Variable.Dto.dto () with get, set
 
 
         let dto () = Dto ()
