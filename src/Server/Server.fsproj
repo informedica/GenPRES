@@ -10,6 +10,8 @@
     <Compile Include="../Shared/Data.fs" />
     <Compile Include="../Shared/Domain.fs" />
     <Compile Include="../Shared/Api.fs" />
+    <Compile Include="Formulary.fs" />
+    <Compile Include="ScenarioResult.fs" />
     <Compile Include="ServerApi.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

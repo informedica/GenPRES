@@ -1,14 +1,12 @@
 module Server
 
 open System
-open System.IO
 open Giraffe
 open Saturn
 open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
 open Shared
 open Shared.Api
-open Microsoft.Extensions.DependencyInjection
 
 
 let tryGetEnv key =
