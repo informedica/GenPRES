@@ -16,11 +16,10 @@ let serverApi: IServerApi =
 
         getFormulary =
             fun (form : Formulary) ->
-
                 async {
                     return form |> Formulary.get
                 }
-
+                
         getScenarioResult =
             fun (sc : ScenarioResult) ->
                 async {
