@@ -876,15 +876,21 @@ module Variable =
             | None -> true
             | Some (Increment incr) -> incr |> ValueUnit.getBaseValue |> Seq.exists isDiv
 
+
         /// Filter a set of `BigRational` according
         /// to **min** **max** and incr constraints
         let filter minOpt incrOpt maxOpt (ValueSet vs) =
+            try
             vs
             |> ValueUnit.filter (fun v ->
                 v |> isBetweenMinMax minOpt maxOpt
                 && v |> isMultipleOfIncr incrOpt
             )
             |> ValueSet.create
+            with
+            | e ->
+                printfn $"filter with {minOpt}, {incrOpt}, {maxOpt} and {vs} gives empty set"
+                raise e
 
 
         let minEQmax max min =
@@ -2070,15 +2076,19 @@ module Variable =
     let minIncrMaxToValues var =
         if var |> isMinIncrMax |> not then var
         else
-            { var with
-                Values =
-                    ValueRange.minIncrMaxToValueRange
-                        false
-                        (var.Values |> ValueRange.getMin |> Option.get)
-                        (var.Values |> ValueRange.getIncr |> Option.get)
-                        (var.Values |> ValueRange.getMax |> Option.get)
-            }
-
+            try
+                { var with
+                    Values =
+                        ValueRange.minIncrMaxToValueRange
+                            false
+                            (var.Values |> ValueRange.getMin |> Option.get)
+                            (var.Values |> ValueRange.getIncr |> Option.get)
+                            (var.Values |> ValueRange.getMax |> Option.get)
+                }
+            with
+            | e ->
+                printfn $"cannot create values from min incr max: {var.Name}"
+                raise e
 
 
     module Operators =

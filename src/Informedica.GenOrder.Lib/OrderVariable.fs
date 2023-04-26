@@ -264,8 +264,8 @@ module OrderVariable =
                         |> Some
                 )
 
-            let min  = dto.Variable.Min  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Constraints.MinIncl)))
-            let max  = dto.Variable.Max  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Constraints.MaxIncl)))
+            let min  = dto.Variable.Min  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Variable.MinIncl)))
+            let max  = dto.Variable.Max  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Variable.MaxIncl)))
 
             create n min incr max vals cs
 

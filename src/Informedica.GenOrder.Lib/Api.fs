@@ -230,33 +230,33 @@ module Api =
                 ord
                 |> Order.increaseQuantityIncrement 10N incr
                 // not sure if this is needed
-                // |> fun o ->
-                //
-                //     match dto.Orderable.Dose.Rate.Variable.Min,
-                //             dto.Orderable.Dose.Rate.Variable.Incr,
-                //             dto.Orderable.Dose.Rate.Variable.Max with
-                //     | Some _, Some incr, Some _ ->
-                //         let incr =
-                //             [0.1m; 0.5m; 1m; 5m; 10m; 20m]
-                //             |> List.choose (fun i ->
-                //                 incr.Value <- [| i |]
-                //                 incr
-                //                 |> ValueUnit.Dto.fromDto
-                //             )
-                //             |> List.map (fun vu ->
-                //                 vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
-                //             )
-                //
-                //         o
-                //         |> Order.increaseRateIncrement 50N incr
-                //         |> fun o ->
-                //             let s = o |> Order.toString |> String.concat "\n"
-                //             Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
-                //                 $"order with increased increment:\n {s}"
-                //                 true
-                //                 false
-                //             o
-                //     | _ -> o
+                |> fun o ->
+
+                    match dto.Orderable.Dose.Rate.Variable.Min,
+                            dto.Orderable.Dose.Rate.Variable.Incr,
+                            dto.Orderable.Dose.Rate.Variable.Max with
+                    | Some _, Some incr, Some _ ->
+                        let incr =
+                            [0.1m; 0.5m; 1m; 5m; 10m; 20m]
+                            |> List.choose (fun i ->
+                                incr.Value <- [| i |> BigRational.fromDecimal |> string, i  |]
+                                incr
+                                |> ValueUnit.Dto.fromDto
+                            )
+                            |> List.map (fun vu ->
+                                vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
+                            )
+
+                        o
+                        |> Order.increaseRateIncrement 50N incr
+                        |> fun o ->
+                            let s = o |> Order.toString |> String.concat "\n"
+                            Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                                $"order with increased rate increment:\n {s}"
+                                true
+                                false
+                            o
+                    | _ -> o
                 |> Order.solveMinMax false logger
                 |> function
                 | Error (_, errs) ->

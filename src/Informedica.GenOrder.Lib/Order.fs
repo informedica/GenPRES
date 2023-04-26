@@ -1443,6 +1443,10 @@ module Order =
 
         ord
         |> fromOrdVars ovars
+        |> fun ord ->
+            let s = ord |> toString |> String.concat "\n"
+            printfn $"min incr max to values:\n{s}"
+            ord
 
 
     module Print =
