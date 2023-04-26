@@ -123,12 +123,13 @@ module Prescribe =
         {|
             scenarios: Deferred<Shared.Types.ScenarioResult>
             updateScenario: Shared.Types.ScenarioResult -> unit
+            selectOrder : Shared.Types.Order option -> unit
         |}) =
         let state, dispatch =
             React.useElmish (
                 init props.scenarios,
                 update props.scenarios props.updateScenario,
-                [| box props.scenarios; box props.updateScenario |]
+                [| box props.scenarios; box props.updateScenario; box props.selectOrder |]
             )
 
         let select isLoading lbl selected dispatch xs =
@@ -191,12 +192,15 @@ module Prescribe =
             </Box>
             """
 
-        let displayScenarios med (sc : Shared.Types.Scenario) =
+        let displayScenario med (sc : Shared.Types.Scenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let med =
                     med |> Option.defaultValue ""
                     |> fun s -> $"{s} {sc.Shape} {sc.DoseType}"
+
+                let ord =
+                    sc.Order
 
                 let item icon prim sec =
                     JSX.jsx 
@@ -212,9 +216,35 @@ module Prescribe =
                     </ListItem>
                     """
 
+                let content =
+                    JSX.jsx 
+                        $"""
+                    <React.Fragment>
+                        <Typography variant="h6">
+                            {med}
+                        </Typography>
+                        <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
+                            {
+                                [|
+                                    item Mui.Icons.Notes "Voorschrift" sc.Prescription
+                                    item Mui.Icons.Vaccines "Bereiding" sc.Preparation
+                                    item Mui.Icons.MedicationLiquid "Toediening" sc.Administration
+                                |]
+                                |> unbox
+                                |> React.fragment
+                            }
+                        </List>                
+                    </React.Fragment>
+                    """
+
                 JSX.jsx
                     $"""
                 import React from 'react';
+                import Card from '@mui/material/Card';
+                import CardActions from '@mui/material/CardActions';
+                import CardContent from '@mui/material/CardContent';
+                import Button from '@mui/material/Button';
+                import Typography from '@mui/material/Typography';
                 import Box from '@mui/material/Box';
                 import List from '@mui/material/List';
                 import ListItem from '@mui/material/ListItem';
@@ -225,38 +255,37 @@ module Prescribe =
                 import Typography from '@mui/material/Typography';
 
                 <Box sx={ {| mt=3; height="100%" |} } >
-                    <Typography variant="h6">
-                        {med}
-                    </Typography>
-                    <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
-                        {
-                            [|
-                                item Mui.Icons.Notes "Voorschrift" sc.Prescription
-                                item Mui.Icons.Vaccines "Bereiding" sc.Preparation
-                                item Mui.Icons.MedicationLiquid "Toediening" sc.Administration
-                            |]
-                            |> unbox
-                            |> React.fragment
-                        }
-                    </List>
+                    <Card sx={ {| minWidth = 275 |}  }>
+                        <CardContent>
+                            {content}
+                            {progress}
+                        </CardContent>
+                        <CardActions>
+                            <Button 
+                                size="small"
+                                onClick={fun () -> ord |> props.selectOrder}
+                            >Bewerken</Button>
+                        </CardActions>
+                    </Card>
                 </Box>
                 """
 
         let stackDirection =
             if  Mui.Hooks.useMediaQuery "(max-width:900px)" then "column" else "row"
 
-        let content =
+        let cards =
             JSX.jsx
                 $"""
             import CardContent from '@mui/material/CardContent';
             import Typography from '@mui/material/Typography';
             import Stack from '@mui/material/Stack';
 
-            <CardContent>
+            <React.Fragment>
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
                     Medicatie scenario's
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
+
                     {
                         match props.scenarios with
                         | Resolved scrs -> false, scrs.Indication, scrs.Indications
@@ -294,30 +323,20 @@ module Prescribe =
                         | _ -> None, [||]
                         |> fun (med, scs) ->
                             scs
-                            |> Array.map (displayScenarios med)
+                            |> Array.map (displayScenario med)
                         |> unbox |> React.fragment
                     }
                 </Stack>
-            </CardContent>
+            </React.Fragment>
             """
 
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
-        import Card from '@mui/material/Card';
-        import CardActions from '@mui/material/CardActions';
-        import CardContent from '@mui/material/CardContent';
-        import Button from '@mui/material/Button';
-        import Typography from '@mui/material/Typography';
 
         <Box sx={ {| height="100%" |} }>
-            <Card sx={ {| minWidth = 275 |}  }>
-                {content}
-                {progress}
-            <CardActions>
-                <Button size="small">Bewerken</Button>
-            </CardActions>
-            </Card>
+            {cards}
+            {progress}
         </Box>
         """
 

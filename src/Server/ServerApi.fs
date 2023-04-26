@@ -19,7 +19,13 @@ let serverApi: IServerApi =
                 async {
                     return form |> Formulary.get
                 }
-                
+
+        calcMinIncrMax =
+            fun (ord : Order) ->
+                async {
+                    return ord |> ScenarioResult.calcMinIncrMaxToValues
+                }
+
         getScenarioResult =
             fun (sc : ScenarioResult) ->
                 async {

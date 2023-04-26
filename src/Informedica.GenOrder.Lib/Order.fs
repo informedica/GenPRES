@@ -1431,7 +1431,18 @@ module Order =
 
     let solveMinMax printErr logger = solve true printErr logger
 
+
     let solveOrder printErr logger = solve false printErr logger
+
+
+    let minIncrMaxToValues (ord: Order) =
+        let ovars =
+            ord
+            |> toOrdVars
+            |> List.map OrderVariable.minIncrMaxToValues
+
+        ord
+        |> fromOrdVars ovars
 
 
     module Print =

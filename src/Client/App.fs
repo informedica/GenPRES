@@ -26,6 +26,7 @@ module private Elmish =
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
             Scenarios: Deferred<ScenarioResult>
+            CalculatedOrder : Deferred<Order option>
             Formulary: Deferred<Formulary>
         }
 
@@ -41,6 +42,8 @@ module private Elmish =
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
         | LoadScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
         | UpdateScenarios of ScenarioResult
+        | SelectOrder of Order option
+        | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
 
@@ -134,6 +137,7 @@ module private Elmish =
                 ContinuousMedication = HasNotStartedYet
                 Products = HasNotStartedYet
                 Scenarios = HasNotStartedYet
+                CalculatedOrder = HasNotStartedYet
                 Formulary = HasNotStartedYet
             }
 
@@ -294,6 +298,28 @@ module private Elmish =
             { state with Scenarios = Resolved sc },
             Cmd.ofMsg (LoadScenarios Started)
 
+        | SelectOrder o -> { state with CalculatedOrder = o |> Resolved }, Cmd.ofMsg (CalculateOrder Started)
+
+        | CalculateOrder Started ->
+            match state.CalculatedOrder with
+            | Resolved (Some order) ->
+                let load =
+                    async {
+                        let! order = order |> serverApi.calcMinIncrMax
+                        return Finished order |> CalculateOrder
+                    }
+                { state with CalculatedOrder = InProgress }, Cmd.fromAsync load
+            | _ -> state, Cmd.none
+
+        | CalculateOrder (Finished r) ->
+            match r with
+            | Ok o -> 
+                printfn "success calculating order"
+                { state with CalculatedOrder = o |> Some |> Resolved}, Cmd.none
+            | Error s -> 
+                printfn "eror calculating order"
+                { state with CalculatedOrder = None |> Resolved }, Cmd.none
+
         | LoadFormulary Started ->
             let form =
                 match state.Formulary with
@@ -411,6 +437,7 @@ let View () =
                         updateScenario = UpdateScenarios >> dispatch
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch
+                        selectOrder = SelectOrder >> dispatch
                         page = state.Page
                     |})
                 }

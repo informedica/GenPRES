@@ -138,12 +138,28 @@ module GenPresProduct =
         )
 
 
+    let getGPKMap =
+        fun () ->
+            get []
+            |> Array.collect (fun gpp ->
+                gpp.GenericProducts
+                |> Array.map (fun gp -> gp.Id, gpp)
+            )
+            |> Array.groupBy fst
+            |> Array.map (fun (k, v) -> k, v |> Array.map snd)
+            |> Map.ofArray
+        |> Memoization.memoize
+
+
     let findByGPK gpk =
-        get []
-        |> Array.filter (fun gpp ->
-            gpp.GenericProducts
-            |> Array.exists (fun gp -> gp.Id = gpk)
-        )
+        match (getGPKMap ()) |> Map.tryFind gpk with
+        | Some gpps -> gpps
+        | None -> [||]
+        // get []
+        // |> Array.filter (fun gpp ->
+        //     gpp.GenericProducts
+        //     |> Array.exists (fun gp -> gp.Id = gpk)
+        // )
 
 
     let load = get >> ignore

@@ -3,6 +3,7 @@ namespace Informedica.GenForm.Lib
 
 module PrescriptionRule =
 
+    open Informedica.Utils.Lib
     open MathNet.Numerics
 
 
@@ -31,10 +32,10 @@ module PrescriptionRule =
         |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 
 
-    let get (pat : Patient) = 
+    let get (pat : Patient) =
         Filter.filter
         |> Filter.setPatient pat
-        |> filter 
+        |> filter
 
 
     let filterProducts shapeQuantities

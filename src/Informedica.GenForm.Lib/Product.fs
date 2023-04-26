@@ -52,30 +52,28 @@ module Product =
 
 
         let private get_ () =
-            fun () ->
-                Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
-                |> fun data ->
+            Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
+            |> fun data ->
 
-                    let getColumn =
-                        data
-                        |> Array.head
-                        |> Csv.getStringColumn
-
+                let getColumn =
                     data
-                    |> Array.tail
-                    |> Array.map (fun r ->
-                        let get = getColumn r
-                        {
-                            Shape = get "Shape"
-                            Route = get "Route"
-                            Unit = get "Unit"
-                            DoseUnit = get "DoseUnit"
-                            Timed = get "Timed" = "TRUE"
-                            Reconstitute = get "Reconstitute" = "TRUE"
-                            IsSolution = get "IsSolution" = "TRUE"
-                        }
-                    )
-            |> StopWatch.clockFunc "Getting ShapeRoutes"
+                    |> Array.head
+                    |> Csv.getStringColumn
+
+                data
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
+                    {
+                        Shape = get "Shape"
+                        Route = get "Route"
+                        Unit = get "Unit"
+                        DoseUnit = get "DoseUnit"
+                        Timed = get "Timed" = "TRUE"
+                        Reconstitute = get "Reconstitute" = "TRUE"
+                        IsSolution = get "IsSolution" = "TRUE"
+                    }
+                )
 
 
         let get : unit -> ShapeRoute [] =
@@ -104,37 +102,35 @@ module Product =
         // ExpansionVol
         // Diluents
         let private get_ () =
-            fun () ->
-                Web.getDataFromSheet Web.dataUrlId2 "Reconstitution"
-                |> fun data ->
+            Web.getDataFromSheet Web.dataUrlId2 "Reconstitution"
+            |> fun data ->
 
-                    let getColumn =
-                        data
-                        |> Array.head
-                        |> Csv.getStringColumn
-
+                let getColumn =
                     data
-                    |> Array.tail
-                    |> Array.map (fun r ->
-                        let get = getColumn r
-                        let toBrOpt = toBrs >> toBrOpt
+                    |> Array.head
+                    |> Csv.getStringColumn
 
-                        {|
-                            GPK = get "GPK"
-                            Route = get "Route"
-                            Location =
-                                match get "CVL", get "PVL" with
-                                | s1, _ when s1 |> String.isNullOrWhiteSpace |> not -> CVL
-                                | _, s2 when s2 |> String.isNullOrWhiteSpace |> not -> PVL
-                                | _ -> AnyAccess
-                            DoseType = get "DoseType" |> DoseType.fromString
-                            Dep = get "Dep"
-                            DiluentVol = get "DiluentVol" |> toBrOpt
-                            ExpansionVol = get "ExpansionVol" |> toBrOpt
-                            Diluents = get "Diluents"
-                        |}
-                    )
-            |> StopWatch.clockFunc "Getting Reconstitution"
+                data
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
+                    let toBrOpt = toBrs >> toBrOpt
+
+                    {|
+                        GPK = get "GPK"
+                        Route = get "Route"
+                        Location =
+                            match get "CVL", get "PVL" with
+                            | s1, _ when s1 |> String.isNullOrWhiteSpace |> not -> CVL
+                            | _, s2 when s2 |> String.isNullOrWhiteSpace |> not -> PVL
+                            | _ -> AnyAccess
+                        DoseType = get "DoseType" |> DoseType.fromString
+                        Dep = get "Dep"
+                        DiluentVol = get "DiluentVol" |> toBrOpt
+                        ExpansionVol = get "ExpansionVol" |> toBrOpt
+                        Diluents = get "Diluents"
+                    |}
+                )
 
 
         let get =
@@ -170,79 +166,77 @@ module Product =
     module Parenteral =
 
         let private get_ () =
-            fun () ->
-                Web.getDataFromSheet Web.dataUrlId2 "ParentMeds"
-                |> fun data ->
-                    let getColumn =
-                        data
-                        |> Array.head
-                        |> Csv.getStringColumn
-
+            Web.getDataFromSheet Web.dataUrlId2 "ParentMeds"
+            |> fun data ->
+                let getColumn =
                     data
-                    |> Array.tail
-                    |> Array.map (fun r ->
-                        let get = getColumn r
-                        let toBrOpt = toBrs >> toBrOpt
+                    |> Array.head
+                    |> Csv.getStringColumn
 
-                        {|
-                            Name = get "Name"
-                            Substances =
-                                [|
-                                    "volume mL", get "volume mL" |> toBrOpt
-                                    "energie kCal", get "energie kCal" |> toBrOpt
-                                    "eiwit g", get "eiwit g" |> toBrOpt
-                                    "KH g", get "KH g" |> toBrOpt
-                                    "vet g", get "vet g" |> toBrOpt
-                                    "Na mmol", get "Na mmol" |> toBrOpt
-                                    "K mmol", get "K mmol" |> toBrOpt
-                                    "Ca mmol", get "Ca mmol" |> toBrOpt
-                                    "P mmol", get "P mmol" |> toBrOpt
-                                    "Mg mmol", get "Mg mmol" |> toBrOpt
-                                    "Fe mmol", get "Fe mmol" |> toBrOpt
-                                    "VitD IE", get "VitD IE" |> toBrOpt
-                                    "Cl mmol", get "Cl mmol" |> toBrOpt
+                data
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
+                    let toBrOpt = toBrs >> toBrOpt
 
-                                |]
-                            Oplosmiddel = get "volume mL"
-                            Verdunner = get "volume mL"
-                        |}
-                    )
-                    |> Array.map (fun r ->
-                        {
-                            GPK =  r.Name
-                            ATC = ""
-                            MainGroup = ""
-                            SubGroup = ""
-                            Generic = r.Name
-                            TallMan = "" //r.TallMan
-                            Synonyms = [||]
-                            Product = r.Name
-                            Label = r.Name
-                            Shape = ""
-                            Routes = [||]
-                            ShapeQuantities = [| 1N |]
-                            ShapeUnit = "mL"
-                            RequiresReconstitution = false
-                            Reconstitution = [||]
-                            Divisible = 10N |> Some
-                            Substances =
-                                r.Substances
-                                |> Array.map (fun (s, q) ->
-                                    let n, u =
-                                        match s |> String.split " " with
-                                        | [n; u] -> n |> String.trim, u |> String.trim
-                                        | _ -> failwith $"cannot parse substance {s}"
-                                    {
-                                        Name = n
-                                        Quantity = q
-                                        Unit = u
-                                        MultipleQuantity = None
-                                        MultipleUnit = ""
-                                    }
-                                )
-                        }
-                    )
-            |> StopWatch.clockFunc "Getting Parenteral Meds"
+                    {|
+                        Name = get "Name"
+                        Substances =
+                            [|
+                                "volume mL", get "volume mL" |> toBrOpt
+                                "energie kCal", get "energie kCal" |> toBrOpt
+                                "eiwit g", get "eiwit g" |> toBrOpt
+                                "KH g", get "KH g" |> toBrOpt
+                                "vet g", get "vet g" |> toBrOpt
+                                "Na mmol", get "Na mmol" |> toBrOpt
+                                "K mmol", get "K mmol" |> toBrOpt
+                                "Ca mmol", get "Ca mmol" |> toBrOpt
+                                "P mmol", get "P mmol" |> toBrOpt
+                                "Mg mmol", get "Mg mmol" |> toBrOpt
+                                "Fe mmol", get "Fe mmol" |> toBrOpt
+                                "VitD IE", get "VitD IE" |> toBrOpt
+                                "Cl mmol", get "Cl mmol" |> toBrOpt
+
+                            |]
+                        Oplosmiddel = get "volume mL"
+                        Verdunner = get "volume mL"
+                    |}
+                )
+                |> Array.map (fun r ->
+                    {
+                        GPK =  r.Name
+                        ATC = ""
+                        MainGroup = ""
+                        SubGroup = ""
+                        Generic = r.Name
+                        TallMan = "" //r.TallMan
+                        Synonyms = [||]
+                        Product = r.Name
+                        Label = r.Name
+                        Shape = ""
+                        Routes = [||]
+                        ShapeQuantities = [| 1N |]
+                        ShapeUnit = "mL"
+                        RequiresReconstitution = false
+                        Reconstitution = [||]
+                        Divisible = 10N |> Some
+                        Substances =
+                            r.Substances
+                            |> Array.map (fun (s, q) ->
+                                let n, u =
+                                    match s |> String.split " " with
+                                    | [n; u] -> n |> String.trim, u |> String.trim
+                                    | _ -> failwith $"cannot parse substance {s}"
+                                {
+                                    Name = n
+                                    Quantity = q
+                                    Unit = u
+                                    MultipleQuantity = None
+                                    MultipleUnit = ""
+                                }
+                            )
+                    }
+                )
 
 
         let get : unit -> Product [] =
@@ -251,9 +245,9 @@ module Product =
 
 
     let private get_ () =
-        fun () ->
-            let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
+        let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
 
+        fun () ->
             Web.getDataFromSheet Web.dataUrlId2 "Formulary"
             |> fun data ->
                 let getColumn =
@@ -287,7 +281,6 @@ module Product =
                     let atc =
                         gp.ATC
                         |> ATCGroup.findByATC5 ()
-
                     let su =
                         gp.Substances[0].ShapeUnit
                         |> String.toLower
@@ -346,8 +339,7 @@ module Product =
                             gp.Substances[0].ShapeUnit
                             |> Mapping.mapUnit
                             |> Option.defaultValue ""
-                        RequiresReconstitution =
-                            Mapping.requiresReconstitution gp.Route su gp.Shape
+                        RequiresReconstitution = Mapping.requiresReconstitution (gp.Route, su, gp.Shape)
                         Reconstitution =
                             Reconstitution.get ()
                             |> Array.filter (fun r ->
@@ -395,7 +387,7 @@ module Product =
                             )
                     }
                 )
-        |> StopWatch.clockFunc "Getting Formulary"
+        |> StopWatch.clockFunc "created products"
 
 
     let get : unit -> Product [] =

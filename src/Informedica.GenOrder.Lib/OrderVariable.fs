@@ -189,6 +189,15 @@ module OrderVariable =
         |> String.replace "*" "/"
 
 
+    let minIncrMaxToValues (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                if ovar.Variable |> Variable.isMinIncrMax |> not then ovar.Variable
+                else
+                    ovar.Variable
+                    |> Variable.minIncrMaxToValues
+        }
+
 
     /// Type and functions to handle the `Dto`
     /// data transfer type for a `VariableUnit`

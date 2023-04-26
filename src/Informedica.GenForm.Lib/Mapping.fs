@@ -8,47 +8,43 @@ module Mapping =
 
 
     let routeMapping =
-        fun () ->
-            Web.getDataFromSheet Web.dataUrlId2 "Routes"
-            |> fun data ->
-                let getColumn =
-                    data
-                    |> Array.head
-                    |> Csv.getStringColumn
-
+        Web.getDataFromSheet Web.dataUrlId2 "Routes"
+        |> fun data ->
+            let getColumn =
                 data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
+                |> Array.head
+                |> Csv.getStringColumn
 
-                    {|
-                        Long = get "ZIndex"
-                        Short = get "ShortDutch"
-                    |}
-                )
-        |> StopWatch.clockFunc "Getting Routes"
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let get = getColumn r
+
+                {|
+                    Long = get "ZIndex"
+                    Short = get "ShortDutch"
+                |}
+            )
 
     let unitMapping =
-        fun () ->
-            Web.getDataFromSheet Web.dataUrlId2 "Units"
-            |> fun data ->
-                let getColumn =
-                    data
-                    |> Array.head
-                    |> Csv.getStringColumn
-
+        Web.getDataFromSheet Web.dataUrlId2 "Units"
+        |> fun data ->
+            let getColumn =
                 data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
+                |> Array.head
+                |> Csv.getStringColumn
 
-                    {|
-                        Long = get "ZIndexUnitLong"
-                        Short = get "Unit"
-                        MV = get "MetaVisionUnit"
-                    |}
-                )
-        |> StopWatch.clockFunc "Getting Units"
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let get = getColumn r
+
+                {|
+                    Long = get "ZIndexUnitLong"
+                    Short = get "Unit"
+                    MV = get "MetaVisionUnit"
+                |}
+            )
 
 
     let mapRoute rte =
@@ -71,33 +67,31 @@ module Mapping =
 
 
     let mappingRouteShape =
-        fun () ->
-            Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
-            |> fun data ->
-                let inline getColumn get =
-                    data
-                    |> Array.head
-                    |> get
-
+        Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
+        |> fun data ->
+            let inline getColumn get =
                 data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let getStr = getColumn Csv.getStringColumn r
-                    let getDec = getColumn Csv.getDecimalOptionColumn r
+                |> Array.head
+                |> get
 
-                    {
-                        Route = getStr "Route"
-                        Shape = getStr "Shape"
-                        Unit = getStr "Unit"
-                        DoseUnit = getStr "Unit"
-                        MinDoseQty = getDec "MinDoseQty"
-                        MaxDoseQty = getDec "MaxDoseQty"
-                        Timed = getStr "Timed" |> String.equalsCapInsens "true"
-                        Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
-                        IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
-                    }
-                )
-        |> StopWatch.clockFunc "Getting ShapeRoutes"
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let getStr = getColumn Csv.getStringColumn r
+                let getDec = getColumn Csv.getDecimalOptionColumn r
+
+                {
+                    Route = getStr "Route"
+                    Shape = getStr "Shape"
+                    Unit = getStr "Unit"
+                    DoseUnit = getStr "Unit"
+                    MinDoseQty = getDec "MinDoseQty"
+                    MaxDoseQty = getDec "MaxDoseQty"
+                    Timed = getStr "Timed" |> String.equalsCapInsens "true"
+                    Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
+                    IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
+                }
+            )
 
 
     let filterRouteShapeUnit rte shape unt =
@@ -116,13 +110,16 @@ module Mapping =
         )
 
 
-    let requiresReconstitution rtes unt shape =
+    let private requires_ (rtes, unt, shape) =
         rtes
         |> Array.collect (fun rte ->
             filterRouteShapeUnit rte shape unt
         )
         |> Array.map (fun xs -> xs.Reconstitute)
-        |> Array.fold (fun acc b -> acc || b) false
+        |> Array.exists id
 
+
+    let requiresReconstitution =
+        Memoization.memoize requires_
 
 

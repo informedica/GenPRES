@@ -1181,6 +1181,7 @@ module Order =
             }
 
 
+
     module OrderVariable =
 
         let create n c v =
@@ -1217,6 +1218,8 @@ module Order =
                 RateAdjust = rte_adj
                 TotalAdjust = tot_adj
             }
+
+
 
 
     module Item =

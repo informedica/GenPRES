@@ -2067,6 +2067,19 @@ module Variable =
                 Values = var.Values |> ValueRange.increaseIncrement lim incr
             }
 
+    let minIncrMaxToValues var =
+        if var |> isMinIncrMax |> not then var
+        else
+            { var with
+                Values =
+                    ValueRange.minIncrMaxToValueRange
+                        false
+                        (var.Values |> ValueRange.getMin |> Option.get)
+                        (var.Values |> ValueRange.getIncr |> Option.get)
+                        (var.Values |> ValueRange.getMax |> Option.get)
+            }
+
+
 
     module Operators =
 

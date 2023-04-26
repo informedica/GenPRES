@@ -196,8 +196,8 @@ let mapFromOrderable id n (orderable : Orderable) : Order.Orderable.Dto.Dto =
 
 let mapToPrescription (dto : Order.Prescription.Dto.Dto) : Prescription =
     Shared.Order.Prescription.create
-        dto.IsDiscontinuous
         dto.IsContinuous
+        dto.IsDiscontinuous
         dto.IsTimed
         (dto.Frequency |> mapToOrderVariable)
         (dto.Time |> mapToOrderVariable)
@@ -335,3 +335,19 @@ Scenarios: {sc.Scenarios |> Array.length}
     | e ->
         ConsoleWriter.writeErrorMessage $"errored:\n{e}" true true
         sc |> Ok
+
+
+let calcMinIncrMaxToValues (ord : Order) =
+    try
+        ord
+        |> mapFromOrder
+        |> Order.Dto.fromDto
+        |> Order.minIncrMaxToValues
+        |> Order.Dto.toDto
+        |> mapToOrder
+        |> Ok
+    with
+    | e ->
+        printfn $"error calculating values from min incr max {e}"
+        "error calculating values from min incr max"
+        |> Error

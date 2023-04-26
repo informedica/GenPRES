@@ -1,6 +1,7 @@
 
-#r "nuget: Expecto"
 #r "nuget: Giraffe"
+#r "nuget: FParsec"
+#r "nuget: Aether"
 #r "nuget: Microsoft.AspNetCore.TestHost, 6.0.16"
 #r "nuget: Microsoft.AspNetCore.Hosting"
 #r "nuget: MathNet.Numerics.FSharp"
@@ -19,3 +20,4 @@
 #load "../../../src/Server/Formulary.fs"
 #load "../../../src/Server/ScenarioResult.fs"
 #load "../../../src/Server/ServerApi.fs"
+

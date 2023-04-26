@@ -350,6 +350,7 @@ module DoseRule =
 
         }
 
+
     let private get_ () =
         Web.getDataFromSheet Web.dataUrlId2 "DoseRules"
         |> fun data ->
@@ -500,11 +501,11 @@ module DoseRule =
                     Products =
                         Product.get ()
                         |> Product.filter
-                            { Filter.filter with
-                                Generic = dr.Generic |> Some
-                                Shape = dr.Shape |> Some
-                                Route = dr.Route |> Some
-                            }
+                         { Filter.filter with
+                             Generic = dr.Generic |> Some
+                             Shape = dr.Shape |> Some
+                             Route = dr.Route |> Some
+                         }
                 }
             )
 

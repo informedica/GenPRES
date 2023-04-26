@@ -23,8 +23,9 @@ module Utils =
         let [<Literal>] dataUrlId2 = "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
 
 
-
-        let getDataFromSheet = Web.GoogleSheets.getDataFromSheet
+        let getDataFromSheet urlId sheet =
+            fun () -> Web.GoogleSheets.getDataFromSheet urlId sheet
+            |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
 
 
 
