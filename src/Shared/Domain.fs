@@ -1292,14 +1292,14 @@ module ScenarioResult =
                 Bold "", (acc |> fst)::(acc |> snd)
             | s, Italic _ when s = "#" ->
                 Bold s, (acc |> fst)::(acc |> snd)
-            | s, Bold b when s = "#" ->
+            | s, Bold _ when s = "#" ->
                 Normal "", (acc |> fst)::(acc |> snd)
             | s, Bold b ->
                 Bold $"{b}{s}", (acc |> snd)
 
             | s, Normal _ when s = "|" ->
                 Italic "", (acc |> fst)::(acc |> snd)
-            | s, Italic i when s = "|" ->
+            | s, Italic _ when s = "|" ->
                 Normal "", (acc |> fst)::(acc |> snd)
             | s, Italic i ->
                 Italic $"{i}{s}", (acc |> snd)

@@ -26,6 +26,7 @@ module private Elmish =
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
             Scenarios: Deferred<ScenarioResult>
+            SelectedScenarioOrder : (Scenario * Order) option
             CalculatedOrder : Deferred<Order option>
             Formulary: Deferred<Formulary>
         }
@@ -41,8 +42,11 @@ module private Elmish =
             AsyncOperationStatus<Result<ContinuousMedication list, string>>
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
         | LoadScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
+        | PrintScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
         | UpdateScenarios of ScenarioResult
-        | SelectOrder of Order option
+        | SelectOrder of (Scenario * Order option)
+        | UpdateScenarioOrder
+        | LoadOrder of Order
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
@@ -138,6 +142,7 @@ module private Elmish =
                 Products = HasNotStartedYet
                 Scenarios = HasNotStartedYet
                 CalculatedOrder = HasNotStartedYet
+                SelectedScenarioOrder = None
                 Formulary = HasNotStartedYet
             }
 
@@ -286,6 +291,30 @@ module private Elmish =
             Logging.error "error" msg
             state, Cmd.none
 
+        | PrintScenarios Started ->
+            let scenarios =
+                match state.Scenarios with
+                | Resolved sc when state.Patient.IsSome -> sc
+                | _ -> ScenarioResult.empty
+
+            let load =
+                async {
+                    let! result = serverApi.printScenarioResult scenarios
+                    return Finished result |> PrintScenarios
+                }
+
+            { state with Scenarios = InProgress }, Cmd.fromAsync load
+
+        | PrintScenarios (Finished (Ok result)) ->
+            { state with
+                Scenarios = Resolved result
+            },
+            Cmd.none
+
+        | PrintScenarios (Finished (Error msg)) ->
+            Logging.error "error" msg
+            state, Cmd.none
+
         | UpdateScenarios sc ->
             let sc =
                 { sc with
@@ -298,7 +327,48 @@ module private Elmish =
             { state with Scenarios = Resolved sc },
             Cmd.ofMsg (LoadScenarios Started)
 
-        | SelectOrder o -> { state with CalculatedOrder = o |> Resolved }, Cmd.ofMsg (CalculateOrder Started)
+        | UpdateScenarioOrder ->
+            match state.SelectedScenarioOrder with
+            | Some (sc, o) ->
+                { state with
+                    Scenarios =
+                        state.Scenarios
+                        |> Deferred.map (fun scr ->
+                            { scr with
+                                Scenarios =
+                                    scr.Scenarios
+                                    |> Array.map (fun scr ->
+                                        if scr <> sc then scr 
+                                        else 
+                                            printfn "found scenario and update order"
+                                            { scr with
+                                                Order = Some o
+                                            }
+                                    )
+                            }
+                        )
+                }, 
+                Cmd.ofMsg (PrintScenarios Started)
+            | None -> state, Cmd.none
+
+        | SelectOrder (sc, o) -> 
+            { state with 
+                SelectedScenarioOrder =
+                    if o |> Option.isNone then state.SelectedScenarioOrder
+                    else
+                        (sc, o |> Option.get) |> Some
+                CalculatedOrder = o |> Resolved 
+            }, 
+            Cmd.ofMsg (CalculateOrder Started)
+
+        | LoadOrder o ->
+            let load =
+                async {
+                    let! order = o |> serverApi.solveOrder
+                    return Finished order |> CalculateOrder
+                }
+
+            { state with CalculatedOrder = InProgress }, Cmd.fromAsync load
 
         | CalculateOrder Started ->
             match state.CalculatedOrder with
@@ -315,7 +385,12 @@ module private Elmish =
             match r with
             | Ok o -> 
                 printfn "success calculating order"
-                { state with CalculatedOrder = o |> Some |> Resolved}, Cmd.none
+                { state with
+                    SelectedScenarioOrder = 
+                        state.SelectedScenarioOrder
+                        |> Option.map (fun (sc, _) -> sc, o) 
+                    CalculatedOrder = o |> Some |> Resolved
+                }, Cmd.none
             | Error s -> 
                 printfn "eror calculating order"
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
@@ -438,6 +513,9 @@ let View () =
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch
                         selectOrder = SelectOrder >> dispatch
+                        order = state.CalculatedOrder
+                        loadOrder = LoadOrder >> dispatch
+                        updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
                         page = state.Page
                     |})
                 }

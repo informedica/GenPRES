@@ -14,7 +14,9 @@ module Api =
     type IServerApi =
         {
             getScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
+            printScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
             calcMinIncrMax: Order -> Async<Result<Order, string>>
+            solveOrder: Order -> Async<Result<Order, string>>
             getFormulary : Formulary -> Async<Result<Formulary, string>>
             test : unit -> Async<string>
         }

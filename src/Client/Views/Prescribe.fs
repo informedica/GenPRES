@@ -46,7 +46,7 @@ module Prescribe =
             }
 
 
-        let init (scenarios: Deferred<ScenarioResult>) =
+        let init ord (scenarios: Deferred<ScenarioResult>) =
             let state =
                 match scenarios with
                 | Resolved sc ->
@@ -123,14 +123,21 @@ module Prescribe =
         {|
             scenarios: Deferred<Shared.Types.ScenarioResult>
             updateScenario: Shared.Types.ScenarioResult -> unit
-            selectOrder : Shared.Types.Order option -> unit
+            selectOrder : (Shared.Types.Scenario * Shared.Types.Order option) -> unit
+            order : Deferred<Shared.Types.Order option>
+            loadOrder : Shared.Types.Order -> unit
+            updateScenarioOrder : unit -> unit
         |}) =
         let state, dispatch =
             React.useElmish (
-                init props.scenarios,
+                init props.order props.scenarios,
                 update props.scenarios props.updateScenario,
-                [| box props.scenarios; box props.updateScenario; box props.selectOrder |]
+                [| box props.order; box props.scenarios; box props.updateScenario; box props.selectOrder |]
             )
+
+        let modalOpen, setModalOpen = React.useState(false)
+
+        let handleModalClose = fun () -> setModalOpen false
 
         let select isLoading lbl selected dispatch xs =
             Components.SimpleSelect.View({|
@@ -263,7 +270,7 @@ module Prescribe =
                         <CardActions>
                             <Button 
                                 size="small"
-                                onClick={fun () -> ord |> props.selectOrder}
+                                onClick={fun () -> setModalOpen true; (sc, ord) |> props.selectOrder}
                             >Bewerken</Button>
                         </CardActions>
                     </Card>
@@ -330,14 +337,40 @@ module Prescribe =
             </React.Fragment>
             """
 
+        let modalStyle = 
+            {|
+                position="absolute"
+                top= "50%"
+                left= "50%"
+                transform= "translate(-50%, -50%)"
+                width= 400
+                bgcolor= "background.paper"
+                boxShadow= 24
+            |}
+
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
+        import Modal from '@mui/material/Modal';
 
-        <Box sx={ {| height="100%" |} }>
-            {cards}
-            {progress}
-        </Box>
+        <div>
+            <Box sx={ {| height="100%" |} }>
+                {cards}
+                {progress}
+            </Box>
+                <Modal open={modalOpen} onClose={handleModalClose} >
+                    <Box sx={modalStyle}>
+                        { 
+                            Order.View {| 
+                                order = props.order
+                                loadOrder = props.loadOrder
+                                updateScenarioOrder = props.updateScenarioOrder
+                                closeOrder = handleModalClose
+                            |} 
+                        }
+                    </Box>
+                </Modal>
+        </div>
         """
 
 

@@ -20,16 +20,29 @@ let serverApi: IServerApi =
                     return form |> Formulary.get
                 }
 
-        calcMinIncrMax =
-            fun (ord : Order) ->
+
+        printScenarioResult =
+            fun (sc : ScenarioResult) ->
                 async {
-                    return ord |> ScenarioResult.calcMinIncrMaxToValues
+                    return sc |> ScenarioResult.print
                 }
 
         getScenarioResult =
             fun (sc : ScenarioResult) ->
                 async {
                     return sc |> ScenarioResult.get
+                }
+
+        calcMinIncrMax =
+            fun (ord : Order) ->
+                async {
+                    return ord |> ScenarioResult.calcMinIncrMaxToValues
+                }
+
+        solveOrder =
+            fun (ord : Order) ->
+                async {
+                    return ord |> ScenarioResult.solveOrder
                 }
 
     }

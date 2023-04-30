@@ -351,3 +351,83 @@ let calcMinIncrMaxToValues (ord : Order) =
         printfn $"error calculating values from min incr max {e}"
         "error calculating values from min incr max"
         |> Error
+
+
+let print (sc: ScenarioResult) =
+    let msg stage (sc: ScenarioResult)=
+        let s =
+            sc.Scenarios
+            |> Array.collect (fun sc -> sc.Prescription)
+        $"""
+{stage}: {s}
+"""
+
+    ConsoleWriter.writeInfoMessage $"""{msg "printing" sc}""" true true
+
+    let sc =
+        { sc with
+            Scenarios =
+                sc.Scenarios
+                |> Array.map (fun sc ->
+                    let prs, prp, adm =
+                        sc.Order
+                        |> Option.map (fun ord ->
+                            let sn =
+                                ord.Orderable.Components
+                                |> Array.collect (fun c -> c.Items |> Array.map (fun i -> i.Name))
+
+                            ord
+                            |> mapFromOrder
+                            |> Order.Dto.fromDto
+                            |> Order.Markdown.printPrescription sn
+                            |> fun (prs, prp, adm) ->
+                                prs |> Demo.replace |> Shared.ScenarioResult.parseTextItem,
+                                prp |> Demo.replace |> Shared.ScenarioResult.parseTextItem,
+                                adm |> Demo.replace |> Shared.ScenarioResult.parseTextItem
+
+                        )
+                        |> Option.defaultValue (sc.Prescription, sc.Preparation, sc.Administration)
+                    { sc with
+                        Prescription = prs
+                        Preparation = prp
+                        Administration = adm
+                    }
+                )
+        }
+    ConsoleWriter.writeInfoMessage $"""{msg "finished printing" sc}""" true true
+    sc |> Ok
+
+
+
+let solveOrder (ord : Order) =
+    ord
+    |> mapFromOrder
+    |> Order.Dto.fromDto
+    |> Order.toString
+    |> String.concat "\n"
+    |> printfn "solving order:\n%s"
+
+    try
+        ord
+        |> mapFromOrder
+        |> Order.Dto.fromDto
+        |> Order.solveOrder false OrderLogger.noLogger
+        |> Result.map (fun o ->
+            o
+            |> Order.toString
+            |> String.concat "\n"
+            |> printfn "solved order:\n%s"
+            o
+        )
+        |> Result.map (Order.Dto.toDto >> mapToOrder)
+        |> Result.mapError (fun (_, errs) ->
+            let s =
+                errs
+                |> List.map string
+                |> String.concat "\n"
+            printfn $"error solving order\n{s}"
+            s
+        )
+    with
+    | e ->
+        failwith $"error solving order\n{e}"

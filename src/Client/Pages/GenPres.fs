@@ -128,7 +128,10 @@ module GenPres =
             products: Deferred<Product list>
             scenario: Deferred<ScenarioResult>
             updateScenario : ScenarioResult -> unit
-            selectOrder : Order option -> unit
+            selectOrder : (Scenario * Order option) -> unit
+            order : Deferred<Order option>
+            loadOrder : Order -> unit
+            updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
             page : Global.Pages |}) =
@@ -186,9 +189,16 @@ module GenPres =
                             | Global.Pages.ContinuousMeds ->
                                 Views.ContinuousMeds.View ({| interventions = props.continuousMedication |})
                             | Global.Pages.Prescribe ->
-                                Views.Prescribe.View ({| scenarios = props.scenario; updateScenario = props.updateScenario; selectOrder = props.selectOrder |})
+                                Views.Prescribe.View ({| 
+                                    order = props.order
+                                    scenarios = props.scenario
+                                    updateScenario = props.updateScenario
+                                    selectOrder = props.selectOrder
+                                    loadOrder = props.loadOrder
+                                    updateScenarioOrder = props.updateScenarioOrder
+                                |})
                             | Global.Pages.Formulary ->
-                                Views.Formulary.View ({| formulary = props.formulary; updateFormulary = props.updateFormulary |})
+                                Views.Formulary.View ({| order = props.formulary; updateFormulary = props.updateFormulary |})
                             | _ -> notFound
                         }
                     </Box>

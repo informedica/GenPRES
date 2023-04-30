@@ -128,15 +128,15 @@ module Formulary =
     [<JSX.Component>]
     let View (props:
         {|
-            formulary: Deferred<Formulary>
+            order: Deferred<Formulary>
             updateFormulary: Formulary -> unit
         |}) =
 
         let state, dispatch =
             React.useElmish (
-                init props.formulary,
-                update props.formulary props.updateFormulary,
-                [| box props.formulary; box props.formulary |]
+                init props.order,
+                update props.order props.updateFormulary,
+                [| box props.order; box props.order |]
             )
 
         let select isLoading lbl selected dispatch xs =
@@ -149,7 +149,7 @@ module Formulary =
             |})
 
         let progress =
-            match props.formulary with
+            match props.order with
             | Resolved _ -> JSX.jsx $"<></>"
             | _ ->
                 JSX.jsx
@@ -178,7 +178,7 @@ module Formulary =
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {
-                        match props.formulary with
+                        match props.order with
                         | Resolved form -> false, form.Generic, form.Generics
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
@@ -187,7 +187,7 @@ module Formulary =
                             |> select isLoading "Generieken" sel (GenericChange >> dispatch)
                     }
                     {
-                        match props.formulary with
+                        match props.order with
                         | Resolved form -> false, form.Indication, form.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
@@ -196,7 +196,7 @@ module Formulary =
                             |> select isLoading "Indicaties" sel (IndicationChange >> dispatch)
                     }
                     {
-                        match props.formulary with
+                        match props.order with
                         | Resolved form -> false, form.Route, form.Routes
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
@@ -205,7 +205,7 @@ module Formulary =
                             |> select isLoading "Routes" sel (RouteChange >> dispatch)
                     }
                     {
-                        match props.formulary with
+                        match props.order with
                         | Resolved form -> false, form.Patient, form.Patients
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
@@ -216,7 +216,7 @@ module Formulary =
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {
-                        match props.formulary with
+                        match props.order with
                         | Resolved form ->
                             form.Markdown
                             |> Markdown.markdown.children

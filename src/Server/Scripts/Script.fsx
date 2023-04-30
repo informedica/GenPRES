@@ -5,7 +5,10 @@
 
 let logger = Informedica.GenOrder.Lib.OrderLogger.logger
 
-logger.Start (Some __SOURCE_DIRECTORY__)
+let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+logger.Start (Some path) Informedica.GenOrder.Lib.OrderLogger.Level.Informative
+
+
 
 
 Shared.ScenarioResult.empty

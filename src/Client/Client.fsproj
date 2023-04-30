@@ -24,6 +24,7 @@
     <Compile Include="./Components/SideMenu.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
     <Compile Include="./Views/Patient.fs" />
+    <Compile Include="./Views/Order.fs" />
     <Compile Include="./Views/EmergencyList.fs" />
     <Compile Include="./Views/ContinuousMeds.fs" />
     <Compile Include="./Views/Prescribe.fs" />
