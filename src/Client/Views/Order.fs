@@ -325,6 +325,7 @@ module Order =
         let showOrderName (ord : Deferred<Order option>) =
             match ord with
             | Resolved(Some ord) -> $"{ord.Orderable.Name}"
+            | Resolved None -> "order kan niet worden berekend"
             | _ -> "order is loading ..."
 
 
@@ -384,7 +385,6 @@ module Order =
                 props.updateScenarioOrder ()
                 props.closeOrder ()
                 
-
         let content =
             JSX.jsx
                 $"""
@@ -483,7 +483,7 @@ module Order =
                             o.Prescription.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
                             |> Option.defaultValue [||] 
-                            |> select false "Inloop tijd" None ignore 
+                            |> select false "Inloop tijd" None (ChangeTime >> dispatch) 
                         | _ -> 
                             [||] 
                             |> select true "Inloop tijd" None ignore
