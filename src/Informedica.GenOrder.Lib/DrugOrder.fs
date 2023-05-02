@@ -225,7 +225,6 @@ module DrugOrder =
                         if p.Divisible.IsSome then
                             cdto.Dose.Quantity.Constraints.Incr <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
 
-
                     cdto.Items <- [
                         for s in p.Substances do
                             let su = s.Unit |> unitGroup
@@ -241,6 +240,9 @@ module DrugOrder =
                                 Order.Orderable.Item.Dto.dto d.Id d.Name p.Name s.Name
 
                             itmDto.ComponentConcentration.Constraints.Vals <- s.Concentrations |> createValueUnitDto $"{su}/{ou}"
+                            if d.Products |> List.length = 1 then
+                                // when only one product, the orderable concentration is the same as the component concentration
+                                itmDto.OrderableConcentration.Constraints.Vals <- itmDto.ComponentConcentration.Constraints.Vals
 
                             match s.Solution with
                             | Some sl ->

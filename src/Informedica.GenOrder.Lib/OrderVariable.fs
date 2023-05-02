@@ -51,7 +51,7 @@ module OrderVariable =
                 MinIncrMax.Calculator.toStringNL toStr min incr max
             | Some vs ->
                 vs
-                |> ValueSet.toSet
+                |> ValueSet.toValueUnit
                 |> ValueUnit.toStringDutchShort
 
 
@@ -166,7 +166,7 @@ module OrderVariable =
         |> getVar
         |> Variable.getValueRange
         |> ValueRange.getValSet
-        |> Option.map (ValueSet.toSet >> ValueUnit.toStringDutchShort)
+        |> Option.map (ValueSet.toValueUnit >> ValueUnit.toStringDutchShort)
 
 
     let toValueUnitString get (prec : int) x =
@@ -197,6 +197,24 @@ module OrderVariable =
                     ovar.Variable
                     |> Variable.minIncrMaxToValues
         }
+
+
+    let equalUnit (ovar: OrderVariable) =
+        [
+            ovar.Constraints.Min |> Option.map (Minimum.toValueUnit >> ValueUnit.getUnit)
+            ovar.Constraints.Incr |> Option.map (Increment.toValueUnit >> ValueUnit.getUnit)
+            ovar.Constraints.Max |> Option.map (Maximum.toValueUnit >> ValueUnit.getUnit)
+            ovar.Constraints.Values |> Option.map (ValueSet.toValueUnit >> ValueUnit.getUnit)
+        ]
+        |> List.choose id
+        |> List.distinct
+        |> fun xs -> if xs.Length = 1 then xs.Head |> Some else None
+        |> function
+            | None -> ovar
+            | Some u ->
+                { ovar with
+                    Variable = ovar.Variable |> Variable.setUnit u
+                }
 
 
     /// Type and functions to handle the `Dto`
@@ -284,7 +302,7 @@ module OrderVariable =
             dto.Variable.Vals <-
                 vr
                 |> ValueRange.getValSet
-                |> Option.map ValueSet.toSet
+                |> Option.map ValueSet.toValueUnit
                 |> Option.bind vuToDto
             dto.Variable.Incr <-
                 vr
@@ -314,7 +332,7 @@ module OrderVariable =
 
             dto.Constraints.Vals <-
                 ovar.Constraints.Values
-                |> Option.map ValueSet.toSet
+                |> Option.map ValueSet.toValueUnit
                 |> Option.bind vuToDto
             dto.Constraints.Incr <-
                 ovar.Constraints.Incr

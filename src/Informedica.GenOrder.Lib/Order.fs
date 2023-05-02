@@ -1379,6 +1379,7 @@ module Order =
                 | OrderSumEquation (y, xs) -> y::xs
             )
             |> List.distinct
+            |> List.map OrderVariable.equalUnit
 
         ord |> fromOrdVars ovars
 

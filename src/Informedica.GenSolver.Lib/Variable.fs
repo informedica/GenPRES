@@ -70,6 +70,9 @@ module Variable =
             let toValueUnit (Increment vu) = vu
 
 
+            let setUnit u = map (ValueUnit.convertTo u)
+
+
             let minElement =
                 toValueUnit >> ValueUnit.minElement
 
@@ -179,6 +182,9 @@ module Variable =
 
             let map fIncl fExcl =
                 apply (fIncl >> (create true)) (fExcl >> (create false))
+
+
+            let setUnit u = map (ValueUnit.convertTo u)
 
 
             /// Checks whether `Minimum` **m2** > **m1**
@@ -335,6 +341,9 @@ module Variable =
                 apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
+            let setUnit u = map (ValueUnit.convertTo u)
+
+
             /// Checks whether `Maximum` **m2** > **m1**
             /// Note that the fact that a maximum is inclusive or exclusive
             /// must be taken into account.
@@ -460,10 +469,13 @@ module Variable =
                     vu |> ValueSet
 
 
-            let toSet (ValueSet vu) = vu
+            let toValueUnit (ValueSet vu) = vu
 
 
             let map f (ValueSet vu) = vu |> f |> create
+
+
+            let setUnit u = map (ValueUnit.convertTo u)
 
 
             // ToDo refactor to just ValueUnit.getMin
@@ -570,6 +582,7 @@ module Variable =
                     $"[{first3 |> ValueUnit.toDelimitedString prec} .. {last3 |> ValueUnit.toDelimitedString prec}]"
 
 
+
         module Property =
 
 
@@ -651,6 +664,9 @@ module Variable =
                 (fun (incr, max) -> (incr |> Increment.map f, max |> Maximum.map f f))
                 (fun (min, incr, max) -> (min |> Minimum.map f f, incr |> Increment.map f, max |> Maximum.map f f))
                 (ValueSet.map f)
+
+
+        let setUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
         let apply unr nonz fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
@@ -979,7 +995,7 @@ module Variable =
             else
                 // TODO: ugly hack to prevent expensive calc
                 try
-                    ValueSet.minIncrMaxToValueSet 10000N min incr max
+                    ValueSet.minIncrMaxToValueSet 1000N min incr max
                     |> ValSet
                 with
                 | _ -> MinIncrMax(min, incr, max)
@@ -2091,6 +2107,12 @@ module Variable =
                 raise e
 
 
+    let setUnit unit var =
+        { var with
+            Values = var.Values |> ValueRange.setUnit unit
+        }
+
+
     module Operators =
 
         let inline (^*) vr1 vr2 = calc (^*) (vr1, vr2)
@@ -2293,7 +2315,7 @@ module Variable =
                 let vals =
                     v.Values
                     |> ValueRange.getValSet
-                    |> Option.map (ValueSet.toSet >> vuToDto)
+                    |> Option.map (ValueSet.toValueUnit >> vuToDto)
 
                 dto.Incr <- incr
                 dto.Min <- min
