@@ -281,7 +281,6 @@ module Equation =
                             |> Logging.logInfo log
                             // recalculate x
                             x <== (y |> op2 <| (xs |> without x |> List.reduce op1))
-                            |> Variable.prune
 
                 (xChanged || (x.Values |> ValueRange.eqs newX.Values |> not))
                 |> calcXs op1 op2 y (xs |> replAdd newX) tail
@@ -296,7 +295,7 @@ module Equation =
                 |> Logging.logInfo log
                 // recalculate y
                 let temp = xs |> List.reduce op1
-                let newY = y <== temp |> Variable.prune //(xs |> List.reduce op1)
+                let newY = y <== temp //(xs |> List.reduce op1)
 
                 let yChanged = newY.Values |> ValueRange.eqs y.Values |> not
 

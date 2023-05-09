@@ -468,8 +468,13 @@ module Variable =
                     Exceptions.ValueRangeEmptyValueSet |> raiseExc []
 
                 else
-                    vu
-                    |> ValueSet
+                    if (vu |> ValueUnit.getValue).Length > (Constants.MAX_CALC_COUNT * Constants.MAX_CALC_COUNT) then
+                        (vu |> ValueUnit.getValue).Length
+                        |> Exceptions.ValueRangeTooManyValues
+                        |> raiseExc []
+                    else
+                        vu
+                        |> ValueSet
 
 
             let toValueUnit (ValueSet vu) = vu
@@ -532,7 +537,7 @@ module Variable =
                 create
 
 
-            let minIncrMaxToValueSet lim min incr max =
+            let minIncrMaxToValueSet min incr max =
                     let min =
                         min
                         |> Minimum.toValueUnit
@@ -554,6 +559,7 @@ module Variable =
                                             [| mi..i..ma |]
                         |]
                         |> Array.collect id
+                        |> fun xs -> if xs.Length > Constants.MAX_CALC_COUNT then [||] else xs
                     )
                     |> ValueUnit.toUnit
                     |> create
@@ -1001,7 +1007,7 @@ module Variable =
             else
                 // TODO: ugly hack to prevent expensive calc
                 try
-                    ValueSet.minIncrMaxToValueSet 1000N min incr max
+                    ValueSet.minIncrMaxToValueSet min incr max
                     |> ValSet
                 with
                 | _ -> MinIncrMax(min, incr, max)
