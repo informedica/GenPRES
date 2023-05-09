@@ -225,9 +225,12 @@ module Equation =
                    xs |> List.map Variable.getValueRange
                       |> List.forall ValueRange.isValueSet then
 
-                    y.Values
-                    |> ValueRange.isSubSetOf (xs |> List.reduce op).Values
-
+                    let b =
+                        y.Values
+                        |> ValueRange.isSubSetOf (xs |> List.reduce op).Values
+                    if not b then
+                        printfn $"not a subset: {y.Values} {(xs |> List.reduce op).Values}"
+                    b
                 else true
 
         if eq |> isSolvable then
@@ -236,6 +239,7 @@ module Equation =
             | SumEquation (y, xs) -> xs |> isSub (^+) y
 
         else true
+
 
     let calculationToString b op1 op2 x y xs =
         let varToStr = Variable.toString b
@@ -277,6 +281,7 @@ module Equation =
                             |> Logging.logInfo log
                             // recalculate x
                             x <== (y |> op2 <| (xs |> without x |> List.reduce op1))
+                            |> Variable.prune
 
                 (xChanged || (x.Values |> ValueRange.eqs newX.Values |> not))
                 |> calcXs op1 op2 y (xs |> replAdd newX) tail
@@ -291,7 +296,7 @@ module Equation =
                 |> Logging.logInfo log
                 // recalculate y
                 let temp = xs |> List.reduce op1
-                let newY = y <== temp //(xs |> List.reduce op1)
+                let newY = y <== temp |> Variable.prune //(xs |> List.reduce op1)
 
                 let yChanged = newY.Values |> ValueRange.eqs y.Values |> not
 

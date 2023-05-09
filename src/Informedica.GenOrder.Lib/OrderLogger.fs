@@ -1,5 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
+open Informedica.Utils.Lib
+
 
 
 module OrderLogger =
@@ -246,9 +248,11 @@ module OrderLogger =
         {
             Start =
                 fun path level ->
-                    printfn $"start logging at level {level}"
+                    ConsoleWriter.writeInfoMessage
+                        $"start logging at level {level}" true false
                     if path.IsSome then
-                        printfn $"immediate logging to {path}"
+                        ConsoleWriter.writeInfoMessage
+                            $"file logging to {path}" true false
 
                     (path, level)
                     |> Start

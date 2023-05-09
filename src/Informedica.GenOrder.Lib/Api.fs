@@ -171,6 +171,8 @@ module Api =
                                 dro.Products
                                 |> List.map (fun p ->
                                     { p with
+                                        Name = dro.Name
+                                        Shape = p.Shape
                                         Substances =
                                             p.Substances
                                             |> setSolutionLimit sr.SolutionLimits
@@ -207,7 +209,7 @@ module Api =
         match dto.Orderable.OrderableQuantity.Variable.Min,
                 dto.Orderable.OrderableQuantity.Variable.Incr,
                 dto.Orderable.OrderableQuantity.Variable.Max with
-        | Some min, Some incr, Some _ ->
+        | Some min, Some incr, Some _ when dto.Prescription.IsContinuous |> not ->
             if min.Unit |> String.equalsCapInsens "ml" |> not then
                 ord
                 |> Order.solveOrder false logger
@@ -306,7 +308,7 @@ module Api =
             |> DrugOrder.toOrder
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
-            |> Result.bind (increaseIncrement logger)
+            |> Result.bind (increaseIncrement logger) // not sure if this is usable
             |> function
             | Ok ord ->
                 let dto = ord |> Order.Dto.toDto

@@ -10,7 +10,7 @@ module Utils =
         let MAX_LOOP_COUNT = 10
 
 
-        let MAX_CALC_COUNT = 1000
+        let MAX_CALC_COUNT = 20
 
 
         let MAX_BIGINT =

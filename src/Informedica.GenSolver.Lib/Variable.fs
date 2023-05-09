@@ -1,5 +1,7 @@
 namespace Informedica.GenSolver.Lib
 
+open Microsoft.VisualBasic
+
 
 module Variable =
 
@@ -466,13 +468,25 @@ module Variable =
                     Exceptions.ValueRangeEmptyValueSet |> raiseExc []
 
                 else
-                    vu |> ValueSet
+                    vu
+                    |> ValueSet
 
 
             let toValueUnit (ValueSet vu) = vu
 
 
             let map f (ValueSet vu) = vu |> f |> create
+
+
+            let prune =
+                fun vu ->
+                    let v =
+                        vu
+                        |> ValueUnit.getValue
+                        |> Array.prune Constants.MAX_CALC_COUNT
+                    vu
+                    |> ValueUnit.setValue v
+                |> map
 
 
             let setUnit u = map (ValueUnit.convertTo u)
@@ -513,18 +527,9 @@ module Variable =
                 map (ValueUnit.filterValues (fun br -> br > 0N))
 
 
-            // ToDo refactor
             let calc op (ValueSet s1) (ValueSet s2) =
-                let count =
-                    ValueUnit.getValue >> Array.length
-                // make sure the calculation doesn't take too long
-                if (s1 |> count) + (s2 |> count) > Constants.MAX_CALC_COUNT then
-                    (s1 |> count) + (s2 |> count)
-                    |> Exceptions.ValueRangeTooManyValues
-                    |> raiseExc []
-
-                else
-                    s1 |> op <| s2 |> create
+                s1 |> op <| s2 |>
+                create
 
 
             let minIncrMaxToValueSet lim min incr max =
@@ -546,9 +551,6 @@ module Variable =
                             for i in incr do
                                 for mi in min do
                                     for ma in max do
-                                        if (ma - mi) / i > lim then
-                                            printfn $"calculating valset is too expensive with limit: {lim}"
-                                        else
                                             [| mi..i..ma |]
                         |]
                         |> Array.collect id
@@ -651,6 +653,10 @@ module Variable =
             | IncrMax (incr, max) -> (incr, max) |> fIncrMax |> IncrMax
             | MinIncrMax (min, incr, max) -> (min, incr, max) |> fMinIncrMax |> MinIncrMax
             | ValSet vs -> vs |> fValueSet |> ValSet
+
+
+        let prune =
+            map id id id id id id id ValueSet.prune
 
 
         let mapValueUnit f vr =
@@ -2007,7 +2013,8 @@ module Variable =
 
         try
             { var with
-                Values = (var |> get).Values |> op <| vr
+                Values =
+                    (var |> get).Values |> op <| vr
             }
 
         with
@@ -2105,6 +2112,12 @@ module Variable =
             | e ->
                 printfn $"cannot create values from min incr max: {var.Name}"
                 raise e
+
+
+    let prune var =
+        { var with
+            Values = var.Values |> ValueRange.prune
+        }
 
 
     let setUnit unit var =

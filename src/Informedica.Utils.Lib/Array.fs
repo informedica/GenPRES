@@ -67,3 +67,19 @@ module Array =
     let someIfOne = function
         | [|x|] -> Some x
         | _   -> None
+
+
+    let prune maxLength xs =
+        let l = xs |> Array.length
+
+        if (l - maxLength) <= 0 || l <= 2 then xs
+        else
+            let d = l / (maxLength - 2)
+            xs
+            |> Array.fold (fun (i, acc) x ->
+                if i = 1 || i = l || i % d = 0 then
+                    (i + 1, [| x |] |> Array.append acc)
+                else
+                    (i + 1, acc)
+            ) (1, [||])
+            |> snd

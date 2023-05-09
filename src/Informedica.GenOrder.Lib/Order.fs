@@ -738,6 +738,7 @@ module Order =
                     let dto = Dto ()
 
                     dto.Name <- cmp.Name |> Name.toString
+                    dto.Shape <- cmp.Shape
                     dto.ComponentQuantity <-
                         cmp.ComponentQuantity
                         |> Quantity.toDto
@@ -1681,7 +1682,7 @@ module Order =
                         (fun i -> i.Dose.PerTimeAdjust)
                         (PerTimeAdjust.toValueUnitMarkdown 2)
 
-                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
+                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt |> String.trim})"
                 let prep = $"{o |> printComponentQuantity}"
                 let adm = $"{fr} {o |> printOrderableDoseQuantity}"
 

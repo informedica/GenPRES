@@ -400,23 +400,29 @@ let print (sc: ScenarioResult) =
 
 
 let solveOrder (ord : Order) =
+    let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+    OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+
     ord
     |> mapFromOrder
     |> Order.Dto.fromDto
     |> Order.toString
     |> String.concat "\n"
-    |> printfn "solving order:\n%s"
+    |> sprintf "solving order:\n%s"
+    |> fun s -> ConsoleWriter.writeInfoMessage s true false
 
     try
         ord
         |> mapFromOrder
         |> Order.Dto.fromDto
-        |> Order.solveOrder false OrderLogger.noLogger
+        |> Order.solveOrder false OrderLogger.logger.Logger
         |> Result.map (fun o ->
             o
             |> Order.toString
             |> String.concat "\n"
-            |> printfn "solved order:\n%s"
+            |> sprintf "solved order:\n%s"
+            |> fun s -> ConsoleWriter.writeInfoMessage s true false
+
             o
         )
         |> Result.map (Order.Dto.toDto >> mapToOrder)
@@ -425,7 +431,7 @@ let solveOrder (ord : Order) =
                 errs
                 |> List.map string
                 |> String.concat "\n"
-            printfn $"error solving order\n{s}"
+            ConsoleWriter.writeErrorMessage $"error solving order\n{s}" true false
             s
         )
     with

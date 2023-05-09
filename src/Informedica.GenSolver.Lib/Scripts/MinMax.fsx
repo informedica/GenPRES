@@ -22,6 +22,15 @@ open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.GenSolver.Lib
 
+
+[|3N/20N; 3N/10N; 1N/2N; 1N; 2N; 5N; 10N|]
+|> Array.allPairs [|1N/10N; 1N/5N; 1N/2N; 1N; 2N; 10N/3N; 20N/3N|]
+|> Array.map (fun (x1, x2) -> x1 * x2)
+|> Array.distinct
+|> Set.ofArray
+|> Set.isSubset (set [1N])
+
+
 module Minimum = Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
 module Maximum = Informedica.GenSolver.Lib.Variable.ValueRange.Maximum
 module MinMaxCalculator = Variable.ValueRange.MinMaxCalculator

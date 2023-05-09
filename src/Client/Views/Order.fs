@@ -48,7 +48,7 @@ module Order =
 
             let setVu s (vu : Shared.Types.ValueUnit option) =
                 match vu with
-                | Some vu -> 
+                | Some vu ->
                     { vu with
                         Value =
                             vu.Value
@@ -64,22 +64,22 @@ module Order =
 
             match msg with
 
-            | UpdateOrder ord -> 
+            | UpdateOrder ord ->
                 printfn "load order"
                 ord |> loadOrder
                 InProgress, Cmd.none
 
-            | ChangeFrequency s -> 
-                printfn $"changing frequency to {s}"            
+            | ChangeFrequency s ->
+                printfn $"changing frequency to {s}"
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
                         { ord with
-                            Prescription = 
+                            Prescription =
                                 { ord.Prescription with
                                     Frequency =
                                         { ord.Prescription.Frequency with
-                                            Variable = 
+                                            Variable =
                                                 { ord.Prescription.Frequency.Variable with
                                                     Vals = ord.Prescription.Frequency.Variable.Vals |> setVu s
                                                 }
@@ -90,17 +90,17 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeTime s -> 
-                printfn $"changing frequency to {s}"            
+            | ChangeTime s ->
+                printfn $"changing frequency to {s}"
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
                         { ord with
-                            Prescription = 
+                            Prescription =
                                 { ord.Prescription with
                                     Time =
                                         { ord.Prescription.Time with
-                                            Variable = 
+                                            Variable =
                                                 { ord.Prescription.Time.Variable with
                                                     Vals = ord.Prescription.Time.Variable.Vals |> setVu s
                                                 }
@@ -111,7 +111,7 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeSubstanceDoseQuantity s -> 
+            | ChangeSubstanceDoseQuantity s ->
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
@@ -122,8 +122,8 @@ module Order =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i comp ->
                                             if i > 0 then comp
-                                            else 
-                                                { comp with 
+                                            else
+                                                { comp with
                                                     Items =
                                                         comp.Items
                                                         |> Array.mapi (fun i item ->
@@ -137,10 +137,10 @@ module Order =
                                                                                     Variable =
                                                                                         { item.Dose.Quantity.Variable with
                                                                                             Vals = item.Dose.Quantity.Variable.Vals |> setVu s
-                                                                                        }   
+                                                                                        }
                                                                                 }
 
-                                                                        } 
+                                                                        }
                                                                 }
                                                         )
                                                 }
@@ -152,7 +152,7 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeSubstancePerTimeAdjust s -> 
+            | ChangeSubstancePerTimeAdjust s ->
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
@@ -163,8 +163,8 @@ module Order =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i comp ->
                                             if i > 0 then comp
-                                            else 
-                                                { comp with 
+                                            else
+                                                { comp with
                                                     Items =
                                                         comp.Items
                                                         |> Array.mapi (fun i item ->
@@ -178,10 +178,10 @@ module Order =
                                                                                     Variable =
                                                                                         { item.Dose.PerTimeAdjust.Variable with
                                                                                             Vals = item.Dose.PerTimeAdjust.Variable.Vals |> setVu s
-                                                                                        }   
+                                                                                        }
                                                                                 }
 
-                                                                        } 
+                                                                        }
                                                                 }
                                                         )
                                                 }
@@ -193,7 +193,7 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeSubstanceRateAdjust s -> 
+            | ChangeSubstanceRateAdjust s ->
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
@@ -204,8 +204,8 @@ module Order =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i comp ->
                                             if i > 0 then comp
-                                            else 
-                                                { comp with 
+                                            else
+                                                { comp with
                                                     Items =
                                                         comp.Items
                                                         |> Array.mapi (fun i item ->
@@ -219,10 +219,10 @@ module Order =
                                                                                     Variable =
                                                                                         { item.Dose.RateAdjust.Variable with
                                                                                             Vals = item.Dose.RateAdjust.Variable.Vals |> setVu s
-                                                                                        }   
+                                                                                        }
                                                                                 }
 
-                                                                        } 
+                                                                        }
                                                                 }
                                                         )
                                                 }
@@ -234,7 +234,7 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeSubstanceComponentConcentration s -> 
+            | ChangeSubstanceComponentConcentration s ->
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
@@ -245,8 +245,8 @@ module Order =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i comp ->
                                             if i > 0 then comp
-                                            else 
-                                                { comp with 
+                                            else
+                                                { comp with
                                                     Items =
                                                         comp.Items
                                                         |> Array.mapi (fun i item ->
@@ -272,21 +272,21 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeOrderableDoseQuantity s -> 
+            | ChangeOrderableDoseQuantity s ->
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
                         { ord with
                             Orderable =
                                 { ord.Orderable with
-                                    Dose = 
+                                    Dose =
                                         { ord.Orderable.Dose with
                                             Quantity =
                                                 { ord.Orderable.Dose.Quantity with
                                                     Variable =
                                                         { ord.Orderable.Dose.Quantity.Variable with
                                                             Vals = ord.Orderable.Dose.Quantity.Variable.Vals |> setVu s
-                                                        }   
+                                                        }
                                                 }
 
                                         }
@@ -297,21 +297,21 @@ module Order =
                     HasNotStartedYet, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeOrderableDoseRate s -> 
+            | ChangeOrderableDoseRate s ->
                 match state with
                 | Resolved (Some ord) ->
                     let msg =
                         { ord with
                             Orderable =
                                 { ord.Orderable with
-                                    Dose = 
+                                    Dose =
                                         { ord.Orderable.Dose with
                                             Rate =
                                                 { ord.Orderable.Dose.Rate with
                                                     Variable =
                                                         { ord.Orderable.Dose.Rate.Variable with
                                                             Vals = ord.Orderable.Dose.Rate.Variable.Vals |> setVu s
-                                                        }   
+                                                        }
                                                 }
 
                                         }
@@ -324,7 +324,8 @@ module Order =
 
         let showOrderName (ord : Deferred<Order option>) =
             match ord with
-            | Resolved(Some ord) -> $"{ord.Orderable.Name}"
+            | Resolved(Some ord) ->
+                $"{ord.Orderable.Name} {ord.Orderable.Components[0].Shape}"
             | Resolved None -> "order kan niet worden berekend"
             | _ -> "order is loading ..."
 
@@ -349,7 +350,7 @@ module Order =
             )
 
         let select isLoading lbl selected dispatch xs =
-            if xs |> Array.isEmpty then 
+            if xs |> Array.isEmpty then
                 JSX.jsx $"<></>"
             else
                 Components.SimpleSelect.View({|
@@ -380,14 +381,15 @@ module Order =
             |> Shared.Utils.Math.fixPrecision n
             |> string
 
-        let onClickOk = 
+        let onClickOk =
             fun () ->
                 props.updateScenarioOrder ()
                 props.closeOrder ()
-                
+
         let content =
             JSX.jsx
                 $"""
+            import CardHeader from '@mui/material/CardHeader';
             import CardContent from '@mui/material/CardContent';
             import Typography from '@mui/material/Typography';
             import Stack from '@mui/material/Stack';
@@ -395,103 +397,104 @@ module Order =
 
             <div>
 
+            <CardHeader
+                title={props.order |> showOrderName}
+                titleTypographyProps={ {| variant = "h6" |} }
+            ></CardHeader>
             <CardContent>
-                <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                    {props.order |> showOrderName}
-                </Typography>
                 <Stack direction={"column"} spacing={3} >
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Prescription.Frequency.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Frequentie" None (ChangeFrequency >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Frequentie" None (ChangeFrequency >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Frequentie" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Orderable.Components[0].Items[0].Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Keer Dosis" None (ChangeSubstanceDoseQuantity >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Keer Dosis" None (ChangeSubstanceDoseQuantity >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Keer Dosis" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Orderable.Components[0].Items[0].Dose.PerTimeAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Dosering" None (ChangeSubstancePerTimeAdjust >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Dosering" None (ChangeSubstancePerTimeAdjust >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Dosering" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Orderable.Components[0].Items[0].Dose.RateAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Dosering" None (ChangeSubstanceRateAdjust >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Dosering" None (ChangeSubstanceRateAdjust >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Dosering" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Orderable.Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Hoeveelheid" None (ChangeOrderableDoseQuantity >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Hoeveelheid" None (ChangeOrderableDoseQuantity >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Hoeveelheid" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Orderable.Components[0].Items[0].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Sterkte" None (ChangeSubstanceComponentConcentration >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Sterkte" None (ChangeSubstanceComponentConcentration >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Sterkte" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Orderable.Dose.Rate.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Pompsnelheid" None (ChangeOrderableDoseRate >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Pompsnelheid" None (ChangeOrderableDoseRate >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Pompsnelheid" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) -> 
+                        | Resolved (Some o) ->
                             o.Prescription.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
-                            |> Option.defaultValue [||] 
-                            |> select false "Inloop tijd" None (ChangeTime >> dispatch) 
-                        | _ -> 
-                            [||] 
+                            |> Option.defaultValue [||]
+                            |> select false "Inloop tijd" None (ChangeTime >> dispatch)
+                        | _ ->
+                            [||]
                             |> select true "Inloop tijd" None ignore
                     }
 
 
                 </Stack>
-                
+
             </CardContent>
             <CardActions>
                     <Button onClick={onClickOk}>
@@ -510,9 +513,9 @@ module Order =
         import Button from '@mui/material/Button';
         import Typography from '@mui/material/Typography';
 
-        <Card>
+        <Card variant="outlined">
                 {content}
-                {progress}                
+                {progress}
         </Card>
         """
 
