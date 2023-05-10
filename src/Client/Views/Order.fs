@@ -438,7 +438,7 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) ->
+                        | Resolved (Some o) when o.Prescription.IsContinuous ->
                             o.Orderable.Components[0].Items[0].Dose.RateAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
