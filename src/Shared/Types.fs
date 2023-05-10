@@ -46,13 +46,21 @@ module Types =
                 Days: int
             }
 
+        type GestationalAge =
+            {
+                Weeks: int
+                Days: int
+            }
+
 
     type Age = Patient.Age
+    type GestAge = Patient.GestationalAge
 
     /// Patient model for calculations
     type Patient =
         {
             Age: Age option
+            GestationalAge: GestAge option
             Weight: Weight
             Height: Height
             CVL : bool
@@ -311,6 +319,7 @@ module Types =
             Shape : string option
             Route: string option
             Age : float option
+            GestAge : int option
             Weight: float option
             Height: float option
             CVL : bool

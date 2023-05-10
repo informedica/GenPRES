@@ -36,6 +36,7 @@ module Localization =
             | Unknown
             | ``Patient enter patient data``
             | ``Patient Age``
+            | ``Patient GA Age``
             | ``Patient Age year``
             | ``Patient Age years``
             | ``Patient Age month``
@@ -78,6 +79,7 @@ module Localization =
             | Unknown -> "unknown"
             | ``Patient enter patient data`` -> "Enter patient data ..."
             | ``Patient Age`` -> "Age"
+            | ``Patient GA Age`` -> "Gest. Age"
             | ``Patient Age year`` -> "year"
             | ``Patient Age years`` -> "years"
             | ``Patient Age month`` -> "month"
@@ -118,6 +120,7 @@ module Localization =
             | Unknown -> "onbekend"
             | ``Patient enter patient data`` -> "Voer patient gegevens in ..."
             | ``Patient Age`` -> "Leeftijd"
+            | ``Patient GA Age`` -> "Zwangerschapstermijn"
             | ``Patient Age year`` -> "jaar"
             | ``Patient Age years`` -> "jaren"
             | ``Patient Age month`` -> "maand"

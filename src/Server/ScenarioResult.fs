@@ -250,7 +250,7 @@ let get (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
         $"""
 {stage}:
-Patient: {sc.Age} days, {sc.Weight} kg, {sc.Height} cm, CVL {sc.CVL}
+Patient: {sc.Age} days, {sc.Weight} kg, {sc.Height} cm, CVL {sc.CVL}, {sc.GestAge} days
 Indications: {sc.Indications |> Array.length}
 Medications: {sc.Medications |> Array.length}
 Routes: {sc.Routes |> Array.length}
@@ -268,6 +268,9 @@ Scenarios: {sc.Scenarios |> Array.length}
             Age =
                 sc.Age
                 |> Option.bind BigRational.fromFloat
+            GestAge =
+                sc.GestAge
+                |> Option.map BigRational.fromInt
             Weight =
                 sc.Weight
                 |> Option.map (fun w -> w * 1000.)

@@ -61,6 +61,7 @@ module Demo =
                 { Filter.filter with
                     Department = Some d
                     Age = sc.Patient.Age
+                    GestAge = sc.Patient.GestAge
                     Weight = Some w
                     Indication = ind
                     Generic = gen
@@ -99,6 +100,7 @@ module Demo =
                             Route = rte
                             Shape = shp
                             Age = sc.Patient.Age
+                            GestAge = sc.Patient.GestAge
                             Weight = sc.Patient.Weight
                             Location = sc.Patient.VenousAccess
                         }
@@ -142,5 +144,12 @@ module Demo =
 
                     | _ -> [||]
             }
-        | _ -> sc
+        | _ ->
+            { sc with
+                Indications = [||]
+                Generics = [||]
+                Routes = [||]
+                Shapes = [||]
+                Scenarios = [||]
+            }
 

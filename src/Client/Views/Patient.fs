@@ -29,6 +29,8 @@ module Patient =
             | UpdateDay of string option
             | UpdateWeight of string option
             | UpdateHeight of string option
+            | UpdateGAWeek of string option
+            | UpdateGADay of string option
             | ToggleCVL
 
 
@@ -43,7 +45,7 @@ module Patient =
             | None ->
                 Patient.create
                     (s |> Option.bind tryParse)
-                    None None None None None
+                    None None None None None None None
             | Some p ->
                 Patient.create
                     (s |> Option.bind tryParse)
@@ -52,6 +54,8 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     None
                     None
+                    (p |> Patient.getGAWeeks)
+                    (p |> Patient.getGADays)
 
         let setMonth s (p : Patient option) =
             match p with
@@ -59,7 +63,7 @@ module Patient =
                 Patient.create
                     None
                     (s |> Option.bind tryParse)
-                    None None None None
+                    None None None None None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -68,6 +72,8 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     None
                     None
+                    (p |> Patient.getGAWeeks)
+                    (p |> Patient.getGADays)
 
         let setWeek s (p : Patient option) =
             match p with
@@ -75,7 +81,7 @@ module Patient =
                 Patient.create
                     None None
                     (s |> Option.bind tryParse)
-                    None None None
+                    None None None None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -84,6 +90,8 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     None
                     None
+                    (p |> Patient.getGAWeeks)
+                    (p |> Patient.getGADays)
 
         let setDay s (p : Patient option) =
             match p with
@@ -91,7 +99,7 @@ module Patient =
                 Patient.create
                     None None None
                     (s |> Option.bind tryParse)
-                    None None
+                    None None None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -100,6 +108,8 @@ module Patient =
                     (s |> Option.bind tryParse)
                     None
                     None
+                    (p |> Patient.getGAWeeks)
+                    (p |> Patient.getGADays)
 
         let setWeight s (p : Patient option) =
             match p with
@@ -107,7 +117,7 @@ module Patient =
                 Patient.create
                     None None None None
                     (s |> Option.bind tryParse |> Option.map (fun v -> (v |> float) / 1000.))
-                    None
+                    None None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -116,6 +126,8 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     (s |> Option.bind tryParse |> Option.map (fun v -> (v |> float) / 1000.))
                     (p |> Patient.getHeight)
+                    (p |> Patient.getGAWeeks)
+                    (p |> Patient.getGADays)
 
         let setHeight s (p : Patient option) =
             match p with
@@ -123,6 +135,7 @@ module Patient =
                 Patient.create
                     None None None None None
                     (s |> Option.bind tryParse |> Option.map float)
+                    None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -131,6 +144,41 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     (p |> Patient.getWeight)
                     (s |> Option.bind tryParse |> Option.map float)
+                    (p |> Patient.getGAWeeks)
+                    (p |> Patient.getGADays)
+
+        let setGAWeek s (p : Patient option) =
+            match p with
+            | None ->
+                Patient.create
+                    None None None None None None
+                    (s |> Option.bind tryParse |> Option.map int)
+                    None
+            | Some p ->
+                Patient.create
+                    (p |> Patient.getAgeYears)
+                    (p |> Patient.getAgeMonths)
+                    (p |> Patient.getAgeWeeks)
+                    (p |> Patient.getAgeDays)
+                    None None
+                    (s |> Option.bind tryParse |> Option.map int)
+                    (p |> Patient.getGADays)
+
+        let setGADay s (p : Patient option) =
+            match p with
+            | None ->
+                Patient.create
+                    None None None None None None None
+                    (s |> Option.bind tryParse |> Option.map int)
+            | Some p ->
+                Patient.create
+                    (p |> Patient.getAgeYears)
+                    (p |> Patient.getAgeMonths)
+                    (p |> Patient.getAgeWeeks)
+                    (p |> Patient.getAgeDays)
+                    None None
+                    (p |> Patient.getGAWeeks)
+                    (s |> Option.bind tryParse |> Option.map int)
 
 
         let toggleCVL (p: Patient option) : Patient option =
@@ -150,6 +198,8 @@ module Patient =
             | UpdateDay s    -> state |> setDay s, Cmd.none
             | UpdateWeight s -> state |> setWeight s, Cmd.none
             | UpdateHeight s -> state |> setHeight s, Cmd.none
+            | UpdateGAWeek s -> state |> setGAWeek s, Cmd.none
+            | UpdateGADay s  -> state |> setGADay s, Cmd.none
             | ToggleCVL     -> state |> toggleCVL, Cmd.none
             |> fun (state, cmd) ->
                 state |> dispatch
@@ -199,6 +249,7 @@ module Patient =
             [|21000..1000..100000|]
             |> Array.append [|10500..500..20000|]
             |> Array.append [|2000..100..10000|]
+            |> Array.append [|400..50..1950|]
 
         let hghts = [|40..220|]
 
@@ -268,6 +319,23 @@ module Patient =
                     "lengte (cm)"
                     (pat |> Option.bind (Shared.Patient.getHeight >> heightToNone))
                     (UpdateHeight >> dispatch)
+
+                if pat |> Option.isSome &&
+                   pat |> Option.map (fun p -> p |> Shared.Patient.getAgeInYears |> Option.defaultValue 0. < 1)
+                       |> Option.defaultValue false then
+                    [| 24 .. 42 |]
+                    |> Array.map (fun k -> $"{k}", $"{k}")
+                    |> createSelect
+                        "GA weken"
+                        (pat |> Option.bind Shared.Patient.getGAWeeks |> zeroToNone)
+                        (UpdateGAWeek >> dispatch)
+
+                    [|1..6|]
+                    |> Array.map (fun k -> $"{k}", $"{k}")
+                    |> createSelect
+                        "GA dagen"
+                        (pat |> Option.bind Shared.Patient.getGADays |> zeroToNone)
+                        (UpdateGADay >> dispatch)
 
                 JSX.jsx
                     $"""

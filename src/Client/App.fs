@@ -105,6 +105,7 @@ module private Elmish =
                             (Some age.Days)
                             weight
                             height
+                            None None
                     Logging.log "parsed: " patient
                     patient
                 | _ ->
@@ -258,6 +259,10 @@ module private Elmish =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getAgeInDays
                             | None -> sc.Age
+                        GestAge =
+                            match state.Patient with
+                            | Some pat -> pat |> Patient.getGestAgeInDays
+                            | None -> sc.GestAge
                         Weight =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getWeight

@@ -381,8 +381,13 @@ module Patient =
 
         let calcMonths a = (a |> getYears) * 12 + (a |> getMonths)
 
+        let gestAgeToString lang (age : Patient.GestationalAge) =
+            $"""
+{age.Weeks} {Localization.getTerm lang Terms.``Patient Age weeks``} {age.Days} {Localization.getTerm lang Terms.``Patient Age days``}
+            """
 
-        let toString lang age =
+
+        let toString lang (age : Patient.Age) =
             let getTerm = Localization.getTerm lang
 
             let plur s1 s2 n =
@@ -472,8 +477,14 @@ module Patient =
     let getAgeDays p =
         p |> getAge |> Option.map (fun a -> a.Days)
 
+    let getGAWeeks (p : Patient) =
+        p.GestationalAge |> Option.map (fun ga -> ga.Weeks)
 
-    let create years months weeks days weight height =
+    let getGADays (p : Patient) =
+        p.GestationalAge |> Option.map (fun ga -> ga.Days)
+
+
+    let create years months weeks days weight height gw gd =
         if [
             years
             months
@@ -497,8 +508,17 @@ module Patient =
                     }
                     |> Some
 
+            let ga =
+                if [ gw; gd ] |> List.forall Option.isNone then None
+                else
+                    {
+                        Patient.GestationalAge.Weeks = gw |> Option.defaultValue 37
+                        Patient.GestationalAge.Days =  gd |> Option.defaultValue 0
+                    } |> Some
+
             let ew, eh =
-                if a |> Option.isNone then
+                if a |> Option.isNone ||
+                   gw |> Option.defaultValue 37 < 37 then
                     None, None
                 else
                     let a =
@@ -521,6 +541,7 @@ module Patient =
 
             {
                 Age = a
+                GestationalAge = ga
                 Weight = { Estimated = ew; Measured = weight }
                 Height = { Estimated = eh; Measured = height }
                 CVL = false
@@ -550,6 +571,11 @@ module Patient =
         p
         |> getAgeInYears
         |> Option.bind (fun ys -> ys * 365. |> Some)
+
+
+    let getGestAgeInDays (p : Patient) =
+        p.GestationalAge
+        |> Option.map (fun ga -> ga.Weeks * 7 + ga.Days)
 
 
     /// Get either the measured weight or the
@@ -633,6 +659,7 @@ module Patient =
             |> Option.map (Age.toString lang)
             |> Option.orElse (Terms.Unknown |> getTerm |> Some)
 
+
             (Some $"{Terms.``Patient Weight`` |> getTerm}:")
             |> bold
             pat.Weight.Measured
@@ -655,6 +682,14 @@ module Patient =
 
             (Some "BSA:") |> bold
             pat |> calcBSA |> Option.map (fun x -> $" {x} m2")
+
+            (Some $"{Terms.``Patient GA Age`` |> getTerm}:")
+            |> bold
+            pat.GestationalAge
+            |> Option.map (Age.gestAgeToString lang)
+            |> Option.orElse (Terms.Unknown |> getTerm |> Some)
+
+
         ]
         |> List.map (Option.defaultValue "")
         |> String.concat " "
@@ -1335,6 +1370,7 @@ module ScenarioResult =
             Shape = None
             Route = None
             Age = None
+            GestAge = None
             Weight = None
             Height = None
             CVL = false
