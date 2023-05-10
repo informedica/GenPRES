@@ -652,46 +652,49 @@ module Patient =
             s
             |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
+        let italic s =
+            s
+            |> Option.map (fun s -> if markDown then $"*{s}*" else s)
+
         [
-            (Some $"{Terms.``Patient Age`` |> getTerm}:")
-            |> bold
+            (Some $"{Terms.``Patient Age`` |> getTerm}:") |> italic
+
             pat.Age
-            |> Option.map (Age.toString lang)
+            |> Option.map (Age.toString lang) |> bold
             |> Option.orElse (Terms.Unknown |> getTerm |> Some)
 
+            (Some $"{Terms.``Patient Weight`` |> getTerm}:") |> italic
 
-            (Some $"{Terms.``Patient Weight`` |> getTerm}:")
-            |> bold
             pat.Weight.Measured
             |> toStr ""
-            |> Option.map (fun s -> $"{s} kg")
+            |> Option.map (fun s -> $"{s} kg") |> bold
+
             pat.Weight.Estimated
             |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} kg)")
 
 
-            (Some $"{Terms.``Patient Length`` |> getTerm}:")
-            |> bold
+            (Some $"{Terms.``Patient Length`` |> getTerm}:") |> italic
+
             pat.Height.Measured
             |> toStr ""
-            |> Option.map (fun s -> $"{s} cm")
+            |> Option.map (fun s -> $"{s} cm") |> bold
             pat.Height.Estimated
             |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} cm)")
 
 
-            (Some "BSA:") |> bold
-            pat |> calcBSA |> Option.map (fun x -> $" {x} m2")
+            (Some "BSA:") |> italic
+            pat |> calcBSA |> Option.map (fun x -> $" {x} m2, ")
 
-            (Some $"{Terms.``Patient GA Age`` |> getTerm}:")
-            |> bold
+            (Some $"{Terms.``Patient GA Age`` |> getTerm}:") |> italic
+
             pat.GestationalAge
-            |> Option.map (Age.gestAgeToString lang)
+            |> Option.map (Age.gestAgeToString lang) |> bold
             |> Option.orElse (Terms.Unknown |> getTerm |> Some)
 
-
         ]
-        |> List.map (Option.defaultValue "")
+        |> List.choose id
         |> String.concat " "
         |> String.replace "  " " "
 

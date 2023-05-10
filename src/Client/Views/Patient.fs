@@ -212,8 +212,12 @@ module Patient =
                 p
                 |> Patient.toString Shared.Localization.Dutch true
                 //TODO: use markdown
-                |> fun s -> s.Replace("*", "")
-            | None -> "Voer patient gegevens in"
+                |> Markdown.markdown.children
+            | None ->
+                "Voer patient gegevens in"
+                |> Markdown.markdown.children
+            |> List.singleton
+            |> Markdown.Markdown.markdown
 
 
     open Elmish
