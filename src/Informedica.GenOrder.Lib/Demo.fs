@@ -66,6 +66,7 @@ module Demo =
                     Generic = gen
                     Route = rte
                     Shape = shp
+                    Location = sc.Patient.VenousAccess
                 }
 
             let inds = filter |> Api.filterIndictions
@@ -99,6 +100,7 @@ module Demo =
                             Shape = shp
                             Age = sc.Patient.Age
                             Weight = sc.Patient.Weight
+                            Location = sc.Patient.VenousAccess
                         }
                         |> PrescriptionRule.filter
                         |> Array.collect (fun pr ->

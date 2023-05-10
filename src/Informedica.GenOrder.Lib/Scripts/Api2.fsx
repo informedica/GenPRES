@@ -135,12 +135,12 @@ startLogger ()
 stopLogger ()
 
 
-Patient.infant
-|> fun p -> { p with Weight = Some 10000N }
+Patient.teenager
+|> fun p -> { p with VenousAccess = CVL }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "gentamicine" &&
+    pr.DoseRule.Generic = "adrenaline" &&
     pr.DoseRule.Route = "iv" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
@@ -148,7 +148,7 @@ Patient.infant
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrder
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")
 
 |> Order.solveMinMax true OrderLogger.noLogger
 |> Result.bind (Api.increaseIncrement OrderLogger.logger.Logger)

@@ -13,7 +13,7 @@ module PrescriptionRule =
         DoseRule.get ()
         |> DoseRule.filter filter
         |> Array.map (fun dr ->
-            let dr = dr |> DoseRule.reconstitute pat.Department pat.Location
+            let dr = dr |> DoseRule.reconstitute pat.Department pat.VenousAccess
             {
                 Patient = pat
                 DoseRule = dr
@@ -26,6 +26,7 @@ module PrescriptionRule =
                             Route = dr.Route |> Some
                             Weight = pat.Weight
                             DoseType = dr.DoseType
+                            Location = pat.VenousAccess
                         }
             }
         )

@@ -34,7 +34,7 @@ module Filter =
             BSA = pat |> Patient.calcBSA
             GestAge = pat.GestAge
             PMAge = pat.PMAge
-            Location = pat.Location
+            Location = pat.VenousAccess
         }
 
 
@@ -47,7 +47,7 @@ module Filter =
             Weight = filter.Weight
             GestAge = filter.GestAge
             PMAge = filter.PMAge
-            Location = filter.Location
+            VenousAccess = filter.Location
         }
         
         

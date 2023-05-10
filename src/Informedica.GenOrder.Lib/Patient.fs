@@ -22,7 +22,7 @@ module Patient =
             Height = None
             GestAge = None
             PMAge = None
-            Location = AnyAccess
+            VenousAccess = AnyAccess
         }
 
 
@@ -260,7 +260,7 @@ module Patient =
         |> setWeight (17m |> Kilogram |> Some)
         |> setHeight (100 |> Centimeter |> Some)
         |> setDepartment "ICK"
-        |> fun p -> { p with Location = CVL}
+        |> fun p -> { p with VenousAccess = CVL}
 
 
     let teenager =

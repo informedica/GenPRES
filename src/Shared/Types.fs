@@ -55,6 +55,7 @@ module Types =
             Age: Age option
             Weight: Weight
             Height: Height
+            CVL : bool
         }
     /// Weight in kg
     and Weight =
@@ -312,6 +313,7 @@ module Types =
             Age : float option
             Weight: float option
             Height: float option
+            CVL : bool
         }
 
 

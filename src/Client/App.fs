@@ -266,6 +266,10 @@ module private Elmish =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getHeight
                             | None -> sc.Height
+                        CVL =
+                            match state.Patient with
+                            | Some pat -> pat.CVL
+                            | None -> sc.CVL
                     }
                 | _ -> ScenarioResult.empty
 
@@ -338,8 +342,8 @@ module private Elmish =
                                 Scenarios =
                                     scr.Scenarios
                                     |> Array.map (fun scr ->
-                                        if scr <> sc then scr 
-                                        else 
+                                        if scr <> sc then scr
+                                        else
                                             printfn "found scenario and update order"
                                             { scr with
                                                 Order = Some o
@@ -347,18 +351,18 @@ module private Elmish =
                                     )
                             }
                         )
-                }, 
+                },
                 Cmd.ofMsg (PrintScenarios Started)
             | None -> state, Cmd.none
 
-        | SelectOrder (sc, o) -> 
-            { state with 
+        | SelectOrder (sc, o) ->
+            { state with
                 SelectedScenarioOrder =
                     if o |> Option.isNone then state.SelectedScenarioOrder
                     else
                         (sc, o |> Option.get) |> Some
-                CalculatedOrder = o |> Resolved 
-            }, 
+                CalculatedOrder = o |> Resolved
+            },
             Cmd.ofMsg (CalculateOrder Started)
 
         | LoadOrder o ->
@@ -383,15 +387,15 @@ module private Elmish =
 
         | CalculateOrder (Finished r) ->
             match r with
-            | Ok o -> 
+            | Ok o ->
                 printfn "success calculating order"
                 { state with
-                    SelectedScenarioOrder = 
+                    SelectedScenarioOrder =
                         state.SelectedScenarioOrder
-                        |> Option.map (fun (sc, _) -> sc, o) 
+                        |> Option.map (fun (sc, _) -> sc, o)
                     CalculatedOrder = o |> Some |> Resolved
                 }, Cmd.none
-            | Error s -> 
+            | Error s ->
                 printfn "eror calculating order"
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
 

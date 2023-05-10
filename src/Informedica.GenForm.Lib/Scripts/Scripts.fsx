@@ -31,14 +31,12 @@ open Informedica.GenForm.Lib
 
 { Patient.patient with
     Department = "ICK"
-    Age = 7N |> Some
-    GestAge = Some 259N
-    PMAge = None
-    Weight = 3800N |> Some
-    Location = AnyAccess
+    Age = 365N * 10N |> Some
+    Weight = 1000N * 33N |> Some
+    VenousAccess =  CVL
 }
-|> PrescriptionRule.get |> Array.length
-|> Array.filter (fun r -> r.DoseRule.Generic = "paracetamol" && r.DoseRule.Route = "rect")
+|> PrescriptionRule.get //|> Array.length
+|> Array.filter (fun r -> r.DoseRule.Generic = "adrenaline" && r.DoseRule.Route = "iv")
 |> Array.collect (fun r -> r.DoseRule.DoseLimits
 )
 //|> DoseRule.Print.toMarkdown

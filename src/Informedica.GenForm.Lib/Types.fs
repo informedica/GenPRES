@@ -146,7 +146,7 @@ module Types =
             Height : BigRational option
             GestAge : BigRational option
             PMAge : BigRational option
-            Location : VenousAccess
+            VenousAccess : VenousAccess
         }
         static member Gender_ =
             (fun (p : Patient) -> p.Gender), (fun g (p : Patient) -> { p with Gender = g})

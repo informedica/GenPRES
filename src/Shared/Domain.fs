@@ -523,6 +523,7 @@ module Patient =
                 Age = a
                 Weight = { Estimated = ew; Measured = weight }
                 Height = { Estimated = eh; Measured = height }
+                CVL = false
             }
             |> Some
 
@@ -1336,6 +1337,7 @@ module ScenarioResult =
             Age = None
             Weight = None
             Height = None
+            CVL = false
         }
 
 

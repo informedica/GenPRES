@@ -149,9 +149,9 @@ module SolutionRule =
             fun (sr : SolutionRule) -> filter.Weight |> MinMax.isBetween sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
-                | CVL  -> filter.Location = CVL
-                | AnyAccess
-                | PVL -> true
+                | CVL -> filter.Location = CVL
+                | PVL //-> filter.Location = PVL
+                | AnyAccess -> true
         |]
         |> Array.fold (fun (acc : SolutionRule[]) pred ->
             acc |> Array.filter pred

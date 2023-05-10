@@ -17,6 +17,7 @@ module Patient =
         open Shared.Types
         module Patient = Shared.Patient
 
+
         type State = Patient option
 
 
@@ -28,6 +29,7 @@ module Patient =
             | UpdateDay of string option
             | UpdateWeight of string option
             | UpdateHeight of string option
+            | ToggleCVL
 
 
         let tryParse (s : string) = match Int32.TryParse(s) with | false, _ -> None | true, v -> v |> Some
@@ -131,6 +133,13 @@ module Patient =
                     (s |> Option.bind tryParse |> Option.map float)
 
 
+        let toggleCVL (p: Patient option) : Patient option =
+            printfn "toggleCVL was called"
+            p |> Option.map (fun p ->
+                { p with CVL = not p.CVL}
+            )
+
+
         let update dispatch msg (state : State) : State * Cmd<Msg> =
             printfn "update was called"
             match msg with
@@ -141,6 +150,7 @@ module Patient =
             | UpdateDay s    -> state |> setDay s, Cmd.none
             | UpdateWeight s -> state |> setWeight s, Cmd.none
             | UpdateHeight s -> state |> setHeight s, Cmd.none
+            | ToggleCVL     -> state |> toggleCVL, Cmd.none
             |> fun (state, cmd) ->
                 state |> dispatch
                 state, cmd
@@ -204,6 +214,17 @@ module Patient =
             | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
 
+        let checkBox () =
+            JSX.jsx $"""
+            import Checkbox from '@mui/material/Checkbox';
+
+            <Checkbox
+                checked={props.patient |> Option.map (fun p -> p.CVL) |> Option.defaultValue false}
+                onChange={fun _ -> ToggleCVL |> dispatch}
+            />
+            """
+
+
         let items =
             [|
                 [|0..19|]
@@ -248,6 +269,13 @@ module Patient =
                     (pat |> Option.bind (Shared.Patient.getHeight >> heightToNone))
                     (UpdateHeight >> dispatch)
 
+                JSX.jsx
+                    $"""
+                <FormControlLabel
+                    control={ checkBox () }
+                    label="CVL" />
+                """
+
             |]
             |> Array.map (fun el ->
                 JSX.jsx
@@ -269,6 +297,7 @@ module Patient =
         import AccordionSummary from '@mui/material/AccordionSummary';
         import Typography from '@mui/material/Typography';
         import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+        import FormControlLabel from '@mui/material/FormControlLabel';
 
         <React.Fragment>
             <Accordion expanded={isExpanded} onChange={handleChange}>
