@@ -260,6 +260,12 @@ module Icons =
     """
 
 
+    [<JSX.Component>]
+    let Language = JSX.jsx $"""
+        import Language from '@mui/icons-material/Language';
+        <Language />
+    """
+
 
 type Color = {|
     ``50`` : string;

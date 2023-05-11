@@ -9,7 +9,11 @@ open System.IO
 open System.Net
 open Shared
 
-Patient.create None (Some 56) None None None None
+
+printfn $"{Localization.Terms.Terms.``Continuous Medication Advice``}"
+
+
+Patient.create None (Some 56) None None None None None None
 |> Option.map (Patient.toString Localization.English false)
 |> Option.defaultValue ""
 
@@ -53,6 +57,26 @@ createUrl "continuousmeds" dataUrlId
 open Localization
 
 getTerm Dutch Terms.``Patient enter patient data``
+
+
+let getTerm locale term =
+    let term = $"{term}"
+    let indx =
+        match locale with
+        | English -> 1
+        | Dutch -> 2
+
+    createUrl "Localization" "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
+    |> download
+    |> Async.RunSynchronously
+    |> Csv.parseCSV
+    |> Array.tryFind (fun r ->
+        r[0] = term
+    )
+    |> Option.map (fun r -> r[indx])
+
+
+getTerm Dutch Terms.``Continuous Medication Dose``
 
 
 open Types.Patient

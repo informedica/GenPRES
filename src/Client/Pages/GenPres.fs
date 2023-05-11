@@ -26,15 +26,12 @@ module GenPres =
                 SideMenuItems: (JSX.Element option * string * bool) []
                 SideMenuIsOpen: bool
                 Configuration: Configuration Option
-                Language: Localization.Locales
             }
 
 
         type Msg =
             | SideMenuClick of string
             | ToggleMenu
-            | LanguageChange of string
-            | UpdateLanguage of Localization.Locales
 
 
         let pages =
@@ -47,7 +44,7 @@ module GenPres =
             ]
 
 
-        let init page : State * Cmd<Msg> =
+        let init lang terms page : State * Cmd<Msg> =
 
             let state =
                 {
@@ -56,7 +53,7 @@ module GenPres =
                         |> List.toArray
                         |> Array.map (fun p ->
                             let b = p = page
-                            match p |> pageToString Localization.Dutch with
+                            match p |> pageToString terms lang with
                             | s when p = LifeSupport -> (Mui.Icons.FireExtinguisher |> Some), s, b
                             | s when p = ContinuousMeds -> (Mui.Icons.Vaccines |> Some), s, b
                             | s when p = Prescribe -> (Mui.Icons.Message |> Some), s, b
@@ -67,13 +64,12 @@ module GenPres =
 
                     SideMenuIsOpen = false
                     Configuration = None
-                    Language = Localization.Dutch
                 }
 
             state, Cmd.none
 
 
-        let update updatePage (msg: Msg) (state: State) =
+        let update lang terms updatePage (msg: Msg) (state: State) =
             match msg with
             | ToggleMenu ->
                 { state with
@@ -82,10 +78,9 @@ module GenPres =
                 Cmd.none
 
             | SideMenuClick s ->
-                let pageToString = Global.pageToString Localization.Dutch
 
                 pages
-                |> List.map (fun p -> p |> pageToString, p)
+                |> List.map (fun p -> p |> pageToString terms lang, p)
                 |> List.tryFind (fst >> ((=) s))
                 |> Option.map snd
                 |> Option.defaultValue LifeSupport
@@ -105,12 +100,6 @@ module GenPres =
                         )
                 },
                 Cmd.none
-
-            | LanguageChange s ->
-                //TODO: doesn't work anymore
-                state, Cmd.none
-
-            | UpdateLanguage l -> { state with Language = l }, Cmd.none
 
 
     open Elmish
@@ -134,9 +123,14 @@ module GenPres =
             updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
-            page : Global.Pages |}) =
+            page : Global.Pages
+            localizationTerms : Deferred<string[][]>
+            languages : Localization.Locales []
+            switchLang : Localization.Locales -> unit |}) =
 
-        let state, dispatch = React.useElmish (init props.page, update props.updatePage, [| box props.page; box props.updatePage |])
+        let lang = React.useContext(Global.languageContext)
+        let deps = [| box props.page; box props.updatePage; box lang |]
+        let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
         let notFound =
             JSX.jsx
@@ -161,8 +155,10 @@ module GenPres =
         <React.Fragment>
             <Box>
                 {Components.TitleBar.View({|
-                    title = $"GenPRES 2023 {props.page |> (Global.pageToString Localization.Dutch)}"
+                    title = $"GenPRES 2023 {props.page |> (Global.pageToString props.localizationTerms lang)}"
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch
+                    languages = props.languages
+                    switchLang = props.switchLang
                 |})}
             </Box>
             <React.Fragment>
@@ -179,7 +175,13 @@ module GenPres =
             <Container sx={ {| height="87%"; mt= 4 |} } >
                 <Stack sx={ {| height="100%" |} }>
                     <Box sx={ {| flexBasis=1 |} } >
-                        { Views.Patient.View({| patient = props.patient; updatePatient = props.updatePatient |}) }
+                        { 
+                            Views.Patient.View({| 
+                                patient = props.patient
+                                updatePatient = props.updatePatient 
+                                localizationTerms = props.localizationTerms
+                            |}) 
+                        }
                     </Box>
                     <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
                         {

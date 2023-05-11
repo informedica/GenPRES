@@ -29,6 +29,8 @@ module private Elmish =
             SelectedScenarioOrder : (Scenario * Order) option
             CalculatedOrder : Deferred<Order option>
             Formulary: Deferred<Formulary>
+            Localization : Deferred<string [][]>
+            Language : Localization.Locales
         }
 
 
@@ -50,6 +52,8 @@ module private Elmish =
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
+        | LoadLocalization of AsyncOperationStatus<Result<string [][], string>>
+        | UpdateLanguage of Localization.Locales
 
 
     let serverApi =
@@ -145,6 +149,8 @@ module private Elmish =
                 CalculatedOrder = HasNotStartedYet
                 SelectedScenarioOrder = None
                 Formulary = HasNotStartedYet
+                Localization = HasNotStartedYet
+                Language = Localization.English
             }
 
         let cmds =
@@ -153,6 +159,7 @@ module private Elmish =
                 Cmd.ofMsg (LoadBolusMedication Started)
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
+                Cmd.ofMsg (LoadLocalization Started)
             ]
 
         initialState, cmds
@@ -160,6 +167,9 @@ module private Elmish =
 
     let update (msg: Msg) (state: Model) =
         match msg with
+        | UpdateLanguage lang -> 
+            printfn $"update language to: {lang}"
+            { state with Language = lang}, Cmd.none
 
         | UpdatePatient p ->
             printfn $"load patient: {p}"
@@ -198,6 +208,23 @@ module private Elmish =
                 Page = page
             }
             , cmd
+
+        | LoadLocalization Started ->
+            { state with
+                Localization = InProgress
+            },
+            Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
+
+        | LoadLocalization (Finished (Ok terms)) ->
+
+            { state with
+                Localization = terms |> Resolved
+            },
+            Cmd.none
+
+        | LoadLocalization (Finished (Error s)) ->
+            Logging.error "cannot load localization" s
+            state, Cmd.none
 
         | LoadBolusMedication Started ->
             { state with
@@ -526,7 +553,10 @@ let View () =
                         loadOrder = LoadOrder >> dispatch
                         updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
                         page = state.Page
-                    |})
+                        localizationTerms = state.Localization
+                        languages = [| Localization.Dutch; Localization.English |]
+                        switchLang = UpdateLanguage >> dispatch
+                    |}) |> toReact |> Components.Context.context state.Language
                 }
             </Box>
         </ThemeProvider>

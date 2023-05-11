@@ -14,17 +14,22 @@ type Pages =
     | Parenteralia
 
 
-let pageToString locale page =
+let pageToString terms locale page =
+    let getTerm term = 
+        terms
+        |> Deferred.map (fun terms ->
+            term
+            |> Localization.getTerm terms locale
+            |> Option.defaultValue $"{term}"
+        )
+        |> Deferred.defaultValue $"{term}"
+
     match page with
-    | LifeSupport ->
-        Localization.getTerm locale Localization.Terms.``Emergency List``
-    | ContinuousMeds ->
-        Localization.getTerm
-            locale
-            Localization.Terms.``Continuous Medication List``
-    | Prescribe -> "Voorschrijven"
-    | Formulary -> "Formularium"
-    | Parenteralia -> "Parenteralia"
+    | LifeSupport -> Terms.``Emergency List`` |> getTerm
+    | ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
+    | Prescribe -> Terms.``Prescribe`` |> getTerm
+    | Formulary -> Terms.``Formulary`` |> getTerm
+    | Parenteralia -> Terms.``Parenteralia`` |> getTerm
 
 
 let languageContext =

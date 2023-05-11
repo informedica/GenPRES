@@ -83,26 +83,37 @@ module GoogleDocs =
     let createUrl sheet id =
         $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
 
+
     //https://docs.google.com/spreadsheets/d/1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM/edit?usp=sharing
     [<Literal>]
-    let dataUrlId =
+    let dataEMLUrlId =
         "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
 
 
+    let dataGPUrlId =
+        "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
+
+
     let loadBolusMedication msg =
-        dataUrlId
+        dataEMLUrlId
         |> createUrl "emergencylist"
         |> getUrl EmergencyTreatment.parse msg
 
 
     let loadContinuousMedication msg =
-        dataUrlId
+        dataEMLUrlId
         |> createUrl "continuousmeds"
         |> getUrl ContinuousMedication.parse msg
 
 
     let loadProducts msg =
-        dataUrlId
+        dataEMLUrlId
         |> createUrl "products"
         |> getUrl Products.parse msg
 
+
+    let loadLocalization msg =
+        dataGPUrlId
+        |> createUrl "Localization"
+        |> getUrl id msg
+    

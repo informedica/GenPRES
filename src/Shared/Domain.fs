@@ -221,7 +221,6 @@ module Patient =
 
     module Age =
 
-        module Terms = Localization.Terms
         open Patient
 
         let (>==) r f = Result.bind f r
@@ -381,14 +380,16 @@ module Patient =
 
         let calcMonths a = (a |> getYears) * 12 + (a |> getMonths)
 
-        let gestAgeToString lang (age : Patient.GestationalAge) =
+        let gestAgeToString terms lang (age : Patient.GestationalAge) =
+            let getTerm = Localization.getTerm terms
+
             $"""
-{age.Weeks} {Localization.getTerm lang Terms.``Patient Age weeks``} {age.Days} {Localization.getTerm lang Terms.``Patient Age days``}
+{age.Weeks} {getTerm lang Terms.``Patient Age weeks``} {age.Days} {getTerm lang Terms.``Patient Age days``}
             """
 
 
-        let toString lang (age : Patient.Age) =
-            let getTerm = Localization.getTerm lang
+        let toString terms lang (age : Patient.Age) =
+            let getTerm = Localization.getTerm terms lang
 
             let plur s1 s2 n =
                 if n = 1 then
@@ -448,9 +449,6 @@ module Patient =
                 | ms, ws, ds when ms > 0 && ds = 0 && ws = 0 -> $"{y} en {m}"
                 | _ -> $"{y}"
 
-
-
-    module Terms = Localization.Terms
 
 
     let apply f (p: Patient) = f p
@@ -644,8 +642,8 @@ module Patient =
         a
 
 
-    let toString lang markDown (pat : Patient) =
-        let getTerm = Localization.getTerm lang
+    let toString terms lang markDown (pat : Patient) =
+        let getTerm = Localization.getTerm terms lang
         let toStr s n = n |> Option.map (sprintf "%s%.1f" s)
 
         let bold s =
@@ -660,8 +658,8 @@ module Patient =
             (Some $"{Terms.``Patient Age`` |> getTerm}:") |> italic
 
             pat.Age
-            |> Option.map (Age.toString lang) |> bold
-            |> Option.orElse (Terms.Unknown |> getTerm |> Some)
+            |> Option.map (Age.toString terms lang) |> bold
+            |> Option.orElse ("" |> Some)
 
             (Some $"{Terms.``Patient Weight`` |> getTerm}:") |> italic
 
@@ -691,8 +689,8 @@ module Patient =
                 (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
 
                 pat.GestationalAge
-                |> Option.map (Age.gestAgeToString lang)
-                |> Option.orElse (Terms.Unknown |> getTerm |> Some)
+                |> Option.map (Age.gestAgeToString terms lang)
+                |> Option.orElse ("" |> Some)
 
         ]
         |> List.choose id
