@@ -685,13 +685,14 @@ module Patient =
 
 
             (Some "BSA:") |> italic
-            pat |> calcBSA |> Option.map (fun x -> $" {x} m2, ")
+            pat |> calcBSA |> Option.map (fun x -> $" {x} m2")
 
-            (Some $"{Terms.``Patient GA Age`` |> getTerm}:") |> italic
+            if pat |> getAgeInDays |> Option.map (fun ds -> ds < 365.) |> Option.defaultValue false then
+                (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
 
-            pat.GestationalAge
-            |> Option.map (Age.gestAgeToString lang) |> bold
-            |> Option.orElse (Terms.Unknown |> getTerm |> Some)
+                pat.GestationalAge
+                |> Option.map (Age.gestAgeToString lang)
+                |> Option.orElse (Terms.Unknown |> getTerm |> Some)
 
         ]
         |> List.choose id
