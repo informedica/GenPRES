@@ -379,6 +379,7 @@ module Prescribe =
                                 loadOrder = props.loadOrder
                                 updateScenarioOrder = props.updateScenarioOrder
                                 closeOrder = handleModalClose
+                                localizationTerms = props.localizationTerms
                             |} 
                         }
                     </Box>

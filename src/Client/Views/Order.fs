@@ -331,6 +331,7 @@ module Order =
 
 
     open Elmish
+    open Shared
 
 
     [<JSX.Component>]
@@ -340,7 +341,19 @@ module Order =
             loadOrder: Order -> unit
             updateScenarioOrder : unit -> unit
             closeOrder : unit -> unit
+            localizationTerms : Deferred<string [] []>
+
         |}) =
+
+        let lang = React.useContext(Global.languageContext)
+
+        let getTerm defVal term = 
+            props.localizationTerms
+            |> Deferred.map (fun terms ->
+                Localization.getTerm terms lang term
+                |> Option.defaultValue defVal
+            )
+            |> Deferred.defaultValue defVal
 
         let state, dispatch =
             React.useElmish (
@@ -378,7 +391,7 @@ module Order =
 
         let fixPrecision n d =
             (d |> float)
-            |> Shared.Utils.Math.fixPrecision n
+            |> Utils.Math.fixPrecision n
             |> string
 
         let onClickOk =
@@ -409,10 +422,10 @@ module Order =
                             o.Prescription.Frequency.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Frequentie" None (ChangeFrequency >> dispatch)
+                            |> select false (Terms.``Order Frequency`` |> getTerm "Frequentie") None (ChangeFrequency >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Frequentie" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
@@ -420,21 +433,21 @@ module Order =
                             o.Orderable.Components[0].Items[0].Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Keer Dosis" None (ChangeSubstanceDoseQuantity >> dispatch)
+                            |> select false (Terms.``Continuous Medication Dose`` |> getTerm "Keer Dosis") None (ChangeSubstanceDoseQuantity >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Keer Dosis" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) ->
+                        | Resolved (Some o) when o.Prescription.IsContinuous |> not ->
                             o.Orderable.Components[0].Items[0].Dose.PerTimeAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Dosering" None (ChangeSubstancePerTimeAdjust >> dispatch)
+                            |> select false (Terms.``Order Adjusted dose`` |> getTerm "Dosering") None (ChangeSubstancePerTimeAdjust >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Dosering" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
@@ -442,10 +455,10 @@ module Order =
                             o.Orderable.Components[0].Items[0].Dose.RateAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Dosering" None (ChangeSubstanceRateAdjust >> dispatch)
+                            |> select false (Terms.``Order Adjusted dose`` |> getTerm "Dosering") None (ChangeSubstanceRateAdjust >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Dosering" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
@@ -453,10 +466,10 @@ module Order =
                             o.Orderable.Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Hoeveelheid" None (ChangeOrderableDoseQuantity >> dispatch)
+                            |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None (ChangeOrderableDoseQuantity >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Hoeveelheid" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
@@ -464,10 +477,10 @@ module Order =
                             o.Orderable.Components[0].Items[0].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Sterkte" None (ChangeSubstanceComponentConcentration >> dispatch)
+                            |> select false (Terms.``Order Concentration`` |> getTerm "Sterkte") None (ChangeSubstanceComponentConcentration >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Sterkte" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
@@ -475,10 +488,10 @@ module Order =
                             o.Orderable.Dose.Rate.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Pompsnelheid" None (ChangeOrderableDoseRate >> dispatch)
+                            |> select false (Terms.``Order Drip rate`` |> getTerm "Pompsnelheid") None (ChangeOrderableDoseRate >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Pompsnelheid" None ignore
+                            |> select true "" None ignore
                     }
                     {
                         match props.order with
@@ -486,19 +499,17 @@ module Order =
                             o.Prescription.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Inloop tijd" None (ChangeTime >> dispatch)
+                            |> select false (Terms.``Order Administration time`` |> getTerm "Inloop tijd") None (ChangeTime >> dispatch)
                         | _ ->
                             [||]
-                            |> select true "Inloop tijd" None ignore
+                            |> select true "" None ignore
                     }
-
-
                 </Stack>
 
             </CardContent>
             <CardActions>
                     <Button onClick={onClickOk}>
-                        Ok
+                        {Terms.``Ok `` |> getTerm "Ok"}
                     </Button>
             </CardActions>
             </div>

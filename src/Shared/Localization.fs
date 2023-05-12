@@ -44,6 +44,14 @@ type Terms =
     | ``Prescribe Prescription``
     | ``Prescribe Preparation``
     | ``Prescribe Administration``
+    | ``Order``
+    | ``Order Frequency``
+    | ``Order Dose``
+    | ``Order Adjusted dose``
+    | ``Order Quantity``
+    | ``Order Concentration``
+    | ``Order Drip rate``
+    | ``Order Administration time``
     | ``Formulary``
     | ``Formulary Medications``
     | ``Formulary Indications``
@@ -52,6 +60,7 @@ type Terms =
     | ``Parenteralia``
     | ``Delete``
     | ``Edit``
+    | ``Ok ``
     | ``Sort By``
 
 
@@ -100,7 +109,7 @@ module Localization =
 
 
     let getTerm (terms : string [][]) locale term =
-        let term = $"{term}"
+        let term = $"{term}".Trim()
         let indx =
             match locale with
             | English -> 1
