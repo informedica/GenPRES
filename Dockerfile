@@ -39,6 +39,7 @@ COPY --from=server-build /workspace/deploy /app
 COPY --from=client-build /workspace/deploy /app/public
 COPY src/Server/data /app/data
 
+ENV GENPRES_PROD=""
 WORKDIR /app
 EXPOSE 8085
 ENTRYPOINT [ "dotnet", "Server.dll" ]

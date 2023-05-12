@@ -284,7 +284,7 @@ module Prescribe =
                             <Button 
                                 size="small"
                                 onClick={fun () -> setModalOpen true; (sc, ord) |> props.selectOrder}
-                            >Bewerken</Button>
+                            >{Terms.Edit |> getTerm "bewerken"}</Button>
                         </CardActions>
                     </Card>
                 </Box>

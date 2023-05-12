@@ -51,6 +51,7 @@ type Terms =
     | ``Formulary Patients``
     | ``Parenteralia``
     | ``Delete``
+    | ``Edit``
     | ``Sort By``
 
 

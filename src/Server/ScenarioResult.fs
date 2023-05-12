@@ -404,8 +404,9 @@ let print (sc: ScenarioResult) =
 
 
 let solveOrder (ord : Order) =
-    let path = $"{__SOURCE_DIRECTORY__}/log.txt"
-    OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+    if Env.getItem "GENPRES_PROD" |> Option.isNone then
+        let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+        OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
     ord
     |> mapFromOrder

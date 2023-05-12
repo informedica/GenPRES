@@ -38,8 +38,9 @@ module Demo =
 
 
     let filter (sc : ScenarioResult) =
-        let path = $"{__SOURCE_DIRECTORY__}/log.txt"
-        OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+        if Env.getItem "GENPRES_PROD" |> Option.isNone then
+            let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
         match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
         | Some w, Some _, d when d |> String.notEmpty ->
