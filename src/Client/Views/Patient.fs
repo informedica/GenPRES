@@ -10,12 +10,11 @@ open Browser.Types
 module Patient =
 
     open Elmish
-
+    open Shared
 
     module private Elmish =
 
-        open Shared.Types
-        module Patient = Shared.Patient
+        module Patient = Patient
 
 
         type State = Patient option
@@ -219,8 +218,8 @@ module Patient =
             | None ->
                 terms
                 |> Deferred.map (fun terms -> 
-                    Shared.Terms.``Patient enter patient data``
-                    |> Shared.Localization.getTerm terms lang
+                    Terms.``Patient enter patient data``
+                    |> Localization.getTerm terms lang
                     |> Option.defaultValue "Voer patient gegevens in"
                 )
                 |> Deferred.defaultValue "Voer patient gegevens in"
@@ -235,11 +234,12 @@ module Patient =
     [<JSX.Component>]
     let View (props :
             {|
-                patient : Shared.Types.Patient option
-                updatePatient : Shared.Types.Patient option -> unit
+                patient : Types.Patient option
+                updatePatient : Types.Patient option -> unit
                 localizationTerms : Deferred<string [] []>
             |}
         ) =
+
         let lang = React.useContext(Global.languageContext)
         let isExpanded, setExpanded = React.useState true
         let depArr = [| box props.patient; box props.updatePatient; box lang |]
@@ -248,6 +248,14 @@ module Patient =
                     init props.patient,
                     update props.updatePatient,
                     depArr)
+
+        let getTerm defVal term = 
+            props.localizationTerms
+            |> Deferred.map (fun terms ->
+                Localization.getTerm terms lang term
+                |> Option.defaultValue defVal
+            )
+            |> Deferred.defaultValue defVal
 
         let handleChange = fun _ -> isExpanded |> not |> setExpanded
 
@@ -296,43 +304,43 @@ module Patient =
                 [|0..19|]
                 |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
                 |> createSelect
-                    "jaren"
-                    (pat |> Option.bind Shared.Patient.getAgeYears)
+                    (Terms.``Patient Age years`` |> getTerm "jaren")
+                    (pat |> Option.bind Patient.getAgeYears)
                     (UpdateYear >> dispatch)
 
                 [|1..11|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
-                    "maanden"
-                    (pat |> Option.bind Shared.Patient.getAgeMonths |> zeroToNone)
+                    (Terms.``Patient Age months`` |> getTerm "maanden")
+                    (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
                     (UpdateMonth >> dispatch)
 
                 [|1..3|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
-                    "weken"
-                    (pat |> Option.bind Shared.Patient.getAgeWeeks |> zeroToNone)
+                    (Terms.``Patient Age weeks`` |> getTerm "weken")
+                    (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
                     (UpdateWeek >> dispatch)
 
                 [|1..6|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
-                    "dagen"
-                    (pat |> Option.bind Shared.Patient.getAgeDays |> zeroToNone)
+                    (Terms.``Patient Age days`` |> getTerm "dagen")
+                    (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
                     (UpdateDay >> dispatch)
 
                 wghts
                 |> Array.map (fun k -> $"{k}", $"{(k |> float)/1000.}")
                 |> createSelect
-                    "gewicht (kg)"
-                    (pat |> Option.bind (Shared.Patient.getWeight >> weightToNone))
+                    (Terms.``Patient Weight`` |> getTerm "gewicht" |> fun s -> $"{s} (kg)")
+                    (pat |> Option.bind (Patient.getWeight >> weightToNone))
                     (UpdateWeight >> dispatch)
 
                 [|40..220|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
-                    "lengte (cm)"
-                    (pat |> Option.bind (Shared.Patient.getHeight >> heightToNone))
+                    (Terms.``Patient Length`` |> getTerm "lengte" |> fun s -> $"{s} (cm)")
+                    (pat |> Option.bind (Patient.getHeight >> heightToNone))
                     (UpdateHeight >> dispatch)
 
                 if pat |> Option.isSome &&
@@ -341,14 +349,14 @@ module Patient =
                     [| 24 .. 42 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createSelect
-                        "GA weken"
+                        (Terms.``Patient Age weeks`` |> getTerm "weken" |> fun s -> $"GA {s}")
                         (pat |> Option.bind Shared.Patient.getGAWeeks |> zeroToNone)
                         (UpdateGAWeek >> dispatch)
 
                     [|1..6|]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createSelect
-                        "GA dagen"
+                        (Terms.``Patient Age days`` |> getTerm "dagen" |> fun s -> $"GA {s}")
                         (pat |> Option.bind Shared.Patient.getGADays |> zeroToNone)
                         (UpdateGADay >> dispatch)
 
@@ -397,7 +405,7 @@ module Patient =
                     </Grid>
                     <Box sx={ {| mt=2 |} }>
                         <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
-                            verwijderen
+                            {Terms.Delete |> getTerm "Verwijder"}
                         </Button>
                     </Box>
                 </AccordionDetails>

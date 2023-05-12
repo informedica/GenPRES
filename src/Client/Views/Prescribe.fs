@@ -116,18 +116,31 @@ module Prescribe =
 
 
     open Elmish
+    open Shared
 
 
     [<JSX.Component>]
     let View (props:
         {|
-            scenarios: Deferred<Shared.Types.ScenarioResult>
-            updateScenario: Shared.Types.ScenarioResult -> unit
-            selectOrder : (Shared.Types.Scenario * Shared.Types.Order option) -> unit
-            order : Deferred<Shared.Types.Order option>
-            loadOrder : Shared.Types.Order -> unit
+            scenarios: Deferred<Types.ScenarioResult>
+            updateScenario: Types.ScenarioResult -> unit
+            selectOrder : (Types.Scenario * Shared.Types.Order option) -> unit
+            order : Deferred<Types.Order option>
+            loadOrder : Types.Order -> unit
             updateScenarioOrder : unit -> unit
+            localizationTerms : Deferred<string [] []>
         |}) =
+
+        let lang = React.useContext(Global.languageContext)
+
+        let getTerm defVal term = 
+            props.localizationTerms
+            |> Deferred.map (fun terms ->
+                Localization.getTerm terms lang term
+                |> Option.defaultValue defVal
+            )
+            |> Deferred.defaultValue defVal
+
         let state, dispatch =
             React.useElmish (
                 init props.order props.scenarios,
@@ -161,15 +174,15 @@ module Prescribe =
                 </Box>
                 """
 
-        let typoGraphy (items : Shared.Types.TextItem[]) =
+        let typoGraphy (items : Types.TextItem[]) =
             let print item =
                 match item with
-                | Shared.Types.Normal s ->
+                | Normal s ->
                     JSX.jsx
                         $"""
                     <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
                     """
-                | Shared.Types.Bold s ->
+                | Bold s ->
                     JSX.jsx
                         $"""
                     <Typography
@@ -179,7 +192,7 @@ module Prescribe =
                     <strong> {s} </strong>
                     </Typography>
                     """
-                | Shared.Types.Italic s ->
+                | Italic s ->
                     JSX.jsx
                         $"""
                     <Typography
@@ -199,7 +212,7 @@ module Prescribe =
             </Box>
             """
 
-        let displayScenario med (sc : Shared.Types.Scenario) =
+        let displayScenario med (sc : Types.Scenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let med =
@@ -233,9 +246,9 @@ module Prescribe =
                         <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
                             {
                                 [|
-                                    item Mui.Icons.Notes "Voorschrift" sc.Prescription
-                                    item Mui.Icons.Vaccines "Bereiding" sc.Preparation
-                                    item Mui.Icons.MedicationLiquid "Toediening" sc.Administration
+                                    item Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription
+                                    item Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Bereiding") sc.Preparation
+                                    item Mui.Icons.MedicationLiquid (Terms.``Prescribe Administration`` |> getTerm "Toediening") sc.Administration
                                 |]
                                 |> unbox
                                 |> React.fragment
@@ -289,7 +302,7 @@ module Prescribe =
 
             <React.Fragment>
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                    Medicatie scenario's
+                    {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
 
@@ -300,7 +313,7 @@ module Prescribe =
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading "Indicaties" sel (IndicationChange >> dispatch)
+                            |> select isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
                     }
                     {
                         match props.scenarios with
@@ -309,7 +322,7 @@ module Prescribe =
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading "Medicatie" sel (MedicationChange >> dispatch)
+                            |> select isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
                     }
                     {
                         match props.scenarios with
@@ -318,7 +331,7 @@ module Prescribe =
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading "Routes" sel (RouteChange >> dispatch)
+                            |> select isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
                     }
                 </Stack>
                 <Stack direction="column" sx={ {| mt = 1 |} } >

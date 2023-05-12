@@ -187,9 +187,9 @@ module GenPres =
                         {
                             match props.page with
                             | Global.Pages.LifeSupport ->
-                                Views.EmergencyList.View ({| interventions = props.bolusMedication |})
+                                Views.EmergencyList.View ({| interventions = props.bolusMedication; localizationTerms = props.localizationTerms |})
                             | Global.Pages.ContinuousMeds ->
-                                Views.ContinuousMeds.View ({| interventions = props.continuousMedication |})
+                                Views.ContinuousMeds.View ({| interventions = props.continuousMedication; localizationTerms = props.localizationTerms |})
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View ({| 
                                     order = props.order
@@ -198,9 +198,10 @@ module GenPres =
                                     selectOrder = props.selectOrder
                                     loadOrder = props.loadOrder
                                     updateScenarioOrder = props.updateScenarioOrder
+                                    localizationTerms = props.localizationTerms
                                 |})
                             | Global.Pages.Formulary ->
-                                Views.Formulary.View ({| order = props.formulary; updateFormulary = props.updateFormulary |})
+                                Views.Formulary.View ({| order = props.formulary; updateFormulary = props.updateFormulary; localizationTerms = props.localizationTerms |})
                             | _ -> notFound
                         }
                     </Box>

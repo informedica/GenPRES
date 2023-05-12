@@ -123,6 +123,7 @@ module Formulary =
 
 
     open Elmish
+    open Shared
 
 
     [<JSX.Component>]
@@ -130,7 +131,18 @@ module Formulary =
         {|
             order: Deferred<Formulary>
             updateFormulary: Formulary -> unit
+            localizationTerms : Deferred<string [] []>
         |}) =
+
+        let lang = React.useContext(Global.languageContext)
+
+        let getTerm defVal term = 
+            props.localizationTerms
+            |> Deferred.map (fun terms ->
+                Localization.getTerm terms lang term
+                |> Option.defaultValue defVal
+            )
+            |> Deferred.defaultValue defVal
 
         let state, dispatch =
             React.useElmish (
@@ -174,18 +186,9 @@ module Formulary =
 
             <CardContent>
                 <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                    Formularium
+                    {Terms.Formulary |> getTerm "Formularium"}
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
-                    {
-                        match props.order with
-                        | Resolved form -> false, form.Generic, form.Generics
-                        | _ -> true, None, [||]
-                        |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading "Generieken" sel (GenericChange >> dispatch)
-                    }
                     {
                         match props.order with
                         | Resolved form -> false, form.Indication, form.Indications
@@ -193,7 +196,16 @@ module Formulary =
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading "Indicaties" sel (IndicationChange >> dispatch)
+                            |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
+                    }
+                    {
+                        match props.order with
+                        | Resolved form -> false, form.Generic, form.Generics
+                        | _ -> true, None, [||]
+                        |> fun (isLoading, sel, items) ->
+                            items
+                            |> Array.map (fun s -> s, s)
+                            |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
                     }
                     {
                         match props.order with
@@ -202,7 +214,7 @@ module Formulary =
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading "Routes" sel (RouteChange >> dispatch)
+                            |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
                     }
                     {
                         match props.order with
@@ -211,7 +223,7 @@ module Formulary =
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading "Patienten" sel (PatientChange >> dispatch)
+                            |> select isLoading (Terms.``Formulary Patients`` |> getTerm "Patienten") sel (PatientChange >> dispatch)
                     }
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >

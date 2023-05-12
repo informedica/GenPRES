@@ -431,22 +431,22 @@ module Patient =
             | _ when age.Years = 0 ->
                 match age.Weeks, age.Days with
                 | ws, ds when ds > 0 && ws > 0 -> $"{m}, {w} en {d}"
-                | ws, ds when ds = 0 && ws > 0 -> $"{m} en {w}"
-                | ws, ds when ds > 0 && ws = 0 -> $"{m} en {d}"
+                | ws, ds when ds = 0 && ws > 0 -> $"{m}, {w}"
+                | ws, ds when ds > 0 && ws = 0 -> $"{m}, {d}"
                 | _ -> $"{m}"
             | _ ->
                 match age.Months, age.Weeks, age.Days with
                 | ms, ws, ds when ms = 0 && ds > 0 && ws > 0 ->
-                    $"{y}, {w} en {d}"
-                | ms, ws, ds when ms = 0 && ds = 0 && ws > 0 -> $"{y} en {w}"
-                | ms, ws, ds when ms = 0 && ds > 0 && ws = 0 -> $"{y} en {d}"
+                    $"{y}, {w}, {d}"
+                | ms, ws, ds when ms = 0 && ds = 0 && ws > 0 -> $"{y}, {w}"
+                | ms, ws, ds when ms = 0 && ds > 0 && ws = 0 -> $"{y}, {d}"
                 | ms, ws, ds when ms > 0 && ds > 0 && ws > 0 ->
-                    $"{y}, {m}, {w} en {d}"
+                    $"{y}, {m}, {w}, {d}"
                 | ms, ws, ds when ms > 0 && ds = 0 && ws > 0 ->
-                    $"{y}, {m} en {w}"
+                    $"{y}, {m}, {w}"
                 | ms, ws, ds when ms > 0 && ds > 0 && ws = 0 ->
-                    $"{y}, {m} en {d}"
-                | ms, ws, ds when ms > 0 && ds = 0 && ws = 0 -> $"{y} en {m}"
+                    $"{y}, {m}, {d}"
+                | ms, ws, ds when ms > 0 && ds = 0 && ws = 0 -> $"{y}, {m}"
                 | _ -> $"{y}"
 
 

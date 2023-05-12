@@ -10,19 +10,30 @@ open Browser.Types
 
 module EmergencyList =
 
+    open Shared
+
 
     [<JSX.Component>]
-    let View (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
+    let View (props : {| interventions: Deferred<Types.Intervention list>; localizationTerms : Deferred<string [] []> |}) =
+
+        let lang = React.useContext(Global.languageContext)
+
+        let getTerm defVal term = 
+            props.localizationTerms
+            |> Deferred.map (fun terms ->
+                Localization.getTerm terms lang term
+                |> Option.defaultValue defVal
+            )
+            |> Deferred.defaultValue defVal
 
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |}
-            {|  field = "indication"; headerName = "Indicatie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "intervention"; headerName = "Interventie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "calculated"; headerName = "Berekend"; width = 200; filterable = false; sortable = false |}
-            {|  field = "preparation"; headerName = "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = "Advies"; width = 200; filterable = false; sortable = false |}
+            {|  field = "indication"; headerName = Terms.``Emergency List Indication`` |> getTerm "Indicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 200; filterable = false; sortable = false |}
+            {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 200; filterable = false; sortable = false |}
         |]
-
 
         let speakAct s =
             let speak = fun _ -> s |> Global.Speech.speak

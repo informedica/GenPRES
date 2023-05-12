@@ -554,7 +554,7 @@ let View () =
                         updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
                         page = state.Page
                         localizationTerms = state.Localization
-                        languages = [| Localization.Dutch; Localization.English |]
+                        languages = Localization.languages 
                         switchLang = UpdateLanguage >> dispatch
                     |}) |> toReact |> Components.Context.context state.Language
                 }

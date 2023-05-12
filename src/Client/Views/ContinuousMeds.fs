@@ -9,18 +9,30 @@ open Browser.Types
 
 module ContinuousMeds =
 
+    open Shared
+
 
     [<JSX.Component>]
-    let View (props : {| interventions: Deferred<Shared.Types.Intervention list> |}) =
+    let View (props : {| interventions: Deferred<Types.Intervention list>; localizationTerms : Deferred<string [] []> |}) =
+
+        let lang = React.useContext(Global.languageContext)
+
+        let getTerm defVal term = 
+            props.localizationTerms
+            |> Deferred.map (fun terms ->
+                Localization.getTerm terms lang term
+                |> Option.defaultValue defVal
+            )
+            |> Deferred.defaultValue defVal
 
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
-            {|  field = "indication"; headerName = "Indicatie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "medication"; headerName = "Medicatie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "quantity"; headerName = "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
-            {|  field = "solution"; headerName = "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "dose"; headerName = "Dosering"; width = 230; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = "Advies"; width = 190; filterable = false; sortable = false |}
+            {|  field = "indication"; headerName = Terms.``Continuous Medication Indication`` |> getTerm "Indicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
+            {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 230; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "advice"; headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advies"; width = 190; filterable = false; sortable = false |}
         |]
 
         let rows =

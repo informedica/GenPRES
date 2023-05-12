@@ -43,7 +43,7 @@ module SimpleSelect =
             |> Array.mapi (fun i (k, v) ->
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={k} sx = { {| maxWidth = 300 |} }>
+                <MenuItem key={i} value={k} sx = { {| maxWidth = 400 |} }>
                     {v}
                 </MenuItem>
                 """
@@ -73,7 +73,7 @@ module SimpleSelect =
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
 
-        <FormControl variant="standard" sx={ {| minWidth = 120; maxWidth = 200 |} }>
+        <FormControl variant="standard" sx={ {| minWidth = 150; maxWidth = 400 |} }>
             <InputLabel id={props.label}>{props.label}</InputLabel>
             <Select
             labelId={props.label}

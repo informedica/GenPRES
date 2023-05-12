@@ -37,8 +37,20 @@ type Terms =
     | ``Continuous Medication Dose``
     | ``Continuous Medication Advice``
     | ``Prescribe``
+    | ``Prescribe Scenarios``
+    | ``Prescribe Indications``
+    | ``Prescribe Medications``
+    | ``Prescribe Routes``
+    | ``Prescribe Prescription``
+    | ``Prescribe Preparation``
+    | ``Prescribe Administration``
     | ``Formulary``
+    | ``Formulary Medications``
+    | ``Formulary Indications``
+    | ``Formulary Routes``
+    | ``Formulary Patients``
     | ``Parenteralia``
+    | ``Delete``
     | ``Sort By``
 
 
@@ -51,16 +63,20 @@ module Localization =
     type Locales =
         | English
         | Dutch
-    // | German
-    // | French
-    // | Spanish
-    // | Italian
+        | French
+        | German
+        | Spanish
+        | Italian
 
 
     let toString =
         function
         | English -> "English"
         | Dutch -> "Nederlands"
+        | French -> "Français"
+        | Spanish -> "Español"
+        | German -> "Deutsch"
+        | Italian -> "Italiano"
 
 
     let fromString (s: string) =
@@ -69,10 +85,14 @@ module Localization =
         match s with
         | _ when s = "english" -> English
         | _ when s = "nederlands" -> Dutch
+        | _ when s = "français" -> French
+        | _ when s = "español" -> Spanish
+        | _ when s = "deutsch" -> German
+        | _ when s = "italiano" -> Italian
         | _ -> failwith $"{s} is not a known language"
 
 
-    let languages = [ English; Dutch ]
+    let languages = [| English; Dutch; French; German; Spanish; Italian |]
 
 
     let getTerm (terms : string [][]) locale term =
@@ -81,6 +101,10 @@ module Localization =
             match locale with
             | English -> 1
             | Dutch -> 2
+            | French -> 3
+            | German -> 4
+            | Spanish -> 5
+            | Italian -> 6
 
         terms
         |> Array.tryFind (fun r ->

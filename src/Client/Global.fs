@@ -6,6 +6,7 @@ open Feliz.UseElmish
 open Elmish
 open Shared
 
+
 type Pages =
     | LifeSupport
     | ContinuousMeds
