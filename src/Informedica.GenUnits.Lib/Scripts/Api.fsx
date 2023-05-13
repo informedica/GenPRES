@@ -9,6 +9,11 @@ open MathNet.Numerics
 open Informedica.GenUnits.Lib
 open Informedica.Utils.Lib.BCL
 
+"ng[Mass]"
+|> Units.fromString
+
+Units.UnitDetails.units
+|> List.iter (fun ud -> printfn $"{ud}")
 
 
 
@@ -64,15 +69,17 @@ module Parser =
                     )
             ]
         )
+        // need to change nan to xxx to avoid getting a float 'nan'
+        |> List.map (fun r -> {| r with unit = r.unit |> String.replace "nan" "nnn" |})
         |> List.distinctBy (fun r -> r.unit, r.grp)
         |> List.filter (fun r ->
             (r.unit = "kg" && r.grp = Group.MassGroup ||
             r.unit = "kilogram" && r.grp = Group.MassGroup)
             |> not
         )
-        |> List.sortByDescending (fun r -> r.unit)
+        |> List.sortByDescending (fun r -> r.unit |> String.length,  r.unit)
+        //|> List.map (fun r -> printfn $"{r}"; r)
         |> List.map (fun r ->
-            printfn $"{r.unit}[{r.grp}]"
             let g = $"{r.grp |> ValueUnit.Group.toString}"
 
             attempt (
@@ -111,6 +118,9 @@ module Parser =
 
 
     let parse s =
+        // need to change nan to xxx to avoid getting a float 'nan'
+        let s = s |> String.replace "nan" "nnn"
+
         let pBigRatList =
             sepBy pBigRat (ws >>. (pstring ";") .>> ws)
 
@@ -149,10 +159,18 @@ let testParser s p =
 
 
 
-"[1.4;  2] mg[Mass]/kg/2 dag[Time]"
+"[1.4;  2] nanog[Mass]/kg/2 dag[Time]"
 |> test
 
 
 "[1.4;  2] mg/kg[Weight]/day"
 |> test
 
+
+"xxnog"
+|> run Parser.pnumber
+
+
+"nanog[Mass]"
+|> String.replace "nan" "nnn"
+|> run Parser.parseUnit

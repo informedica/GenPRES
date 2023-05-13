@@ -183,13 +183,16 @@ module Parser =
                     )
             ]
         )
+        // need to change nan to xxx to avoid getting a float 'nan'
+        |> List.map (fun r -> {| r with unit = r.unit |> String.replace "nan" "nnn" |})
         |> List.distinctBy (fun r -> r.unit, r.grp)
         |> List.filter (fun r ->
             (r.unit = "kg" && r.grp = Group.MassGroup ||
             r.unit = "kilogram" && r.grp = Group.MassGroup)
             |> not
         )
-        |> List.sortByDescending (fun r -> r.unit)
+        |> List.sortByDescending (fun r -> r.unit |> String.length,  r.unit)
+        //|> List.map (fun r -> printfn $"{r}"; r)
         |> List.map (fun r ->
             let g = $"{r.grp |> ValueUnit.Group.toString}"
 
@@ -229,6 +232,9 @@ module Parser =
 
 
     let parse s =
+        // need to change nan to xxx to avoid getting a float 'nan'
+        let s = s |> String.replace "nan" "nnn"
+
         let pBigRatList =
             sepBy pBigRat (ws >>. (pstring ";") .>> ws)
 
@@ -1217,6 +1223,8 @@ module Units =
             | us when us |> List.length >= 1 && (us |> List.length <= 3) ->
                 us
                 |> List.map (fun s ->
+                    // need to replace nan as this otherwise will be a float
+                    let s = s |> String.replace "nan" "nnn"
                     match s |> run Parser.parseUnit with
                     | Success (u, _, _) -> u
                     | Failure(err, _ , _) ->
