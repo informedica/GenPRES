@@ -62,7 +62,9 @@ type Terms =
     | ``Edit``
     | ``Ok ``
     | ``Sort By``
-
+    | ``Disclaimer``
+    | ``Disclaimer text``
+    | ``Disclaimer accept``
 
 
 module Localization =
@@ -125,6 +127,6 @@ module Localization =
             r[0] = term
         )
         |> Option.map (fun r -> r[indx])
-        |> fun r -> 
+        |> fun r ->
             if r.IsNone then printfn $"cannot find term: {term}"
             r

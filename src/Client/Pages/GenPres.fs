@@ -26,12 +26,14 @@ module GenPres =
                 SideMenuItems: (JSX.Element option * string * bool) []
                 SideMenuIsOpen: bool
                 Configuration: Configuration Option
+                ShowDisclaimer: bool
             }
 
 
         type Msg =
             | SideMenuClick of string
             | ToggleMenu
+            | AcceptDisclaimer
 
 
         let pages =
@@ -64,6 +66,7 @@ module GenPres =
 
                     SideMenuIsOpen = false
                     Configuration = None
+                    ShowDisclaimer = true
                 }
 
             state, Cmd.none
@@ -71,6 +74,12 @@ module GenPres =
 
         let update lang terms updatePage (msg: Msg) (state: State) =
             match msg with
+            | AcceptDisclaimer ->
+                { state with
+                    ShowDisclaimer = false
+                },
+                Cmd.none
+
             | ToggleMenu ->
                 { state with
                     SideMenuIsOpen = not state.SideMenuIsOpen
@@ -141,6 +150,16 @@ module GenPres =
                 </Typography>
             </React.Fragment>
             """
+        let modalStyle =
+            {|
+                position="absolute"
+                top= "50%"
+                left= "50%"
+                transform= "translate(-50%, -50%)"
+                width= 400
+                bgcolor= "background.paper"
+                boxShadow= 24
+            |}
 
         JSX.jsx
             $"""
@@ -151,6 +170,7 @@ module GenPres =
         import Box from '@mui/material/Box';
         import Container from '@mui/material/Container';
         import Typography from '@mui/material/Typography';
+        import Modal from '@mui/material/Modal';
 
         <React.Fragment>
             <Box>
@@ -175,23 +195,29 @@ module GenPres =
             <Container sx={ {| height="87%"; mt= 4 |} } >
                 <Stack sx={ {| height="100%" |} }>
                     <Box sx={ {| flexBasis=1 |} } >
-                        { 
-                            Views.Patient.View({| 
+                        {
+                            Views.Patient.View({|
                                 patient = props.patient
-                                updatePatient = props.updatePatient 
+                                updatePatient = props.updatePatient
                                 localizationTerms = props.localizationTerms
-                            |}) 
+                            |})
                         }
                     </Box>
                     <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
                         {
                             match props.page with
                             | Global.Pages.LifeSupport ->
-                                Views.EmergencyList.View ({| interventions = props.bolusMedication; localizationTerms = props.localizationTerms |})
+                                Views.EmergencyList.View ({|
+                                    interventions = props.bolusMedication
+                                    localizationTerms = props.localizationTerms
+                                |})
                             | Global.Pages.ContinuousMeds ->
-                                Views.ContinuousMeds.View ({| interventions = props.continuousMedication; localizationTerms = props.localizationTerms |})
+                                Views.ContinuousMeds.View ({|
+                                    interventions = props.continuousMedication
+                                    localizationTerms = props.localizationTerms
+                                |})
                             | Global.Pages.Prescribe ->
-                                Views.Prescribe.View ({| 
+                                Views.Prescribe.View ({|
                                     order = props.order
                                     scenarios = props.scenario
                                     updateScenario = props.updateScenario
@@ -201,11 +227,28 @@ module GenPres =
                                     localizationTerms = props.localizationTerms
                                 |})
                             | Global.Pages.Formulary ->
-                                Views.Formulary.View ({| order = props.formulary; updateFormulary = props.updateFormulary; localizationTerms = props.localizationTerms |})
+                                Views.Formulary.View ({|
+                                    order = props.formulary
+                                    updateFormulary = props.updateFormulary
+                                    localizationTerms = props.localizationTerms
+                                |})
                             | _ -> notFound
                         }
                     </Box>
                 </Stack>
             </Container>
+            <Modal open={state.ShowDisclaimer} onClose={fun () -> ()} >
+                <Box sx={modalStyle}>
+                    {
+                        Views.Disclaimer.View {|
+                            accept = fun _ -> AcceptDisclaimer |> dispatch
+                            languages = props.languages
+                            switchLang = props.switchLang
+                            localizationTerms = props.localizationTerms
+                        |}
+                    }
+                </Box>
+            </Modal>
+
         </React.Fragment>
         """

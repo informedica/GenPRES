@@ -133,7 +133,7 @@ module Prescribe =
 
         let lang = React.useContext(Global.languageContext)
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             props.localizationTerms
             |> Deferred.map (fun terms ->
                 Localization.getTerm terms lang term
@@ -223,7 +223,7 @@ module Prescribe =
                     sc.Order
 
                 let item icon prim sec =
-                    JSX.jsx 
+                    JSX.jsx
                         $"""
                     <ListItem>
                         <ListItemIcon>
@@ -237,7 +237,7 @@ module Prescribe =
                     """
 
                 let content =
-                    JSX.jsx 
+                    JSX.jsx
                         $"""
                     <React.Fragment>
                         <Typography variant="h6">
@@ -253,7 +253,7 @@ module Prescribe =
                                 |> unbox
                                 |> React.fragment
                             }
-                        </List>                
+                        </List>
                     </React.Fragment>
                     """
 
@@ -281,7 +281,7 @@ module Prescribe =
                             {progress}
                         </CardContent>
                         <CardActions>
-                            <Button 
+                            <Button
                                 size="small"
                                 onClick={fun () -> setModalOpen true; (sc, ord) |> props.selectOrder}
                             >{Terms.Edit |> getTerm "bewerken"}</Button>
@@ -350,7 +350,7 @@ module Prescribe =
             </React.Fragment>
             """
 
-        let modalStyle = 
+        let modalStyle =
             {|
                 position="absolute"
                 top= "50%"
@@ -371,19 +371,19 @@ module Prescribe =
                 {cards}
                 {progress}
             </Box>
-                <Modal open={modalOpen} onClose={handleModalClose} >
-                    <Box sx={modalStyle}>
-                        { 
-                            Order.View {| 
-                                order = props.order
-                                loadOrder = props.loadOrder
-                                updateScenarioOrder = props.updateScenarioOrder
-                                closeOrder = handleModalClose
-                                localizationTerms = props.localizationTerms
-                            |} 
-                        }
-                    </Box>
-                </Modal>
+            <Modal open={modalOpen} onClose={handleModalClose} >
+                <Box sx={modalStyle}>
+                    {
+                        Order.View {|
+                            order = props.order
+                            loadOrder = props.loadOrder
+                            updateScenarioOrder = props.updateScenarioOrder
+                            closeOrder = handleModalClose
+                            localizationTerms = props.localizationTerms
+                        |}
+                    }
+                </Box>
+            </Modal>
         </div>
         """
 

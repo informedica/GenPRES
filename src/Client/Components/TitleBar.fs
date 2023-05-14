@@ -16,16 +16,17 @@ module TitleBar =
 
 
     [<JSX.Component>]
-    let View (props: {| 
+    let View (props: {|
             title: string
             toggleSideMenu : unit -> unit
             languages : Shared.Localization.Locales []
-            switchLang : Shared.Localization.Locales -> unit |}) =
+            switchLang : Shared.Localization.Locales -> unit
+        |}) =
 
         let lang = React.useContext(Global.languageContext)
         let anchorElLang, setAnchorElLang = React.useState(None)
 
-        let handleOpenLangMenu = fun ev -> ev?currentTarget |> setAnchorElLang 
+        let handleOpenLangMenu = fun ev -> ev?currentTarget |> setAnchorElLang
         let handleCloseLangMenu = fun _ -> setAnchorElLang None
 
         let onClickMenuItem l =
@@ -35,17 +36,17 @@ module TitleBar =
 
         let menuItems =
             props.languages
-            |> Array.mapi (fun i l -> 
-                JSX.jsx 
+            |> Array.mapi (fun i l ->
+                JSX.jsx
                     $"""
                 <MenuItem key={i} value={$"{l}"} onClick={onClickMenuItem l} >
                     <Typography>{$"{l |> Shared.Localization.toString}"}</Typography>
-                </MenuItem>                
+                </MenuItem>
                 """
             )
 
 
-        JSX.jsx 
+        JSX.jsx
             $"""
         import AppBar from '@mui/material/AppBar';
         import Box from '@mui/material/Box';
@@ -79,7 +80,7 @@ module TitleBar =
                             { Mui.Icons.Language }
                         </IconButton>
                         <Menu
-                            sx={ {| mt="45px" |} } 
+                            sx={ {| mt="45px" |} }
                             anchorEl={anchorElLang}
                             anchorOrigin={ {| vertical="top"; horizontal="right" |} }
                             keepMounted

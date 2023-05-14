@@ -17,6 +17,7 @@
     <Compile Include="MUI.fs" />
     <Compile Include="./Components/Router.fs" />
     <Compile Include="./Components/Context.fs" />
+    <Compile Include="./Components/Localization.fs" />
     <Compile Include="./Components/ElmishSelect.fs" />
     <Compile Include="./Components/StateSelect.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
@@ -24,6 +25,7 @@
     <Compile Include="./Components/TitleBar.fs" />
     <Compile Include="./Components/SideMenu.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
+    <Compile Include="./Views/Disclaimer.fs" />
     <Compile Include="./Views/Patient.fs" />
     <Compile Include="./Views/Order.fs" />
     <Compile Include="./Views/EmergencyList.fs" />
