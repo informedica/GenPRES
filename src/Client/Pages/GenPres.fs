@@ -26,14 +26,12 @@ module GenPres =
                 SideMenuItems: (JSX.Element option * string * bool) []
                 SideMenuIsOpen: bool
                 Configuration: Configuration Option
-                ShowDisclaimer: bool
             }
 
 
         type Msg =
             | SideMenuClick of string
             | ToggleMenu
-            | AcceptDisclaimer
 
 
         let pages =
@@ -66,7 +64,6 @@ module GenPres =
 
                     SideMenuIsOpen = false
                     Configuration = None
-                    ShowDisclaimer = true
                 }
 
             state, Cmd.none
@@ -74,11 +71,6 @@ module GenPres =
 
         let update lang terms updatePage (msg: Msg) (state: State) =
             match msg with
-            | AcceptDisclaimer ->
-                { state with
-                    ShowDisclaimer = false
-                },
-                Cmd.none
 
             | ToggleMenu ->
                 { state with
@@ -118,6 +110,8 @@ module GenPres =
     [<JSX.Component>]
     let View
         (props: {|
+            showDisclaimer: bool
+            acceptDisclaimer: bool -> unit
             patient: Patient option
             updatePatient: Patient option -> unit
             updatePage: Global.Pages -> unit
@@ -237,11 +231,11 @@ module GenPres =
                     </Box>
                 </Stack>
             </Container>
-            <Modal open={state.ShowDisclaimer} onClose={fun () -> ()} >
+            <Modal open={props.showDisclaimer} onClose={fun () -> ()} >
                 <Box sx={modalStyle}>
                     {
                         Views.Disclaimer.View {|
-                            accept = fun _ -> AcceptDisclaimer |> dispatch
+                            accept = props.acceptDisclaimer
                             languages = props.languages
                             switchLang = props.switchLang
                             localizationTerms = props.localizationTerms

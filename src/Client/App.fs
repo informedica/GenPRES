@@ -31,10 +31,12 @@ module private Elmish =
             Formulary: Deferred<Formulary>
             Localization : Deferred<string [][]>
             Language : Localization.Locales
+            ShowDisclaimer: bool
         }
 
 
     type Msg =
+        | AcceptDisclaimer
         | UpdatePatient of Patient option
         | UpdatePage of Global.Pages
         | UrlChanged of string list
@@ -140,6 +142,7 @@ module private Elmish =
 
         let initialState =
             {
+                ShowDisclaimer = true
                 Page = page |> Option.defaultValue Global.LifeSupport
                 Patient = pat
                 BolusMedication = HasNotStartedYet
@@ -167,7 +170,13 @@ module private Elmish =
 
     let update (msg: Msg) (state: Model) =
         match msg with
-        | UpdateLanguage lang -> 
+        | AcceptDisclaimer ->
+            { state with
+                ShowDisclaimer = false
+            },
+            Cmd.none
+
+        | UpdateLanguage lang ->
             printfn $"update language to: {lang}"
             { state with Language = lang}, Cmd.none
 
@@ -538,6 +547,8 @@ let View () =
                 }
                 {
                     Pages.GenPres.View({|
+                        showDisclaimer = state.ShowDisclaimer
+                        acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
                         patient = state.Patient
                         updatePage = UpdatePage >> dispatch
                         updatePatient = UpdatePatient >> dispatch
@@ -554,7 +565,7 @@ let View () =
                         updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
                         page = state.Page
                         localizationTerms = state.Localization
-                        languages = Localization.languages 
+                        languages = Localization.languages
                         switchLang = UpdateLanguage >> dispatch
                     |}) |> toReact |> Components.Context.context state.Language
                 }
