@@ -64,16 +64,22 @@ module private Elmish =
         |> Remoting.buildProxy<Api.IServerApi>
 
 
-    // url needs to be in format: http://localhost:8080/#pat?ay=2&am=0&ad=1
+    // url needs to be in format: http://localhost:8080/#patient?ay=2&am=0&ad=1
     // * pg : el (emergency list) cm (continuous medication)
     // * by: birth year
     // * bm: birth month
     // * bd: birth day
     // * wt: weight (gram)
     // * ht: height (cm)
+    // * gw: gestational age weeks
+    // * gd: gestational age days
+    // * la: language (en; du; fr; ge; sp; it; ch)
+    // * dc: show disclaimer (n;_)
+    // * cv: central venous line (y;_)
     let parseUrl sl =
+        printfn $"parsing url with {sl}"
         match sl with
-        | [] -> None, None
+        | [] -> None, None, None, true
         | [ "patient"; Route.Query queryParams ] ->
             let queryParamsMap = Map.ofList queryParams
 
@@ -101,6 +107,21 @@ module private Elmish =
                         | Some (Route.Number weight) -> Some weight
                         | _ -> None
 
+                    let gaWeeks =
+                        match Map.tryFind "gw" queryParamsMap with
+                        | Some (Route.Number weeks) -> weeks |> int |> Some
+                        | _ -> None
+
+                    let gaDays =
+                        match Map.tryFind "gd" queryParamsMap with
+                        | Some (Route.Number days) -> days |> int |> Some
+                        | _ -> None
+
+                    let cvl =
+                        match Map.tryFind "cv" queryParamsMap with
+                        | Some s when s = "y" -> true
+                        | _ -> false
+
                     let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
                     let patient =
@@ -111,7 +132,10 @@ module private Elmish =
                             (Some age.Days)
                             weight
                             height
-                            None None
+                            gaWeeks 
+                            gaDays
+                            cvl
+
                     Logging.log "parsed: " patient
                     patient
                 | _ ->
@@ -127,34 +151,49 @@ module private Elmish =
                 | Some s when s = "pe" -> Some Global.Parenteralia
                 | _ -> None
 
-            pat, page
+            let lang = 
+                match queryParamsMap |> Map.tryFind "la" with
+                | Some s when s = "en" -> Some Localization.English
+                | Some s when s = "du" -> Some Localization.Dutch
+                | Some s when s = "fr" -> Some Localization.French
+                | Some s when s = "gr" -> Some Localization.German
+                | Some s when s = "sp" -> Some Localization.Spanish
+                | Some s when s = "it" -> Some Localization.Italian
+                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
+                | _ -> None
+
+            let discl =
+                match queryParamsMap |> Map.tryFind "dc" with
+                | Some s when s = "n" -> false
+                | _ -> true
+
+            pat, page, lang, discl
 
         | _ ->
             sl
             |> String.concat ""
             |> Logging.warning "could not parse url"
 
-            None, None
+            None, None, None, true
 
+    let initialState pat page lang discl =
+        {
+            ShowDisclaimer = discl
+            Page = page |> Option.defaultValue Global.LifeSupport
+            Patient = pat
+            BolusMedication = HasNotStartedYet
+            ContinuousMedication = HasNotStartedYet
+            Products = HasNotStartedYet
+            Scenarios = HasNotStartedYet
+            CalculatedOrder = HasNotStartedYet
+            SelectedScenarioOrder = None
+            Formulary = HasNotStartedYet
+            Localization = HasNotStartedYet
+            Language = lang |> Option.defaultValue Localization.English
+        }
 
     let init () : Model * Cmd<Msg> =
-        let pat, page = Router.currentUrl () |> parseUrl
-
-        let initialState =
-            {
-                ShowDisclaimer = true
-                Page = page |> Option.defaultValue Global.LifeSupport
-                Patient = pat
-                BolusMedication = HasNotStartedYet
-                ContinuousMedication = HasNotStartedYet
-                Products = HasNotStartedYet
-                Scenarios = HasNotStartedYet
-                CalculatedOrder = HasNotStartedYet
-                SelectedScenarioOrder = None
-                Formulary = HasNotStartedYet
-                Localization = HasNotStartedYet
-                Language = Localization.English
-            }
+        let pat, page, lang, discl = Router.currentUrl () |> parseUrl
 
         let cmds =
             Cmd.batch [
@@ -165,7 +204,8 @@ module private Elmish =
                 Cmd.ofMsg (LoadLocalization Started)
             ]
 
-        initialState, cmds
+        initialState pat page lang discl
+        , cmds
 
 
     let update (msg: Msg) (state: Model) =
@@ -186,11 +226,14 @@ module private Elmish =
             Cmd.ofMsg (LoadScenarios Started)
 
         | UrlChanged sl ->
-            let pat, page = sl |> parseUrl
+            printfn "url changed"
+            let pat, page, lang, discl = sl |> parseUrl
 
             { state with
+                ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
+                Language = lang |> Option.defaultValue Localization.English
             },
             Cmd.ofMsg (pat |> UpdatePatient)
 
@@ -289,7 +332,9 @@ module private Elmish =
         | LoadScenarios Started ->
             let scenarios =
                 match state.Scenarios with
-                | Resolved sc when state.Patient.IsSome ->
+                | Resolved sc -> sc
+                | _ -> ScenarioResult.empty
+                |> fun sc ->
                     { sc with
                         Age =
                             match state.Patient with
@@ -312,7 +357,6 @@ module private Elmish =
                             | Some pat -> pat.CVL
                             | None -> sc.CVL
                     }
-                | _ -> ScenarioResult.empty
 
             let load =
                 async {

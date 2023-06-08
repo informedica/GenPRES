@@ -482,7 +482,7 @@ module Patient =
         p.GestationalAge |> Option.map (fun ga -> ga.Days)
 
 
-    let create years months weeks days weight height gw gd =
+    let create years months weeks days weight height gw gd cvl =
         if [
             years
             months
@@ -542,7 +542,7 @@ module Patient =
                 GestationalAge = ga
                 Weight = { Estimated = ew; Measured = weight }
                 Height = { Estimated = eh; Measured = height }
-                CVL = false
+                CVL = cvl
             }
             |> Some
 
