@@ -51,10 +51,10 @@ module Formulary =
                 match form with
                 | Resolved form ->
                     {
-                        Generic = form.Generic
-                        Indication = form.Indication
+                        Generic = form.Generic //|> Option.orElse gen
+                        Indication = form.Indication //|> Option.orElse ind
                         Patient = form.Patient
-                        Route = form.Route
+                        Route = form.Route //|> Option.orElse rte
                     }
                 | _ -> empty
 
@@ -62,10 +62,10 @@ module Formulary =
 
 
         let update
-            (form: Deferred<Formulary>)
+            (formulary: Deferred<Formulary>)
             updateFormulary
             (msg: Msg)
-            state : State * Cmd<Msg>
+            (state : State) : State * Cmd<Msg>
             =
             let clear (form : Formulary) =
                 { form with
@@ -75,9 +75,9 @@ module Formulary =
                     Patient = None
                 }
 
-            match msg with
+            match msg with                
             | GenericChange s ->
-                match form with
+                match formulary with
                 | Resolved form ->
                     if s |> Option.isNone then Formulary.empty
                     else
@@ -89,7 +89,7 @@ module Formulary =
 
             | IndicationChange s ->
                 printfn $"indication change {s}"
-                match form with
+                match formulary with
                 | Resolved form ->
                     if s |> Option.isNone then Formulary.empty
                     else
@@ -100,7 +100,7 @@ module Formulary =
                 { state with Indication = s }, Cmd.none
 
             | RouteChange s ->
-                match form with
+                match formulary with
                 | Resolved form ->
                     if s |> Option.isNone then Formulary.empty
                     else
@@ -111,7 +111,7 @@ module Formulary =
                 { state with Route = s }, Cmd.none
 
             | PatientChange s ->
-                match form with
+                match formulary with
                 | Resolved form ->
                     if s |> Option.isNone then Formulary.empty
                     else
@@ -129,7 +129,7 @@ module Formulary =
     [<JSX.Component>]
     let View (props:
         {|
-            order: Deferred<Formulary>
+            formulary: Deferred<Formulary>
             updateFormulary: Formulary -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -146,9 +146,11 @@ module Formulary =
 
         let state, dispatch =
             React.useElmish (
-                init props.order,
-                update props.order props.updateFormulary,
-                [| box props.order; box props.order |]
+                init props.formulary,
+                update props.formulary props.updateFormulary,
+                [| 
+                    box props.formulary
+                |]
             )
 
         let select isLoading lbl selected dispatch xs =
@@ -161,7 +163,7 @@ module Formulary =
             |})
 
         let progress =
-            match props.order with
+            match props.formulary with
             | Resolved _ -> JSX.jsx $"<></>"
             | _ ->
                 JSX.jsx
@@ -190,34 +192,34 @@ module Formulary =
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {
-                        match props.order with
+                        match props.formulary with
                         | Resolved form -> false, form.Indication, form.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
+                            |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Indicaties") state.Indication (IndicationChange >> dispatch)
                     }
                     {
-                        match props.order with
+                        match props.formulary with
                         | Resolved form -> false, form.Generic, form.Generics
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
+                            |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
                     }
                     {
-                        match props.order with
+                        match props.formulary with
                         | Resolved form -> false, form.Route, form.Routes
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
                             items
                             |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                            |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
                     }
                     {
-                        match props.order with
+                        match props.formulary with
                         | Resolved form -> false, form.Patient, form.Patients
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
@@ -228,7 +230,7 @@ module Formulary =
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {
-                        match props.order with
+                        match props.formulary with
                         | Resolved form ->
                             form.Markdown
                             |> Markdown.markdown.children

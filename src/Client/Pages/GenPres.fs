@@ -79,7 +79,6 @@ module GenPres =
                 Cmd.none
 
             | SideMenuClick s ->
-
                 pages
                 |> List.map (fun p -> p |> pageToString terms lang, p)
                 |> List.tryFind (fst >> ((=) s))
@@ -132,7 +131,13 @@ module GenPres =
             switchLang : Localization.Locales -> unit |}) =
 
         let lang = React.useContext(Global.languageContext)
-        let deps = [| box props.page; box props.updatePage; box lang |]
+        let deps = 
+            [| 
+                box props.page
+                box props.updatePage 
+                box lang
+                box props.scenario
+            |]
         let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
         let notFound =
@@ -222,7 +227,7 @@ module GenPres =
                                 |})
                             | Global.Pages.Formulary ->
                                 Views.Formulary.View ({|
-                                    order = props.formulary
+                                    formulary = props.formulary
                                     updateFormulary = props.updateFormulary
                                     localizationTerms = props.localizationTerms
                                 |})

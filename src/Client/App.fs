@@ -202,6 +202,7 @@ module private Elmish =
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
                 Cmd.ofMsg (LoadLocalization Started)
+                Cmd.ofMsg (LoadFormulary Started)
             ]
 
         initialState pat page lang discl
@@ -413,8 +414,22 @@ module private Elmish =
                         | None -> sc.Weight
                 }
 
-            { state with Scenarios = Resolved sc },
-            Cmd.ofMsg (LoadScenarios Started)
+            { state with 
+                Scenarios = Resolved sc 
+                Formulary = 
+                    state.Formulary
+                    |> Deferred.map (fun form ->
+                        { form with
+                            Indication = sc.Indication
+                            Generic = sc.Medication
+                            Route = sc.Route
+                        }
+                    )
+            },
+            Cmd.batch [
+                Cmd.ofMsg (LoadScenarios Started)
+                Cmd.ofMsg (LoadFormulary Started)
+            ]
 
         | UpdateScenarioOrder ->
             match state.SelectedScenarioOrder with
@@ -525,8 +540,11 @@ module private Elmish =
                 { state with
                     Formulary = Resolved form
                 }
-            state, Cmd.ofMsg (LoadFormulary Started)
-
+            state,
+            Cmd.batch [
+                Cmd.ofMsg (LoadFormulary Started)
+//                Cmd.ofMsg (LoadScenarios Started)
+            ] 
 
     let calculatInterventions calc meds pat =
         meds
