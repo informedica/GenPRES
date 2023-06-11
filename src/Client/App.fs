@@ -224,7 +224,10 @@ module private Elmish =
         | UpdatePatient p ->
             printfn $"load patient: {p}"
             { state with Patient = p },
-            Cmd.ofMsg (LoadScenarios Started)
+            Cmd.batch [
+                Cmd.ofMsg (LoadScenarios Started)
+                Cmd.ofMsg (LoadFormulary Started)
+            ]
 
         | UrlChanged sl ->
             printfn "url changed"

@@ -26,7 +26,6 @@ module Formulary =
                 Generic: string option
                 Indication: string option
                 Route: string option
-                Patient : string option
             }
 
 
@@ -34,7 +33,6 @@ module Formulary =
             | GenericChange of string option
             | IndicationChange of string option
             | RouteChange of string option
-            | PatientChange of string option
 
 
         let empty =
@@ -42,7 +40,6 @@ module Formulary =
                 Generic = None
                 Indication = None
                 Route = None
-                Patient = None
             }
 
 
@@ -53,7 +50,6 @@ module Formulary =
                     {
                         Generic = form.Generic //|> Option.orElse gen
                         Indication = form.Indication //|> Option.orElse ind
-                        Patient = form.Patient
                         Route = form.Route //|> Option.orElse rte
                     }
                 | _ -> empty
@@ -110,16 +106,6 @@ module Formulary =
 
                 { state with Route = s }, Cmd.none
 
-            | PatientChange s ->
-                match formulary with
-                | Resolved form ->
-                    if s |> Option.isNone then Formulary.empty
-                    else
-                        { form with Patient = s }
-                    |> updateFormulary
-                | _ -> ()
-
-                { state with Patient = s }, Cmd.none
 
 
     open Elmish
@@ -217,15 +203,6 @@ module Formulary =
                             items
                             |> Array.map (fun s -> s, s)
                             |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
-                    }
-                    {
-                        match props.formulary with
-                        | Resolved form -> false, form.Patient, form.Patients
-                        | _ -> true, None, [||]
-                        |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Patients`` |> getTerm "Patienten") sel (PatientChange >> dispatch)
                     }
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >

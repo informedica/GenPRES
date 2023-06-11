@@ -19,7 +19,7 @@ let mapFormularyToFilter (form: Formulary)=
         Indication = form.Indication
         Route = form.Route
         Age = form.Age |> Option.bind BigRational.fromFloat
-        Weight = form.Weight |> Option.bind BigRational.fromFloat
+        Weight = form.Weight |> Option.map ((*) 1000.) |> Option.bind BigRational.fromFloat
     }
 
 let selectIfOne sel xs =
@@ -53,8 +53,8 @@ let get (form : Formulary) =
         |> fun form ->
             { form with
                 Markdown =
-                    match form.Generic, form.Indication, form.Route, form.Patient with
-                    | Some _, Some _, Some _, Some _ ->
+                    match form.Generic, form.Indication, form.Route with
+                    | Some _, Some _, Some _ ->
                         dsrs
                         |> DoseRule.filter filter
                         |> DoseRule.Print.toMarkdown

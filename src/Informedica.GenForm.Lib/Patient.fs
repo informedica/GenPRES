@@ -65,18 +65,21 @@ module PatientCategory =
             fun (p: PatientCategory) -> filter.Age |> MinMax.isBetween p.Age
             fun (p: PatientCategory) -> filter.Weight |> MinMax.isBetween p.Weight
             fun (p: PatientCategory) -> filter.BSA |> MinMax.isBetween p.BSA
-            fun (p: PatientCategory) ->
-                // defaults to normal gestation
-                filter.GestAge
-                |> Option.defaultValue 259N
-                |> Some
-                |> MinMax.isBetween p.GestAge
-            fun (p: PatientCategory) ->
-                // defaults to normal postmenstrual age
-                filter.PMAge
-                |> Option.defaultValue 259N
-                |> Some
-                |> MinMax.isBetween p.PMAge
+            if filter.Age |> Option.isSome then
+                yield! [|
+                    fun (p: PatientCategory) ->
+                        // defaults to normal gestation
+                        filter.GestAge
+                        |> Option.defaultValue 259N
+                        |> Some
+                        |> MinMax.isBetween p.GestAge
+                    fun (p: PatientCategory) ->
+                        // defaults to normal postmenstrual age
+                        filter.PMAge
+                        |> Option.defaultValue 259N
+                        |> Some
+                        |> MinMax.isBetween p.PMAge
+                |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
             fun (p: PatientCategory) ->
                 match p.Location, filter.Location with
