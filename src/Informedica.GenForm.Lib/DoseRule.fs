@@ -211,7 +211,7 @@ module DoseRule =
                         if ds |> Array.isEmpty then ""
                         else
                             ds
-                            |> Array.collect (printDose "**")
+                            |> Array.collect (printDose "")
                             |> Array.distinct
                             |> String.concat " "
                             |> fun s -> $"{s}\n"

@@ -1,6 +1,5 @@
 namespace Informedica.GenSolver.Lib
 
-open Microsoft.VisualBasic
 
 
 module Variable =
@@ -31,9 +30,6 @@ module Variable =
             else
                 s |> Exceptions.NameLongerThan1000 |> fail
 
-        /// Returns a `Name` option if creation
-        /// succeeds else `None`.
-        let createOpt = create Some Option.none
 
         /// Create a `Name` that, raises
         /// an `NameException` when it fails.
@@ -488,7 +484,7 @@ module Variable =
                     let v =
                         vu
                         |> ValueUnit.getValue
-                        |> Array.prune Constants.MAX_CALC_COUNT
+                        |> Array.prune Constants.PRUNE
                     vu
                     |> ValueUnit.setValue v
                 |> map
@@ -1066,7 +1062,12 @@ module Variable =
                 | None, Some incr, None -> incr |> Incr
                 | Some min, Some incr, Some max -> minIncrMaxToValueRange onlyMinIncrMax min incr max
 
-            | Some vs -> vs |> filter min incr max |> ValSet
+            | Some vs ->
+                vs
+                |> filter min incr max
+                |> ValSet
+            // restrict the valueset by pruning
+            |> prune
 
 
         /// Get an optional `Minimum` in a `ValueRange`
@@ -2344,3 +2345,5 @@ module Variable =
                 dto.Vals <- vals
 
                 dto
+
+

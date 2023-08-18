@@ -16,3 +16,4 @@ module Exceptions =
         | None -> ()
 
         m::errs |> SolverException |> raise
+

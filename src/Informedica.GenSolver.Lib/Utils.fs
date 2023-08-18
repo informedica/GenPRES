@@ -10,7 +10,10 @@ module Utils =
         let MAX_LOOP_COUNT = 10
 
 
-        let MAX_CALC_COUNT = 20
+        let MAX_CALC_COUNT = 100
+
+
+        let PRUNE = 20
 
 
         let MAX_BIGINT =
@@ -143,3 +146,4 @@ module Utils =
                 | _ when op |> opIsAdd -> Add
                 | _ when op |> opIsSubtr -> Subtr
                 | _ -> failwith "Operator is not supported"
+
