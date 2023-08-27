@@ -40,7 +40,7 @@ module PatientScripts =
     ageDto.Days <- Some 8
 
     ageDto
-    |>(AgeValue.Dto.fromDto)
+    |> AgeValue.Dto.fromDto
 
 
     let weightDto = WeightValue.Dto.dto ()
@@ -122,11 +122,11 @@ module PatientScripts =
     PatientAge.adult
 
 
-    NewBorn |> fromAgeType 
+    NewBorn |> fromAgeType
     |> Patient.BSA.calcMosteller
 
 
-    Adult |> fromAgeType 
+    Adult |> fromAgeType
     |> Patient.Dto.toDto
     |> Patient.Dto.fromDto
 
@@ -134,7 +134,7 @@ module PatientScripts =
     FullTerm
     |> AgeWeeksDays.fromGestation
     |> Option.map (AgeWeeksDays.SetGet.setDays 1<day>)
-    |> Option.map (AgeWeeksDays.toString)
+    |> Option.map AgeWeeksDays.toString
     |> Option.defaultValue ""
 
 
@@ -183,7 +183,7 @@ module PatientScripts =
     newBornDto.Age.Value.Months <- 1 |> Some
     newBornDto.Age.Value.Weeks <- 1 |> Some
 
-    newBornDto.GestationalAge <- 
+    newBornDto.GestationalAge <-
         let dto = AgeWeeksDays.Dto.dto ()
         dto.Weeks <- 40
         dto |> Some
@@ -193,11 +193,11 @@ module PatientScripts =
     |> Patient.Dto.fromDto
     |> function
     | Ok p ->
-        p 
+        p
         |> Patient.SetGet.getAgeValue DateTime.Now
         |> Option.map AgeValue.getAgeInDays
-        |> printfn "%A" 
-        p 
+        |> printfn "%A"
+        p
         |> Patient.toString DateTime.Now
     | _  -> []
 
@@ -223,11 +223,11 @@ module ValueUnitScripts =
 
 
     Units.Height.centiMeter
-    |> ValueUnit.withSingleValue 100N 
+    |> ValueUnit.withSingleValue 100N
     |> ValueUnit.Measures.toDecimalCm
 
     Units.Weight.kiloGram
-    |> ValueUnit.withSingleValue 100N 
+    |> ValueUnit.withSingleValue 100N
     |> ValueUnit.Measures.toDecimalCm
 
 
@@ -261,9 +261,9 @@ module ValueUnitScripts =
 
 
 
-    Calculations.Age.adjustedAge 1<day> 34<week> (DateTime.Now.AddDays(-7)) DateTime.Now 
+    Calculations.Age.adjustedAge 1<day> 34<week> (DateTime.Now.AddDays(-7)) DateTime.Now
 
-    DateTime.dateDiff (DateTime.Now.AddDays(-7)) DateTime.Now 
+    DateTime.dateDiff (DateTime.Now.AddDays(-7)) DateTime.Now
 
     7<day> - (34<week> |> Conversions.weeksToDays)
 

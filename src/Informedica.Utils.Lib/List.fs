@@ -8,7 +8,8 @@ module List =
     open Informedica.Utils.Lib.BCL
 
 
-
+    /// Concatenates two lists, placing the elements of xs2 before the elements of xs1.
+    /// /// Example: [1;2] |> prepend [3;4] = [1;2;3;4]
     let prepend xs1 xs2 = xs1 |> List.append xs2
 
 
@@ -17,44 +18,46 @@ module List =
     //----------------------------------------------------------------------------
 
 
-    /// ToDo: not the best implementation
+    /// In summary, the remove function removes the first element in the list
+    /// that satisfies the given predicate, while keeping the order of the other
+    /// elements intact. If no element satisfying the predicate is found,
+    /// the original list is returned unchanged.
     let remove pred xs =
         match xs |> List.tryFindIndex pred with
-        | Some (ind) ->
-            (xs |> Seq.take ind |> Seq.toList) @
-            (xs |> Seq.skip (ind + 1) |> Seq.toList)
+        | Some ind ->
+            xs
+            |> List.mapi (fun i x ->
+                if i = ind then None else Some x
+            )
+            |> List.choose id
         | None -> xs
 
 
     /// Replace an element **x** in a list **xs**
-    /// when the **pred** function returns `true`. </br>
+    /// when the **pred** function returns `true`.
     /// Note: will only replace the *first* element
     /// that satisfies the condition in **pred**
+    /// Example: [1;2;3;2] |> replace (fun x -> x = 2) 4 = [1;4;3;2]
     let replace pred x xs =
-        match xs |> List.tryFindIndex pred with
-        | Some(ind) ->
-            (xs |> Seq.take ind |> Seq.toList) @ [x] @
-            (xs |> Seq.skip (ind + 1) |> Seq.toList)
+        match List.tryFindIndex pred xs with
+        | Some ind ->
+            let before = xs |> List.take ind
+            let after = xs |> List.skip (ind + 1)
+            before @ [x] @ after
         | None -> xs
 
+
     /// filter a list of lists
-    let listFilter p xs =
-        xs
-        |> List.filter (fun r ->
-            r |> List.exists (fun x -> p x ))
+    let listFilter p = List.filter (List.exists p)
 
 
-    let collectLists p xs =
-        xs
-        |> List.collect (fun r ->
-            r
-            |> List.filter (fun x -> p x))
+    let collectLists p = List.collect (List.filter p)
 
 
     let pickList pl (xs: 'a List) =
         match pl with
         | [] -> xs
-        | _ -> [ for i in pl -> xs.[i] ]
+        | _ -> [ for i in pl -> xs[i] ]
 
 
     let removeFirst pred =
@@ -211,7 +214,7 @@ module List =
         | _ ->
             let s =
                 xs
-                |> List.fold (fun s x -> s + (string) x + ";") "["
+                |> List.fold (fun s x -> s + string x + ";") "["
             (s
             |> String.subString 0 ((s |> String.length) - 1)) + "]"
 

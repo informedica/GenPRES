@@ -106,12 +106,17 @@ module Decimal =
     //----------------------------------------------------------------------------
 
 
+    /// Returns a string representation of a decimal in Dutch format
     let toStringNumberNL p (d: decimal) = d.ToString("N" + p, CultureInfo.GetCultureInfo("nl"))
 
 
+    /// Returns a string representation of a decimal in Dutch format without trailing zeros
     let toStringNumberNLWithoutTrailingZeros =
         toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
 
 
+    /// Returns a string representation of a float in Dutch format without trailing zeros
+    /// and with a fixed precision.
+    /// Example: 0.0666m |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
     let toStringNumberNLWithoutTrailingZerosFixPrecision n =
         fixPrecision n >> toStringNumberNLWithoutTrailingZeros

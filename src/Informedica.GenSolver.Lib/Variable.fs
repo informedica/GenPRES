@@ -14,7 +14,6 @@ module Variable =
 
     module Name =
 
-        open Informedica.Utils.Lib
         open Informedica.Utils.Lib.BCL
 
         /// Create with continuation with **succ** function
@@ -174,8 +173,8 @@ module Variable =
             /// value of `Minimum`
             let apply fincl fexcl =
                 function
-                | MinIncl (m) -> m |> fincl
-                | MinExcl (m) -> m |> fexcl
+                | MinIncl m -> m |> fincl
+                | MinExcl m -> m |> fexcl
 
 
             let map fIncl fExcl =
@@ -331,8 +330,8 @@ module Variable =
             /// value of `Maximum`
             let apply fIncl fExcl =
                 function
-                | MaxIncl (m) -> m |> fIncl
-                | MaxExcl (m) -> m |> fExcl
+                | MaxIncl m -> m |> fIncl
+                | MaxExcl m -> m |> fExcl
 
 
             let map fIncl fExcl =
@@ -1473,13 +1472,13 @@ module Variable =
 
             let fMax max = print None (Some max)
 
-            let fIncr incr = print None None
+            let fIncr _ = print None None
 
-            let fMinIncr (min, incr) = print (Some min) None
+            let fMinIncr (min, _) = print (Some min) None
 
-            let fIncrMax (incr, max) = print None (Some max)
+            let fIncrMax (_, max) = print None (Some max)
 
-            let fMinIncrMax (min, incr, max) = print (Some min) (Some max)
+            let fMinIncrMax (min, _, max) = print (Some min) (Some max)
 
             let fMinMax (min, max) = print (Some min) (Some max)
 
@@ -1954,7 +1953,6 @@ module Variable =
 
 
 
-    open Informedica.Utils.Lib.BCL
     open ValueRange.Operators
 
     module Minimum = ValueRange.Minimum

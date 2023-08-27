@@ -156,12 +156,17 @@ module Double =
     // String functions
     //----------------------------------------------------------------------------
 
+    /// Return a string representation of a float in Dutch format
     let toStringNumberNL p (n: float) = n.ToString("R" + p, CultureInfo.GetCultureInfo("nl"))
 
 
+    /// Returns a string representation of a float in Dutch format without trailing zeros
     let toStringNumberNLWithoutTrailingZeros =
         toStringNumberNL "" >> String.removeTrailingZerosFromDutchNumber
 
 
+    /// Returns a string representation of a float in Dutch format without trailing zeros
+    /// and with a fixed precision.
+    /// Example: 0.0666 |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
     let toStringNumberNLWithoutTrailingZerosFixPrecision n =
         fixPrecision n >> toStringNumberNLWithoutTrailingZeros

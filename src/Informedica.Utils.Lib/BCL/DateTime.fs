@@ -11,24 +11,32 @@ module DateTime =
     // Identity create functions
     //----------------------------------------------------------------------------
 
+    /// Utility function to apply a function f to a DateTime dt
     let apply f (dt: DateTime) = f dt
 
 
+    /// Utility function to enable type inference
     let get = apply id
 
 
+    /// Create a date from a year, month and day
     let create yr mo ds = DateTime(yr, mo, ds)
 
 
+    /// Create a DateTime from Now
     let now () = DateTime.Now
 
 
+    /// Create a DateTime using only the date part of a DateTime.
+    /// I.e. round the time part to 00:00:00
     let date (dt: DateTime) = DateTime(dt.Year, dt.Month, dt.Day)
 
 
+    /// Try to create a DateTime from a year, month and day option.
+    /// When one is None, None is returned
     let optionToDate yr mo dy =
         match yr, mo, dy with
-        | Some y, Some m, Some d -> new DateTime(y, m, d) |> Some
+        | Some y, Some m, Some d -> DateTime(y, m, d) |> Some
         | _ -> None
 
 
@@ -44,9 +52,12 @@ module DateTime =
     // Conversions functions
     //----------------------------------------------------------------------------
 
+
+    /// Get the days of the current year
     let daysInYear () = ((now ()).AddYears(1) - now ()).Days
 
 
+    /// Estimate the days in a month using days in current year
     let daysInMonth () = daysInYear () / 12
 
 
@@ -55,28 +66,41 @@ module DateTime =
     //----------------------------------------------------------------------------
 
 
+    /// Add years to a DateTime
     let addYears yr dt =
         (dt |> get).AddYears(yr)
 
 
+    /// Add months to a DateTime
     let addMonths mo dt =
         (dt |> get).AddMonths(mo)
 
 
+    /// Add weeks to a DateTime
     let addWeeks wk dt =
         (dt |> get).AddDays((float wk) * (float daysInWeek))
 
 
+    /// Add days to a DateTime
     let addDays (ds: int) dt =
         (dt |> get).AddDays(ds |> float)
 
 
+    /// Calculate the difference between two DateTimes
+    /// where the first is subtracted with the second,
+    /// i.e. dt1 - dt2
     let dateDiff dt1 dt2 = (dt1 |> get) - (dt2 |> get)
 
 
+    /// Calculate the difference between two DateTimes in days
+    /// where the first is subtracted with the second, i.e.
+    /// dt1 - dt2
     let dateDiffDays dt1 dt2 = (dateDiff dt1 dt2).Days
 
 
+    /// Calculate the difference between two DateTimes in months
+    /// where the first is subtracted with the second, i.e.
+    /// dt1 - dt2
     let dateDiffMonths dt1 dt2 =
         (dateDiffDays dt1 dt2)
         |> float
@@ -84,6 +108,10 @@ module DateTime =
         |> ((*) 12.)
 
 
+    /// Calculate the difference between two DateTimes in years and months
+    /// where the first is subtracted with the second, i.e.
+    /// dt1 - dt2.
+    /// Returns a tuple of years and months
     let dateDiffYearsMonths dt1 dt2 =
         let mos = (dateDiffMonths dt1 dt2) |> int
         (mos / 12), (mos % 12)
@@ -94,6 +122,7 @@ module DateTime =
     //----------------------------------------------------------------------------
 
 
+    /// Return a string representation of a DateTime
     let formattedString (s: String) (dt : DateTime) =
         dt.ToString(s)
 
@@ -103,6 +132,12 @@ module DateTime =
     //----------------------------------------------------------------------------
 
 
+    /// Calculate the age between two DateTimes
+    /// in years, months, weeks and days such that
+    /// date1 = date2 + age by adding first years,
+    /// then months, then weeks and finally days.
+    /// Note if date1 > date2 then date2 will be
+    /// used as first date!
     let age (date1:DateTime) (date2: DateTime) =
         let correct y m w d dtFirst dtLast =
             let dtFirst =
@@ -135,6 +170,9 @@ module DateTime =
         correct y m w d dtFirst dtLast
 
 
+    /// Calculate the first (birth) date from an age
+    /// in years, months, weeks and days such using an
+    /// end date dt.
     let ageToDate yr mo wk ds dt =
         (dt |> get)
         |> addYears (-1 * yr)
@@ -143,10 +181,13 @@ module DateTime =
         |> addDays (-1 * ds)
 
 
+    /// Calculate the age using the current date as end date
     let ageNow = age DateTime.Now
 
 
-    let ageToString  years months weeks days age =
+    /// Print the age in years, months, weeks and days, parameterized by
+    /// singular and plural forms of the words for years, months, weeks and days.
+    let ageToString years months weeks days age =
         let pluralize n s =
             match n with
             | 0 -> ""
@@ -162,11 +203,14 @@ module DateTime =
         s.Trim()
 
 
+    /// Print the age in years, months, weeks and days
+    /// in Dutch.
     let ageToStringDutch = ageToString ("jaar", "jaar")
                                        ("maand", "maanden")
                                        ("week", "weken")
                                        ("dag", "dagen")
 
 
+    /// Print the age in years, months, weeks and days using the current date
     let getAgeFromDate = ageNow >> ageToStringDutch
 

@@ -46,17 +46,21 @@ module ConsoleWriter =
         WarningMessageBackColor = ConsoleColor.Black
     }
 
-    let lock f =
+    let private lock f =
         let lockObj = obj()
 
         lock lockObj f
 
 
+    /// Set the colors for the console
     let setColors (frontColor: ConsoleColor) (backgroundColor: ConsoleColor) =
         Console.ForegroundColor <- frontColor
         Console.BackgroundColor <- backgroundColor
 
-    let writeSeperator (character: char) =
+
+    /// Write a seperator line
+    /// Example: '-' |> writeSeparator --------------------
+    let writeSeparator (character: char) =
         let builder = StringBuilder()
         for _ in 0 .. Console.BufferWidth - 1 do
             builder.Append(character) |> ignore

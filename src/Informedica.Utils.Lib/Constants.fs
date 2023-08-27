@@ -1,5 +1,6 @@
 namespace Informedica.Utils.Lib
 
+
 module Constants =
 
     open System.Net
@@ -23,3 +24,9 @@ module Constants =
 
 
 
+    module Tests =
+
+        /// print all HTML code symbols
+        let printAllSymbols () =
+            HTMLCodeSymbols
+            |> Map.iter (fun k v -> printfn $"%s{k}: %s{v}")

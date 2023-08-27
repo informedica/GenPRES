@@ -1,4 +1,4 @@
-namespace Informedica.Utils.Lib 
+namespace Informedica.Utils.Lib
 
 
 
@@ -12,13 +12,17 @@ module Web =
         open System.Net.Http
 
 
+        /// Create a url to download a sheet from a google spreadsheet
+        /// The id is the unique id of the spreadsheet and the sheet is the name of the sheet
         let createUrl sheet id =
             $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
 
 
+        /// Instantiated http client
         let client = new HttpClient()
 
 
+        /// Download a sheet from a google spreadsheet
         let download url =
             async {
                 use! resp = client.GetAsync(Uri(url)) |> Async.AwaitTask
@@ -28,6 +32,10 @@ module Web =
             }
 
 
+        /// Get the data from a sheet in a google spreadsheet
+        /// Return the data as a array of string arrays where
+        /// each array represents a row in the sheet
+        /// TODO: wrap in async
         let getDataFromSheet dataUrlId sheet =
             createUrl sheet dataUrlId
             |> download

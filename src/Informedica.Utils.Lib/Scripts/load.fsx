@@ -1,4 +1,4 @@
-
+#r "nuget: Unquote"
 #r "nuget: MathNet.Numerics.FSharp"
 
 #load "../Continuation.fs"
@@ -19,11 +19,12 @@
 #load "../Array.fs"
 #load "../List.fs"
 #load "../Seq.fs"
+#load "../Set.fs"
 #load "../Path.fs"
 #load "../File.fs"
 #load "../Csv.fs"
 #load "../Env.fs"
 #load "../App.fs"
-#load "../StopWatch.fs"
 #load "../Console.fs"
+#load "../StopWatch.fs"
 

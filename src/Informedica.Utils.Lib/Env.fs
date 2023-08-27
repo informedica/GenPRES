@@ -38,9 +38,11 @@ module Env =
         variables
 
 
-    let getItem s =
+    /// Get an environment variable
+    /// Returns None if the variable does not exist
+    let getItem envName =
         let vars = environmentVars()
-        if not (vars.ContainsKey(s)) then None
+        if not (vars.ContainsKey(envName)) then None
         else
-            vars.Item(s)
+            vars.Item(envName)
             |> Some

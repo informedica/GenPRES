@@ -563,7 +563,7 @@ module Tests =
                     // printfn "%s %s %s" (b |> BigRational.toString) (c |> BigRational.toString) (a |> BigRational.toString)
                     if (b = 0N || c = 0N) then true
                     else
-                        let a = b |> BigRational.toMultipleOf c
+                        let a = b |> BigRational.toMultipleOf true c
                         a |> BigRational.isMultiple c
 
                 testPropertyWithConfig config "can check is multiple for any bigrational" <| fun b c ->

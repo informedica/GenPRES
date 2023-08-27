@@ -1,11 +1,13 @@
 namespace Informedica.Utils.Lib
 
-module App = 
+module App =
 
     open System
     
-    let dataDir = 
-        if AppDomain.CurrentDomain |> isNull ||  
+
+    /// Get the data directory of the application
+    let dataDir =
+        if AppDomain.CurrentDomain |> isNull ||
            AppDomain.CurrentDomain.GetData("DataDirectory") |> isNull then ""
         else
             AppDomain.CurrentDomain.GetData("DataDirectory").ToString()

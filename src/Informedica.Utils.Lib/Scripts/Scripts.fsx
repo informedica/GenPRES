@@ -6,146 +6,69 @@ open System
 open MathNet.Numerics
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
-open System.Globalization
+
+Array.Tests.testAll()
+Seq.Tests.testAll()
+Set.Tests.testRemoveBigRationalMultiples()
+Path.Tests.testAll ()
+Csv.Tests.testAll ()
+Char.Tests.testAll ()
+BigInteger.Tests.testFareySequence()
+
+BigInteger.farey 10I false |> Seq.toList
+
+BigRational.Tests.testValueToFactorRatio()
+
+ConsoleWriter.writeSeparator '-'
 
 
-[<RequireQualifiedAccess>]
-module ConsoleWriter =
+open MathNet.Numerics
 
-    open System
-    open System.Text
+/// Generic function to check whether a `divisor`
+/// is a divisor of a `dividend`, i.e. the number being
+/// divided
+let inline isDivisor zero dividend divisor =
+    dividend % divisor = zero
 
-
-    type Colors = {
-        StandardFrontColor: ConsoleColor
-        StandardBackColor: ConsoleColor
-        QuestionFrontColor: ConsoleColor
-        QuestionBackColor: ConsoleColor
-        InfoFrontColor: ConsoleColor
-        InfoBackColor: ConsoleColor
-        InfoMessageFrontColor: ConsoleColor
-        InfoMessageBackColor: ConsoleColor
-        ErrorFrontColor: ConsoleColor
-        ErrorBackColor: ConsoleColor
-        ErrorMessageFrontColor: ConsoleColor
-        ErrorMessageBackColor: ConsoleColor
-        WarningFrontColor: ConsoleColor
-        WarningBackColor: ConsoleColor
-        WarningMessageFrontColor: ConsoleColor
-        WarningMessageBackColor: ConsoleColor
-    }
-
-    let colors = {
-        StandardFrontColor = ConsoleColor.White
-        StandardBackColor = ConsoleColor.Black
-        QuestionFrontColor = ConsoleColor.Black
-        QuestionBackColor = ConsoleColor.White
-        InfoFrontColor = ConsoleColor.Black
-        InfoBackColor = ConsoleColor.Green
-        InfoMessageFrontColor = ConsoleColor.Green
-        InfoMessageBackColor = ConsoleColor.Black
-        ErrorFrontColor = ConsoleColor.Black
-        ErrorBackColor = ConsoleColor.Red
-        ErrorMessageFrontColor = ConsoleColor.Red
-        ErrorMessageBackColor = ConsoleColor.Black
-        WarningFrontColor = ConsoleColor.Black
-        WarningBackColor = ConsoleColor.Yellow
-        WarningMessageFrontColor = ConsoleColor.Yellow
-        WarningMessageBackColor = ConsoleColor.Black
-    }
-
-    let lock f = 
-        let lockObj = obj()
-
-        lock lockObj f
+/// Get the greatest common divisor
+/// of two BigRationals `a` and `b`
+let gcd (a : BigRational) (b: BigRational) =
+    let den = a.Denominator * b.Denominator
+    let num = BigInteger.gcd (a.Numerator * b.Denominator) (b.Numerator * a.Denominator)
+    (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
 
 
-    let setColors (frontColor: ConsoleColor) (backgroundColor: ConsoleColor) =
-        Console.ForegroundColor <- frontColor
-        Console.BackgroundColor <- backgroundColor
-
-    let writeSeperator (character: char) =
-        let builder = StringBuilder()
-        for _ in 0 .. Console.BufferWidth - 1 do
-            builder.Append(character) |> ignore
-        Console.WriteLine(builder.ToString())
-
-    let writeColoredText symbol (text: string) (frontColor: ConsoleColor) (backgroundColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
-        fun () ->
-            if writeCurrentTime then
-                let clock =
-                    Constants.HTMLCodeSymbols.TryFind "clock"
-                    |> Option.defaultValue ""
-
-                Console.ForegroundColor <- colors.StandardFrontColor
-                Console.BackgroundColor <- colors.StandardBackColor
-                Console.Out.Write($"{clock}  {DateTime.Now} : ")
-
-            match symbol with
-            | None   -> ()
-            | Some s -> 
-                Console.ForegroundColor <- colors.StandardFrontColor
-                Console.BackgroundColor <- colors.StandardBackColor
-                Console.Out.Write($"%s{s} ")
-
-            Console.ForegroundColor <- frontColor
-            Console.BackgroundColor <- backgroundColor
-            
-            if writeLine then
-                Console.Out.WriteLine(text)
-            else
-                Console.Out.Write(text)
-
-            Console.ForegroundColor <- colors.StandardFrontColor
-            Console.BackgroundColor <- colors.StandardBackColor
-            
-            Console.Out.Flush()
-
-        |> lock
-
-    let writeText (text: string) (writeLine: bool) (writeTime: bool) =
-        writeColoredText None text colors.StandardFrontColor colors.StandardBackColor writeLine writeTime
-
-    let writeSpace = fun () -> writeText " " false false
-
-    let writeQuestionMessage (text: string) (writeLine: bool) (writeTime: bool) =
-        let question = Constants.HTMLCodeSymbols.TryFind "question"
-        writeColoredText question text colors.QuestionFrontColor colors.QuestionBackColor writeLine writeTime
-
-    let writeInfoMessage (text: string) (writeLine: bool) (writeTime: bool) =
-        let info = Constants.HTMLCodeSymbols.TryFind "info"
-
-        writeColoredText info "INFO:" colors.InfoFrontColor colors.InfoBackColor false writeTime
-        writeSpace ()
-        writeColoredText None text colors.InfoMessageFrontColor colors.InfoMessageBackColor writeLine false
-
-    let writeErrorMessage (text: string) (writeLine: bool) (writeTime: bool) =
-        let error = Constants.HTMLCodeSymbols.TryFind "error"
-
-        writeColoredText error "ERROR:" colors.ErrorFrontColor colors.ErrorBackColor false writeTime
-        writeSpace ()
-        writeColoredText None text colors.ErrorMessageFrontColor colors.ErrorMessageBackColor writeLine false
-
-    let writeWarningMessage (text: string) (_: bool) (writeTime: bool) =
-        let warning = Constants.HTMLCodeSymbols.TryFind "warning" 
-
-        writeColoredText warning "WARNING:" colors.WarningFrontColor colors.WarningBackColor false writeTime
-        writeSpace ()
-        writeColoredText None text colors.WarningMessageFrontColor colors.WarningMessageBackColor true false
-
-    let writeColoredTextWithStandardBackColor (text: string) (frontColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
-        writeColoredText None text frontColor colors.StandardBackColor writeLine writeCurrentTime
+/// Check whether a divisor divides a dividend
+let isDivisorOfBigR  (dividend:BigRational) (divisor:BigRational) =
+    isDivisor 0I dividend.Numerator divisor.Numerator
 
 
-ConsoleWriter.writeQuestionMessage "there is a question" true true
-ConsoleWriter.writeSeperator '-'
+/// Split a rational number in a
+/// numerator and denominator
+let numDenom (v:BigRational) = (v.Numerator |> BigRational.FromBigInt, v.Denominator |> BigRational.FromBigInt)
 
-ConsoleWriter.writeInfoMessage "just some info" true true
-ConsoleWriter.writeSeperator '-'
 
-ConsoleWriter.writeErrorMessage "oeps there was an error" true true
-ConsoleWriter.writeSeperator '-'
+let valueToFactorRatio v r =
+    let vn, vd = numDenom v
+    let toBigR = BigRational.FromBigInt
 
-ConsoleWriter.writeWarningMessage "look out!" true true
-ConsoleWriter.writeSeperator '-'
-
+    match r with
+    | Some n, false,  Some d, false ->
+        (n, d)
+    | Some n, true, Some d, true ->
+        let r = (vn * d) / (vd * n)
+        ((r.Numerator |> toBigR) * n), ((r.Denominator |> toBigR) * d)
+    | None   , _ ,   Some d, false when (vd |> isDivisorOfBigR d) ->
+        (vn * (d / vd), d)
+    | None   , _ ,   Some d, true ->
+        ((d / (gcd d vd)) * vn, (d / (gcd d vd)) * vd)
+    | Some n, false,  None, _  when (vn |> isDivisorOfBigR n) ->
+        (n, (n / vn) * vd)
+    | Some n, true, None, _ ->
+        ((n / (gcd n vn)) * vn, (n / (gcd n vn)) * vd)
+    | None, _ , None, _ ->
+        (vn, vd)
+    | _  -> (0N, 0N)
+    |> fun (n, d) ->
+        if d <> 0N && n / d = v then Some (n, d)
+        else None
