@@ -9,6 +9,27 @@ open MathNet.Numerics
 open Informedica.GenUnits.Lib
 open Informedica.Utils.Lib.BCL
 
+open Swensen.Unquote
+
+
+// Test Array.removeBigRationalMultiples
+let testRemoveBigRationalMultiples () =
+    let test (act : BigRational[]) (exp : BigRational[]) =
+        let act = act |> Array.removeBigRationalMultiples
+        test <@ act = exp @>
+
+    test [| |] [|  |]
+    test [| 1N; 1N; 1N; 1N; 1N |] [| 1N |]
+    test [| 1N; 2N; 3N; 4N; 5N |] [| 1N |]
+    test [| 2N; 3N; 4N; 5N |] [|2N; 3N; 5N|]
+    test [| 2N; 3N |] [| 2N; 3N |]
+    test [| 2N; 3N; 4N |] [| 2N; 3N |]
+
+testRemoveBigRationalMultiples()
+
+[| 1N; 12N |] |> Array.removeBigRationalMultiples
+|> Array.distinct
+
 "ng[Mass]"
 |> Units.fromString
 
@@ -155,7 +176,7 @@ let testParser s p =
 
 
 "mL[volume]"
-|> run (Parser.parseUnit)
+|> run Parser.parseUnit
 
 
 
@@ -172,5 +193,5 @@ let testParser s p =
 
 
 "nanog[Mass]"
-|> String.replace "nan" "nnn"
+//|> String.replace "nan" "nnn"
 |> run Parser.parseUnit

@@ -3,7 +3,7 @@ namespace Informedica.Utils.Lib
 module App =
 
     open System
-    
+
 
     /// Get the data directory of the application
     let dataDir =

@@ -26,6 +26,21 @@ module Array =
             )
 
 
+    /// Remove elements from an array using a predicate function `pred`.
+    let remove pred xs =
+        if Array.isEmpty xs then
+            xs
+        else
+            xs
+            |> Array.choose
+                (fun x ->
+                    if Array.exists pred xs then
+                        None
+                    else
+                        Some x
+                )
+
+
     /// Filter an array of arrays using a predicate function `p`.
     /// The purpose of this function is to filter the elements of the
     /// input array xs based on the condition that at least one element

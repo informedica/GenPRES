@@ -11,6 +11,20 @@ module Unquote =
     open Informedica.GenUnits.Lib.ValueUnit
     open Informedica.GenUnits.Lib.ValueUnit.Operators
 
+
+    // Test Array.removeBigRationalMultiples
+    let testRemoveBigRationalMultiples () =
+        let test (act : BigRational[]) (exp : BigRational[]) =
+            let act = act |> Array.removeBigRationalMultiples
+            test <@ act = exp @>
+
+        test [| 1N; 2N; 3N; 4N; 5N |] [| 1N |]
+        test [| 2N; 3N; 4N; 5N |] [|2N; 3N; 5N|]
+        test [| 2N; 3N |] [| 2N; 3N |]
+        test [| 2N; 3N; 4N |] [| 2N; 3N |]
+        test [| |] [|  |]
+
+
     let x = create Units.Count.times
     let mg = create Units.Mass.milliGram
     let mcg = create Units.Mass.microGram
@@ -22,6 +36,7 @@ module Unquote =
     let min = create Units.Time.minute
     let week2 = create (Units.Time.nWeek 2N)
     let day14 = create (Units.Time.nDay 14N)
+
 
     let tests () =
         [
@@ -96,7 +111,6 @@ module Tests =
 
     open Expecto
     open Expecto.Flip
-    open Expecto.Logging
 
     open FParsec
     open MathNet.Numerics
@@ -170,7 +184,7 @@ module Tests =
                     |> get
                     |> fun (_, u) ->
                         mg400
-                        |> ValueUnit.toBaseValue
+                        |> toBaseValue
                         |> create u
                         |> toUnitValue
                         |> create u
@@ -185,7 +199,7 @@ module Tests =
                     |> get
                     |> fun (_, u) ->
                         vu1
-                        |> ValueUnit.toBaseValue
+                        |> toBaseValue
                         |> create u
                         |> toUnitValue
                         |> create u
@@ -203,7 +217,7 @@ module Tests =
                     |> get
                     |> fun (_, u) ->
                         vu1
-                        |> ValueUnit.toBaseValue
+                        |> toBaseValue
                         |> create u
                         |> toUnitValue
                         |> create u
@@ -223,11 +237,11 @@ module Tests =
 
             test "1 x[Count]/4 weken[Time] from string should return a combiunit" {
                 "1 x[Count]/4 weken[Time]"
-                |> ValueUnit.fromString
+                |> fromString
                 |> function
                 | Success (vu, _, _)  -> vu
-                | Failure (err, _, _) -> $"can't run this test: {err}" |> failwith 
-                |> ValueUnit.toStringDutchShort
+                | Failure (err, _, _) -> $"can't run this test: {err}" |> failwith
+                |> toStringDutchShort
                 |> Expect.equal "should equal" "1 x[Count]/4 weken[Time]"
             }
 
@@ -430,6 +444,7 @@ module Tests =
             test "Unquote tests" {
                 try
                     Unquote.tests () |> ignore
+                    Unquote.testRemoveBigRationalMultiples()
                     true
                 with
                 | _ -> false
