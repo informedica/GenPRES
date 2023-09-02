@@ -10,7 +10,10 @@ open Informedica.GenUnits.Lib
 open Informedica.Utils.Lib.BCL
 
 open Swensen.Unquote
+open Tests
 
+
+Tests.testNumDenom()
 
 // Test Array.removeBigRationalMultiples
 let testRemoveBigRationalMultiples () =

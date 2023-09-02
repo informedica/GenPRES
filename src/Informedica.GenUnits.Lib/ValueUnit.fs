@@ -43,6 +43,8 @@ module Array =
 
 type Unit =
     | NoUnit
+    // special case to enable efficient in min max calculations where
+    // either min or max approaches zero
     | ZeroUnit
     | CombiUnit of Unit * Operator * Unit
     | General of (string * BigRational)
@@ -359,6 +361,8 @@ module Units =
 
 
     let per = ValueUnit.per
+
+    let times = ValueUnit.times
 
 
     type UnitDetails =
@@ -2231,6 +2235,8 @@ module ValueUnit =
             | OpPlus
             | OpMinus ->
                 match u1, u2 with
+                | ZeroUnit, u
+                | u, ZeroUnit -> u
                 | _ when u1 |> Group.eqsGroup u2 ->
                     let n1 = u1 |> getUnitValue
                     let n2 = u2 |> getUnitValue
@@ -2243,12 +2249,17 @@ module ValueUnit =
 
 
     /// <summary>
-    /// Create a CombiUnit with u1, Operator OpPer and unit u2.
+    /// Create a CombiUnit with u1, Operator OpPer and unit u2. If u1 is u2
+    /// then return Count (Times 1N)
     /// </summary>
     /// <param name="u2"></param>
     /// <param name="u1"></param>
     /// <example>
+    /// <code>
     /// Mass (KiloGram 1N) |> per (Volume (Liter 2N)) = CombiUnit (Mass (KiloGram 1N), OpPer, Volume (Liter 2N))
+    /// // units are the same, so return Count (Times 1N)
+    /// Mass (KiloGram 1N) |> per (Mass (KiloGram 1N)) = Count (Times 1N)
+    /// </code>
     /// </example>
     let per u2 u1 = (u1, OpPer, u2) |> createCombiUnit
 
@@ -2272,11 +2283,7 @@ module ValueUnit =
     /// <example>
     /// Mass (KiloGram 1N) |> plus (Volume (Liter 1N)) = CombiUnit (Mass (KiloGram 1N), OpPlus, Volume (Liter 1N))
     /// </example>
-    let plus u2 u1 =
-        match u2, u1 with
-        | ZeroUnit, u
-        | u, ZeroUnit -> u
-        | _ -> (u1, OpPlus, u2) |> createCombiUnit
+    let plus u2 u1 = (u1, OpPlus, u2) |> createCombiUnit
 
 
     /// <summary>
@@ -2435,7 +2442,7 @@ module ValueUnit =
     let toUnitValue (ValueUnit (v, u)) = v |> Array.map (valueToUnit u)
 
 
-    /// Transforms a ValueUnit to its base.
+    /// Replace the Value in a ValueUnit to its base.
     /// For example ValueUnit(1000, mg) -> ValueUnit(1, mg)
     let toBase vu =
         let v, u = vu |> get
@@ -2449,7 +2456,11 @@ module ValueUnit =
         v |> Array.map (valueToUnit u) |> create u
 
 
-    let setZeroNonNegative vu =
+    /// Make sure that a ValueUnit has a positive value
+    /// or zero. NoUnit is transformed to ZeroUnit to enable
+    /// logic for calculation of min and max values. If a ValueUnit
+    /// has a Value then all negative or zero values are removed.
+    let setZeroOrPositive vu =
         if vu |> getUnit = NoUnit then ZeroUnit |> zero
         else
             let vu = vu |> filter (fun br -> br > 0N)
@@ -2470,6 +2481,7 @@ module ValueUnit =
             | OpDivItem of Operator
 
 
+        // Takes a list of UnitItems and create a Unit from it
         let listToUnit ul =
             let rec toUnit ul u =
                 match ul with
@@ -2507,92 +2519,141 @@ module ValueUnit =
         | _ -> [ u ]
 
 
-    /// Simplify a ValueUnit vu such that
-    /// units are algebraically removed or
+
+    // separate numerators from denominators
+    // isNum is true when we are in the numerator
+    // and is false when we are in the denominator
+    let rec internal numDenom isNum u =
+        match u with
+        | CombiUnit (ul, OpTimes, ur) ->
+            let lns, lds = ul |> numDenom isNum
+            let rns, rds = ur |> numDenom isNum
+            lns @ rns, lds @ rds
+        | CombiUnit (ul, OpPer, ur) ->
+            if isNum then
+                let lns, lds = ul |> numDenom true
+                let rns, rds = ur |> numDenom false
+                lns @ rns, lds @ rds
+            else
+                let lns, lds = ur |> numDenom true
+                let rns, rds = ul |> numDenom false
+                lns @ rns, lds @ rds
+        | _ ->
+            if isNum then
+                (u |> getUnits, [])
+            else
+                ([], u |> getUnits)
+
+
+    // Build a unit from a list of numerators and denominators.
+    // Uses an accumulator to build the unit and a boolean to indicate
+    // whether there is a count unit in the numerator.
+    // isCount is true when there is a count unit in the numerator
+    // and false when there is no count unit in the numerator.
+    // Note when ns = ds then the result is isCount = true and u = NoUnit
+    let rec build ns ds (isCount, u) =
+        match ns with
+        | [] ->
+            match ds with
+            | [] ->
+                if isCount && u = NoUnit then
+                    (true, count)
+                else
+                    (isCount, u)
+            | _ ->
+                let d = ds |> List.rev |> List.reduce times
+
+                if u = NoUnit then
+                    Count(Times 1N) |> per d
+                else
+                    u |> per d
+                |> fun u -> (isCount, u)
+        | h :: tail ->
+            if ds |> List.exists (Group.eqsGroup h) then
+                build tail (ds |> List.removeFirst (Group.eqsGroup h)) (true, u)
+            else
+                let isCount =
+                    isCount
+                    || (u |> Group.eqsGroup count)
+                    || (h |> Group.eqsGroup count)
+
+                if u = NoUnit then h else u |> times h
+                |> fun u -> build tail ds (isCount, u)
+
+
+    /// <summary>
+    /// Simplify a value unit u such that units are algebraically removed or
     /// transformed to count units, where applicable.
+    /// </summary>
+    /// <param name="vu">The value unit to simplify</param>
+    /// <returns>
+    /// The simplified value unit
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// simplify (ValueUnit ([|1N; 2N; 3N|], CombiUnit (Mass (KiloGram 1N), OpPer, Volume (Liter 1N)))) =
+    /// ValueUnit ([|1N; 2N; 3N|], CombiUnit (Mass (KiloGram 1N), OpPer, Volume (Liter 1N)))
+    /// simplify (ValueUnit ([|1N; 2N; 3N|], CombiUnit (Mass (KiloGram 1N), OpPer, Mass (KiloGram 1N)))) =
+    /// ValueUnit ([|1N; 2N; 3N|], Count (Times 1N))
+    /// </code>
+    /// </example>
     let simplify vu =
         let u = vu |> getUnit
-
-        let simpl u =
-            // separate numerators from denominators
-            let rec numDenom b u =
-                match u with
-                | CombiUnit (ul, OpTimes, ur) ->
-                    let lns, lds = ul |> numDenom b
-                    let rns, rds = ur |> numDenom b
-                    lns @ rns, lds @ rds
-
-                | CombiUnit (ul, OpPer, ur) ->
-                    if b then
-                        let lns, lds = ul |> numDenom true
-                        let rns, rds = ur |> numDenom false
-                        lns @ rns, lds @ rds
-                    else
-                        let lns, lds = ur |> numDenom true
-                        let rns, rds = ul |> numDenom false
-                        lns @ rns, lds @ rds
-                | _ ->
-                    if b then
-                        (u |> getUnits, [])
-                    else
-                        ([], u |> getUnits)
-            // build a unit from a list of numerators and denominators
-            let rec build ns ds (b, u) =
-                match ns with
-                | [] ->
-                    match ds with
-                    | [] -> (b, u)
-                    | _ ->
-                        // TODO Was the List.rev needed here (times is commutative?)
-                        let d = ds |> List.reduce times
-
-                        if u = NoUnit then
-                            Count(Times 1N) |> per d
-                        else
-                            u |> per d
-                        |> fun u -> (b, u)
-                | h :: tail ->
-                    if ds |> List.exists (Group.eqsGroup h) then
-                        build tail (ds |> List.removeFirst (Group.eqsGroup h)) (true, u)
-                    else
-                        let b =
-                            b
-                            || ((u |> Group.eqsGroup count)
-                                || (h |> Group.eqsGroup count))
-
-                        if u = NoUnit then h else u |> times h
-                        |> fun u -> build tail ds (b, u)
-
-            let ns, ds = u |> numDenom true
-
-            (false, NoUnit)
-            |> build ns ds
-            |> (fun (b, u) ->
-                if u = NoUnit then
-                    (b, count)
-                else
-                    (b, u)
-            )
 
         if u = NoUnit then
             vu
         else
-            u
-            |> simpl
-            |> (fun (b, u') ->
+            let ns, ds = u |> numDenom true
+
+            (false, NoUnit)
+            |> build ns ds
+            |> (fun (_, u) ->
                 vu
                 |> toBaseValue
-                |> create (if b then u' else u)
+                |> create u
                 |> toUnitValue
-                |> create (if b then u' else u)
+                |> create u
             )
+            // rewrite case u1/u2 * u3 -> u1/u2/u3 when group u2 <> group u3
+            |> fun vu ->
+                let v, u =
+                    vu
+                    |> get
+                let u =
+                    match u with
+                    | CombiUnit(u1, OpPer, CombiUnit(u2, OpTimes, u3)) ->
+                        if u2 |> Group.eqsGroup u3 then
+                            u
+                        else
+                            CombiUnit(CombiUnit(u1, OpPer, u2), OpPer, u3)
+                    | _ -> u
+
+                v |> withUnit u
 
 
+    /// <summary>
     /// Calculate a ValueUnit by applying an operator op
     /// to ValueUnit vu1 and vu2. The operator can be addition,
     /// subtraction, multiplication or division.
     /// The boolean b results in whether or not the result is
     /// simplified.
+    /// </summary>
+    /// <param name="b">Whether or not to simplify the result</param>
+    /// <param name="op">The operator to apply</param>
+    /// <param name="vu1">The first ValueUnit</param>
+    /// <param name="vu2">The second ValueUnit</param>
+    /// <returns>
+    /// The result of applying the operator to the ValueUnits
+    /// </returns>
+    /// <remarks>
+    /// fails when adding or subtracting different units
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// calc true (+) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) =
+    /// ValueUnit ([|2N; 3N; 4N; 5N; 6N|], Mass (KiloGram 1N))
+    /// </code>
+    /// </example>
     let calc b op vu1 vu2 =
 
         let (ValueUnit (_, u1)) = vu1
@@ -2630,13 +2691,26 @@ module ValueUnit =
         |> fun vu -> if b then vu |> simplify else vu
 
 
-    /// Compare a ValueUnit vu1 with vu2.
-    /// Comparison can be:
-    /// greater
-    /// greater or equal
-    /// smaller
-    /// smaller or equal
-    /// doesn't work for equal!!
+    /// <summary>
+    /// Compare a ValueUnit vu1 with vu2.Comparison can be:
+    /// greater, greater or equal, smaller, smaller or equal.
+    /// </summary>
+    /// <remarks>
+    /// Checks if the comparison is true for all individual values.
+    /// Doesn't work for equal.
+    /// </remarks>
+    /// <param name="op">The operator to use</param>
+    /// <param name="vu1">The first ValueUnit</param>
+    /// <param name="vu2">The second ValueUnit</param>
+    /// <returns>
+    /// True if the comparison is true, false otherwise
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// // 1 kg > 1000 g = true
+    /// cmp (>) (ValueUnit ([|1N|], Mass (KiloGram 1N))) (ValueUnit ([|10N|], Mass (Gram 1N))) = true
+    /// </code>
+    /// </example>
     let cmp cp vu1 vu2 =
         // ToDo need better eqsGroup like mg/kg/day = (mg/kg)/day = (mg/kg*day) <> mg/(kg/day) = mg*day/kg
         //if vu1 |> eqsGroup vu2 |> not then false
@@ -2648,6 +2722,12 @@ module ValueUnit =
         |> Array.forall (fun (v1, v2) -> v1 |> cp <| v2)
 
 
+    /// <summary>
+    /// Determine if vu1 equals vu2. This is true when
+    /// both ValueUnits have the same unit and the same value
+    /// </summary>
+    /// <param name="vu1">The first ValueUnit</param>
+    /// <param name="vu2">The second ValueUnit</param>
     let eqs vu1 vu2 =
         let vs1 =
             vu1 |> toBaseValue |> Array.distinct |> Array.sort
@@ -2658,34 +2738,54 @@ module ValueUnit =
         vs1 = vs2
 
 
-    /// Apply a function fValue to the Value
-    /// of a ValueUnit vu and return the transformed
-    /// ValueUnit
+    /// <summary>
+    /// Apply a function fValue to the Value of a ValueUnit vu
+    /// </summary>
+    /// <param name="fValue">The function to apply to the Value</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <returns>The updated ValueUnit</returns>
+    /// <example>
+    /// <code>
+    /// let fValue = Array.map ((+) 1N) // add 1 to each value
+    /// applyToValue fValue (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) =
+    /// ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N))
+    /// </code>
+    /// </example>
     let applyToValue fValue vu =
         let u = vu |> getUnit
         vu |> getValue |> fValue |> create u
 
 
-    /// Apply a function fValue to the Value
-    /// of a ValueUnit vu and return the transformed
-    /// ValueUnit. The fValue can use a default value
-    /// defVal.
-    let applyToValues fArr defVal vu =
+    // Apply an array function to a ValueUnit
+    let internal applyArrayFunction fArr fVal vu =
         let u = vu |> getUnit
-        vu |> getValue |> fArr defVal |> create u
+        vu |> getValue |> fArr fVal |> create u
 
 
-    /// Filter the values in a ValueUnit
-    let filterValues =
-        applyToValues Array.filter
+    /// <summary>
+    /// Filter the values in a ValueUnit using a predicate function pred.
+    /// </summary>
+    /// <param name="fPred">The predicate function to use</param>
+    let filterValues fPred =
+        applyArrayFunction Array.filter fPred
 
 
-    /// Map the individual values in a ValueUnit
-    let mapValues = applyToValues Array.map
+    /// <summary>
+    /// Map the values in a ValueUnit using a function fMap.
+    /// </summary>
+    /// <param name="fMap">The function to appy to each individual value</param>
+    let mapValues fMap = applyArrayFunction Array.map fMap
 
 
-    /// Validates a Value using fValid and return
-    /// a result with an errMsg if not valid.
+    /// <summary>
+    /// Validates the values of Value for a ValueUnit.
+    /// </summary>
+    /// <param name="fValid">The validator function</param>
+    /// <param name="errMsg">The error message</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <returns>
+    /// Result.Ok vu if the values are valid, Result.Error errMsg otherwise
+    /// </returns>
     let validate fValid errMsg vu =
         if vu |> getValue |> fValid then
             vu |> Ok
@@ -2693,27 +2793,38 @@ module ValueUnit =
             errMsg |> Error
 
 
-
-    let eq = cmp (=)
-
-
+    /// Check if first ValueUnit is greater than second ValueUnit
+    /// Example: gt (ValueUnit ([|1N |], Mass (KiloGram 1N))) (ValueUnit ([|10N|], Mass (Gram 1N))) = true
     let gt = cmp (>)
 
 
+    /// Check if first ValueUnit is smaller than second ValueUnit
+    /// Example: st (ValueUnit ([|1N |], Mass (KiloGram 1N))) (ValueUnit ([|10N|], Mass (Gram 1N))) = false
+    // Check if left vu is greater than or equal to right vu
     let st = cmp (<)
 
 
+    /// Check if first ValueUnit is greater than or equal to second ValueUnit
+    /// Example: gte (ValueUnit ([|1N |], Mass (KiloGram 1N))) (ValueUnit ([|10N|], Mass (Gram 1N))) = true
     let gte = cmp (>=)
 
 
+    /// Check if first ValueUnit is smaller than or equal to second ValueUnit
+    /// Example: ste (ValueUnit ([|1N |], Mass (KiloGram 1N))) (ValueUnit ([|10N|], Mass (Gram 1N))) = false
     let ste = cmp (<=)
 
 
+    /// <summary>
     /// Convert a ValueUnit vu to
     /// a unit u.
-    /// For example 1 gram -> 1000 mg:
-    /// ValueUnit(1, Gram) |> convertTo Milligram
     /// Do not convert to no unit or zerounit
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// //For example 1 gram -> 1000 mg:
+    /// ValueUnit([|1N|], Units.Mass.gram) |> convertTo Units.Mass.milliGram
+    /// </code>
+    /// </example>
     let convertTo u vu =
         let _, oldU = vu |> get
 
@@ -2727,6 +2838,14 @@ module ValueUnit =
             |> create u
 
 
+    /// <summary>
+    /// Get the Value of a ValueUnit vu as the base value
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// ValueUnit([|1N|], Units.Mass.kiloGram) |> getBaseValue = [|1000N|]
+    /// </code>
+    /// </example>
     let getBaseValue = toBase >> getValue
 
 
@@ -3080,3 +3199,96 @@ type ValueUnit with
     static member (<=?)(vu1, vu2) = ValueUnit.cmp (<=) vu1 vu2
 
     static member (==>)(vu, u) = vu |> ValueUnit.convertTo u
+
+
+
+module Tests =
+
+    open Swensen.Unquote
+    open Units
+
+
+    // Test numDenom
+    let testNumDenom () =
+        // kg
+        let u = Mass (KiloGram 1N)
+        // calc kg = num [kg], denom []
+        let act = u |> ValueUnit.numDenom true
+        let exp = ([Mass (KiloGram 1N)], [])
+
+        test <@ act = exp @>
+
+        // 1/kg
+        let u = Count (Times 1N) |> per (Mass (KiloGram 1N))
+        // calc 1/kg = num [times], denom [kg]
+        let act = u |> ValueUnit.numDenom true
+        let exp = ([Count (Times 1N)], [Mass (KiloGram 1N)])
+        test <@ act = exp @>
+
+        // 1/(kg*m)
+        let u = Count (Times 1N) |> per (Mass (KiloGram 1N) |> times (Distance (Meter 1N)))
+        // calc 1/1/(kg*m) = num [kg; m], denom [times]
+        let act = u |> ValueUnit.numDenom false
+        let exp = ([Mass (KiloGram 1N); Distance (Meter 1N)], [Count (Times 1N)])
+        test <@ act = exp @>
+
+        // kg*m/L
+        let u = Mass (KiloGram 1N) |> per (Volume (Liter 1N)) |> times (Distance (Meter 1N))
+        // calc kg*m/L = num [[kg;m], denom [L]
+        let act = u |> ValueUnit.numDenom true
+        let exp = ([Mass (KiloGram 1N); Distance (Meter 1N)], [Volume (Liter 1N)])
+        test <@ act = exp @>
+
+        // kg*m/L
+        let u = Mass (KiloGram 1N) |> per (Volume (Liter 1N)) |> times (Distance (Meter 1N))
+        // calc 1/(kg*m/L) = num[L], denom [kg;m]
+        let act = u |> ValueUnit.numDenom false
+        let exp = ([Volume (Liter 1N)], [Mass (KiloGram 1N); Distance (Meter 1N)])
+        test <@ act = exp  @>
+
+        // (kg*m)/(m*L)
+        let u = Mass (KiloGram 1N) |> times (Distance (Meter 1N)) |> per (Volume (Liter 1N) |> times (Distance (Meter 1N)))
+        // calc (kg*m)/(m*L) = num [kg;m], denom [L;m]
+        let act = u |> ValueUnit.numDenom true
+        let exp = ([Mass (KiloGram 1N); Distance (Meter 1N)], [ Volume (Liter 1N); Distance (Meter 1N)])
+        test <@ act = exp @>
+
+
+        // (kg*m)/(m*L)
+        let u = Mass (KiloGram 1N) |> times (Distance (Meter 1N)) |> per (Volume (Liter 1N) |> times (Distance (Meter 1N)))
+        // calc 1/(kg*m)/(m*L) = num [L;m], denom [kg;m]
+        let act = u |> ValueUnit.numDenom false
+        let exp = ([ Volume (Liter 1N); Distance (Meter 1N)], [Mass (KiloGram 1N); Distance (Meter 1N)])
+        test <@ act = exp @>
+
+
+    // Test the 'build' function
+    let testBuild () =
+        // [] [] -> (false, NoUnit)
+        let act =
+            (false, NoUnit)
+            |> ValueUnit.build [] []
+        let exp = (false, NoUnit)
+        test <@ act = exp @>
+
+        // [kg] [] -> (false, kg)
+        let act =
+            (false, NoUnit)
+            |> ValueUnit.build [Mass (KiloGram 1N)] []
+        let exp = (false, Mass (KiloGram 1N))
+        test <@ act = exp @>
+
+        // [] [kg] -> (false, 1/kg)
+        let act =
+            (false, NoUnit)
+            |> ValueUnit.build [] [Mass (KiloGram 1N)]
+        let exp = (false, Count (Times 1N) |> per (Mass (KiloGram 1N)))
+        test <@ act = exp @>
+
+        // [kg] [kg] -> (true, 1)
+        let act =
+            (false, NoUnit)
+            |> ValueUnit.build [Mass (KiloGram 1N)] [Mass (KiloGram 1N)]
+        let exp = (true, Count (Times 1N))
+        test <@ act = exp @>
+

@@ -380,7 +380,7 @@ module Tests =
              Expect.equal "" (mg400 / day2) vu
             }
 
-            test "divsion resulting in combi with 3 units" {
+            test "division resulting in combi with 3 units" {
                 mg400/kg10/day2
                 |> toStringEngShort
                 |> Expect.equal "should be equal" "20 mg[Mass]/kg[Weight]/day[Time]"
@@ -434,6 +434,7 @@ module Tests =
         ]
 
 
+    [<Tests>]
     let tests = testList "ValueUnit Tests" [
             stringTests
             calculationTests

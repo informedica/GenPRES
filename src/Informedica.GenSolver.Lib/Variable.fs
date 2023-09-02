@@ -277,7 +277,7 @@ module Variable =
                     if vu |> ValueUnit.isEmpty |> not then
                         vu |> create true
                     else
-                        vu |> ValueUnit.setZeroNonNegative |> create false
+                        vu |> ValueUnit.setZeroOrPositive |> create false
 
                 let fExcl vu =
                     let vu =
@@ -286,7 +286,7 @@ module Variable =
                     if vu |> ValueUnit.isEmpty |> not then
                         vu |> create false
                     else
-                        vu |> ValueUnit.setZeroNonNegative |> create false
+                        vu |> ValueUnit.setZeroOrPositive |> create false
 
                 apply fIncl fExcl
 
