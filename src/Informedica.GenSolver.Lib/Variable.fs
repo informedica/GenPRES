@@ -71,7 +71,7 @@ module Variable =
 
 
             let minElement =
-                toValueUnit >> ValueUnit.minElement
+                toValueUnit >> ValueUnit.minValue
 
 
             let eqs incr1 incr2 =
@@ -217,7 +217,7 @@ module Variable =
 
             /// Creates a `Minimum` from a `ValueUnit`.
             /// Returns `None` if an empty set.
-            let minElement = ValueUnit.minElement >> Option.map MinIncl
+            let minElement = ValueUnit.minValue >> Option.map MinIncl
 
 
             /// Convert a `Minimum` to a `ValueUnit`.
@@ -363,7 +363,7 @@ module Variable =
 
             /// Get the maximum value in a `BigRational` set.
             /// Returns `None` if an empty set.
-            let maxElement = ValueUnit.maxElement >> Option.map MaxIncl
+            let maxElement = ValueUnit.maxValue >> Option.map MaxIncl
 
 
             /// Convert a `Maximum` to a `BigRational`.
@@ -1912,7 +1912,7 @@ module Variable =
         /// Set a `ValueRange` expr to a `ValueRange` y.
         /// So, the result is equal to or more restrictive than the original `y`.
         let applyExpr onlyMinIncrMax y expr =
-            let appl s get set vr =
+            let appl _ get set vr =
                 //printfn $"{s}"
                 match expr |> get with
                 | Some m -> vr |> set m
@@ -2276,7 +2276,7 @@ module Variable =
                 |> Option.bind (fun v ->
                     v
                     |> ValueUnit.Dto.fromDto
-                    |> Option.map (Increment.create)
+                    |> Option.map Increment.create
                 )
 
             let vr =

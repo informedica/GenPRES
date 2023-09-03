@@ -11,6 +11,7 @@ open Informedica.Utils.Lib.BCL
 
 open Swensen.Unquote
 open Tests
+open ValueUnit
 
 
 Tests.testNumDenom()

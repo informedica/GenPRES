@@ -389,26 +389,39 @@ module BigRational =
                 if m * multiple > value then (m - 1N) * multiple else m * multiple
 
 
+    /// <summary>
     /// Calculates the smallest multiple of a specified quantity (`multiple`) that is greater
     /// than or equal to the given `value`.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// 3N |> BigRational.toMinMultipleOf 2N = 4N
+    /// </code>
+    /// </example>
     let toMinMultipleOf = toMultipleOf true
 
 
+    /// <summary>
     /// Calculates the largest multiple of a specified quantity (`multiple`) that is less than
     /// or equal to the given `value`.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// 3N |> BigRational.toMaxMultipleOf 2N = 2N
+    /// </code>
+    /// </example>
     let toMaxMultipleOf = toMultipleOf false
 
 
+    /// <summary>
     /// Calculates the minimum or maximum value that can be obtained by adding (or subtracting)
     /// positive increments to a given starting value (`minOrMax`).
-    ///
-    /// - Parameters:
-    ///   - isMax: Specifies whether the maximum value is being calculated.
-    ///   - isIncl: Indicates whether the result should be inclusive or exclusive of `minOrMax`.
-    ///   - incrs: A set of positive increments to consider for adjusting the starting value.
-    ///   - minOrMax: The starting value for which to calculate the minimum or maximum.
-    ///
-    /// - Returns: The calculated minimum or maximum value based on the provided conditions.
+    /// </summary>
+    /// <param name="isMax">Specifies whether the maximum value is being calculated.</param>
+    /// <param name="isIncl">Indicates whether the result should be inclusive or exclusive of <paramref name="minOrMax"/>.</param>
+    /// <param name="incrs">A set of positive increments to consider for adjusting the starting value.</param>
+    /// <param name="minOrMax">The starting value for which to calculate the minimum or maximum.</param>
+    /// <returns>The calculated minimum or maximum value based on the provided conditions.</returns>
     let calcMinOrMaxToMultiple isMax isIncl incrs minOrMax =
         incrs
         |> Set.filter ((<) 0N) // only accept positive incrs
@@ -427,23 +440,52 @@ module BigRational =
         |> Seq.minBy (fun x -> if isMax then -x else x)
 
 
+    /// <summary>
     /// Calculates the maximum value (inclusive) that can be obtained by adding positive increments
     /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// 3N |> BigRational.maxInclMultipleOf (set [2N; 3N]) = 3N
+    /// </code>
+    /// </example>
     let maxInclMultipleOf = calcMinOrMaxToMultiple true true
 
 
+    /// <summary>
     /// Calculates the maximum value (exclusive) that can be obtained by adding positive increments
     /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// 3N |> BigRational.maxExclMultipleOf (set [2N; 3N]) = 2N
+    /// </code>
+    /// </example>
     let maxExclMultipleOf = calcMinOrMaxToMultiple true false
 
 
+    /// <summary>
     /// Calculates the minimum value (inclusive) that can be obtained by adding positive increments
     /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// 3N |> BigRational.minInclMultipleOf (set [2N; 3N]) = 3N
+    /// 3N |> BigRational.minInclMultipleOf (set [2N..2N..10N]) = 4N
+    /// </code>
+    /// </example>
     let minInclMultipleOf = calcMinOrMaxToMultiple false true
 
 
+    /// <summary>
     /// Calculates the minimum value (exclusive) that can be obtained by adding positive increments
     /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// 3N |> BigRational.minExclMultipleOf (set [2N; 3N]) = 4N
+    /// </code>
+    /// </example>
     let minExclMultipleOf = calcMinOrMaxToMultiple false false
 
 

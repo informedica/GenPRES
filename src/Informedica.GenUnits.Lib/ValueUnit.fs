@@ -2699,7 +2699,7 @@ module ValueUnit =
     /// Checks if the comparison is true for all individual values.
     /// Doesn't work for equal.
     /// </remarks>
-    /// <param name="op">The operator to use</param>
+    /// <param name="cp">The operator to use</param>
     /// <param name="vu1">The first ValueUnit</param>
     /// <param name="vu2">The second ValueUnit</param>
     /// <returns>
@@ -2849,23 +2849,30 @@ module ValueUnit =
     let getBaseValue = toBase >> getValue
 
 
+    /// Check if Value is zero
     let isZero =
         getValue >> Array.forall ((=) 0N)
 
+    /// Check if Value is > 0
     let gtZero =
         getValue >> Array.forall ((<) 0N)
 
+    /// Check if Value >= 0
     let gteZero =
         getValue >> Array.forall ((<=) 0N)
 
+    /// Check if Value < 0
     let stZero =
         getValue >> Array.forall ((>) 0N)
 
+    /// Check if Value <= 0
     let steZero =
         getValue >> Array.forall ((>=) 0N)
 
 
-    let minElement vu =
+    /// Get the smallest value of a ValueUnit.
+    /// Returns None if the ValueUnit is empty.
+    let minValue vu =
         if vu |> isEmpty then None
         else
             vu
@@ -2873,7 +2880,9 @@ module ValueUnit =
             |> Some
 
 
-    let maxElement vu =
+    /// Get the largest value of a ValueUnit.
+    /// Returns None if the ValueUnit is empty.
+    let maxValue vu =
         if vu |> isEmpty then None
         else
             vu
@@ -2881,7 +2890,10 @@ module ValueUnit =
             |> Some
 
 
-    let multipleOf f incr vu =
+    // Helper function to calculate the min or max value
+    // that is inclusive or exclusive and is a multiple of
+    // increment 'incr'.
+    let internal multipleOf f incr vu =
         vu
         |> toBase
         |> applyToValue (fun vs ->
@@ -2893,42 +2905,150 @@ module ValueUnit =
         |> toUnit
 
 
-    let minInclMultipleOf =
-        multipleOf BigRational.minInclMultipleOf
+    /// <summary>
+    /// Calculate the minimum value of a ValueUnit that is a minimum inclusive
+    /// and is a multiple of Increment.
+    /// </summary>
+    /// <param name="incr">The Increment</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <example>
+    /// <code>
+    /// minInclMultipleOf (ValueUnit ([|3N|], Mass (Gram 1N))) (ValueUnit ([|4N|], Mass (Gram 1N))) =
+    /// ValueUnit ([|6N|], Mass (Gram 1N))
+    /// </code>
+    /// </example>
+    let minInclMultipleOf incr vu =
+        multipleOf BigRational.minInclMultipleOf incr vu
+        |> minValue
+        |> Option.defaultValue vu
 
-    let minExclMultipleOf =
-        multipleOf BigRational.minExclMultipleOf
+
+    /// <summary>
+    /// Calculate the minimum value of a ValueUnit that is a minimum exclusive
+    /// and is a multiple of Increment.
+    /// </summary>
+    /// <param name="incr">The Increment</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <example>
+    /// <code>
+    /// minExclMultipleOf (ValueUnit ([|3N|], Mass (Gram 1N))) (ValueUnit ([|4N|], Mass (Gram 1N))) =
+    /// ValueUnit ([|6N|], Mass (Gram 1N))
+    /// </code>
+    /// </example>
+    let minExclMultipleOf incr vu =
+        multipleOf BigRational.minExclMultipleOf incr vu
+        |> minValue
+        |> Option.defaultValue vu
 
 
-    let maxInclMultipleOf =
-        multipleOf BigRational.maxInclMultipleOf
+    /// <summary>
+    /// Calculate the maximum value of a ValueUnit that is a maximum inclusive
+    /// and is a multiple of Increment.
+    /// </summary>
+    /// <param name="incr">The Increment</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <example>
+    /// <code>
+    /// maxInclMultipleOf (ValueUnit ([|3N|], Mass (Gram 1N))) (ValueUnit ([|8N|], Mass (Gram 1N))) =
+    /// ValueUnit ([|6N|], Mass (Gram 1N))
+    /// </code>
+    /// </example>
+    let maxInclMultipleOf incr vu =
+        multipleOf BigRational.maxInclMultipleOf incr vu
+        |> maxValue
+        |> Option.defaultValue vu
 
-    let maxExclMultipleOf =
-        multipleOf BigRational.maxExclMultipleOf
+
+    /// <summary>
+    /// Calculate the maximum value of a ValueUnit that is a maximum exclusive
+    /// and is a multiple of Increment.
+    /// </summary>
+    /// <param name="incr">The Increment</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <example>
+    /// <code>
+    /// maxExclMultipleOf (ValueUnit ([|3N|], Mass (Gram 1N))) (ValueUnit ([|9N|], Mass (Gram 1N))) =
+    /// ValueUnit ([|6N|], Mass (Gram 1N))
+    /// </code>
+    /// </example>
+    let maxExclMultipleOf incr vu =
+        multipleOf BigRational.maxExclMultipleOf incr vu
+        |> maxValue
+        |> Option.defaultValue vu
 
 
+    /// <summary>
+    /// Get the denominators of the value of a ValueUnit.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// // returns 2, 3, 5
+    /// denominator (ValueUnit ([|1N/2N; 2N/3N; 3N/5N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let denominator =
         getValue >> (Array.map BigRational.denominator)
 
+
+    /// <summary>
+    /// Get the numerators of the value of a ValueUnit.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// // returns 1, 2, 3
+    /// numerator (ValueUnit ([|1N/2N; 2N/3N; 3N/5N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let numerator =
         getValue >> (Array.map BigRational.numerator)
 
 
+    /// <summary>
     /// Filter the value of a value unit using
     /// a predicate function pred. This function
     /// is parameterized on the base value of the value
     /// unit.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// // Get all even numbers, note that the base value of 1 KiloGram is 1000
+    /// // so the predicate function is applied to 1000, 2000, 3000, etc.
+    /// // ValueUnit = ValueUnit ([|-2N; 2N|], Mass (KiloGram 1N))
+    /// filter (fun br -> (br / 2000N).Denominator = 1I) (ValueUnit ([|1N; 2N; 3N; -1N; -2N; -3N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let filter pred =
         toBase
         >> applyToValue (Array.filter pred)
         >> toUnit
 
+
+    /// <summary>
+    /// Remove all big rational multiples of the value of a ValueUnit.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// // returns ValueUnit ([|2N; 3N; 5N; 7N|], Mass (KiloGram 1N))
+    /// removeBigRationalMultiples (ValueUnit ([|2N..1N..10N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let removeBigRationalMultiples =
         toBase
         >> applyToValue Array.removeBigRationalMultiples
         >> toUnit
 
 
+    /// <summary>
+    /// Get the intersection of two ValueUnits.
+    /// </summary>
+    /// <param name="vu1">ValueUnit 1</param>
+    /// <param name="vu2">ValueUnit 2</param>
+    /// <example>
+    /// <code>
+    /// // returns ValueUnit ([|2N; 3N|], Mass (KiloGram 1N))
+    /// intersect (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let intersect vu1 vu2 =
         vu1
         |> toBase
@@ -2942,12 +3062,40 @@ module ValueUnit =
         |> toUnit
 
 
+    /// <summary>
+    /// Check if a ValueUnit is a subset of another ValueUnit.
+    /// </summary>
+    /// <param name="vu1">ValueUnit 1 the possible subset</param>
+    /// <param name="vu2">ValueUnit 2 the set to check against</param>
+    /// <example>
+    /// <code>
+    /// // returns true
+    /// isSubset (ValueUnit ([|2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N)))
+    /// // returns false
+    /// isSubset (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let isSubset vu1 vu2 =
         let s1 = vu1 |> getBaseValue |> Set.ofArray
         let s2 = vu2 |> getBaseValue |> Set.ofArray
         Set.isSubset s1 s2
 
 
+    /// <summary>
+    /// Check if ValueUnit vu1 contains ValueUnit vu2.
+    /// </summary>
+    /// <param name="vu2">The ValueUnit to check</param>
+    /// <param name="vu1">The ValueUnit that should contain vu2</param>
+    /// <example>
+    /// <code>
+    /// // returns true
+    /// containsValue (ValueUnit ([|2N; 3N|], Mass (KiloGram 1N))) (ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N)))
+    /// // returns true
+    /// containsValue (ValueUnit ([|2000N; 3000N|], Mass (Gram 1N))) (ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N)))
+    /// // returns false
+    /// containsValue (ValueUnit ([|2N; 3N|], Mass (Gram 1N))) (ValueUnit ([|2N; 3N; 4N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let containsValue vu2 vu1 =
         vu2
         |> toBase
@@ -2955,14 +3103,42 @@ module ValueUnit =
         |> Array.forall (fun v -> vu1 |> toBase |> getValue |> Array.exists ((=) v))
 
 
+    /// <summary>
+    /// Take the first n elements of a Value in a ValueUnit
+    /// </summary>
+    /// <param name="n">The n elements to take</param>
+    /// <example>
+    /// <code>
+    /// // returns ValueUnit ([|1N; 2N|], Mass (KiloGram 1N))
+    /// takeFirst 2 (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let takeFirst n = applyToValue (Array.take n)
 
 
+    /// <summary>
+    /// Take the last n elements of a Value in a ValueUnit
+    /// </summary>
+    /// <param name="n">The n elements to take</param>
+    /// <example>
+    /// <code>
+    /// // returns ValueUnit ([|2N; 3N|], Mass (KiloGram 1N))
+    /// takeLast 2 (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let takeLast n =
         applyToValue (Array.rev >> Array.take n >> Array.rev)
 
 
-    // ToDo replace with this
+    /// <summary>
+    /// Get the count of elements in a Value
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// // returns 3
+    /// valueCount (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N)))
+    /// </code>
+    /// </example>
     let valueCount = getValue >> Array.length
 
 
@@ -2971,7 +3147,15 @@ module ValueUnit =
     //----------------------------------------------------------------------------
 
 
-    /// Returns a operator for comparison to a string
+    /// <summary>
+    /// Returns a string representation of a ValueUnit comparing operator.
+    /// When  the operator is unknown, "unknown comparison" is returned.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// cmpToStr (>) = ">"
+    /// </code>
+    /// </example>
     let cmpToStr cp =
         let z = 1N |> Times |> Count |> zero
         let o = 1N |> Times |> Count |> one
@@ -3010,51 +3194,109 @@ module ValueUnit =
         | _ -> "unknown comparison"
 
 
+    /// <summary>
     /// Get the user readable string version
     /// of a unit, i.e. without unit group between
     /// brackets
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// unitToReadableDutchString (Mass (KiloGram 1N)) = "kg"
+    /// </code>
+    /// </example>
     let unitToReadableDutchString u =
         u
         |> Units.toString Units.Dutch Units.Short
         |> String.removeBrackets
 
 
-    /// Turn a ValueUnit vu to a string using
-    /// a bigrational to string brf, localization
-    /// loc and verbality verb.
+    /// <summary>
+    /// Get the user readable string version
+    /// </summary>
+    /// <param name="brf">The function to turn a BigRational into a string</param>
+    /// <param name="loc">The localization to use</param>
+    /// <param name="verb">The verbosity to use</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <example>
+    /// <code>
+    /// toString
+    ///     BigRational.toString
+    ///     Units.Dutch
+    ///     Units.Short
+    ///     (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))) = "1;2;3 kg[Mass]"
+    /// </code>
+    /// </example>
     let toString brf loc verb vu =
         let v, u = vu |> get
 
         $"{v |> Array.map brf |> Array.distinct |> Array.toReadableString} {Units.toString loc verb u}"
 
 
+    /// <summary>
+    /// Get the user readable string version in Dutch with verbosity short
+    /// </summary>
     let toStringDutchShort =
         toString BigRational.toString Units.Dutch Units.Short
 
+    /// <summary>
+    /// Get the user readable string version in Dutch with verbosity long
+    /// </summary>
     let toStringDutchLong =
         toString BigRational.toString Units.Dutch Units.Long
 
+    /// <summary>
+    /// Get the user readable string version in English with verbosity short
+    /// </summary>
     let toStringEngShort =
         toString BigRational.toString Units.English Units.Short
 
+    /// <summary>
+    /// Get the user readable string version in English with verbosity long
+    /// </summary>
     let toStringEngLong =
         toString BigRational.toString Units.English Units.Long
 
+    /// <summary>
+    /// Get the user readable string version in Dutch with verbosity short and
+    /// value as decimal
+    /// </summary>
     let toStringDecimalDutchShort =
         toString (BigRational.toDecimal >> string) Units.Dutch Units.Short
 
+    /// <summary>
+    /// Get the user readable string version in Dutch with verbosity long and
+    /// value as decimal
+    /// </summary>
     let toStringDecimalDutchLong =
         toString (BigRational.toDecimal >> string) Units.Dutch Units.Long
 
+    /// <summary>
+    /// Get the user readable string version in English with verbosity short and
+    /// value as decimal
+    /// </summary>
     let toStringDecimalEngShort =
         toString (BigRational.toDecimal >> string) Units.English Units.Short
 
+    /// <summary>
+    /// Get the user readable string version in English with verbosity long and
+    /// value as decimal
+    /// </summary>
     let toStringDecimalEngLong =
         toString (BigRational.toDecimal >> string) Units.English Units.Long
 
 
-    /// Turn a `ValueUnit` `vu` into
-    /// a string using precision `prec`.
+    /// <summary>
+    /// Get the user readable string version in Dutch with verbosity short and
+    /// value as decimal with a fixed precision
+    /// </summary>
+    /// <param name="prec">The precision</param>
+    /// <param name="vu">The ValueUnit</param>
+    /// <example>
+    /// <code>
+    /// toStringDecimalDutchShortWithPrec 2 (ValueUnit ([|1N/3N; 2N/3N; 3N/5N|], Mass (KiloGram 1N)))
+    /// = "0,33;0,67;0,6 kg"
+    /// </code>
+    /// </example>
     let toStringDecimalDutchShortWithPrec prec vu =
         let v, u = vu |> get
 
@@ -3070,7 +3312,18 @@ module ValueUnit =
         vs + " " + us
 
 
+    /// <summary>
     /// Parse a string into a ValueUnit
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// // returns Success: ValueUnit ([|3N|], Volume (MilliLiter 1N))
+    /// fromString "3 mL[Volume]"
+    ///
+    /// // returns Success: ValueUnit ([|3N|], CombiUnit (Volume (MilliLiter 1N), OpPer, Time (Minute 1N)))
+    /// fromString "3 mL/min" = ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))
+    /// </code>
+    /// </example>
     let fromString = Parser.parse
 
 
@@ -3087,6 +3340,11 @@ module ValueUnit =
 
         let (<=?) vu1 vu2 = cmp (<=) vu1 vu2
 
+        /// <summary>
+        /// Convert a ValueUnit vu to
+        /// </summary>
+        /// <param name="vu">The ValueUnit</param>
+        /// <param name="u">The Unit to convert to</param>
         let (==>) vu u = vu |> convertTo u
 
 
@@ -3198,6 +3456,11 @@ type ValueUnit with
 
     static member (<=?)(vu1, vu2) = ValueUnit.cmp (<=) vu1 vu2
 
+    /// <summary>
+    /// Convert a ValueUnit vu to
+    /// </summary>
+    /// <param name="vu">The ValueUnit</param>
+    /// <param name="u">The Unit to convert to</param>
     static member (==>)(vu, u) = vu |> ValueUnit.convertTo u
 
 
