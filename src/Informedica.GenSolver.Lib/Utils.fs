@@ -7,46 +7,21 @@ module Utils =
     module Constants =
 
 
+        /// Maximum times a loop can run to solve a
+        /// list of equations.
         let MAX_LOOP_COUNT = 10
 
-
+        /// Maximum set of values that can be used to perform
+        /// a Variable calculation.
         let MAX_CALC_COUNT = 100
 
-
+        /// Reduce a set of values to a maximum of 20 for a Variable
         let PRUNE = 20
 
-
+        /// Maximum quantity of a numerator or denominator to prevent
+        /// infinite loops calculating a minimum or maximum.
         let MAX_BIGINT =
             999999999999999999999999999999999999999999999999I
-
-
-
-    module BigRational =
-
-        open MathNet.Numerics
-
-
-        let denominator (br: BigRational) = br.Denominator
-
-        let numerator (br: BigRational) = br.Numerator
-
-
-
-    module Array =
-
-        open Informedica.Utils.Lib.BCL
-
-        let removeBigRationalMultiples xs =
-            if xs |> Array.isEmpty then
-                xs
-            else
-                xs
-                |> Array.fold
-                    (fun acc x1 ->
-                        acc
-                        |> Array.filter (fun x2 -> x1 = x2 || x2 |> BigRational.isMultiple x1 |> not)
-                    )
-                    xs
 
 
 
@@ -61,6 +36,16 @@ module Utils =
         open ValueUnit
 
 
+        /// <summary>
+        /// Print a ValueUnit to a string with a given precision of 3
+        /// </summary>
+        /// <param name="exact">Whether the exact values should be printed</param>
+        /// <example>
+        /// <code>
+        /// ValueUnit.create [| 1N; 2N |] Units.Mass.milliGram |> toStr false
+        ///
+        /// </code>
+        /// </example>
         let toStr exact =
             if exact then
                 toStringDutchShort
@@ -74,7 +59,7 @@ module Utils =
         let toDelimitedString prec vu =
             let u =
                 vu
-                |> ValueUnit.getUnit
+                |> getUnit
                 |> Units.toStringDutchShort
                 |> String.replace "*" "/"
                 |> String.split "/"
@@ -83,11 +68,11 @@ module Utils =
                 | xs -> xs
                 |> String.concat "/"
                 |> Units.fromString
-                |> Option.defaultValue (vu |> ValueUnit.getUnit)
+                |> Option.defaultValue (vu |> getUnit)
 
             vu
-            |> ValueUnit.getValue
-            |> ValueUnit.withUnit u
+            |> getValue
+            |> withUnit u
             |> toStringDecimalDutchShortWithPrec prec
             |> String.split " "
             |> function

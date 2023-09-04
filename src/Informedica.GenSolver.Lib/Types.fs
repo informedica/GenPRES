@@ -5,13 +5,14 @@ namespace Informedica.GenSolver.Lib
 module rec Types =
 
     open System
-    open MathNet.Numerics
 
     open Informedica.GenUnits.Lib
 
+    /// <summary>
     /// Represents a non empty/null string identifying a `Variable`.
     /// `Name` can be no longer than 1000 characters and cannot be
     /// a null string
+    /// </summary>
     type Name = Name of string
 
 
@@ -31,32 +32,45 @@ module rec Types =
         | MaxExcl of ValueUnit
 
 
+    /// <summary>
+    /// A set of discrete values
+    /// </summary>
     type ValueSet = ValueSet of ValueUnit
 
 
+    /// <summary>
+    /// A set of increments
+    /// </summary>
     type Increment = Increment of ValueUnit
 
 
-    /// `ValueRange` represents a domain of
-    /// rational numbers. A `ValueRange` can be either
-    /// - `Unrestricted`: any rational number
-    /// - `Increment`: any number that is a multiple of an increment
-    /// - `Min`: have a minimum
-    /// - `MinIncrement`: a minimum with the domain consisting of multiples of one increment
-    /// - `Max`: have a maximum
-    /// - `IncrementMax`: a domain of multiples of an increment with a maximum
-    /// - `MinMax`: have both a minimum and maximum
-    type ValueRange =
-        | Unrestricted
-        | NonZeroNoneNegative
-        | Min of Minimum
-        | Max of Maximum
-        | MinMax of Minimum * Maximum
-        | Incr of Increment
-        | MinIncr of min: Minimum * incr: Increment
-        | IncrMax of incr: Increment * max: Maximum
-        | MinIncrMax of min: Minimum * incr: Increment * max: Maximum
-        | ValSet of ValueSet // Set<BigRational>
+        /// <summary>
+        /// Represents a domain of rational numbers.
+        /// </summary>
+        /// <remarks>
+        /// A `ValueRange` can be one of the following:
+        /// <list type="bullet">
+        /// <item><description>`Unrestricted`: any rational number</description></item>
+        /// <item><description>`Increment`: any number that is a multiple of an increment</description></item>
+        /// <item><description>`Min`: has a minimum</description></item>
+        /// <item><description>`MinIncrement`: a minimum with the domain consisting of multiples of one increment</description></item>
+        /// <item><description>`Max`: has a maximum</description></item>
+        /// <item><description>`IncrementMax`: a domain of multiples of an increment with a maximum</description></item>
+        /// <item><description>`MinMax`: has both a minimum and maximum</description></item>
+        /// </list>
+        /// </remarks>
+        type ValueRange =
+            | Unrestricted
+            | NonZeroNoneNegative
+            | Min of Minimum
+            | Max of Maximum
+            | MinMax of Minimum * Maximum
+            | Incr of Increment
+            | MinIncr of min: Minimum * incr: Increment
+            | IncrMax of incr: Increment * max: Maximum
+            | MinIncrMax of min: Minimum * incr: Increment * max: Maximum
+            | ValSet of ValueSet // Set<BigRational>
+
 
     /// Represents a variable in an
     /// `Equation`. The variable is
@@ -64,6 +78,7 @@ module rec Types =
     /// a `Values` described by the
     /// `ValueRange`.
     type Variable = { Name: Name; Values: ValueRange }
+
 
     /// Represents a property of a `Variable`.
     type Property =

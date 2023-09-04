@@ -210,30 +210,6 @@ module Tests =
     open Informedica.GenSolver.Lib
 
 
-    module UtilsTests =
-
-
-        module ArrayTests =
-
-            let tests = testList "Array" [
-                testList "remove multiples" [
-                    fun xs ->
-                        let result =
-                            xs
-                            |> Array.filter ((<) 0N)
-                            |> Array.removeBigRationalMultiples
-                        Seq.allPairs result result
-                        |> Seq.forall (fun (x1, x2) ->
-                            if x1 = x2 then true
-                            else
-                                (x1 / x2).Denominator <> 1I &&
-                                (x2 / x1).Denominator <> 1I
-                        )
-                    |> Generators.testProp "no multiples"
-                ]
-            ]
-
-
 
     module VariableTests =
 
@@ -1113,7 +1089,6 @@ module Tests =
             //UtilsTests.tests
             VariableTests.ValueRangeTests.tests
             EquationTests.tests
-            UtilsTests.ArrayTests.tests
             VariableTests.ValueRangeTests.IncrementTests.tests
             VariableTests.ValueRangeTests.MinimumTests.tests
             VariableTests.ValueRangeTests.MaximumTests.tests
