@@ -16,6 +16,7 @@ module Variable =
 
         open Informedica.Utils.Lib.BCL
 
+
         /// Create with continuation with **succ** function
         /// when success and **fail** function when failure.
         /// Creates a `Name` from a`string`.
@@ -33,6 +34,7 @@ module Variable =
         /// Create a `Name` that, raises
         /// an `NameException` when it fails.
         let createExc = create id (raiseExc [])
+
 
         /// Return the `string` value of a `Name`.
         let toString (Name s) = s

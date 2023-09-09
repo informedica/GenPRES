@@ -16,17 +16,21 @@ module rec Types =
     type Name = Name of string
 
 
+    /// <summary>
     /// The minimal value in
     /// a `ValueRange`. Can be inclusive
     /// or exclusive.
+    /// </summary>
     type Minimum =
         | MinIncl of ValueUnit
         | MinExcl of ValueUnit
 
 
+    /// <summary>
     /// The maximum value in
     /// a `ValueRange`. Can be inclusive
     /// or exclusive.
+    /// </summary>
     type Maximum =
         | MaxIncl of ValueUnit
         | MaxExcl of ValueUnit
@@ -44,70 +48,85 @@ module rec Types =
     type Increment = Increment of ValueUnit
 
 
-        /// <summary>
-        /// Represents a domain of rational numbers.
-        /// </summary>
-        /// <remarks>
-        /// A `ValueRange` can be one of the following:
-        /// <list type="bullet">
-        /// <item><description>`Unrestricted`: any rational number</description></item>
-        /// <item><description>`Increment`: any number that is a multiple of an increment</description></item>
-        /// <item><description>`Min`: has a minimum</description></item>
-        /// <item><description>`MinIncrement`: a minimum with the domain consisting of multiples of one increment</description></item>
-        /// <item><description>`Max`: has a maximum</description></item>
-        /// <item><description>`IncrementMax`: a domain of multiples of an increment with a maximum</description></item>
-        /// <item><description>`MinMax`: has both a minimum and maximum</description></item>
-        /// </list>
-        /// </remarks>
-        type ValueRange =
-            | Unrestricted
-            | NonZeroNoneNegative
-            | Min of Minimum
-            | Max of Maximum
-            | MinMax of Minimum * Maximum
-            | Incr of Increment
-            | MinIncr of min: Minimum * incr: Increment
-            | IncrMax of incr: Increment * max: Maximum
-            | MinIncrMax of min: Minimum * incr: Increment * max: Maximum
-            | ValSet of ValueSet // Set<BigRational>
+    /// <summary>
+    /// Represents a domain of rational numbers.
+    /// </summary>
+    /// <remarks>
+    /// A `ValueRange` can be one of the following:
+    /// <list type="bullet">
+    /// <item><description>`Unrestricted`: any rational number</description></item>
+    /// <item><description>`NonZeroNoneNegative`: any positive rational number greater than zero</description></item>
+    /// <item><description>`Min`: has a minimum</description></item>
+    /// <item><description>`Max`: has a maximum</description></item>
+    /// <item><description>`MinMax`: has both a minimum and maximum</description></item>
+    /// <item><description>`Incr`: any number that is a multiple of an increment</description></item>
+    /// <item><description>`MinIncr`: a minimum with the domain consisting of multiples of one increment</description></item>
+    /// <item><description>`IncrMax`: a domain of multiples of an increment with a maximum</description></item>
+    /// <item><description>`MinIncrMax`: a minimum with a domain of multiples of an increment with a maximum</description></item>
+    /// <item><description>`ValSet`: a set of discrete values</description></item>
+    /// </list>
+    /// </remarks>
+    type ValueRange =
+        | Unrestricted
+        | NonZeroNoneNegative
+        | Min of Minimum
+        | Max of Maximum
+        | MinMax of Minimum * Maximum
+        | Incr of Increment
+        | MinIncr of min: Minimum * incr: Increment
+        | IncrMax of incr: Increment * max: Maximum
+        | MinIncrMax of min: Minimum * incr: Increment * max: Maximum
+        | ValSet of ValueSet // Set<BigRational>
 
 
+    /// <summary>
     /// Represents a variable in an
     /// `Equation`. The variable is
     /// identified by `Name` and has
     /// a `Values` described by the
     /// `ValueRange`.
+    /// </summary>
     type Variable = { Name: Name; Values: ValueRange }
 
 
+    /// <summary>
     /// Represents a property of a `Variable`.
+    /// </summary>
     type Property =
         | MinProp of Minimum
         | MaxProp of Maximum
         | IncrProp of Increment
         | ValsProp of ValueSet
 
+
+    /// <summary>
     /// An equation is either a `ProductEquation`
     /// or a `Sumequation`, the first variable is the
     /// dependent variable, i.e. the result of the
     /// equation, the second part are the independent
     /// variables in the equation
+    /// </summary>
     type Equation =
         | ProductEquation of Variable * Variable list
         | SumEquation of Variable * Variable list
 
+
+    /// <summary>
     /// The `Result` of solving an `Equation`
     /// is that either the `Equation` is the
     /// same or has `Changed`.
+    /// </summary>
     type SolveResult =
         | Unchanged
         | Changed of List<Variable * Property Set>
         | Errored of Exceptions.Message list
 
 
+    /// <summary>
     /// Represents a constraint on a `Variable`.
     /// I.e. either a set of values, or an increment
     /// or a minimum of maximum.
+    /// </summary>
     type Constraint =
         {
             Name: Name

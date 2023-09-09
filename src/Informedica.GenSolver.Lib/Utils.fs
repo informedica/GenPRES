@@ -42,8 +42,10 @@ module Utils =
         /// <param name="exact">Whether the exact values should be printed</param>
         /// <example>
         /// <code>
-        /// ValueUnit.create [| 1N; 2N |] Units.Mass.milliGram |> toStr false
-        ///
+        /// [| 1N/3N |] |> ValueUnit.create  Units.Mass.milliGram |> toStr false
+        /// // returns "0,333 mg"
+        /// [| 1N/3N |] |> ValueUnit.create  Units.Mass.milliGram |> toStr true
+        /// // returns "1/3 mg"
         /// </code>
         /// </example>
         let toStr exact =
@@ -56,6 +58,19 @@ module Utils =
                 toStringDecimalDutchShortWithPrec 3
 
 
+        /// <summary>
+        /// Print a ValueUnit to a string with a given precision delimited by "#" for Value and "|" for Unit
+        /// </summary>
+        /// <param name="prec">The precision with which value should be printed</param>
+        /// <param name="vu">The ValueUnit to print</param>
+        /// <example>
+        /// <code>
+        /// [| 1N/3N |] |> ValueUnit.create  Units.Mass.milliGram |> toDelimitedString 2
+        /// // returns "#0,33# |mg|"
+        /// [| 1N/3N; 1N/5N |] |> ValueUnit.create  Units.Mass.milliGram |> toDelimitedString 2
+        /// // returns "#0,33#, #0,2# |mg|"
+        /// </code>
+        /// </example>
         let toDelimitedString prec vu =
             let u =
                 vu
@@ -122,7 +137,7 @@ module Utils =
 
             /// Match an operator `op` to either
             /// multiplication, division, addition
-            /// or subtraction, returns `NoOp` when
+            /// or subtraction, fails when
             /// the operation is neither.
             let (|Mult|Div|Add|Subtr|) op =
                 match op with
