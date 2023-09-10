@@ -52,6 +52,15 @@ module Variable =
         module Increment =
 
 
+            /// <summary>
+            /// Create an `Increment` from a `ValueUnit`.
+            /// </summary>
+            /// <param name="vu">The ValueUnit</param>
+            /// <returns>An `Increment`</returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyIncrementException">When the `ValueUnit` is empty</exception>
+            /// <remarks>
+            /// Filters out negative values and removes multiples.
+            /// </remarks>
             let create vu =
                 vu
                 |> ValueUnit.filter ((<) 0N)
@@ -63,25 +72,78 @@ module Variable =
                         Exceptions.ValueRangeEmptyIncrement |> raiseExc []
 
 
-            let map f (Increment incr) = incr |> f |> create
+            /// <summary>
+            /// Maps a function over the ValueUnit of `Increment`.
+            /// </summary>
+            /// <param name="f">The function to map</param>
+            /// <returns>A new `Increment`</returns>
+            let map f (Increment vu) = vu |> f |> create
 
 
+            /// <summary>
+            /// Convert an `Increment` to a `ValueUnit`.
+            /// </summary>
             let toValueUnit (Increment vu) = vu
 
 
-            let setUnit u = map (ValueUnit.convertTo u)
+            /// <summary>
+            /// Convert the Unit of an `Increment` to **u**.
+            /// </summary>
+            /// <param name="u">The unit to convert to</param>
+            let convertToUnit u = map (ValueUnit.convertTo u)
 
 
+            /// <summary>
+            /// Get the smallest increment value
+            /// </summary>
+            /// <returns>
+            /// The smallest increment value as a ValueUnit option.
+            /// </returns>
             let minElement =
                 toValueUnit >> ValueUnit.minValue
 
 
+            /// <summary>
+            /// Check if 'incr1' equals 'incr2'
+            /// </summary>
+            /// <param name="incr1">The first increment</param>
+            /// <param name="incr2">The second increment</param>
+            /// <example>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram
+            /// </remarks>
+            /// <code>
+            /// let incr1 = Increment.create ( [| 1000N |] |> ValueUnit.create Units.Mass.milliGram)
+            /// let incr2 = Increment.create ( [| 1N |] |> ValueUnit.create Units.Mass.gram)
+            /// incr1 |> Increment.eqs incr2
+            /// // returns true, i.e. 1000 milligram equals 1 gram
+            /// </code>
+            /// </example>
             let eqs incr1 incr2 =
                 let vu1 = incr1 |> toValueUnit
                 let vu2 = incr2 |> toValueUnit
                 vu1 =? vu2
 
 
+            /// <summary>
+            /// Get the intersection of two `Increment`.
+            /// </summary>
+            /// <param name="incr1">The first increment</param>
+            /// <param name="incr2">The second increment</param>
+            /// <returns>
+            /// The intersection of the two increments.
+            /// </returns>
+            /// <remarks>
+            /// Returns the ValueUnit with Unit of the first increment.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let incr1 = Increment.create ( [| 2000N; 3000N |] |> ValueUnit.create Units.Mass.milliGram)
+            /// let incr2 = Increment.create ( [| 3N; 5N |] |> ValueUnit.create Units.Mass.gram)
+            /// incr1 |> Increment.intersect incr2
+            /// // returns Increment (ValueUnit ([|3000N|], Mass (MilliGram 1N)))
+            /// </code>
+            /// </example>
             let intersect (Increment incr1) (Increment incr2) =
                 incr1 |> ValueUnit.intersect incr2 |> create
 
@@ -534,6 +596,7 @@ module Variable =
                 create
 
 
+            // TODO: this is not right!!
             let minIncrMaxToValueSet min incr max =
                     let min =
                         min

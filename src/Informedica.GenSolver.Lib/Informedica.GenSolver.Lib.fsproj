@@ -22,6 +22,7 @@
         <None Include="Scripts/GentaEquations.fsx" />
         <None Include="Scripts\OrderEquations.fsx" />
         <None Include="Scripts\Tests.fsx" />
+        <None Include="Scripts\Increment.fsx" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
