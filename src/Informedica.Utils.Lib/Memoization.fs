@@ -5,32 +5,24 @@ namespace Informedica.Utils.Lib
 module Memoization =
 
 
+    /// <summary>
     /// Memoize a function `f` according
     /// to its parameter `x`
-    ///
-    /// # Parameters
-    ///
-    ///  - ``f`` : the function to memoize
-    ///  - ``x`` : the parameter to memoize the function with
-    ///
-    /// # Returns
-    ///
-    ///  - ``f x`` : the result of ``f`` applied to ``x``
-    ///
-    /// # Remarks
-    ///
+    /// </summary>
+    /// <param name="f">The function to memoize</param>
+    /// <remarks>
     ///  - the memoization is based on a map
     ///  - the cache is not cleared
-    ///
-    let inline memoize f x =
+    /// </remarks>
+    let inline memoize f =
         let cache = ref Map.empty
-        match cache.Value.TryFind(x) with
-        | Some r -> r
-        | None ->
-            let r = f x
-            cache.Value <- cache.Value.Add(x, r)
-            r
-
+        fun x ->
+            match cache.Value.TryFind(x) with
+            | Some r -> r
+            | None ->
+                let r = f x
+                cache.Value <- cache.Value.Add(x, r)
+                r
 
 
     module Tests =
@@ -38,10 +30,43 @@ module Memoization =
         open Swensen.Unquote
 
         /// Test the memoization of a function
-        let testMemoization() =
+        let testMemoization () =
             let f x = x + 1
             let f' = memoize f
             let r1 = f' 1
             let r2 = f' 1
             let r3 = f' 2
             test <@ r1 = r2 && r1 <> r3 @>
+
+
+        // test that second use of memoized function is much
+        // faster than first use
+        let testMemoizationSpeed () =
+            // create a function that takes a long time to compute
+            // for example a Fibonacci function
+            let rec fib(n: int):int =
+                match n with
+                | 0 | 1 -> n
+                | n -> fib (n-1) + fib (n - 2)
+
+            // create a memoized version of the function
+            let f' = memoize fib
+
+            // create a stopwatch
+            let sw = System.Diagnostics.Stopwatch()
+            // call the function twice
+            let r1 =
+                sw.Start()
+                f' 37 |> ignore
+                sw.Stop()
+                sw.ElapsedMilliseconds
+
+            sw.Reset()
+            let r2 =
+                sw.Start()
+                f' 37 |> ignore
+                sw.Stop()
+                sw.ElapsedMilliseconds
+
+            // check that the second call is much faster
+            test <@ r1 > r2 @>

@@ -446,7 +446,7 @@ module BigRational =
     /// </summary>
     /// <example>
     /// <code>
-    /// 3N |> BigRational.maxInclMultipleOf (set [2N; 3N]) = 3N
+    /// 3N |> BigRational.maxInclMultipleOf (set [2N; 3N; 4N]) = 3N
     /// </code>
     /// </example>
     let maxInclMultipleOf = calcMinOrMaxToMultiple true true
@@ -487,6 +487,29 @@ module BigRational =
     /// </code>
     /// </example>
     let minExclMultipleOf = calcMinOrMaxToMultiple false false
+
+
+    /// <summary>
+    /// Takes a min, set of increments, and max and returns a sequence of all values
+    /// that are a multiple of an increment, have a minimum value that is a multiple of that increment
+    /// and a maximum value that is a multiple of that increment.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// minIncrMaxToSeq 1N [2N; 3N] 13N
+    /// |> Seq.toList
+    /// // returns [2N; 3N; 4N; 6N; 8N; 9N; 10N; 12N]
+    /// </code>
+    /// </example>
+    let minIncrMaxToSeq min incr max : BigRational seq =
+        incr
+        |> Seq.fold (fun acc i ->
+            let min = min |> toMinMultipleOf i
+            let max = max |> toMaxMultipleOf i
+            seq {min..i..max} |> Seq.append acc
+        ) Seq.empty
+        |> Seq.sort
+        |> Seq.distinct
 
 
     module Tests =

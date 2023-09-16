@@ -128,8 +128,6 @@ module Variable =
             /// <summary>
             /// Get the intersection of two `Increment`.
             /// </summary>
-            /// <param name="incr1">The first increment</param>
-            /// <param name="incr2">The second increment</param>
             /// <returns>
             /// The intersection of the two increments.
             /// </returns>
@@ -148,6 +146,19 @@ module Variable =
                 incr1 |> ValueUnit.intersect incr2 |> create
 
 
+            /// <summary>
+            /// Calculates the resulting increment of a calculation with **op** in
+            /// an equation: y = x1 **op** x2, where incr1 is the increment of x1,
+            /// incr2 is the increment of x2 and y.incr is the resulting increment.
+            /// </summary>
+            /// <param name="op">The operator, can be mult, div, add, sub</param>
+            /// <param name="incr1">Increment 1</param>
+            /// <param name="incr2">Increment 2</param>
+            /// <remarks>
+            /// An increment can only be calculated when the operator is multiplication
+            /// or division by the identity value of 1 times, or when the operator is
+            /// addition and the increments are equal.
+            /// </remarks>
             let calc op incr1 incr2 =
                 match op with
                 // y.incr = x1.incr * x2.incr
@@ -175,54 +186,95 @@ module Variable =
                 | _ -> None
 
 
+            /// <summary>
             /// Calculate an increment with
             /// **incr1** of x1 and **incr2** of x2
             /// in an equation: y = x1 **op** x2
+            /// </summary>
+            /// <returns>
+            /// The resulting increment or `None` if the increment cannot be calculated.
+            /// </returns>
+            /// <remarks>
+            /// An increment can only be calculated when the operator is multiplication
+            /// or division by the identity value of 1 times, or when the operator is
+            /// addition and the increments are equal.
+            /// </remarks>
             let calcOpt op incr1 incr2 =
                 match incr1, incr2 with
                 | Some (Increment i1), Some (Increment i2) -> calc op i1 i2
                 | _ -> None
 
 
+            /// <summary>
+            /// Get the increment as a list of BigRationals
+            /// </summary>
             let toList (Increment incr) =
                 incr |> ValueUnit.getValue |> Array.toList
 
 
+            /// <summary>
+            /// Check if the increment is empty, i.e. has no values
+            /// </summary>
             let isEmpty (Increment incr) = incr |> ValueUnit.isEmpty
 
 
+            /// <summary>
+            /// Get the number of values in the increment
+            /// </summary>
             let count (Increment incr) =
                 incr |> ValueUnit.getValue |> Array.length
 
 
-            /// restrict an oldIncr with a newIncr
-            let restrict (Increment newIncr) (Increment oldIncr) =
-                if newIncr =? oldIncr then
-                    oldIncr
+            /// <summary>
+            /// Restrict an oldIncr with a newIncr.
+            /// </summary>
+            /// <param name="newIncr">The new increment</param>
+            /// <param name="oldIncr">The old increment</param>
+            /// <returns>
+            /// The restricted increment.
+            /// </returns>
+            /// <example>
+            /// <code>
+            /// let oldIncr = Increment.create ( [| 3N; 5N |] |> ValueUnit.create Units.Mass.gram)
+            /// let newIncr = Increment.create ( [| 2N; 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// Increment.restrict newIncr oldIncr
+            /// // returns Increment (ValueUnit ([|3N|], Mass (Gram 1N)))
+            /// </code>
+            /// </example>
+            let restrict newIncr oldIncr =
+                let (Increment newVu) = newIncr
+                let (Increment oldVu) = oldIncr
+
+                if newVu =? oldVu then oldVu
                 else
-                    newIncr
+                    newVu
                     |> ValueUnit.filter (fun i1 ->
-                        oldIncr
+                        oldVu
                         |> ValueUnit.getBaseValue
                         |> Array.exists (fun i2 -> i1 |> BigRational.isMultiple i2)
                     )
                 |> fun vu ->
-                    if vu |> ValueUnit.isEmpty then
-                        oldIncr
+                    if vu |> ValueUnit.isEmpty then oldIncr
                     else
                         vu
-                        |> ValueUnit.convertTo (oldIncr |> ValueUnit.getUnit)
-                    |> create
+                        |> ValueUnit.convertTo (oldVu |> ValueUnit.getUnit)
+                        |> create
 
 
+            /// <summary>
+            /// Get the string representation of an `Increment`.
+            /// </summary>
+            /// <param name="exact">Print exact or not</param>
             let toString exact (Increment incr) = $"{incr |> ValueUnit.toStr exact}"
 
 
 
         module Minimum =
 
+            /// <summary>
             /// Create a `Minimum` that is
             /// either inclusive or exclusive.
+            /// </summary>
             let create isIncl vu =
                 if vu |> ValueUnit.isSingleValue then
                     if isIncl then
@@ -233,24 +285,50 @@ module Variable =
                     failwith "a minimum can only be a single value"
 
 
-            /// Apply **f** to the bigrational
+            /// <summary>
+            /// Apply fIncl or fExcl to the bigrational
             /// value of `Minimum`
-            let apply fincl fexcl =
+            /// </summary>
+            /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
+            /// <param name="fExcl">The function to apply to an exclusive `Minimum`</param>
+            let apply fIncl fExcl =
                 function
-                | MinIncl m -> m |> fincl
-                | MinExcl m -> m |> fexcl
+                | MinIncl m -> m |> fIncl
+                | MinExcl m -> m |> fExcl
 
 
+            /// <summary>
+            /// Map fIncl or fExcl to the bigrational value of `Minimum`
+            /// </summary>
+            /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
+            /// <param name="fExcl">The function to apply to an exclusive `Minimum`</param>
             let map fIncl fExcl =
                 apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
+            /// <summary>
+            /// Convert the unit of a `Minimum` to **u**.
+            /// </summary>
+            /// <param name="u">The unit to set</param>
             let setUnit u = map (ValueUnit.convertTo u)
 
 
+            /// <summary>
             /// Checks whether `Minimum` **m2** > **m1**
             /// Note that the fact that a Minimum is inclusive or exclusive
             /// must be taken into account.
+            /// </summary>
+            /// <param name="min1">The first minimum</param>
+            /// <param name="min2">The second minimum</param>
+            /// <example>
+            /// <code>
+            /// let min1 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let min2 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minGTmin min1 // returns false
+            /// let min2 = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minGTmin min1 // returns true!
+            /// </code>
+            /// </example>
             let minGTmin min1 min2 =
                 match min2, min1 with
                 | MinIncl m2, MinIncl m1
@@ -596,7 +674,6 @@ module Variable =
                 create
 
 
-            // TODO: this is not right!!
             let minIncrMaxToValueSet min incr max =
                     let min =
                         min
@@ -613,10 +690,10 @@ module Variable =
                     |> ValueUnit.toBase
                     |> ValueUnit.applyToValue (fun incr ->
                         [|
-                            for i in incr do
-                                for mi in min do
-                                    for ma in max do
-                                            [| mi..i..ma |]
+                            for mi in min do
+                                for ma in max do
+                                    BigRational.minIncrMaxToSeq mi incr ma
+                                    |> Seq.toArray
                         |]
                         |> Array.collect id
                         |> fun xs -> if xs.Length > Constants.MAX_CALC_COUNT then [||] else xs
