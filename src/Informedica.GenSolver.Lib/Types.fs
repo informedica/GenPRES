@@ -144,7 +144,9 @@ module rec Types =
             | ValueRangeEmptyValueSet
             | ValueRangeTooManyValues of valueCount: int
             | ValueRangeEmptyIncrement
+            | ValueRangeMinShouldHaveOneValue of ValueUnit
             | ValueRangeMinOverFlow of Minimum
+            | ValueRangeMaxShouldHaveOneValue of ValueUnit
             | ValueRangeMaxOverFlow of Maximum
             | ValueRangeMinMaxException of string
             | VariableCannotSetValueRange of Variable * ValueRange

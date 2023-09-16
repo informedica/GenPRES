@@ -271,18 +271,26 @@ module Variable =
 
         module Minimum =
 
+
             /// <summary>
             /// Create a `Minimum` that is
             /// either inclusive or exclusive.
             /// </summary>
+            /// <param name="isIncl">Whether the `Minimum` is inclusive or exclusive</param>
+            /// <param name="vu">The ValueUnit</param>
+            /// <returns>A `Minimum`</returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyMinimumException">When the `ValueUnit` is empty of has more than one value</exception>
             let create isIncl vu =
                 if vu |> ValueUnit.isSingleValue then
+
                     if isIncl then
                         vu |> MinIncl
                     else
                         vu |> MinExcl
                 else
-                    failwith "a minimum can only be a single value"
+                    vu
+                    |> Exceptions.ValueRangeMinShouldHaveOneValue
+                    |> raiseExc []
 
 
             /// <summary>
@@ -314,39 +322,96 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether `Minimum` **m2** > **m1**
+            /// Checks whether `Minimum` minLeft &gt; minRight
+            /// </summary>
+            /// <remarks>
             /// Note that the fact that a Minimum is inclusive or exclusive
             /// must be taken into account.
-            /// </summary>
-            /// <param name="min1">The first minimum</param>
-            /// <param name="min2">The second minimum</param>
+            /// </remarks>
             /// <example>
             /// <code>
             /// let min1 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
             /// let min2 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
             /// min2 |> Minimum.minGTmin min1 // returns false
+            ///
+            /// // make min2 exclusive
             /// let min2 = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
             /// min2 |> Minimum.minGTmin min1 // returns true!
             /// </code>
             /// </example>
-            let minGTmin min1 min2 =
-                match min2, min1 with
+            let minGTmin minRight minLeft =
+                match minLeft, minRight with
                 | MinIncl m2, MinIncl m1
                 | MinExcl m2, MinExcl m1
                 | MinIncl m2, MinExcl m1 -> m2 >? m1
                 | MinExcl m2, MinIncl m1 -> m2 >=? m1
 
-            /// Checks whether `Minimum` **m2** <= **m1**
-            let minSTEmin m1 m2 = m2 |> minGTmin m1 |> not
+            /// <summary>
+            /// Checks whether `Minimum` minLeft &lt;= minRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Minimum is inclusive or exclusive
+            /// must be taken into account.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let min1 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let min2 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minSTEmin min1 // returns true
+            ///
+            /// // make min2 exclusive
+            /// let min2 = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minSTEmin min1 // returns false!
+            /// </code>
+            /// </example>
+            let minSTEmin minRight minLeft = minLeft |> minGTmin minRight |> not
 
 
-            let minGTEmin min1 min2 = min1 = min2 || minGTmin min1 min2
+            /// <summary>
+            /// Checks whether `Minimum` minLeft &gt;= minRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Minimum is inclusive or exclusive
+            /// must be taken into account.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let min1 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let min2 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minGTEmin min1 // returns true
+            ///
+            /// // make min1 exclusive
+            /// let min1 = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minGTEmin min1 // returns false!
+            /// </code>
+            /// </example>
+            let minGTEmin minRight minLeft = minRight = minLeft || minGTmin minRight minLeft
 
 
-            let minSTmin min1 min2 = min2 |> minGTEmin min1 |> not
+            /// <summary>
+            /// Checks whether `Minimum` minLeft &lt; minRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Minimum is inclusive or exclusive
+            /// must be taken into account.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let min1 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let min2 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minSTmin min1 // returns false
+            ///
+            /// // make min1 exclusive
+            /// let min1 = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// min2 |> Minimum.minSTmin min1 // returns true!
+            /// </code>
+            /// </example>
+            let minSTmin minRight minLeft = minLeft |> minGTEmin minRight |> not
 
 
+            /// <summary>
             /// Checks whether `Minimum` is exclusive.
+            /// </summary>
             let isExcl =
                 function
                 | MinIncl _ -> false
@@ -369,6 +434,17 @@ module Variable =
                 | MinExcl v -> v
 
 
+            /// <summary>
+            /// Convert the Unit of a `Minimum` to the Unit of the second `Minimum`.
+            /// </summary>
+            /// <example>
+            /// <code>
+            /// let min1 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let min2 = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.milliGram)
+            /// min1 |> Minimum.convertTo min2
+            /// // returns Minimum (ValueUnit ([|3000N|], Mass (MilliGram 1N)))
+            /// </code>
+            /// </example>
             let convertTo min =
                 let u =
                     min |> toValueUnit |> ValueUnit.getUnit
@@ -376,6 +452,9 @@ module Variable =
                 map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
 
 
+            /// <summary>
+            /// Checks whether the `Minimum` has a ZeroUnit.
+            /// </summary>
             let hasZeroUnit =
                 toValueUnit >> ValueUnit.hasZeroUnit
 
@@ -386,12 +465,38 @@ module Variable =
                 apply (fun vu -> true, vu) (fun vu -> false, vu)
 
 
+            /// <summary>
+            /// Check if 'min1' equals 'min2'
+            /// </summary>
+            /// <param name="min1">The first Minimum</param>
+            /// <param name="min2">The second Minimum</param>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram. Also
+            /// takes into account whether the Minimum is inclusive or exclusive.
+            /// </remarks>
             let eqs min1 min2 =
                 let b1, vu1 = min1 |> toBoolValueUnit
                 let b2, vu2 = min2 |> toBoolValueUnit
                 (vu1 =? vu2) && (b1 = b2)
 
 
+            /// <summary>
+            /// Recalculate the minimum value of a `Minimum` as a multiple of **incr**.
+            /// </summary>
+            /// <param name="incr">The increment</param>
+            /// <param name="min">The minimum</param>
+            /// <remarks>
+            /// The recalculated minimum is always inclusive as it has to
+            /// be a multiple of the increment.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let incr = Increment.create ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let min = Minimum.create false ( [| 5N |] |> ValueUnit.create Units.Mass.gram)
+            /// min |> Minimum.multipleOf incr
+            /// // returns Minimum (ValueUnit ([|6N|], Mass (Gram 1N)))
+            /// </code>
+            /// </example>
             let multipleOf incr min =
                 let incr = incr |> Increment.toValueUnit
 
@@ -401,16 +506,29 @@ module Variable =
                 |> create true
 
 
-            let checkTooSmall min =
-                if min
-                   |> toValueUnit
-                   |> ValueUnit.denominator
-                   |> Array.exists (fun x -> x > Constants.MAX_BIGINT) then
+            /// <summary>
+            /// Check if either the numerator or denominator of the `Minimum`
+            /// is too large, i.e. there is an 'overflow'.
+            /// </summary>
+            /// <remarks>
+            /// In theory a Minimum can have a numerator or denominator of any size.
+            /// However, in practice, this will lead to performance issues. Therefore
+            /// we limit the size of the numerator and denominator to a maximum value.
+            /// </remarks>
+            let checkOverflow min =
+                let xs =
+                    min |> toValueUnit |> ValueUnit.numerator
+                    |> Array.append (min |> toValueUnit |> ValueUnit.denominator)
+
+                if xs |> Array.exists (fun x -> x > Constants.MAX_BIGINT) then
                     min
                     |> Exceptions.ValueRangeMinOverFlow
                     |> raiseExc []
 
 
+            /// <summary>
+            /// Make a `Minimum` non-zero and non-negative.
+            /// </summary>
             let nonZeroNonNeg =
                 let fIncl vu =
                     let vu =
@@ -433,9 +551,20 @@ module Variable =
                 apply fIncl fExcl
 
 
-            /// restrict an oldMin with a newMin
+            /// <summary>
+            /// Restrict an oldMin with a newMin. Effectively this means
+            /// that the newMin is the new minimum if it is larger than the
+            /// old minimum.
+            /// </summary>
+            /// <param name="newMin">The new minimum</param>
+            /// <param name="oldMin">The old minimum</param>
+            /// <returns>
+            /// The restricted minimum. This is the old minimum if the new minimum
+            /// is smaller than the old minimum, or the new minimum if the new minimum
+            /// is larger than the old minimum.
+            /// </returns>
             let restrict newMin oldMin =
-                newMin |> checkTooSmall
+                newMin |> checkOverflow
 
                 if newMin |> minGTmin oldMin then
                     newMin |> convertTo oldMin
@@ -443,12 +572,22 @@ module Variable =
                     oldMin
 
 
+            /// <summary>
+            /// Get the string representation of a `Minimum`.
+            /// </summary>
+            /// <param name="exact">Print exact or not</param>
+            /// <param name="min">The minimum</param>
             let toString exact min =
                 let b, vu = min |> toBoolValueUnit
 
                 $"""{if b then "[" else "<"}{vu |> ValueUnit.toStr exact}"""
 
 
+            /// <summary>
+            /// Get the markdown representation of a `Minimum`.
+            /// </summary>
+            /// <param name="prec">The precision</param>
+            /// <param name="min">The minimum</param>
             let toMarkdown prec min =
                 let b, vu = min |> toBoolValueUnit
 
@@ -460,66 +599,142 @@ module Variable =
         module Maximum =
 
 
+            /// <summary>
             /// Create a `Maximum` that is
             /// either inclusive or exclusive.
-            let create isIncl m =
-                if isIncl then
-                    m |> MaxIncl
-                else
-                    m |> MaxExcl
+            /// </summary>
+            /// <param name="isIncl">Whether the `Maximum` is inclusive or exclusive</param>
+            /// <param name="vu">The ValueUnit</param>
+            /// <returns>A `Maximum`</returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyMaximumException">When the `ValueUnit` is empty of has more than one value</exception>
+            let create isIncl vu =
+                if vu |> ValueUnit.isSingleValue then
 
-            /// Apply **f** to the bigrational
+                    if isIncl then
+                        vu |> MaxIncl
+                    else
+                        vu |> MaxExcl
+                else
+                    vu
+                    |> Exceptions.ValueRangeMaxShouldHaveOneValue
+                    |> raiseExc []
+
+
+            /// <summary>
+            /// Apply fIncl or fExcl to the bigrational
             /// value of `Maximum`
+            /// </summary>
+            /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
+            /// <param name="fExcl">The function to apply to an exclusive `Maximum`</param>
             let apply fIncl fExcl =
                 function
                 | MaxIncl m -> m |> fIncl
                 | MaxExcl m -> m |> fExcl
 
 
+            /// <summary>
+            /// Map fIncl or fExcl to the bigrational value of `Maximum`
+            /// </summary>
+            /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
+            /// <param name="fExcl">The function to apply to an exclusive `Maximum`</param>
             let map fIncl fExcl =
                 apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
+            /// <summary>
+            /// Convert the unit of a `Maximum` to **u**.
+            /// </summary>
+            /// <param name="u">The unit to set</param>
             let setUnit u = map (ValueUnit.convertTo u)
 
 
-            /// Checks whether `Maximum` **m2** > **m1**
-            /// Note that the fact that a maximum is inclusive or exclusive
+            /// <summary>
+            /// Checks whether `Maximum` maxLeft &gt; maxRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Maximum is inclusive or exclusive
             /// must be taken into account.
-            let maxGTmax max1 max2 =
-                match max2, max1 with
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let max1 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let max2 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxGTmax max1 // returns false
+            ///
+            /// // make max1 exclusive
+            /// let max1 = Maximum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxGTmax max1 // returns true!
+            /// </code>
+            /// </example>
+            let maxGTmax maxRight maxLeft =
+                match maxLeft, maxRight with
                 | MaxIncl m2, MaxIncl m1
                 | MaxExcl m2, MaxExcl m1
                 | MaxExcl m2, MaxIncl m1 -> m2 >? m1
                 | MaxIncl m2, MaxExcl m1 -> m2 >=? m1
 
-            /// Checks whether `Maximum` **m2** <= **m1**
-            let maxSTEmax m1 m2 = m2 |> maxGTmax m1 |> not
+
+            /// <summary>
+            /// Checks whether `Maximum` maxLeft &lt;= maxRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Maximum is inclusive or exclusive
+            /// must be taken into account.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let max1 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let max2 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxSTEmax max1 // returns true
+            ///
+            /// // make max1 exclusive
+            /// let max1 = Maximum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxSTEmax max1 // returns false!
+            /// </code>
+            /// </example>
+            let maxSTEmax maxRight maxLeft = maxLeft |> maxGTmax maxRight |> not
 
 
-            let maxGTEmax max1 max2 = max1 = max2 || maxGTmax max1 max2
+            /// <summary>
+            /// Checks whether `Maximum` maxLeft &gt;= maxRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Maximum is inclusive or exclusive
+            /// must be taken into account.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let max1 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let max2 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxGTEmax max1 // returns true
+            ///
+            /// // make max2 exclusive
+            /// let max2 = Maximum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxGTEmax max1 // returns false!
+            /// </code>
+            /// </example>
+            let maxGTEmax maxRight maxLeft = maxRight = maxLeft || maxGTmax maxRight maxLeft
 
 
-            let maxSTmax max1 max2 = max2 |> maxGTEmax max1 |> not
-
-
-            /// Get the maximum value in a `BigRational` set.
-            /// Returns `None` if an empty set.
-            let maxElement = ValueUnit.maxValue >> Option.map MaxIncl
-
-
-            /// Convert a `Maximum` to a `BigRational`.
-            let toValueUnit =
-                function
-                | MaxIncl v
-                | MaxExcl v -> v
-
-
-            let convertTo max =
-                let u =
-                    max |> toValueUnit |> ValueUnit.getUnit
-
-                map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
+            /// <summary>
+            /// Checks whether `Maximum` maxLeft &lt; maxRight
+            /// </summary>
+            /// <remarks>
+            /// Note that the fact that a Maximum is inclusive or exclusive
+            /// must be taken into account.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let max1 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let max2 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxSTmax max1 // returns false
+            ///
+            /// // make max2 exclusive
+            /// let max2 = Maximum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// max2 |> Maximum.maxSTmax max1 // returns true!
+            /// </code>
+            /// </example>
+            let maxSTmax maxRight maxLeft = maxLeft |> maxGTEmax maxRight |> not
 
 
             /// Checks whether `Maximum` is exclusive.
@@ -533,18 +748,81 @@ module Variable =
             let isIncl = isExcl >> not
 
 
-            /// Turn a `Maximum` into a `BigRational` and a `bool` to indicate
-            /// inclusive or exclusive.
+            /// Creates a `Maximum` from a `ValueUnit`.
+            /// Returns `None` if an empty set.
+            let maxElement = ValueUnit.maxValue >> Option.map MaxIncl
+
+
+            /// Convert a `Maximum` to a `ValueUnit`.
+            let toValueUnit =
+                function
+                | MaxIncl v
+                | MaxExcl v -> v
+
+
+            /// <summary>
+            /// Convert the Unit of a `Maximum` to the Unit of the second `Maximum`.
+            /// </summary>
+            /// <example>
+            /// <code>
+            /// let max1 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+            /// let max2 = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.milliGram)
+            /// max1 |> Maximum.convertTo max2
+            /// // returns Maximum (ValueUnit ([|3000N|], Mass (MilliGram 1N)))
+            /// </code>
+            /// </example>
+            let convertTo max =
+                let u =
+                    max |> toValueUnit |> ValueUnit.getUnit
+
+                map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
+
+
+            /// <summary>
+            /// Checks whether the `Maximum` has a ZeroUnit.
+            /// </summary>
+            let hasZeroUnit =
+                toValueUnit >> ValueUnit.hasZeroUnit
+
+
+            /// Convert a `Maximum` to a `ValueUnit` and a `bool`
+            /// that signifies inclusive or exclusive
             let toBoolValueUnit =
                 apply (fun m -> true, m) (fun m -> false, m)
 
 
+            /// <summary>
+            /// Check if 'max1' equals 'max2'
+            /// </summary>
+            /// <param name="max1">The first Maximum</param>
+            /// <param name="max2">The second Maximum</param>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram. Also
+            /// takes into account whether the Maximum is inclusive or exclusive.
+            /// </remarks>
             let eqs max1 max2 =
                 let b1, vu1 = max1 |> toBoolValueUnit
                 let b2, vu2 = max2 |> toBoolValueUnit
                 (vu1 =? vu2) && (b1 = b2)
 
 
+            /// <summary>
+            /// Recalculate the maximum value of a `Maximum` as a multiple of **incr**.
+            /// </summary>
+            /// <param name="incr">The increment</param>
+            /// <param name="max">The maximum</param>
+            /// <remarks>
+            /// The recalculated maximum is always inclusive as it has to
+            /// be a multiple of the increment.
+            /// </remarks>
+            /// <example>
+            /// <code>
+            /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram)
+            /// let max = Maximum.create false ( [| 5N |] |> ValueUnit.create Units.Mass.gram)
+            /// max |> Maximum.multipleOf incr
+            /// // returns Maximum (ValueUnit ([|4N|], Mass (Gram 1N)))
+            /// </code>
+            /// </example>
             let multipleOf incr max =
                 let incr = incr |> Increment.toValueUnit
 
@@ -554,16 +832,29 @@ module Variable =
                 |> create true
 
 
-            let checkTooLarge max =
-                if max
-                   |> toValueUnit
-                   |> ValueUnit.numerator
-                   |> Array.exists (fun x -> x > Constants.MAX_BIGINT) then
+            /// <summary>
+            /// Check if either the numerator or denominator of the `Maximum`
+            /// is too large, i.e. there is an 'overflow'.
+            /// </summary>
+            /// <remarks>
+            /// In theory a Maximum can have a numerator or denomaxator of any size.
+            /// However, in practice, this will lead to performance issues. Therefore
+            /// we limit the size of the numerator and denomaxator to a maximum value.
+            /// </remarks>
+            let checkOverflow max =
+                let xs =
+                    max |> toValueUnit |> ValueUnit.numerator
+                    |> Array.append (max |> toValueUnit |> ValueUnit.denominator)
+
+                if xs |> Array.exists (fun x -> x > Constants.MAX_BIGINT) then
                     max
                     |> Exceptions.ValueRangeMaxOverFlow
                     |> raiseExc []
 
 
+            /// <summary>
+            /// Make a `Maximum` non-zero and non-negative.
+            /// </summary>
             let nonZeroNonNeg max =
                 max
                 |> toValueUnit
@@ -574,8 +865,20 @@ module Variable =
                 |> map (ValueUnit.filter (fun br -> br > 0N)) (ValueUnit.filter (fun br -> br > 0N))
 
 
+            /// <summary>
+            /// Restrict an oldMax with a newMax. Effectively this means
+            /// that the newMax is the new maximum if it is smaller than the
+            /// old maximum.
+            /// </summary>
+            /// <param name="newMax">The new maximum</param>
+            /// <param name="oldMax">The old maximum</param>
+            /// <returns>
+            /// The restricted maximum. This is the old maximum if the new maximum
+            /// is greater than the old maximum, or the new maximum if the new maximum
+            /// is smaller than the old maximum.
+            /// </returns>
             let restrict newMax oldMax =
-                newMax |> checkTooLarge
+                newMax |> checkOverflow
 
                 if newMax |> maxSTmax oldMax then
                     newMax |> convertTo oldMax
@@ -583,12 +886,22 @@ module Variable =
                     oldMax
 
 
+            /// <summary>
+            /// Get the string representation of a `Maximum`.
+            /// </summary>
+            /// <param name="exact">Print exact or not</param>
+            /// <param name="max">The maximum</param>
             let toString exact max =
                 let b, vu = max |> toBoolValueUnit
 
                 $"""{vu |> ValueUnit.toStr exact}{if b then "]" else ">"}"""
 
 
+            /// <summary>
+            /// Get the markdown representation of a `Maximum`.
+            /// </summary>
+            /// <param name="prec">The precision</param>
+            /// <param name="max">The maximum</param>
             let toMarkdown prec max =
                 let b, vu = max |> toBoolValueUnit
 
