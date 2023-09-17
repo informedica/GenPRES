@@ -912,7 +912,13 @@ module Variable =
         module ValueSet =
 
 
-            /// Create a `ValueSet` from a set of `BigRational`.
+            /// <summary>
+            /// Create a `ValueSet` from a `ValueUnit`.
+            /// </summary>
+            /// <param name="vu">The ValueUnit</param>
+            /// <returns>A `ValueSet`</returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyValueSetException">When the `ValueSet` is empty</exception>
+            /// <exception cref="Exceptions.ValueSetOverflow">When the `ValueSet` has too many values</exception>
             let create vu =
                 if vu |> ValueUnit.isEmpty then
                     Exceptions.ValueRangeEmptyValueSet |> raiseExc []
@@ -920,19 +926,33 @@ module Variable =
                 else
                     if (vu |> ValueUnit.getValue).Length > (Constants.MAX_CALC_COUNT * Constants.MAX_CALC_COUNT) then
                         (vu |> ValueUnit.getValue).Length
-                        |> Exceptions.ValueRangeTooManyValues
+                        |> Exceptions.ValueSetOverflow
                         |> raiseExc []
                     else
                         vu
                         |> ValueSet
 
 
+            /// <summary>
+            /// Get the `ValueUnit` of a `ValueSet`.
+            /// </summary>
             let toValueUnit (ValueSet vu) = vu
 
 
+            /// <summary>
+            /// Map f to the `ValueUnit` of a `ValueSet`.
+            /// </summary>
+            /// <param name="f">The mapping function</param>
             let map f (ValueSet vu) = vu |> f |> create
 
 
+            /// <summary>
+            /// Prune the `ValueUnit` of a `ValueSet`. This means that
+            /// the number of values is reduced to a constant **PRUNE**.
+            /// </summary>
+            /// <remarks>
+            /// The minimum and maximum values are always kept.
+            /// </remarks>
             let prune =
                 fun vu ->
                     let v =
@@ -944,27 +964,54 @@ module Variable =
                 |> map
 
 
+            /// <summary>
+            /// Convert the unit of a `ValueSet` to **u**.
+            /// </summary>
             let setUnit u = map (ValueUnit.convertTo u)
 
 
-            // ToDo refactor to just ValueUnit.getMin
+            /// <summary>
+            /// Get the minimum value of a `ValueSet`.
+            /// </summary>
             let getMin (ValueSet vu) = vu |> Minimum.minElement
 
 
-            // ToDo idem
+            /// <summary>
+            /// Get the maximum value of a `ValueSet`.
+            /// </summary>
             let getMax (ValueSet vu) = vu |> Maximum.maxElement
 
 
+            /// <summary>
+            /// Count the number of values in a `ValueSet`.
+            /// </summary>
             let count (ValueSet vu) =
                 vu |> ValueUnit.getValue |> Array.length
 
 
+            /// <summary>
+            /// Check if a `ValueSet` is empty.
+            /// </summary>
             let isEmpty (ValueSet vu) = vu |> ValueUnit.isEmpty
 
 
+            /// <summary>
+            /// Check if a `ValueSet` contains a value.
+            /// </summary>
+            /// <param name="v">The value to check</param>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram.
+            /// </remarks>
             let contains v (ValueSet vu) = vu |> ValueUnit.containsValue v
 
 
+            /// <summary>
+            /// Calculate the intersection of two `ValueSet`s.
+            /// </summary>
+            /// <remarks>
+            /// Returns a 'ValueSet' that contains the values that are
+            /// in both 'ValueSet's and that has the unit of the first 'ValueSet'.
+            /// </remarks>
             let intersect (ValueSet vu1) (ValueSet vu2) =
                 vu1
                 |> ValueUnit.intersect vu2
@@ -972,21 +1019,54 @@ module Variable =
                 |> create
 
 
+            /// <summary>
+            /// Check if the first `ValueSet` is a subset of the second `ValueSet`.
+            /// </summary>
             let isSubset (ValueSet vu1) (ValueSet vu2) = ValueUnit.isSubset vu1 vu2
 
 
+            /// <summary>
+            /// Check if the first `ValueSet` is equal to the second `ValueSet`.
+            /// </summary>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram.
+            /// </remarks>
             let eqs (ValueSet vu1) (ValueSet vu2) = vu1 =? vu2
 
 
+            /// <summary>
+            /// Filters out the values that are zero or negative.
+            /// </summary>
+            /// <remarks>
+            /// Will throw an exception if the resulting `ValueSet` is empty.
+            /// </remarks>
             let nonZeroNonNeg =
                 map (ValueUnit.filterValues (fun br -> br > 0N))
 
 
+            /// <summary>
+            /// Apply a binary operator to two `ValueSet`s.
+            /// </summary>
+            /// <param name="op">The operator to apply</param>
             let calc op (ValueSet s1) (ValueSet s2) =
                 s1 |> op <| s2 |>
                 create
 
 
+            /// <summary>
+            /// Create a `ValueSet` from an `Increment`, `Minimum` and a `Maximum`.
+            /// </summary>
+            /// <param name="min">The minimum</param>
+            /// <param name="incr">The increment</param>
+            /// <param name="max">The maximum</param>
+            /// <remarks>
+            /// If the increment is the result of a calculation, it is possible
+            /// that the set will contain more values that would be obtained by the
+            /// calculation. If you multiply a `ValueSet` [3;6] with a `ValueSet`
+            /// [2;4;6] you get [6;12;18;24;36]. However, if you create a value set
+            /// using a minimum of 6, an increment of 6 and a maximum of 36, you get
+            /// [6;12;18;24;30;36]. However 30 cannot be multiplying [3;6] with [2;4;6].
+            /// </remarks>
             let minIncrMaxToValueSet min incr max =
                     let min =
                         min
@@ -1009,13 +1089,16 @@ module Variable =
                                     |> Seq.toArray
                         |]
                         |> Array.collect id
-                        |> fun xs -> if xs.Length > Constants.MAX_CALC_COUNT then [||] else xs
                     )
                     |> ValueUnit.toUnit
                     |> create
 
 
-            // ToDo refactor
+
+            /// <summary>
+            /// Get a string representation of a `ValueSet`.
+            /// </summary>
+            /// <param name="exact">Whether values should be printed 'exact'</param>
             let toString exact (ValueSet vs) =
                 let count =
                     ValueUnit.getValue >> Array.length
@@ -1028,6 +1111,10 @@ module Variable =
                     $"[{first3 |> ValueUnit.toStr exact} .. {last3 |> ValueUnit.toStr exact}]"
 
 
+            /// <summary>
+            /// Get a markdown representation of a `ValueSet`.
+            /// </summary>
+            /// <param name="prec">The precision to print values with</param>
             let toMarkdown prec (ValueSet vs) =
                 let count =
                     ValueUnit.getValue >> Array.length

@@ -63,11 +63,14 @@ calcIncrSub x y
 
 
 test <@
-    let x = [3N..3N..12N]
-    let y = [2N..2N..10N]
+    let x = [3N..3N..6N]
+    let y = [2N..2N..6N]
     let exp = calc (*) x y
-    let act = calcIncrMul x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
-    exp <> (Seq.toList act) &&
+    let act =
+        calcIncrMul x y
+        |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+        |> Seq.toList
+    exp = act &&
     Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq)
 @>
 

@@ -142,7 +142,7 @@ module rec Types =
             | ValueRangeMinLargerThanMax of Minimum * Maximum
             | ValueRangeNotAValidOperator
             | ValueRangeEmptyValueSet
-            | ValueRangeTooManyValues of valueCount: int
+            | ValueSetOverflow of valueCount: int
             | ValueRangeEmptyIncrement
             | ValueRangeMinShouldHaveOneValue of ValueUnit
             | ValueRangeMinOverFlow of Minimum

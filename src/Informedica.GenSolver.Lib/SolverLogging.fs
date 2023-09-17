@@ -87,7 +87,7 @@ module SolverLogging =
 
     | Exceptions.ValueRangeEmptyIncrement -> "Increment can not be an empty set"
 
-    | Exceptions.ValueRangeTooManyValues c ->
+    | Exceptions.ValueSetOverflow c ->
         $"Trying to calculate with {c} values, which is higher than the max calc count {Constants.MAX_CALC_COUNT}"
 
     | Exceptions.ConstraintVariableNotFound (c, eqs) ->
