@@ -23,6 +23,25 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenSolver.Lib
 
 
+[1..10]
+|> List.filter (fun x -> x % 2 = 0)
+
+module List =
+
+    let filter _ (xs: 'a list) =
+        printfn "hello world"
+
+
+[1..10]
+|> List.filter (fun x -> x % 2 = 0)
+
+
+module OriginalList =
+
+     let filter = Microsoft.FSharp.Collections.List.filter
+
+OriginalList.filter
+
 [|3N/20N; 3N/10N; 1N/2N; 1N; 2N; 5N; 10N|]
 |> Array.allPairs [|1N/10N; 1N/5N; 1N/2N; 1N; 2N; 10N/3N; 20N/3N|]
 |> Array.map (fun (x1, x2) -> x1 * x2)
