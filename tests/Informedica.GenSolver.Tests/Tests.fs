@@ -26,7 +26,7 @@ module Generators =
         n / d
 
 
-    let bigRGenOpt (n, d) = bigRGen (n, 1) |> Some
+    let bigRGenOpt (n, _) = bigRGen (n, 1) |> Some
 
 
     let bigRGenerator =
@@ -94,14 +94,8 @@ module Expecto =
 
 module TestSolver =
 
-    open System
-    open System.IO
-
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib
-    open Informedica.Utils.Lib.BCL
-    open MathNet.Numerics
-    open Types
 
     module Api = Informedica.GenSolver.Lib.Api
     module Solver = Informedica.GenSolver.Lib.Solver

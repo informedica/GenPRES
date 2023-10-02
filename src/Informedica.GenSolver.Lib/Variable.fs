@@ -2529,6 +2529,7 @@ module Variable =
             let calcMax = calc Maximum.create
 
 
+            /// get the smallest minimum
             let minimize min1 min2 =
                 match min1, min2 with
                 | None, None -> None
@@ -2542,6 +2543,7 @@ module Variable =
                     |> Some
 
 
+            /// get the largest maximum
             let maximize max1 max2 =
                 match max1, max2 with
                 | None, None -> None
@@ -2557,7 +2559,6 @@ module Variable =
 
             /// Match a min, max tuple **min**, **max**
             /// to:
-            ///
             /// * `PP`: both positive
             /// * `NN`: both negative
             /// * `NP`: one negative, the other positive
@@ -2743,9 +2744,8 @@ module Variable =
         /// Doesn't perform any calculation when both
         /// **x1** and **x2** are `Unrestricted`.
         let calc onlyMinIncrMax op (x1, x2) =
-            //printfn "start valuerange calc"
+
             let calcMinMax min1 max1 min2 max2 =
-                //printfn "start minmax calc"
                 let getMin m =
                     let incl =
                         match m with
