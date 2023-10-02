@@ -1272,7 +1272,6 @@ module Variable =
         /// <param name="fIncrMax">The function to apply to an `IncrMax`</param>
         /// <param name="fMinIncrMax">The function to apply to a `MinIncrMax`</param>
         /// <param name="fValueSet">The function to apply to a `ValueSet`</param>
-        /// <param name="vr">The `ValueRange`</param>
         /// <returns>The result of applying the function to the `ValueRange`</returns>
         let apply unr nonz fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
             function
@@ -1576,14 +1575,34 @@ module Variable =
                 raise e
 
 
+        /// <summary>
+        /// Check if max = min.
+        /// </summary>
+        /// <param name="max">The maximum</param>
+        /// <param name="min">The minimum</param>
+        /// <remarks>
+        /// Min can only be equal to max if both are inclusive!
+        /// </remarks>
         let minEQmax max min =
             match min, max with
             | Minimum.MinIncl min, Maximum.MaxIncl max -> min =? max
             | _ -> false
 
+
+        /// <summary>
         /// Checks whether `Minimum` **min** > `Maximum` **max**.
         /// Note that inclusivity or exclusivity of a minimum and maximum must be
         /// accounted for.
+        /// </summary>
+        /// <param name="max">The maximum</param>
+        /// <param name="min">The minimum</param>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+        /// let max = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+        /// min |> minGTmax max // returns true
+        /// </code>
+        /// </example>
         let minGTmax max min =
             match min, max with
             | Minimum.MinIncl min, Maximum.MaxIncl max -> min >? max
@@ -1591,7 +1610,23 @@ module Variable =
             | Minimum.MinExcl min, Maximum.MaxExcl max
             | Minimum.MinIncl min, Maximum.MaxExcl max -> min >=? max
 
-        /// Checks whether `Minimum` **min** <= `Maximum` **max**
+
+        /// <summary>
+        /// Checks whether `Minimum` **min** &lt;= `Maximum` **max**
+        /// </summary>
+        /// <param name="max">The maximum</param>
+        /// <param name="min">The minimum</param>
+        /// <remarks>
+        /// Note that inclusivity or exclusivity of a minimum and maximum must be
+        /// accounted for.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+        /// let max = Maximum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+        /// min |> minSTEmax max // returns false
+        /// </code>
+        /// </example>
         let minSTEmax max min = min |> minGTmax max |> not
 
 
@@ -1719,9 +1754,16 @@ module Variable =
             (incr, max |> maxMultipleOf incr) |> IncrMax
 
 
-        /// Create a `MinIncrMax` `ValueRange`. If **min** > **max** raises
-        /// an `MinLargetThanMax` exception. If min equals max, a `ValueSet` with
-        /// value min (=max).
+        /// <summary>
+        /// Create a `MinIncrMax` `ValueRange`. If onlyMinIncrMax is true
+        /// then a `MinIncrMax` `ValueRange` is created if possible.
+        /// Else a `ValueSet` `ValueRange` is created.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">If only a `MinIncrMax` should be created</param>
+        /// <param name="min">The minimum</param>
+        /// <param name="incr">The increment</param>
+        /// <param name="max">The maximum</param>
+        /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
         let minIncrMaxToValueRange onlyMinIncrMax min incr max =
             let min = min |> minMultipleOf incr
             let max = max |> maxMultipleOf incr
@@ -1752,16 +1794,25 @@ module Variable =
         let createMax isIncl m = m |> Maximum.create isIncl |> Max
 
 
+        /// <summary>
+        /// Create a `Range` with a `Minimum` and a `Maximum`.
+        /// </summary>
+        /// <param name="min">The minimum</param>
+        /// <param name="minIncl">Whether the minimum is inclusive</param>
+        /// <param name="max">The maximum</param>
+        /// <param name="maxIncl">Whether the maximum is inclusive</param>
         let createMinMax min minIncl max maxIncl =
             let min = min |> Minimum.create minIncl
             let max = max |> Maximum.create maxIncl
 
             minMaxToValueRange min max
 
-        /// Create a `Range` with a `Minimum`, `Increment` and a `Maximum`.
+
+        /// Create a `ValueRange` with a `Minimum`, `Increment` and a `Maximum`.
         let createIncr = Increment.create >> Incr
 
 
+        /// Create a `ValueSet` `ValueRange`.
         let createValSet brs = brs |> ValueSet.create |> ValSet
 
 
@@ -1772,16 +1823,32 @@ module Variable =
             |> minIncrToValueRange (Minimum.create min minIncl)
 
 
+        /// Create a `IncrMax` `ValueRange`.
         let createIncrMax incr max maxIncl =
             max
             |> Maximum.create maxIncl
             |> incrMaxToValueRange (incr |> Increment.create)
 
 
-        /// Create a `ValueRange` using a `ValueSet` **vs**
-        /// an optional `Minimum` **min**, **incr** and `Maximum` **max**.
-        /// If both **min**, **incr** and **max** are `None` an `Unrestricted`
-        /// `ValueRange` is created.
+        /// <summary>
+        /// Create a ValueRange depending on the values of **min**, **incr** and **max**.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
+        /// <param name="min">Optional Minimum</param>
+        /// <param name="incr">Optional Increment</param>
+        /// <param name="max">Optional Maximum</param>
+        /// <param name="vs">Optional ValueSet</param>
+        /// <returns>A `ValueRange`</returns>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let max = Maximum.create true ( [| 5N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let incr = None
+        /// let vs = None
+        /// create true min incr max vs
+        /// // returns MinMax (Minimum.MinIncl (ValueUnit ([|3N|], Mass (Gram 1N))), Maximum.MaxIncl (ValueUnit ([|5N|], Mass (Gram 1N))))
+        /// </code>
+        /// </example>
         let create onlyMinIncrMax min incr max vs =
             match vs with
             | None ->
@@ -1853,28 +1920,63 @@ module Variable =
             apply None None Option.none Option.none Option.none Option.none Option.none Option.none Option.none Some
 
 
-        /// Check whether a `ValueRange` **vr** contains
-        /// a `BigRational` **v**.
-        let contains v vr =
+        /// <summary>
+        /// Checks whether a value is in a `ValueRange`.
+        /// </summary>
+        /// <param name="vu">The ValueUnit (value)</param>
+        /// <param name="vr">The ValueRange</param>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let vr = create true min None None None
+        /// let vu = [| 4N |] |> ValueUnit.create Units.Mass.gram
+        /// vr |> contains vu // returns true
+        /// let incr = Increment.create ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let vr = create true None incr None None
+        /// vr |> contains vu // returns false
+        /// </code>
+        /// </example>
+        let contains vu vr =
             match vr with
-            | ValSet vs -> vs |> ValueSet.contains v
+            | ValSet vs -> vs |> ValueSet.contains vu
             | _ ->
                 let min = vr |> getMin
                 let max = vr |> getMax
 
                 let incr = vr |> getIncr
 
-                v
+                vu
                 |> ValueUnit.getBaseValue
                 |> Array.forall (isBetweenMinMax min max)
-                && v
+                && vu
                    |> ValueUnit.getBaseValue
                    |> Array.forall (isMultipleOfIncr incr)
 
 
-        /// Apply a **incr** to a `ValueRange` **vr**.
-        /// If increment cannot be set the original is returned.
-        /// So, the resulting increment is always more restrictive as the previous one
+        /// <summary>
+        /// Apply a new **newIncr** to a `ValueRange` **vr**.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
+        /// <param name="newIncr">The new increment</param>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <remarks>
+        /// A new increment can only be set if it is a multiple of the previous increment.
+        /// If a new increment cannot be set, the original ValueRange is returned. So
+        /// the resulting ValueRange will be equal or more restrictive than the original.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let vr = create true min incr None None
+        /// // a value range with a minimum = 4 and an increment = 2
+        /// let newIncr = Increment.create ( [| 6N |] |> ValueUnit.create Units.Mass.gram)
+        /// vr |> setIncr true newIncr
+        /// // returns [6..6..>, i.e. a ValueRange with a Minimum = 4 and
+        /// // and increment = 4
+        /// </code>
+        /// </example>
         let setIncr onlyMinIncrMax newIncr vr =
             let restrict = Increment.restrict newIncr
 
@@ -1911,9 +2013,30 @@ module Variable =
             |> apply (newIncr |> Incr) nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet
 
 
-        /// Apply a `Minimum` **min** to a `ValueRange` **vr**.
-        /// If minimum cannot be set the original `Minimum` is returned.
-        /// So, it always returns a more restrictive, i.e. larger, or equal `Minimum`.
+        /// <summary>
+        /// Apply a new `Minimum` **newMin** to a `ValueRange` **vr**.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
+        /// <param name="newMin">The new `Minimum`</param>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <remarks>
+        /// A new minimum can only be set if it is larger than the previous minimum.
+        /// Also, when an increment is set, the new minimum must be a multiple of the
+        /// increment. When a new minimum cannot be set, the original ValueRange is returned.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let vr = create true min incr None None
+        /// // a value range with a minimum = 4 and an increment = 2
+        /// let newMin = Minimum.create true ( [| 5N |] |> ValueUnit.create Units.Mass.gram)
+        /// vr |> setMin true newMin
+        /// // returns [6..2..>, i.e. a ValueRange with a Minimum = 6 and
+        /// // and increment = 2
+        /// </code>
+        /// </example>
         let setMin onlyMinIncrMax newMin (vr: ValueRange) =
             let restrict = Minimum.restrict newMin
 
@@ -1945,7 +2068,27 @@ module Variable =
             |> apply (newMin |> Min) nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet
 
 
-
+        /// <summary>
+        /// Apply a new `Maximum` **newMax** to a `ValueRange` **vr**.
+        /// </summary>
+        /// <remarks>
+        /// If maximum cannot be set the original `ValueRange` is returned.
+        /// So it always returns an equal or more restrictive, ValueRange.
+        /// </remarks>
+        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
+        /// <param name="newMax">The new `Maximum`</param>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <example>
+        /// <code>
+        /// let max = Maximum.create true ( [| 5N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let vr = create true None None max None
+        /// // a value range with a maximum = 5
+        /// let newMax = Maximum.create true ( [| 4N |] |> ValueUnit.create Units.Mass.gram)
+        /// vr |> setMax true newMax
+        /// // returns a ValueRange with a Maximum = 4
+        /// </code>
+        ///</example>
         let setMax onlyMinIncrMax newMax (vr: ValueRange) =
             let restrict = Maximum.restrict newMax
 
@@ -1977,6 +2120,27 @@ module Variable =
             |> apply (newMax |> Max) nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet
 
 
+        /// <summary>
+        /// Apply a new `ValueSet` **newVs** to a `ValueRange` **vr**.
+        /// </summary>
+        /// <param name="newVs">The new ValueSet</param>
+        /// <param name="vr">The ValueRange</param>
+        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <remarks>
+        /// The resulting ValueRange will be equal or more restrictive than the original.
+        /// This means that if the new ValueSet is empty, the original ValueRange is returned.
+        /// If the new ValueSet contains values the result will be an intersection of the
+        /// original ValueRange and the new ValueSet.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let vs = [| 1N..1N..10N |] |> ValueUnit.create Units.Mass.gram |> ValueSet.create
+        /// let vr = create true None None None (Some vs)
+        /// let newVs = [| 6N..2N..16N |] |> ValueUnit.create Units.Mass.gram |> ValueSet.create
+        /// vr |> setValueSet newVs
+        /// // returns a ValueRange with a values 6, 8 and 10
+        /// </code>
+        /// </example>
         let setValueSet newVs (vr: ValueRange) =
             let min, incr, max, oldVs =
                 vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
@@ -1987,6 +2151,12 @@ module Variable =
             |> ValSet
 
 
+        /// <summary>
+        /// Make a ValueRange non zero and non negative. I.e. with at least
+        /// a minimum that excludes zero.
+        /// </summary>
+        /// <param name="vr">The ValueRange</param>
+        /// <returns>The resulting (more restrictive) non zero and non negative `ValueRange`</returns>
         let nonZeroNonNegative vr =
             let fMin min = min |> Minimum.nonZeroNonNeg |> Min
 
@@ -2041,14 +2211,35 @@ module Variable =
                 fValueSet
 
 
+        /// <summary>
+        /// Get the count of a ValueRange with a Minimum, Increment and a Maximum.
+        /// </summary>
+        /// <param name="min">The Minimum</param>
+        /// <param name="incr">The Increment</param>
+        /// <param name="max">The Maximum</param>
+        /// <returns>The count of the ValueRange</returns>
+        /// <remarks>
+        /// The Minimum and Maximum are restricted to multiples of the Increment.
+        /// Therefore, they will also be inclusive.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
+        /// let max = Maximum.create true ( [|7N |] |> ValueUnit.create Units.Mass.gram)
+        /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram)
+        /// minIncrMaxCount min incr max // returns 2
+        /// </code>
+        /// </example>
         let minIncrMaxCount min incr max =
                 let min =
                     min
+                    |> Minimum.multipleOf incr
                     |> Minimum.toValueUnit
                     |> ValueUnit.getBaseValue
 
                 let max =
                     max
+                    |> Maximum.multipleOf incr
                     |> Maximum.toValueUnit
                     |> ValueUnit.getBaseValue
 
@@ -2061,21 +2252,48 @@ module Variable =
                             for ma in max do
                                 if i > (ma - mi) then 0N
                                 else
-                                    (ma - mi) / i
+                                    1N + (ma - mi) / i
                     |]
                     |> Array.sum
                 )
                 |> Array.sum
 
 
-        let increaseIncrement lim incr vr =
+        /// <summary>
+        /// Try and increase the increment of a `ValueRange` **vr** to an
+        /// increment in incrs such that the resulting ValueRange contains
+        /// at most maxCount values.
+        /// </summary>
+        /// <param name="maxCount">The maximum count</param>
+        /// <param name="incrs">The increment list</param>
+        /// <param name="vr">The ValueRange</param>
+        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <remarks>
+        /// When there is no increment in the list that can be used to increase
+        /// the increment of the ValueRange to the maximum count, the largest possible
+        /// increment is used.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let min = Minimum.create true ( [| 2N |] |> ValueUnit.create Units.Mass.gram)
+        /// let max = Maximum.create true ( [| 1_000N |] |> ValueUnit.create Units.Mass.gram)
+        /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram)
+        /// minIncrMaxCount min incr max // returns 500
+        /// let incrs = [2N;20N;50N;100N;500N] |> List.map (fun i -> Increment.create ( [| i |] |> ValueUnit.create Units.Mass.gram))
+        /// let vr = create true (Some min) (Some incr) (Some max) None
+        /// increaseIncrement 10N incrs vr
+        /// // returns a ValueRange with a Minimum = 100 and an Increment = 100
+        /// // and a Maximum = 1_000, such that the count of the ValueRange is &lt;= 10
+        /// </code>
+        /// </example>
+        let increaseIncrement maxCount incrs vr =
             match vr with
             | MinIncrMax (min, _, max) ->
-                incr
+                incrs
                 |> List.fold (fun (b, acc) i ->
                     if b then (b, acc)
                     else
-                        let b = minIncrMaxCount min i max <= lim
+                        let b = minIncrMaxCount min i max <= maxCount
                         try
                             let acc = acc |> setIncr true i
                             (b, acc)
@@ -2086,6 +2304,7 @@ module Variable =
             |> snd
 
 
+        /// Check if ValueRange vr1 is equal to ValueRange vr2.
         let eqs vr1 vr2 =
             match vr1, vr2 with
             | Unrestricted, Unrestricted
@@ -2110,8 +2329,9 @@ module Variable =
             | _ -> false
 
 
-        /// Create a string (to print) representation of a `ValueRange`.
-        /// `Exact` true prints exact bigrationals, when false
+        /// Create a string (to print) representation of a `ValueRange` by
+        /// supplying the optional min, incr and max of the ValueRange.
+        /// `Exact` true prints exact BigRationals, when false
         /// print as floating numbers
         let print exact isNonZero min incr max vs =
             if isNonZero then
@@ -2170,7 +2390,7 @@ module Variable =
 
 
 
-        /// Convert a `ValueRange` to a `string`.
+        /// Convert a `ValueRange` to a markdown `string`.
         let toMarkdown prec vr =
             let print prec isNonZero min max vs =
                 if isNonZero then
@@ -2225,64 +2445,80 @@ module Variable =
         /// and `Maximum` in a `ValueRange`.
         /// I.e. what happens when you mult, div, add or subtr
         /// a `Range`, for example:
-        /// <1N..3N> * <4N..5N> = <4N..15N>
+        /// <1N..3N] * <4N..5N> = <4N..15N>
         module MinMaxCalculator =
 
+            open Utils.ValueUnit.Operators
 
             /// Calculate **x1** and **x2** with operator **op**
             /// and use **incl1** and **inc2** to determine whether
             /// the result is inclusive. Use constructor **c** to
             /// create the optional result.
-            let calc c op (x1, incl1) (x2, incl2) =
-                // printfn "start minmax calc"
-                let opIsMultOrDiv =
-                    (op |> ValueUnit.Operators.opIsMult
-                     || op |> ValueUnit.Operators.opIsDiv)
-
-                let incl =
+            let calc c op x1 x2 =
+                let (vu1Opt, incl1), (vu2Opt, incl2) = x1, x2
+                // determine if the result should be inclusive
+                let isIncl =
                     match incl1, incl2 with
                     | true, true -> true
                     | _ -> false
-                // printfn "start minmax calc match"
-                match x1, x2 with
-                // This disables correct unit calculation!!
-                | Some v, None when opIsMultOrDiv && v |> ValueUnit.isZero ->
-                    0N
-                    |> ValueUnit.singleWithUnit ZeroUnit
-                    |> c incl1
-                    |> Some
 
-                | Some v, None
-                | None, Some v when
-                    op |> ValueUnit.Operators.opIsMult
-                    && v |> ValueUnit.isZero
-                    ->
+                let createZero incl =
                     0N
                     |> ValueUnit.singleWithUnit ZeroUnit
                     |> c incl
                     |> Some
 
-                | Some _, None when op |> ValueUnit.Operators.opIsDiv ->
-                    0N
-                    |> ValueUnit.singleWithUnit ZeroUnit
-                    |> c incl
-                    |> Some
+                let vu1IsZero, vu2IsZero =
+                    vu1Opt |> Option.map ValueUnit.isZero |> Option.defaultValue false,
+                    vu2Opt |> Option.map ValueUnit.isZero |> Option.defaultValue false
 
-                | Some v1, Some v2 when
-                    v1 |> ValueUnit.hasZeroUnit
-                    || v2 |> ValueUnit.hasZeroUnit
-                    ->
-                    None
+                match vu1Opt, incl1, vu2Opt, incl2, vu1IsZero, vu2IsZero, op with
+                // if both values are None then the result is None
+                | None, _, None, _, _, _, _ -> None
+                // if both values are Some and are not zero then the result is Some
+                | Some v1, _, Some v2, _, false, false, _ -> v1 |> op <| v2 |> c isIncl |> Some
 
-                // Units can correctly be calculated if both have dimensions
-                | Some v1, Some v2 ->
-                    if op |> ValueUnit.Operators.opIsDiv
-                       && v2 |> ValueUnit.isZero then
-                        None
-                    else
-                        v1 |> op <| v2 |> c incl |> Some
+                // MULTIPLICATION
+                // when any of the two values is zero incl, the result
+                // of multiplication will always be zero incl
+                | _, true, _, _, true, _, Mult
+                | _, _, _, true, _, true, Mult -> createZero true
+                // when any of the two values is zero excl, the result
+                // of multiplication will always be zero excl
+                | _, false, _, _, true, _, Mult
+                | _, _, _, false, _, true, Mult -> createZero false
+                // multiplication by Some non zero by a None will result in a None
+                | None, _, Some _, _, false, false, Mult
+                | Some _, _, None, _, false, false, Mult -> None
 
-                | _ -> None
+                // DIVISION
+                // division by zero incl is not possible, so an exception is thrown
+                | _, _, _, true, _, true, Div ->
+                    DivideByZeroException("MinMaxCalculator tries to divide by zero") |> raise
+                // division by zero excl is possible, but the result is None
+                | _, _, _, false, _, true, Div -> None
+                // a zero value that divided by another value will always result in zero
+                | _, _, _, _, true, _, Div -> createZero incl1
+                // a None divided by any nonzero Some value will be None
+                | None, _, Some _, _, false, false, Div -> None
+                // any value that is divided by an unlimited value will
+                // result in zero value that is exclusive, i.e. will
+                // approach zero but never reach it
+                | Some _, _, None, _, false, false, Div -> createZero false
+
+                // ADDITION
+                // adding a None to another value always results in a None
+                | None, _, Some _, _, _, _, Add
+                | Some _, _, None, _, _, _, Add -> None
+                // in any other case we can calculate the result
+                | Some v1, _, Some v2, _, _, _, Add -> v1 |> op <| v2 |> c isIncl |> Some
+
+                // SUBTRACTION
+                // subtracting a None to another value always results in a None
+                | None, _, Some _, _, _, _, Subtr
+                | Some _, _, None, _, _, _, Subtr -> None
+                // in any other case we can calculate the result
+                | Some v1, _, Some v2, _, _, _, Subtr -> v1 |> op <| v2 |> c isIncl |> Some
 
 
             /// Calculate an optional `Minimum`
@@ -2494,10 +2730,10 @@ module Variable =
             /// according to the operand
             let calcMinMax op =
                 match op with
-                | ValueUnit.Operators.Mult -> multiplication
-                | ValueUnit.Operators.Div -> division
-                | ValueUnit.Operators.Add -> addition
-                | ValueUnit.Operators.Subtr -> subtraction
+                | Mult -> multiplication
+                | Div -> division
+                | Add -> addition
+                | Subtr -> subtraction
 
 
         /// Applies an infix operator **op**
@@ -2828,6 +3064,12 @@ module Variable =
             raise e
 
 
+    /// <summary>
+    /// Try and increase the increment of a `Variable`
+    /// </summary>
+    /// <param name="lim"></param>
+    /// <param name="incr"></param>
+    /// <param name="var"></param>
     let increaseIncrement lim incr var =
         if var |> isMinIncrMax |> not then var
         else

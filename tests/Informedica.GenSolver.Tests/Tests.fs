@@ -1,12 +1,10 @@
 namespace Informedica.GenSolver.Tests
 
 open System
-//open System.IO
-
 open Informedica.Utils.Lib
 
 
-
+//Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 
 
@@ -204,7 +202,6 @@ module Tests =
     open Expecto
     open Expecto.Flip
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib
@@ -626,7 +623,6 @@ module Tests =
                                 [|300N|] |> ValueUnit.create mgPerKgPerDay
                                 |> Maximum.create true
                             Expect.isTrue "should be true" (max1 |> Maximum.maxSTmax max2)
-
                         }
 
                         fun b m ->
@@ -671,6 +667,276 @@ module Tests =
                     ]
 
 
+            module MinMaxCalculatorTests =
+
+                open Informedica.GenSolver.Lib.Variable.ValueRange
+
+                let create isIncl brOpt =
+                    brOpt
+                    |> Option.map (fun br -> Units.Count.times |> ValueUnit.withSingleValue br),
+                    isIncl
+
+
+                let calc = MinMaxCalculator.calc (fun b vu -> Some vu, b)
+
+                let tests = testList "minmax calculator" [
+                    testList "Multiplication" [
+                        // multiplication of two values, both are None
+                        // should return None
+                        test "x1 = None and x2 = None" {
+                            let x1 = None |> create true
+                            let x2 = None |> create true
+                            calc (*) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // multiplication of two values, the first is Some 1
+                        // and the second is None should return None
+                        test "x1 = Some 1 and x2 = None" {
+                            let x1 = Some 1N |> create true
+                            let x2 = None |> create true
+                            calc (*) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // multiplication of two values, the first is None
+                        // and the second is Some 1 should return None
+                        test "x1 = None and x2 = Some 1" {
+                            let x1 = None |> create true
+                            let x2 = Some 1N |> create true
+                            calc (*) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // multiplication of two values, the first is Some 1
+                        // and the second is Some 1 should return Some 1
+                        test "x1 = Some 1 and x2 = Some 1" {
+                            let x1 = Some 1N |> create true
+                            let x2 = Some 1N |> create true
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 1" (Some 1N |> create true |> Some)
+                        }
+                        // multiplication of two values, the first is Some 1
+                        // and the second is Some 2 should return Some 2.
+                        // When the first value is exclusive, the result should be exclusive
+                        test "x1 = Some 1, excl and x2 = Some 2, incl" {
+                            let x1 = Some 1N |> create false
+                            let x2 = Some 2N |> create true
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 2, exclusive" (Some 2N |> create false |> Some)
+                        }
+                        // multiplication of two values, the first is Some 1
+                        // and the second is Some 2 should return Some 2.
+                        // When the both values are exclusive, the result should be exclusive
+                        test "x1 = Some 1, excl and x2 = Some 2, excl" {
+                            let x1 = Some 1N |> create false
+                            let x2 = Some 2N |> create false
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 2, exclusive" (Some 2N |> create false |> Some)
+                        }
+                        // multiplication of two values and the first value is Some 0 and
+                        // the second value is None, results in Some 0 with ZeroUnit!
+                        test "x1 = Some 0 and x2 = None" {
+                            let x1 = Some 0N |> create true
+                            let x2 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 0" ((Some zero, true) |> Some)
+                        }
+                        // multiplication of two values and the first value is None and
+                        // the second value is Some 0, results in Some 0 with ZeroUnit!
+                        test "x1 = None and x2 = Some 0" {
+                            let x2 = Some 0N |> create true
+                            let x1 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 0" ((Some zero, true) |> Some)
+                        }
+                        // multiplication of two values and the first value is Some 0 excl and
+                        // the second value is None, results in Some 0 with ZeroUnit, excl!
+                        test "x1 = Some 0, excl and x2 = None, incl" {
+                            let x1 = Some 0N |> create false
+                            let x2 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 0, excl" ((Some zero, false) |> Some)
+                        }
+                        // multiplication of two values and the first value is Some 0 incl and
+                        // the second value is None excl, results in Some 0 with ZeroUnit, incl!
+                        test "x1 = Some 0, incl and x2 = None, excl" {
+                            let x1 = Some 0N |> create true
+                            let x2 = None |> create false
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (*) x1 x2
+                            |> Expect.equal "should be Some 0, incl" ((Some zero, true) |> Some)
+                        }
+                    ]
+
+                    testList "Division" [
+                        // division of two values, both are None
+                        // should return None
+                        test "x1 = None and x2 = None" {
+                            let x1 = None |> create true
+                            let x2 = None |> create true
+                            calc (/) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // division of two values, the first is Some 0
+                        // and the second is None should return Some 0
+                        // with zero unit
+                        test "x1 = Some 0 and x2 = None" {
+                            let x1 = Some 0N |> create true
+                            let x2 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (/) x1 x2
+                            |> Expect.equal "should be Some 0" ((Some zero, true) |> Some)
+                        }
+                        // division of two values, the first is Some 0, excl
+                        // and the second is None should return Some 0
+                        // with zero unit, excl
+                        test "x1 = Some 0, excl and x2 = None" {
+                            let x1 = Some 0N |> create false
+                            let x2 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (/) x1 x2
+                            |> Expect.equal "should be Some 0" ((Some zero, false) |> Some)
+                        }
+                        // division of two values, the first is Some 1
+                        // and the second is None should return Some 0, excl
+                        // with ZeroUnit
+                        test "x1 = Some 1 and x2 = None" {
+                            let x1 = Some 1N |> create true
+                            let x2 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (/) x1 x2
+                            |> Expect.equal "should be Some 0, excl" ((Some zero, false) |> Some)
+
+                            let x1 = Some 1N |> create false
+                            let x2 = None |> create true
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (/) x1 x2
+                            |> Expect.equal "should be Some 0, excl" ((Some zero, false) |> Some)
+
+                            let x1 = Some 1N |> create true
+                            let x2 = None |> create false
+                            let zero = 0N |> ValueUnit.singleWithUnit ZeroUnit
+                            calc (/) x1 x2
+                            |> Expect.equal "should be Some 0, excl" ((Some zero, false) |> Some)
+                        }
+                        // division of two values, the first is Some 1 and the
+                        // second value is Zero incl, should throw a DivideByZeroException
+                        // whatever the first value is
+                        test "x1 = Some 1 and x2 = Some 0, incl" {
+                            let x1 = Some 1N |> create true
+                            let x2 = Some 0N |> create true
+                            Expect.throws "should throw DivideByZeroException" (fun () -> calc (/) x1 x2 |> ignore)
+
+                            let x1 = None, true
+                            let x2 = Some 0N |> create true
+                            Expect.throws "should throw DivideByZeroException" (fun () -> calc (/) x1 x2 |> ignore)
+
+                            let x1 = Some 0N |> create true
+                            let x2 = Some 0N |> create true
+                            Expect.throws "should throw DivideByZeroException" (fun () -> calc (/) x1 x2 |> ignore)
+
+                            let x1 = Some 0N |> create false
+                            let x2 = Some 0N |> create true
+                            Expect.throws "should throw DivideByZeroException" (fun () -> calc (/) x1 x2 |> ignore)
+                        }
+                        // division by a value that approaches zero, should
+                        // return None, whatever the first value is
+                        test "x1 = Some 1 and x2 = Some 0, excl" {
+                            let x1 = Some 1N |> create true
+                            let x2 = Some 0N |> create false
+                            Expect.equal "should return None" None (calc (/) x1 x2)
+
+                            let x1 = None, false
+                            let x2 = Some 0N |> create false
+                            Expect.equal "should return None" None (calc (/) x1 x2)
+
+                            let x1 = Some 0N |> create true
+                            let x2 = Some 0N |> create false
+                            Expect.equal "should return None" None (calc (/) x1 x2)
+
+                            let x1 = Some 0N |> create false
+                            let x2 = Some 0N |> create false
+                            Expect.equal "should return None" None (calc (/) x1 x2)
+                        }
+                    ]
+
+                    testList "Addition" [
+                        // addition of two values, both are None
+                        // should return None
+                        test "x1 = None and x2 = None" {
+                            let x1 = None |> create true
+                            let x2 = None |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // addition of two values, the first is Some 1
+                        // and the second is None should return None
+                        test "x1 = Some 1 and x2 = None" {
+                            let x1 = Some 1N |> create true
+                            let x2 = None |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // addition of two values, the first is None
+                        // and the second is Some 1 should return None
+                        test "x1 = None and x2 = Some 1" {
+                            let x1 = None |> create true
+                            let x2 = Some 1N |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be None" None
+                        }
+                        // addition of two values, the first is Some 1
+                        // and the second is Some 1 should return Some 2
+                        test "x1 = Some 1 and x2 = Some 1" {
+                            let x1 = Some 1N |> create true
+                            let x2 = Some 1N |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be Some 2" (Some 2N |> create true |> Some)
+                        }
+                        // addition of two values, the first is Some 1
+                        // and the second is Some 2 should return Some 3.
+                        // When the first value is exclusive, the result should be exclusive
+                        test "x1 = Some 1, excl and x2 = Some 2, incl" {
+                            let x1 = Some 1N |> create false
+                            let x2 = Some 2N |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be Some 3, exclusive" (Some 3N |> create false |> Some)
+                        }
+                        // addition of two values, the first is Some 1, incl
+                        // and the second is Zero incl should return Some 1, incl
+                        test "x1 = Some 1, incl and x2 = Some 0, incl" {
+                            let x1 = Some 1N |> create true
+                            let x2 = Some 0N |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be Some 1, incl" (x1 |> Some)
+                        }
+                        // addition of two values, the first is Some 1, excl
+                        // and the second is Zero incl should return Some 1, excl
+                        test "x1 = Some 1, excl and x2 = Some 0, incl" {
+                            let x1 = Some 1N |> create false
+                            let x2 = Some 0N |> create true
+                            calc (+) x1 x2
+                            |> Expect.equal "should be Some 1, excl" (x1 |> Some)
+                        }
+                        // addition of two values, the first is Some 1, incl
+                        // and the second is Zero excl should return Some 1, excl
+                        test "x1 = Some 1, incl and x2 = Some 0, excl" {
+                            let x1 = Some 1N |> create true
+                            let x2 = Some 0N |> create false
+                            calc (+) x1 x2
+                            |> Expect.equal "should be Some 1, incl" (Some 1N |> create false |> Some)
+                        }
+                        // addition of two values, the first is Some 1, excl
+                        // and the second is Zero excl should return Some 1, excl
+                        test "x1 = Some 1, excl and x2 = Some 0, excl" {
+                            let x1 = Some 1N |> create false
+                            let x2 = Some 0N |> create false
+                            calc (+) x1 x2
+                            |> Expect.equal "should be Some 1, excl" (x1 |> Some)
+                        }
+                    ]
+                ]
 
             module ValueRange = Variable.ValueRange
 
@@ -991,9 +1257,9 @@ module Tests =
                             Values =
                                 Variable.ValueRange.create
                                     true
-                                    ((31N) |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
+                                    (31N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
                                     ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
-                                    ((125N) |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
+                                    (125N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
                                     None
                         }
                         |> Variable.increaseIncrement 50N
@@ -1086,14 +1352,14 @@ module Tests =
     [<Tests>]
     let tests =
         [
-            //UtilsTests.tests
-            VariableTests.ValueRangeTests.tests
-            EquationTests.tests
             VariableTests.ValueRangeTests.IncrementTests.tests
             VariableTests.ValueRangeTests.MinimumTests.tests
             VariableTests.ValueRangeTests.MaximumTests.tests
-
+            VariableTests.ValueRangeTests.MinMaxCalculatorTests.tests
+            VariableTests.ValueRangeTests.tests
+            EquationTests.tests
         ]
         |> testList "GenSolver"
+
 
 

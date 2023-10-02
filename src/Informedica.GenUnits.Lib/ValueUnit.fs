@@ -43,8 +43,9 @@ module Array =
 
 type Unit =
     | NoUnit
-    // special case to enable efficient in min max calculations where
-    // either min or max approaches zero
+    // special case to enable efficient min max calculations where
+    // either min or max approaches zero, ZeroUnit means that whatever
+    // the actual unit of the value, the value is zero
     | ZeroUnit
     | CombiUnit of Unit * Operator * Unit
     | General of (string * BigRational)
