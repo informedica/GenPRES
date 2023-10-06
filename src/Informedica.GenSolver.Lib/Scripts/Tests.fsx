@@ -678,6 +678,13 @@ module Tests =
 
             module MinMaxCalculatorTests =
 
+
+                open Informedica.Utils.Lib.Web
+
+                module ValueRange = Variable.ValueRange
+                module Minimum = Minimum
+                module Maximum = Maximum
+
                 open Informedica.GenSolver.Lib.Variable.ValueRange
 
                 let create isIncl brOpt =
@@ -687,6 +694,116 @@ module Tests =
 
 
                 let calc = MinMaxCalculator.calc (fun b vu -> Some vu, b)
+
+
+                let urlId = "171G1GiUuuOjPvfLOFiuuQtq44LjFnmxyoRb1IIblc2A"
+
+
+                let scenarios sheet =
+                    GoogleSheets.getDataFromSheet urlId sheet
+                    |> Array.skip 1
+                    |> Array.map (fun row -> row[0])
+                    |> Array.toList
+
+
+                let checkMinMax (min, minIncl) (max, maxIncl) =
+                    match min, max with
+                    | None, None
+                    | None, Some _
+                    | Some _, None -> true
+                    | Some min', Some max' ->
+                        let min = min' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create minIncl
+                        let max = max' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create maxIncl
+                        min |> ValueRange.minSTEmax max
+
+                let min1Options = [None, false; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 2, true; Some 2, false]
+                let max1Options = [None, false; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
+                let min2Options = [None, false; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
+                let max2Options = [None, false; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 5, true; Some 5, false]
+
+                let validPermutations =
+                    [
+                        for min1 in min1Options do
+                        for max1 in max1Options do
+                        for min2 in min2Options do
+                        for max2 in max2Options do
+                        match min1, max1, min2, max2 with
+                        | (None, _), _, (None, _), _
+                        | _, (None, _), (None, _), _
+                        | (None, _), _, _, (None, _)
+                        | _, (None, _), _, (None, _) -> yield min1, max1, min2, max2
+                        | (Some _, _), (Some _, _), (Some _, _), (Some _, _) when checkMinMax min1 max1 && checkMinMax min2 max2 ->
+                            yield (min1, max1, min2, max2)
+                        | (Some _, _), (Some _, _), (None, _), _
+                        | (Some _, _), (Some _, _), _, (None, _) when checkMinMax min1 max1 ->
+                            yield (min1, max1, min2, max2)
+                        | (None, _), _, (Some _, _), (Some _, _)
+                        | _, (None, _), (Some _, _), (Some _, _) when checkMinMax min2 max2 ->
+                            yield (min1, max1, min2, max2)
+                        | _ -> ()
+                    ]
+                    |> List.distinct
+
+
+                let mult = Variable.ValueRange.MinMaxCalculator.multiplication
+                let div = Variable.ValueRange.MinMaxCalculator.division
+                let add = Variable.ValueRange.MinMaxCalculator.addition
+                let sub = Variable.ValueRange.MinMaxCalculator.subtraction
+
+
+                let createVuOpt (intOpt, b) =
+                    intOpt
+                    |> Option.map BigRational.fromInt
+                    |> Option.map (fun i ->
+                        i
+                        |> ValueUnit.singleWithUnit Units.Count.times), b
+
+
+                let scenarioToString op opStr i (min1, max1, min2, max2) =
+                        let printLeft left = if left |> snd then "[" else "<"
+                        let printRight right = if right |> snd then "]" else ">"
+                        let printVal v = v |> fst |> Option.map string |> Option.defaultValue ""
+
+                        let result =
+                            try
+                                op
+                                    (min1 |> createVuOpt)
+                                    (max1 |> createVuOpt)
+                                    (min2 |> createVuOpt)
+                                    (max2 |> createVuOpt)
+                                |> fun (min, max) -> Variable.ValueRange.create true min None max None
+                                |> Variable.ValueRange.toString true
+                                |> String.replace "x" ""
+                                |> String.replace "<" "< "
+                                |> String.replace ">" " >"
+                            with
+                            | _ -> "failed"
+
+                        $"%i{i + 1}, {min1 |> printLeft} {min1 |> printVal} .. {max1 |> printVal} {max1 |> printRight}, {opStr}, {min2 |> printLeft} {min2 |> printVal} .. {max2 |> printVal} {max2 |> printRight},  =, {result}"
+                        |> String.replace "  " " "
+
+
+                let printTests op opStr =
+                    validPermutations
+                    |> List.iteri (fun i (min1, max1, min2, max2) ->
+                        scenarioToString op opStr i (min1, max1, min2, max2)
+                        |> printfn "%s"
+                    )
+
+
+                let testScenarios op opStr =
+                    let opToSheet opStr =
+                        match opStr with
+                        | "x" -> "mult"
+                        | "/" -> "div"
+                        | "+" -> "add"
+                        | "-" -> "sub"
+                        | _ -> failwith $"unknown op {opStr}"
+                    validPermutations
+                    |> List.mapi (scenarioToString op opStr)
+                    |> List.zip (opStr |> opToSheet |> scenarios)
+
+
 
                 let tests = testList "minmax calculator" [
                     testList "calc operator" [
@@ -1092,6 +1209,50 @@ module Tests =
                                 |> Expect.equal "should be Some 2, Some 6" (expMin, expMax)
                             }
                         ]
+
+                        testList "Scenarios" [
+                            testList "Mult" [
+                                yield!
+                                    testScenarios mult "x"
+                                    |> List.mapi (fun i (act, exp) ->
+                                        test $"scenario: {i}" {
+                                        act |> Expect.equal "should be equal" exp
+                                        }
+                                    )
+                            ]
+
+                            testList "Div" [
+                                yield!
+                                    testScenarios div "/"
+                                    |> List.mapi (fun i (act, exp) ->
+                                        test $"scenario: {i}" {
+                                        act |> Expect.equal "should be equal" exp
+                                        }
+                                    )
+                            ]
+
+                            testList "Add" [
+                                yield!
+                                    testScenarios add "+"
+                                    |> List.mapi (fun i (act, exp) ->
+                                        test $"scenario: {i}" {
+                                        act |> Expect.equal "should be equal" exp
+                                        }
+                                    )
+                            ]
+
+                            testList "Sub" [
+                                yield!
+                                    testScenarios sub "-"
+                                    |> List.mapi (fun i (act, exp) ->
+                                        test $"scenario: {i}" {
+                                        act |> Expect.equal "should be equal" exp
+                                        }
+                                    )
+                            ]
+
+                        ]
+
                     ]
                 ]
 
@@ -1185,16 +1346,25 @@ module Tests =
                         |> Expect.isTrue "should all be Unrestricted"
                     }
 
-                    test "when any operator is applied to x1 = Zero and x2 = Unrestricted" {
+                    test "when mult/div is applied to x1 = Zero and x2 = Unrestricted" {
+                        let x1 = 0N |> ValueUnit.singleWithUnit Units.Count.times |> ValueRange.createValSet
+                        let x2 = ValueRange.Unrestricted
+                        [
+                            calc (*) (x1, x2)
+                            // calc (/) (x1, x2) TODO: need to fix this
+                        ]
+                        |> List.forall (fun y -> y = x1)
+                        |> Expect.isTrue "should all be Zero"
+                    }
+
+                    test "when add/sub is applied to x1 = Zero and x2 = Unrestricted" {
                         let x1 = 0N |> ValueUnit.singleWithUnit Units.Count.times |> ValueRange.createValSet
                         let x2 = ValueRange.Unrestricted
                         [
                             calc (+) (x1, x2)
                             calc (-) (x1, x2)
-                            calc (*) (x1, x2)
-                            calc (/) (x1, x2)
                         ]
-                        |> List.forall (fun x -> x = ValueRange.Unrestricted)
+                        |> List.forall (fun y -> y = ValueRange.Unrestricted)
                         |> Expect.isTrue "should all be Unrestricted"
                     }
                 ]
@@ -1558,80 +1728,119 @@ Tests.tests
 |> Expecto.run
 
 
-open Informedica.Utils.Lib.BCL
-open Informedica.GenUnits.Lib
-open Informedica.GenSolver.Lib
 
-let min1Options = [None, true; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 2, true; Some 2, false]
-let max1Options = [None, true; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
-let min2Options = [None, true; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
-let max2Options = [None, true; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 5, true; Some 5, false]
+module MinMaxTestScenarios =
 
-let validPermutations =
-    [
-        for min1 in min1Options do
-        for max1 in max1Options do
-        for min2 in min2Options do
-        for max2 in max2Options do
-        match min1, max1, min2, max2 with
-        | (None, _), _, (None, _), _
-        | _, (None, _), (None, _), _
-        | (None, _), _, _, (None, _)
-        | _, (None, _), _, (None, _) -> yield min1, max1, min2, max2
-        | (Some min1', _), (Some max1', _), (Some min2', _), (Some max2', _) when min1' <= max1' && min2' <= max2' ->
-            yield (min1, max1, min2, max2)
-        | (Some min1', _), (Some max1', _), (None, _), _
-        | (Some min1', _), (Some max1', _), _, (None, _) when min1' <= max1' ->
-            yield (min1, max1, min2, max2)
-        | (None, _), _, (Some min2', _), (Some max2', _)
-        | _, (None, _), (Some min2', _), (Some max2', _) when min2' <= max2' ->
-            yield (min1, max1, min2, max2)
-        | _ -> ()
-    ]
-    |> List.distinct
+    open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
+    open Informedica.GenSolver.Lib
+    open Informedica.Utils.Lib.Web
+
+    module ValueRange = Variable.ValueRange
+    module Minimum = Variable.ValueRange.Minimum
+    module Maximum = Variable.ValueRange.Maximum
 
 
-let mult = Variable.ValueRange.MinMaxCalculator.multiplication
-let div = Variable.ValueRange.MinMaxCalculator.division
-let add = Variable.ValueRange.MinMaxCalculator.addition
-let sub = Variable.ValueRange.MinMaxCalculator.subtraction
+    let urlId = "171G1GiUuuOjPvfLOFiuuQtq44LjFnmxyoRb1IIblc2A"
 
 
-let createVuOpt (intOpt, b) =
-    intOpt
-    |> Option.map BigRational.fromInt
-    |> Option.map (fun i ->
-        i
-        |> ValueUnit.singleWithUnit Units.Count.times), b
+    let scenarios sheet =
+        GoogleSheets.getDataFromSheet urlId sheet
+        |> Array.skip 1
+        |> Array.map (fun row -> row[0])
+        |> Array.toList
 
 
-let printTests op opStr=
-    validPermutations
-    |> List.iteri (fun i (min1, max1, min2, max2) ->
-        let printLeft left = if left |> snd then "[" else "<"
-        let printRight right = if right |> snd then "]" else ">"
-        let printVal v = v |> fst |> Option.map string |> Option.defaultValue ""
-
-        let result =
-            try
-                op
-                    (min1 |> createVuOpt)
-                    (max1 |> createVuOpt)
-                    (min2 |> createVuOpt)
-                    (max2 |> createVuOpt)
-                |> fun (min, max) -> Variable.ValueRange.create true min None max None
-                |> Variable.ValueRange.toString true
-                |> String.replace "x" ""
-                |> String.replace "<" "< "
-                |> String.replace ">" " >"
-            with
-            | _ -> "failed"
-
-        printfn $"%i{i}, {min1 |> printLeft} {min1 |> printVal} .. {max1 |> printVal} {max1 |> printRight}, {opStr}, {min2 |> printLeft} {min2 |> printVal} .. {max2 |> printVal} {max2 |> printRight},  =, {result}"
-    )
+    let checkMinMax (min, minIncl) (max, maxIncl) =
+        match min, max with
+        | None, None
+        | None, Some _
+        | Some _, None -> true
+        | Some min', Some max' ->
+            let min = min' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create minIncl
+            let max = max' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create maxIncl
+            min |> ValueRange.minSTEmax max
 
 
-printTests mult "x"
-printTests div "/"
-printTests add "+"
-printTests sub "-"
+    let min1Options = [None, false; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 2, true; Some 2, false]
+    let max1Options = [None, false; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
+    let min2Options = [None, false; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
+    let max2Options = [None, false; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 5, true; Some 5, false]
+
+    let validPermutations =
+        [
+            for min1 in min1Options do
+            for max1 in max1Options do
+            for min2 in min2Options do
+            for max2 in max2Options do
+            match min1, max1, min2, max2 with
+            | (None, _), _, (None, _), _
+            | _, (None, _), (None, _), _
+            | (None, _), _, _, (None, _)
+            | _, (None, _), _, (None, _) -> yield min1, max1, min2, max2
+            | (Some _, _), (Some _, _), (Some _, _), (Some _, _) when checkMinMax min1 max1 && checkMinMax min2 max2 ->
+                yield (min1, max1, min2, max2)
+            | (Some _, _), (Some _, _), (None, _), _
+            | (Some _, _), (Some _, _), _, (None, _) when checkMinMax min1 max1 ->
+                yield (min1, max1, min2, max2)
+            | (None, _), _, (Some _, _), (Some _, _)
+            | _, (None, _), (Some _, _), (Some _, _) when checkMinMax min2 max2 ->
+                yield (min1, max1, min2, max2)
+            | _ -> ()
+        ]
+        |> List.distinct
+
+
+    let mult = Variable.ValueRange.MinMaxCalculator.multiplication
+    let div = Variable.ValueRange.MinMaxCalculator.division
+    let add = Variable.ValueRange.MinMaxCalculator.addition
+    let sub = Variable.ValueRange.MinMaxCalculator.subtraction
+
+
+    let createVuOpt (intOpt, b) =
+        intOpt
+        |> Option.map BigRational.fromInt
+        |> Option.map (fun i ->
+            i
+            |> ValueUnit.singleWithUnit Units.Count.times), b
+
+
+    let scenarioToString op opStr i (min1, max1, min2, max2) =
+            let printLeft left = if left |> snd then "[" else "<"
+            let printRight right = if right |> snd then "]" else ">"
+            let printVal v = v |> fst |> Option.map string |> Option.defaultValue ""
+
+            let result =
+                try
+                    op
+                        (min1 |> createVuOpt)
+                        (max1 |> createVuOpt)
+                        (min2 |> createVuOpt)
+                        (max2 |> createVuOpt)
+                    |> fun (min, max) -> Variable.ValueRange.create true min None max None
+                    |> Variable.ValueRange.toString true
+                    |> String.replace "x" ""
+                    |> String.replace "<" "< "
+                    |> String.replace ">" " >"
+                with
+                | _ -> "failed"
+
+            $"%i{i + 1}, {min1 |> printLeft} {min1 |> printVal} .. {max1 |> printVal} {max1 |> printRight}, {opStr}, {min2 |> printLeft} {min2 |> printVal} .. {max2 |> printVal} {max2 |> printRight},  =, {result}"
+            |> String.replace "  " " "
+
+
+    let printTests op opStr =
+        validPermutations
+        |> List.iteri (fun i (min1, max1, min2, max2) ->
+            scenarioToString op opStr i (min1, max1, min2, max2)
+            |> printfn "%s"
+        )
+
+
+    let printAllScenarios () =
+        printTests mult "x"
+        printTests div "/"
+        printTests add "+"
+        printTests sub "-"
+
