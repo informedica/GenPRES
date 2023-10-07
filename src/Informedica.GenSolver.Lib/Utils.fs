@@ -139,11 +139,11 @@ module Utils =
             /// multiplication, division, addition
             /// or subtraction, fails when
             /// the operation is neither.
-            let (|Mult|Div|Add|Subtr|) op =
+            let (|Mult|Div|Add|Sub|) op =
                 match op with
                 | _ when op |> opIsMult -> Mult
                 | _ when op |> opIsDiv -> Div
                 | _ when op |> opIsAdd -> Add
-                | _ when op |> opIsSubtr -> Subtr
+                | _ when op |> opIsSubtr -> Sub
                 | _ -> failwith "Operator is not supported"
 

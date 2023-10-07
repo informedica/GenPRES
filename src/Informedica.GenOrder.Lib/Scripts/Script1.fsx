@@ -15,6 +15,18 @@ open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
 
 
+let vu1 =
+    [|1N..1N..100N|]
+    |> ValueUnit.withUnit Units.Count.times
+let vu2 =
+    [|1N..1N..10N|]
+    |> ValueUnit.withUnit Units.Count.times
+
+(vu1 * vu2)
+|> ValueUnit.getValue
+|> Array.length
+
+
 
 module List =
 

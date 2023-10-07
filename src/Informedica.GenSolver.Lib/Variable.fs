@@ -1776,7 +1776,8 @@ module Variable =
                 MinIncrMax(min, incr, max)
 
             else
-                // TODO: ugly hack to prevent expensive calc
+                // TODO: ugly hack to prevent expensive calc, throws exception when too many values
+                // TODO: probably not correct, because this could lead to a ValueSet that has too many values
                 try
                     ValueSet.minIncrMaxToValueSet min incr max
                     |> ValSet
@@ -2515,10 +2516,10 @@ module Variable =
 
                 // SUBTRACTION
                 // subtracting a None to another value always results in a None
-                | None, _, Some _, _, _, _, Subtr
-                | Some _, _, None, _, _, _, Subtr -> None
+                | None, _, Some _, _, _, _, Sub
+                | Some _, _, None, _, _, _, Sub -> None
                 // in any other case we can calculate the result
-                | Some v1, _, Some v2, _, _, _, Subtr -> v1 |> op <| v2 |> c isIncl |> Some
+                | Some v1, _, Some v2, _, _, _, Sub -> v1 |> op <| v2 |> c isIncl |> Some
 
 
             /// Calculate an optional `Minimum`
@@ -2734,16 +2735,19 @@ module Variable =
                 | Mult -> multiplication
                 | Div -> division
                 | Add -> addition
-                | Subtr -> subtraction
+                | Sub -> subtraction
 
 
-        /// Applies an infix operator **op**
-        /// to `ValueRange` **x1** and **x2**.
-        /// Calculates `Minimum`, increment or `Maximum`
-        /// if either **x1** or **x2** is not a `ValueSet`.
-        /// Doesn't perform any calculation when both
-        /// **x1** and **x2** are `Unrestricted`.
-        let calc onlyMinIncrMax op (x1, x2) =
+        /// <summary>
+        /// Applies an infix operator `op` (either *, /, + or -)
+        /// to `ValueRange` vr1 and vr2. If onlyMinIncrMax then
+        /// only the minimum, increment and maximum are calculated.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">Whether only the minimum, increment and maximum should be calculated</param>
+        /// <param name="op">The infix operator</param>
+        /// <param name="vr1">The first `ValueRange`</param>
+        /// <param name="vr2">The second `ValueRange`</param>
+        let calc onlyMinIncrMax op (vr1, vr2) =
 
             let calcMinMax min1 max1 min2 max2 =
                 let getMin m =
@@ -2764,15 +2768,15 @@ module Variable =
 
                 MinMaxCalculator.calcMinMax op (min1 |> getMin) (max1 |> getMax) (min2 |> getMin) (max2 |> getMax)
 
-            match x1, x2 with
+            match vr1, vr2 with
             | Unrestricted, Unrestricted -> unrestricted
             | ValSet s1, ValSet s2 ->
                 if not onlyMinIncrMax ||
                    (s1 |> ValueSet.count = 1 && (s2 |> ValueSet.count = 1)) then
                     ValueSet.calc op s1 s2 |> ValSet
                 else
-                    let min1, max1 = x1 |> getMin, x1 |> getMax
-                    let min2, max2 = x2 |> getMin, x2 |> getMax
+                    let min1, max1 = vr1 |> getMin, vr1 |> getMax
+                    let min2, max2 = vr2 |> getMin, vr2 |> getMax
 
                     let min, max =
                         calcMinMax min1 max1 min2 max2
@@ -2795,8 +2799,8 @@ module Variable =
             | ValSet s, MinIncrMax (_, i, _)
             | MinIncrMax (_, i, _), ValSet s ->
 
-                let min1, max1 = x1 |> getMin, x1 |> getMax
-                let min2, max2 = x2 |> getMin, x2 |> getMax
+                let min1, max1 = vr1 |> getMin, vr1 |> getMax
+                let min2, max2 = vr2 |> getMin, vr2 |> getMax
 
                 let min, max =
                     calcMinMax min1 max1 min2 max2
@@ -2817,10 +2821,10 @@ module Variable =
             // In any other case calculate min, incr and max
             | _ ->
                 let min1, incr1, max1 =
-                    x1 |> getMin, x1 |> getIncr, x1 |> getMax
+                    vr1 |> getMin, vr1 |> getIncr, vr1 |> getMax
 
                 let min2, incr2, max2 =
-                    x2 |> getMin, x2 |> getIncr, x2 |> getMax
+                    vr2 |> getMin, vr2 |> getIncr, vr2 |> getMax
 
                 let min, max =
                     calcMinMax min1 max1 min2 max2

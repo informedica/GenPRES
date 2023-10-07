@@ -1346,18 +1346,19 @@ module Tests =
                         |> Expect.isTrue "should all be Unrestricted"
                     }
 
-                    test "when mult/div is applied to x1 = Zero and x2 = Unrestricted" {
+                    test "when mult, div is applied to x1 = Zero and x2 = Unrestricted" {
                         let x1 = 0N |> ValueUnit.singleWithUnit Units.Count.times |> ValueRange.createValSet
                         let x2 = ValueRange.Unrestricted
+                        let exp = ValSet (ValueSet (ValueUnit ([|0N|], ZeroUnit)))
                         [
                             calc (*) (x1, x2)
                             // calc (/) (x1, x2) TODO: need to fix this
                         ]
-                        |> List.forall (fun y -> y = x1)
+                        |> List.forall (fun y -> y = exp)
                         |> Expect.isTrue "should all be Zero"
                     }
 
-                    test "when add/sub is applied to x1 = Zero and x2 = Unrestricted" {
+                    test "when add/, sub is applied to x1 = Zero and x2 = Unrestricted" {
                         let x1 = 0N |> ValueUnit.singleWithUnit Units.Count.times |> ValueRange.createValSet
                         let x2 = ValueRange.Unrestricted
                         [
