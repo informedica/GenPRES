@@ -2747,6 +2747,19 @@ module Variable =
         /// <param name="op">The infix operator</param>
         /// <param name="vr1">The first `ValueRange`</param>
         /// <param name="vr2">The second `ValueRange`</param>
+        /// <returns>The resulting `ValueRange`</returns>
+        /// <example>
+        /// <code>
+        /// let vs1 = [| 1N; 2N; 3N |] |> ValueUnit.withUnit Units.Count.times |> ValueSet.create
+        /// let vs2 = [| 4N; 5N; 6N |] |> ValueUnit.withUnit Units.Count.times |> ValueSet.create
+        /// let vr1 = create true None None None (Some vs1)
+        /// let vr2 = create true None None None (Some vs2)
+        /// calc true (*) (vr1, vr2)
+        /// // returns a ValueRange with a Minimum = 4 and a Maximum = 18
+        /// calc false (*) (vr1, vr2)
+        /// // returns a ValueRange [|4N; 5N; 6N; 8N; 10N; 12N; 15N; 18N|]
+        /// </code>
+        /// </example>
         let calc onlyMinIncrMax op (vr1, vr2) =
 
             let calcMinMax min1 max1 min2 max2 =
@@ -2837,14 +2850,50 @@ module Variable =
                 | _ -> create onlyMinIncrMax min incr max None
 
 
+        /// <summary>
         /// Checks whether a `ValueRange` vr1 is a subset of
         /// `ValueRange` vr2.
+        /// </summary>
+        /// <param name="vr1">The first `ValueRange`</param>
+        /// <param name="vr2">The second `ValueRange`</param>
+        /// <remarks>
+        /// Only checks whether the `ValueSet` of vr1 is a subset of
+        /// the `ValueSet` of vr2.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let vs1 = [| 1N; 2N; 3N |] |> ValueUnit.withUnit Units.Count.times |> ValueSet.create
+        /// let vs2 = [| 2N; 3N |] |> ValueUnit.withUnit Units.Count.times |> ValueSet.create
+        /// let vr1 = create true None None None (Some vs1)
+        /// let vr2 = create true None None None (Some vs2)
+        /// vr1 |> isSubSetOf vr2 // returns false
+        /// vr2 |> isSubSetOf vr1 // returns true
+        /// </code>
+        /// </example>
         let isSubSetOf vr2 vr1 =
             match vr1, vr2 with
             | ValSet s1, ValSet s2 -> s2 |> ValueSet.isSubsetOf s1
             | _ -> false
 
 
+        /// <summary>
+        /// Create a set of `Properties` from a `ValueRange`.
+        /// </summary>
+        /// <param name="vr"></param>
+        /// <example>
+        /// <code>
+        /// let min = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true
+        /// let incr = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Increment.create
+        /// let max = 8N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create false
+        /// let vr = create true (Some min) (Some incr) (Some max) None
+        /// vr |> toProperties
+        /// // returns
+        /// //     set
+        /// //       [MinProp (MinIncl (ValueUnit ([|2N|], Count (Times 1N))));
+        /// //        MaxProp (MaxIncl (ValueUnit ([|6N|], Count (Times 1N))));
+        /// //        IncrProp (Increment (ValueUnit ([|2N|], Count (Times 1N))))]
+        /// </code>
+        /// </example>
         let toProperties vr =
             let unr = set []
 
@@ -2877,14 +2926,51 @@ module Variable =
             |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
 
 
+        /// <summary>
+        /// Get the difference between two `ValueRange`s.
+        /// </summary>
+        /// <param name="vr1">The first ValueRange</param>
+        /// <param name="vr2">The second ValueRange</param>
+        /// <returns>The difference between the two ValueRanges</returns>
+        /// <example>
+        /// <code>
+        /// let min = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true
+        /// let incr = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Increment.create
+        /// let max = 8N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create false
+        /// let vr1 = create true (Some min) (Some incr) None None
+        /// let vr2 = create true None None (Some max) None
+        /// vr1 |> diffWith vr2
+        /// </code>
+        /// </example>
         let diffWith vr1 vr2 =
             vr1
             |> toProperties
             |> Set.difference (vr2 |> toProperties)
 
 
+        /// <summary>
         /// Set a `ValueRange` expr to a `ValueRange` y.
         /// So, the result is equal to or more restrictive than the original `y`.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">Whether only min incr max are calculated</param>
+        /// <param name="y">The `ValueRange` to apply to</param>
+        /// <param name="expr">The `ValueRange` to apply</param>
+        /// <returns>The resulting (restricted) `ValueRange`</returns>
+        /// <example>
+        /// <code>
+        /// let min = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true
+        /// let incr = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Increment.create
+        /// let max = 8N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create false
+        /// let vr1 = create true (Some min) (Some incr) None None
+        /// let vr2 = create true None None (Some max) None
+        /// vr1 |> applyExpr true vr2
+        /// // returns
+        /// // MinIncrMax
+        /// //   (MinIncl (ValueUnit ([|2N|], Count (Times 1N))),
+        /// //    Increment (ValueUnit ([|2N|], Count (Times 1N))),
+        /// //    MaxIncl (ValueUnit ([|6N|], Count (Times 1N))))
+        /// </code>
+        /// </example>
         let applyExpr onlyMinIncrMax y expr =
             let appl _ get set vr =
                 //printfn $"{s}"
@@ -2943,6 +3029,7 @@ module Variable =
     let createSucc = create id
 
 
+    /// A Variable with a Unrestricted `ValueRange`
     let empty n = Unrestricted |> createSucc n
 
 
@@ -2962,6 +3049,7 @@ module Variable =
     let get = apply id
 
 
+    /// Get the string representation of a `Variable`.
     let toString exact ({ Name = n; Values = vs }: Variable) =
         vs
         |> ValueRange.toString exact
@@ -2976,6 +3064,8 @@ module Variable =
     let getValueRange v = (v |> get).Values
 
 
+    /// Check whether a `Variable` **v** contains
+    /// a value **v**.
     let contains v vr =
         vr |> getValueRange |> ValueRange.contains v
 
@@ -3024,6 +3114,8 @@ module Variable =
     let eqName v1 v2 = v1 |> getName = (v2 |> getName)
 
 
+    /// Check whether the `ValueRange` of **v1**
+    /// and **v2** are equal.
     let eqValues var1 var2 =
         var1 |> getValueRange = (var2 |> getValueRange)
 
@@ -3047,6 +3139,8 @@ module Variable =
         getValueRange >> ValueRange.isUnrestricted
 
 
+    /// Checks whether the ValueRange of a Variable
+    /// is a MinIncrMax
     let isMinIncrMax = getValueRange >> ValueRange.isMinIncrMax
 
 
@@ -3081,6 +3175,12 @@ module Variable =
                 Values = var.Values |> ValueRange.increaseIncrement lim incr
             }
 
+    /// <summary>
+    /// Calculate a ValueSet for a Variable if the Value of the
+    /// Variable is a MinIncrMax
+    /// </summary>
+    /// <param name="var"></param>
+    /// <returns>A Variable with a ValueSet if this can be calculated</returns>
     let minIncrMaxToValues var =
         if var |> isMinIncrMax |> not then var
         else
@@ -3099,12 +3199,19 @@ module Variable =
                 raise e
 
 
+    /// <summary>
+    /// 'Prunes' the ValueRange of a Variable
+    /// </summary>
+    /// <param name="var"></param>
     let prune var =
         { var with
             Values = var.Values |> ValueRange.prune
         }
 
 
+    /// <summary>
+    /// Set the unit of a Variable
+    /// </summary>
     let setUnit unit var =
         { var with
             Values = var.Values |> ValueRange.setUnit unit

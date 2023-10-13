@@ -124,8 +124,8 @@ module SolverLogging =
         | EquationStartedSolving eq ->
             $"=== Start solving Equation ===\n{eq |> toString}"
 
-        | EquationStartCalculation (op1, op2, y, x, xs) ->
-            $"start calculating: {Equation.calculationToString true op1 op2 y x xs}"
+        | EquationStartCalculation (op1, op2, y, xs) ->
+            $"start calculating: {Equation.calculationToString true op1 op2 y xs}"
 
         | EquationFinishedCalculation (xs, changed) ->
             if not changed then "No Changes"

@@ -169,7 +169,6 @@ module rec Types =
             | EquationStartCalculation of
                 op1: (Variable -> Variable -> Variable) *
                 op2: (Variable -> Variable -> Variable) *
-                x: Variable *
                 y: Variable *
                 xs: Variable List
             | EquationFinishedCalculation of Variable list * changed : bool

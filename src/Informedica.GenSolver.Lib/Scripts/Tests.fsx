@@ -714,7 +714,7 @@ module Tests =
                     | Some min', Some max' ->
                         let min = min' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create minIncl
                         let max = max' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create maxIncl
-                        min |> ValueRange.minSTEmax max
+                        min |> minSTEmax max
 
                 let min1Options = [None, false; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 2, true; Some 2, false]
                 let max1Options = [None, false; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
@@ -745,10 +745,10 @@ module Tests =
                     |> List.distinct
 
 
-                let mult = Variable.ValueRange.MinMaxCalculator.multiplication
-                let div = Variable.ValueRange.MinMaxCalculator.division
-                let add = Variable.ValueRange.MinMaxCalculator.addition
-                let sub = Variable.ValueRange.MinMaxCalculator.subtraction
+                let mult = MinMaxCalculator.multiplication
+                let div = MinMaxCalculator.division
+                let add = MinMaxCalculator.addition
+                let sub = MinMaxCalculator.subtraction
 
 
                 let createVuOpt (intOpt, b) =
@@ -772,7 +772,7 @@ module Tests =
                                     (min2 |> createVuOpt)
                                     (max2 |> createVuOpt)
                                 |> fun (min, max) -> Variable.ValueRange.create true min None max None
-                                |> Variable.ValueRange.toString true
+                                |> toString true
                                 |> String.replace "x" ""
                                 |> String.replace "<" "< "
                                 |> String.replace ">" " >"
@@ -1358,7 +1358,7 @@ module Tests =
                         |> Expect.isTrue "should all be Zero"
                     }
 
-                    test "when add/, sub is applied to x1 = Zero and x2 = Unrestricted" {
+                    test "when add, sub is applied to x1 = Zero and x2 = Unrestricted" {
                         let x1 = 0N |> ValueUnit.singleWithUnit Units.Count.times |> ValueRange.createValSet
                         let x2 = ValueRange.Unrestricted
                         [
@@ -1732,7 +1732,6 @@ Tests.tests
 
 module MinMaxTestScenarios =
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib

@@ -97,8 +97,8 @@ module TestSolver =
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib
 
-    module Api = Informedica.GenSolver.Lib.Api
-    module Solver = Informedica.GenSolver.Lib.Solver
+    module Api = Api
+    module Solver = Solver
     module Name = Variable.Name
     module ValueRange = Variable.ValueRange
     module Minimum = ValueRange.Minimum
@@ -118,12 +118,12 @@ module TestSolver =
 
     let printEqs = function
         | Ok eqs -> eqs |> Solver.printEqs true procss
-        | Error errs -> failwith "errors"
+        | Error _ -> failwith "errors"
 
 
     let printEqsWithUnits = function
         | Ok eqs -> eqs |> Solver.printEqs false procss
-        | Error errs -> failwith "errors"
+        | Error _ -> failwith "errors"
 
 
     let setProp n p eqs =
@@ -160,7 +160,7 @@ module TestSolver =
     let setValues u n vals = vals |> createValSet u |> ValsProp |> setProp n
 
     let logger =
-        fun (s : string) ->
+        fun (_ : string) ->
             () //File.AppendAllLines("examples.log", [s])
         |> SolverLogging.logger
 
@@ -701,7 +701,7 @@ module Tests =
                     | Some min', Some max' ->
                         let min = min' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create minIncl
                         let max = max' |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create maxIncl
-                        min |> ValueRange.minSTEmax max
+                        min |> minSTEmax max
 
                 let min1Options = [None, false; Some -2, true; Some -2, false; Some 0, true; Some 0, false; Some 2, true; Some 2, false]
                 let max1Options = [None, false; Some -1, true; Some -1, false; Some 0, true; Some 0, false; Some 3, true; Some 3, false]
@@ -732,10 +732,10 @@ module Tests =
                     |> List.distinct
 
 
-                let mult = Variable.ValueRange.MinMaxCalculator.multiplication
-                let div = Variable.ValueRange.MinMaxCalculator.division
-                let add = Variable.ValueRange.MinMaxCalculator.addition
-                let sub = Variable.ValueRange.MinMaxCalculator.subtraction
+                let mult = MinMaxCalculator.multiplication
+                let div = MinMaxCalculator.division
+                let add = MinMaxCalculator.addition
+                let sub = MinMaxCalculator.subtraction
 
 
                 let createVuOpt (intOpt, b) =
@@ -759,7 +759,7 @@ module Tests =
                                     (min2 |> createVuOpt)
                                     (max2 |> createVuOpt)
                                 |> fun (min, max) -> Variable.ValueRange.create true min None max None
-                                |> Variable.ValueRange.toString true
+                                |> toString true
                                 |> String.replace "x" ""
                                 |> String.replace "<" "< "
                                 |> String.replace ">" " >"

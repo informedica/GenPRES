@@ -241,12 +241,13 @@ module Equation =
         else true
 
 
-    let calculationToString b op1 op2 x y xs =
+    let calculationToString b op1 op2 y xs =
         let varToStr = Variable.toString b
         let opToStr op  = $" {op |> Variable.Operators.toString} "
-        let filter x xs = xs |> List.filter (Variable.eqName x >> not)
+        let cost = xs |> List.map Variable.count |> List.reduce (*)
+        let x1 = xs |> List.head
 
-        $"""{x |> varToStr} = {y |> varToStr}{op2 |> opToStr}{xs |> filter x |> List.map varToStr |> String.concat (op1 |> opToStr)} """
+        $"""{y |> varToStr} = {x1 |> varToStr}{op2 |> opToStr}{xs |> List.map varToStr |> String.concat (op1 |> opToStr)} (cost: {cost})"""
 
 
     /// Solve an equation **e**, return a list of
@@ -275,12 +276,13 @@ module Equation =
                     | _  ->
                         if x |> Variable.isSolved then x
                         else
+                            let xs = xs |> without x
                             // log the calculation
-                            (op1, op2, x, y, xs)
+                            (op1, op2, x, y::xs)
                             |> Events.EquationStartCalculation
                             |> Logging.logInfo log
                             // recalculate x
-                            x <== (y |> op2 <| (xs |> without x |> List.reduce op1))
+                            x <== (y |> op2 <| (xs |> List.reduce op1))
 
                 (xChanged || (x.Values |> ValueRange.eqs newX.Values |> not))
                 |> calcXs op1 op2 y (xs |> replAdd newX) tail
@@ -290,7 +292,7 @@ module Equation =
                 y, false
             else
                 // log the calculation
-                (op1, op1, y, (xs |> List.head), (xs |> List.tail))
+                (op1, op1, y, xs)
                 |> Events.EquationStartCalculation
                 |> Logging.logInfo log
                 // recalculate y
