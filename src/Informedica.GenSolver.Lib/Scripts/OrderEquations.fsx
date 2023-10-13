@@ -59,7 +59,7 @@ module Solve =
             |> SolverLogging.logger
         try
             eqs
-            |> Api.solve true Solver.sortQue logger (n |> Name.createExc) p
+            |> Api.solve true (Solver.sortQue true) logger (n |> Name.createExc) p
         with
         | :? Exceptions.SolverException as e ->
             printfn $"{e.Data0}"
@@ -69,7 +69,7 @@ module Solve =
     let solveMinExcl n min = solve n (min |> Minimum.create false |> MinProp)
     let solveMaxIncl n max = solve n (max |> Maximum.create true |> MaxProp)
     let solveMaxExcl n max = solve n (max |> Maximum.create false |> MaxProp)
-    let solveIncr n incr = solve n (set [incr] |> Increment.create |> IncrProp)
+    let solveIncr n incr = solve n (incr |> Increment.create |> IncrProp)
     let solveValues n vals = solve n (vals |> ValueSet.create |> ValsProp)
 
     let init     = Api.init

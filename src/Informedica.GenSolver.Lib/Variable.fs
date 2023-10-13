@@ -1868,7 +1868,7 @@ module Variable =
                 |> filter min incr max
                 |> ValSet
             // restrict the valueset by pruning
-            |> prune
+            //|> prune
 
 
         /// Get an optional `Minimum` in a `ValueRange`

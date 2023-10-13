@@ -246,6 +246,7 @@ module Equation =
         let opToStr op  = $" {op |> Variable.Operators.toString} "
         let cost = xs |> List.map Variable.count |> List.reduce (*)
         let x1 = xs |> List.head
+        let xs = xs |> List.filter (fun x -> x.Name <> x1.Name)
 
         $"""{y |> varToStr} = {x1 |> varToStr}{op2 |> opToStr}{xs |> List.map varToStr |> String.concat (op1 |> opToStr)} (cost: {cost})"""
 
