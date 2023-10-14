@@ -116,34 +116,50 @@ open Informedica.GenUnits.Lib
 
 type Benchmarks () =
 
-    let eqs1 =
-        [
-            "a = b + c"
-            "d = f * a"
-            "d = e * b"
-        ] 
-        |> init 
-        |> nonZeroNegative
-        |> setValues Units.Count.times "b" [|1N..1N..100N|]
-        |> setValues Units.Count.times "c" [|1N..1N..100N|]
+    let eqs_n n a b c d e f =
+        let eqs =
+            [
+                "a = b + c"
+                "d = f * a"
+                "d = e * b"
+            ] 
+            |> List.take n
+            |> init 
+            |> nonZeroNegative
+        
+        let set n xsOpt eqs = xsOpt |> Option.map (fun xs -> eqs |> setValues Units.Count.times n xs) |> Option.defaultValue eqs 
 
+        eqs
+        |> set "a" a
+        |> set "b" b
+        |> set "c" c
+        |> set "d" d
+        |> set "e" e
+        |> set "f" f
 
-    let eqs_n n =
-        [
-            "a = b + c"
-            "d = f * a"
-            "d = e * b"
-        ] 
-        |> init 
-        |> nonZeroNegative
-        |> setValues Units.Count.times "b" [|1N..1N..n|]
-        |> setValues Units.Count.times "c" [|1N..1N..n|]
+    let eqs_1 = eqs_n 1 None None None None None None
+
+    let eqs_1_max max =
+        let xs = [|1N..1N..max|]
+        eqs_n 1 None (Some xs) (Some xs) None None None
+
+    let eqs_3_max max =
+        let xs = [|1N..1N..max|]
+        eqs_n 3 None (Some xs) (Some xs) None None None
+
+    let eqs_1_max_100 = eqs_1_max 100N
+
+    let eqs_1_max_200 = eqs_1_max 200N
+
+    let eqs_3_max_100 = eqs_3_max 100N
+
+    let eqs_3_max_200 = eqs_3_max 200N
 
     let allPairsInt_100 = Utils.allPairs 1 1 100
-    let allPairsInt_1_000 = Utils.allPairs 1 1 1_000
+    let allPairsInt_1_000 = Utils.allPairs 1 1 200
 
     let allPairs_100 = Utils.allPairs 1N 1N 100N
-    let allPairs_1_000 = Utils.allPairs 1N 1N 1_000N
+    let allPairs_200 = Utils.allPairs 1N 1N 200N
 
 
     [<Benchmark>]
@@ -152,45 +168,76 @@ type Benchmarks () =
 
         Array.allPairs x1 x2
         |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
 
 
     [<Benchmark>]
-    member this.AllPairsInt_1_000 () =
+    member this.AllPairsInt_200 () =
         let x1, x2 = allPairsInt_1_000
 
         Array.allPairs x1 x2
         |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
+
+
+    //[<Benchmark>]
+    member this.AllPairesInt_Commutative_100 () =
+        let x1, x2 = allPairsInt_100
+
+        Array.allPairs x1 x2
+        |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
+
+
+    //[<Benchmark>]
+    member this.AllPairsInt_Commutative_200 () =
+        let x1, x2 = allPairsInt_1_000
+
+        Array.allPairs x1 x2
+        |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
 
 
     [<Benchmark>]
-    member this.AllPaires_100 () =
+    member this.AllPairsBR_100 () =
         let x1, x2 = allPairs_100
 
         Array.allPairs x1 x2
         |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
 
 
     [<Benchmark>]
-    member this.AllPairs_1_000 () =
-        let x1, x2 = allPairs_1_000
+    member this.AllPairsBR_200 () =
+        let x1, x2 = allPairs_200
 
         Array.allPairs x1 x2
         |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
 
 
     [<Benchmark>]
     member this.SolveCountMinIncl () =
-        solveCountMinIncl "a" 10N eqs1
+        solveCountMinIncl "a" 10N eqs_1
+
+    [<Benchmark>]
+    member this.Solve_1_Eqs_100 () =
+        solveAll eqs_1_max_100
 
 
     [<Benchmark>]
-    member this.SolveAll_100 () =
-        solveAll (eqs_n 100N)
+    member this.Solve_1_Eqs_200 () =
+        solveAll eqs_1_max_200
 
 
     [<Benchmark>]
-    member this.SolveAll_1_000 () =
-        solveAll (eqs_n 1_000N)
+    member this.Solve_3_Eqs_100 () =
+        solveAll eqs_3_max_100
+
+
+    [<Benchmark>]
+    member this.Solve_3_Eqs_200 () =
+        solveAll eqs_3_max_200
 
 
 

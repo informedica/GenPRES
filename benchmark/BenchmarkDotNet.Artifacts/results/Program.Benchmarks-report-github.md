@@ -8,12 +8,14 @@ Intel Core i7-6700K CPU 4.00GHz (Skylake), 1 CPU, 8 logical and 4 physical cores
 
 
 ```
-| Method            | Mean           | Error        | StdDev        |
-|------------------ |---------------:|-------------:|--------------:|
-| AllPairesInt_100  |       103.9 μs |      0.57 μs |       0.50 μs |
-| AllPairsInt_1_000 |    60,215.7 μs |    941.20 μs |     880.39 μs |
-| AllPaires_100     |       459.6 μs |      2.40 μs |       2.00 μs |
-| AllPairs_1_000    |   160,309.7 μs |  1,069.78 μs |     893.32 μs |
-| SolveCountMinIncl |     3,682.7 μs |     48.15 μs |      45.04 μs |
-| SolveAll_100      |    45,892.0 μs |    909.44 μs |   1,150.15 μs |
-| SolveAll_1_000    | 4,632,200.1 μs | 91,113.74 μs | 171,133.69 μs |
+| Method            | Mean         | Error       | StdDev      |
+|------------------ |-------------:|------------:|------------:|
+| AllPairesInt_100  |     194.5 μs |     1.31 μs |     1.09 μs |
+| AllPairsInt_200   |   1,313.1 μs |    18.35 μs |    16.26 μs |
+| AllPairsBR_100    |     972.8 μs |     3.32 μs |     2.77 μs |
+| AllPairsBR_200    |   5,275.6 μs |    18.56 μs |    15.50 μs |
+| SolveCountMinIncl |     278.4 μs |     0.95 μs |     0.84 μs |
+| Solve_1_Eqs_100   |  43,351.1 μs |   825.59 μs |   772.26 μs |
+| Solve_1_Eqs_200   | 178,478.8 μs | 3,545.83 μs | 3,941.18 μs |
+| Solve_3_Eqs_100   |  45,053.0 μs |   891.40 μs |   990.79 μs |
+| Solve_3_Eqs_200   | 178,513.1 μs | 3,469.46 μs | 3,245.34 μs |
