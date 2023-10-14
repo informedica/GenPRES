@@ -1,0 +1,12 @@
+source https://api.nuget.org/v3/index.json
+
+framework: auto-detect
+storage: none
+
+nuget argu
+nuget BenchmarkDotNet
+nuget BenchmarkDotNet.Diagnostics.Windows
+nuget FParsec
+nuget FSharp.Core ~> 6.0.5
+nuget MathNet.Numerics.FSharp
+nuget Unquote

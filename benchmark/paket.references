@@ -1,0 +1,7 @@
+MathNet.Numerics
+MathNet.Numerics.FSharp
+Unquote
+FParsec
+argu
+BenchmarkDotNet
+BenchmarkDotNet.Diagnostics.Windows

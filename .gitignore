@@ -201,3 +201,12 @@
 # Informedica.GenCore.Tests
 !/tests/Informedica.GenCore.Tests/
 !/tests/Informedica.GenCore.Tests/Scripts/
+
+
+# Add benchmark files
+!/benchmark/
+!/benchmark/run.bat
+!/benchmark/Informedica.GenSolver.Lib_v1/
+!/benchmark/BenchmarkDotNet.Artifacts/
+!/benchmark/BenchmarkDotNet.Artifacts/results/
+!/benchmark/BenchmarkDotNet.Artifacts/results/*.md

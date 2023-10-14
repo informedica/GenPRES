@@ -2,3 +2,4 @@ Fake.Core.Target
 Fake.IO.FileSystem
 Expecto
 Fable.React.UseElmish
+FSharp.Core
