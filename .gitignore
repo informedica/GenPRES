@@ -206,6 +206,8 @@
 # Add benchmark files
 !/benchmark/
 !/benchmark/run.bat
+!/benchmark/.paket/
+!/benchmark/.paket/Paket.Restore.targets
 !/benchmark/Informedica.GenSolver.Lib_v1/
 !/benchmark/BenchmarkDotNet.Artifacts/
 !/benchmark/BenchmarkDotNet.Artifacts/results/
