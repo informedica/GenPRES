@@ -1,5 +1,7 @@
 ﻿// For more information see https://aka.ms/fsharp-console-apps
 
+open System
+
 
 module TestSolver =
 
@@ -99,6 +101,7 @@ module TestSolver =
 
 module Utils =
 
+    open MathNet.Numerics
 
     let inline allPairs min incr max = 
         let x1 = [|min..incr..max|]
@@ -107,12 +110,31 @@ module Utils =
         x1, x2
 
 
+    let randomNums seed n max =
+        let rnd = Random(seed)
+
+        Array.init n (fun _ -> rnd.Next(1, max))
+
+
+    let randomBigRationals seed n max =
+        let nums = randomNums seed n max
+        let denums = randomNums (seed + 1) n max
+        Array.zip nums denums
+        |> Array.map (fun (n, d) -> 
+            let n = BigRational.FromInt(n)
+            let d = BigRational.FromInt(d)
+            n / d
+        )
+
+
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
 open MathNet.Numerics
 
 open TestSolver
 open Informedica.GenUnits.Lib
+open Informedica.GenSolver.Lib
+
 
 type Benchmarks () =
 
@@ -161,6 +183,40 @@ type Benchmarks () =
     let allPairs_100 = Utils.allPairs 1N 1N 100N
     let allPairs_200 = Utils.allPairs 1N 1N 200N
 
+    let getTwoRandomLists n max =
+        let xs1 = Utils.randomBigRationals 1 n max
+        let xs2 = Utils.randomBigRationals 2 n max
+        xs1, xs2
+
+    let eqs_1_Rand n =
+        let xs1, xs2 = getTwoRandomLists n 1_000
+        eqs_n 1 None (Some xs1) (Some xs2) None None None
+
+    let eqs_3_Rand n =
+        let xs1, xs2 = getTwoRandomLists n 1_000
+        eqs_n 3 None (Some xs1) (Some xs2) None None None
+
+
+    let rand_100_a, rand_100_b = getTwoRandomLists 100 1_000
+
+    let rand_200_a, rand_200_b = getTwoRandomLists 200 1_000
+
+    let eqs_1_rand_10 = eqs_1_Rand 10
+
+    let eqs_1_rand_20 = eqs_1_Rand 20
+
+    let eqs_3_rand_10 = eqs_3_Rand 10
+
+    let eqs_3_rand_20 = eqs_3_Rand 20
+
+
+    member this.Print () =
+        eqs_1_rand_10 
+        |> List.map (Equation.toString true)
+        |> String.concat "\n"
+        |> printfn "%s"
+
+
 
     [<Benchmark>]
     member this.AllPairesInt_100 () =
@@ -180,24 +236,6 @@ type Benchmarks () =
         |> Array.distinct
 
 
-    //[<Benchmark>]
-    member this.AllPairesInt_Commutative_100 () =
-        let x1, x2 = allPairsInt_100
-
-        Array.allPairs x1 x2
-        |> Array.map (fun (x1, x2) -> x1 + x2)
-        |> Array.distinct
-
-
-    //[<Benchmark>]
-    member this.AllPairsInt_Commutative_200 () =
-        let x1, x2 = allPairsInt_1_000
-
-        Array.allPairs x1 x2
-        |> Array.map (fun (x1, x2) -> x1 + x2)
-        |> Array.distinct
-
-
     [<Benchmark>]
     member this.AllPairsBR_100 () =
         let x1, x2 = allPairs_100
@@ -210,6 +248,24 @@ type Benchmarks () =
     [<Benchmark>]
     member this.AllPairsBR_200 () =
         let x1, x2 = allPairs_200
+
+        Array.allPairs x1 x2
+        |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
+
+
+    [<Benchmark>]
+    member this.AllPairsBR_Rand_100 () =
+        let x1, x2 = rand_100_a, rand_100_b
+
+        Array.allPairs x1 x2
+        |> Array.map (fun (x1, x2) -> x1 + x2)
+        |> Array.distinct
+
+
+    [<Benchmark>]
+    member this.AllPairsBR_Rand_200 () =
+        let x1, x2 = rand_200_a, rand_200_b
 
         Array.allPairs x1 x2
         |> Array.map (fun (x1, x2) -> x1 + x2)
@@ -240,11 +296,34 @@ type Benchmarks () =
         solveAll eqs_3_max_200
 
 
+    [<Benchmark>]
+    member this.Solve_1_Eqs_Rand_10 () =
+        solveAll eqs_1_rand_10
+
+
+    [<Benchmark>]
+    member this.Solve_1_Eqs_Rand_20 () =
+        solveAll eqs_1_rand_20
+
+
+    [<Benchmark>]
+    member this.Solve_3_Eqs_Rand_10 () =
+        solveAll eqs_3_rand_10
+
+
+    [<Benchmark>]
+    member this.Solve_3_Eqs_Rand_20 () =
+        solveAll eqs_3_rand_20
+
+
 
 // For more information see https://aka.ms/fsharp-console-apps
 [<EntryPoint>]
 let main (args: string[]) =
 
+    Benchmarks().Print()
+    
+    printfn "Starting to run benchmarks"
     let _ = BenchmarkRunner.Run<Benchmarks>()
     printfn "Finished running benchmarks"
 
