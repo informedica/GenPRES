@@ -22,6 +22,9 @@ module Equation =
 
         module Property = Variable.ValueRange.Property
 
+        /// <summary>
+        /// Get the string representation of a SolveResult
+        /// </summary>
         let toString = function
             | Unchanged -> "Unchanged"
             | Changed cs ->
@@ -38,11 +41,13 @@ module Equation =
                 |> String.concat ", "
 
 
+    /// <summary>
     /// Create an `Equation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time using the **fail** function.
     /// The type of Equation product or sum
     /// is determined by the constructor **c**.
+    /// </summary>
     let create c succ fail (y, xs) =
         y::xs
         |> List.filter (fun v ->
@@ -55,44 +60,73 @@ module Equation =
             |> Exceptions.EquationDuplicateVariables
             |> fail
 
+
+    /// <summary>
     /// Create an `ProductEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time using the **fail** function.
+    /// </summary>
     let createProductEq = create ProductEquation
 
+
+    /// <summary>
     /// Create an `SumEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time using the **fail** function.
+    /// </summary>
     let createSumEq = create SumEquation
 
+
+    /// <summary>
     /// Create an `ProductEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time raising an exception.
+    /// </summary>
     let createProductEqExc = createProductEq id (Exceptions.raiseExc None [])
 
+
+    /// <summary>
     /// Create an `SumEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time raising an exception.
+    /// </summary>
     let createSumEqExc = createSumEq id (Exceptions.raiseExc None [])
 
+
+    /// <summary>
     /// Apply **fp** to a `ProductEquation` and
     /// **fs** to a `SumEquation`.
+    /// </summary>
     let apply fp fs = function
         | ProductEquation (y,xs) -> fp y xs
         | SumEquation (y, xs)    -> fs y xs
 
+
+    /// <summary>
     /// Check whether an `Equation` is a product equation
+    /// </summary>
     let isProduct = apply (fun _ _ -> true) (fun _ _ -> false)
 
+
+    /// <summary>
     /// Check whether an `Equation` is a sum equation
+    /// </summary>
     let isSum = apply (fun _ _ -> true) (fun _ _ -> false)
 
+
+    /// <summary>
     /// Turn an `Equation` into a list of `Variable`
+    /// </summary>
     let toVars =
         let f y xs = y::xs
         apply f f
 
 
+    /// <summary>
+    /// Get the count of `Variable`s in an `Equation`
+    /// </summary>
+    /// <param name="onlyMinMax">Whether only min max is used</param>
+    /// <param name="eq">The equation</param>
     let count onlyMinMax eq =
         let vars = eq |> toVars
         let b =
@@ -119,6 +153,9 @@ module Equation =
                 ) 0
 
 
+    /// <summary>
+    /// Get product of the `Variable`s in an `Equation`
+    /// </summary>
     let countProduct eq =
         //match eq with
         //| SumEquation _ -> -1
@@ -131,6 +168,9 @@ module Equation =
         ) 1
 
 
+    /// <summary>
+    /// Get the string representation of an `Equation`
+    /// </summary>
     let toString exact eq =
         let op = if eq |> isProduct then " * " else " + "
         let varToString = Variable.toString exact
@@ -142,9 +182,11 @@ module Equation =
             $"""{y |> varToString} = {xs |> List.map varToString |> String.concat op}"""
 
 
+    /// <summary>
     /// Make sure that the `Variables` in the
     /// `Equation` can only contain positive
     /// non zero values.
+    /// </summary>
     let nonZeroOrNegative eq =
         let set c y xs =
             let y = y |> Variable.setNonZeroOrNegative
@@ -154,12 +196,18 @@ module Equation =
         let fs = set SumEquation
         eq |> apply fp fs
 
+
+    /// <summary>
     /// Check whether an `Equation` contains
     /// a `Variable` **v**
+    /// </summary>
     let contains v = toVars >> (List.exists (Variable.eqName v))
 
+
+    /// <summary>
     /// Check whether `Equation`s
     /// **eq1** and **eq2** are equal
+    /// </summary>
     let equals eq1 eq2 =
         let vrs1 = eq1 |> toVars
         let vrs2 = eq2 |> toVars
@@ -168,24 +216,33 @@ module Equation =
         ((eq1 |> isProduct) && (eq2 |> isProduct) ||
          (eq1 |> isSum)     && (eq2 |> isSum))
 
+
+    /// <summary>
     /// Find a `Variable` **vr** in
     /// an `Equation` **eq** and return
     /// the result in a list
+    /// </summary>
     let find var eq =
         eq
         |> toVars
         |> List.filter (fun v -> v |> Variable.getName = (var |> Variable.getName))
 
+
+    /// <summary>
     /// Find a `Variable` with `Name`
     /// **n** in an `Equation` **eq**
     /// and return the result as a list
+    /// </summary>
     let findName n eq =
         eq
         |> toVars
         |> List.filter (fun vr -> vr |> Variable.getName = n)
 
+
+    /// <summary>
     /// Replace a `Variable` **v** in the
     /// `Equation` **e**.
+    /// </summary>
     let replace var eq =
         let r c v vs =
             let vs = vs |> List.replace (Variable.eqName v) v
@@ -195,17 +252,22 @@ module Equation =
         eq |> apply fp fs
 
 
-    // Check whether an equation is solved
+
+    /// <summary>
+    /// Check whether an equation is solved
+    /// </summary>
     let isSolved = function
         | ProductEquation (y, xs)
         | SumEquation (y, xs) ->
             y::xs |> List.forall Variable.isSolved
 
 
-    // Check whether an equation will change by calc
-    // This is not the same as `isSolved`!! If all
-    // the variables are unrestricted than the equation
-    // is not solvable but is also not solved.
+    /// <summary>
+    /// Check whether an equation will change by calc
+    /// This is not the same as `isSolved`!! If all
+    /// the variables are unrestricted than the equation
+    /// is not solvable but is also not solved.
+    /// </summary>
     let isSolvable = function
         | ProductEquation (y, xs)
         | SumEquation (y, xs) ->
@@ -216,6 +278,10 @@ module Equation =
                |> not
 
 
+    /// <summary>
+    /// Check whether an equation is valid
+    /// </summary>
+    /// <param name="eq">The equation</param>
     let check eq =
         let isSub op (y : Variable) (xs : Variable list) =
             match xs with
@@ -241,6 +307,9 @@ module Equation =
         else true
 
 
+    /// <summary>
+    /// Get the string representation of a calculation
+    /// </summary>
     let calculationToString b op1 op2 y xs =
         let varToStr = Variable.toString b
         let opToStr op  = $" {op |> Variable.Operators.toString} "
@@ -251,8 +320,10 @@ module Equation =
         $"""{y |> varToStr} = {x1 |> varToStr}{op2 |> opToStr}{xs |> List.map varToStr |> String.concat (op1 |> opToStr)} (cost: {cost})"""
 
 
+    /// <summary>
     /// Solve an equation **e**, return a list of
     /// changed `Variable`s.
+    /// </summary>
     let solve onlyMinIncrMax log eq =
         // helper functions
         let without x xs = xs |> List.filter (Variable.eqName x >> not)
