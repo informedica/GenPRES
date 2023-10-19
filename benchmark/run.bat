@@ -1,1 +1,1 @@
-sudo dotnet run -c Release
+sudo dotnet run -c Release %*

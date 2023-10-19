@@ -127,6 +127,13 @@ module Utils =
         )
 
 
+    let getTwoRandomLists n max =
+        let xs1 = randomBigRationals 1 n max
+        let xs2 = randomBigRationals 2 n max
+        xs1, xs2
+
+
+
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
 open MathNet.Numerics
@@ -136,7 +143,89 @@ open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 
 
-type Benchmarks () =
+type BigRationalBenchmarks () =
+
+    let allPairs_100 = Utils.allPairs 1N 1N 100N
+    let allPairs_200 = Utils.allPairs 1N 1N 200N
+
+
+    let rand_100_a, rand_100_b = Utils.getTwoRandomLists 100 1_000
+
+    let rand_200_a, rand_200_b = Utils.getTwoRandomLists 200 1_000
+
+    let calc op x1 x2 = 
+        Array.allPairs x1 x2
+        |> Array.map (fun (x1, x2) -> x1 |> op <| x2)
+        |> Array.distinct
+
+    let add = calc (+)
+    let sub = calc (-)
+    let mul = calc (*)
+    let div = calc (/)
+
+    [<Benchmark>]
+    member this.AllPairsBR_100 () =
+        let x1, x2 = allPairs_100
+        add x1 x2 |> ignore
+        sub x1 x2 |> ignore
+        mul x1 x2 |> ignore
+        div x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairsBR_200 () =
+        let x1, x2 = allPairs_200
+
+        add x1 x2 |> ignore
+        sub x1 x2 |> ignore
+        mul x1 x2 |> ignore
+        div x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairsBR_Rand_100 () =
+        let x1, x2 = rand_100_a, rand_100_b
+
+        add x1 x2 |> ignore
+        sub x1 x2 |> ignore
+        mul x1 x2 |> ignore
+        div x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairsBR_Rand_200 () =
+        let x1, x2 = rand_200_a, rand_200_b
+
+        add x1 x2 |> ignore
+        sub x1 x2 |> ignore
+        mul x1 x2 |> ignore
+        div x1 x2 |> ignore
+
+
+
+type ValueUnitBenchmarks () =
+    
+
+    let allPairs_100 = 
+        Utils.allPairs 1N 1N 100N
+        |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
+
+    let allPairs_200 = 
+        Utils.allPairs 1N 1N 200N
+        |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
+
+    let rand_100_a, rand_100_b = 
+        Utils.getTwoRandomLists 100 1_000
+        |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
+
+    let rand_200_a, rand_200_b = 
+        Utils.getTwoRandomLists 200 1_000
+        |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
+
+
+
+
+type EquationBenchmarks () =
 
     let eqs_n n a b c d e f =
         let eqs =
@@ -180,26 +269,14 @@ type Benchmarks () =
     let allPairsInt_100 = Utils.allPairs 1 1 100
     let allPairsInt_1_000 = Utils.allPairs 1 1 200
 
-    let allPairs_100 = Utils.allPairs 1N 1N 100N
-    let allPairs_200 = Utils.allPairs 1N 1N 200N
-
-    let getTwoRandomLists n max =
-        let xs1 = Utils.randomBigRationals 1 n max
-        let xs2 = Utils.randomBigRationals 2 n max
-        xs1, xs2
-
     let eqs_1_Rand n =
-        let xs1, xs2 = getTwoRandomLists n 1_000
+        let xs1, xs2 = Utils.getTwoRandomLists n 1_000
         eqs_n 1 None (Some xs1) (Some xs2) None None None
 
     let eqs_3_Rand n =
-        let xs1, xs2 = getTwoRandomLists n 1_000
+        let xs1, xs2 = Utils.getTwoRandomLists n 1_000
         eqs_n 3 None (Some xs1) (Some xs2) None None None
 
-
-    let rand_100_a, rand_100_b = getTwoRandomLists 100 1_000
-
-    let rand_200_a, rand_200_b = getTwoRandomLists 200 1_000
 
     let eqs_1_rand_10 = eqs_1_Rand 10
 
@@ -230,42 +307,6 @@ type Benchmarks () =
     [<Benchmark>]
     member this.AllPairsInt_200 () =
         let x1, x2 = allPairsInt_1_000
-
-        Array.allPairs x1 x2
-        |> Array.map (fun (x1, x2) -> x1 + x2)
-        |> Array.distinct
-
-
-    [<Benchmark>]
-    member this.AllPairsBR_100 () =
-        let x1, x2 = allPairs_100
-
-        Array.allPairs x1 x2
-        |> Array.map (fun (x1, x2) -> x1 + x2)
-        |> Array.distinct
-
-
-    [<Benchmark>]
-    member this.AllPairsBR_200 () =
-        let x1, x2 = allPairs_200
-
-        Array.allPairs x1 x2
-        |> Array.map (fun (x1, x2) -> x1 + x2)
-        |> Array.distinct
-
-
-    [<Benchmark>]
-    member this.AllPairsBR_Rand_100 () =
-        let x1, x2 = rand_100_a, rand_100_b
-
-        Array.allPairs x1 x2
-        |> Array.map (fun (x1, x2) -> x1 + x2)
-        |> Array.distinct
-
-
-    [<Benchmark>]
-    member this.AllPairsBR_Rand_200 () =
-        let x1, x2 = rand_200_a, rand_200_b
 
         Array.allPairs x1 x2
         |> Array.map (fun (x1, x2) -> x1 + x2)
@@ -321,11 +362,21 @@ type Benchmarks () =
 [<EntryPoint>]
 let main (args: string[]) =
 
-    Benchmarks().Print()
-    
-    printfn "Starting to run benchmarks"
-    let _ = BenchmarkRunner.Run<Benchmarks>()
-    printfn "Finished running benchmarks"
+    match args with
+    | [|s|] when s = "pr" -> EquationBenchmarks().Print()
+
+    | [|s|] when s = "br" -> 
+        printfn "Starting to run benchmarks"
+        let _ = BenchmarkRunner.Run<BigRationalBenchmarks>()
+        printfn "Finished running benchmarks"
+
+    | [|s|] when s = "eq" ->
+        printfn "Starting to run benchmarks"
+        let _ = BenchmarkRunner.Run<EquationBenchmarks>()
+        printfn "Finished running benchmarks"
+    | _ -> 
+        printfn $"""Unknown args: {String.Join(" ", args)}"""
+        ()
 
     0
 
