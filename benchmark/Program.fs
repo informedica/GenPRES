@@ -164,7 +164,7 @@ type BigRationalBenchmarks () =
     let div = calc (/)
 
     [<Benchmark>]
-    member this.AllPairsBR_100 () =
+    member this.AllPairs_100 () =
         let x1, x2 = allPairs_100
         add x1 x2 |> ignore
         sub x1 x2 |> ignore
@@ -173,7 +173,7 @@ type BigRationalBenchmarks () =
 
 
     [<Benchmark>]
-    member this.AllPairsBR_200 () =
+    member this.AllPairs_200 () =
         let x1, x2 = allPairs_200
 
         add x1 x2 |> ignore
@@ -183,7 +183,7 @@ type BigRationalBenchmarks () =
 
 
     [<Benchmark>]
-    member this.AllPairsBR_Rand_100 () =
+    member this.AllPairs_Rand_100 () =
         let x1, x2 = rand_100_a, rand_100_b
 
         add x1 x2 |> ignore
@@ -193,7 +193,7 @@ type BigRationalBenchmarks () =
 
 
     [<Benchmark>]
-    member this.AllPairsBR_Rand_200 () =
+    member this.AllPairs_Rand_200 () =
         let x1, x2 = rand_200_a, rand_200_b
 
         add x1 x2 |> ignore
@@ -221,6 +221,75 @@ type ValueUnitBenchmarks () =
     let rand_200_a, rand_200_b = 
         Utils.getTwoRandomLists 200 1_000
         |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
+
+    let calc b op x1 x2 = ValueUnit.calc b op x1 x2 //x1 |> op <| x2
+
+    let add b = calc b (+)
+    let sub b = calc b (-)
+    let mul b = calc b (*)
+    let div b = calc b (/)
+
+    let calcBR op x1 x2 = 
+        Array.allPairs x1 x2
+        |> Array.map (fun (x1, x2) -> x1 |> op <| x2)
+        |> Array.distinct
+
+
+    [<Benchmark>]
+    member this.BaseValue_200 () =
+        let vu1, vu2 = allPairs_200
+        let x1 = vu1 |> ValueUnit.toBaseValue
+        let x2 = vu2 |> ValueUnit.toBaseValue
+
+        calcBR (+) x1 x2 |> ignore
+        calcBR (-) x1 x2 |> ignore
+        calcBR (*) x1 x2 |> ignore
+        calcBR (/) x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairs_True_100 () =
+        let x1, x2 = allPairs_100
+        add true x1 x2 |> ignore
+        sub true x1 x2 |> ignore
+        mul true x1 x2 |> ignore
+        div true x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairs_True_200 () =
+        let x1, x2 = allPairs_200
+        add true x1 x2 |> ignore
+        sub true x1 x2 |> ignore
+        mul true x1 x2 |> ignore
+        div true x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairs_True_Rand_100 () =
+        let x1, x2 = rand_100_a, rand_100_b
+        add true x1 x2 |> ignore
+        sub true x1 x2 |> ignore
+        mul true x1 x2 |> ignore
+        div true x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairs_False_Rand_200 () =
+        let x1, x2 = rand_200_a, rand_200_b
+        add false x1 x2 |> ignore
+        sub false x1 x2 |> ignore
+        mul false x1 x2 |> ignore
+        div false x1 x2 |> ignore
+
+
+    [<Benchmark>]
+    member this.AllPairs_True_Rand_200 () =
+        let x1, x2 = rand_200_a, rand_200_b
+        add true x1 x2 |> ignore
+        sub true x1 x2 |> ignore
+        mul true x1 x2 |> ignore
+        div true x1 x2 |> ignore
 
 
 
@@ -366,12 +435,17 @@ let main (args: string[]) =
     | [|s|] when s = "pr" -> EquationBenchmarks().Print()
 
     | [|s|] when s = "br" -> 
-        printfn "Starting to run benchmarks"
+        printfn "Starting to run BigRational benchmarks"
         let _ = BenchmarkRunner.Run<BigRationalBenchmarks>()
         printfn "Finished running benchmarks"
 
+    | [|s|] when s = "vu" -> 
+        printfn "Starting to run ValueUnit benchmarks"
+        let _ = BenchmarkRunner.Run<ValueUnitBenchmarks>()
+        printfn "Finished running benchmarks"
+
     | [|s|] when s = "eq" ->
-        printfn "Starting to run benchmarks"
+        printfn "Starting to run Equation benchmarks"
         let _ = BenchmarkRunner.Run<EquationBenchmarks>()
         printfn "Finished running benchmarks"
     | _ -> 

@@ -2427,7 +2427,11 @@ module ValueUnit =
     /// Get the value of a ValueUnit as
     /// a base value.
     /// For example ValueUnit(1000, mg) -> 1
-    let toBaseValue (ValueUnit (v, u)) = v |> Array.map (valueToBase u)
+    let toBaseValue vu =
+        let v, u = vu |> get
+        if u |> Multipliers.getMultiplier = 1N then v
+        else
+            v |> Array.map (valueToBase u)
 
 
     /// Convert a value to v to the
@@ -2440,21 +2444,29 @@ module ValueUnit =
 
     /// Get the value of a ValueUnit as
     /// a unit value ValueUnit(1, mg) -> 1000
-    let toUnitValue (ValueUnit (v, u)) = v |> Array.map (valueToUnit u)
+    let toUnitValue vu =
+        let v, u = vu |> get
+        if u |> Multipliers.getMultiplier = 1N then v
+        else
+            v |> Array.map (valueToUnit u)
 
 
     /// Replace the Value in a ValueUnit to its base.
     /// For example ValueUnit(1000, mg) -> ValueUnit(1, mg)
     let toBase vu =
         let v, u = vu |> get
-        v |> Array.map (valueToBase u) |> create u
+        if u |> Multipliers.getMultiplier = 1N then vu
+        else
+            v |> Array.map (valueToBase u) |> create u
 
 
     /// Transforms a ValueUnit to its unit.
     /// For example ValueUnit(1, mg) -> ValueUnit(1000, mg)
     let toUnit vu =
         let v, u = vu |> get
-        v |> Array.map (valueToUnit u) |> create u
+        if u |> Multipliers.getMultiplier = 1N then vu
+        else
+            v |> Array.map (valueToUnit u) |> create u
 
 
     /// Make sure that a ValueUnit has a positive value
@@ -2608,28 +2620,30 @@ module ValueUnit =
 
             (false, NoUnit)
             |> build ns ds
-            |> (fun (_, u) ->
-                vu
-                |> toBaseValue
-                |> create u
-                |> toUnitValue
-                |> create u
-            )
-            // rewrite case u1/u2 * u3 -> u1/u2/u3 when group u2 <> group u3
-            |> fun vu ->
-                let v, u =
+            |> fun (_, u1) ->
+                // nothing changed so just return original
+                if u = u1 then vu
+                else
                     vu
-                    |> get
-                let u =
-                    match u with
-                    | CombiUnit(u1, OpPer, CombiUnit(u2, OpTimes, u3)) ->
-                        if u2 |> Group.eqsGroup u3 then
-                            u
-                        else
-                            CombiUnit(CombiUnit(u1, OpPer, u2), OpPer, u3)
-                    | _ -> u
+                    |> toBaseValue
+                    |> create u1
+                    |> toUnitValue
+                    |> create u1
+                    // rewrite case u1/u2 * u3 -> u1/u2/u3 when group u2 <> group u3
+                    |> fun vu ->
+                        let v, u =
+                            vu
+                            |> get
+                        let u =
+                            match u with
+                            | CombiUnit(u1, OpPer, CombiUnit(u2, OpTimes, u3)) ->
+                                if u2 |> Group.eqsGroup u3 then
+                                    u
+                                else
+                                    CombiUnit(CombiUnit(u1, OpPer, u2), OpPer, u3)
+                            | _ -> u
 
-                v |> withUnit u
+                        v |> withUnit u
 
 
     /// <summary>
