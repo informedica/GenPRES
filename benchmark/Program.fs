@@ -222,6 +222,12 @@ type ValueUnitBenchmarks () =
         Utils.getTwoRandomLists 200 1_000
         |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
 
+    let rand_100_a_mg_per_ml, rand_100_b_ml =
+        let mgPerMl = Units.Mass.milliGram |> Units.per Units.Volume.milliLiter
+        let ml = Units.Volume.milliLiter
+        Utils.getTwoRandomLists 100 1_000
+        |> fun (x1, x2) -> ValueUnit.create mgPerMl x1, ValueUnit.create ml x2
+
     let calc b op x1 x2 = ValueUnit.calc b op x1 x2 //x1 |> op <| x2
 
     let add b = calc b (+)
@@ -291,6 +297,14 @@ type ValueUnitBenchmarks () =
         mul true x1 x2 |> ignore
         div true x1 x2 |> ignore
 
+
+    [<Benchmark>]
+    member this.AllPairs_True_Rand_100_mgPerMl_ml () =
+        let x1, x2 = rand_100_a_mg_per_ml, rand_100_b_ml
+        add true x1 x1 |> ignore // can only add with same units
+        sub true x1 x1 |> ignore // can only sub with same units
+        mul true x1 x2 |> ignore
+        div true x1 x2 |> ignore
 
 
 

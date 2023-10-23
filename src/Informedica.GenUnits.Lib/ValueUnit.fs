@@ -2595,6 +2595,33 @@ module ValueUnit =
 
 
     /// <summary>
+    /// Simplify a unit u such that units are algebraically removed or
+    /// transformed to count units, where applicable.
+    /// </summary>
+    /// <param name="u">The unit to simplify</param>
+    /// <returns>
+    /// The simplified unit
+    /// </returns>
+    let simplifyUnit u =
+        if u = NoUnit then u
+        else
+            let ns, ds = u |> numDenom true
+
+            (false, NoUnit)
+            |> build ns ds
+            |> fun (_, newU) ->
+                // nothing changed so just return original
+                if u = newU then u
+                else
+                    match newU with
+                    | CombiUnit(u1, OpPer, CombiUnit(u2, OpTimes, u3)) ->
+                        if u2 |> Group.eqsGroup u3 then newU
+                        else
+                            CombiUnit(CombiUnit(u1, OpPer, u2), OpPer, u3)
+                    | _ -> newU
+
+
+    /// <summary>
     /// Simplify a value unit u such that units are algebraically removed or
     /// transformed to count units, where applicable.
     /// </summary>
@@ -2610,40 +2637,19 @@ module ValueUnit =
     /// ValueUnit ([|1N; 2N; 3N|], Count (Times 1N))
     /// </code>
     /// </example>
-    let simplify vu =
-        let u = vu |> getUnit
+    let rec simplify vu =
+        let v, u = vu |> get
 
         if u = NoUnit then
             vu
         else
-            let ns, ds = u |> numDenom true
-
-            (false, NoUnit)
-            |> build ns ds
-            |> fun (_, u1) ->
-                // nothing changed so just return original
-                if u = u1 then vu
-                else
-                    vu
-                    |> toBaseValue
-                    |> create u1
-                    |> toUnitValue
-                    |> create u1
-                    // rewrite case u1/u2 * u3 -> u1/u2/u3 when group u2 <> group u3
-                    |> fun vu ->
-                        let v, u =
-                            vu
-                            |> get
-                        let u =
-                            match u with
-                            | CombiUnit(u1, OpPer, CombiUnit(u2, OpTimes, u3)) ->
-                                if u2 |> Group.eqsGroup u3 then
-                                    u
-                                else
-                                    CombiUnit(CombiUnit(u1, OpPer, u2), OpPer, u3)
-                            | _ -> u
-
-                        v |> withUnit u
+            let u = simplifyUnit u
+            v
+            |> create u
+            // calculate to the new combiunit
+            |> toUnitValue
+            // recreate again to final value unit
+            |> create u
 
 
     /// <summary>
@@ -2696,6 +2702,7 @@ module ValueUnit =
                 | _ ->
                     failwith
                     <| $"cannot add or subtract different units %A{u1} %A{u2}"
+            |> fun u -> if b then simplifyUnit u else u
         // recreate valueunit with base value and combined unit
         v
         |> create u
@@ -2703,7 +2710,6 @@ module ValueUnit =
         |> toUnitValue
         // recreate again to final value unit
         |> create u
-        |> fun vu -> if b then vu |> simplify else vu
 
 
     /// <summary>

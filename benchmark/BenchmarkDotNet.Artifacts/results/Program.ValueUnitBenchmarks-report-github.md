@@ -8,11 +8,12 @@ Apple M2 Max, 1 CPU, 12 logical and 12 physical cores
 
 
 ```
-| Method                  | Mean      | Error    | StdDev   |
-|------------------------ |----------:|---------:|---------:|
-| BaseValue_200           |  41.12 ms | 0.661 ms | 0.618 ms |
-| AllPairs_True_100       |  25.70 ms | 0.089 ms | 0.083 ms |
-| AllPairs_True_200       | 129.14 ms | 0.579 ms | 0.513 ms |
-| AllPairs_True_Rand_100  | 127.78 ms | 0.404 ms | 0.378 ms |
-| AllPairs_False_Rand_200 | 623.85 ms | 4.947 ms | 4.627 ms |
-| AllPairs_True_Rand_200  | 624.27 ms | 2.291 ms | 2.031 ms |
+| Method                            | Mean      | Error    | StdDev   |
+|---------------------------------- |----------:|---------:|---------:|
+| BaseValue_200                     |  39.32 ms | 0.502 ms | 0.419 ms |
+| AllPairs_True_100                 |  25.08 ms | 0.117 ms | 0.104 ms |
+| AllPairs_True_200                 | 128.50 ms | 0.730 ms | 0.683 ms |
+| AllPairs_True_Rand_100            | 133.47 ms | 0.397 ms | 0.372 ms |
+| AllPairs_False_Rand_200           | 555.15 ms | 4.057 ms | 3.596 ms |
+| AllPairs_True_Rand_200            | 554.77 ms | 3.653 ms | 3.051 ms |
+| AllPairs_True_Rand_100_mgPerMl_ml | 114.64 ms | 2.232 ms | 2.088 ms |
