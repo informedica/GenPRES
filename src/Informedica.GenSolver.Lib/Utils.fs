@@ -45,10 +45,10 @@ module Utils =
 
         /// Maximum set of values that can be used to perform
         /// a Variable calculation.
-        let MAX_CALC_COUNT = 200
+        let MAX_CALC_COUNT = 300
 
         /// Reduce a set of values to a maximum of 20 for a Variable
-        let PRUNE = 20
+        let PRUNE = 40
 
         /// Maximum quantity of a numerator or denominator to prevent
         /// infinite loops calculating a minimum or maximum.

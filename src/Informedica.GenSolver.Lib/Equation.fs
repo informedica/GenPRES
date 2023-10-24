@@ -410,12 +410,14 @@ module Equation =
             // calcVars returns None
             let rec loop acc vars =
                 let vars =
-                    vars
-                    |> List.sortBy(fun (_, xs) ->
-                        xs
-                        |> List.tail
-                        |> List.sumBy Variable.count
-                    )
+                    if onlyMinIncrMax then vars
+                    else
+                        vars
+                        |> List.sortBy(fun (_, xs) ->
+                            xs
+                            |> List.tail
+                            |> List.sumBy Variable.count
+                        )
 
                 match calcVars vars with
                 | None -> acc, vars
@@ -425,22 +427,26 @@ module Equation =
                         i,
                         xs |> List.replace (Variable.eqName var) var
                     )
-                    |> List.sortBy(fun (_, xs) ->
-                        xs
-                        |> List.tail
-                        |> List.sumBy Variable.count
-                    )
+                    |> fun vars ->
+                        if onlyMinIncrMax then vars
+                        else
+                            vars
+                            |> List.sortBy(fun (_, xs) ->
+                                xs
+                                |> List.tail
+                                |> List.sumBy Variable.count
+                            )
                     |> loop (acc |> List.replaceOrAdd (Variable.eqName var) var)
 
             vars
             |> loop []
-            |> fun (c, vars) ->
-                if c |> List.isEmpty then eq, Unchanged
+            |> fun (changed, vars) ->
+                if changed |> List.isEmpty then eq, Unchanged
                 else
                     // calculate which vars are changed from the original eq
                     let solveResult =
                         let vars = eq |> toVars
-                        c
+                        changed
                         |> List.map (fun v2 ->
                             vars
                             |> List.tryFind (Variable.eqName v2)
