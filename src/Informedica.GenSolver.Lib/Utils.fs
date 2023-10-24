@@ -4,6 +4,38 @@ namespace Informedica.GenSolver.Lib
 [<AutoOpen>]
 module Utils =
 
+
+    module List =
+
+        /// <summary>
+        /// Reorder a liat according to a permutation. Such that a list
+        /// of lists is returned such that [a1; a2; a3; ..; an] becomes
+        /// [|
+        ///     [ a1; a2; a3; ..; an ]
+        ///     [ a2; a1; a3; ..; an ]
+        ///     ...
+        ///     [ an; a1; a2; ..; an-1 ]
+        /// |]
+        /// </summary>
+        let reorder xs =
+            let n = xs |> List.length
+            if n <= 2 then [ xs ]
+            else
+                let y = xs[0]
+                let xs = xs |> List.tail
+                let n = n - 2
+                [
+                    y::xs
+                    for i in 0..n do
+                        match i with
+                        | 0            -> xs[0]::y::xs[1..n]
+                        | _ when i = n -> xs[n]::y::xs[0..n-1]
+                        | _            ->
+                            xs[i]::y::xs[0..i-1] @ xs[i+1..n]
+                ]
+
+
+
     module Constants =
 
 

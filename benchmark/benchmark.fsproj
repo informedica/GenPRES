@@ -5,6 +5,7 @@
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Equation.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

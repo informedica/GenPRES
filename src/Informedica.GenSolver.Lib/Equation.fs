@@ -324,7 +324,7 @@ module Equation =
     /// Solve an equation **e**, return a list of
     /// changed `Variable`s.
     /// </summary>
-    let solve onlyMinIncrMax log eq =
+    let solve_old onlyMinIncrMax log eq =
         // helper functions
         let without x xs = xs |> List.filter (Variable.eqName x >> not)
         let replAdd x xs = xs |> List.replaceOrAdd(Variable.eqName x) x
@@ -475,6 +475,160 @@ module Equation =
                     |> List.iter (Logging.logError log)
 
                     eq, Errored errs
+
+
+    let solve_ onlyMinIncrMax log eq =
+
+        let reorder = List.reorder >> List.mapi (fun i x -> (i, x))
+
+        let calc op1 op2 xs =
+            match xs with
+            | []    -> None
+            | [ x ] -> Some x
+            | y::xs ->
+                y |> op2 <| (xs |> List.reduce op1)
+                |> Some
+
+        if eq |> isSolved then eq, Unchanged
+        else
+            // log starting the equation solve
+            eq
+            |> Events.EquationStartedSolving
+            |> Logging.logInfo log
+
+            let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
+            let vars, op1, op2 =
+                match eq with
+                | ProductEquation (y, xs) ->
+                    if onlyMinIncrMax then
+                        y::xs, (@*), (@/)
+                    else
+                        y::xs, (^*), (^/)
+                | SumEquation (y, xs) ->
+                    if onlyMinIncrMax then
+                        y::xs, (@+), (@-)
+                    else
+                        y::xs, (^+), (^-)
+
+            let vars = vars |> reorder
+
+            let calc vars =
+                vars
+                |> List.fold (fun acc vars ->
+                    if acc |> Option.isSome then acc
+                    else
+                        match vars with
+                        | _, []
+                        | _, [ _ ]   -> acc
+                        | i, y::xs ->
+                            let op2 = if i = 0 then op1 else op2
+                            // log starting the calculation
+                            (op1, op2, y, xs)
+                            |> Events.EquationStartCalculation
+                            |> Logging.logInfo log
+
+                            xs
+                            |> calc op1 op2
+                            |> function
+                                | None ->
+                                    // log finishing the calculation
+                                    (y::xs, false)
+                                    |> Events.EquationFinishedCalculation
+                                    |> Logging.logInfo log
+
+                                    None
+                                | Some var ->
+                                    let yNew = y <== var
+
+                                    if yNew <> y then
+                                        // log finishing the calculation
+                                        ([yNew], true)
+                                        |> Events.EquationFinishedCalculation
+                                        |> Logging.logInfo log
+
+                                        Some yNew
+                                    else
+                                        // log finishing the calculation
+                                        ([], false)
+                                        |> Events.EquationFinishedCalculation
+                                        |> Logging.logInfo log
+
+                                        None
+                ) None
+
+            let rec loop acc vars =
+                let vars =
+                    vars
+                    |> List.sortBy(fun (_, xs) ->
+                        xs
+                        |> List.tail
+                        |> List.sumBy Variable.count
+                    )
+
+                match calc vars with
+                | None -> acc, vars
+                | Some var ->
+                    vars
+                    |> List.map (fun (i, xs) ->
+                        i,
+                        xs |> List.replace (Variable.eqName var) var
+                    )
+                    |> List.sortBy(fun (_, xs) ->
+                        xs
+                        |> List.tail
+                        |> List.sumBy Variable.count
+                    )
+                    |> loop (acc |> List.replaceOrAdd (Variable.eqName var) var)
+
+            vars
+            |> loop []
+            |> fun (c, vars) ->
+                if c |> List.isEmpty then eq, Unchanged
+                else
+                    let c =
+                        let vars = eq |> toVars
+                        c
+                        |> List.map (fun v2 ->
+                            vars
+                            |> List.tryFind (Variable.eqName v2)
+                            |> function
+                            | Some v1 ->
+                                v2, v2.Values
+                                |> Variable.ValueRange.diffWith v1.Values
+                            | None ->
+                                $"cannot find {v2}! in {vars}!"
+                                |> failwith
+                        )
+                        |> List.filter (snd >> Set.isEmpty >> not)
+                        |> Changed
+                    let y, xs =
+                        let vars = vars |> List.find (fst >> (=) 0) |> snd
+                        vars |> List.head,
+                        vars |> List.tail
+
+                    (match eq with
+                    | ProductEquation _ -> createProductEqExc (y, xs)
+                    | SumEquation _ -> createSumEqExc (y, xs)
+                    , c)
+                    |> fun (eq, sr) ->
+                        // log finishing equation solving
+                        (eq, sr)
+                        |> Events.EquationFinishedSolving
+                        |> Logging.logInfo log
+
+                        eq, sr
+
+
+    let solve onlyMinIncrMax log eq =
+        try
+            solve_ onlyMinIncrMax log eq
+        with
+        | Exceptions.SolverException errs ->
+            errs
+            |> List.iter (Logging.logError log)
+
+            eq, Errored errs
+
 
 
     module Dto =

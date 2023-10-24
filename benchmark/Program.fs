@@ -310,7 +310,7 @@ type ValueUnitBenchmarks () =
 
 type EquationBenchmarks () =
 
-    let eqs_n n a b c d e f =
+    let eqs_takeN n a b c d e f =
         let eqs =
             [
                 "a = b + c"
@@ -331,15 +331,15 @@ type EquationBenchmarks () =
         |> set "e" e
         |> set "f" f
 
-    let eqs_1 = eqs_n 1 None None None None None None
+    let eqs_1 = eqs_takeN 1 None None None None None None
 
     let eqs_1_max max =
         let xs = [|1N..1N..max|]
-        eqs_n 1 None (Some xs) (Some xs) None None None
+        eqs_takeN 1 None (Some xs) (Some xs) None None None
 
     let eqs_3_max max =
         let xs = [|1N..1N..max|]
-        eqs_n 3 None (Some xs) (Some xs) None None None
+        eqs_takeN 3 None (Some xs) (Some xs) None None None
 
     let eqs_1_max_100 = eqs_1_max 100N
 
@@ -354,11 +354,11 @@ type EquationBenchmarks () =
 
     let eqs_1_Rand n =
         let xs1, xs2 = Utils.getTwoRandomLists n 1_000
-        eqs_n 1 None (Some xs1) (Some xs2) None None None
+        eqs_takeN 1 None (Some xs1) (Some xs2) None None None
 
     let eqs_3_Rand n =
         let xs1, xs2 = Utils.getTwoRandomLists n 1_000
-        eqs_n 3 None (Some xs1) (Some xs2) None None None
+        eqs_takeN 3 None (Some xs1) (Some xs2) None None None
 
 
     let eqs_1_rand_10 = eqs_1_Rand 10

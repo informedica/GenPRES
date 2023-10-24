@@ -23,6 +23,7 @@
         <None Include="Scripts\OrderEquations.fsx" />
         <None Include="Scripts\Tests.fsx" />
         <None Include="Scripts\Increment.fsx" />
+        <None Include="Scripts\Equation.fsx" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
