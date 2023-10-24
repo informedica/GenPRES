@@ -320,167 +320,15 @@ module Equation =
         $"""{y |> varToStr} = {x1 |> varToStr}{op2 |> opToStr}{xs |> List.map varToStr |> String.concat (op1 |> opToStr)} (cost: {cost})"""
 
 
-    /// <summary>
-    /// Solve an equation **e**, return a list of
-    /// changed `Variable`s.
-    /// </summary>
-    let solve_old onlyMinIncrMax log eq =
-        // helper functions
-        let without x xs = xs |> List.filter (Variable.eqName x >> not)
-        let replAdd x xs = xs |> List.replaceOrAdd(Variable.eqName x) x
-
-        let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
-
-        let rec calcXs op1 op2 y xs rest xChanged =
-            match rest with
-            | []  ->
-                // log finishing the calculation
-                (y::xs, xChanged)
-                |> Events.EquationFinishedCalculation // TODO: need to rename
-                |> Logging.logInfo log
-                // return the result and whether this is changed
-                xs, xChanged
-
-            | x::tail ->
-                let newX =
-                    match xs |> without x with
-                    | [] ->  x <== y
-                    | _  ->
-                        if x |> Variable.isSolved then x
-                        else
-                            let xs = xs |> without x
-                            // log the calculation
-                            (op1, op2, x, y::xs)
-                            |> Events.EquationStartCalculation
-                            |> Logging.logInfo log
-                            // recalculate x
-                            x <== (y |> op2 <| (xs |> List.reduce op1))
-
-                (xChanged || (x.Values |> ValueRange.eqs newX.Values |> not))
-                |> calcXs op1 op2 y (xs |> replAdd newX) tail
-
-        let calcY op1 y xs =
-            if y |> Variable.isSolved then
-                y, false
-            else
-                // log the calculation
-                (op1, op1, y, xs)
-                |> Events.EquationStartCalculation
-                |> Logging.logInfo log
-                // recalculate y
-                let temp = xs |> List.reduce op1
-                let newY = y <== temp //(xs |> List.reduce op1)
-
-                let yChanged = newY.Values |> ValueRange.eqs y.Values |> not
-
-                // log finishing the calculation
-                (newY::xs, yChanged)
-                |> Events.EquationFinishedCalculation
-                |> Logging.logInfo log
-                // return the result and whether it changed
-                newY, yChanged
-        // op1 = (*) or (+) and op2 = (/) or (-)
-        let rec loop op1 op2 y xs eqChanged =
-            let y, yChanged, xs, xChanged =
-                // for performance reasons pick the most efficient order of
-                // calculations, first xs then y or vice versa.
-                if xs |> List.forall (Variable.count >> ((<) (y |> Variable.count))) then
-                    // Calculate x1 = y op2 (x2 op1 x3 .. op1 xn)
-                    //       and x2 = y op2 (x1 op1 x3 .. op1 xn)
-                    //       etc..
-                    let xs, xChanged = calcXs op1 op2 y xs xs false
-                    // Calculate y = x1 op1 x2 op1 .. op1 xn
-                    let y, yChanged = calcY op1 y xs
-
-                    y, yChanged, xs, xChanged
-                else
-                    // Calculate y = x1 op1 x2 op1 .. op1 xn
-                    let y, yChanged = calcY op1 y xs
-                    // Calculate x1 = y op2 (x2 op1 x3 .. op1 xn)
-                    //       and x2 = y op2 (x1 op1 x3 .. op1 xn)
-                    //       etc..
-                    let xs, xChanged = calcXs op1 op2 y xs xs false
-
-                    y, yChanged, xs, xChanged
-
-            // If neither yChanged or xChanged return the result
-            if not (yChanged || xChanged) then (y, xs, eqChanged)
-            else
-                // y or x has changed so loop
-                loop op1 op2 y xs true
-
-        let calcResult (y, xs, isChanged) =
-            let result =
-                // nothing has changed!
-                if not isChanged then Unchanged
-                // calculate the changes
-                else
-                    let vars = eq |> toVars
-
-                    y::xs
-                    |> List.map (fun v2 ->
-                        vars
-                        |> List.tryFind (Variable.eqName v2)
-                        |> function
-                        | Some v1 ->
-                            v2, v2.Values
-                            |> Variable.ValueRange.diffWith v1.Values
-                        | None ->
-                            $"cannot find {v2}! in {vars}!"
-                            |> failwith
-                    )
-                    |> List.filter (snd >> Set.isEmpty >> not)
-                    |> Changed
-
-            let eq =
-                match eq with
-                | ProductEquation _ -> createProductEqExc (y, xs)
-                | SumEquation _     -> createSumEqExc (y, xs)
-            // log finishing equation solving
-            (eq, result)
-            |> Events.EquationFinishedSolving
-            |> Logging.logInfo log
-            // return the eq and solve result
-            eq, result
-
-        if eq |> isSolved then eq, Unchanged
-        else
-            // log starting the equation solve
-            eq
-            |> Events.EquationStartedSolving
-            |> Logging.logInfo log
-            // get the right operators
-            let y, xs, op1, op2 =
-                match eq with
-                | ProductEquation (y, xs) ->
-                    if onlyMinIncrMax then
-                        y, xs, (@*), (@/)
-                    else
-                        y, xs, (^*), (^/)
-                | SumEquation (y, xs) ->
-                    if onlyMinIncrMax then
-                        y, xs, (@+), (@-)
-                    else
-                        y, xs, (^+), (^-)
-
-            match xs with
-            | [] -> eq, Unchanged
-            | _  ->
-                try
-                    loop op1 op2 y xs false
-                    |> calcResult
-                with
-                | Exceptions.SolverException errs ->
-                    errs
-                    |> List.iter (Logging.logError log)
-
-                    eq, Errored errs
-
-
-    let solve_ onlyMinIncrMax log eq =
-
+    // The actual solving function
+    let private solve_ onlyMinIncrMax log eq =
+        // orders a list of vars such that most expensive calculations
+        // will be performed last (i.e. possibly prevented)
         let reorder = List.reorder >> List.mapi (fun i x -> (i, x))
-
+        // perform a calculation with op1 for list reduction and
+        // op1 for the first var and the reduced list
+        // i.e. a = b + c + d -> b = a - (c + d)
+        // op1 = (+) and op2 = (-)
         let calc op1 op2 xs =
             match xs with
             | []    -> None
@@ -495,8 +343,9 @@ module Equation =
             eq
             |> Events.EquationStartedSolving
             |> Logging.logInfo log
-
+            // select the right application operator
             let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
+            // get the vars and the matching operators
             let vars, op1, op2 =
                 match eq with
                 | ProductEquation (y, xs) ->
@@ -509,10 +358,12 @@ module Equation =
                         y::xs, (@+), (@-)
                     else
                         y::xs, (^+), (^-)
-
+            // reorder the vars such that
+            // a = b + d becomes a list representing
+            // [ a = b + d; b = a - d; d = a - b ]
             let vars = vars |> reorder
-
-            let calc vars =
+            // perform the calculations on the vars
+            let calcVars vars =
                 vars
                 |> List.fold (fun acc vars ->
                     if acc |> Option.isSome then acc
@@ -555,7 +406,8 @@ module Equation =
 
                                         None
                 ) None
-
+            // loop until no changes are detected, i.e.
+            // calcVars returns None
             let rec loop acc vars =
                 let vars =
                     vars
@@ -565,7 +417,7 @@ module Equation =
                         |> List.sumBy Variable.count
                     )
 
-                match calc vars with
+                match calcVars vars with
                 | None -> acc, vars
                 | Some var ->
                     vars
@@ -585,7 +437,8 @@ module Equation =
             |> fun (c, vars) ->
                 if c |> List.isEmpty then eq, Unchanged
                 else
-                    let c =
+                    // calculate which vars are changed from the original eq
+                    let solveResult =
                         let vars = eq |> toVars
                         c
                         |> List.map (fun v2 ->
@@ -601,6 +454,7 @@ module Equation =
                         )
                         |> List.filter (snd >> Set.isEmpty >> not)
                         |> Changed
+
                     let y, xs =
                         let vars = vars |> List.find (fst >> (=) 0) |> snd
                         vars |> List.head,
@@ -609,7 +463,7 @@ module Equation =
                     (match eq with
                     | ProductEquation _ -> createProductEqExc (y, xs)
                     | SumEquation _ -> createSumEqExc (y, xs)
-                    , c)
+                    , solveResult)
                     |> fun (eq, sr) ->
                         // log finishing equation solving
                         (eq, sr)
@@ -619,6 +473,15 @@ module Equation =
                         eq, sr
 
 
+    /// <summary>
+    /// Solve an equation eq and return the resulting eq with
+    /// the variables that were changed as a SolveResult
+    /// </summary>
+    /// <param name="onlyMinIncrMax">Calculate only Min, Incr and Max if true</param>
+    /// <param name="log">The logger to log solving steps</param>
+    /// <param name="eq">The equation</param>
+    /// <returns>The resulting equation and the changed variables</returns>
+    /// <exception cref="Exceptions.SolverException">If solving the equation runs into an error</exception>
     let solve onlyMinIncrMax log eq =
         try
             solve_ onlyMinIncrMax log eq
