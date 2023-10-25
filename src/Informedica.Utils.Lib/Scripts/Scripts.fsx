@@ -2,6 +2,8 @@
 
 #load "load.fsx"
 
+#time
+
 open System
 open MathNet.Numerics
 open Informedica.Utils.Lib
@@ -72,3 +74,41 @@ let valueToFactorRatio v r =
     |> fun (n, d) ->
         if d <> 0N && n / d = v then Some (n, d)
         else None
+
+
+
+
+let farey n asc =
+    seq {
+        let p = if asc then ref 0I else ref 1I
+        let q = ref 1I
+        let p' = if asc then ref 1I else ref (n - 1I)
+        let q' = ref n
+        yield (p.Value, q.Value)
+
+        while (asc && not (p.Value = 1I && q.Value = 1I)) || (not asc && p.Value > 0I) do
+            let c = (q.Value + n) / q'.Value
+            let p'' = c * p'.Value - p.Value
+            let q'' = c * q'.Value - q.Value
+            p.Value <- p'.Value
+            q.Value <- q'.Value
+            p'.Value <- p''
+            q'.Value <- q''
+            yield (p.Value, q.Value)
+    }
+
+
+let calcSolutionConcentrations n conc =
+    farey n true
+    |> Seq.filter (fst >> (<) 0I)
+    |> Seq.filter (fun (n, d) -> n <> d)
+    |> Seq.map (fun (n, d) ->
+        BigRational.FromBigInt n / BigRational.FromBigInt d
+    )
+    |> Seq.map (fun v -> v * conc)
+    |> Seq.sort
+
+
+calcSolutionConcentrations 500I 1N
+|> Seq.length
+
