@@ -206,9 +206,9 @@ module Api =
         printfn "checking increase incr"
         let dto = ord |> Order.Dto.toDto
 
-        match dto.Orderable.OrderableQuantity.Variable.Min,
-                dto.Orderable.OrderableQuantity.Variable.Incr,
-                dto.Orderable.OrderableQuantity.Variable.Max with
+        match dto.Orderable.OrderableQuantity.Variable.MinOpt,
+                dto.Orderable.OrderableQuantity.Variable.IncrOpt,
+                dto.Orderable.OrderableQuantity.Variable.MaxOpt with
         | Some min, Some incr, Some _ when dto.Prescription.IsContinuous |> not ->
             if min.Unit |> String.equalsCapInsens "ml" |> not then
                 ord
@@ -234,9 +234,9 @@ module Api =
                 // not sure if this is needed
                 |> fun o ->
 
-                    match dto.Orderable.Dose.Rate.Variable.Min,
-                            dto.Orderable.Dose.Rate.Variable.Incr,
-                            dto.Orderable.Dose.Rate.Variable.Max with
+                    match dto.Orderable.Dose.Rate.Variable.MinOpt,
+                            dto.Orderable.Dose.Rate.Variable.IncrOpt,
+                            dto.Orderable.Dose.Rate.Variable.MaxOpt with
                     | Some _, Some incr, Some _ ->
                         let incr =
                             [0.1m; 0.5m; 1m; 5m; 10m; 20m]
@@ -315,7 +315,7 @@ module Api =
 
                 let shps =
                     dto.Orderable.Components
-                    |> List.choose (fun cDto -> cDto.ComponentQuantity.Variable.Vals)
+                    |> List.choose (fun cDto -> cDto.ComponentQuantity.Variable.ValsOpt)
                     |> List.toArray
                     |> Array.collect (fun dto ->
                         dto.Value
@@ -329,7 +329,7 @@ module Api =
                         cDto.Items
                         |> List.toArray
                         |> Array.choose (fun iDto ->
-                            iDto.ComponentConcentration.Variable.Vals
+                            iDto.ComponentConcentration.Variable.ValsOpt
                             |> Option.map (fun v ->
                                 iDto.Name,
                                 v.Value

@@ -116,14 +116,20 @@ module OrderVariable =
     let eqsName ovar1 ovar2 = (ovar1 |> getName) = (ovar2 |> getName)
 
 
-    let applyConstraints (ovar : OrderVariable) =
+    let applyConstraints withVals (ovar : OrderVariable) =
         { ovar with
             Variable =
                 ovar.Variable.Values
                 |> ValueRange.setOptMin ovar.Constraints.Min
                 |> ValueRange.setOptMax ovar.Constraints.Max
                 |> ValueRange.setOptIncr ovar.Constraints.Incr
-                |> ValueRange.setOptVs ovar.Constraints.Values
+                // only set a ValueSet if either no increment
+                // or withVals = true
+                |> fun vr ->
+                    if not withVals && ovar.Constraints.Incr.IsSome then vr
+                    else
+                        vr
+                        |> ValueRange.setOptVs ovar.Constraints.Values
                 |> Variable.setValueRange true ovar.Variable
         }
 
@@ -169,7 +175,7 @@ module OrderVariable =
         |> Option.map (ValueSet.toValueUnit >> ValueUnit.toStringDutchShort)
 
 
-    let toValueUnitString get (prec : int) x =
+    let toValueUnitString get (_ : int) x =
         x
         |> get
         |> getVar
@@ -234,8 +240,8 @@ module OrderVariable =
         let fromDto (dto: Dto) =
             let cs =
                 let vs =
-                    dto.Constraints.Vals
-                    |> Option.bind (ValueUnit.Dto.fromDto)
+                    dto.Constraints.ValsOpt
+                    |> Option.bind ValueUnit.Dto.fromDto
                     |> Option.bind (fun vu ->
                         if vu |> ValueUnit.isEmpty then None
                         else
@@ -245,8 +251,8 @@ module OrderVariable =
                     )
 
                 let incr =
-                    dto.Constraints.Incr
-                    |> Option.bind (ValueUnit.Dto.fromDto)
+                    dto.Constraints.IncrOpt
+                    |> Option.bind ValueUnit.Dto.fromDto
                     |> Option.bind (fun vu ->
                         if vu |> ValueUnit.isEmpty then None
                         else
@@ -255,14 +261,14 @@ module OrderVariable =
                             |> Some
                     )
 
-                let min  = dto.Constraints.Min  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Constraints.MinIncl)))
-                let max  = dto.Constraints.Max  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Constraints.MaxIncl)))
+                let min  = dto.Constraints.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Constraints.MinIncl)))
+                let max  = dto.Constraints.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Constraints.MaxIncl)))
                 Constraints.create min incr max vs
 
             let n = dto.Name |> Name.fromString
             let vals =
-                dto.Variable.Vals
-                |> Option.bind (ValueUnit.Dto.fromDto)
+                dto.Variable.ValsOpt
+                |> Option.bind ValueUnit.Dto.fromDto
                 |> Option.bind (fun vu ->
                     if vu |> ValueUnit.isEmpty then None
                     else
@@ -272,8 +278,8 @@ module OrderVariable =
                 )
 
             let incr =
-                dto.Variable.Incr
-                |> Option.bind (ValueUnit.Dto.fromDto)
+                dto.Variable.IncrOpt
+                |> Option.bind ValueUnit.Dto.fromDto
                 |> Option.bind (fun vu ->
                     if vu |> ValueUnit.isEmpty then None
                     else
@@ -282,8 +288,8 @@ module OrderVariable =
                         |> Some
                 )
 
-            let min  = dto.Variable.Min  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Variable.MinIncl)))
-            let max  = dto.Variable.Max  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Variable.MaxIncl)))
+            let min  = dto.Variable.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Variable.MinIncl)))
+            let max  = dto.Variable.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Variable.MaxIncl)))
 
             create n min incr max vals cs
 
@@ -299,17 +305,17 @@ module OrderVariable =
             dto.Name <-
                 ovar |> getName |> Name.toString
 
-            dto.Variable.Vals <-
+            dto.Variable.ValsOpt <-
                 vr
                 |> ValueRange.getValSet
                 |> Option.map ValueSet.toValueUnit
                 |> Option.bind vuToDto
-            dto.Variable.Incr <-
+            dto.Variable.IncrOpt <-
                 vr
                 |> ValueRange.getIncr
                 |> Option.map Increment.toValueUnit
                 |> Option.bind vuToDto
-            dto.Variable.Min <-
+            dto.Variable.MinOpt <-
                 vr
                 |> ValueRange.getMin
                 |> Option.map Minimum.toValueUnit
@@ -319,7 +325,7 @@ module OrderVariable =
                 |> ValueRange.getMin
                 |> Option.map Minimum.isIncl
                 |> Option.defaultValue false
-            dto.Variable.Max <-
+            dto.Variable.MaxOpt <-
                 vr
                 |> ValueRange.getMax
                 |> Option.map Maximum.toValueUnit
@@ -330,16 +336,16 @@ module OrderVariable =
                 |> Option.map Maximum.isIncl
                 |> Option.defaultValue false
 
-            dto.Constraints.Vals <-
+            dto.Constraints.ValsOpt <-
                 ovar.Constraints.Values
                 |> Option.map ValueSet.toValueUnit
                 |> Option.bind vuToDto
-            dto.Constraints.Incr <-
+            dto.Constraints.IncrOpt <-
                 ovar.Constraints.Incr
                 |> Option.map Increment.toValueUnit
                 |> Option.bind vuToDto
 
-            dto.Constraints.Min <-
+            dto.Constraints.MinOpt <-
                 ovar.Constraints.Min
                 |> Option.map Minimum.toValueUnit
                 |> Option.bind vuToDto
@@ -347,7 +353,7 @@ module OrderVariable =
                 ovar.Constraints.Min
                 |> Option.map Minimum.isIncl
                 |> Option.defaultValue false
-            dto.Constraints.Max <-
+            dto.Constraints.MaxOpt <-
                 ovar.Constraints.Max
                 |> Option.map Maximum.toValueUnit
                 |> Option.bind vuToDto
@@ -357,6 +363,7 @@ module OrderVariable =
                 |> Option.defaultValue false
 
             dto
+
 
 
     /// Type and functions that represent a count
@@ -404,7 +411,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> count
+        let applyConstraints = toOrdVar >> applyConstraints false >> count
 
 
 
@@ -456,7 +463,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> time
+        let applyConstraints = toOrdVar >> applyConstraints false >> time
 
 
 
@@ -509,7 +516,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> Frequency
+        let applyConstraints = toOrdVar >> applyConstraints false >> Frequency
 
 
 
@@ -564,7 +571,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> Concentration
+        let applyConstraints = toOrdVar >> applyConstraints false >> Concentration
 
 
 
@@ -612,7 +619,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> Quantity
+        let applyConstraints = toOrdVar >> applyConstraints false >> Quantity
 
 
         let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Quantity
@@ -668,7 +675,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> PerTime
+        let applyConstraints = toOrdVar >> applyConstraints false >> PerTime
 
 
 
@@ -719,7 +726,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> Rate
+        let applyConstraints = toOrdVar >> applyConstraints false >> Rate
 
 
         let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Rate
@@ -770,7 +777,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> Total
+        let applyConstraints = toOrdVar >> applyConstraints false >> Total
 
 
 
@@ -824,7 +831,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
+        let applyConstraints = toOrdVar >> applyConstraints false >> QuantityAdjust
 
 
 
@@ -881,7 +888,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
+        let applyConstraints = toOrdVar >> applyConstraints false >> PerTimeAdjust
 
 
 
@@ -938,7 +945,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
+        let applyConstraints = toOrdVar >> applyConstraints false >> RateAdjust
 
 
 
@@ -991,6 +998,6 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
+        let applyConstraints = toOrdVar >> applyConstraints false >> TotalAdjust
 
 

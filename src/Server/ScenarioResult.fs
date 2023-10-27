@@ -30,24 +30,24 @@ let mapFromValueUnit (vu : Shared.Types.ValueUnit) : Informedica.GenUnits.Lib.Va
 
 let mapToVariable (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) : Variable =
     Shared.Order.Variable.create dto.Name dto.IsNonZeroNegative
-        (dto.Min |> Option.map mapToValueUnit)
+        (dto.MinOpt |> Option.map mapToValueUnit)
         dto.MinIncl
-        (dto.Incr |> Option.map mapToValueUnit)
-        (dto.Max |> Option.map mapToValueUnit)
+        (dto.IncrOpt |> Option.map mapToValueUnit)
+        (dto.MaxOpt |> Option.map mapToValueUnit)
         dto.MaxIncl
-        (dto.Vals |> Option.map mapToValueUnit)
+        (dto.ValsOpt |> Option.map mapToValueUnit)
 
 
 let mapFromVariable (var : Variable) : Informedica.GenSolver.Lib.Variable.Dto.Dto =
     let dto = Informedica.GenSolver.Lib.Variable.Dto.dto ()
     dto.Name <- var.Name
     dto.IsNonZeroNegative <- var.IsNonZeroNegative
-    dto.Min <- var.Min |> Option.map mapFromValueUnit
+    dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
     dto.MinIncl <- var.MinIncl
-    dto.Incr <- var.Incr |> Option.map mapFromValueUnit
-    dto.Max <- var.Max |> Option.map mapFromValueUnit
+    dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
+    dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
     dto.MaxIncl <- var.MaxIncl
-    dto.Vals <- var.Vals |> Option.map mapFromValueUnit
+    dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
 
     dto
 

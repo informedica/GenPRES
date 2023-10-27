@@ -3333,19 +3333,19 @@ module Variable =
         type Dto() =
             member val Name = "" with get, set
             member val IsNonZeroNegative = false with get, set
-            member val Min: ValueUnit.Dto.Dto option = None with get, set
+            member val MinOpt: ValueUnit.Dto.Dto option = None with get, set
             member val MinIncl = false with get, set
-            member val Incr: ValueUnit.Dto.Dto option = None with get, set
-            member val Max: ValueUnit.Dto.Dto option = None with get, set
+            member val IncrOpt: ValueUnit.Dto.Dto option = None with get, set
+            member val MaxOpt: ValueUnit.Dto.Dto option = None with get, set
             member val MaxIncl = false with get, set
-            member val Vals: ValueUnit.Dto.Dto option = None with get, set
+            member val ValsOpt: ValueUnit.Dto.Dto option = None with get, set
 
 
         let isUnr (dto: Dto) =
-            dto.Min.IsNone
-            && dto.Max.IsNone
-            && dto.Incr.IsNone
-            && dto.Vals.IsNone
+            dto.MinOpt.IsNone
+            && dto.MaxOpt.IsNone
+            && dto.IncrOpt.IsNone
+            && dto.ValsOpt.IsNone
             && not dto.IsNonZeroNegative
 
 
@@ -3366,32 +3366,32 @@ module Variable =
                 dto.Name
                 |> Name.create succ (fun m -> m |> raiseExc [])
 
-            let vs =
-                dto.Vals
+            let vsOpt =
+                dto.ValsOpt
                 |> Option.bind (fun v ->
                     v
                     |> ValueUnit.Dto.fromDto
                     |> Option.map ValueSet.create
                 )
 
-            let min =
-                dto.Min
+            let minOpt =
+                dto.MinOpt
                 |> Option.bind (fun v ->
                     v
                     |> ValueUnit.Dto.fromDto
                     |> Option.map (Minimum.create dto.MinIncl)
                 )
 
-            let max =
-                dto.Max
+            let maxOpt =
+                dto.MaxOpt
                 |> Option.bind (fun v ->
                     v
                     |> ValueUnit.Dto.fromDto
                     |> Option.map (Maximum.create dto.MaxIncl)
                 )
 
-            let incr =
-                dto.Incr
+            let incrOpt =
+                dto.IncrOpt
                 |> Option.bind (fun v ->
                     v
                     |> ValueUnit.Dto.fromDto
@@ -3402,7 +3402,7 @@ module Variable =
                 if dto.IsNonZeroNegative then
                     NonZeroNoneNegative
                 else
-                    ValueRange.create true min incr max vs
+                    ValueRange.create true minOpt incrOpt maxOpt vsOpt
 
             create succ n vr
 
@@ -3454,13 +3454,26 @@ module Variable =
                     |> ValueRange.getValSet
                     |> Option.map (ValueSet.toValueUnit >> vuToDto)
 
-                dto.Incr <- incr
-                dto.Min <- min
+                dto.IncrOpt <- incr
+                dto.MinOpt <- min
                 dto.MinIncl <- minincl
-                dto.Max <- max
+                dto.MaxOpt <- max
                 dto.MaxIncl <- maxincl
-                dto.Vals <- vals
+                dto.ValsOpt <- vals
 
                 dto
 
+
+        module Tests =
+
+            /// there and back again dto test
+            let dtoTest () =
+                let min = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true
+                let incr = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Increment.create
+                let max = 8N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create false
+                let vr = ValueRange.create true (Some min) (Some incr) (Some max) None
+                let v = createSucc (Name.createExc "test") vr
+                let dto = v |> toDto
+                let v2 = dto |> fromDto
+                v2 = v
 
