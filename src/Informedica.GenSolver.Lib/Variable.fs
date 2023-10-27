@@ -1790,12 +1790,11 @@ module Variable =
         /// then a `MinIncrMax` `ValueRange` is created if possible.
         /// Else a `ValueSet` `ValueRange` is created.
         /// </summary>
-        /// <param name="onlyMinIncrMax">If only a `MinIncrMax` should be created</param>
         /// <param name="min">The minimum</param>
         /// <param name="incr">The increment</param>
         /// <param name="max">The maximum</param>
         /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
-        let minIncrMaxToValueRange onlyMinIncrMax min incr max =
+        let minIncrMaxToValueRange min incr max =
             let min = min |> minMultipleOf incr
             let max = max |> maxMultipleOf incr
 
@@ -1803,17 +1802,10 @@ module Variable =
                 (min, max)
                 |> Exceptions.Message.ValueRangeMinLargerThanMax
                 |> raiseExc []
-            else if onlyMinIncrMax && (min |> minEQmax max |> not) then
-                MinIncrMax(min, incr, max)
-
+            else if (min |> minEQmax max) then
+                ValueSet.minIncrMaxToValueSet min incr max
+                |> ValSet
             else
-                // TODO: ugly hack to prevent expensive calc, throws exception when too many values
-                // TODO: probably not correct, because this could lead to a ValueSet that has too many values
-                // try
-                //     ValueSet.minIncrMaxToValueSet min incr max
-                //     |> ValSet
-                // with
-                // | _ -> MinIncrMax(min, incr, max)
                 MinIncrMax(min, incr, max)
 
 
@@ -1866,7 +1858,6 @@ module Variable =
         /// <summary>
         /// Create a ValueRange depending on the values of **min**, **incr** and **max**.
         /// </summary>
-        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
         /// <param name="min">Optional Minimum</param>
         /// <param name="incr">Optional Increment</param>
         /// <param name="max">Optional Maximum</param>
@@ -1874,15 +1865,15 @@ module Variable =
         /// <returns>A `ValueRange`</returns>
         /// <example>
         /// <code>
-        /// let min = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
-        /// let max = Maximum.create true ( [| 5N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let min = Minimum.create ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
+        /// let max = Maximum.create ( [| 5N |] |> ValueUnit.create Units.Mass.gram) |> Some
         /// let incr = None
         /// let vs = None
         /// create true min incr max vs
         /// // returns MinMax (Minimum.MinIncl (ValueUnit ([|3N|], Mass (Gram 1N))), Maximum.MaxIncl (ValueUnit ([|5N|], Mass (Gram 1N))))
         /// </code>
         /// </example>
-        let create onlyMinIncrMax min incr max vs =
+        let create min incr max vs =
             match vs with
             | None ->
                 match min, incr, max with
@@ -1893,7 +1884,7 @@ module Variable =
                 | Some min, Some incr, None -> minIncrToValueRange min incr
                 | None, Some incr, Some max -> incrMaxToValueRange incr max
                 | None, Some incr, None -> incr |> Incr
-                | Some min, Some incr, Some max -> minIncrMaxToValueRange onlyMinIncrMax min incr max
+                | Some min, Some incr, Some max -> minIncrMaxToValueRange min incr max
 
             | Some vs ->
                 vs
@@ -1989,7 +1980,6 @@ module Variable =
         /// <summary>
         /// Apply a new **newIncr** to a `ValueRange` **vr**.
         /// </summary>
-        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
         /// <param name="newIncr">The new increment</param>
         /// <param name="vr">The `ValueRange`</param>
         /// <returns>The resulting (more restrictive) `ValueRange`</returns>
@@ -2005,12 +1995,12 @@ module Variable =
         /// let vr = create true min incr None None
         /// // a value range with a minimum = 4 and an increment = 2
         /// let newIncr = Increment.create ( [| 6N |] |> ValueUnit.create Units.Mass.gram)
-        /// vr |> setIncr true newIncr
+        /// vr |> setIncr newIncr
         /// // returns [6..6..>, i.e. a ValueRange with a Minimum = 4 and
         /// // and increment = 4
         /// </code>
         /// </example>
-        let setIncr onlyMinIncrMax newIncr vr =
+        let setIncr newIncr vr =
             let restrict = Increment.restrict newIncr
 
             let nonZero =
@@ -2026,7 +2016,7 @@ module Variable =
             let fMax max = incrMaxToValueRange newIncr max
 
             let fMinMax (min, max) =
-                minIncrMaxToValueRange onlyMinIncrMax min newIncr max
+                minIncrMaxToValueRange min newIncr max
 
             let fIncr = restrict >> Incr
 
@@ -2037,7 +2027,7 @@ module Variable =
                 incrMaxToValueRange (incr |> restrict) max
 
             let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax min (incr |> restrict) max
+                minIncrMaxToValueRange min (incr |> restrict) max
 
             let fValueSet =
                 filter None (Some newIncr) None >> ValSet
@@ -2049,7 +2039,6 @@ module Variable =
         /// <summary>
         /// Apply a new `Minimum` **newMin** to a `ValueRange` **vr**.
         /// </summary>
-        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
         /// <param name="newMin">The new `Minimum`</param>
         /// <param name="vr">The `ValueRange`</param>
         /// <returns>The resulting (more restrictive) `ValueRange`</returns>
@@ -2065,12 +2054,12 @@ module Variable =
         /// let vr = create true min incr None None
         /// // a value range with a minimum = 4 and an increment = 2
         /// let newMin = Minimum.create true ( [| 5N |] |> ValueUnit.create Units.Mass.gram)
-        /// vr |> setMin true newMin
+        /// vr |> setMin newMin
         /// // returns [6..2..>, i.e. a ValueRange with a Minimum = 6 and
         /// // and increment = 2
         /// </code>
         /// </example>
-        let setMin onlyMinIncrMax newMin (vr: ValueRange) =
+        let setMin newMin (vr: ValueRange) =
             let restrict = Minimum.restrict newMin
 
             let nonZero =
@@ -2089,10 +2078,10 @@ module Variable =
                 minIncrToValueRange (min |> restrict) incr
 
             let fIncrMax (incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax newMin incr max
+                minIncrMaxToValueRange newMin incr max
 
             let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax (min |> restrict) incr max
+                minIncrMaxToValueRange (min |> restrict) incr max
 
             let fValueSet =
                 filter (Some newMin) None None >> ValSet
@@ -2108,7 +2097,6 @@ module Variable =
         /// If maximum cannot be set the original `ValueRange` is returned.
         /// So it always returns an equal or more restrictive, ValueRange.
         /// </remarks>
-        /// <param name="onlyMinIncrMax">No ValueSet is created but a MinIncrMax</param>
         /// <param name="newMax">The new `Maximum`</param>
         /// <param name="vr">The `ValueRange`</param>
         /// <returns>The resulting (more restrictive) `ValueRange`</returns>
@@ -2118,11 +2106,11 @@ module Variable =
         /// let vr = create true None None max None
         /// // a value range with a maximum = 5
         /// let newMax = Maximum.create true ( [| 4N |] |> ValueUnit.create Units.Mass.gram)
-        /// vr |> setMax true newMax
+        /// vr |> setMax newMax
         /// // returns a ValueRange with a Maximum = 4
         /// </code>
         ///</example>
-        let setMax onlyMinIncrMax newMax (vr: ValueRange) =
+        let setMax newMax (vr: ValueRange) =
             let restrict = Maximum.restrict newMax
 
             let nonZero =
@@ -2138,13 +2126,13 @@ module Variable =
             let fIncr incr = incrMaxToValueRange incr newMax
 
             let fMinIncr (min, incr) =
-                minIncrMaxToValueRange onlyMinIncrMax min incr newMax
+                minIncrMaxToValueRange min incr newMax
 
             let fIncrMax (incr, max) =
                 incrMaxToValueRange incr (max |> restrict)
 
             let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax min incr (max |> restrict)
+                minIncrMaxToValueRange min incr (max |> restrict)
 
             let fValueSet =
                 filter None None (Some newMax) >> ValSet
@@ -2218,14 +2206,14 @@ module Variable =
                 let newMin, max =
                     max |> Maximum.nonZeroNonNeg
 
-                minIncrMaxToValueRange true newMin incr max
+                minIncrMaxToValueRange newMin incr max
 
             let fMinIncrMax (min, incr, max) =
                 let newMin, max =
                     max |> Maximum.nonZeroNonNeg
                 let min = min |> Minimum.restrict newMin
 
-                minIncrMaxToValueRange true min incr max
+                minIncrMaxToValueRange min incr max
 
             let fValueSet =
                 ValueSet.nonZeroNonNeg >> ValSet
@@ -2328,7 +2316,7 @@ module Variable =
                     else
                         let b = minIncrMaxCount min i max <= maxCount
                         try
-                            let acc = acc |> setIncr true i
+                            let acc = acc |> setIncr i
                             (b, acc)
                         with
                         | _ -> (false, acc)
@@ -2828,7 +2816,7 @@ module Variable =
 
                     match min, max with
                     | None, None -> unrestricted
-                    | _ -> create onlyMinIncrMax min None max None
+                    | _ -> create min None max None
 
             // A set with an increment results in a new set of increment
             // Need to match all scenarios with a valueset and an increment
@@ -2861,7 +2849,7 @@ module Variable =
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
-                | _ -> create onlyMinIncrMax min incr max None
+                | _ -> create min incr max None
 
             // In any other case calculate min, incr and max
             | _ ->
@@ -2879,7 +2867,7 @@ module Variable =
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
-                | _ -> create onlyMinIncrMax min incr max None
+                | _ -> create min incr max None
 
 
         /// <summary>
@@ -2984,7 +2972,6 @@ module Variable =
         /// Set a `ValueRange` expr to a `ValueRange` y.
         /// So, the result is equal to or more restrictive than the original `y`.
         /// </summary>
-        /// <param name="onlyMinIncrMax">Whether only min incr max are calculated</param>
         /// <param name="y">The `ValueRange` to apply to</param>
         /// <param name="expr">The `ValueRange` to apply</param>
         /// <returns>The resulting (restricted) `ValueRange`</returns>
@@ -2995,7 +2982,7 @@ module Variable =
         /// let max = 8N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create false
         /// let vr1 = create true (Some min) (Some incr) None None
         /// let vr2 = create true None None (Some max) None
-        /// vr1 |> applyExpr true vr2
+        /// vr1 |> applyExpr vr2
         /// // returns
         /// // MinIncrMax
         /// //   (MinIncl (ValueUnit ([|2N|], Count (Times 1N))),
@@ -3003,7 +2990,7 @@ module Variable =
         /// //    MaxIncl (ValueUnit ([|6N|], Count (Times 1N))))
         /// </code>
         /// </example>
-        let applyExpr onlyMinIncrMax y expr =
+        let applyExpr y expr =
             let appl _ get set vr =
                 //printfn $"{s}"
                 match expr |> get with
@@ -3015,9 +3002,9 @@ module Variable =
             | ValSet vs -> y |> setValueSet vs
             | _ ->
                 y
-                |> appl "incr" getIncr (setIncr onlyMinIncrMax)
-                |> appl "min" getMin (setMin onlyMinIncrMax)
-                |> appl "max" getMax (setMax onlyMinIncrMax)
+                |> appl "incr" getIncr setIncr
+                |> appl "min" getMin setMin
+                |> appl "max" getMax setMax
 
 
         module Operators =
@@ -3030,7 +3017,7 @@ module Variable =
 
             let inline (^-) vr1 vr2 = calc false (-) (vr1, vr2)
 
-            let inline (^<-) vr1 vr2 = applyExpr false vr1 vr2
+            let inline (^<-) vr1 vr2 = applyExpr vr1 vr2
 
 
             let inline (@*) vr1 vr2 = calc true (*) (vr1, vr2)
@@ -3041,7 +3028,7 @@ module Variable =
 
             let inline (@-) vr1 vr2 = calc true (-) (vr1, vr2)
 
-            let inline (@<-) vr1 vr2 = applyExpr true vr1 vr2
+            let inline (@<-) vr1 vr2 = applyExpr vr1 vr2
 
 
 
@@ -3219,11 +3206,13 @@ module Variable =
             try
                 { var with
                     Values =
-                        ValueRange.minIncrMaxToValueRange
-                            false
-                            (var.Values |> ValueRange.getMin |> Option.get)
-                            (var.Values |> ValueRange.getIncr |> Option.get)
-                            (var.Values |> ValueRange.getMax |> Option.get)
+                        match var.Values |> ValueRange.getMin,
+                              var.Values |> ValueRange.getIncr,
+                              var.Values |> ValueRange.getMax with
+                        | Some min, Some incr, Some max ->
+                            ValueRange.ValueSet.minIncrMaxToValueSet min incr max
+                            |> ValSet
+                        | _ -> var.Values
                 }
             with
             | e ->
@@ -3402,7 +3391,7 @@ module Variable =
                 if dto.IsNonZeroNegative then
                     NonZeroNoneNegative
                 else
-                    ValueRange.create true minOpt incrOpt maxOpt vsOpt
+                    ValueRange.create minOpt incrOpt maxOpt vsOpt
 
             create succ n vr
 
@@ -3471,7 +3460,7 @@ module Variable =
                 let min = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true
                 let incr = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Increment.create
                 let max = 8N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create false
-                let vr = ValueRange.create true (Some min) (Some incr) (Some max) None
+                let vr = ValueRange.create (Some min) (Some incr) (Some max) None
                 let v = createSucc (Name.createExc "test") vr
                 let dto = v |> toDto
                 let v2 = dto |> fromDto

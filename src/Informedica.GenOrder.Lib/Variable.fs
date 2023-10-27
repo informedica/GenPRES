@@ -3,8 +3,6 @@ namespace Informedica.GenOrder.Lib
 
 module Variable =
 
-    open Informedica.GenSolver.Lib.Types
-
 
     module ValueRange =
 
@@ -14,9 +12,9 @@ module Variable =
         let inline setOpt m set vr =
             try
                 match m with
-                | Some m -> vr |> set true m
+                | Some m -> vr |> set m
                 | None   -> vr
-            with | _ -> vr // TODO: ugly fix need to refactor 
+            with | _ -> vr // TODO: ugly fix need to refactor
 
 
         let setOptMin min vr = vr |> setOpt min setMin
@@ -34,4 +32,4 @@ module Variable =
                 | Some vs -> vr |> setValueSet vs
                 | None    -> vr
 
-            with | _ -> vr // TODO: ugly fix need to refactor 
+            with | _ -> vr // TODO: ugly fix need to refactor

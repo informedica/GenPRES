@@ -67,7 +67,7 @@ module OrderVariable =
 
     /// Create a `OrderVariable` with preset values
     let create n min incr max vs cs =
-        ValueRange.create true min incr max vs
+        ValueRange.create min incr max vs
         |> fun vlr ->
             let var = Variable.create id n vlr
             {
@@ -116,17 +116,16 @@ module OrderVariable =
     let eqsName ovar1 ovar2 = (ovar1 |> getName) = (ovar2 |> getName)
 
 
-    let applyConstraints withVals (ovar : OrderVariable) =
+    let applyConstraints (ovar : OrderVariable) =
         { ovar with
             Variable =
                 ovar.Variable.Values
                 |> ValueRange.setOptMin ovar.Constraints.Min
                 |> ValueRange.setOptMax ovar.Constraints.Max
                 |> ValueRange.setOptIncr ovar.Constraints.Incr
-                // only set a ValueSet if either no increment
-                // or withVals = true
+                // only set a ValueSet if there is no increment
                 |> fun vr ->
-                    if not withVals && ovar.Constraints.Incr.IsSome then vr
+                    if ovar.Constraints.Incr.IsSome then vr
                     else
                         vr
                         |> ValueRange.setOptVs ovar.Constraints.Values
@@ -411,7 +410,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> count
+        let applyConstraints = toOrdVar >> applyConstraints >> count
 
 
 
@@ -463,7 +462,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> time
+        let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
 
@@ -516,7 +515,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> Frequency
+        let applyConstraints = toOrdVar >> applyConstraints >> Frequency
 
 
 
@@ -571,7 +570,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> Concentration
+        let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
 
@@ -619,7 +618,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> Quantity
+        let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
         let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Quantity
@@ -675,7 +674,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> PerTime
+        let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
 
@@ -726,7 +725,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> Rate
+        let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
         let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Rate
@@ -777,7 +776,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> Total
+        let applyConstraints = toOrdVar >> applyConstraints >> Total
 
 
 
@@ -831,7 +830,7 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> QuantityAdjust
+        let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
 
 
@@ -888,7 +887,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> PerTimeAdjust
+        let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
 
 
 
@@ -945,7 +944,7 @@ module OrderVariable =
 
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> RateAdjust
+        let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
 
 
@@ -998,6 +997,6 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-        let applyConstraints = toOrdVar >> applyConstraints false >> TotalAdjust
+        let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
 
 

@@ -362,7 +362,6 @@ module Tests =
                         // test ValueRange.increaseIncrement
                         test "ValueRange.increaseIncrement 1 to 10000 should increase to 100" {
                             Variable.ValueRange.create
-                                true
                                 (1N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true |> Some)
                                 (create [| 1N |] |> Some)
                                 (10000N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create true |> Some)
@@ -389,7 +388,6 @@ module Tests =
                                 |> Units.per Units.Time.hour
 
                             Variable.ValueRange.create
-                                true
                                 ((81N/2N) |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
                                 ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
                                 ((816N/5N) |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
@@ -758,7 +756,7 @@ module Tests =
                                     (max1 |> createVuOpt)
                                     (min2 |> createVuOpt)
                                     (max2 |> createVuOpt)
-                                |> fun (min, max) -> Variable.ValueRange.create true min None max None
+                                |> fun (min, max) -> Variable.ValueRange.create min None max None
                                 |> toString true
                                 |> String.replace "x" ""
                                 |> String.replace "<" "< "
@@ -1363,7 +1361,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         (max1 |> Max)
-                        |> ValueRange.setMax true max2
+                        |> ValueRange.setMax max2
                         |> Expect.equal "should be equal" (max2 |> Max)
                     }
 
@@ -1371,7 +1369,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         (max2 |> Max)
-                        |> ValueRange.setMax true max1
+                        |> ValueRange.setMax max1
                         |> Expect.notEqual "should not be equal" (max1 |> Max)
                     }
 
@@ -1380,7 +1378,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         ((min, max1) |> MinMax)
-                        |> ValueRange.setMax true max2
+                        |> ValueRange.setMax max2
                         |> Expect.equal "should be equal" ((min, max2) |> MinMax)
                     }
 
@@ -1389,7 +1387,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         ((min, max2) |> MinMax)
-                        |> ValueRange.setMax true max1
+                        |> ValueRange.setMax max1
                         |> Expect.notEqual "should not be equal" ((min, max1) |> MinMax)
                     }
 
@@ -1398,7 +1396,7 @@ module Tests =
                         let incr = createIncr 1N
                         let max = createMax true 5N
                         ((min, max) |> MinMax)
-                        |> ValueRange.setIncr true incr
+                        |> ValueRange.setIncr incr
                         |> Expect.equal "should be equal" ((min, incr, max) |> MinIncrMax)
                     }
 
@@ -1407,7 +1405,7 @@ module Tests =
                         let incr = createIncr 1N
                         let max = createMax true 6N
                         ((min, incr, max) |> MinIncrMax)
-                        |> ValueRange.setIncr true (createIncr 2N)
+                        |> ValueRange.setIncr (createIncr 2N)
                         |> Expect.equal "should be equal" ((min, (createIncr 2N), max) |> MinIncrMax)
                     }
 
@@ -1423,7 +1421,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         (max1 |> Max)
-                        |> ValueRange.setMax true max2
+                        |> ValueRange.setMax max2
                         |> Expect.notEqual "should not be equal" (max2 |> Max)
                     }
 
@@ -1463,7 +1461,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         (max2 |> Max)
-                        |> ValueRange.setMax true max1
+                        |> ValueRange.setMax max1
                         |> Expect.equal "should be equal" (max1 |> Max)
                     }
 
@@ -1479,7 +1477,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         (max1 |> Max)
-                        |> ValueRange.applyExpr true (max2 |> Max)
+                        |> ValueRange.applyExpr (max2 |> Max)
                         |> Expect.notEqual "should not be equal" (max2 |> Max)
                     }
 
@@ -1498,7 +1496,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         ((min, max1) |> MinMax)
-                        |> ValueRange.applyExpr true (max2 |> Max)
+                        |> ValueRange.applyExpr (max2 |> Max)
                         |> Expect.notEqual "should not be equal" ((min, max2) |> MinMax)
                     }
 
@@ -1517,7 +1515,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         ((min, max2) |> MinMax)
-                        |> ValueRange.applyExpr true (max1 |> Max)
+                        |> ValueRange.applyExpr (max1 |> Max)
                         |> Expect.equal "should not be equal" ((min, max1) |> MinMax)
                     }
 
@@ -1542,7 +1540,7 @@ module Tests =
                             [|1500N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         ((min2, max2) |> MinMax)
-                        |> ValueRange.applyExpr true ((min1, max1) |> MinMax)
+                        |> ValueRange.applyExpr ((min1, max1) |> MinMax)
                         |> Expect.equal "should be equal" ((min1, max1) |> MinMax)
                     }
 
@@ -1604,7 +1602,6 @@ module Tests =
                             Name = Variable.Name.createExc "[1.gentamicine]_dos_rte"
                             Values =
                                 Variable.ValueRange.create
-                                    true
                                     (31N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
                                     ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
                                     (125N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
