@@ -1764,7 +1764,7 @@ module Variable =
         /// <param name="incr">The increment</param>
         /// <param name="max">The maximum</param>
         /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
-        let minIncrMaxToValueRange onlyMinIncrMax min incr max =
+        let minIncrMaxToValueRange_old onlyMinIncrMax min incr max =
             let min = min |> minMultipleOf incr
             let max = max |> maxMultipleOf incr
 
@@ -1783,6 +1783,38 @@ module Variable =
                     |> ValSet
                 with
                 | _ -> MinIncrMax(min, incr, max)
+
+
+        /// <summary>
+        /// Create a `MinIncrMax` `ValueRange`. If onlyMinIncrMax is true
+        /// then a `MinIncrMax` `ValueRange` is created if possible.
+        /// Else a `ValueSet` `ValueRange` is created.
+        /// </summary>
+        /// <param name="onlyMinIncrMax">If only a `MinIncrMax` should be created</param>
+        /// <param name="min">The minimum</param>
+        /// <param name="incr">The increment</param>
+        /// <param name="max">The maximum</param>
+        /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
+        let minIncrMaxToValueRange onlyMinIncrMax min incr max =
+            let min = min |> minMultipleOf incr
+            let max = max |> maxMultipleOf incr
+
+            if min |> minGTmax max then
+                (min, max)
+                |> Exceptions.Message.ValueRangeMinLargerThanMax
+                |> raiseExc []
+            else if onlyMinIncrMax && (min |> minEQmax max |> not) then
+                MinIncrMax(min, incr, max)
+
+            else
+                // TODO: ugly hack to prevent expensive calc, throws exception when too many values
+                // TODO: probably not correct, because this could lead to a ValueSet that has too many values
+                // try
+                //     ValueSet.minIncrMaxToValueSet min incr max
+                //     |> ValSet
+                // with
+                // | _ -> MinIncrMax(min, incr, max)
+                MinIncrMax(min, incr, max)
 
 
         /// Create a `Minimum` `Range` that is

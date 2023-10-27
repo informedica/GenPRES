@@ -112,3 +112,7 @@ let calcSolutionConcentrations n conc =
 calcSolutionConcentrations 500I 1N
 |> Seq.length
 
+
+[2..1..3]
+|> List.allPairs [3..1..4]
+|> List.map (fun (a, b) -> a, b, a * b)
