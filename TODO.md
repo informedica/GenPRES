@@ -12,7 +12,7 @@
 * ~~Add cont med preparation popus~~
 * Add ventilation tab
 * ~~Responsive design for tablets and smartphones~~
-* Add navigation to allow opening with age and weight in url
+* ~~Add navigation to allow opening with age and weight in url~~
 * Sliders for mobile input
 * Add protocols tab
 * Allow for preparation calculation with multiple concentrations
@@ -39,3 +39,10 @@
 * Make tables sortable
 * ~~Automate setting of build version~~
 * Refactor navbar, use burger and menu
+
+## Ideas
+* ~~Disable MinIncrMax to ValueSet~~
+* Apply constraints, first Increment then ValueSet instead
+* Remove exception throwing from Solver when too many values or expensive calculation
+
+

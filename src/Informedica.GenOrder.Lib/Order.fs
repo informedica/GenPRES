@@ -907,7 +907,7 @@ module Order =
                             (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
                         )
                     ]
-                    |> List.choose (Variable.ValueRange.getIncr)
+                    |> List.choose Variable.ValueRange.getIncr
                     |> List.minBy (fun i ->
                         i
                         |> Variable.ValueRange.Increment.toValueUnit
@@ -1438,27 +1438,38 @@ module Order =
     let solveOrder printErr logger = solve false printErr logger
 
 
-    let minIncrMaxToValues (ord: Order) =
-        let mutable flag = false
-        let ovars =
-            ord
-            |> toOrdVars
-            |> List.map (fun ovar ->
-                if flag ||  ovar.Constraints.Incr |> Option.isNone then ovar
-                else
-                    flag <- true
-                    let n =
-                        match ord.Prescription with
-                        | Continuous -> 100
-                        | Discontinuous _ -> 50
-                        | Timed _ -> 5
+    let minIncrMaxToValues logger (ord: Order) =
+        let rec loop runAgain ord =
+            if not runAgain then ord
+            else
+                let mutable flag = false
+                let ovars =
+                    ord
+                    |> toOrdVars
+                    |> List.map (fun ovar ->
+                        if flag ||
+                           ovar.Constraints.Incr |> Option.isNone ||
+                           ovar.Variable.Values |> ValueRange.isMinIncrMax |> not then ovar
+                        else
+                            flag <- true
+                            let n =
+                                match ord.Prescription with
+                                | Continuous -> 100
+                                | Discontinuous _ -> 50
+                                | Timed _ -> 5
 
-                    ovar
-                    |> OrderVariable.minIncrMaxToValues n
-            )
+                            ovar
+                            |> OrderVariable.minIncrMaxToValues n
+                    )
 
-        ord
-        |> fromOrdVars ovars
+                ord
+                |> fromOrdVars ovars
+                |> solveOrder false logger
+                |> function
+                    | Ok ord -> loop flag ord
+                    | Error _ -> ord
+
+        loop true ord
         // |> fun ord ->
         //     let s = ord |> toString |> String.concat "\n"
         //     printfn $"min incr max to values:\n{s}"

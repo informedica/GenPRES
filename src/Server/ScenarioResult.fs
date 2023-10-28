@@ -342,11 +342,15 @@ Scenarios: {sc.Scenarios |> Array.length}
 
 
 let calcMinIncrMaxToValues (ord : Order) =
+    if Env.getItem "GENPRES_PROD" |> Option.isNone then
+        let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+        OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+
     try
         ord
         |> mapFromOrder
         |> Order.Dto.fromDto
-        |> Order.minIncrMaxToValues
+        |> Order.minIncrMaxToValues OrderLogger.logger.Logger
         |> Order.Dto.toDto
         |> mapToOrder
         |> Ok

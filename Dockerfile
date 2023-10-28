@@ -39,6 +39,7 @@ COPY --from=server-build /workspace/deploy /app
 COPY --from=client-build /workspace/deploy /app/public
 COPY src/Server/data /app/data
 
+# setting this env variable disables file logging
 ENV GENPRES_PROD=""
 WORKDIR /app
 EXPOSE 8085

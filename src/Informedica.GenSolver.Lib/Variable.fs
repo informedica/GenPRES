@@ -3196,7 +3196,8 @@ module Variable =
     /// Calculate a ValueSet for a Variable if the Value of the
     /// Variable is a MinIncrMax
     /// </summary>
-    /// <param name="var"></param>
+    /// <param name="var">The variable to change min incr max to a ValueSet</param>
+    /// <param name="n">Prune the ValueSet to n</param>
     /// <returns>A Variable with a ValueSet if this can be calculated</returns>
     let minIncrMaxToValues n var =
         if var |> isMinIncrMax |> not then var

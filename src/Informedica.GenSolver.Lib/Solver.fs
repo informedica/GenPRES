@@ -60,8 +60,8 @@ module Solver =
     /// a list of replaced `Equation` and a list
     /// of unchanged `Equation`
     /// </summary>
-    /// <param name="vs">The list of `Variable` to replace</param>
-    /// <param name="es">The list of `Equation` to replace in</param>
+    /// <param name="vars">The list of `Variable` to replace</param>
+    /// <param name="eqs">The list of `Equation` to replace in</param>
     let replace vars eqs =
         let rpl, rst =
             eqs
