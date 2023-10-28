@@ -11,6 +11,11 @@ module Solver =
 
     open Types
 
+    /// <summary>
+    /// Sort a list of equations by the name of the
+    /// first variable in the equation.
+    /// </summary>
+    /// <param name="eqs">The list of Equations</param>
     let sortByName eqs =
         eqs
         |> List.sortBy (fun e ->
@@ -20,9 +25,14 @@ module Solver =
             |> Variable.getName)
 
 
+    /// <summary>
     /// Format a set of equations to print.
     /// Using **f** to allow additional processing
     /// of the string.
+    /// </summary>
+    /// <param name="exact">Whether to print the exact value</param>
+    /// <param name="pf">The print function</param>
+    /// <param name="eqs">The equations to print</param>
     let printEqs exact pf eqs =
 
         "equations result:\n" |> pf
@@ -35,18 +45,26 @@ module Solver =
         eqs
 
 
+    /// <summary>
     /// Checks whether a list of `Equation` **eqs**
     /// contains an `Equation` **eq**
+    /// </summary>
+    /// <param name="eq">The `Equation` to check for</param>
+    /// <param name="eqs">The list of `Equation` to check in</param>
     let contains eq eqs = eqs |> List.exists ((=) eq)
 
 
+    /// <summary>
     /// Replace a list of `Variable` **vs**
     /// in a list of `Equation` **es**, return
     /// a list of replaced `Equation` and a list
     /// of unchanged `Equation`
-    let replace vars es =
+    /// </summary>
+    /// <param name="vs">The list of `Variable` to replace</param>
+    /// <param name="es">The list of `Equation` to replace in</param>
+    let replace vars eqs =
         let rpl, rst =
-            es
+            eqs
             |> List.partition (fun e ->
                 vars
                 |> List.exists (fun v -> e |> Equation.contains v)
@@ -69,6 +87,7 @@ module Solver =
                 let r = f e
                 cache.Value <- cache.Value.Add(e, r)
                 r
+
 
     let sortQue onlyMinMax que =
         if que |> List.length = 0 then que
@@ -228,8 +247,12 @@ module Solver =
     //TODO: need to clean up the number check
     let solveAll onlyMinIncrMax log eqs =
         let n1 = eqs |> List.length
+        // TODO: need to test this using BenchmarkDotNet
+        let solve =
+            solve onlyMinIncrMax log (sortQue onlyMinIncrMax) None
+            |> memSolve
 
-        match solve onlyMinIncrMax log (sortQue onlyMinIncrMax) None eqs with
+        match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
         | Ok eqs ->
             let n2 = eqs |> List.length

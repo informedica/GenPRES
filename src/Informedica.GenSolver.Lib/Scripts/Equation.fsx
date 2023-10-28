@@ -339,7 +339,7 @@ open Informedica.GenUnits.Lib
 
 let eqs =
     [
-        "a = b + c + e"
+        "a = b + c"
         "d = e * a"
         "d = f * b"
     ]
@@ -380,10 +380,13 @@ eqs
 
 
 eqs
-|> TestSolver.setValues Units.Count.times "a" [| 1N; 2N; 3N |]
-|> TestSolver.setValues Units.Count.times "b" [| 1N; 2N; 3N |]
-|> TestSolver.setValues Units.Count.times "c" [| 1N..1N..3N |]
-|> TestSolver.setValues Units.Count.times "e" [| 1N..1N..30N |]
+//|> TestSolver.setValues Units.Count.times "a" [| 1N..2N..100N |]
+|> TestSolver.setValues Units.Count.times "b" [| 1N..1N..100N |]
+|> TestSolver.setValues Units.Count.times "c" [| 2N..1N..300N |]
 |> fun eqs -> eqs[2]
-|> Equation.solve2 false TestSolver.logger
+|> Equation.solve true TestSolver.logger
+|> fst
+|> Equation.solve false TestSolver.logger
 |> (fst >> (Equation.toString true) >> printfn "%s")
+
+

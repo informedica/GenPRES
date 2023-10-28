@@ -1201,6 +1201,7 @@ module Order =
     module Property = ValueRange.Property
     module Quantity = OrderVariable.Quantity
     module Frequency = OrderVariable.Frequency
+    module PerTime = OrderVariable.PerTime
     module PerTimeAdjust = OrderVariable.PerTimeAdjust
     module Concentration = OrderVariable.Concentration
     module Rate = OrderVariable.Rate
@@ -1438,17 +1439,30 @@ module Order =
 
 
     let minIncrMaxToValues (ord: Order) =
+        let mutable flag = false
         let ovars =
             ord
             |> toOrdVars
-            |> List.map OrderVariable.minIncrMaxToValues
+            |> List.map (fun ovar ->
+                if flag ||  ovar.Constraints.Incr |> Option.isNone then ovar
+                else
+                    flag <- true
+                    let n =
+                        match ord.Prescription with
+                        | Continuous -> 100
+                        | Discontinuous _ -> 50
+                        | Timed _ -> 5
+
+                    ovar
+                    |> OrderVariable.minIncrMaxToValues n
+            )
 
         ord
         |> fromOrdVars ovars
-        |> fun ord ->
-            let s = ord |> toString |> String.concat "\n"
-            printfn $"min incr max to values:\n{s}"
-            ord
+        // |> fun ord ->
+        //     let s = ord |> toString |> String.concat "\n"
+        //     printfn $"min incr max to values:\n{s}"
+        //     ord
 
 
     module Print =

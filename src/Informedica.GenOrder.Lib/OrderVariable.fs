@@ -194,13 +194,13 @@ module OrderVariable =
         |> String.replace "*" "/"
 
 
-    let minIncrMaxToValues (ovar: OrderVariable) =
+    let minIncrMaxToValues n (ovar: OrderVariable) =
         { ovar with
             Variable =
                 if ovar.Variable |> Variable.isMinIncrMax |> not then ovar.Variable
                 else
                     ovar.Variable
-                    |> Variable.minIncrMaxToValues
+                    |> Variable.minIncrMaxToValues n
         }
 
 

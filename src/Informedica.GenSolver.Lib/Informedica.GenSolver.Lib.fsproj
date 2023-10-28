@@ -24,6 +24,7 @@
         <None Include="Scripts\Tests.fsx" />
         <None Include="Scripts\Increment.fsx" />
         <None Include="Scripts\Equation.fsx" />
+        <None Include="Scripts\Solver.fsx" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />

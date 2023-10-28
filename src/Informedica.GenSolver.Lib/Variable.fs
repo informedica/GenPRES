@@ -953,12 +953,12 @@ module Variable =
             /// <remarks>
             /// The minimum and maximum values are always kept.
             /// </remarks>
-            let prune =
+            let prune n =
                 fun vu ->
                     let v =
                         vu
                         |> ValueUnit.getValue
-                        |> Array.prune Constants.PRUNE
+                        |> Array.prune n //Constants.PRUNE
                     vu
                     |> ValueUnit.setValue v
                 |> map
@@ -1099,7 +1099,6 @@ module Variable =
                     |> create
 
 
-
             /// <summary>
             /// Get a string representation of a `ValueSet`.
             /// </summary>
@@ -1229,8 +1228,8 @@ module Variable =
         /// Only a `ValueSet` can be pruned. The other `ValueRange`s
         /// are left untouched.
         /// </remarks>
-        let prune =
-            map id id id id id id id ValueSet.prune
+        let prune n =
+            map id id id id id id id (ValueSet.prune n)
 
 
         /// <summary>
@@ -1890,8 +1889,6 @@ module Variable =
                 vs
                 |> filter min incr max
                 |> ValSet
-            // restrict the valueset by pruning
-            //|> prune
 
 
         /// Get an optional `Minimum` in a `ValueRange`
@@ -2806,7 +2803,8 @@ module Variable =
             | ValSet s1, ValSet s2 ->
                 if not onlyMinIncrMax ||
                    (s1 |> ValueSet.count = 1 && (s2 |> ValueSet.count = 1)) then
-                    ValueSet.calc op s1 s2 |> ValSet
+                    ValueSet.calc op s1 s2
+                    |> ValSet
                 else
                     let min1, max1 = vr1 |> getMin, vr1 |> getMax
                     let min2, max2 = vr2 |> getMin, vr2 |> getMax
@@ -3200,7 +3198,7 @@ module Variable =
     /// </summary>
     /// <param name="var"></param>
     /// <returns>A Variable with a ValueSet if this can be calculated</returns>
-    let minIncrMaxToValues var =
+    let minIncrMaxToValues n var =
         if var |> isMinIncrMax |> not then var
         else
             try
@@ -3213,21 +3211,12 @@ module Variable =
                             ValueRange.ValueSet.minIncrMaxToValueSet min incr max
                             |> ValSet
                         | _ -> var.Values
+                        |> ValueRange.prune n
                 }
             with
             | e ->
                 printfn $"cannot create values from min incr max: {var.Name}"
                 raise e
-
-
-    /// <summary>
-    /// 'Prunes' the ValueRange of a Variable
-    /// </summary>
-    /// <param name="var"></param>
-    let prune var =
-        { var with
-            Values = var.Values |> ValueRange.prune
-        }
 
 
     /// <summary>

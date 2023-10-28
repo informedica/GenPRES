@@ -8,16 +8,16 @@ Apple M2 Max, 1 CPU, 12 logical and 12 physical cores
 
 
 ```
-| Method              | Mean        | Error     | StdDev      |
-|-------------------- |------------:|----------:|------------:|
-| AllPairesInt_100    |    127.0 μs |   0.26 μs |     0.25 μs |
-| AllPairsInt_200     |    751.4 μs |   3.80 μs |     3.55 μs |
-| SolveCountMinIncl   |    101.7 μs |   0.78 μs |     0.69 μs |
-| Solve_1_Eqs_100     | 12,681.1 μs | 143.63 μs |   134.35 μs |
-| Solve_1_Eqs_200     | 50,893.2 μs | 892.15 μs |   991.62 μs |
-| Solve_3_Eqs_100     | 13,256.2 μs | 122.22 μs |   114.32 μs |
-| Solve_3_Eqs_200     | 52,605.5 μs | 989.61 μs | 1,058.87 μs |
-| Solve_1_Eqs_Rand_10 |  9,373.4 μs |  22.58 μs |    20.02 μs |
-| Solve_1_Eqs_Rand_20 | 90,342.7 μs | 292.40 μs |   273.51 μs |
-| Solve_3_Eqs_Rand_10 |  9,707.7 μs |  22.19 μs |    19.67 μs |
-| Solve_3_Eqs_Rand_20 | 94,725.7 μs | 210.39 μs |   196.80 μs |
+| Method              | Mean        | Error       | StdDev      |
+|-------------------- |------------:|------------:|------------:|
+| AllPairesInt_100    |    124.4 μs |     0.50 μs |     0.46 μs |
+| AllPairsInt_200     |    740.2 μs |     4.20 μs |     3.93 μs |
+| SolveCountMinIncl   |    100.3 μs |     0.56 μs |     0.49 μs |
+| Solve_1_Eqs_100     | 12,808.2 μs |   123.12 μs |   115.17 μs |
+| Solve_1_Eqs_200     | 51,027.0 μs | 1,018.90 μs | 2,034.85 μs |
+| Solve_3_Eqs_100     | 13,494.7 μs |   140.81 μs |   131.72 μs |
+| Solve_3_Eqs_200     | 52,360.1 μs |   997.85 μs | 1,109.10 μs |
+| Solve_1_Eqs_Rand_10 |  9,078.6 μs |    23.49 μs |    20.82 μs |
+| Solve_1_Eqs_Rand_20 | 89,190.0 μs |   441.00 μs |   412.51 μs |
+| Solve_3_Eqs_Rand_10 |  9,599.2 μs |    28.00 μs |    26.19 μs |
+| Solve_3_Eqs_Rand_20 | 90,438.7 μs |   358.47 μs |   335.31 μs |
