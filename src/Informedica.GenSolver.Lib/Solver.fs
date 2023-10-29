@@ -6,6 +6,8 @@ namespace Informedica.GenSolver.Lib
 /// equations
 module Solver =
 
+    open System.Collections.Generic
+
     module EQD = Equation.Dto
     module Name = Variable.Name
 
@@ -78,14 +80,22 @@ module Solver =
         , rst
 
 
+    /// <summary>
+    /// Create a memoized function
+    /// </summary>
+    /// <param name="f">The function to memoize</param>
+    /// <remarks>
+    /// This memoize function uses a Dictionary instead of
+    /// a map, because the Dictionary is faster. But Dictionary
+    /// cannot take Unit as a key!
+    /// </remarks>
     let memSolve f =
-        let cache = ref Map.empty
+        let cache = Dictionary<_, _>()
         fun e ->
-            match cache.Value.TryFind(e) with
-            | Some r -> r
-            | None ->
+            if cache.ContainsKey(e) then cache[e]
+            else
                 let r = f e
-                cache.Value <- cache.Value.Add(e, r)
+                cache.Add(e, r)
                 r
 
 
@@ -235,8 +245,12 @@ module Solver =
     //TODO: need to clean up the number check
     let solveVariable onlyMinIncrMax log sortQue vr eqs =
         let n1 = eqs |> List.length
+        // TODO: need to test this using BenchmarkDotNet
+        let solve =
+            solve onlyMinIncrMax log (sortQue onlyMinIncrMax) None
+            |> memSolve
 
-        match solve onlyMinIncrMax log sortQue (Some vr) eqs with
+        match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
         | Ok eqs ->
             let n2 = eqs |> List.length
