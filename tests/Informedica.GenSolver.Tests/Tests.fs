@@ -128,7 +128,7 @@ module TestSolver =
 
     let setProp n p eqs =
         let n = n |> Name.createExc
-        match eqs |> Api.setVariableValues true n p with
+        match eqs |> Api.setVariableValues n p with
         | Some var ->
             eqs
             |> List.map (fun e ->

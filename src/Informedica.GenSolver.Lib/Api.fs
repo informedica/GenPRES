@@ -16,7 +16,11 @@ module Api =
     module Name = Variable.Name
 
 
-    /// Initialize the solver returning a set of equations
+    /// <summary>
+    /// Create a list of Equations from a list of strings
+    /// </summary>
+    /// <param name="eqs">List of strings</param>
+    /// <returns>List of Equations</returns>
     let init eqs =
         let notEmpty = String.IsNullOrWhiteSpace >> not
         let prodEqs, sumEqs = eqs |> List.partition (String.contains "*")
@@ -34,7 +38,17 @@ module Api =
         (parse prodEqs '*' |> createProdEqs) @ (parse sumEqs '+' |> createSumEqs)
 
 
-    let setVariableValues onlyMinIncrMax n p eqs =
+    /// <summary>
+    /// Apply a variable property to a list of equations
+    /// </summary>
+    /// <param name="n">Name of the variable</param>
+    /// <param name="p">Property of the variable</param>
+    /// <param name="eqs">List of equations</param>
+    /// <returns>The variable option where the property is applied to</returns>
+    /// <remarks>
+    /// The combination of n and p is equal to a constraint
+    /// </remarks>
+    let setVariableValues n p eqs =
         eqs
         |> List.collect (Equation.findName n)
         |> function
@@ -42,23 +56,27 @@ module Api =
         | var::_ ->
             p
             |> Property.toValueRange
-            |> Variable.setValueRange onlyMinIncrMax var
+            |> Variable.setValueRange var
             |> Some
 
 
+    /// Solve an `Equations` list
     let solveAll = Solver.solveAll
 
 
+    /// <summary>
     /// Solve an `Equations` list with
-    ///
-    /// * f: function used to process string message
-    /// * n: the name of the variable to be updated
-    /// * p: the property of the variable to be updated
-    /// * vs: the values to update the property of the variable
-    /// * eqs: the list of equations to solve
+    /// </summary>
+    /// <param name="onlyMinIncrMax">True if only min, incr and max values are to be used</param>
+    /// <param name="sortQue">The algorithm to sort the equations</param>
+    /// <param name="log">The logger to log operations</param>
+    /// <param name="n">Name of the variable to be updated</param>
+    /// <param name="p">Property of the variable to be updated</param>
+    /// <param name="eqs">List of equations to solve</param>
+    /// <returns>A result type of the solved equations</returns>
     let solve onlyMinIncrMax sortQue log n p eqs =
         eqs
-        |> setVariableValues onlyMinIncrMax n p
+        |> setVariableValues n p
         |> function
         | None -> eqs |> Ok
         | Some var ->
@@ -66,16 +84,24 @@ module Api =
             |> Solver.solveVariable onlyMinIncrMax log sortQue var
 
 
-    /// Make a list of `EQD`
-    /// to contain only positive
-    /// values as solutions
+    /// <summary>
+    /// Set all variables in a list of equations to a non zero or negative value
+    /// </summary>
+    /// <param name="eqs">The list of Equations</param>
     let nonZeroNegative eqs =
         eqs
         |> List.map Equation.nonZeroOrNegative
 
 
-    let applyConstraints onlyMinIncrMax log eqs cs =
-        let apply = Constraint.apply onlyMinIncrMax log
+    /// <summary>
+    /// Apply a list of constraints to a list of equations
+    /// </summary>
+    /// <param name="log">The logger to log operations</param>
+    /// <param name="eqs">A list of Equations</param>
+    /// <param name="cs">A list of constraints</param>
+    /// <returns>A list of Equations</returns>
+    let applyConstraints log eqs cs =
+        let apply = Constraint.apply log
 
         cs
         |> List.fold (fun acc c ->
@@ -87,8 +113,16 @@ module Api =
         ) eqs
 
 
+    /// <summary>
+    /// Solve a list of equations using a list of constraints
+    /// </summary>
+    /// <param name="onlyMinIncrMax">True if only min, incr and max values are to be used</param>
+    /// <param name="log">The logger to log operations</param>
+    /// <param name="eqs">A list of Equations</param>
+    /// <param name="cs">A list of constraints</param>
+    /// <returns>A list of Equations</returns>
     let solveConstraints onlyMinIncrMax log cs eqs =
         cs
         |> Constraint.orderConstraints log
-        |> applyConstraints false log eqs
+        |> applyConstraints log eqs
         |> Solver.solveAll onlyMinIncrMax log

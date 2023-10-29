@@ -124,8 +124,8 @@ module rec Types =
 
     /// <summary>
     /// Represents a constraint on a `Variable`.
-    /// I.e. either a set of values, or an increment
-    /// or a minimum of maximum.
+    /// I.e. either a set of values, or an increment,
+    /// minimum or maximum.
     /// </summary>
     type Constraint =
         {

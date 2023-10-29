@@ -2989,8 +2989,7 @@ module Variable =
         /// </code>
         /// </example>
         let applyExpr y expr =
-            let appl _ get set vr =
-                //printfn $"{s}"
+            let appl get set vr =
                 match expr |> get with
                 | Some m -> vr |> set m
                 | None -> vr
@@ -3000,9 +2999,9 @@ module Variable =
             | ValSet vs -> y |> setValueSet vs
             | _ ->
                 y
-                |> appl "incr" getIncr setIncr
-                |> appl "min" getMin setMin
-                |> appl "max" getMax setMax
+                |> appl getIncr setIncr
+                |> appl getMin setMin
+                |> appl getMax setMax
 
 
         module Operators =
@@ -3014,8 +3013,6 @@ module Variable =
             let inline (^+) vr1 vr2 = calc false (+) (vr1, vr2)
 
             let inline (^-) vr1 vr2 = calc false (-) (vr1, vr2)
-
-            let inline (^<-) vr1 vr2 = applyExpr vr1 vr2
 
 
             let inline (@*) vr1 vr2 = calc true (*) (vr1, vr2)
@@ -3093,14 +3090,11 @@ module Variable =
 
     /// Apply a `ValueRange` **vr** to
     /// `Variable` **v**.
-    let setValueRange onlyMinIncrMax var vr =
-        let op =
-            if onlyMinIncrMax then (@<-) else (^<-)
-
+    let setValueRange var vr =
         try
             { var with
                 Values =
-                    (var |> get).Values |> op <| vr
+                    (var |> get).Values @<- vr
             }
 
         with
@@ -3239,8 +3233,6 @@ module Variable =
 
         let inline (^-) vr1 vr2 = calc (^-) (vr1, vr2)
 
-        let inline (^<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange false vr1
-
 
         let inline (@*) vr1 vr2 = calc (@*) (vr1, vr2)
 
@@ -3250,7 +3242,7 @@ module Variable =
 
         let inline (@-) vr1 vr2 = calc (@-) (vr1, vr2)
 
-        let inline (@<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange true vr1
+        let inline (@<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange vr1
 
 
         /// Constant 1

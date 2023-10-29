@@ -12,12 +12,23 @@ module Constraint =
     module Name = Variable.Name
 
 
+    /// <summary>
+    /// Check whether constraint c1 has the same name as constraint c2.
+    /// </summary>
     let eqsName (c1 : Constraint) (c2 : Constraint) = c1.Name = c2.Name
 
 
+    /// <summary>
+    /// Print the constraint as a string
+    /// </summary>
     let toString { Name = n; Property = p } = $"{n |> Name.toString}: {p}"
 
 
+    /// <summary>
+    /// Give a constraint a score based on the property.
+    /// Low scores should be solved first.
+    /// </summary>
+    /// <param name="c">The constraint</param>
     let scoreConstraint c =
             match c.Property with
             | ValsProp vs ->
@@ -29,6 +40,11 @@ module Constraint =
             | _               -> -2, c
 
 
+    /// <summary>
+    /// Order constraints based on their score.
+    /// </summary>
+    /// <param name="log">The logger to log operations</param>
+    /// <param name="cs">The list of constraints</param>
     let orderConstraints log cs =
         cs
         // calc min and max from valsprop constraints
@@ -63,7 +79,15 @@ module Constraint =
             |> List.map snd
 
 
-    let apply onlyMinIncrMax log (c : Constraint) eqs =
+    /// <summary>
+    /// Apply a constraint to the matching variables
+    /// in the list of equations.
+    /// </summary>
+    /// <param name="log">The logger</param>
+    /// <param name="c">The constraint</param>
+    /// <param name="eqs">The list of Equations</param>
+    /// <returns>The variable the constraint is applied to</returns>
+    let apply log (c : Constraint) eqs =
 
         eqs
         |> List.collect (Equation.findName c.Name)
@@ -76,7 +100,7 @@ module Constraint =
         | vr::_ ->
             c.Property
             |> Property.toValueRange
-            |> Variable.setValueRange onlyMinIncrMax vr
+            |> Variable.setValueRange vr
         |> fun var ->
             c
             |> Events.ConstraintApplied
@@ -85,8 +109,17 @@ module Constraint =
             var
 
 
+    /// <summary>
+    /// Apply a constraint to the matching variables and solve the
+    /// list of equations.
+    /// </summary>
+    /// <param name="onlyMinIncrMax">Whether only min incr max should be calculated</param>
+    /// <param name="log">The logger</param>
+    /// <param name="sortQue">The algorithm to sort the equations</param>
+    /// <param name="c">The constraint</param>
+    /// <param name="eqs">The list of Equations</param>
     let solve onlyMinIncrMax log sortQue (c : Constraint) eqs =
-        let var = apply onlyMinIncrMax log c eqs
+        let var = apply log c eqs
 
         eqs
         |> Solver.solveVariable onlyMinIncrMax log sortQue var

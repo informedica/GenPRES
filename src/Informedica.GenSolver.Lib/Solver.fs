@@ -78,17 +78,27 @@ module Solver =
         , rst
 
 
-    let sortQue onlyMinMax que =
-        if que |> List.length = 0 then que
+    /// <summary>
+    /// Sort a list of equations by the number of
+    /// total values in the equation.
+    /// </summary>
+    /// <param name="onlyMinMax">Whether only min incr max is calculated</param>
+    /// <param name="eqs">The list of Equations</param>
+    let sortQue onlyMinMax eqs =
+        if eqs |> List.length = 0 then eqs
         else
-            que
+            eqs
             |> List.sortBy (Equation.count onlyMinMax) //Equation.countProduct
 
 
-    /// Create the equation solver using a
-    /// product equation and a sum equation solver
-    /// and function to determine whether an
-    /// equation is solved
+    /// <summary>
+    /// Solve a set of equations.
+    /// </summary>
+    /// <param name="onlyMinIncrMax">Whether to only use min, incr and max</param>
+    /// <param name="log">The log function</param>
+    /// <param name="sortQue">The sort function for the que</param>
+    /// <param name="var">An option variable to solve for</param>
+    /// <param name="eqs">The equations to solve</param>
     let solve onlyMinIncrMax log sortQue var eqs =
 
         let solveE n eqs eq =
@@ -222,7 +232,14 @@ module Solver =
                 Error (eqs, m)
 
 
-    //TODO: need to clean up the number check
+    /// <summary>
+    /// Solve a set of equations for a specific variable.
+    /// </summary>
+    /// <param name="onlyMinIncrMax">Whether to only use min, incr and max</param>
+    /// <param name="log">The log function</param>
+    /// <param name="sortQue">The sort function for the que</param>
+    /// <param name="vr">The variable to solve for</param>
+    /// <param name="eqs">The equations to solve</param>
     let solveVariable onlyMinIncrMax log sortQue vr eqs =
         let n1 = eqs |> List.length
         let solve =
@@ -231,12 +248,18 @@ module Solver =
         match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
         | Ok eqs ->
+            //TODO: need to clean up the number check
             let n2 = eqs |> List.length
             if n2 <> n1 then failwith $"not the same number of eqs, was: {n1}, now {n2}"
             else Ok eqs
 
 
-    //TODO: need to clean up the number check
+    /// <summary>
+    /// Solve a set of equations for all variables.
+    /// </summary>
+    /// <param name="onlyMinIncrMax">Whether to only use min, incr and max</param>
+    /// <param name="log">The log function</param>
+    /// <param name="eqs">The equations to solve</param>
     let solveAll onlyMinIncrMax log eqs =
         let n1 = eqs |> List.length
         let solve =
@@ -245,6 +268,7 @@ module Solver =
         match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
         | Ok eqs ->
+            //TODO: need to clean up the number check
             let n2 = eqs |> List.length
             if n2 <> n1 then failwith $"not the same number of eqs, was: {n1}, now {n2}"
             else Ok eqs

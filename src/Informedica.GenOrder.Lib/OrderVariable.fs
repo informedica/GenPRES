@@ -129,7 +129,7 @@ module OrderVariable =
                     else
                         vr
                         |> ValueRange.setOptVs ovar.Constraints.Values
-                |> Variable.setValueRange true ovar.Variable
+                |> Variable.setValueRange ovar.Variable
         }
 
 

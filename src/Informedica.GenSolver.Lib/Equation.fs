@@ -336,8 +336,6 @@ module Equation =
             | y::xs ->
                 y |> op2 <| (xs |> List.reduce op1)
                 |> Some
-        // select the right application operator
-        let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
         // perform the calculations on the vars
         let calcVars op1 op2 vars =
             vars
@@ -365,7 +363,7 @@ module Equation =
 
                                 None
                             | Some var ->
-                                let yNew = y <== var
+                                let yNew = y @<- var
 
                                 if yNew <> y then
                                     // log finishing the calculation
