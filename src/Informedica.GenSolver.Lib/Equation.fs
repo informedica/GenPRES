@@ -336,6 +336,52 @@ module Equation =
             | y::xs ->
                 y |> op2 <| (xs |> List.reduce op1)
                 |> Some
+        // select the right application operator
+        let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
+        // perform the calculations on the vars
+        let calcVars op1 op2 vars =
+            vars
+            |> List.fold (fun acc vars ->
+                if acc |> Option.isSome then acc
+                else
+                    match vars with
+                    | _, []
+                    | _, [ _ ]   -> acc
+                    | i, y::xs ->
+                        let op2 = if i = 0 then op1 else op2
+                        // log starting the calculation
+                        (op1, op2, y, xs)
+                        |> Events.EquationStartCalculation
+                        |> Logging.logInfo log
+
+                        xs
+                        |> calc op1 op2
+                        |> function
+                            | None ->
+                                // log finishing the calculation
+                                (y::xs, false)
+                                |> Events.EquationFinishedCalculation
+                                |> Logging.logInfo log
+
+                                None
+                            | Some var ->
+                                let yNew = y <== var
+
+                                if yNew <> y then
+                                    // log finishing the calculation
+                                    ([yNew], true)
+                                    |> Events.EquationFinishedCalculation
+                                    |> Logging.logInfo log
+
+                                    Some yNew
+                                else
+                                    // log finishing the calculation
+                                    ([], false)
+                                    |> Events.EquationFinishedCalculation
+                                    |> Logging.logInfo log
+
+                                    None
+            ) None
 
         if eq |> isSolved then eq, Unchanged
         else
@@ -343,8 +389,7 @@ module Equation =
             eq
             |> Events.EquationStartedSolving
             |> Logging.logInfo log
-            // select the right application operator
-            let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
+
             // get the vars and the matching operators
             let vars, op1, op2 =
                 match eq with
@@ -362,50 +407,6 @@ module Equation =
             // a = b + d becomes a list representing
             // [ a = b + d; b = a - d; d = a - b ]
             let vars = vars |> reorder
-            // perform the calculations on the vars
-            let calcVars vars =
-                vars
-                |> List.fold (fun acc vars ->
-                    if acc |> Option.isSome then acc
-                    else
-                        match vars with
-                        | _, []
-                        | _, [ _ ]   -> acc
-                        | i, y::xs ->
-                            let op2 = if i = 0 then op1 else op2
-                            // log starting the calculation
-                            (op1, op2, y, xs)
-                            |> Events.EquationStartCalculation
-                            |> Logging.logInfo log
-
-                            xs
-                            |> calc op1 op2
-                            |> function
-                                | None ->
-                                    // log finishing the calculation
-                                    (y::xs, false)
-                                    |> Events.EquationFinishedCalculation
-                                    |> Logging.logInfo log
-
-                                    None
-                                | Some var ->
-                                    let yNew = y <== var
-
-                                    if yNew <> y then
-                                        // log finishing the calculation
-                                        ([yNew], true)
-                                        |> Events.EquationFinishedCalculation
-                                        |> Logging.logInfo log
-
-                                        Some yNew
-                                    else
-                                        // log finishing the calculation
-                                        ([], false)
-                                        |> Events.EquationFinishedCalculation
-                                        |> Logging.logInfo log
-
-                                        None
-                ) None
             // loop until no changes are detected, i.e.
             // calcVars returns None
             let rec loop acc vars =
@@ -419,7 +420,7 @@ module Equation =
                             |> List.sumBy Variable.count
                         )
 
-                match calcVars vars with
+                match calcVars op1 op2 vars with
                 | None -> acc, vars
                 | Some var ->
                     vars
@@ -434,7 +435,8 @@ module Equation =
                             |> List.sortBy(fun (_, xs) ->
                                 xs
                                 |> List.tail
-                                |> List.sumBy Variable.count
+                                |> List.map Variable.count
+                                |> List.reduce (*)
                             )
                     |> loop (acc |> List.replaceOrAdd (Variable.eqName var) var)
 

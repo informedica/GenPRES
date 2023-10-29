@@ -166,7 +166,7 @@ module TestSolver =
 
     let solve n p eqs =
         let n = n |> Name.createExc
-        Api.solve true id logger n p eqs
+        Api.solve true (fun _ eqs -> eqs) logger n p eqs
 
     let solveAll = Api.solveAll false logger
 

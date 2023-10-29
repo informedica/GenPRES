@@ -6,8 +6,6 @@ namespace Informedica.GenSolver.Lib
 /// equations
 module Solver =
 
-    open System.Collections.Generic
-
     module EQD = Equation.Dto
     module Name = Variable.Name
 
@@ -80,25 +78,6 @@ module Solver =
         , rst
 
 
-    /// <summary>
-    /// Create a memoized function
-    /// </summary>
-    /// <param name="f">The function to memoize</param>
-    /// <remarks>
-    /// This memoize function uses a Dictionary instead of
-    /// a map, because the Dictionary is faster. But Dictionary
-    /// cannot take Unit as a key!
-    /// </remarks>
-    let memSolve f =
-        let cache = Dictionary<_, _>()
-        fun e ->
-            if cache.ContainsKey(e) then cache[e]
-            else
-                let r = f e
-                cache.Add(e, r)
-                r
-
-
     let sortQue onlyMinMax que =
         if que |> List.length = 0 then que
         else
@@ -111,6 +90,7 @@ module Solver =
     /// and function to determine whether an
     /// equation is solved
     let solve onlyMinIncrMax log sortQue var eqs =
+
         let solveE n eqs eq =
             try
                 Equation.solve onlyMinIncrMax log eq
@@ -135,7 +115,7 @@ module Solver =
                     |> Exceptions.SolverTooManyLoops
                     |> Exceptions.raiseExc None []
 
-                let que = que |> sortQue
+                let que = que |> sortQue onlyMinIncrMax
 
                 //(n, que)
                 //|> Events.SolverLoopedQue
@@ -245,10 +225,8 @@ module Solver =
     //TODO: need to clean up the number check
     let solveVariable onlyMinIncrMax log sortQue vr eqs =
         let n1 = eqs |> List.length
-        // TODO: need to test this using BenchmarkDotNet
         let solve =
-            solve onlyMinIncrMax log (sortQue onlyMinIncrMax) None
-            |> memSolve
+            solve onlyMinIncrMax log sortQue (Some vr)
 
         match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
@@ -261,10 +239,8 @@ module Solver =
     //TODO: need to clean up the number check
     let solveAll onlyMinIncrMax log eqs =
         let n1 = eqs |> List.length
-        // TODO: need to test this using BenchmarkDotNet
         let solve =
-            solve onlyMinIncrMax log (sortQue onlyMinIncrMax) None
-            |> memSolve
+            solve onlyMinIncrMax log sortQue None
 
         match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
