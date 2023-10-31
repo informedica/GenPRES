@@ -1786,9 +1786,6 @@ module ValueUnit =
             cont g1
 
 
-
-
-
         /// Get a list of the groups in a group g
         let rec getGroups g =
             match g with
@@ -1849,11 +1846,6 @@ module ValueUnit =
 
                 g1Num |> List.sort = (g2Num |> List.sort) &&
                 g1Den |> List.sort = (g2Den |> List.sort)
-
-
-
-
-
 
 
         /// Returns group g as a string
