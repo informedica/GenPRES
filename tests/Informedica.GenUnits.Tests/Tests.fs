@@ -433,14 +433,44 @@ module Tests =
 
         ]
 
+    let groupTests =
+
+        testList "Group" [
+
+            (*
+            didn't catch System.Exception: cannot add or subtract different units CombiUnit
+              (CombiUnit (Volume (MilliLiter 1N), OpPer, Weight (WeightKiloGram 1N)), OpPer,
+               Time (Hour 1N)) CombiUnit
+              (CombiUnit (Volume (MilliLiter 1N), OpPer, Time (Hour 1N)), OpPer,
+               Weight (WeightKiloGram 1N))
+            *)
+            test "failing case eqsGroup (ml/kg)/hour = (ml/hour)/kg" {
+                let un1 =
+                    CombiUnit
+                      (CombiUnit (Volume (MilliLiter 1N), OpPer, Weight (WeightKiloGram 1N)), OpPer,
+                       Time (Hour 1N))
+
+                let un2 =
+                    CombiUnit
+                      (CombiUnit (Volume (MilliLiter 1N), OpPer, Time (Hour 1N)), OpPer,
+                       Weight (WeightKiloGram 1N))
+
+                Group.eqsGroup un1 un2
+                |> Expect.isTrue "should be true"
+
+            }
+
+        ]
 
     [<Tests>]
-    let tests = testList "ValueUnit Tests" [
+    let tests =
+        testList "ValueUnit Tests" [
             stringTests
             calculationTests
             conversionTests
             comparisonTests
             unitTests
+            groupTests
 
             test "Unquote tests" {
                 try
@@ -451,7 +481,6 @@ module Tests =
                 | _ -> false
                 |> Expect.isTrue "should all be true"
             }
-
         ]
 
 

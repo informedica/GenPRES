@@ -199,3 +199,88 @@ let testParser s p =
 "nanog[Mass]"
 //|> String.replace "nan" "nnn"
 |> run Parser.parseUnit
+
+
+(*
+didn't catch System.Exception: cannot add or subtract different units CombiUnit
+  (CombiUnit (Volume (MilliLiter 1N), OpPer, Weight (WeightKiloGram 1N)), OpPer,
+   Time (Hour 1N)) CombiUnit
+  (CombiUnit (Volume (MilliLiter 1N), OpPer, Time (Hour 1N)), OpPer,
+   Weight (WeightKiloGram 1N))
+*)
+let un1 =
+    CombiUnit
+      (CombiUnit (Volume (MilliLiter 1N), OpPer, Weight (WeightKiloGram 1N)), OpPer,
+       Time (Hour 1N))
+
+let un2 =
+    CombiUnit
+      (CombiUnit (Volume (MilliLiter 1N), OpPer, Time (Hour 1N)), OpPer,
+       Weight (WeightKiloGram 1N))
+
+open Informedica.Utils.Lib
+open Group
+
+/// Get a list of the groups in a group g
+let rec getGroups g =
+    match g with
+    | CombiGroup (gl, _, gr) -> gl |> getGroups |> List.prepend (gr |> getGroups)
+    | _ -> [ g ]
+
+
+// separate numerators from denominators
+// isNum is true when we are in the numerator
+// and is false when we are in the denominator
+let rec internal numDenom isNum g =
+    match g with
+    | CombiGroup (gl, OpTimes, gr) ->
+        let lns, lds = gl |> numDenom isNum
+        let rns, rds = gr |> numDenom isNum
+        lns @ rns, lds @ rds
+    | CombiGroup (gl, OpPer, gr) ->
+        if isNum then
+            let lns, lds = gl |> numDenom true
+            let rns, rds = gr |> numDenom false
+            lns @ rns, lds @ rds
+        else
+            let lns, lds = gr |> numDenom true
+            let rns, rds = gl |> numDenom false
+            lns @ rns, lds @ rds
+    | _ ->
+        if isNum then
+            (g |> getGroups, [])
+        else
+            ([], g |> getGroups)
+
+
+/// <summary>
+/// Checks whether u1 contains
+/// the same unit groups as u2
+/// </summary>
+/// <example>
+/// eqsGroup (Mass (KiloGram 1N)) (Mass (Gram 1N)) = true
+/// // also (ml/kg)/hour = (ml/hour)/kg = true!
+/// let un1 =
+///     CombiUnit
+///      (CombiUnit (Volume (MilliLiter 1N), OpPer, Weight (WeightKiloGram 1N)), OpPer,
+///        Time (Hour 1N))
+/// let un2 =
+///     CombiUnit
+///       (CombiUnit (Volume (MilliLiter 1N), OpPer, Time (Hour 1N)), OpPer,
+///        Weight (WeightKiloGram 1N))
+/// eqsGroup un1 un2 = true
+/// </example>
+let eqsGroup u1 u2 =
+    if u1 = u2 then
+        true
+    else
+        let g1Num, g1Den=
+            u1 |> unitToGroup |> numDenom true
+        let g2Num, g2Den =
+            u2 |> unitToGroup |> numDenom true
+
+        g1Num |> List.sort = (g2Num |> List.sort) &&
+        g1Den |> List.sort = (g2Den |> List.sort)
+
+
+eqsGroup un1 un2

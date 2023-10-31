@@ -18,7 +18,6 @@
         <Compile Include="Api.fs" />
         <Compile Include="SolverLogging.fs" />
         <None Include="Scripts/load.fsx" />
-        <None Include="Scripts/MinMax.fsx" />
         <None Include="Scripts/GentaEquations.fsx" />
         <None Include="Scripts\OrderEquations.fsx" />
         <None Include="Scripts\Tests.fsx" />

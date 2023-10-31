@@ -17,12 +17,13 @@ module Name = Variable.Name
 module ValueRange = Variable.ValueRange
 
 module Minimum = ValueRange.Minimum
+module Increment = ValueRange.Increment
 module Maximum = ValueRange.Maximum
 module ValueSet = ValueRange.ValueSet
 
 
 open Informedica.Utils.Lib
-
+open Informedica.GenUnits.Lib
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
@@ -50,12 +51,17 @@ module Solve =
             procss $"cannot set {n |> Name.toString} with {p}"
             eqs
 
+    let create c u v =
+        let u = u |> Units.fromString
+        v
+        |> ValueUnit.create u.Value
+        |> c
 
-    let solveMinIncl n min = solve n (min |> Minimum.create true |> MinProp)
-    let solveMinExcl n min = solve n (min |> Minimum.create false |> MinProp)
-    let solveMaxIncl n max = solve n (max |> Maximum.create true |> MaxProp)
-    let solveMaxExcl n max = solve n (max |> Maximum.create false |> MaxProp)
-    let solveValues n vals = solve n (vals |> ValueSet.create |> ValsProp)
+    let solveMinIncl n min u = solve n (create (Minimum.create true >> MinProp) u [|min|])
+    let solveMinExcl n min u = solve n (create (Minimum.create false >> MinProp) u [|min|])
+    let solveMaxIncl n max u = solve n (create (Maximum.create true >> MaxProp) u [|max|])
+    let solveMaxExcl n max u = solve n (create (Maximum.create false >> MaxProp) u [|max|])
+    let solveValues n vs u = solve n (create (ValueSet.create >> ValsProp) u (vs |> List.toArray))
 
 
     let init     = Api.init
@@ -65,7 +71,13 @@ module Solve =
     type Take = | TakeFromMin of int | TakeFromMax of int
 
 
-    let pick s incr take (eqs : Equation list) =
+    let pick s incr u take (eqs : Equation list) =
+        let incr =
+            incr
+            |> Option.map (fun br ->
+                [|br|]
+                |> create (Increment.create) u
+            )
         let var =
             eqs
             |> List.collect Equation.toVars
@@ -85,48 +97,59 @@ module Solve =
                 let min, max =
                     var.Values |> ValueRange.getMin,
                     var.Values |> ValueRange.getMax
+
                 match min, max with
                 | Some min, Some max ->
-                    let (incl_min, min), (incl_max, max) =
-                        min |> ValueRange.Minimum.toBoolBigRational,
-                        max |> ValueRange.Maximum.toBoolBigRational
-                    let min =
-                        if min = 0N then incr
-                        else
-                            let m = min |> BigRational.toMultipleOf incr
-                            if incl_min || m > min then m
-                            else
-                                m + incr
-                    let max =
-                        let m = max |> BigRational.toMultipleOf incr
-                        if incl_max || m < max then m
-                        else
-                            m - incr
                     let vs =
+                        ValueSet.minIncrMaxToValueSet
+                            min
+                            incr
+                            max
+                    let brs =
                         take
                         |> function
-                        | TakeFromMin x -> [min..incr..max] |> List.take x
-                        | TakeFromMax x -> [min..incr..max] |> List.rev |> List.take x
-                    eqs |> solveValues s vs
+                        | TakeFromMin x ->
+                            vs |> ValueSet.toValueUnit |> ValueUnit.getValue |>  Array.take x
+                        | TakeFromMax x ->
+                            vs |> ValueSet.toValueUnit |> ValueUnit.getValue |> Array.rev |>  Array.take x
+                        |> Array.toList
+                    eqs
+                    |> solveValues s brs
+                           (min |> Minimum.toValueUnit |> ValueUnit.getUnit |> Units.toStringEngShort)
                 | _ -> eqs
         | Some (ValueSet vs) ->
             match take with
             | TakeFromMin x ->
-                    let x = if x > vs.Count then vs.Count else x
-                    let vs = vs |> Set.toList |> List.take x
+                    let x =
+                        if x <= (vs |> ValueUnit.getValue |> Array.length) then x
+                        else
+                            (vs |> ValueUnit.getValue |> Array.length)
+                    let brs =
+                        vs
+                        |> ValueUnit.getValue
+                        |> Array.take x
+                        |> Array.toList
                     try
                         eqs
-                        |> solveValues s vs
+                        |> solveValues s brs (vs |> ValueUnit.getUnit |> Units.toStringEngShort)
                     with
                     | _ ->
                         printfn $"cannot set {vs}"
                         eqs
             | TakeFromMax x ->
-                    let x = if x > vs.Count then vs.Count else x
-                    let vs = vs |> Set.toList |> List.rev |> List.take x
+                    let x =
+                        if x <= (vs |> ValueUnit.getValue |> Array.length) then x
+                        else
+                            (vs |> ValueUnit.getValue |> Array.length)
+                    let brs =
+                        vs
+                        |> ValueUnit.getValue
+                        |> Array.rev
+                        |> Array.take x
+                        |> Array.toList
                     try
                         eqs
-                        |> solveValues s vs
+                        |> solveValues s brs (vs |> ValueUnit.getUnit |> Units.toStringEngShort)
                     with
                     | _ ->
                         printfn $"cannot set {vs}"
@@ -298,35 +321,35 @@ let gentaEqs =
 gentaEqs
 |> printEqs
 // patient
-|> solveValues "ord_adj" [755N/100N]
+|> solveValues "ord_adj" [10N] "kg[Weight]"
 |> printEqs
 // product
-|> solveValues "genta_sol_qty" [2N; 10N]
-|> solveValues "gentamicin_cmp_cnc" [10N; 40N]
-|> solveValues "gentamicin_cmp_qty" [20N;80N;400N]
+|> solveValues "genta_sol_qty" [2N; 10N] "ml[Volume]"
+|> solveValues "gentamicin_cmp_cnc" [10N; 40N] "mg[Mass]/ml[Volume]"
+|> solveValues "gentamicin_cmp_qty" [20N;80N;400N]  "mg[Mass]"
 |> printEqs
 // preparation
-|> solveMaxIncl "gentamicin_orb_cnc" 2N // max conc
-|> solveMinIncl "orb_qty_ad" 5N
-|> solveMaxIncl "orb_qty_adj" 20N //
-|> solveValues "orb_qty" [20N] //
-|> solveValues "genta_sol_orb_qty" ([1N/10N..1N/10N..10N] @ [11N..50N]) // max conc
+|> solveMaxIncl "gentamicin_orb_cnc" 2N "mg[Mass]/ml[Volume]" // max conc
+|> solveMinIncl "orb_qty_adj" 5N "ml[Volume]/kg[Weight]"
+|> solveMaxIncl "orb_qty_adj" 20N "ml[Volume]/kg[Weight]"//
+|> solveValues "orb_qty" [20N] "ml[Volume]"//
+|> solveValues "genta_sol_orb_qty" ([1N/10N..1N/10N..10N] @ [11N..50N]) "ml[Volume]"// max conc
 //|> solveValues "saline_orb_qty" ([1N/10N..1N/10N..10N] @ [11N..50N])
-|> printEqs
+|> printEqs //|> ignore
 // dose
-|> solveMaxIncl "orb_dos_qty_adj" 10N
-|> solveMinIncl "gentamicin_dos_tot_adj" 5N // max dose
-|> solveMaxIncl "gentamicin_dos_tot_adj" 7N // max dose
+|> solveMaxIncl "orb_dos_qty_adj" 10N "ml[Volume]/kg[Weight]"
+|> solveMinIncl "gentamicin_dos_tot_adj" 5N "mg[Mass]/kg[Weight]/day[Time]"// max dose
+|> solveMaxIncl "gentamicin_dos_tot_adj" 7N "mg[Mass]/kg[Weight]/day[Time]"// max dose
 |> printEqs
 // administration
-|> solveValues "pres_freq" [1N] // freq
-|> solveMinIncl "pres_time" (1N/2N) // time
-|> solveMaxIncl "pres_time" 1N // time
-|> printEqs
+|> solveValues "pres_freq" [1N] "times[Count]/day[Time]" // freq
+|> solveMinIncl "pres_time" (1N/2N) "hour[Time]"// time
+|> solveMaxIncl "pres_time" 1N "hour[Time]"// time
+|> printEqs //|> ignore
 // pick the optimal scenario
-|> pick "orb_dos_qty" (Some 1N) (TakeFromMin 10) // pick between min and max
+|> pick "orb_dos_qty" (Some 1N) "ml[Volume" (TakeFromMin 10) // pick between min and max
 //|> pick "orb_dos_rte" (Some (1N/10N)) (TakeFromMax 1) // pick between min and max
-|> pick "gentamicin_dos_tot_adj" None (TakeFromMax 2) // choose from list
+|> pick "gentamicin_dos_tot_adj" None "" (TakeFromMax 2) // choose from list
 |> printEqs
 |> ignore
 

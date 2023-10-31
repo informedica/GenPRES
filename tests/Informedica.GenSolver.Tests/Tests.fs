@@ -663,6 +663,7 @@ module Tests =
 
             module MinMaxCalculatorTests =
 
+                open FsCheck
 
                 open Informedica.Utils.Lib.Web
 
@@ -739,9 +740,7 @@ module Tests =
                 let createVuOpt (intOpt, b) =
                     intOpt
                     |> Option.map BigRational.fromInt
-                    |> Option.map (fun i ->
-                        i
-                        |> ValueUnit.singleWithUnit Units.Count.times), b
+                    |> Option.map (ValueUnit.singleWithUnit Units.Count.times), b
 
 
                 let scenarioToString op opStr i (min1, max1, min2, max2) =
@@ -790,7 +789,105 @@ module Tests =
 
 
 
+                let toValueUnit =
+                    List.toArray
+                    >> ValueUnit.withUnit Units.Count.times
+
+                let singleToValueUnit =
+                    ValueUnit.singleWithUnit Units.Count.times
+
+
+                let generateMinMax n =
+                    let v1 = (Generators.bigRGenerator |> Arb.fromGen).Generator.Sample(4, n)
+                    let v2 = (Generators.bigRGenerator |> Arb.fromGen).Generator.Sample(4, n)
+                    let b1 = Arb.generate<bool> |> Gen.sample 10 n
+                    let b2 = Arb.generate<bool> |> Gen.sample 10 n
+                    let s1 = Arb.generate<bool> |> Gen.sample 10 n
+                    let s2 = Arb.generate<bool> |> Gen.sample 10 n
+                    let min =
+                        v1
+                        |> List.zip b1
+                        |> List.zip s1
+                        |> List.map (fun (s,(incl, br)) ->
+                            if s then None, false
+                            else
+                                Some br, incl
+                        )
+                        |> List.map (fun (br, b) -> br |> Option.map singleToValueUnit, b)
+                    let max =
+                        v2
+                        |> List.zip b2
+                        |> List.zip s2
+                        |> List.map (fun (s,(incl, br)) ->
+                            if s then None, false
+                            else
+                                Some br, incl
+                        )
+                        |> List.map (fun (br, b) -> br |> Option.map singleToValueUnit, b)
+
+                    min
+                    |> List.zip max
+                    |> List.map (fun ((br1, incl1), (br2, incl2)) ->
+                        match br1, br2 with
+                        | Some _, Some _ ->
+                            if br1 > br2 then (br2, incl2), (br1, incl1)
+                            else
+                                if br1 = br2 && (incl1 = incl2 || (not incl2)) then (br2, incl2), (br1, incl1)
+                                else
+                                   (br1, incl1), (br2, incl2)
+                        | _ -> (br1, incl1), (br2, incl2)
+                    )
+
+
+                let minMax1 = generateMinMax 100
+                let minMax2 = generateMinMax 100
+
+
+
                 let tests = testList "minmax calculator" [
+
+                    testList "matching ranges" [
+
+                        test "match permutations of min max to range matching" {
+                            minMax1
+                            |> List.allPairs minMax2
+                            |> List.map (fun ((min1, max1), (min2, max2)) ->
+                                try
+                                    match (min1 |> fst, max1 |> fst), (min2 |> fst, max2 |> fst) with
+                                    | MinMaxCalculator.NN, MinMaxCalculator.NN
+                                    | MinMaxCalculator.NN, MinMaxCalculator.NP
+                                    | MinMaxCalculator.NN, MinMaxCalculator.PP
+                                    | MinMaxCalculator.NN, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.NN, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.NP, MinMaxCalculator.NN
+                                    | MinMaxCalculator.NP, MinMaxCalculator.NP
+                                    | MinMaxCalculator.NP, MinMaxCalculator.PP
+                                    | MinMaxCalculator.NP, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.NP, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.PP, MinMaxCalculator.NN
+                                    | MinMaxCalculator.PP, MinMaxCalculator.NP
+                                    | MinMaxCalculator.PP, MinMaxCalculator.PP
+                                    | MinMaxCalculator.PP, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.PP, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.NN
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.NP
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.PP
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.NN
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.NP
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.PP
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.ZP -> "can match"
+                                with
+                                | _ -> $"cannot match {min1}, {max1},{min2}, {max2}"
+                            )
+                            |> Expect.allEqual "should be true" "can match"
+                        }
+
+
+                    ]
+
                     testList "calc operator" [
                         testList "Multiplication" [
                             // multiplication of two values, both are None
