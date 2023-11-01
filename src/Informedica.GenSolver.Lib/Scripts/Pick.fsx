@@ -44,7 +44,7 @@ module Solve =
         let logger =
             fun s ->
                 File.AppendAllLines("order.log", [s])
-            |> SolverLogging.logger
+            |> SolverLogging.create
         let n = n |> Name.createExc
         try
             Api.solve b Solver.sortQue logger n p eqs

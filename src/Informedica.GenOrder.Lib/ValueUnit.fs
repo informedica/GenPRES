@@ -15,27 +15,9 @@ module ValueUnit =
     open ValueUnit
 
 
-    let valueToBase u v =
-        create u v
-        |> toBaseValue
-
 
     let unitToString =
         Units.toString Units.Dutch Units.Short
-
-
-    let calcUnit op u1 u2 =
-
-        match u1, u2 with
-        | NoUnit, _
-        | _, NoUnit -> NoUnit
-        | u1, u2 ->
-            let vu1 = 1N |> createSingle u1
-            let vu2 = 1N |> createSingle u2
-
-            vu1 |> op <| vu2
-            |> get
-            |> snd
 
 
     let isAdjust (u : Unit) =

@@ -167,7 +167,7 @@ module OrderLogger =
     let printLogger : Logger = { Log = (printMsg None >> (printfn "%s")) }
 
 
-    // Create the logger agent
+    // the logger agent
     let logger =
 
         let write path i t ms m =

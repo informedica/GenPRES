@@ -166,7 +166,12 @@ module SolverLogging =
         | ConstrainedSolved c -> $"Constraint {c |> Constraint.toString} solved"
 
 
-    let logger f =
+    /// <summary>
+    /// Create a logger that uses the given function to log
+    /// </summary>
+    /// <param name="f">The function to process the log string</param>
+    /// <returns>A logger</returns>
+    let create f =
         {
             Log =
                 fun { TimeStamp = _; Level = _; Message = msg } ->

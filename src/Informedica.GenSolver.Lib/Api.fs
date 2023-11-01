@@ -60,7 +60,16 @@ module Api =
             |> Some
 
 
+    /// <summary>
     /// Solve an `Equations` list
+    /// </summary>
+    /// <param name="onlyMinIncrMax">True if only min, incr and max values are to be used</param>
+    /// <param name="log">The logger to log operations</param>
+    /// <param name="eqs">List of equations to solve</param>
+    /// <returns>A result type of the solved equations</returns>
+    /// <remarks>
+    /// This function is a wrapper around `Solver.solveAll`
+    /// </remarks>
     let solveAll = Solver.solveAll
 
 

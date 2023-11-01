@@ -74,7 +74,7 @@ module TestSolver =
     let logger =
         fun (s : string) ->
             printfn $"{s}"
-        |> SolverLogging.logger
+        |> SolverLogging.create
 
     let solve n p eqs =
         let n = n |> Name.createExc

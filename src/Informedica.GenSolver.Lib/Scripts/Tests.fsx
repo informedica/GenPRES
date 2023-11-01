@@ -175,7 +175,7 @@ module TestSolver =
     let logger =
         fun (_ : string) ->
             () //File.AppendAllLines("examples.log", [s])
-        |> SolverLogging.logger
+        |> SolverLogging.create
 
     let solve n p eqs =
         let n = n |> Name.createExc

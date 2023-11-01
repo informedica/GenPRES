@@ -762,11 +762,11 @@ module OrderVariable =
             |> Total
 
 
-        /// Turn a `Quantity` to a string
+        /// Turn a `Total` to a string
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Quantity` as a value unit string list
+        /// Print a `Total` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
