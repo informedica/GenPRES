@@ -18,6 +18,8 @@ open Informedica.GenOrder.Lib
 
 
 let path = Some $"{__SOURCE_DIRECTORY__}/log.txt"
+
+
 let startLogger () =
     // Start the logger at an informative level
     OrderLogger.logger.Start path Logging.Level.Informative

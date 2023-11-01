@@ -1461,13 +1461,14 @@ module Order =
                             ovar
                             |> OrderVariable.minIncrMaxToValues n
                     )
-
-                ord
-                |> fromOrdVars ovars
-                |> solveOrder false logger
-                |> function
-                    | Ok ord -> loop flag ord
-                    | Error _ -> ord
+                if not flag then ord
+                else
+                    ord
+                    |> fromOrdVars ovars
+                    |> solveOrder false logger
+                    |> function
+                        | Ok ord -> loop flag ord
+                        | Error _ -> ord
 
         loop true ord
         // |> fun ord ->

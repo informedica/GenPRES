@@ -1,10 +1,9 @@
 namespace Informedica.GenOrder.Lib
 
 
-
-
 /// Functions that deal with the `VariableUnit` type
 module OrderVariable =
+
 
     open MathNet.Numerics
 
@@ -13,6 +12,7 @@ module OrderVariable =
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenSolver.Lib
     open Informedica.GenUnits.Lib
+
 
     module ValueRange = Variable.ValueRange
     module Minimum    = ValueRange.Minimum
@@ -28,6 +28,13 @@ module OrderVariable =
     module Constraints =
 
 
+        /// <summary>
+        /// Create a `Constraints` record
+        /// </summary>
+        /// <param name="min">An optional Minimum</param>
+        /// <param name="incr">An optional Increment</param>
+        /// <param name="max">An optional Maximum</param>
+        /// <param name="vs">An optional ValueSet</param>
         let create min incr max vs =
             {
                 Min = min
@@ -36,6 +43,21 @@ module OrderVariable =
                 Values = vs
             }
 
+
+        /// <summary>
+        /// Get the string representation of a `Constraints` record (in Dutch)
+        /// </summary>
+        /// <param name="cs">The Constraints record</param>
+        /// <remarks>
+        /// <code>
+        /// let min = 1N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Minimum.create true
+        /// let max = 10N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Maximum.create false
+        /// let incr = 1N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Increment.create
+        /// let cs = Constraints.create (Some min) (Some incr) (Some max) None
+        /// cs |> toString
+        /// // vanaf 1 mg[Mass] per 1 mg[Mass] tot 10 mg[Mass]
+        /// </code>
+        /// </remarks>
         let toString (cs : Constraints) =
             let toStr = ValueUnit.toStringDutchShort
 
@@ -55,17 +77,32 @@ module OrderVariable =
                 |> ValueUnit.toStringDutchShort
 
 
+        /// <summary>
+        /// Map the functions, fMin, fMax, fIncr and fVals over the `Constraints` record
+        /// </summary>
+        /// <param name="fMin">The function to map the Min</param>
+        /// <param name="fMax">The function to map the Max</param>
+        /// <param name="fIncr">The function to map the Incr</param>
+        /// <param name="fVals">The function to map the Values</param>
+        /// <param name="cs">The Constraints record</param>
         let map fMin fMax fIncr fVals (cs : Constraints) =
             { cs with
                 Min = cs.Min |> Option.map fMin
                 Max = cs.Max |> Option.map fMax
                 Incr = cs.Incr |> Option.map fIncr
                 Values = cs.Values |> Option.map fVals
-
             }
 
 
-    /// Create a `OrderVariable` with preset values
+    /// <summary>
+    /// Create an OrderVariable, an OrderVariable is a Variable with Constraints
+    /// </summary>
+    /// <param name="n">The Name of the Variable</param>
+    /// <param name="min">An optional Minimum of the Variable</param>
+    /// <param name="incr">An optional Increment of the Variable</param>
+    /// <param name="max">An optional Maximum of the Variable</param>
+    /// <param name="vs">An optional ValueSet of the Variable</param>
+    /// <param name="cs">The Constraints for the OrderVariable</param>
     let create n min incr max vs cs =
         ValueRange.create min incr max vs
         |> fun vlr ->
@@ -76,8 +113,12 @@ module OrderVariable =
             }
 
 
-    /// Create a new `VariableUnit` with
-    /// `Name` **nm** and `Unit` **un**
+    /// <summary>
+    /// Create a new OrderVariable. The OrderVariable will have an exclusive
+    /// Minimum of zero and a Constraints with an exclusive Minimum of zero
+    /// </summary>
+    /// <param name="n">The Name of the Variable</param>
+    /// <param name="un">The Unit of the Values in the Variable and Constraints</param>
     let createNew n un =
         let vu = 0N |> ValueUnit.createSingle un
         let min = Minimum.create false vu |> Some
@@ -85,10 +126,13 @@ module OrderVariable =
         Constraints.create min None None None
         |> create n min None None None
 
-    /// Apply **f** to `VariableUnit` **vru**
-    let apply f (ovar: OrderVariable) = ovar |> f
 
-
+    /// <summary>
+    /// Map a function f to the Values (i.e. ValueUnit) of the Variable
+    /// of the OrderVariable
+    /// </summary>
+    /// <param name="f">The function to map</param>
+    /// <param name="ovar">The OrderVariable</param>
     let map f (ovar: OrderVariable) =
         { ovar with
             Variable =
@@ -101,21 +145,27 @@ module OrderVariable =
         }
 
 
-    /// Utility function to facilitate type inference
-    let get = apply id
-
-
-    /// Get the `Variable` from a `VariableUnit`
+    /// Get the `Variable` from an OrderVariable
     let getVar { Variable = var } = var
 
 
-    /// Get the `Variable.Name` from a `VariableUnit` **vru**
+    /// Get the `Variable.Name` from an OrderVariable
     let getName ovar = (ovar |> getVar).Name
 
 
+    /// Check whether two OrderVariables have the same name
     let eqsName ovar1 ovar2 = (ovar1 |> getName) = (ovar2 |> getName)
 
 
+    /// <summary>
+    /// Apply the constraints of an OrderVariable to the Variable
+    /// of the OrderVariable.
+    /// </summary>
+    /// <param name="ovar">The OrderVariable</param>
+    /// <remarks>
+    /// If the Constraints have an Increment and a ValueSet, then the
+    /// only the Increment is applied to the Variable.
+    /// </remarks>
     let applyConstraints (ovar : OrderVariable) =
         { ovar with
             Variable =

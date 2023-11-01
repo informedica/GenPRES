@@ -307,7 +307,6 @@ module Solve =
 open Solve
 
 
-
 let gentaEqs =
     {
         Components =
@@ -368,7 +367,7 @@ gentaEqs
 // find min/max scenarios
 gentaEqs
 // patient
-|> solveValues "ord_adj" [1N] "kg[Weight]"
+|> solveValues "ord_adj" [800N/1000N] "kg[Weight]"
 //|> printEqs
 // product
 |> solveValues "genta_sol_qty" [2N; 10N] "ml[Volume]"
