@@ -214,6 +214,7 @@ module Tests =
 
             module IncrementTests =
 
+
                 let create brs =
                     Units.Count.times
                     |> ValueUnit.withValue brs
@@ -227,6 +228,77 @@ module Tests =
                         s2 |> ValueUnit.valueCount = (s |> ValueUnit.valueCount)
 
                 let tests = testList "increment" [
+                    testList "increment properties" [
+                        // helper function to perform a calculation
+                        let calc op x y =
+                            x
+                            |> List.allPairs y
+                            |> List.map (fun (x1, x2) -> x1 |> op <| x2)
+                            |> List.sort
+                            |> List.distinct
+                        // helper function to create a list from min incr max
+                        let minIncrMaxToSeq min incr max : BigRational seq =
+                            incr
+                            |> Seq.fold (fun acc i ->
+                                let min = min |> BigRational.toMinMultipleOf i
+                                let max = max |> BigRational.toMaxMultipleOf i
+                                seq {min..i..max} |> Seq.append acc
+                            ) Seq.empty
+                            |> Seq.sort
+                            |> Seq.distinct
+                        // helper function to calculate the incrs from a list
+                        let calcIncr op x y =
+                            let r =
+                                x
+                                |> List.allPairs y
+                                |> List.map (fun (x1, x2) -> x1 |> op <| x2)
+
+                            r |> List.min,
+                            r
+                            |> List.toArray
+                            |> Informedica.GenUnits.Lib.Array.removeBigRationalMultiples
+                            |> Array.toList,
+                            r |> List.max
+
+                        let calcIncrDiv = calcIncr (/)
+                        let calcIncrMul = calcIncr (*)
+                        let calcIncrAdd = calcIncr (+)
+                        let calcIncrSub = calcIncr (-)
+
+                        test "actual set is subset of min, calculated incr from mult and max" {
+                            let x = [3N..3N..6N]
+                            let y = [2N..2N..6N]
+                            let exp = calc (*) x y
+                            let act =
+                                calcIncrMul x y
+                                |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+                                |> Seq.toList
+                            (exp <> act &&
+                            Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
+                            |> Expect.isTrue "should be a subset"
+                        }
+
+                        test "actual set is subset of min, calculated incr from division and max" {
+                            let x = [3N..3N..12N]
+                            let y = [2N..2N..10N]
+                            let exp = calc (/) x y
+                            let act = calcIncrDiv x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+                            (exp <> (Seq.toList act) &&
+                            Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
+                            |> Expect.isTrue "should be a subset"
+                        }
+
+                        test "actual set is subset of min, calculated incr from addition and max" {
+                            let x = [3N..3N..12N]
+                            let y = [2N..2N..10N]
+                            let exp = calc (+) x y
+                            let act = calcIncrAdd x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+                            (exp <> (Seq.toList act) &&
+                            Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
+                            |> Expect.isTrue "should be a subset"
+                        }
+                    ]
+
                     testList "create" [
                         fun xs ->
                             try

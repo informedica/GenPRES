@@ -40,7 +40,7 @@ module TestSolver =
 
     let setProp n p eqs =
         let n = n |> Name.createExc
-        match eqs |> Api.setVariableValues true n p with
+        match eqs |> Api.setVariableValues n p with
         | Some var ->
             eqs
             |> List.map (fun e ->
@@ -78,7 +78,7 @@ module TestSolver =
 
     let solve n p eqs =
         let n = n |> Name.createExc
-        Api.solve true id logger n p eqs
+        Api.solve true (fun _ -> id) logger n p eqs
 
     let solveAll = Api.solveAll false logger
 
@@ -134,8 +134,6 @@ eqs
             | Ok eqs ->
                 eqs |> Solver.printEqs true (fun s -> printfn $"{s}") |> ignore
             | Error _ -> failwith "errors"
-            |> ignore
     | Error _ -> failwith "errors"
- |> ignore
 
 
