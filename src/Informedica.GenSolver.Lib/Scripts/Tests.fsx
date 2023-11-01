@@ -141,7 +141,7 @@ module TestSolver =
 
     let setProp n p eqs =
         let n = n |> Name.createExc
-        match eqs |> Api.setVariableValues true n p with
+        match eqs |> Api.setVariableValues n p with
         | Some var ->
             eqs
             |> List.map (fun e ->
@@ -179,7 +179,7 @@ module TestSolver =
 
     let solve n p eqs =
         let n = n |> Name.createExc
-        Api.solve true id logger n p eqs
+        Api.solve true (fun _ eqs -> eqs) logger n p eqs
 
     let solveAll = Api.solveAll false logger
 
@@ -227,6 +227,7 @@ module Tests =
 
             module IncrementTests =
 
+
                 let create brs =
                     Units.Count.times
                     |> ValueUnit.withValue brs
@@ -240,6 +241,77 @@ module Tests =
                         s2 |> ValueUnit.valueCount = (s |> ValueUnit.valueCount)
 
                 let tests = testList "increment" [
+                    testList "increment properties" [
+                        // helper function to perform a calculation
+                        let calc op x y =
+                            x
+                            |> List.allPairs y
+                            |> List.map (fun (x1, x2) -> x1 |> op <| x2)
+                            |> List.sort
+                            |> List.distinct
+                        // helper function to create a list from min incr max
+                        let minIncrMaxToSeq min incr max : BigRational seq =
+                            incr
+                            |> Seq.fold (fun acc i ->
+                                let min = min |> BigRational.toMinMultipleOf i
+                                let max = max |> BigRational.toMaxMultipleOf i
+                                seq {min..i..max} |> Seq.append acc
+                            ) Seq.empty
+                            |> Seq.sort
+                            |> Seq.distinct
+                        // helper function to calculate the incrs from a list
+                        let calcIncr op x y =
+                            let r =
+                                x
+                                |> List.allPairs y
+                                |> List.map (fun (x1, x2) -> x1 |> op <| x2)
+
+                            r |> List.min,
+                            r
+                            |> List.toArray
+                            |> Informedica.GenUnits.Lib.Array.removeBigRationalMultiples
+                            |> Array.toList,
+                            r |> List.max
+
+                        let calcIncrDiv = calcIncr (/)
+                        let calcIncrMul = calcIncr (*)
+                        let calcIncrAdd = calcIncr (+)
+                        let calcIncrSub = calcIncr (-)
+
+                        test "actual set is subset of min, calculated incr from mult and max" {
+                            let x = [3N..3N..6N]
+                            let y = [2N..2N..6N]
+                            let exp = calc (*) x y
+                            let act =
+                                calcIncrMul x y
+                                |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+                                |> Seq.toList
+                            (exp <> act &&
+                            Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
+                            |> Expect.isTrue "should be a subset"
+                        }
+
+                        test "actual set is subset of min, calculated incr from division and max" {
+                            let x = [3N..3N..12N]
+                            let y = [2N..2N..10N]
+                            let exp = calc (/) x y
+                            let act = calcIncrDiv x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+                            (exp <> (Seq.toList act) &&
+                            Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
+                            |> Expect.isTrue "should be a subset"
+                        }
+
+                        test "actual set is subset of min, calculated incr from addition and max" {
+                            let x = [3N..3N..12N]
+                            let y = [2N..2N..10N]
+                            let exp = calc (+) x y
+                            let act = calcIncrAdd x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
+                            (exp <> (Seq.toList act) &&
+                            Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
+                            |> Expect.isTrue "should be a subset"
+                        }
+                    ]
+
                     testList "create" [
                         fun xs ->
                             try
@@ -375,7 +447,6 @@ module Tests =
                         // test ValueRange.increaseIncrement
                         test "ValueRange.increaseIncrement 1 to 10000 should increase to 100" {
                             Variable.ValueRange.create
-                                true
                                 (1N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true |> Some)
                                 (create [| 1N |] |> Some)
                                 (10000N |> ValueUnit.singleWithUnit Units.Count.times |> Maximum.create true |> Some)
@@ -402,7 +473,6 @@ module Tests =
                                 |> Units.per Units.Time.hour
 
                             Variable.ValueRange.create
-                                true
                                 ((81N/2N) |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
                                 ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
                                 ((816N/5N) |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
@@ -678,6 +748,7 @@ module Tests =
 
             module MinMaxCalculatorTests =
 
+                open FsCheck
 
                 open Informedica.Utils.Lib.Web
 
@@ -754,9 +825,7 @@ module Tests =
                 let createVuOpt (intOpt, b) =
                     intOpt
                     |> Option.map BigRational.fromInt
-                    |> Option.map (fun i ->
-                        i
-                        |> ValueUnit.singleWithUnit Units.Count.times), b
+                    |> Option.map (ValueUnit.singleWithUnit Units.Count.times), b
 
 
                 let scenarioToString op opStr i (min1, max1, min2, max2) =
@@ -771,7 +840,7 @@ module Tests =
                                     (max1 |> createVuOpt)
                                     (min2 |> createVuOpt)
                                     (max2 |> createVuOpt)
-                                |> fun (min, max) -> Variable.ValueRange.create true min None max None
+                                |> fun (min, max) -> Variable.ValueRange.create min None max None
                                 |> toString true
                                 |> String.replace "x" ""
                                 |> String.replace "<" "< "
@@ -805,7 +874,105 @@ module Tests =
 
 
 
+                let toValueUnit =
+                    List.toArray
+                    >> ValueUnit.withUnit Units.Count.times
+
+                let singleToValueUnit =
+                    ValueUnit.singleWithUnit Units.Count.times
+
+
+                let generateMinMax n =
+                    let v1 = (Generators.bigRGenerator |> Arb.fromGen).Generator.Sample(4, n)
+                    let v2 = (Generators.bigRGenerator |> Arb.fromGen).Generator.Sample(4, n)
+                    let b1 = Arb.generate<bool> |> Gen.sample 10 n
+                    let b2 = Arb.generate<bool> |> Gen.sample 10 n
+                    let s1 = Arb.generate<bool> |> Gen.sample 10 n
+                    let s2 = Arb.generate<bool> |> Gen.sample 10 n
+                    let min =
+                        v1
+                        |> List.zip b1
+                        |> List.zip s1
+                        |> List.map (fun (s,(incl, br)) ->
+                            if s then None, false
+                            else
+                                Some br, incl
+                        )
+                        |> List.map (fun (br, b) -> br |> Option.map singleToValueUnit, b)
+                    let max =
+                        v2
+                        |> List.zip b2
+                        |> List.zip s2
+                        |> List.map (fun (s,(incl, br)) ->
+                            if s then None, false
+                            else
+                                Some br, incl
+                        )
+                        |> List.map (fun (br, b) -> br |> Option.map singleToValueUnit, b)
+
+                    min
+                    |> List.zip max
+                    |> List.map (fun ((br1, incl1), (br2, incl2)) ->
+                        match br1, br2 with
+                        | Some _, Some _ ->
+                            if br1 > br2 then (br2, incl2), (br1, incl1)
+                            else
+                                if br1 = br2 && (incl1 = incl2 || (not incl2)) then (br2, incl2), (br1, incl1)
+                                else
+                                   (br1, incl1), (br2, incl2)
+                        | _ -> (br1, incl1), (br2, incl2)
+                    )
+
+
+                let minMax1 = generateMinMax 100
+                let minMax2 = generateMinMax 100
+
+
+
                 let tests = testList "minmax calculator" [
+
+                    testList "matching ranges" [
+
+                        test "match permutations of min max to range matching" {
+                            minMax1
+                            |> List.allPairs minMax2
+                            |> List.map (fun ((min1, max1), (min2, max2)) ->
+                                try
+                                    match (min1 |> fst, max1 |> fst), (min2 |> fst, max2 |> fst) with
+                                    | MinMaxCalculator.NN, MinMaxCalculator.NN
+                                    | MinMaxCalculator.NN, MinMaxCalculator.NP
+                                    | MinMaxCalculator.NN, MinMaxCalculator.PP
+                                    | MinMaxCalculator.NN, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.NN, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.NP, MinMaxCalculator.NN
+                                    | MinMaxCalculator.NP, MinMaxCalculator.NP
+                                    | MinMaxCalculator.NP, MinMaxCalculator.PP
+                                    | MinMaxCalculator.NP, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.NP, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.PP, MinMaxCalculator.NN
+                                    | MinMaxCalculator.PP, MinMaxCalculator.NP
+                                    | MinMaxCalculator.PP, MinMaxCalculator.PP
+                                    | MinMaxCalculator.PP, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.PP, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.NN
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.NP
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.PP
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.NZ, MinMaxCalculator.ZP
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.NN
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.NP
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.PP
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.NZ
+                                    | MinMaxCalculator.ZP, MinMaxCalculator.ZP -> "can match"
+                                with
+                                | _ -> $"cannot match {min1}, {max1},{min2}, {max2}"
+                            )
+                            |> Expect.allEqual "should be true" "can match"
+                        }
+
+
+                    ]
+
                     testList "calc operator" [
                         testList "Multiplication" [
                             // multiplication of two values, both are None
@@ -1376,7 +1543,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         (max1 |> Max)
-                        |> ValueRange.setMax true max2
+                        |> ValueRange.setMax max2
                         |> Expect.equal "should be equal" (max2 |> Max)
                     }
 
@@ -1384,7 +1551,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         (max2 |> Max)
-                        |> ValueRange.setMax true max1
+                        |> ValueRange.setMax max1
                         |> Expect.notEqual "should not be equal" (max1 |> Max)
                     }
 
@@ -1393,7 +1560,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         ((min, max1) |> MinMax)
-                        |> ValueRange.setMax true max2
+                        |> ValueRange.setMax max2
                         |> Expect.equal "should be equal" ((min, max2) |> MinMax)
                     }
 
@@ -1402,7 +1569,7 @@ module Tests =
                         let max1 = createMax true 3N
                         let max2 = createMax true 1N
                         ((min, max2) |> MinMax)
-                        |> ValueRange.setMax true max1
+                        |> ValueRange.setMax max1
                         |> Expect.notEqual "should not be equal" ((min, max1) |> MinMax)
                     }
 
@@ -1411,7 +1578,7 @@ module Tests =
                         let incr = createIncr 1N
                         let max = createMax true 5N
                         ((min, max) |> MinMax)
-                        |> ValueRange.setIncr true incr
+                        |> ValueRange.setIncr incr
                         |> Expect.equal "should be equal" ((min, incr, max) |> MinIncrMax)
                     }
 
@@ -1420,7 +1587,7 @@ module Tests =
                         let incr = createIncr 1N
                         let max = createMax true 6N
                         ((min, incr, max) |> MinIncrMax)
-                        |> ValueRange.setIncr true (createIncr 2N)
+                        |> ValueRange.setIncr (createIncr 2N)
                         |> Expect.equal "should be equal" ((min, (createIncr 2N), max) |> MinIncrMax)
                     }
 
@@ -1436,7 +1603,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         (max1 |> Max)
-                        |> ValueRange.setMax true max2
+                        |> ValueRange.setMax max2
                         |> Expect.notEqual "should not be equal" (max2 |> Max)
                     }
 
@@ -1476,7 +1643,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         (max2 |> Max)
-                        |> ValueRange.setMax true max1
+                        |> ValueRange.setMax max1
                         |> Expect.equal "should be equal" (max1 |> Max)
                     }
 
@@ -1492,7 +1659,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         (max1 |> Max)
-                        |> ValueRange.applyExpr true (max2 |> Max)
+                        |> ValueRange.applyExpr (max2 |> Max)
                         |> Expect.notEqual "should not be equal" (max2 |> Max)
                     }
 
@@ -1511,7 +1678,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         ((min, max1) |> MinMax)
-                        |> ValueRange.applyExpr true (max2 |> Max)
+                        |> ValueRange.applyExpr (max2 |> Max)
                         |> Expect.notEqual "should not be equal" ((min, max2) |> MinMax)
                     }
 
@@ -1530,7 +1697,7 @@ module Tests =
                             [|300N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         ((min, max2) |> MinMax)
-                        |> ValueRange.applyExpr true (max1 |> Max)
+                        |> ValueRange.applyExpr (max1 |> Max)
                         |> Expect.equal "should not be equal" ((min, max1) |> MinMax)
                     }
 
@@ -1555,7 +1722,7 @@ module Tests =
                             [|1500N|] |> ValueUnit.create mgPerKgPerDay
                             |> Maximum.create true
                         ((min2, max2) |> MinMax)
-                        |> ValueRange.applyExpr true ((min1, max1) |> MinMax)
+                        |> ValueRange.applyExpr ((min1, max1) |> MinMax)
                         |> Expect.equal "should be equal" ((min1, max1) |> MinMax)
                     }
 
@@ -1617,7 +1784,6 @@ module Tests =
                             Name = Variable.Name.createExc "[1.gentamicine]_dos_rte"
                             Values =
                                 Variable.ValueRange.create
-                                    true
                                     (31N |> ValueUnit.singleWithUnit u |> Minimum.create true |> Some)
                                     ((1N/10N) |> ValueUnit.singleWithUnit u |> Increment.create  |> Some)
                                     (125N |> ValueUnit.singleWithUnit u |> Maximum.create true |> Some)
@@ -1725,6 +1891,7 @@ module Tests =
 
 
 
+
 Tests.tests
 |> Expecto.run
 
@@ -1818,7 +1985,7 @@ module MinMaxTestScenarios =
                         (max1 |> createVuOpt)
                         (min2 |> createVuOpt)
                         (max2 |> createVuOpt)
-                    |> fun (min, max) -> Variable.ValueRange.create true min None max None
+                    |> fun (min, max) -> Variable.ValueRange.create min None max None
                     |> Variable.ValueRange.toString true
                     |> String.replace "x" ""
                     |> String.replace "<" "< "
