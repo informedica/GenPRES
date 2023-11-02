@@ -264,7 +264,7 @@ let testDto =
 
 
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
-testDto.Orderable.Components[0].Items[0].ComponentConcentration.Constraints.Vals.Value.Unit
+testDto.Orderable.Components[0].Items[0].ComponentConcentration.Constraints.ValsOpt.Value.Value
 |> fun s ->
     $"1 {s}"
     |> ValueUnit.fromString

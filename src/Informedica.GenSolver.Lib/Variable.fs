@@ -3140,18 +3140,29 @@ module Variable =
             raise e
 
 
-    /// <summary>
-    /// Try and increase the increment of a `Variable`
-    /// </summary>
-    /// <param name="lim"></param>
-    /// <param name="incr"></param>
-    /// <param name="var"></param>
-    let increaseIncrement lim incr var =
+        /// <summary>
+        /// Try and increase the increment of a `ValueRange` of a Variable to an
+        /// increment in incrs such that the resulting ValueRange contains
+        /// at most maxCount values.
+        /// </summary>
+        /// <param name="maxCount">The maximum count</param>
+        /// <param name="incrs">The increment list</param>
+        /// <param name="var">The Variable</param>
+        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <remarks>
+        /// When there is no increment in the list that can be used to increase
+        /// the increment of the ValueRange to the maximum count, the largest possible
+        /// increment is used.
+        /// </remarks>
+    let increaseIncrement maxCount incrs var =
         if var |> isMinIncrMax |> not then var
         else
             { var with
-                Values = var.Values |> ValueRange.increaseIncrement lim incr
+                Values =
+                    var.Values
+                    |> ValueRange.increaseIncrement maxCount incrs
             }
+
 
     /// <summary>
     /// Calculate a ValueSet for a Variable if the Value of the
@@ -3186,7 +3197,9 @@ module Variable =
     /// </summary>
     let setUnit unit var =
         { var with
-            Values = var.Values |> ValueRange.setUnit unit
+            Values =
+                var.Values
+                |> ValueRange.setUnit unit
         }
 
 

@@ -183,27 +183,50 @@ module OrderVariable =
         }
 
 
-    let increaseIncrement lim incr (ovar : OrderVariable) =
+    /// <summary>
+    /// Try and increase the increment of a `ValueRange` of a Variable to an
+    /// increment in incrs such that the resulting ValueRange contains
+    /// at most maxCount values.
+    /// </summary>
+    /// <param name="maxCount">The maximum count</param>
+    /// <param name="incrs">The increment list</param>
+    /// <param name="ovar">The OrderVariable</param>
+    /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+    /// <remarks>
+    /// When there is no increment in the list that can be used to increase
+    /// the increment of the ValueRange to the maximum count, the largest possible
+    /// increment is used.
+    /// </remarks>
+    let increaseIncrement maxCount incrs (ovar : OrderVariable) =
         { ovar with
-            Variable = ovar.Variable |> Variable.increaseIncrement lim incr
+            Variable =
+                ovar.Variable
+                |> Variable.increaseIncrement maxCount incrs
         }
 
 
-    let fromOrdVar toOvar c ovars a =
+    /// Helper function to map an OrderVariable in a list
+    /// of OrderVariables to a 'c' with a default of 'a'.
+    /// The mapped value will be returned or default 'a'.
+    let private fromOrdVar toOvar c ovars a =
         ovars
         |> List.tryFind (eqsName (a |> toOvar))
         |> Option.map c
         |> Option.defaultValue a
 
 
-    /// Set the 'Name' to the `Variable` of the `VariableUnit`
-    let setName nm ovar =
+    /// Set the 'Name' to the `Variable` of the `OrderVariable`.
+    let setName n ovar =
         { ovar with
-            Variable = ovar.Variable |> Variable.setName nm
+            Variable = ovar.Variable |> Variable.setName n
         }
 
 
-    /// Get the string representation of a `VariableUnit` **vru**
+    /// <summary>
+    /// Get the string representation of an OrderVariable.
+    /// </summary>
+    /// <param name="exact">Whether to use the exact representation of the ValueRange</param>
+    /// <param name="ovar">The OrderVariable</param>
     let toString exact ovar =
         let ns = ovar |> getName |> Variable.Name.toString
 
@@ -213,8 +236,8 @@ module OrderVariable =
         |> ValueRange.toString exact)
 
 
-    /// Returns the values with the string equivalents
-    /// of an order variable value set
+    /// Helper function to get an optional ValueSet from an OrderVariable
+    /// and return the values as a string list.
     let toValueUnitStringList get x =
         x
         |> get
@@ -224,16 +247,22 @@ module OrderVariable =
         |> Option.map (ValueSet.toValueUnit >> ValueUnit.toStringDutchShort)
 
 
+
+    /// Helper function to get a string representation of the ValueRange of
+    /// the Variable of an OrderVariable
     let toValueUnitString get (_ : int) x =
         x
         |> get
         |> getVar
         |> Variable.getValueRange
-        |> ValueRange.toString false //TODO: need something to set precision and number formatting
+        |> ValueRange.toString false
         |> String.replace "x" "keer"
+        // fix for example mg/kg*day to mg/kg/dag, which is mathematically the same
         |> String.replace "*" "/"
 
 
+    /// Helper function to get a markdown string representation of the ValueRange of
+    /// the Variable of an OrderVariable
     let toValueUnitMarkdown get (prec : int) x =
         x
         |> get
@@ -241,9 +270,17 @@ module OrderVariable =
         |> Variable.getValueRange
         |> ValueRange.toMarkdown prec
         |> String.replace "x" "keer"
+        // fix for example mg/kg*day to mg/kg/dag, which is mathematically the same
         |> String.replace "*" "/"
 
 
+    /// <summary>
+    /// Calculate a ValueSet for a Variable of an OrderVariable if the Value
+    /// of the Variable is a MinIncrMax
+    /// </summary>
+    /// <param name="ovar">The OrderVariable to change min incr max to a ValueSet</param>
+    /// <param name="n">Prune the ValueSet to max n values</param>
+    /// <returns>An OrderVariable with a Variable with a ValueSet if this can be calculated</returns>
     let minIncrMaxToValues n (ovar: OrderVariable) =
         { ovar with
             Variable =
@@ -254,7 +291,16 @@ module OrderVariable =
         }
 
 
-    let equalUnit (ovar: OrderVariable) =
+    /// <summary>
+    /// Set the unit of the Variable of an OrderVariable according to the unit
+    /// of the Constraints of the OrderVariable.
+    /// </summary>
+    /// <param name="ovar">The OrderVariable</param>
+    /// <remarks>
+    /// The unit of the Constraints of the OrderVariable is used to set the unit
+    /// only when all the Constraints have the same unit.
+    /// </remarks>
+    let setUnit (ovar: OrderVariable) =
         [
             ovar.Constraints.Min |> Option.map (Minimum.toValueUnit >> ValueUnit.getUnit)
             ovar.Constraints.Incr |> Option.map (Increment.toValueUnit >> ValueUnit.getUnit)
@@ -268,24 +314,28 @@ module OrderVariable =
             | None -> ovar
             | Some u ->
                 { ovar with
-                    Variable = ovar.Variable |> Variable.setUnit u
+                    Variable =
+                        ovar.Variable
+                        |> Variable.setUnit u
                 }
 
 
-    /// Type and functions to handle the `Dto`
-    /// data transfer type for a `VariableUnit`
+
     module Dto =
 
 
+        /// The `Dto` data transfer type for an OrderVariable
         type Dto () =
             member val Name = "" with get, set
             member val Constraints = Variable.Dto.dto () with get, set
             member val Variable = Variable.Dto.dto () with get, set
 
 
+        /// Create a new `Dto` for an OrderVariable
         let dto () = Dto ()
 
 
+        /// Create an OrderVariable from a Dto
         let fromDto (dto: Dto) =
             let cs =
                 let vs =
@@ -343,6 +393,7 @@ module OrderVariable =
             create n min incr max vals cs
 
 
+        /// Create a Dto from an OrderVariable
         let toDto (ovar : OrderVariable) =
             let vuToDto = ValueUnit.Dto.toDto true "dutch"
             let dto = dto ()
@@ -418,28 +469,32 @@ module OrderVariable =
     /// Type and functions that represent a count
     module Count =
 
+
+        /// Create a Count from an OrderVariable
         let count = Count.Count
 
 
         let [<Literal>] name = "cnt"
 
 
-        /// Turn `Count` in a `VariableUnit`
+        /// Get the OrderVariable in a Count
         let toOrdVar (Count.Count cnt) = cnt
 
 
+        /// Create a Dto for a Count
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Count from a Dto
         let fromDto dto = dto |> Dto.fromDto |> count
 
 
-        /// Set a `Count` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Count` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar count
 
 
-        /// Create a `Count` with name **n**
+        /// Create a `Count` with name n
         let create n =
             Units.Count.times
             |> createNew (n |> Name.add name)
@@ -450,47 +505,56 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Count` as a value unit string list
+        /// Get a `Count` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Count
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Count
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Apply the constraints of a Count to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> count
-
 
 
 
     /// Type and functions that represent a time
     module Time =
 
+
+        /// Create a Time from an OrderVariable
         let time = Time.Time
 
 
         let [<Literal>] name = "tme"
 
 
-        /// Turn `Time` in a `VariableUnit`
+        /// Get the OrderVariable in a Time
         let toOrdVar (Time.Time tme) = tme
 
 
+        /// Create a Dto for a Time
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Time from a Dto
         let fromDto dto = dto |> Dto.fromDto |> time
 
 
-        /// Set a `Time` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Time` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar time
 
 
-        /// Create a `Time` with name **n**
-        /// with `Unit` **un**
+        /// <summary>
+        /// Create a Time
+        /// </summary>
+        /// <param name="n">The Name of the Time</param>
+        /// <param name="un">The Unit of the Time</param>
         let create n un =
             un
             |> createNew (n |> Name.add name)
@@ -501,17 +565,19 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Time` as a value unit string list
+        /// Get a `Time` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Time
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Time
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
+        /// Apply the constraints of a Time to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
@@ -523,23 +589,28 @@ module OrderVariable =
         let [<Literal>] name = "frq"
 
 
-        /// Turn `Frequency` in a `VariableUnit`
+        /// Get the OrderVariable in a Frequency
         let toOrdVar (Frequency frq) = frq
 
 
+        /// Create a Dto for a Frequency
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Frequency from a Dto
         let fromDto dto = dto |> Dto.fromDto |> Frequency
 
 
-        /// Set a `Frequency` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Frequency` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar Frequency
 
 
-        /// Create a `Frequency` with name **n**
-        /// with `Unit` time unit **tu**
+        /// <summary>
+        /// Create a Frequency
+        /// </summary>
+        /// <param name="n">The Name of the Frequency</param>
+        /// <param name="tu">The Time Unit of the Frequency</param>
         let create n tu =
             match tu with
             | Unit.NoUnit -> Unit.NoUnit
@@ -554,17 +625,19 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Frequency` as a value unit string list
+        /// Get a `Frequency` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Frequency
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Frequency
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
+        /// Apply the constraints of a Frequency to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Frequency
 
 
@@ -577,23 +650,29 @@ module OrderVariable =
         let [<Literal>] name = "cnc"
 
 
-        /// Turn `Concentration` in a `VariableUnit`
+        /// Get the OrderVariable in a Concentration
         let toOrdVar (Concentration cnc) = cnc
 
 
+        /// Create a Dto for a Concentration
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Concentration from a Dto
         let fromDto dto = dto |> Dto.fromDto |> Concentration
 
 
-        /// Set a `Concentration` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Concentration` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar Concentration
 
 
-        /// Create a `Concentration` with name **n**
-        /// and `Unit` **un** per shape unit **su**
+        /// <summary>
+        /// Create a Concentration with name n
+        /// </summary>
+        /// <param name="n">The Name of the Concentration</param>
+        /// <param name="un">The first Unit of the Concentration</param>
+        /// <param name="su">The second Unit of the Concentration</param>
         let create n un su =
             match un, su with
             | Unit.NoUnit, _
@@ -609,17 +688,19 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Concentration` as a value unit string list
+        /// Get a `Concentration` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Concentration
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Concentration
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
+        /// Apply the constraints of a Concentration to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
@@ -631,23 +712,28 @@ module OrderVariable =
         let [<Literal>] name = "qty"
 
 
-        /// Turn `Quantity` in a `VariableUnit`
+        /// Get the OrderVariable in a Quantity
         let toOrdVar (Quantity qty) = qty
 
 
+        /// Create a Dto for a Quantity
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Quantity from a Dto
         let fromDto dto = dto |> Dto.fromDto |> Quantity
 
 
-        /// Set a `Quantity` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Quantity` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar Quantity
 
 
-        /// Create a `Quantity` with name **n**
-        /// and `Unit` **un**
+        /// <summary>
+        /// Create a Quantity with name n
+        /// </summary>
+        /// <param name="n">The Name of the Quantity</param>
+        /// <param name="un">The Unit of the Quantity</param>
         let create n un =
             un
             |> createNew (n |> Name.add name)
@@ -658,20 +744,30 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Quantity` as a value unit string list
+        /// Get a `Quantity` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Quantity
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Quantity
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
-        let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Quantity
+        /// <summary>
+        /// Increase the increment of a Quantity until the resulting ValueRange
+        /// contains at most maxCount values.
+        /// </summary>
+        /// <param name="maxCount">The maximum number of values in the ValueRange</param>
+        /// <param name="incrs">The list of increments to choose from</param>
+        let increaseIncrement maxCount incrs =
+            toOrdVar >> increaseIncrement maxCount incrs >> Quantity
 
 
 
@@ -682,23 +778,29 @@ module OrderVariable =
         let [<Literal>] name = "ptm"
 
 
-        /// Turn `PerTime` in a `VariableUnit`
+        /// Get the OrderVariable in a PerTime
         let toOrdVar (PerTime ptm) = ptm
 
 
+        /// Create a Dto for a PerTime
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a PerTime from a Dto
         let fromDto dto = dto |> Dto.fromDto |> PerTime
 
 
-        /// Set a `PerTime` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `PerTime` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar PerTime
 
 
-        /// Create a `PerTime` with name **n**
-        /// and `Unit` **un** and time unit **tu**
+        /// <summary>
+        /// Create a PerTime with name n
+        /// </summary>
+        /// <param name="n">The Name of the PerTime</param>
+        /// <param name="un">The Unit of the PerTime</param>
+        /// <param name="tu">The Time Unit of the PerTime</param>
         let create n un tu =
             match un with
             | Unit.NoUnit -> Unit.NoUnit
@@ -713,17 +815,19 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `PerTime` as a value unit string list
+        /// Get a `PerTime` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a PerTime
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a PerTime
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
+        /// Apply the constraints of a PerTime to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
@@ -734,23 +838,29 @@ module OrderVariable =
         let [<Literal>] name = "rte"
 
 
-        /// Turn `PerTime` in a `VariableUnit`
+        /// Get the OrderVariable in a Rate
         let toOrdVar (Rate rte) = rte
 
 
+        /// Create a Dto for a Rate
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Rate from a Dto
         let fromDto dto = dto |> Dto.fromDto |> Rate
 
 
-        /// Set a `PerTime` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Rate` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar Rate
 
 
-        /// Create a `PerTime` with name **n**
-        /// and `Unit` **un** and time unit **tu**
+        /// <summary>
+        /// Create a Rate with name n
+        /// </summary>
+        /// <param name="n">The Name of the Rate</param>
+        /// <param name="un">The Unit of the Rate</param>
+        /// <param name="tu">The Time Unit of the Rate</param>
         let create n un tu =
             match un with
             | Unit.NoUnit -> Unit.NoUnit
@@ -761,24 +871,34 @@ module OrderVariable =
             |> Rate
 
 
-        /// Turn a `PerTime` to a string
+        /// Turn a `Rate` to a string
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `PerTime` as a value unit string list
+        /// Get a `Rate` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Rate
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Rate
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Apply the constraints of a Rate to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
-        let increaseIncrement lim incr = toOrdVar >> increaseIncrement lim incr >> Rate
+        /// <summary>
+        /// Increase the increment of a Rate until the resulting ValueRange
+        /// contains at most maxCount values.
+        /// </summary>
+        /// <param name="maxCount">The maximum number of values in the ValueRange</param>
+        /// <param name="incrs">The list of increments to choose from</param>
+        let increaseIncrement maxCount incrs =
+            toOrdVar >> increaseIncrement maxCount incrs >> Rate
 
 
 
@@ -789,23 +909,28 @@ module OrderVariable =
         let [<Literal>] name = "tot"
 
 
-        /// Turn `Quantity` in a `VariableUnit`
+        /// Get the OrderVariable in a Total
         let toOrdVar (Total tot) = tot
 
 
+        /// Create a Dto for a Total
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a Total from a Dto
         let fromDto dto = dto |> Dto.fromDto |> Total
 
 
-        /// Set a `Quantity` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `Total` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar Total
 
 
-        /// Create a `Quantity` with name **n**
-        /// and `Unit` **un**
+        /// <summary>
+        /// Create a Total with name n
+        /// </summary>
+        /// <param name="n">The Name of the Total</param>
+        /// <param name="un">The Unit of the Total</param>
         let create n un =
             un
             |> createNew (n |> Name.add name)
@@ -816,16 +941,19 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `Total` as a value unit string list
+        /// Get a `Total` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a Total
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a Total
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Apply the constraints of a Total to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
 
@@ -838,23 +966,29 @@ module OrderVariable =
         let [<Literal>] name = "qty_adj"
 
 
-        /// Turn `QuantityAdjust` in a `VariableUnit`
+        /// Get the OrderVariable in a QuantityAdjust
         let toOrdVar (QuantityAdjust qty_adj) = qty_adj
 
 
+        /// Create a Dto for a QuantityAdjust
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a QuantityAdjust from a Dto
         let fromDto dto = dto |> Dto.fromDto |> QuantityAdjust
 
 
-        /// Set a `QuantityAdjust` with a `Variable`
-        /// in a list fromVariable` lists
+        /// Set a `QuantityAdjust` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar QuantityAdjust
 
 
-        /// Create a `QuantityAdjust` with name **n**
-        /// and `Unit` **un** per adjust **adj**
+        /// <summary>
+        /// Create a QuantityAdjust with name n
+        /// </summary>
+        /// <param name="n">The Name of the QuantityAdjust</param>
+        /// <param name="un">The Unit of the QuantityAdjust</param>
+        /// <param name="adj">The Adjust Unit of the QuantityAdjust</param>
         let create n un adj =
             match un, adj with
             | Unit.NoUnit, _
@@ -870,16 +1004,19 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `QuantityAdjust` as a value unit string list
+        /// Get a `QuantityAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a QuantityAdjust
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a QuantityAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
 
@@ -892,23 +1029,36 @@ module OrderVariable =
         let [<Literal>] name = "ptm_adj"
 
 
-        /// Turn `TotalAdjust` in a `VariableUnit`
+        /// Get the OrderVariable in a PerTimeAdjust
         let toOrdVar (PerTimeAdjust ptm_adj) = ptm_adj
 
 
+        /// Create a Dto for a PerTimeAdjust
         let toDto = toOrdVar >> Dto.toDto
 
 
-        let fromDto dto = dto |> Dto.fromDto |> (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
+        /// Create a PerTimeAdjust from a Dto
+        let fromDto dto =
+            dto
+            |> Dto.fromDto
+            |> (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
 
 
-        /// Set a `TotalAdjust` with a `Variable`
-        /// in a list fromVariable` lists
-        let fromOrdVar = fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
+        /// Set a `PerTimeAdjust` with an OrderVariable
+        /// in a list of OrderVariables.
+        let fromOrdVar =
+            fromOrdVar
+                toOrdVar
+                (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
 
 
-        /// Create a `TotalAdjust` with name **n**
-        /// and `Unit` **un** per adjust **adj** per time unit **tu**
+        /// <summary>
+        /// Create a PerTimeAdjust with name n
+        /// </summary>
+        /// <param name="n">The Name of the PerTimeAdjust</param>
+        /// <param name="un">The Unit of the PerTimeAdjust</param>
+        /// <param name="adj">The Adjust Unit of the PerTimeAdjust</param>
+        /// <param name="tu">The Time Unit of the PerTimeAdjust</param>
         let create n un adj tu =
             match un, adj, tu with
             | Unit.NoUnit, _, _
@@ -922,11 +1072,9 @@ module OrderVariable =
             |> PerTimeAdjust
 
 
-        /// Turn a `TotalAdjust` to a string
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `TotalAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
@@ -949,23 +1097,36 @@ module OrderVariable =
         let [<Literal>] name = "rte_adj"
 
 
-        /// Turn `TotalAdjust` in a `VariableUnit`
+        /// Get the OrderVariable in a RateAdjust
         let toOrdVar (RateAdjust rte_adj) = rte_adj
 
 
+        /// Create a Dto for a RateAdjust
         let toDto = toOrdVar >> Dto.toDto
 
 
-        let fromDto dto = dto |> Dto.fromDto |> (map ValueUnit.correctAdjustOrder >> RateAdjust)
+        /// Create a RateAdjust from a Dto
+        let fromDto dto =
+            dto
+            |> Dto.fromDto
+            |> (map ValueUnit.correctAdjustOrder >> RateAdjust)
 
 
-        /// Set a `TotalAdjust` with a `Variable`
-        /// in a list fromVariable` lists
-        let fromOrdVar = fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> RateAdjust)
+        /// Set a `RateAdjust` with an OrderVariable
+        /// in a list of OrderVariables.
+        let fromOrdVar =
+            fromOrdVar
+                toOrdVar
+                (map ValueUnit.correctAdjustOrder >> RateAdjust)
 
 
-        /// Create a `TotalAdjust` with name **n**
-        /// and `Unit` **un** per adjust **adj** per time unit **tu**
+        /// <summary>
+        /// Create a RateAdjust with name n
+        /// </summary>
+        /// <param name="n">The Name of the RateAdjust</param>
+        /// <param name="un">The Unit of the RateAdjust</param>
+        /// <param name="adj">The Adjust Unit of the RateAdjust</param>
+        /// <param name="tu">The Time Unit of the RateAdjust</param>
         let create n un adj tu =
             match un, adj, tu with
             | Unit.NoUnit, _, _
@@ -979,21 +1140,23 @@ module OrderVariable =
             |> RateAdjust
 
 
-        /// Turn a `TotalAdjust` to a string
+        /// Turn a `RateAdjust` to a string
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `TotalAdjust` as a value unit string list
+        /// Get a `RateAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a RateAdjust
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a RateAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
-
+        /// Apply the constraints of a RateAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
 
@@ -1006,22 +1169,29 @@ module OrderVariable =
         let [<Literal>] name = "tot_adj"
 
 
-        /// Turn `QuantityAdjust` in a `VariableUnit`
+        /// Get the OrderVariable in a TotalAdjust
         let toOrdVar (TotalAdjust tot_adj) = tot_adj
 
 
+        /// Create a Dto for a TotalAdjust
         let toDto = toOrdVar >> Dto.toDto
 
 
+        /// Create a TotalAdjust from a Dto
         let fromDto dto = dto |> Dto.fromDto |> TotalAdjust
 
-        /// Set a `QuantityAdjust` with a `Variable`
-        /// in a list fromVariable` lists
+
+        /// Set a `TotalAdjust` with an OrderVariable
+        /// in a list of OrderVariables.
         let fromOrdVar = fromOrdVar toOrdVar TotalAdjust
 
 
-        /// Create a `QuantityAdjust` with name **n**
-        /// and `Unit` **un** per adjust **adj**
+        /// <summary>
+        /// Create a TotalAdjust with name n
+        /// </summary>
+        /// <param name="n">The Name of the TotalAdjust</param>
+        /// <param name="un">The Unit of the TotalAdjust</param>
+        /// <param name="adj">The Adjust Unit of the TotalAdjust</param>
         let create n un adj =
             match un, adj with
             | Unit.NoUnit, _
@@ -1033,20 +1203,23 @@ module OrderVariable =
             |> TotalAdjust
 
 
-        /// Turn a `QuantityAdjust` to a string
+        /// Turn a `TotalAdjust` to a string
         let toString = toOrdVar >> (toString false)
 
 
-        /// Print a `QuantityAdjust` as a value unit string list
+        /// Get a `TotalAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
 
+        /// Get a ValueUnit string representation of a TotalAdjust
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a TotalAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
 
 
