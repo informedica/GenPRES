@@ -16,12 +16,20 @@ module DrugOrder =
     module MinMax = Informedica.GenForm.Lib.MinMax
 
 
-    let createValueUnitDto u br =
+    /// <summary>
+    /// Create a value unit dto from a string and a sequence of big rationals.
+    /// </summary>
+    /// <param name="u">The unit as a string.</param>
+    /// <param name="brs">The big rationals as a sequence.</param>
+    /// <remarks>
+    /// If the unit is null or an empty empty string, the function returns None.
+    /// </remarks>
+    let createValueUnitDto u brs =
         if u |> String.isNullOrWhiteSpace then None
         else
             let vuDto = ValueUnit.Dto.dto()
             vuDto.Value <-
-                br
+                brs
                 |> Seq.toArray
                 |> Array.map (fun v ->
                     v |> string,
@@ -31,12 +39,35 @@ module DrugOrder =
             vuDto |> Some
 
 
+    /// <summary>
+    /// Create a single value unit dto from a string and a big rational.
+    /// </summary>
+    /// <param name="u">The unit as a string.</param>
+    /// <param name="br">The big rational.</param>
+    /// <remarks>
+    /// If the unit is null or an empty empty string, the function returns None.
+    /// </remarks>
     let createSingleValueUnitDto u br =
         createValueUnitDto u [| br |]
 
 
     module MinMax =
 
+        /// <summary>
+        /// Set the min and max values of a Variable dto using a MinMax record or
+        /// a single big rational. If the MinMax record is None, and there is a
+        /// single big rational, the function will use the big rational to set
+        /// the min and max values.
+        /// </summary>
+        /// <param name="un">The unit as a string.</param>
+        /// <param name="brs">A sequence of big rationals.</param>
+        /// <param name="minMax">The MinMax record.</param>
+        /// <param name="dto">The Variable dto.</param>
+        /// <remarks>
+        /// A min or max value is set only if the MinMax record is not None or
+        /// the sequence of big rationals has a single value. In that case the
+        /// min or max value is set to the big rational minus or plus 10%.
+        /// </remarks>
         let setConstraints un (brs : BigRational []) (minMax : MinMax) (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) =
             let min =
                 match minMax.Minimum, brs with
@@ -63,6 +94,7 @@ module DrugOrder =
             dto
 
 
+    /// An empty DrugOrder record.
     let drugOrder =
         {
             Id = ""
@@ -85,6 +117,7 @@ module DrugOrder =
         }
 
 
+    /// An empty Product Component record.
     let productComponent =
         {
             Name = ""
@@ -97,6 +130,7 @@ module DrugOrder =
         }
 
 
+    /// An empty Substance Item record.
     let substanceItem =
         {
             Name = ""
@@ -108,10 +142,15 @@ module DrugOrder =
         }
 
 
-    let unitGroup = Informedica.GenUnits.Lib.Units.stringWithGroup
+    /// Short hand for Units.stringWithGroup to
+    /// append the unit group to a unit.
+    let unitGroup = Units.stringWithGroup
 
 
-    let toOrder (d : DrugOrder) =
+    /// <summary>
+    /// Map a DrugOrder record to a DrugOrderDto record.
+    /// </summary>
+    let toOrderDto (d : DrugOrder) =
         let toArr = Option.map Array.singleton >> Option.defaultValue [||]
 
         let standDoseRate un (orbDto : Order.Orderable.Dto.Dto) =
@@ -221,7 +260,11 @@ module DrugOrder =
                     cdto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> createValueUnitDto ou
                     if p.Divisible.IsSome then
                         cdto.OrderableQuantity.Constraints.IncrOpt <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
-                    if d.Products |> List.length = 1 then // TODO: check this
+                    if d.Products |> List.length = 1 then
+                        // if there is only one product, the concentration of that product in the
+                        // Orderable will be by definition be 1.
+                        cdto.OrderableConcentration.Constraints.ValsOpt <- 1N |> createSingleValueUnitDto cu
+                      
                         if p.Divisible.IsSome then
                             cdto.Dose.Quantity.Constraints.IncrOpt <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
 

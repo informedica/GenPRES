@@ -43,7 +43,7 @@ let test pat n =
                 |> Array.map (fun dl -> dl.Substance)
             let o =
                 ord
-                |> Order.Print.printPrescription ns
+                |> Order.Print.printOrderToString ns
             let p =
                 $"{pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toString} {pr.DoseRule.Indication}"
             Ok (pat, p, o)
@@ -186,7 +186,7 @@ Patient.teenager
             // |> printfn "%s"
         | Ok ord  ->
             ord
-            |> Order.Markdown.printPrescription [|"gentamincine"|]
+            |> Order.Print.printOrderToString [|"gentamincine"|]
             |> fun (prs, prep, adm) -> printfn $"{prs}"
             // ord
             // |> Order.toString
@@ -235,7 +235,7 @@ try
 
     let oEqs =
         ord
-        |> mapToEquations mapping
+        |> mapToOrderEquations mapping
 
     oEqs
     |> Solver.mapToSolverEqs

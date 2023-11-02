@@ -1794,7 +1794,7 @@ module Order =
             itemConcentrationTo (Concentration.toValueUnitMarkdown -1)
 
 
-        let componentQuantityTo toStr (o : Order) =
+        let componentQuantityTo toStr itemConcTo (o : Order) =
             o.Orderable.Components
             |> Seq.map (fun c ->
                 c.OrderableQuantity
@@ -1802,7 +1802,7 @@ module Order =
                 |> fun q ->
                     let s =
                         c
-                        |> itemConcentrationToString
+                        |> itemConcTo
                         |> String.trim
                         |> fun s ->
                             if s |> String.isNullOrWhiteSpace then ""
@@ -1814,11 +1814,15 @@ module Order =
 
 
         let componentQuantityToString =
-            componentQuantityTo (Quantity.toValueUnitString -1)
+            componentQuantityTo
+                (Quantity.toValueUnitString -1)
+                itemConcentrationToString
 
 
         let componentQuantityToMd =
-            componentQuantityTo (Quantity.toValueUnitMarkdown -1)
+            componentQuantityTo
+                (Quantity.toValueUnitMarkdown -1)
+                itemConcentrationToMd
 
 
         let orderableDoseQuantityTo toStr (o: Order) =
@@ -1843,7 +1847,7 @@ module Order =
             doseRateToStr
             orbQtyToStr
             orbQtyToStr2
-            dosRateAdjustToStr
+            doseRateAdjustToStr
             timeToStr
             sn (o : Order) =
 
@@ -1918,7 +1922,7 @@ module Order =
                     o
                     |> printItem
                         (fun i -> i.Dose.RateAdjust)
-                        dosRateAdjustToStr
+                        doseRateAdjustToStr
 
                 let pres = $"""{sn |> String.concat " + "} {dr}"""
                 let prep = o |> compQtyToStr
@@ -1964,6 +1968,10 @@ module Order =
                 adm
 
 
+        /// <summary>
+        /// Print an Order to a string using an array of strings
+        /// to pick the Orderable Items to print.
+        /// </summary>
         let printOrderToString =
             printOrderTo
                 (Frequency.toValueUnitString -1)
@@ -1978,6 +1986,10 @@ module Order =
                 (Time.toValueUnitString 2)
 
 
+        /// <summary>
+        /// Print an Order to a markdown string using an array of strings
+        /// to pick the Orderable Items to print.
+        /// </summary>
         let printOrderToMd =
             printOrderTo
                 (Frequency.toValueUnitMarkdown -1)
@@ -2040,6 +2052,14 @@ module Order =
             dto
 
 
+        /// <summary>
+        /// Create a new Order Dto
+        /// </summary>
+        /// <param name="id">The id of the Order</param>
+        /// <param name="orbN">The name of the Orderable</param>
+        /// <param name="rte">The Route of the Order</param>
+        /// <param name="cmps">The Components of the Orderable</param>
+        /// <param name="str_prs">A function to create a Prescription with a Name</param>
         let dto id orbN rte cmps str_prs =
             let dto =
                 createNew id orbN str_prs rte
@@ -2058,16 +2078,37 @@ module Order =
             dto
 
 
+        /// <summary>
+        /// Create a new Order Dto with a Continuous Prescription
+        /// </summary>
+        /// <param name="id">The id of the Order</param>
+        /// <param name="orbN">The name of the Orderable</param>
+        /// <param name="rte">The Route of the Order</param>
+        /// <param name="cmps">The Components of the Orderable</param>
         let continuous id orbN rte cmps  =
             Prescription.continuous Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 
 
+        /// <summary>
+        /// Create a new Order Dto with a Discontinuous Prescription
+        /// </summary>
+        /// <param name="id">The id of the Order</param>
+        /// <param name="orbN">The name of the Orderable</param>
+        /// <param name="rte">The Route of the Order</param>
+        /// <param name="cmps">The Components of the Orderable</param>
         let discontinuous id orbN rte cmps =
             Prescription.discontinuous Unit.NoUnit Unit.NoUnit
             |> dto  id orbN rte cmps
 
 
+        /// <summary>
+        /// Create a new Order Dto with a Timed Prescription
+        /// </summary>
+        /// <param name="id">The id of the Order</param>
+        /// <param name="orbN">The name of the Orderable</param>
+        /// <param name="rte">The Route of the Order</param>
+        /// <param name="cmps">The Components of the Orderable</param>
         let timed  id orbN rte cmps=
             Prescription.timed Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
@@ -2079,11 +2120,13 @@ module Order =
                 |> Prescription.Dto.setToContinuous
             dto
 
+
         let setToDiscontinuous (dto : Dto) =
             dto.Prescription <-
                 dto.Prescription
                 |> Prescription.Dto.setToDiscontinuous
             dto
+
 
         let setToTimed (dto : Dto) =
             dto.Prescription <-

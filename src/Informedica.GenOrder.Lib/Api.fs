@@ -305,7 +305,7 @@ module Api =
         let rec solve retry sr pr =
             pr
             |> createDrugOrder sr
-            |> DrugOrder.toOrder
+            |> DrugOrder.toOrderDto
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
             |> Result.bind (increaseIncrement logger) // not sure if this is usable
