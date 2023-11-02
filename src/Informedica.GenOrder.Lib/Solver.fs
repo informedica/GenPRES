@@ -7,9 +7,11 @@ namespace Informedica.GenOrder.Lib
 /// `Informedica.GenSolver.Lib`
 module Solver =
 
+
     open Informedica.Utils.Lib
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib.Types
+
 
     module Variable = Informedica.GenSolver.Lib.Variable
     module Name = Variable.Name
@@ -20,7 +22,10 @@ module Solver =
     module Api = Informedica.GenSolver.Lib.Api
 
 
-
+    /// <summary>
+    /// Map a list of OrderEquations to a list of Equations
+    /// </summary>
+    /// <param name="eqs">The list of OrderEquations</param>
     let mapToSolverEqs eqs =
         eqs
         |> List.map (fun eq ->
@@ -31,6 +36,15 @@ module Solver =
         |> List.map Equation.nonZeroOrNegative
 
 
+    /// <summary>
+    /// Map a list of Equations to a list of OrderEquations
+    /// using a list of original OrderEquations
+    /// </summary>
+    /// <param name="eqs">The original list of OrderEquations</param>
+    /// <param name="ordEqs">The list of Equations</param>
+    /// <returns>
+    /// The new list of OrderEquations
+    /// </returns>
     let mapToOrderEqs ordEqs eqs =
         let vars =
             eqs
@@ -53,9 +67,11 @@ module Solver =
         )
 
 
+    /// Short hand for Api.solveAll true
     let solveMinMax = Api.solveAll true
 
 
+    /// Short hand for Api.solveAll false
     let solve = Api.solveAll false
 
 

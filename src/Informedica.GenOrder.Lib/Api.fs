@@ -378,7 +378,7 @@ module Api =
         ords
         |> Array.mapi (fun i o ->
             o
-            |> Order.Print.printPrescription sn
+            |> Order.Print.printOrderToString sn
             |> fun (pres, prep, adm) ->
                 {
                     No = i

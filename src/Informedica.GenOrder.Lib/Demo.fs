@@ -118,7 +118,7 @@ module Demo =
 
                                     let prs, prp, adm =
                                         ord
-                                        |> Order.Markdown.printPrescription ns
+                                        |> Order.Print.printOrderToMd ns
 
                                     {
                                         No = i

@@ -387,7 +387,7 @@ let print (sc: ScenarioResult) =
                             ord
                             |> mapFromOrder
                             |> Order.Dto.fromDto
-                            |> Order.Markdown.printPrescription sn
+                            |> Order.Print.printOrderToMd sn
                             |> fun (prs, prp, adm) ->
                                 prs |> Demo.replace |> Shared.ScenarioResult.parseTextItem,
                                 prp |> Demo.replace |> Shared.ScenarioResult.parseTextItem,

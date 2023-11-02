@@ -62,7 +62,7 @@ module OrderLogger =
 
         try
             eqs
-            |> Solver.mapToOrderEqs (o |> Order.mapToEquations mapping)
+            |> Solver.mapToOrderEqs (o |> Order.mapToOrderEquations mapping)
             |> List.map (fun e ->
                 match e with
                 | OrderProductEquation (ovar, ovars)
@@ -290,7 +290,7 @@ module OrderLogger =
         sc
         |> List.iteri (fun i o ->
             o
-            |> Order.Print.printPrescription n
+            |> Order.Print.printOrderToString n
             |> fun (p, a, d) ->
                 printfn $"%i{i + 1}\tprescription:\t%s{p}"
                 printfn $"  \tdispensing:\t%s{a}"

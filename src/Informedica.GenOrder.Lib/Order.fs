@@ -9,11 +9,12 @@ namespace Informedica.GenOrder.Lib
 /// stop date.
 module Order =
 
+
     open System
+    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open WrappedString
-
 
 
     /// Utility functions to
@@ -47,7 +48,7 @@ module Order =
         let [<Literal>] timed = 5
 
 
-        let getEquations indx =
+        let private getEquations_ indx =
             Web.getDataFromGenPres "Equations"
             |> Array.skip 1
             |> Array.filter (fun xs -> xs[indx] = "x")
@@ -55,6 +56,28 @@ module Order =
             |> Array.toList
 
 
+        /// <summary>
+        /// Get a string list of Equations and
+        /// use an index to filter out the relevant equations
+        /// </summary>
+        /// <param name="indx">The index to filter the equations</param>
+        /// <remarks>
+        /// The indx can be 3 for discontinuous equations, 4 for continuous
+        /// and 5 for timed equations.
+        /// </remarks>
+        let getEquations indx =
+            indx
+            |> Memoization.memoize getEquations_
+
+
+        /// <summary>
+        /// Create an Equations mapping for an `Order`
+        /// </summary>
+        /// <param name="ord">The Order to Map</param>
+        /// <param name="eqs">The equations as a string list</param>
+        /// <returns>
+        /// A tuple of `SumMapping` and `ProductMapping`
+        /// </returns>
         let getEqsMapping (ord: Order) (eqs : string list) =
             let sumEqs =
                 eqs
@@ -155,6 +178,7 @@ module Order =
                     |> List.filter (String.isNullOrWhiteSpace >> not)
                     |> List.map (String.replace "[orb]" $"{orbN |> Name.toString}")
                     |> SumMapping
+
                 let prodEqs =
                     es
                     |> List.append orbEqs
@@ -173,9 +197,12 @@ module Order =
     /// that can be ordered.
     module Orderable =
 
+
         open Informedica.GenSolver.Lib
 
+
         type Name = Types.Name
+
 
         /// Contains string constants
         /// to create `Variable` names
@@ -206,7 +233,26 @@ module Order =
             module TotalAdjust = OrderVariable.TotalAdjust
 
 
-            let create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj =
+            /// <summary>
+            /// Create a `Dose` with
+            /// </summary>
+            /// <param name="qty">The quantity of the dose</param>
+            /// <param name="ptm">The per time of the dose</param>
+            /// <param name="rte">The rate of the dose</param>
+            /// <param name="tot">The total of the dose</param>
+            /// <param name="qty_adj">The quantity adjust of the dose</param>
+            /// <param name="ptm_adj">The per time adjust of the dose</param>
+            /// <param name="rte_adj">The rate adjust of the dose</param>
+            /// <param name="tot_adj">The total adjust of the dose</param>
+            let create
+                qty
+                ptm
+                rte
+                tot
+                qty_adj
+                ptm_adj
+                rte_adj
+                tot_adj =
                 {
                     Quantity = qty
                     PerTime = ptm
@@ -218,6 +264,11 @@ module Order =
                     TotalAdjust = tot_adj
                 }
 
+
+            /// <summary>
+            /// Create a new `Dose` with
+            /// </summary>
+            /// <param name="n">The name of the dose</param>
             let createNew n =
                 let un = Unit.NoUnit
                 let n = n |> Name.add Literals.dose
@@ -234,7 +285,10 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
-            /// Turn an `Item` to `VariableUnit`s
+            /// <summary>
+            /// Return a Dose as a list of OrderVariables
+            /// </summary>
+            /// <param name="dos">The dose</param>
             let toOrdVars (dos : Dose) =
                 let qty = dos.Quantity |> Quantity.toOrdVar
                 let ptm = dos.PerTime |> PerTime.toOrdVar
@@ -256,6 +310,13 @@ module Order =
                     tot_adj
                 ]
 
+
+            /// <summary>
+            /// Create a new Dose from a list of OrderVariables using
+            /// an old Dose.
+            /// </summary>
+            /// <param name="ovars">The list of OrderVariables</param>
+            /// <param name="dos">The old Dose</param>
             let fromOrdVars ovars (dos: Dose) =
                 let qty = dos.Quantity |> Quantity.fromOrdVar ovars
                 let ptm = dos.PerTime |> PerTime.fromOrdVar ovars
@@ -269,6 +330,10 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            /// <summary>
+            /// Apply constraints to a Dose
+            /// </summary>
+            /// <param name="dos">The Dose</param>
             let applyConstraints (dos: Dose) =
                 let qty = dos.Quantity |> Quantity.applyConstraints
                 let ptm = dos.PerTime |> PerTime.applyConstraints
@@ -282,10 +347,17 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
-            let increaseIncrement lim incr (dos: Dose) =
+            /// <summary>
+            /// Increase the increment of a Dose to a maximum
+            /// count using a list of increments.
+            /// </summary>
+            /// <param name="maxCount">The maximum count</param>
+            /// <param name="incrs">The list of increments</param>
+            /// <param name="dos">The Dose</param>
+            let increaseIncrement maxCount incrs (dos: Dose) =
                 let qty = dos.Quantity
                 let ptm = dos.PerTime
-                let rte = dos.Rate |> Rate.increaseIncrement lim incr
+                let rte = dos.Rate |> Rate.increaseIncrement maxCount incrs
                 let tot = dos.Total
                 let qty_adj = dos.QuantityAdjust
                 let ptm_adj = dos.PerTimeAdjust
@@ -295,12 +367,14 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
-            /// Turn an `Item` to a list of `string`s,
-            /// each string containing the variable
-            /// `Name`, `ValueRange` and `Unit`
+            /// <summary>
+            /// Create a string list from a Dose where each string is
+            /// a variable name with the value range and the Unit
+            /// </summary>
             let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
+            /// Functions to create a Dose Dto and vice versa.
             module Dto =
 
 
@@ -339,33 +413,18 @@ module Order =
 
                     create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
+
                 let toDto (dos : Dose) =
                     let dto = Dto ()
 
-                    dto.Quantity <-
-                        dos.Quantity
-                        |> Quantity.toDto
-                    dto.PerTime <-
-                        dos.PerTime
-                        |> PerTime.toDto
-                    dto.Rate <-
-                        dos.Rate
-                        |> Rate.toDto
-                    dto.Total <-
-                        dos.Total
-                        |> Total.toDto
-                    dto.QuantityAdjust <-
-                        dos.QuantityAdjust
-                        |> QuantityAdjust.toDto
-                    dto.PerTimeAdjust <-
-                        dos.PerTimeAdjust
-                        |> PerTimeAdjust.toDto
-                    dto.RateAdjust <-
-                        dos.RateAdjust
-                        |> RateAdjust.toDto
-                    dto.TotalAdjust <-
-                        dos.TotalAdjust
-                        |> TotalAdjust.toDto
+                    dto.Quantity <- dos.Quantity |> Quantity.toDto
+                    dto.PerTime <- dos.PerTime |> PerTime.toDto
+                    dto.Rate <- dos.Rate |> Rate.toDto
+                    dto.Total <- dos.Total |> Total.toDto
+                    dto.QuantityAdjust <- dos.QuantityAdjust |> QuantityAdjust.toDto
+                    dto.PerTimeAdjust <- dos.PerTimeAdjust |> PerTimeAdjust.toDto
+                    dto.RateAdjust <- dos.RateAdjust |> RateAdjust.toDto
+                    dto.TotalAdjust <- dos.TotalAdjust |> TotalAdjust.toDto
 
                     dto
 
@@ -385,16 +444,22 @@ module Order =
             module Rate = OrderVariable.Rate
 
 
-            /// Create an item with
-            ///
-            /// * **id**: the order id
-            /// * **n**: the name of the item
-            /// * **cmp_qty**: the quantity of the item in a component
-            /// * **orb_qty**: the quantity of the item in an orderable
-            /// * **cmp_cnc**: the item concentration in a component
-            /// * **orb_cnc**: the item concentration in an orderable
-            /// * **dos**: the item dose
-            let create n cmp_qty orb_qty cmp_cnc orb_cnc dos =
+            /// <summary>
+            /// Create an `Item` with
+            /// </summary>
+            /// <param name="n">The name of the Item</param>
+            /// <param name="cmp_qty">The quantity of the item in the Component</param>
+            /// <param name="orb_qty">The quantity of the item in the Orderable</param>
+            /// <param name="cmp_cnc">The concentration of the item in the Component</param>
+            /// <param name="orb_cnc">The concentration of the item in the Orderable</param>
+            /// <param name="dos">The dose of the item</param>
+            let create
+                n
+                cmp_qty
+                orb_qty
+                cmp_cnc
+                orb_cnc
+                dos =
                 {
                     Name = n
                     ComponentQuantity = cmp_qty
@@ -405,10 +470,13 @@ module Order =
                 }
 
 
-            /// Create a new item with
-            ///
-            /// **id**: the order id
-            /// **n**: the string name of the item
+            /// <summary>
+            /// Create a new `Item` with
+            /// </summary>
+            /// <param name="id">The Id of the Item</param>
+            /// <param name="orbN">The name of the Orderable</param>
+            /// <param name="cmpN">The name of the Component</param>
+            /// <param name="itmN">The name of the Item</param>
             let createNew id orbN cmpN itmN =
                 let un = Unit.NoUnit
                 let n =
@@ -428,7 +496,7 @@ module Order =
             let apply f (itm: Item) = itm |> f
 
 
-            /// Utility method to facitilitate type inference
+            /// Utility method to facilitate type inference
             let get = apply id
 
 
@@ -440,7 +508,10 @@ module Order =
             let getDose itm = (itm |> get).Dose
 
 
-            /// Turn an `Item` to `VariableUnit`s
+            /// <summary>
+            /// Return an Item as a list of OrderVariables
+            /// </summary>
+            /// <param name="itm">The Item</param>
             let toOrdVars itm =
                 let itm_cmp_qty = (itm |> get).ComponentQuantity |> Quantity.toOrdVar
                 let itm_orb_qty = itm.OrderableQuantity          |> Quantity.toOrdVar
@@ -456,6 +527,12 @@ module Order =
                 ]
 
 
+            /// <summary>
+            /// Create a new Item from a list of OrderVariables using
+            /// an old Item.
+            /// </summary>
+            /// <param name="ovars">The list of OrderVariables</param>
+            /// <param name="itm">The old Item</param>
             let fromOrdVars ovars itm =
                 let cmp_qty = (itm |> get).ComponentQuantity |> Quantity.fromOrdVar ovars
                 let orb_qty = itm.OrderableQuantity          |> Quantity.fromOrdVar ovars
@@ -466,6 +543,10 @@ module Order =
                 create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
 
 
+            /// <summary>
+            /// Apply constraints to an Item
+            /// </summary>
+            /// <param name="itm">The Item</param>
             let applyConstraints itm =
                 let cmp_qty = (itm |> get).ComponentQuantity |> Quantity.applyConstraints
                 let orb_qty = itm.OrderableQuantity          |> Quantity.applyConstraints
@@ -476,12 +557,15 @@ module Order =
                 create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
 
 
-            /// Turn an `Item` to a list of `string`s,
-            /// each string containing the variable
-            /// `Name`, `ValueRange` and `Unit`
+
+            /// <summary>
+            /// Create a string list from a Item where each string is
+            /// a variable name with the value range and the Unit
+            /// </summary>
             let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
+            /// Functions to create a Item Dto and vice versa.
             module Dto =
 
                 module Units = ValueUnit.Units
@@ -533,6 +617,13 @@ module Order =
                     dto
 
 
+                /// <summary>
+                /// Create a new Item Dto
+                /// </summary>
+                /// <param name="id">The Id of the Item</param>
+                /// <param name="orbN">The name of the Orderable</param>
+                /// <param name="cmpN">The name of the Component</param>
+                /// <param name="itmN">The name of the Item</param>
                 let dto id orbN cmpN itmN =
                     createNew id orbN cmpN itmN
                     |> toDto
@@ -545,26 +636,39 @@ module Order =
         /// of `Item`s
         module Component =
 
+
             module Name = Name
             module Quantity = OrderVariable.Quantity
             module Concentration = OrderVariable.Concentration
             module Count = OrderVariable.Count
 
 
-            /// Create a component with
-            ///
-            /// * `id`: the order id
-            /// * `n`: the name of the component
-            /// * `cmp_qty`: quantity of component
-            /// * `orb_qty`: quantity of component in orderable
-            /// * `orb_cnt`: count of component in orderable
-            /// * `ord_qty`: quantity of component in order
-            /// * `ord_cnt`: count of component in order
-            /// * `orb_cnc`: concentration of component in orderable
-            /// * `dos`: component dose
-            /// * `dos_adj`: adjusted dose of component
-            /// * `ii`: list of `Item`s in a component
-            let create id nm sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos ii =
+            /// <summary>
+            /// Create a `Component` with
+            /// </summary>
+            /// <param name="id">The Id of the Component</param>
+            /// <param name="nm">The name of the Component</param>
+            /// <param name="sh">The shape of the Component</param>
+            /// <param name="cmp_qty">The quantity of the Component</param>
+            /// <param name="orb_qty">The quantity of the Component in the Orderable</param>
+            /// <param name="orb_cnt">The count of the Component in the Orderable</param>
+            /// <param name="ord_qty">The quantity of the Component in the Order</param>
+            /// <param name="ord_cnt">The count of the Component in the Order</param>
+            /// <param name="orb_cnc">The concentration of the Component in the Orderable</param>
+            /// <param name="dos">The dose of the Component</param>
+            /// <param name="ii">The list of Items in the Component</param>
+            let create
+                id
+                nm
+                sh
+                cmp_qty
+                orb_qty
+                orb_cnt
+                ord_qty
+                ord_cnt
+                orb_cnc
+                dos
+                ii =
                 {
                     Id = id
                     Name = nm
@@ -579,9 +683,14 @@ module Order =
                     Items = ii
                 }
 
-            /// Create a new component with
-            /// * `id`: the id of the component
-            /// * `n`: the name of the component
+
+            /// <summary>
+            /// Create a new `Component` with
+            /// </summary>
+            /// <param name="id">The Id of the Component</param>
+            /// <param name="orbN">The name of the Orderable</param>
+            /// <param name="cmpN">The name of the Component</param>
+            /// <param name="sh">The shape of the Component</param>
             let createNew id orbN cmpN sh =
                 let un = Unit.NoUnit
                 let nm = [ id; orbN; cmpN ] |> Name.create
@@ -614,8 +723,10 @@ module Order =
             let getItems cmp = (cmp |> get).Items
 
 
-            /// Map a `Component` **cmp**
-            /// to `VariableUnit`s
+            /// <summary>
+            /// Return a Component as a list of OrderVariables
+            /// </summary>
+            /// <param name="cmp">The Component</param>
             let toOrdVars cmp =
                 let cmp_qty = (cmp |> get).ComponentQuantity |> Quantity.toOrdVar
                 let orb_qty = cmp.OrderableQuantity          |> Quantity.toOrdVar
@@ -636,8 +747,13 @@ module Order =
                 ]
 
 
-            /// Map a `Component` **cmp**
-            /// to `VariableUnit`s
+
+            /// <summary>
+            /// Create a new Component from a list of OrderVariables using
+            /// an old Component.
+            /// </summary>
+            /// <param name="ovars">The list of OrderVariables</param>
+            /// <param name="cmp">The old Component</param>
             let fromOrdVars ovars cmp =
                 let cmp_qty = (cmp |> get).ComponentQuantity |> Quantity.fromOrdVar ovars
                 let orb_qty = cmp.OrderableQuantity          |> Quantity.fromOrdVar ovars
@@ -652,8 +768,10 @@ module Order =
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
-            /// Map a `Component` **cmp**
-            /// to `VariableUnit`s
+            /// <summary>
+            /// Apply constraints to a Component
+            /// </summary>
+            /// <param name="cmp">The Component</param>
             let applyConstraints cmp =
                 let cmp_qty = (cmp |> get).ComponentQuantity |> Quantity.applyConstraints
                 let orb_qty = cmp.OrderableQuantity          |> Quantity.applyConstraints
@@ -668,9 +786,17 @@ module Order =
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
-            let increaseIncrement lim incr cmp =
+
+            /// <summary>
+            /// Increase the increment of a Component to a maximum
+            /// count using a list of increments.
+            /// </summary>
+            /// <param name="maxCount">The maximum count</param>
+            /// <param name="incrs">The list of increments</param>
+            /// <param name="cmp">The Component</param>
+            let increaseIncrement maxCount incrs cmp =
                 let cmp_qty = (cmp |> get).ComponentQuantity
-                let orb_qty = cmp.OrderableQuantity |> Quantity.increaseIncrement lim incr
+                let orb_qty = cmp.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
                 let orb_cnt = cmp.OrderableCount
                 let orb_cnc = cmp.OrderableConcentration
                 let ord_qty = cmp.OrderQuantity
@@ -682,14 +808,14 @@ module Order =
 
 
 
-            /// Create a string list from a
-            /// component where each string is
-            /// a variable name with the value range
-            /// and the Unit
+            /// <summary>
+            /// Create a string list from a Component where each string is
+            /// a variable name with the value range and the Unit
+            /// </summary>
             let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
-
+            /// Helper functions for the Component Dto
             module Dto =
 
                 module Units = ValueUnit.Units
@@ -766,6 +892,14 @@ module Order =
 
                     dto
 
+
+                /// <summary>
+                /// Create a Component Dto
+                /// </summary>
+                /// <param name="id">The Id of the Component</param>
+                /// <param name="orbN">The name of the Orderable</param>
+                /// <param name="cmpN">The name of the Component</param>
+                /// <param name="shape">The shape of the Component</param>
                 let dto id orbN cmpN shape =
                     createNew id orbN cmpN shape
                     |> toDto
@@ -777,15 +911,24 @@ module Order =
         module Count = OrderVariable.Count
 
 
+        /// <summary>
         /// Create an `Orderable` with
-        ///
-        /// * nm: the name of the orderable
-        /// * orb\_qty: quantity of the orderable
-        /// * ord\_qty: quantity of orderable in the order
-        /// * orb\_cnt: the count of orderable in the order
-        /// * dos: the orderable dose
-        /// * dos\_adj: the adjusted orderable dose
-        let create n orb_qty ord_qty ord_cnt dos_cnt dos cc =
+        /// </summary>
+        /// <param name="n">The name of the Orderable</param>
+        /// <param name="orb_qty">The quantity of the Orderable</param>
+        /// <param name="ord_qty">The quantity of the Orderable in the Order</param>
+        /// <param name="ord_cnt">The count of the Orderable in the Order</param>
+        /// <param name="dos_cnt">The count of the Orderable dose in the Order</param>
+        /// <param name="dos">The dose of the Orderable</param>
+        /// <param name="cc">The list of Components in the Orderable</param>
+        let create
+            n
+            orb_qty
+            ord_qty
+            ord_cnt
+            dos_cnt
+            dos
+            cc =
             {
                 Name = n
                 OrderableQuantity = orb_qty
@@ -796,12 +939,12 @@ module Order =
                 Components = cc
             }
 
-        /// Create a new `Orderable` with a `Component` list
-        /// `cl`, and
-        /// * `Orderable`unit `un` and
-        /// * component unit `cu`
-        /// * time unit `tu`
-        /// * adjust unit `adj`
+
+        /// <summary>
+        /// Create a new `Orderable` with
+        /// </summary>
+        /// <param name="id">The Id of the Orderable</param>
+        /// <param name="orbN">The name of the Orderable</param>
         let createNew id orbN =
             let un = Unit.NoUnit
             let n = [id; orbN] |> Name.create
@@ -827,7 +970,7 @@ module Order =
         let getName orb = (orb |> get).Name
 
 
-        /// Get the `Component`s in an `Orderable`
+        /// Get the Components in an `Orderable`
         let getComponents orb = (orb |> get).Components
 
 
@@ -835,8 +978,11 @@ module Order =
         let getDose orb = (orb |> get).Dose
 
 
-        /// Map an `Orderable` **orb** to
-        /// `VariableUnit`s
+
+        /// <summary>
+        /// Return an Orderable as a list of OrderVariables
+        /// </summary>
+        /// <param name="orb">The Orderable</param>
         let toOrdVars orb =
             let ord_qty = (orb |> get).OrderQuantity |> Quantity.toOrdVar
             let orb_qty = orb.OrderableQuantity      |> Quantity.toOrdVar
@@ -853,8 +999,14 @@ module Order =
             ]
 
 
-        /// Map an `Orderable` **orb** to
-        /// `VariableUnit`s
+
+        /// <summary>
+        /// Create a new Orderable from a list of OrderVariables using
+        /// an old Orderable.
+        /// </summary>
+        /// <param name="ovars">The list of OrderVariables</param>
+        /// <param name="orb">The old Orderable</param>
+        /// <returns>The new Orderable</returns>
         let fromOrdVars ovars orb =
             let ord_qty = (orb |> get).OrderQuantity |> Quantity.fromOrdVar ovars
             let orb_qty = orb.OrderableQuantity      |> Quantity.fromOrdVar ovars
@@ -867,8 +1019,10 @@ module Order =
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
-        /// Map an `Orderable` **orb** to
-        /// `VariableUnit`s
+        /// <summary>
+        /// Apply constraints to an Orderable
+        /// </summary>
+        /// <param name="orb">The Orderable</param>
         let applyConstraints orb =
             let ord_qty = (orb |> get).OrderQuantity |> Quantity.applyConstraints
             let orb_qty = orb.OrderableQuantity      |> Quantity.applyConstraints
@@ -881,22 +1035,31 @@ module Order =
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
-        /// Turn an `Orderable` `ord` into
-        /// a list of strings.
+        /// <summary>
+        /// Return a list of strings from an Orderable where each string is
+        /// a variable name with the value range and the Unit
+        /// </summary>
         let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
-        let increaseQuantityIncrement lim incr orb =
+        /// <summary>
+        /// Increase the Quantity increment of an Orderable to a maximum
+        /// count using a list of increments.
+        /// </summary>
+        /// <param name="maxCount">The maximum count</param>
+        /// <param name="incrs">The list of increments</param>
+        /// <param name="orb">The Orderable</param>
+        let increaseQuantityIncrement maxCount incrs orb =
             // first calculate the minimum increment increase for the orderable and components
             let incr =
                 let ord_qty = (orb |> get).OrderQuantity
-                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement lim incr
+                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
                 let ord_cnt = orb.OrderCount
                 let dos_cnt = orb.DoseCount
                 let dos = orb.Dose //|> Dose.increaseIncrement incr
 
                 orb.Components
-                |> List.map (Component.increaseIncrement lim incr)
+                |> List.map (Component.increaseIncrement maxCount incrs)
                 |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
                 |> fun orb ->
@@ -914,31 +1077,37 @@ module Order =
                         |> ValueUnit.getBaseValue
                     )
 
-            printfn $"the minimum increment is {incr}"
-
             // apply the minimum increment increase to the orderable and components
             let ord_qty = (orb |> get).OrderQuantity
-            let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement lim [incr]
+            let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [incr]
             let ord_cnt = orb.OrderCount
             let dos_cnt = orb.DoseCount
             let dos = orb.Dose //|> Dose.increaseIncrement incr
 
             orb.Components
-            |> List.map (Component.increaseIncrement lim [incr])
+            |> List.map (Component.increaseIncrement maxCount [incr])
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
-        let increaseRateIncrement lim incr orb =
+        /// <summary>
+        /// Increase the Rate increment of an Orderable to a maximum
+        /// count using a list of increments.
+        /// </summary>
+        /// <param name="maxCount">The maximum count</param>
+        /// <param name="incrs">The list of increments</param>
+        /// <param name="orb">The Orderable</param>
+        let increaseRateIncrement maxCount incrs orb =
             let ord_qty = (orb |> get).OrderQuantity
             let orb_qty = orb.OrderableQuantity //|> Quantity.increaseIncrement incr
             let ord_cnt = orb.OrderCount
             let dos_cnt = orb.DoseCount
-            let dos = orb.Dose |> Dose.increaseIncrement lim incr
+            let dos = orb.Dose |> Dose.increaseIncrement maxCount incrs
 
             orb.Components
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
+        /// Helper functions for the Orderable Dto
         module Dto =
 
             module Units = ValueUnit.Units
@@ -947,6 +1116,7 @@ module Order =
             module Quantity = OrderVariable.Quantity
             module Concentration = OrderVariable.Concentration
             module CT = OrderVariable.Count
+
 
             type Dto () =
                 member val Name = "" with get, set
@@ -974,6 +1144,7 @@ module Order =
 
                 create n orb_qty ord_qty ord_cnt dos_cnt dos cc
 
+
             let toDto (orb : Orderable) =
                 let dto = Dto ()
 
@@ -1000,6 +1171,11 @@ module Order =
                 dto
 
 
+            /// <summary>
+            /// Create a new Orderable Dto
+            /// </summary>
+            /// <param name="id">The Id of the Orderable</param>
+            /// <param name="orbN">The name of the Orderable</param>
             let dto id orbN =
                 createNew id orbN
                 |> toDto
@@ -1013,35 +1189,43 @@ module Order =
         module Time = OrderVariable.Time
 
 
-        /// Create `Frequency` and `Time` with name generated by string list **n**
+        /// <summary>
+        /// Create a Frequency and Time
+        /// </summary>
+        /// <param name="tu1">The frequency time unit</param>
+        /// <param name="tu2">The time unit</param>
+        /// <param name="n">The name of the Frequency and Time</param>
         let freqTime tu1 tu2 n =  (Frequency.create n tu1, Time.create n tu2)
 
 
-        /// Create a continuous `Prescription` with name generated by string list **n**
+        /// Create a Continuous `Prescription`
         let continuous tu1 tu2 n =
             let _, _ = n |> freqTime tu1 tu2 in Continuous
 
 
-        /// Create a discontinuous `Prescription` with name generated by string list **n**
+        /// Create a Discontinuous `Prescription`
         let discontinuous tu1 tu2 n =
             let frq, _ = n |> freqTime tu1 tu2 in frq |> Discontinuous
 
 
-        /// Create a timed `Prescription` with name generated by string list **n**
+        /// Create a Timed `Prescription`
         let timed tu1 tu2 n =
             let frq, tme = n |> freqTime tu1 tu2 in (frq, tme) |> Timed
 
 
-        /// Check whether a `Prescription` is continuous
+        /// Check whether a `Prescription` is Continuous
         let isContinuous = function | Continuous -> true | _ -> false
 
 
-        /// Check whether a `Prescription` is discontinuous with a time
+        /// Check whether a `Prescription` is Timed
         let isTimed = function | Timed _ -> true | _ -> false
 
 
-        /// Turn `Prescription` **prs** into `VariableUnit`s to
-        /// be used in equations
+        /// <summary>
+        /// Return a Prescription as a Frequency OrderVariable option
+        /// and a Time OrderVariable option
+        /// </summary>
+        /// <param name="prs">The Prescription</param>
         let toOrdVars prs =
             match prs with
             | Continuous -> None, None
@@ -1051,6 +1235,12 @@ module Order =
                 frq |> Frequency.toOrdVar |> Some, tme |> Time.toOrdVar |> Some
 
 
+        /// <summary>
+        /// Create a new Prescription from a list of OrderVariables using
+        /// an old Prescription.
+        /// </summary>
+        /// <param name="ovars">The list of OrderVariables</param>
+        /// <param name="prs">The old Prescription</param>
         let fromOrdVars ovars prs =
             match prs with
             | Continuous -> prs
@@ -1062,6 +1252,9 @@ module Order =
                 |> Timed
 
 
+        /// <summary>
+        /// Apply constraints to a Prescription
+        /// </summary>
         let applyConstraints prs =
             match prs with
             | Continuous -> prs
@@ -1073,9 +1266,10 @@ module Order =
                 |> Timed
 
 
-
-        /// Turn a `Prescription` **prs** into
-        /// a string list
+        /// <summary>
+        /// Return a list of strings from a Prescription where each string is
+        /// a variable name with the value range and the Unit
+        /// </summary>
         let toString (prs: Prescription) =
                 match prs with
                 | Continuous -> ["Continuous"]
@@ -1083,11 +1277,15 @@ module Order =
                 | Timed(frq, tme)     -> [frq |> Frequency.toString; tme |> Time.toString]
 
 
+
+        /// Helper functions for the Prescription Dto
         module Dto =
+
 
             module Units = ValueUnit.Units
             module Id = WrappedString.Id
             module NM = Name
+
 
             type Dto () =
                 member val IsContinuous = false with get, set
@@ -1095,6 +1293,7 @@ module Order =
                 member val IsTimed = false with get, set
                 member val Frequency = OrderVariable.Dto.dto () with get, set
                 member val Time = OrderVariable.Dto.dto () with get, set
+
 
             let fromDto (dto : Dto) =
                 match dto.IsContinuous,
@@ -1111,6 +1310,7 @@ module Order =
                 | _ -> exn "dto is neither or both process, continuous, discontinuous or timed"
                        |> raise
 
+
             let toDto pres =
                 let dto = Dto ()
 
@@ -1126,6 +1326,14 @@ module Order =
 
                 dto
 
+
+            /// <summary>
+            /// Create a Prescription Dto
+            /// </summary>
+            /// <param name="n">The name of the Prescription</param>
+            /// <remarks>
+            /// Defaults to a Discontinuous Prescription
+            /// </remarks>
             let dto n =
                 let dto  = Dto ()
                 let f, t =
@@ -1139,22 +1347,29 @@ module Order =
 
                 dto
 
+            /// Make the Prescription Dto Continuous
             let setToContinuous (dto : Dto) =
                 dto.IsContinuous <- true
                 dto.IsDiscontinuous <- false
                 dto.IsTimed <- false
+
                 dto
 
+            /// Make the Prescription Dto Discontinuous
             let setToDiscontinuous (dto : Dto) =
                 dto.IsContinuous <- false
                 dto.IsDiscontinuous <- true
                 dto.IsTimed <- false
+
                 dto
 
+
+            /// Make the Prescription Dto Timed
             let setToTimed (dto : Dto) =
                 dto.IsContinuous <- false
                 dto.IsDiscontinuous <- false
                 dto.IsTimed <- true
+
                 dto
 
 
@@ -1164,6 +1379,8 @@ module Order =
     /// of an `Order`
     module StartStop =
 
+
+        /// Get the string representation of a `StartStop`
         let toString startStop =
             match startStop with
             | Start dt ->
@@ -1209,6 +1426,7 @@ module Order =
     module Time = OrderVariable.Time
     module Units = ValueUnit.Units
 
+
     type Equation = Informedica.GenSolver.Lib.Types.Equation
 
 
@@ -1224,13 +1442,16 @@ module Order =
     let getId ord = (ord |> get).Id
 
 
+    /// <summary>
     /// Create an `Order` with
-    ///
-    /// * id: the id of the order
-    /// * adj: by which doses are adjusted
-    /// * orb: the `Orderable`
-    /// * prs: `Prescription`, how the orderable is prescribed
-    /// * rte: the route of administration of the orderable
+    /// </summary>
+    /// <param name="id">The id of the Order</param>
+    /// <param name="adj_qty">The adjust quantity of the Order</param>
+    /// <param name="orb">The Orderable of the Order</param>
+    /// <param name="prs">The Prescription of the Order</param>
+    /// <param name="rte">The Route of the Order</param>
+    /// <param name="tme">The Time of the Order</param>
+    /// <param name="sts">The StartStop of the Order</param>
     let create id adj_qty orb prs rte tme sts =
         {
             Id = id
@@ -1243,6 +1464,13 @@ module Order =
         }
 
 
+    /// <summary>
+    /// Create a new `Order` with
+    /// </summary>
+    /// <param name="id">The id of the Order</param>
+    /// <param name="orbN">The name of the Orderable</param>
+    /// <param name="str_prs">A function to create a Prescription with a Name</param>
+    /// <param name="route">The Route of the Order</param>
     let createNew id orbN str_prs route =
         let orb = Orderable.createNew id orbN
         let n = [id] |> Name.create
@@ -1257,20 +1485,24 @@ module Order =
             n
             |> Name.add Mapping.prs
             |> str_prs
+
         let sts = DateTime.Now  |> StartStop.Start
 
         create (id |> Id.create) adj orb prs route tme sts
 
 
+    /// Get the Adjust quantity of an `Order`
     let getAdjust ord = (ord |> get).Adjust
 
 
+    /// Get the Orderable of an `Order`
     let getOrderable ord = (ord |> get).Orderable
 
 
-    /// Turn an order into a list of string
-    /// representing variable name, valuerange
-    /// and unit group
+    /// <summary>
+    /// Return an Order as a list of strings where each string is
+    /// a variable name with the value range and the Unit
+    /// </summary>
     let toString (ord: Order) =
         [ ord.Adjust |> Quantity.toString ]
         |> List.append (Orderable.Literals.orderable::(ord.Orderable |> Orderable.toString))
@@ -1279,8 +1511,9 @@ module Order =
         |> List.filter (String.isNullOrWhiteSpace >> not)
 
 
-    /// Map an `Orderable` **orb** to
-    /// `VariableUnit`s
+    /// <summary>
+    /// Return an Order as a list of OrderVariables
+    /// </summary>
     let toOrdVars (ord : Order) =
         let adj_qty = ord.Adjust |> Quantity.toOrdVar
         let ord_tme = ord.Duration |> Time.toOrdVar
@@ -1299,6 +1532,12 @@ module Order =
         ]
 
 
+    /// <summary>
+    /// Create a new Order from a list of OrderVariables using
+    /// an old Order.
+    /// </summary>
+    /// <param name="ovars">The list of OrderVariables</param>
+    /// <param name="ord">The old Order</param>
     let fromOrdVars ovars (ord : Order) =
         { ord with
             Adjust = ord.Adjust |> Quantity.fromOrdVar ovars
@@ -1308,6 +1547,10 @@ module Order =
         }
 
 
+    /// <summary>
+    /// Apply constraints to an Order
+    /// </summary>
+    /// <param name="ord">The Order</param>
     let applyConstraints (ord : Order) =
         try
             { ord with
@@ -1323,24 +1566,49 @@ module Order =
             reraise()
 
 
-    let increaseQuantityIncrement lim incr (ord : Order) =
+    /// <summary>
+    /// Increase the Quantity increment of an Order to a maximum
+    /// count using a list of increments.
+    /// </summary>
+    /// <param name="maxCount">The maximum count</param>
+    /// <param name="incrs">The list of increments</param>
+    /// <param name="ord">The Order</param>
+    let increaseQuantityIncrement maxCount incrs (ord : Order) =
         { ord with
-            Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement lim incr
+            Orderable =
+                ord.Orderable
+                |> Orderable.increaseQuantityIncrement
+                       maxCount
+                       incrs
         }
 
 
-    let increaseRateIncrement lim incr (ord : Order) =
+    /// <summary>
+    /// Increase the Rate increment of an Order to a maximum
+    /// count using a list of increments.
+    /// </summary>
+    /// <param name="maxCount">The maximum count</param>
+    /// <param name="incrs">The list of increments</param>
+    /// <param name="ord">The Order</param>
+    let increaseRateIncrement maxCount incrs (ord : Order) =
         { ord with
-            Orderable = ord.Orderable |> Orderable.increaseRateIncrement lim incr
+            Orderable = ord.Orderable |> Orderable.increaseRateIncrement maxCount incrs
         }
 
 
-    let mapToEquations eqs (ord: Order)  =
+    /// <summary>
+    /// Map an Order to a list of Equations using a Product Equation
+    /// mapping and a Sum Equation mapping
+    /// </summary>
+    /// <param name="eqMapping">The Product Equation mapping and the Sum Equation mapping</param>
+    /// <param name="ord">The Order</param>
+    /// <returns>A list of OrderEquations</returns>
+    let mapToOrderEquations eqMapping (ord: Order)  =
         let ovars = ord |> toOrdVars
 
-        let map repl eqs =
+        let map repl eqMapping =
             let eqs, c =
-                match eqs with
+                match eqMapping with
                 | SumMapping eqs -> eqs, OrderSumEquation
                 | ProductMapping eqs -> eqs, OrderProductEquation
             eqs
@@ -1366,13 +1634,19 @@ module Order =
                 | _ -> failwith $"cannot map {eqs}"
             )
 
-        let sumEqs, prodEqs = eqs
+        let sumEqs, prodEqs = eqMapping
 
-        sumEqs |> map "+"
+        sumEqs
+        |> map "+"
         |> List.append (prodEqs |> map "*")
 
 
-    let mapFromEquations (ord: Order) eqs =
+    /// <summary>
+    /// Map a list of OrderEquations to an Order
+    /// </summary>
+    /// <param name="ord">The Order</param>
+    /// <param name="eqs">The list of OrderEquations</param>
+    let mapFromOrderEquations (ord: Order) eqs =
         let ovars =
             eqs
             |> List.collect (fun e ->
@@ -1383,9 +1657,19 @@ module Order =
             |> List.distinct
             |> List.map OrderVariable.setUnit
 
-        ord |> fromOrdVars ovars
+        ord
+        |> fromOrdVars ovars
 
 
+    /// <summary>
+    /// Solve an Order
+    /// </summary>
+    /// <param name="minMax">Whether to solve only for the minimum or maximum</param>
+    /// <param name="printErr">Whether to print the error</param>
+    /// <param name="logger">The logger</param>
+    /// <param name="ord">The Order</param>
+    /// <returns>A Result with the Order or a list error messages</returns>
+    /// <raises>Any exception raised by the solver</raises>
     let solve minMax printErr logger (ord: Order) =
         let ord =
             if minMax then ord |> applyConstraints
@@ -1401,7 +1685,7 @@ module Order =
 
         let oEqs =
             ord
-            |> mapToEquations mapping
+            |> mapToOrderEquations mapping
 
         try
             oEqs
@@ -1413,31 +1697,47 @@ module Order =
             | Ok eqs ->
                 eqs
                 |> Solver.mapToOrderEqs oEqs
-                |> mapFromEquations ord
+                |> mapFromOrderEquations ord
                 |> Ok
             | Error (eqs, m) ->
                 eqs
                 |> Solver.mapToOrderEqs oEqs
-                |> mapFromEquations ord
+                |> mapFromOrderEquations ord
                 |> fun eqs -> Error (eqs, m)
 
         with
         | e ->
             if printErr then
                 oEqs
-                |> mapFromEquations ord
+                |> mapFromOrderEquations ord
                 |> toString
                 |> List.iteri (printfn "%i. %s")
 
             raise e
 
 
+    /// <summary>
+    /// Solve an Order for only the minimum and maximum values
+    /// </summary>
+    /// <param name="printErr">Whether to print the error</param>
+    /// <param name="logger">The logger</param>
     let solveMinMax printErr logger = solve true printErr logger
 
 
+    /// <summary>
+    /// Solve an Order for all values
+    /// </summary>
+    /// <param name="printErr">Whether to print the error</param>
+    /// <param name="logger">The logger</param>
     let solveOrder printErr logger = solve false printErr logger
 
 
+    /// <summary>
+    /// Loop through all the OrderVariables in an Order to
+    /// turn min incr max to values and subsequently solve the Order.
+    /// </summary>
+    /// <param name="logger">The logger</param>
+    /// <param name="ord">The Order</param>
     let minIncrMaxToValues logger (ord: Order) =
         let rec loop runAgain ord =
             if not runAgain then ord
@@ -1465,40 +1765,44 @@ module Order =
                 else
                     ord
                     |> fromOrdVars ovars
-                    |> solveOrder false logger
+                    |> solveOrder false logger // could possible restrict to solve variable
                     |> function
                         | Ok ord -> loop flag ord
                         | Error _ -> ord
 
         loop true ord
-        // |> fun ord ->
-        //     let s = ord |> toString |> String.concat "\n"
-        //     printfn $"min incr max to values:\n{s}"
-        //     ord
 
 
     module Print =
 
-        let printItemConcentration (c : Component) =
+        let itemConcentrationTo toStr (c : Component) =
             c.Items
             |> Seq.map (fun i ->
                 i.ComponentConcentration
-                |> Concentration.toValueUnitString -1
+                |> toStr
                 |> fun s ->
                     $"{s} {i.Name |> Name.toString}"
             )
             |> String.concat " + "
 
 
-        let printComponentQuantity o =
+        let itemConcentrationToString =
+            itemConcentrationTo (Concentration.toValueUnitString -1)
+
+
+        let itemConcentrationToMd =
+            itemConcentrationTo (Concentration.toValueUnitMarkdown -1)
+
+
+        let componentQuantityTo toStr (o : Order) =
             o.Orderable.Components
             |> Seq.map (fun c ->
                 c.OrderableQuantity
-                |> Quantity.toValueUnitString -1
+                |> toStr
                 |> fun q ->
                     let s =
                         c
-                        |> printItemConcentration
+                        |> itemConcentrationToString
                         |> String.trim
                         |> fun s ->
                             if s |> String.isNullOrWhiteSpace then ""
@@ -1509,12 +1813,40 @@ module Order =
             |> String.concat " + "
 
 
-        let printOrderableDoseQuantity o =
+        let componentQuantityToString =
+            componentQuantityTo (Quantity.toValueUnitString -1)
+
+
+        let componentQuantityToMd =
+            componentQuantityTo (Quantity.toValueUnitMarkdown -1)
+
+
+        let orderableDoseQuantityTo toStr (o: Order) =
             o.Orderable.Dose.Quantity
-            |> Quantity.toValueUnitString -1
+            |> toStr
 
 
-        let printPrescription sn (o : Order) =
+        let orderableDoseQuantityToString =
+            orderableDoseQuantityTo (Quantity.toValueUnitString -1)
+
+
+        let orderableDoseQuantityToMd =
+            orderableDoseQuantityTo (Quantity.toValueUnitMarkdown -1)
+
+
+        let printOrderTo
+            freqToStr
+            doseQtyToStr
+            perTimeAdjustToStr
+            compQtyToStr
+            orbDoseQtyToStr
+            doseRateToStr
+            orbQtyToStr
+            orbQtyToStr2
+            dosRateAdjustToStr
+            timeToStr
+            sn (o : Order) =
+
             let on = o.Orderable.Name |> Name.toString
             let sn = sn |> Array.filter String.notEmpty
 
@@ -1543,174 +1875,24 @@ module Order =
                 // frequencies
                 let fr =
                     fr
-                    |> Frequency.toValueUnitString -1
-
-                let dq =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.Quantity)
-                        (Quantity.toValueUnitString 3)
-
-                let dt =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.PerTimeAdjust)
-                        (PerTimeAdjust.toValueUnitString 2)
-
-                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
-                let prep = $"{o |> printComponentQuantity}"
-                let adm = $"{fr} {o |> printOrderableDoseQuantity}"
-
-                pres, prep, adm
-
-            | Continuous ->
-                // infusion rate
-                let rt =
-                    o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitString -1
-
-                let oq =
-                    o.Orderable.OrderableQuantity
-                    |> Quantity.toValueUnitString -1
-
-                let it =
-                    o
-                    |> printItem
-                        (fun i -> i.OrderableQuantity)
-                        (Quantity.toValueUnitString 2)
-
-                let dr =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.RateAdjust)
-                        (RateAdjust.toValueUnitString 2)
-
-                let pres = $"""{sn |> String.concat " + "} {dr}"""
-                let prep = o |> printComponentQuantity
-                let adm = $"""{sn |> String.concat " + "} {it} in {oq}, {rt}"""
-
-                pres, prep, adm
-
-            | Timed (fr, tme) ->
-
-                // frequencies
-                let fr =
-                    fr
-                    |> Frequency.toValueUnitString -1
-
-                let tme =
-                    tme
-                    |> Time.toValueUnitString 2
-
-                // infusion rate
-                let rt =
-                    o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitString -1
-
-                let dq =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.Quantity)
-                        (Quantity.toValueUnitString 3)
-
-                let dt =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.PerTimeAdjust)
-                        (PerTimeAdjust.toValueUnitString 1)
-
-                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
-                let prep = o |> printComponentQuantity
-                let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme} = {rt}"
-
-                pres, prep, adm
-
-
-
-    module Markdown =
-
-        let printItemConcentration (c : Component) =
-            c.Items
-            |> Seq.map (fun i ->
-                i.ComponentConcentration
-                |> Concentration.toValueUnitMarkdown -1
-                |> fun s ->
-                    $"{s} {i.Name |> Name.toString}"
-            )
-            |> String.concat " + "
-
-
-        let printComponentQuantity o =
-            o.Orderable.Components
-            |> Seq.map (fun c ->
-                c.OrderableQuantity
-                |> Quantity.toValueUnitMarkdown -1
-                |> fun q ->
-                    let s =
-                        c
-                        |> printItemConcentration
-                        |> String.trim
-                        |> fun s ->
-                            if s |> String.isNullOrWhiteSpace then ""
-                            else
-                                $" ({s})"
-                    $"{q} {c.Name |> Name.toString}{s}"
-            )
-            |> String.concat " + "
-
-
-        let printOrderableDoseQuantity o =
-            o.Orderable.Dose.Quantity
-            |> Quantity.toValueUnitMarkdown -1
-
-
-        let printPrescription sn (o : Order) =
-            let on = o.Orderable.Name |> Name.toString
-            let sn = sn |> Array.filter String.notEmpty
-
-            let printItem get unt o =
-                o.Orderable.Components
-                |> Seq.collect (fun c ->
-                    c.Items
-                    |> Seq.collect (fun i ->
-                        let n = i.Name |> Name.toString
-                        if sn |> Seq.exists ((=) n) then
-                            i
-                            |> get
-                            |> unt
-                            |> fun s ->
-                                if on |> String.startsWith n then seq [ s ]
-                                else
-                                    seq [ $"{s} {n}" ]
-
-                        else Seq.empty
-                    )
-                )
-                |> String.concat " + "
-
-            match o.Prescription with
-            | Discontinuous fr ->
-                // frequencies
-                let fr =
-                    fr
-                    |> Frequency.toValueUnitMarkdown -1
+                    |> freqToStr
                     |> String.replace "/" " per "
 
                 let dq =
                     o
                     |> printItem
                         (fun i -> i.Dose.Quantity)
-                        (Quantity.toValueUnitMarkdown 3)
+                        doseQtyToStr
 
                 let dt =
                     o
                     |> printItem
                         (fun i -> i.Dose.PerTimeAdjust)
-                        (PerTimeAdjust.toValueUnitMarkdown 2)
+                        perTimeAdjustToStr
 
                 let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt |> String.trim})"
-                let prep = $"{o |> printComponentQuantity}"
-                let adm = $"{fr} {o |> printOrderableDoseQuantity}"
+                let prep = $"{o |> compQtyToStr}"
+                let adm = $"{fr} {o |> orbDoseQtyToStr}"
 
                 pres |> String.replace "()" "",
                 prep,
@@ -1720,26 +1902,26 @@ module Order =
                 // infusion rate
                 let rt =
                     o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitMarkdown -1
+                    |> doseRateToStr
 
                 let oq =
                     o.Orderable.OrderableQuantity
-                    |> Quantity.toValueUnitMarkdown -1
+                    |> orbQtyToStr
 
                 let it =
                     o
                     |> printItem
                         (fun i -> i.OrderableQuantity)
-                        (Quantity.toValueUnitMarkdown 2)
+                        orbQtyToStr2
 
                 let dr =
                     o
                     |> printItem
                         (fun i -> i.Dose.RateAdjust)
-                        (RateAdjust.toValueUnitMarkdown 2)
+                        dosRateAdjustToStr
 
                 let pres = $"""{sn |> String.concat " + "} {dr}"""
-                let prep = o |> printComponentQuantity
+                let prep = o |> compQtyToStr
                 let adm = $"""{sn |> String.concat " + "} {it} in {oq}, {rt}"""
 
                 pres, prep, adm
@@ -1749,37 +1931,65 @@ module Order =
                 // frequencies
                 let fr =
                     fr
-                    |> Frequency.toValueUnitMarkdown -1
+                    |> freqToStr
                     |> String.replace "/" " per "
 
                 let tme =
                     tme
-                    |> Time.toValueUnitMarkdown 2
+                    |> timeToStr
 
                 // infusion rate
                 let rt =
                     o.Orderable.Dose.Rate
-                    |> Rate.toValueUnitMarkdown -1
+                    |> doseRateToStr
 
                 let dq =
                     o
                     |> printItem
                         (fun i -> i.Dose.Quantity)
-                        (Quantity.toValueUnitMarkdown 3)
+                        doseQtyToStr
 
                 let dt =
                     o
                     |> printItem
                         (fun i -> i.Dose.PerTimeAdjust)
-                        (PerTimeAdjust.toValueUnitMarkdown 2)
+                        perTimeAdjustToStr
 
                 let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
-                let prep = o |> printComponentQuantity
-                let adm = $"{fr} {o |> printOrderableDoseQuantity} in {tme} = {rt}"
+                let prep = o |> compQtyToStr
+                let adm = $"{fr} {o |> orbDoseQtyToStr} in {tme} = {rt}"
 
                 pres |> String.replace "()" "",
                 prep,
                 adm
+
+
+        let printOrderToString =
+            printOrderTo
+                (Frequency.toValueUnitString -1)
+                (Quantity.toValueUnitString 3)
+                (PerTimeAdjust.toValueUnitString 2)
+                componentQuantityToString
+                orderableDoseQuantityToString
+                (Rate.toValueUnitString -1)
+                (Quantity.toValueUnitString -1)
+                (Quantity.toValueUnitString 2)
+                (RateAdjust.toValueUnitString 2)
+                (Time.toValueUnitString 2)
+
+
+        let printOrderToMd =
+            printOrderTo
+                (Frequency.toValueUnitMarkdown -1)
+                (Quantity.toValueUnitMarkdown 3)
+                (PerTimeAdjust.toValueUnitMarkdown 2)
+                componentQuantityToMd
+                orderableDoseQuantityToMd
+                (Rate.toValueUnitMarkdown -1)
+                (Quantity.toValueUnitMarkdown -1)
+                (Quantity.toValueUnitMarkdown 2)
+                (RateAdjust.toValueUnitMarkdown 2)
+                (Time.toValueUnitMarkdown 2)
 
 
 
