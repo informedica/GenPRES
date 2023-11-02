@@ -150,6 +150,9 @@ module DrugOrder =
     /// <summary>
     /// Map a DrugOrder record to a DrugOrderDto record.
     /// </summary>
+    /// <remarks>
+    /// The DrugOrder will mainly map to the Order constraints.
+    /// </remarks>
     let toOrderDto (d : DrugOrder) =
         let toArr = Option.map Array.singleton >> Option.defaultValue [||]
 
@@ -264,7 +267,7 @@ module DrugOrder =
                         // if there is only one product, the concentration of that product in the
                         // Orderable will be by definition be 1.
                         cdto.OrderableConcentration.Constraints.ValsOpt <- 1N |> createSingleValueUnitDto cu
-                      
+
                         if p.Divisible.IsSome then
                             cdto.Dose.Quantity.Constraints.IncrOpt <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
 
