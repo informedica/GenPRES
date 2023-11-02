@@ -4,43 +4,87 @@ namespace Informedica.GenOrder.Lib
 
 module Api =
 
-    open System
     open MathNet.Numerics
+    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
 
-
-
+    /// <summary>
+    /// Get all possible indications for a Patient
+    /// </summary>
     let getIndications = PrescriptionRule.get >> PrescriptionRule.indications
 
+
+    /// <summary>
+    /// Get all possible generics for a Patient
+    /// </summary>
     let getGenerics = PrescriptionRule.get >> PrescriptionRule.generics
 
+
+    /// <summary>
+    /// Get all possible routes for a Patient
+    /// </summary>
     let getRoutes = PrescriptionRule.get >> PrescriptionRule.routes
 
+
+    /// <summary>
+    /// Get all possible shapes for a Patient
+    /// </summary>
     let getShapes = PrescriptionRule.get >> PrescriptionRule.shapes
 
+
+    /// <summary>
+    /// Get all possible diagnoses for a Patient
+    /// </summary>
     let getDiagnoses = PrescriptionRule.get >> PrescriptionRule.diagnoses
 
-    let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.shapes
+
+    /// <summary>
+    /// Get all possible frequencies for a Patient
+    /// </summary>
+    let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.frequencies
 
 
-    let filterIndictions = PrescriptionRule.filter >> PrescriptionRule.indications
+    /// <summary>
+    /// Filter the indications using a Informedica.GenForm.Lib.Filter
+    /// </summary>
+    let filterIndications = PrescriptionRule.filter >> PrescriptionRule.indications
 
+
+    /// <summary>
+    /// Filter the generics using a Informedica.GenForm.Lib.Filter
+    /// </summary>
     let filterGenerics = PrescriptionRule.filter >> PrescriptionRule.generics
 
+
+    /// <summary>
+    /// Filter the routes using a Informedica.GenForm.Lib.Filter
+    /// </summary>
     let filterRoutes = PrescriptionRule.filter >> PrescriptionRule.routes
 
+
+    /// <summary>
+    /// Filter the shapes using a Informedica.GenForm.Lib.Filter
+    /// </summary>
     let filterShapes = PrescriptionRule.filter >> PrescriptionRule.shapes
 
+
+    /// <summary>
+    /// Filter the diagnoses using a Informedica.GenForm.Lib.Filter
+    /// </summary>
     let filterDiagnoses = PrescriptionRule.filter >> PrescriptionRule.diagnoses
 
+
+    /// <summary>
+    /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
+    /// </summary>
     let filterFrequencies =  PrescriptionRule.filter >> PrescriptionRule.shapes
 
 
-    let tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
+    let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
 
 
     let createProductComponent noSubst freqUnit (doseLimits : DoseLimit []) (ps : Product []) =
@@ -253,7 +297,7 @@ module Api =
                         |> Order.increaseRateIncrement 50N incr
                         |> fun o ->
                             let s = o |> Order.toString |> String.concat "\n"
-                            Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                            ConsoleWriter.writeInfoMessage
                                 $"order with increased rate increment:\n {s}"
                                 true
                                 false
@@ -264,14 +308,14 @@ module Api =
                 | Error (_, errs) ->
                     errs
                     |> List.iter (fun e ->
-                        Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
+                        ConsoleWriter.writeErrorMessage
                             $"{e}"
                             true
                             false
                     )
                     ord // original order
                 | Ok ord ->
-                    Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                    ConsoleWriter.writeInfoMessage
                         "solved order with increased increment"
                         true
                         false
@@ -283,7 +327,7 @@ module Api =
                     | Error (_, errs) ->
                         errs
                         |> List.iter (fun e ->
-                            Informedica.Utils.Lib.ConsoleWriter.writeErrorMessage
+                            ConsoleWriter.writeErrorMessage
                                 $"{e}"
                                 true
                                 false
@@ -291,7 +335,7 @@ module Api =
                         ord // increased increment order
                     | Ok ord ->
                         let s = ord |> Order.toString |> String.concat "\n"
-                        Informedica.Utils.Lib.ConsoleWriter.writeInfoMessage
+                        ConsoleWriter.writeInfoMessage
                             $"solved order with increased increment and values:\n {s}"
                             true
                             false
@@ -394,3 +438,147 @@ module Api =
                 }
         )
 
+
+
+    let scenarioResult pat =
+        let rules = pat |> PrescriptionRule.get
+        {
+            Indications = rules |> PrescriptionRule.indications
+            Generics = rules |> PrescriptionRule.generics
+            Routes = rules |> PrescriptionRule.routes
+            Shapes= rules |> PrescriptionRule.shapes
+            Indication = None
+            Generic = None
+            Route = None
+            Shape = None
+            Patient = pat
+            Scenarios = [||]
+        }
+
+
+    let replace s =
+        s
+        |> String.replace "[" ""
+        |> String.replace "]" ""
+        |> String.replace "<" ""
+        |> String.replace ">" ""
+
+
+    let filter (sc : ScenarioResult) =
+
+
+        if Env.getItem "GENPRES_PROD" |> Option.isNone then
+            let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+
+        match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
+        | Some w, Some _, d when d |> String.notEmpty ->
+
+            let ind =
+                if sc.Indication.IsSome then sc.Indication
+                else sc.Indications |> Array.someIfOne
+            let gen =
+                if sc.Generic.IsSome then sc.Generic
+                else sc.Generics |> Array.someIfOne
+            let rte =
+                if sc.Route.IsSome then sc.Route
+                else sc.Routes |> Array.someIfOne
+            let shp =
+                if sc.Shape.IsSome then sc.Shape
+                else sc.Shapes |> Array.someIfOne
+
+            let filter =
+                { Filter.filter with
+                    Department = Some d
+                    Age = sc.Patient.Age
+                    GestAge = sc.Patient.GestAge
+                    Weight = Some w
+                    Indication = ind
+                    Generic = gen
+                    Route = rte
+                    Shape = shp
+                    Location = sc.Patient.VenousAccess
+                }
+
+            let inds = filter |> filterIndications
+            let gens = filter |> filterGenerics
+            let rtes = filter |> filterRoutes
+            let shps = filter |> filterShapes
+
+            let ind = inds |> Array.someIfOne
+            let gen = gens |> Array.someIfOne
+            let rte = rtes |> Array.someIfOne
+            let shp = shps |> Array.someIfOne
+
+            { sc with
+                Indications = inds
+                Generics = gens
+                Routes = rtes
+                Shapes = shps
+                Indication = ind
+                Generic = gen
+                Route = rte
+                Shape = shp
+                Scenarios =
+                    match ind, gen, rte, shp with
+                    | Some _, Some _,    Some _, _
+                    | Some _, Some _, _, Some _ ->
+                        { filter with
+                            Department = Some d
+                            Indication = ind
+                            Generic = gen
+                            Route = rte
+                            Shape = shp
+                            Age = sc.Patient.Age
+                            GestAge = sc.Patient.GestAge
+                            Weight = sc.Patient.Weight
+                            Location = sc.Patient.VenousAccess
+                        }
+                        |> PrescriptionRule.filter
+                        |> Array.collect (fun pr ->
+                            pr
+                            |> evaluate OrderLogger.logger.Logger
+                            |> Array.mapi (fun i r -> (i, r))
+                            |> Array.choose (function
+                                | i, Ok (ord, pr) ->
+                                    let ns =
+                                        pr.DoseRule.DoseLimits
+                                        |> Array.map (fun dl -> dl.Substance)
+
+                                    let prs, prp, adm =
+                                        ord
+                                        |> Order.Print.printOrderToMd ns
+
+                                    {
+                                        No = i
+                                        Indication = pr.DoseRule.Indication
+                                        DoseType = pr.DoseRule.DoseType |> DoseType.toString
+                                        Name = pr.DoseRule.Generic
+                                        Shape = pr.DoseRule.Shape
+                                        Route = pr.DoseRule.Route
+                                        Prescription = prs |> replace
+                                        Preparation =prp |> replace
+                                        Administration = adm |> replace
+                                        Order = Some ord
+                                    }
+                                    |> Some
+
+                                | _, Error (_, _, errs) ->
+                                    errs
+                                    |> List.map string
+                                    |> String.concat "\n"
+                                    |> printfn "%s"
+                                    None
+                            )
+                        )
+
+                    | _ -> [||]
+            }
+        | _ ->
+            { sc with
+                Indications = [||]
+                Generics = [||]
+                Routes = [||]
+                Shapes = [||]
+                Scenarios = [||]
+            }

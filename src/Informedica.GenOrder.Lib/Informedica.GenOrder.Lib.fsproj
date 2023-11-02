@@ -20,7 +20,6 @@
     <Compile Include="Patient.fs" />
     <Compile Include="OrderLogger.fs" />
     <Compile Include="Api.fs" />
-    <Compile Include="Demo.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Script1.fsx" />
     <None Include="Scripts\Api2.fsx" />

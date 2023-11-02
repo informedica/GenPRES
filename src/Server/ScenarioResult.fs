@@ -8,18 +8,18 @@ open Informedica.GenOrder.Lib
 
 
 open Shared.Types
-open Shared.Api
+
 
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
-let mapToValueUnit (dto : Informedica.GenUnits.Lib.ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
+let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
     Shared.Order.ValueUnit.create
         dto.Value
         dto.Unit "" true ""
 
 
-let mapFromValueUnit (vu : Shared.Types.ValueUnit) : Informedica.GenUnits.Lib.ValueUnit.Dto.Dto =
+let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
     let dto = ValueUnit.Dto.dto ()
     dto.Value <- vu.Value
     dto.Group <- vu.Group
@@ -283,8 +283,8 @@ Scenarios: {sc.Scenarios |> Array.length}
 
     try
         let newSc =
-            let r = Demo.scenarioResult pat
-            { Demo.scenarioResult pat with
+            let r = Api.scenarioResult pat
+            { Api.scenarioResult pat with
                 Indications =
                     if sc.Indication |> Option.isSome then
                         [| sc.Indication |> Option.defaultValue "" |]
@@ -389,9 +389,9 @@ let print (sc: ScenarioResult) =
                             |> Order.Dto.fromDto
                             |> Order.Print.printOrderToMd sn
                             |> fun (prs, prp, adm) ->
-                                prs |> Demo.replace |> Shared.ScenarioResult.parseTextItem,
-                                prp |> Demo.replace |> Shared.ScenarioResult.parseTextItem,
-                                adm |> Demo.replace |> Shared.ScenarioResult.parseTextItem
+                                prs |> Api.replace |> Shared.ScenarioResult.parseTextItem,
+                                prp |> Api.replace |> Shared.ScenarioResult.parseTextItem,
+                                adm |> Api.replace |> Shared.ScenarioResult.parseTextItem
 
                         )
                         |> Option.defaultValue (sc.Prescription, sc.Preparation, sc.Administration)

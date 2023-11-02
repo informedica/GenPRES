@@ -267,7 +267,7 @@ module Types =
                 Time : MinMax
                 // The time unit for infusion time (duration)
                 TimeUnit : string
-                // The dose limits for an drugorder
+                // The dose limits for an DrugOrder
                 Dose : DoseLimit option
                 // The amount of orderable that will be given each time
                 DoseCount : BigRational option

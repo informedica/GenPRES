@@ -79,6 +79,7 @@ module OrderLogger =
             printfn $"error printing: {e.ToString()}"
             ""
 
+
     // To print all messages related to an order
     let printOrderMsg (msgs : ResizeArray<float * Informedica.GenSolver.Lib.Types.Logging.Message> option) msg =
         match msg with
@@ -161,13 +162,15 @@ module OrderLogger =
         }
 
 
+    /// A logger that does nothing
     let noLogger : Logger = { Log = ignore }
 
 
+    /// A logger that prints to the console
     let printLogger : Logger = { Log = (printMsg None >> (printfn "%s")) }
 
 
-    // the logger agent
+    /// The Order logger agent
     let logger =
 
         let write path i t ms m =
@@ -276,10 +279,16 @@ module OrderLogger =
         }
 
 
-    // print an order list
-    let printScenarios v n (sc : Order list) =
+
+    /// <summary>
+    /// Prints the scenarios for a given list of orders
+    /// </summary>
+    /// <param name="verbose">Also print the Order</param>
+    /// <param name="ns">The items to print</param>
+    /// <param name="orders">The list of Orders</param>
+    let printScenarios verbose ns (orders : Order list) =
         let w =
-            match sc with
+            match orders with
             | h::_ ->
                 h.Adjust
                 |> Quantity.toValueUnitStringList
@@ -287,16 +296,16 @@ module OrderLogger =
             | _ -> ""
 
         printfn $"\n\n=== SCENARIOS for Weight: %s{w} ==="
-        sc
+        orders
         |> List.iteri (fun i o ->
             o
-            |> Order.Print.printOrderToString n
+            |> Order.Print.printOrderToString ns
             |> fun (p, a, d) ->
                 printfn $"%i{i + 1}\tprescription:\t%s{p}"
                 printfn $"  \tdispensing:\t%s{a}"
                 printfn $"  \tpreparation:\t%s{d}"
 
-            if v then
+            if verbose then
                 o
                 |> Order.toString
                 |> List.iteri (fun i s -> printfn $"%i{i + 1}\t%s{s}")

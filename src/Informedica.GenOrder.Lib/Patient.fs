@@ -5,13 +5,20 @@ namespace Informedica.GenOrder.Lib
 module Patient =
 
 
+    open Aether
+    open Aether.Operators
+
+
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
 
     type Patient =Types.Patient
-    type Access = Types.VenousAccess
+    type Access = VenousAccess
 
 
+    /// <summary>
+    /// And empty Patient
+    /// </summary>
     let patient : Patient =
         {
             Department = ""
@@ -29,9 +36,6 @@ module Patient =
     [<AutoOpen>]
     module Optics =
 
-        open Aether
-        open Aether.Operators
-
 
         type Age =
             | Years of int
@@ -40,7 +44,11 @@ module Patient =
             | Days of int
 
 
-        let ageToDec ags =
+        /// <summary>
+        /// Converts a list of Age values to a decimal representing the number of days
+        /// </summary>
+        /// <param name="ags">The Age values</param>
+        let ageToDays ags =
             ags
             |> List.fold (fun acc a ->
                 match a with
@@ -52,7 +60,11 @@ module Patient =
             ) 0m
 
 
-        let ageFromDec (d : decimal) =
+        /// <summary>
+        /// Converts a decimal representing the number of days to a list of Age values
+        /// </summary>
+        /// <param name="d">The age in days</param>
+        let ageFromDays (d : decimal) =
             let yrs = (d / 365m) |> int
             let mos = ((d - (365 * yrs |> decimal)) / 30m) |> int
             let wks = (d - (365 * yrs |> decimal) - (30 * mos |> decimal)) / 7m |> int
@@ -64,19 +76,21 @@ module Patient =
                 if dys > 0 then dys |> Days
             ]
 
+        // Helper method for the Optics below
         let ageAgeList =
-            Option.map (BigRational.toDecimal >> ageFromDec)
+            Option.map (BigRational.toDecimal >> ageFromDays)
             >> (Option.defaultValue []),
-            (ageToDec >> BigRational.fromDecimal >> Some)
+            (ageToDays >> BigRational.fromDecimal >> Some)
 
 
         let age_ = Patient.Age_ >-> ageAgeList
 
 
+        // Helper method for the Optics below
         let gestPMAgeList =
             let ageFromDec d =
                 d
-                |> ageFromDec
+                |> ageFromDays
                 |> List.filter (fun a ->
                     match a with
                     | Years _ | Months _ -> false
@@ -84,7 +98,7 @@ module Patient =
                 )
             Option.map (BigRational.toDecimal >> ageFromDec)
             >> (Option.defaultValue []),
-            (ageToDec >> BigRational.fromDecimal >> Some)
+            (ageToDays >> BigRational.fromDecimal >> Some)
 
 
         let gestAge_ = Patient.GestAge_ >-> gestPMAgeList
@@ -148,76 +162,76 @@ module Patient =
         let pmAgeDec_ = Patient.PMAge_ >-> bigRatDec_
 
 
-        let getGender = Optic.get Patient.Gender_
+    let getGender = Optic.get Patient.Gender_
 
 
-        let setGender = Optic.set Patient.Gender_
+    let setGender = Optic.set Patient.Gender_
 
 
-        let getAge = Optic.get age_
+    let getAge = Optic.get age_
 
 
-        let setAge = Optic.set age_
+    let setAge = Optic.set age_
 
 
-        let getAgeDec = Optic.get ageDec_
+    let getAgeDec = Optic.get ageDec_
 
 
-        let setAgeDec = Optic.set ageDec_
+    let setAgeDec = Optic.set ageDec_
 
 
-        let getWeight = Optic.get weight_
+    let getWeight = Optic.get weight_
 
 
-        let setWeight = Optic.set weight_
+    let setWeight = Optic.set weight_
 
 
-        let getWeightDec = Optic.get weightDec_
+    let getWeightDec = Optic.get weightDec_
 
 
-        let setWeightDec = Optic.set weightDec_
+    let setWeightDec = Optic.set weightDec_
 
 
-        let getHeight = Optic.get height_
+    let getHeight = Optic.get height_
 
 
-        let setHeight = Optic.set height_
+    let setHeight = Optic.set height_
 
 
-        let getHeightDec = Optic.get heightDec_
+    let getHeightDec = Optic.get heightDec_
 
 
-        let setHeightDec = Optic.set heightDec_
+    let setHeightDec = Optic.set heightDec_
 
 
-        let getGestAge = Optic.get gestAge_
+    let getGestAge = Optic.get gestAge_
 
 
-        let setGestAge = Optic.set gestAge_
+    let setGestAge = Optic.set gestAge_
 
 
-        let getGestAgeDec = Optic.get gestAgeDec_
+    let getGestAgeDec = Optic.get gestAgeDec_
 
 
-        let setGestAgeDec = Optic.set gestAgeDec_
+    let setGestAgeDec = Optic.set gestAgeDec_
 
 
-        let getPMAge = Optic.get pmAge_
+    let getPMAge = Optic.get pmAge_
 
 
-        let setPMAge = Optic.set pmAge_
+    let setPMAge = Optic.set pmAge_
 
 
-        let getPMAgeDec = Optic.get pmAgeDec_
+    let getPMAgeDec = Optic.get pmAgeDec_
 
 
-        let setPMAgeDec = Optic.set pmAgeDec_
+    let setPMAgeDec = Optic.set pmAgeDec_
 
 
-        let getDepartment = Optic.get Patient.Department_
+    let getDepartment = Optic.get Patient.Department_
 
 
-        let setDepartment = Optic.set Patient.Department_
+    let setDepartment = Optic.set Patient.Department_
 
 
 
