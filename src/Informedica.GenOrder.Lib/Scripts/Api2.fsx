@@ -148,12 +148,12 @@ Patient.teenager
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
-|> DrugOrder.toOrder
+|> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
 
 |> Order.solveMinMax true OrderLogger.noLogger
-|> Result.bind (Api.increaseIncrement OrderLogger.logger.Logger)
+|> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
     printfn "oeps error"
@@ -186,7 +186,7 @@ Patient.teenager
             // |> printfn "%s"
         | Ok ord  ->
             ord
-            |> Order.Print.printOrderToString [|"gentamincine"|]
+            |> Order.Print.printOrderToString [|"benzylpenicilline"|]
             |> fun (prs, prep, adm) -> printfn $"{prs}"
             // ord
             // |> Order.toString
@@ -260,7 +260,7 @@ let testDto =
     )
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
     |> fun pr -> pr |> Api.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
-    |> DrugOrder.toOrder
+    |> DrugOrder.toOrderDto
 
 
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit

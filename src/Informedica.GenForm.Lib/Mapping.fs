@@ -78,15 +78,15 @@ module Mapping =
             |> Array.tail
             |> Array.map (fun r ->
                 let getStr = getColumn Csv.getStringColumn r
-                let getDec = getColumn Csv.getDecimalOptionColumn r
+                let getFlt = getColumn Csv.getFloatOptionColumn r
 
                 {
                     Route = getStr "Route"
                     Shape = getStr "Shape"
                     Unit = getStr "Unit"
                     DoseUnit = getStr "Unit"
-                    MinDoseQty = getDec "MinDoseQty"
-                    MaxDoseQty = getDec "MaxDoseQty"
+                    MinDoseQty = getFlt "MinDoseQty"
+                    MaxDoseQty = getFlt "MaxDoseQty"
                     Timed = getStr "Timed" |> String.equalsCapInsens "true"
                     Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                     IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"

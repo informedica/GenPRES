@@ -124,7 +124,7 @@ module BST001T =
                 |> Seq.fold (fun s c ->
                     let t =
                         if c.MDRTYP = "N" then
-                            if c.MDROPM |> Parser.isDecimalFormat then "decimal" else "int"
+                            if c.MDROPM |> Parser.isDecimalFormat then "float" else "int"
                         else "string"
                     s + $"%s{tab}%s{tab}%s{tab}%s{tab}%s{c.MDRNAM} : %s{t}\n") "")
         s + $"%s{tab}%s{tab}%s{tab}}}\n"
@@ -150,7 +150,7 @@ module BST001T =
                     if c.MDRTYP = "N" then
                         let typ, opm = "\"" + c.MDRTYP + "\"", "\"" + c.MDROPM + "\""
                         if c.MDROPM |> Parser.isDecimalFormat then
-                            $"|> ((Parser.parseValue %s{typ} %s{opm}) >> Decimal.parse)"
+                            $"|> ((Parser.parseValue %s{typ} %s{opm}) >> Double.parse)"
                         else
                             $"|> ((Parser.parseValue %s{typ} %s{opm}) >> Int32.parse)"
                     elif c.MDRNAM = "ATCODE" then ""

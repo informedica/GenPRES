@@ -19,7 +19,6 @@
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\loadDLL.fsx" />
     <None Include="Scripts\GStand.fsx" />
-    <None Include="Scripts\GenForm3.fsx" />
     <None Include="Scripts\Dto.fsx" />
     <None Include="Scripts\Scripts.fsx" />
     <None Include="Scripts\Dto.fsx" />

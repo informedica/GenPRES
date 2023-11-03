@@ -87,6 +87,7 @@ module BST000T =
 
 
     let commentString n pl =
+        printfn $"processing: {n} {pl}"
         let tab = "    "
         let d =
             let t = table n

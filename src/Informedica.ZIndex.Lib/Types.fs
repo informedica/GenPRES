@@ -7,12 +7,15 @@ module Types =
 
     module Names =
 
+        /// The naming for the different types of names
         type Name = Full | Short | Memo | Label
 
 
+        /// The length of the name
         type Length = TwentyFive | Fifty
 
 
+        /// Naming items
         type Item =
             | Shape
             | Route
@@ -24,7 +27,7 @@ module Types =
 
     module Route =
 
-
+        /// Possible Z-Index routes
         type Route =
             | AURICULAR
             | CUTANEOUS
@@ -88,7 +91,8 @@ module Types =
             | NoRoute
 
 
-        type Mapping = 
+        /// Mapping between Z-Index route
+        type Mapping =
             {
                 Route : Route
                 Name : string
@@ -99,30 +103,33 @@ module Types =
             }
 
 
+    /// A Z-Index Substance
     type Substance =
         {
             Id : int
             Pk : int
             Name : string
-            Mole : decimal
-            MoleReal : decimal
+            Mole : float
+            MoleReal : float
             Formula : string
             Unit : string
-            Density : decimal
+            Density : float
         }
 
 
+    /// A Z-Index Consumer Product
     type ConsumerProduct =
         {
             Id : int
             Name : string
             Label : string
-            Quantity : decimal
+            Quantity : float
             Container : string
             BarCodes : string []
         }
 
 
+    /// A Z-Index Trade Product
     type TradeProduct =
         {
             Id: int
@@ -131,24 +138,26 @@ module Types =
             Brand : string
             Company : string
             Denominator : int
-            UnitWeight : decimal
+            UnitWeight : float
             Route : string []
             ConsumerProducts : ConsumerProduct []
         }
 
 
+    /// A Z-Index Prescription Product
     type PrescriptionProduct =
         {
             Id : int
             Name : string
             Label  : string
-            Quantity : decimal
+            Quantity : float
             Unit : string
             Container : string
             TradeProducts : TradeProduct []
         }
 
 
+    /// A Z-Index Generic Product
     type GenericProduct =
         {
             Id : int
@@ -167,16 +176,17 @@ module Types =
             SubstanceId : int
             SortOrder : int
             SubstanceName : string
-            SubstanceQuantity : decimal
+            SubstanceQuantity : float
             SubstanceUnit : string
             GenericId : int
             GenericName : string
-            GenericQuantity : decimal
+            GenericQuantity : float
             GenericUnit : string
             ShapeUnit : string
         }
 
 
+    /// A GenPresProduct
     type GenPresProduct =
         {
             Name : string
@@ -190,10 +200,10 @@ module Types =
         }
 
 
-    type RuleFrequency = { Frequency: decimal; Time: string }
+    type RuleFrequency = { Frequency: float; Time: string }
 
 
-    type RuleMinMax = { Min: decimal Option; Max: decimal Option }
+    type RuleMinMax = { Min: float Option; Max: float Option }
 
 
     type DoseRule =
@@ -307,7 +317,7 @@ module Types =
             Substances : RuleSubstance []
         }
 
-    and RuleSubstance = { Name: string; Quantity: decimal; Unit: string }
+    and RuleSubstance = { Name: string; Quantity: float; Unit: string }
 
 
     type ATCGroup =
@@ -333,11 +343,11 @@ module Types =
         }
 
 
-    type AgeInMo = decimal Option
+    type AgeInMo = float Option
 
-    type WeightInKg = decimal Option
+    type WeightInKg = float Option
 
-    type BSAInM2 = decimal Option
+    type BSAInM2 = float Option
 
 
     type PatientFilter =

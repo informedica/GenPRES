@@ -72,13 +72,25 @@ module Zindex =
         |> String.replace "{map}" mp
 
 
+    /// <summary>
+    /// Table list of Z-Index files.
+    /// </summary>
+    /// <remarks>
+    /// Files that no longer (will) exist:
+    /// <list type="bullet">
+    /// <item>BST025T</item>
+    /// <item>BST050T</item>
+    /// <item>BST051T</item>
+    /// <item>BST059T</item>
+    /// <item>BST681T</item>
+    /// </list>
+    /// </remarks>
     let tableList =
         [
             ("BST004T", [1;2;3;4;11;12])
             ("BST020T", [1..6])
             ("BST031T", [1;2;3;5;6;7;10;18;19;20;21;22;38])
-            ("BST050T", [1..3])
-            ("BST051T", [1;2;4;5;6;7])
+            ("BST052T", [1;2;3;4;7;8;9;10;11])
             ("BST200T", [1;2;3;4;5])
             ("BST360T", [1;2;4])
             ("BST380T", [1;2;4])
@@ -96,7 +108,7 @@ module Zindex =
             ("BST760T", [1;2;5])
             ("BST801T", [1..5])
             ("BST902T", [1;2;3;7;8])
-            ("BST921T", [1..9])
+            ("BST922T", [1..9])
         ]
 
 

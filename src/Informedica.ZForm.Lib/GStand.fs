@@ -47,8 +47,8 @@ module GStand =
     /// Map GSTand min max float Option values to
     /// a `DoseRule` `MinMax`
     let mapMinMax<'a>
-        (setMin: decimal Option -> 'a -> 'a)
-        (setMax: decimal Option -> 'a -> 'a)
+        (setMin: float Option -> 'a -> 'a)
+        (setMax: float Option -> 'a -> 'a)
         (minmax: ZIndexTypes.RuleMinMax)
         (o: 'a)
         =
@@ -130,7 +130,10 @@ module GStand =
             | None -> vu
 
         let s =
-            fr.Frequency |> BigRational.fromDecimal |> string
+            fr.Frequency
+            |> decimal
+            |> BigRational.fromDecimal
+            |> string
 
         let s = s + " X[Count]"
 
@@ -209,7 +212,7 @@ module GStand =
                 {|
                     name = n
                     time = gstdsr.Freq.Time
-                    isOne = gstdsr.Freq.Frequency = 1m
+                    isOne = gstdsr.Freq.Frequency = 1.
                 |}
             routes = gstdsr.Routes |> Array.toList
             indication = gstdsr.Indication

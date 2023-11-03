@@ -68,7 +68,7 @@ module ATCGroup =
             let route =
 
                 let rt =
-                    Zindex.BST051T.records ()
+                    Zindex.BST052T.records ()
                     |> Array.filter (fun r ->
                         r.MUTKOD <> 1 &&
                         r.GPKODE = gpk.GPKODE
@@ -209,8 +209,8 @@ module ATCGroup =
                                     gp.PrescriptionProducts
                                     |> Array.fold (fun acc pp ->
                                         if pp.Quantity <> acc then pp.Quantity else acc
-                                    ) 1.0m
-                                    |> fun v -> if v <= 0m then 1m else v
+                                    ) 1.0
+                                    |> fun v -> if v <= 0. then 1. else v
                                 ShapeVol = ""
                                 ShapeUnit = gpp.Unit
                                 Substance = s.SubstanceName
@@ -245,7 +245,7 @@ module ATCGroup =
                     r.Substance |> String.toLower |> strToStr
                     r.SubstanceQuantity |> strToStr
                     r.SubstanceUnit |> String.toLower |> strToStr
-                    r.SubstanceQuantity / (r.Divisible |> decimal) |> numToStr
+                    r.SubstanceQuantity / (r.Divisible |> float) |> numToStr
                     r.SubstanceUnit
                     r.Divisible |> numToStr
                 ]

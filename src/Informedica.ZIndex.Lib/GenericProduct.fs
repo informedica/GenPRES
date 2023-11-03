@@ -39,7 +39,7 @@ module GenericProduct =
     let getRoutes (gp : Zindex.BST711T.BST711T) =
         // try to get the 'enkelvoudige toedieningsweg'
         let rts =
-            Zindex.BST051T.records ()
+            Zindex.BST052T.records ()
             |> Array.filter (fun prp ->
                 prp.MUTKOD <> 1 &&
                 prp.GPKODE = gp.GPKODE
@@ -182,7 +182,7 @@ module GenericProduct =
                     |> Array.map (fun b -> (gp.Id, b))
                 )
             )
-        )        
+        )
         |> Array.groupBy fst
         |> Array.map (fun (gpk, bc) ->
             gpk, bc |> Array.map snd

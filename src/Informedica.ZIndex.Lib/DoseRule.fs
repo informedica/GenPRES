@@ -61,16 +61,16 @@ module DoseRule =
             let mms =
                 match mm.Min, mm.Max with
                 | Some min, Some max ->
-                    let min = Decimal.fixPrecision p min |> string
-                    let max = Decimal.fixPrecision p max |> string
+                    let min = Double.fixPrecision p min |> string
+                    let max = Double.fixPrecision p max |> string
                     $"%s{min} - %s{max}"
                 | Some min, None ->
-                    let min = Decimal.fixPrecision p min |> string
+                    let min = Double.fixPrecision p min |> string
                     sprintf "vanaf %s" min
                 | None, Some max ->
-                    if max = 0m then ""
+                    if max = 0. then ""
                     else
-                        let max = Decimal.fixPrecision p max |> string
+                        let max = Double.fixPrecision p max |> string
                         $"tot %s{max}"
                 | None, None -> ""
             if mms = "" then s
@@ -117,7 +117,7 @@ module DoseRule =
         let s = s |> minMaxToString "BSA" "m2" 3 r.BSA
 
         let s =
-            if r.Freq.Frequency <= 0m then s
+            if r.Freq.Frequency <= 0. then s
             else
                 s + "Freq: " + (r.Freq |> freqToString) + " " + del
 
@@ -153,8 +153,8 @@ module DoseRule =
 
         if mx < mn then minmax
         else
-            let mn = if mn = 0m then None else Some mn
-            let mx = if mx = 0m || chkmx then None else Some mx
+            let mn = if mn = 0. then None else Some mn
+            let mx = if mx = 0. || chkmx then None else Some mx
 
             { Min = mn; Max = mx }
 
@@ -204,7 +204,7 @@ module DoseRule =
             Age = minmax
             Weight = minmax
             BSA = minmax
-            Freq = createFrequency 0m ""
+            Freq = createFrequency 0. ""
             Norm = minmax
             Abs = minmax
             NormKg = minmax
@@ -259,7 +259,7 @@ module DoseRule =
 
     let _getPrescriptionProducts _ =
         query {
-            for p in Zindex.BST050T.records () do
+            for p in Zindex.BST052T.records () do
             join nm in Zindex.BST020T.records ()
                 on (p.PRNMNR = nm.NMNR)
             where (p.MUTKOD <> 1)
@@ -490,7 +490,7 @@ module DoseRule =
                 | None, None -> ""
                 | Some min, None -> "vanaf " + (min |> string)
                 | None, Some max ->
-                    if max = 0m then "" else "tot " + (max |> string)
+                    if max = 0. then "" else "tot " + (max |> string)
                 | Some min, Some max -> (min |> string) + " - " + (max |> string)
             if s = "" then "" else s + " " + u
 

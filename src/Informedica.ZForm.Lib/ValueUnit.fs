@@ -48,8 +48,9 @@ module ValueUnit =
 
     /// Create a `ValueUnit` using a float value
     /// `v` and a `Unit` `u`.
-    let fromDecimal (v: decimal) u =
+    let fromDecimal (v: float) u =
         v
+        |> decimal
         |> BigRational.fromDecimal
         |> createSingle u
 

@@ -30,7 +30,7 @@ module Tests =
             }
 
             test "table BST has at least 562831 records" {
-                Zindex.BST921T.records ()
+                Zindex.BST922T.records ()
                 |> Array.length |> fun x -> x >= 562831
                 |> Expect.isTrue "should be more than 562831"
 
@@ -276,7 +276,7 @@ module Tests =
                 DoseRule.get []
                 |> Array.filter (fun dr ->
                     dr.Freq.Time |> String.equalsCapInsens "per dag" &&
-                    dr.Freq.Frequency > 24m
+                    dr.Freq.Frequency > 24.
                 )
                 |> Array.isEmpty
                 |> Expect.isFalse "should be false"
@@ -286,7 +286,7 @@ module Tests =
                 DoseRule.get []
                 |> Array.filter (fun dr ->
                     dr.Freq.Time |> String.contains "eenmalig" &&
-                    dr.Freq.Frequency > 1.0m
+                    dr.Freq.Frequency > 1.0
                 )
                 |> Array.map (DoseRule.toString ", ")
                 |> Array.isEmpty
@@ -295,7 +295,7 @@ module Tests =
 
             test "should have NOT doserule result for pcm 1 yr 10kg (multiple shapes)" {
                 // Get all dose rules for age 12 months weight 10 kg paracetamol rect
-                RuleFinder.createFilter (Some 12m) (Some 10m) None None "paracetamol" "" ""
+                RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "" ""
                 |> RuleFinder.find []
                 |> RuleFinder.convertToResult
                 |> Expect.isNone "should NOT be there"
@@ -303,7 +303,7 @@ module Tests =
 
             test "should have doserule result for pcm drank 1 yr 10kg" {
                 // Get all dose rules for age 12 months weight 10 kg paracetamol rect
-                RuleFinder.createFilter (Some 12m) (Some 10m) None None "paracetamol" "drank" ""
+                RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "drank" ""
                 |> RuleFinder.find []
                 |> RuleFinder.convertToResult
                 |> Expect.isSome "should be there"
@@ -312,7 +312,7 @@ module Tests =
             test "should have doserules with freq = 'eenmalig'" {
                 DoseRule.get []
                 |> Array.filter (fun dr ->
-                    dr.Freq.Time = "eenmalig" && dr.Freq.Frequency > 1.0m
+                    dr.Freq.Time = "eenmalig" && dr.Freq.Frequency > 1.0
                 )
                 |> (Array.isEmpty >> not)
                 |> Expect.isTrue "should not be empty"

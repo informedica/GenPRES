@@ -465,8 +465,8 @@ module DoseRule =
                                     Substance = ""
                                     DoseUnit = rsu.DoseUnit
                                     Quantity =
-                                        let min = rsu.MinDoseQty |> Option.map BigRational.fromDecimal
-                                        let max = rsu.MaxDoseQty |> Option.map BigRational.fromDecimal
+                                        let min = rsu.MinDoseQty |> Option.bind BigRational.fromFloat
+                                        let max = rsu.MaxDoseQty |> Option.bind BigRational.fromFloat
                                         (min, max) |> MinMax.fromTuple
                                 }
                              )

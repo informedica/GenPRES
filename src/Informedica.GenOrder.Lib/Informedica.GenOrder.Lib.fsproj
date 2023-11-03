@@ -30,7 +30,6 @@
     <ProjectReference Include="..\Informedica.GenForm.Lib\Informedica.GenForm.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenSolver.Lib\Informedica.GenSolver.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
-    <ProjectReference Include="..\Informedica.MetaVision.Lib\Informedica.MetaVision.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

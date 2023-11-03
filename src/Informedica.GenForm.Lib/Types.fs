@@ -13,8 +13,8 @@ module Types =
             Shape : string
             Unit : string
             DoseUnit : string
-            MinDoseQty : decimal option
-            MaxDoseQty : decimal option
+            MinDoseQty : float option
+            MaxDoseQty : float option
             Timed : bool
             Reconstitute : bool
             IsSolution : bool

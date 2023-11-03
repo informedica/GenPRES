@@ -329,7 +329,8 @@ module Product =
                             |> Array.collect (fun gp ->
                                 gp.PrescriptionProducts
                                 |> Array.map (fun pp -> pp.Quantity)
-                                |> Array.map BigRational.fromDecimal
+                                |> Array.choose BigRational.fromFloat
+
                             )
                             |> Array.filter (fun br -> br > 0N)
                             |> Array.distinct
@@ -375,8 +376,7 @@ module Product =
                                         |> String.toLower
                                     Quantity =
                                         s.SubstanceQuantity
-                                        |> BigRational.fromDecimal
-                                        |> Some
+                                        |> BigRational.fromFloat
                                     Unit =
                                         s.SubstanceUnit
                                         |> Mapping.mapUnit
