@@ -1,7 +1,7 @@
 namespace Informedica.GenSolver.Lib
 
 
-/// Public funtions to use the library
+/// Public functions to use the library
 module Api =
 
     open System
@@ -63,9 +63,6 @@ module Api =
     /// <summary>
     /// Solve an `Equations` list
     /// </summary>
-    /// <param name="onlyMinIncrMax">True if only min, incr and max values are to be used</param>
-    /// <param name="log">The logger to log operations</param>
-    /// <param name="eqs">List of equations to solve</param>
     /// <returns>A result type of the solved equations</returns>
     /// <remarks>
     /// This function is a wrapper around `Solver.solveAll`

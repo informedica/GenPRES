@@ -1,7 +1,6 @@
 namespace Informedica.GenOrder.Lib
 
 
-
 module Api =
 
     open MathNet.Numerics
@@ -276,6 +275,15 @@ module Api =
     let increaseIncrements logger ord = Order.increaseIncrements logger 10N 50N ord
 
 
+    /// <summary>
+    /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
+    /// multiple Orders, depending on the SolutionRules.
+    /// </summary>
+    /// <param name="logger"></param>
+    /// <param name="rule"></param>
+    /// <returns>
+    /// An array of Results, containing the Order and the PrescriptionRule.
+    /// </returns>
     let evaluate logger (rule : PrescriptionRule) =
         let rec solve retry sr pr =
             pr
@@ -348,29 +356,9 @@ module Api =
             |> Array.map (fun sr -> solve true (Some sr) rule)
 
 
-    // print an order list
-    let toScenarios ind sn (ords : Order[]) =
-        ords
-        |> Array.mapi (fun i o ->
-            o
-            |> Order.Print.printOrderToString sn
-            |> fun (pres, prep, adm) ->
-                {
-                    No = i
-                    Indication = ind
-                    DoseType = ""
-                    Name = o.Orderable.Name |> Informedica.GenSolver.Lib.Variable.Name.toString
-                    Shape = o.Orderable.Components[0].Shape
-                    Route = o.Route
-                    Prescription = pres
-                    Preparation = prep
-                    Administration = adm
-                    Order = Some o
-                }
-        )
-
-
-
+    /// <summary>
+    /// Create an initial ScenarioResult for a Patient.
+    /// </summary>
     let scenarioResult pat =
         let rules = pat |> PrescriptionRule.get
         {
@@ -395,8 +383,10 @@ module Api =
         |> String.replace ">" ""
 
 
+    /// <summary>
+    /// Use a Filter and a ScenarioResult to create a new ScenarioResult.
+    /// </summary>
     let filter (sc : ScenarioResult) =
-
 
         if Env.getItem "GENPRES_PROD" |> Option.isNone then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
