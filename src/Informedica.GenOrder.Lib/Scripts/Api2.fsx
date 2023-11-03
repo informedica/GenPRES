@@ -219,7 +219,7 @@ try
         Patient.child
         |> getRule 703
         |> Api.createDrugOrder None
-        |> DrugOrder.toOrder
+        |> DrugOrder.toOrderDto
         |> Order.Dto.fromDto
         |> Order.applyConstraints
 
