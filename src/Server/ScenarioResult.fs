@@ -310,7 +310,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                 Shape = sc.Shape
                 Route = sc.Route
             }
-            |> Demo.filter
+            |> Api.filter
 
         let sc =
             { sc with

@@ -151,7 +151,7 @@ module DrugOrder =
     /// Map a DrugOrder record to a DrugOrderDto record.
     /// </summary>
     /// <remarks>
-    /// The DrugOrder will mainly map to the Order constraints.
+    /// The DrugOrder will mainly mapping the constraints of the DrugOrderDto.
     /// </remarks>
     let toOrderDto (d : DrugOrder) =
         let toArr = Option.map Array.singleton >> Option.defaultValue [||]

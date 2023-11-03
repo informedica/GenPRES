@@ -87,6 +87,16 @@ module Api =
     let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
 
 
+    /// <summary>
+    /// Create a ProductComponent from a list of Products.
+    /// DoseLimits are used to set the Dose for the ProductComponent.
+    /// If noSubst is true, the substances will not be added to the ProductComponent.
+    /// The freqUnit is used to set the TimeUnit for the Frequencies.
+    /// </summary>
+    /// <param name="noSubst">Whether or not to add the substances to the ProductComponent</param>
+    /// <param name="freqUnit">The TimeUnit for the Frequencies</param>
+    /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
+    /// <param name="ps">The Products to create the ProductComponent from</param>
     let createProductComponent noSubst freqUnit (doseLimits : DoseLimit []) (ps : Product []) =
         { DrugOrder.productComponent with
             Name =
@@ -138,6 +148,11 @@ module Api =
         }
 
 
+    /// <summary>
+    /// Set the SolutionLimits for a list of SubstanceItems.
+    /// </summary>
+    /// <param name="sls">The SolutionLimits to set</param>
+    /// <param name="items">The SubstanceItems to set the SolutionLimits for</param>
     let setSolutionLimit (sls : SolutionLimit[]) (items : SubstanceItem list) =
         items
         |> List.map (fun item ->
@@ -150,6 +165,11 @@ module Api =
         )
 
 
+    /// <summary>
+    /// Create a DrugOrder from a PrescriptionRule and a SolutionRule.
+    /// </summary>
+    /// <param name="sr">The optional SolutionRule to use</param>
+    /// <param name="pr">The PrescriptionRule to use</param>
     let createDrugOrder (sr: SolutionRule option) (pr : PrescriptionRule) =
         let parenteral = Product.Parenteral.get ()
         let au =
@@ -246,103 +266,14 @@ module Api =
                     }
 
 
-    let increaseIncrement logger ord =
-        printfn "checking increase incr"
-        let dto = ord |> Order.Dto.toDto
-
-        match dto.Orderable.OrderableQuantity.Variable.MinOpt,
-                dto.Orderable.OrderableQuantity.Variable.IncrOpt,
-                dto.Orderable.OrderableQuantity.Variable.MaxOpt with
-        | Some min, Some incr, Some _ when dto.Prescription.IsContinuous |> not ->
-            if min.Unit |> String.equalsCapInsens "ml" |> not then
-                ord
-                |> Order.solveOrder false logger
-                |> function
-                    | Error _ -> ord // original order
-                    | Ok ord  -> ord // calculated order
-                |> Ok
-            else
-                let incr =
-                    [0.1m; 0.5m; 1m; 5m; 10m; 20m]
-                    |> List.choose (fun i ->
-                        incr.Value <- [| i |> BigRational.fromDecimal |> string, i |]
-                        incr
-                        |> ValueUnit.Dto.fromDto
-                    )
-                    |> List.map (fun vu ->
-                        vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
-                    )
-
-                ord
-                |> Order.increaseQuantityIncrement 10N incr
-                // not sure if this is needed
-                |> fun o ->
-
-                    match dto.Orderable.Dose.Rate.Variable.MinOpt,
-                            dto.Orderable.Dose.Rate.Variable.IncrOpt,
-                            dto.Orderable.Dose.Rate.Variable.MaxOpt with
-                    | Some _, Some incr, Some _ ->
-                        let incr =
-                            [0.1m; 0.5m; 1m; 5m; 10m; 20m]
-                            |> List.choose (fun i ->
-                                incr.Value <- [| i |> BigRational.fromDecimal |> string, i  |]
-                                incr
-                                |> ValueUnit.Dto.fromDto
-                            )
-                            |> List.map (fun vu ->
-                                vu |> Informedica.GenSolver.Lib.Variable.ValueRange.Increment.create
-                            )
-
-                        o
-                        |> Order.increaseRateIncrement 50N incr
-                        |> fun o ->
-                            let s = o |> Order.toString |> String.concat "\n"
-                            ConsoleWriter.writeInfoMessage
-                                $"order with increased rate increment:\n {s}"
-                                true
-                                false
-                            o
-                    | _ -> o
-                |> Order.solveMinMax false logger
-                |> function
-                | Error (_, errs) ->
-                    errs
-                    |> List.iter (fun e ->
-                        ConsoleWriter.writeErrorMessage
-                            $"{e}"
-                            true
-                            false
-                    )
-                    ord // original order
-                | Ok ord ->
-                    ConsoleWriter.writeInfoMessage
-                        "solved order with increased increment"
-                        true
-                        false
-
-                    ord // increased increment order
-                    |> Order.solveOrder false logger
-
-                    |> function
-                    | Error (_, errs) ->
-                        errs
-                        |> List.iter (fun e ->
-                            ConsoleWriter.writeErrorMessage
-                                $"{e}"
-                                true
-                                false
-                        )
-                        ord // increased increment order
-                    | Ok ord ->
-                        let s = ord |> Order.toString |> String.concat "\n"
-                        ConsoleWriter.writeInfoMessage
-                            $"solved order with increased increment and values:\n {s}"
-                            true
-                            false
-
-                        ord // calculated order
-                |> Ok
-        | _ -> ord |> Ok
+    /// <summary>
+    /// Increase the Orderable Quantity Increment of an Order.
+    /// This allows speedy calculation by avoiding large amount
+    /// of possible values.
+    /// </summary>
+    /// <param name="logger">The OrderLogger to use</param>
+    /// <param name="ord">The Order to increase the increment of</param>
+    let increaseIncrements logger ord = Order.increaseIncrements logger 10N 50N ord
 
 
     let evaluate logger (rule : PrescriptionRule) =
@@ -352,7 +283,7 @@ module Api =
             |> DrugOrder.toOrderDto
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
-            |> Result.bind (increaseIncrement logger) // not sure if this is usable
+            |> Result.bind (increaseIncrements logger) // not sure if this is usable
             |> function
             | Ok ord ->
                 let dto = ord |> Order.Dto.toDto

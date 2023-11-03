@@ -1412,8 +1412,10 @@ module Order =
             | _ -> DiscontinuousOrder
 
 
+    open MathNet.Numerics
 
-    module ValueRange = Informedica.GenSolver.Lib.Variable.ValueRange
+    module Variable = Informedica.GenSolver.Lib.Variable
+    module ValueRange = Variable.ValueRange
     module Equation = Informedica.GenSolver.Lib.Equation
     module Property = ValueRange.Property
     module Quantity = OrderVariable.Quantity
@@ -1592,7 +1594,9 @@ module Order =
     /// <param name="ord">The Order</param>
     let increaseRateIncrement maxCount incrs (ord : Order) =
         { ord with
-            Orderable = ord.Orderable |> Orderable.increaseRateIncrement maxCount incrs
+            Orderable =
+                ord.Orderable
+                |> Orderable.increaseRateIncrement maxCount incrs
         }
 
 
@@ -1771,6 +1775,77 @@ module Order =
                         | Error _ -> ord
 
         loop true ord
+
+
+    /// <summary>
+    /// Increase the Orderable Quantity Increment of an Order.
+    /// This allows speedy calculation by avoiding large amount
+    /// of possible values.
+    /// </summary>
+    /// <param name="logger">The OrderLogger to use</param>
+    /// <param name="maxQtyCount">The maximum count of the Orderable Quantity</param>
+    /// <param name="maxRateCount">The maximum count of the Rate</param>
+    /// <param name="ord">The Order to increase the increment of</param>
+    let increaseIncrements logger maxQtyCount maxRateCount (ord : Order) =
+        if ord.Prescription |> Prescription.isContinuous then ord
+        else
+            let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
+
+            let incrs u =
+                [ 1N/10N; 1N/2N; 1N; 5N; 10N; 20N ]
+                |> List.map (ValueUnit.singleWithUnit u)
+                |> List.map ValueRange.Increment.create
+
+            if orbQty.Variable
+               |> Variable.getUnit
+               |> Option.map (ValueUnit.Group.unitToGroup >> ((=) Group.VolumeGroup) >> not)
+               |> Option.defaultValue false then ord
+            else
+                ord
+                |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
+
+            |> increaseRateIncrement
+                maxRateCount
+                (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
+            |> solveMinMax false logger
+            |> function
+            | Error (_, errs) ->
+                errs
+                |> List.iter (fun e ->
+                    ConsoleWriter.writeErrorMessage
+                        $"{e}"
+                        true
+                        false
+                )
+                ord // original order
+            | Ok ord ->
+                ConsoleWriter.writeInfoMessage
+                    "solved order with increased increment"
+                    true
+                    false
+
+                ord // increased increment order
+                |> solveOrder false logger
+
+                |> function
+                | Error (_, errs) ->
+                    errs
+                    |> List.iter (fun e ->
+                        ConsoleWriter.writeErrorMessage
+                            $"{e}"
+                            true
+                            false
+                    )
+                    ord // increased increment order
+                | Ok ord ->
+                    let s = ord |> toString |> String.concat "\n"
+                    ConsoleWriter.writeInfoMessage
+                        $"solved order with increased increment and values:\n {s}"
+                        true
+                        false
+
+                    ord // calculated order
+        |> Ok
 
 
     module Print =

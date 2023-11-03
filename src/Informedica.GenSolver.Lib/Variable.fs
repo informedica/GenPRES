@@ -72,6 +72,9 @@ module Variable =
                         Exceptions.ValueRangeEmptyIncrement |> raiseExc []
 
 
+            let apply f (Increment vu) = vu |> f
+
+
             /// <summary>
             /// Maps a function over the ValueUnit of `Increment`.
             /// </summary>
@@ -165,7 +168,7 @@ module Variable =
                 | ValueUnit.Operators.Mult -> incr1 |> op <| incr2 |> create |> Some
                 // TODO: really need to check this!!
                 // when y = x1 + x2 then y.incr = x1.incr and x2.incr
-                | ValueUnit.Operators.Add -> //| BigRational.Subtr ->
+                | ValueUnit.Operators.Add -> //| BigRational.Subtract ->
                     let vs1 = incr1 |> ValueUnit.getBaseValue
                     let vs2 = incr2 |> ValueUnit.getBaseValue
 
@@ -294,7 +297,7 @@ module Variable =
 
 
             /// <summary>
-            /// Apply fIncl or fExcl to the bigrational
+            /// Apply fIncl or fExcl to the BigRational
             /// value of `Minimum`
             /// </summary>
             /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
@@ -306,7 +309,7 @@ module Variable =
 
 
             /// <summary>
-            /// Map fIncl or fExcl to the bigrational value of `Minimum`
+            /// Map fIncl or fExcl to the BigRational value of `Minimum`
             /// </summary>
             /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
             /// <param name="fExcl">The function to apply to an exclusive `Minimum`</param>
@@ -621,7 +624,7 @@ module Variable =
 
 
             /// <summary>
-            /// Apply fIncl or fExcl to the bigrational
+            /// Apply fIncl or fExcl to the BigRational
             /// value of `Maximum`
             /// </summary>
             /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
@@ -633,7 +636,7 @@ module Variable =
 
 
             /// <summary>
-            /// Map fIncl or fExcl to the bigrational value of `Maximum`
+            /// Map fIncl or fExcl to the BigRational value of `Maximum`
             /// </summary>
             /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
             /// <param name="fExcl">The function to apply to an exclusive `Maximum`</param>
@@ -837,9 +840,9 @@ module Variable =
             /// is too large, i.e. there is an 'overflow'.
             /// </summary>
             /// <remarks>
-            /// In theory a Maximum can have a numerator or denomaxator of any size.
+            /// In theory a Maximum can have a numerator or denominator of any size.
             /// However, in practice, this will lead to performance issues. Therefore
-            /// we limit the size of the numerator and denomaxator to a maximum value.
+            /// we limit the size of the numerator and denominator to a maximum value.
             /// </remarks>
             let checkOverflow max =
                 let xs =
@@ -937,6 +940,9 @@ module Variable =
             /// Get the `ValueUnit` of a `ValueSet`.
             /// </summary>
             let toValueUnit (ValueSet vu) = vu
+
+
+            let apply f (ValueSet vu) = vu |> f
 
 
             /// <summary>
@@ -1222,6 +1228,34 @@ module Variable =
 
 
         /// <summary>
+        /// Apply a function to a `ValueRange`.
+        /// </summary>
+        /// <param name="unr">Constant for `Unrestricted`</param>
+        /// <param name="nonZero">Constant for `NonZeroNoneNegative`</param>
+        /// <param name="fMin">The function to apply to a `Minimum`</param>
+        /// <param name="fMax">The function to apply to a `Maximum`</param>
+        /// <param name="fMinMax">The function to apply to a `MinMax`</param>
+        /// <param name="fIncr">The function to apply to an `Increment`</param>
+        /// <param name="fMinIncr">The function to apply to a `MinIncr`</param>
+        /// <param name="fIncrMax">The function to apply to an `IncrMax`</param>
+        /// <param name="fMinIncrMax">The function to apply to a `MinIncrMax`</param>
+        /// <param name="fValueSet">The function to apply to a `ValueSet`</param>
+        /// <returns>The result of applying the function to the `ValueRange`</returns>
+        let apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
+            function
+            | Unrestricted -> unr
+            | NonZeroNoneNegative -> nonZero
+            | Min min -> min |> fMin
+            | Max max -> max |> fMax
+            | MinMax (min, max) -> (min, max) |> fMinMax
+            | Incr incr -> incr |> fIncr
+            | MinIncr (min, incr) -> (min, incr) |> fMinIncr
+            | IncrMax (incr, max) -> (incr, max) |> fIncrMax
+            | MinIncrMax (min, incr, max) -> (min, incr, max) |> fMinIncrMax
+            | ValSet vs -> vs |> fValueSet
+
+
+        /// <summary>
         /// Prune, limit the number of values, in a `ValueRange`.
         /// </summary>
         /// <remarks>
@@ -1252,38 +1286,34 @@ module Variable =
 
 
         /// <summary>
+        /// Map a function to the ValueUnit of a `ValueRange`.
+        /// </summary>
+        /// <param name="f">The function to apply to the `ValueUnit`</param>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>The mapped `ValueRange`</returns>
+        let applyValueUnit f vr =
+            vr
+            |> apply
+                None
+                None
+                (Minimum.apply f f)
+                (Maximum.apply f f)
+                (fun (min, _) -> min |> Minimum.apply f f)
+                (Increment.apply f)
+                (fun (min, _) -> min |> Minimum.apply f f)
+                (fun (incr, _) -> incr |> Increment.apply f)
+                (fun (min, _, _) -> min |> Minimum.apply f f)
+                (ValueSet.apply f)
+
+
+        /// <summary>
         /// Convert the unit of a `ValueRange` to **u**.
         /// </summary>
         /// <param name="u">The unit to convert to</param>
         let setUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
-        /// <summary>
-        /// Apply a function to a `ValueRange`.
-        /// </summary>
-        /// <param name="unr">Constant for `Unrestricted`</param>
-        /// <param name="nonz">Constant for `NonZeroNoneNegative`</param>
-        /// <param name="fMin">The function to apply to a `Minimum`</param>
-        /// <param name="fMax">The function to apply to a `Maximum`</param>
-        /// <param name="fMinMax">The function to apply to a `MinMax`</param>
-        /// <param name="fIncr">The function to apply to an `Increment`</param>
-        /// <param name="fMinIncr">The function to apply to a `MinIncr`</param>
-        /// <param name="fIncrMax">The function to apply to an `IncrMax`</param>
-        /// <param name="fMinIncrMax">The function to apply to a `MinIncrMax`</param>
-        /// <param name="fValueSet">The function to apply to a `ValueSet`</param>
-        /// <returns>The result of applying the function to the `ValueRange`</returns>
-        let apply unr nonz fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
-            function
-            | Unrestricted -> unr
-            | NonZeroNoneNegative -> nonz
-            | Min min -> min |> fMin
-            | Max max -> max |> fMax
-            | MinMax (min, max) -> (min, max) |> fMinMax
-            | Incr incr -> incr |> fIncr
-            | MinIncr (min, incr) -> (min, incr) |> fMinIncr
-            | IncrMax (incr, max) -> (incr, max) |> fIncrMax
-            | MinIncrMax (min, incr, max) -> (min, incr, max) |> fMinIncrMax
-            | ValSet vs -> vs |> fValueSet
+        let getUnit = applyValueUnit (ValueUnit.getUnit >> Some)
 
 
         /// <summary>
@@ -1677,7 +1707,7 @@ module Variable =
 
         /// <summary>
         /// Create a `MinMax` `ValueRange`. If **min** > **max** raises
-        /// an `MinLargetThanMax` exception. If min equals max, a `ValueSet` with
+        /// an `MinLargerThanMax` exception. If min equals max, a `ValueSet` with
         /// value min (= max).
         /// </summary>
         /// <param name="min">The minimum</param>
@@ -2712,7 +2742,7 @@ module Variable =
                 | ZP, NZ -> None, None
 
 
-            /// Match the right minmax calcultion
+            /// Match the right minmax calculation
             /// according to the operand
             let calcMinMax op =
                 match op with
@@ -2784,7 +2814,7 @@ module Variable =
                     | _ -> create min None max None
 
             // A set with an increment results in a new set of increment
-            // Need to match all scenarios with a valueset and an increment
+            // Need to match all scenarios with a ValueSet and an increment
             | ValSet s, Incr i
             | Incr i, ValSet s
 
@@ -2803,7 +2833,7 @@ module Variable =
                 let min, max =
                     calcMinMax min1 max1 min2 max2
 
-                // calculate a new increment based upon the valueset and an increment
+                // calculate a new Increment based upon the ValueSet and an Increment
                 let incr1 = i |> Some
 
                 let incr2 =
@@ -2956,7 +2986,7 @@ module Variable =
         /// </code>
         /// </example>
         let applyExpr y expr =
-            let appl get set vr =
+            let apply get set vr =
                 match expr |> get with
                 | Some m -> vr |> set m
                 | None -> vr
@@ -2966,9 +2996,9 @@ module Variable =
             | ValSet vs -> y |> setValueSet vs
             | _ ->
                 y
-                |> appl getIncr setIncr
-                |> appl getMin setMin
-                |> appl getMax setMax
+                |> apply getIncr setIncr
+                |> apply getMin setMin
+                |> apply getMax setMax
 
 
         module Operators =
@@ -3070,7 +3100,7 @@ module Variable =
             |> Exceptions.VariableCannotSetValueRange
             |> raiseExc errs
         | e ->
-            printfn $"couldn't catch exeption:{e}"
+            printfn $"couldn't catch exception:{e}"
             raise e
 
 
@@ -3203,6 +3233,10 @@ module Variable =
         }
 
 
+    /// Get the unit of a Variable
+    let getUnit var =
+        var |> getValueRange |> ValueRange.getUnit
+
     module Operators =
 
         let inline (^*) vr1 vr2 = calc (^*) (vr1, vr2)
@@ -3257,7 +3291,7 @@ module Variable =
         let opIsMult op =
             (three |> op <| two) |> eqValues (three ^* two) // = 6
 
-        /// Check whether the operator is divsion
+        /// Check whether the operator is division
         let opIsDiv op =
             (three |> op <| two) |> eqValues (three ^/ two) // = 3/2
 
@@ -3380,12 +3414,12 @@ module Variable =
                     |> ValueRange.getIncr
                     |> Option.map (Increment.toValueUnit >> vuToDto)
 
-                let minincl =
+                let minIncl =
                     match v.Values |> ValueRange.getMin with
                     | Some m -> m |> Minimum.isExcl |> not
                     | None -> false
 
-                let maxincl =
+                let maxIncl =
                     match v.Values |> ValueRange.getMax with
                     | Some m -> m |> Maximum.isExcl |> not
                     | None -> false
@@ -3407,9 +3441,9 @@ module Variable =
 
                 dto.IncrOpt <- incr
                 dto.MinOpt <- min
-                dto.MinIncl <- minincl
+                dto.MinIncl <- minIncl
                 dto.MaxOpt <- max
-                dto.MaxIncl <- maxincl
+                dto.MaxIncl <- maxIncl
                 dto.ValsOpt <- vals
 
                 dto
