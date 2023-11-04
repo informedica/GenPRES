@@ -37,14 +37,21 @@ module Substance =
 
 
     let _get _ =
+        let useDemo = FilePath.useDemo()
+
         fun () ->
-            if FilePath.substanceCache true |> File.exists then
-                FilePath.substanceCache true
+            if FilePath.substanceCache useDemo |> File.exists then
+                FilePath.substanceCache useDemo
                 |> Json.getCache
             else
-                    ConsoleWriter.writeInfoMessage "No cache creating Substance" true false
+                    let p = FilePath.substanceCache useDemo
+                    ConsoleWriter.writeInfoMessage
+                        $"No {p}, creating Substance" true false
                     let substs = parse ()
-                    substs |> Json.cache (FilePath.substanceCache false)
+                    ConsoleWriter.writeInfoMessage
+                        $"Created {substs |> Array.length} Substances" true false
+
+                    substs |> Json.cache p
                     substs
         |> StopWatch.clockFunc "Getting Substances"
 

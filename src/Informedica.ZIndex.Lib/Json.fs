@@ -21,11 +21,11 @@ module Json =
         |> serialize
         |> File.writeTextToFile p
 
-    let clearCache () =
-        File.Delete(FilePath.groupCache false)
-        File.Delete(FilePath.substanceCache false)
-        File.Delete(FilePath.productCache false)
-        File.Delete(FilePath.ruleCache false)
+    let clearCache useDemo =
+        File.Delete(FilePath.groupCache useDemo)
+        File.Delete(FilePath.substanceCache useDemo)
+        File.Delete(FilePath.productCache useDemo)
+        File.Delete(FilePath.ruleCache useDemo)
 
     let getCache<'T> p =
         ConsoleWriter.writeInfoMessage $"Reading cache: %s{p}" true false

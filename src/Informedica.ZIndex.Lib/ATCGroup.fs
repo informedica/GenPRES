@@ -144,14 +144,21 @@ module ATCGroup =
 
 
     let _get () =
+        let useDemo = FilePath.useDemo()
+
         fun () ->
-            if (FilePath.groupCache true) |> File.exists then
-                FilePath.groupCache true
+            if (FilePath.groupCache useDemo) |> File.exists then
+                FilePath.groupCache useDemo
                 |> Json.getCache
             else
-                ConsoleWriter.writeInfoMessage "No cache creating group.cache" true false
+                let p = FilePath.groupCache useDemo
+                ConsoleWriter.writeInfoMessage
+                    $"No {p} creating group.cache" true false
                 let grps = GenPresProduct.getGPKS [] |> parse
-                grps |> Json.cache (FilePath.groupCache false)
+                ConsoleWriter.writeInfoMessage
+                    $"Created {grps |> Array.length} ATC Groups" true false
+
+                grps |> Json.cache (FilePath.groupCache useDemo)
                 grps
         |> StopWatch.clockFunc "Getting ATC groups"
 

@@ -457,15 +457,22 @@ module DoseRule =
 
 
     let _get gpks =
+        let useDemo = FilePath.useDemo()
+
         fun () ->
-            if FilePath.ruleCache true |> File.exists then
-                FilePath.ruleCache true
+            if FilePath.ruleCache useDemo |> File.exists then
+                FilePath.ruleCache useDemo
                 |> Json.getCache<DoseRule[]>
             else
-                    ConsoleWriter.writeInfoMessage "No cache creating DoseRule" true false
-                    let rules = GenPresProduct.getGPKS gpks |> parse
-                    rules |> Json.cache (FilePath.ruleCache false)
-                    rules
+                let p = FilePath.ruleCache useDemo
+                ConsoleWriter.writeInfoMessage
+                    $"No {p}, creating DoseRule" true false
+                let rules = GenPresProduct.getGPKS gpks |> parse
+                ConsoleWriter.writeInfoMessage
+                    $"Created {rules |> Array.length} Rules" true false
+
+                rules |> Json.cache p
+                rules
         |> StopWatch.clockFunc "Getting DoseRules"
 
 

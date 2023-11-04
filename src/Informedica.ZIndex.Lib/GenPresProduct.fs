@@ -86,9 +86,11 @@ module GenPresProduct =
 
 
     let private _get gpks =
+        let useDemo = FilePath.useDemo()
+
         fun () ->
-            if (FilePath.productCache true) |> File.exists then
-                FilePath.productCache true
+            if (FilePath.productCache useDemo) |> File.exists then
+                FilePath.productCache useDemo
                 |> Json.getCache
                 |> (fun gpps ->
                     if gpks |> List.isEmpty then gpps
@@ -103,10 +105,15 @@ module GenPresProduct =
                         )
                 )
             else
-                ConsoleWriter.writeInfoMessage "No cache creating GenPresProduct" true false
-                let gsps = parse gpks
-                gsps |> Json.cache (FilePath.productCache false)
-                gsps
+                let p = FilePath.productCache useDemo
+                ConsoleWriter.writeInfoMessage
+                    $"No {p}, creating GenPresProduct" true false
+                let gpps = parse gpks
+                ConsoleWriter.writeInfoMessage
+                    $"Created {gpps |> Array.length} GenPres Products" true false
+
+                gpps |> Json.cache p
+                gpps
         |> StopWatch.clockFunc "Getting GenPresProducts"
 
 

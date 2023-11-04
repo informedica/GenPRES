@@ -40,7 +40,7 @@ COPY --from=client-build /workspace/deploy /app/public
 COPY src/Server/data /app/data
 
 # setting this env variable disables file logging
-ENV GENPRES_PROD=""
+ENV GENPRES_PROD="1"
 WORKDIR /app
 EXPOSE 8085
 ENTRYPOINT [ "dotnet", "Server.dll" ]

@@ -3,23 +3,27 @@
 
 #time
 
-open System.Collections.Generic
-
+open System
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.ZIndex.Lib
 
+Environment.CurrentDirectory
 
 // File
 File.exists <| FilePath.GStandPath + "BST000T"
 
-
-FilePath.productCache true
+// Check the product cache
+FilePath.productCache false
 |> File.exists
 
+Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+FilePath.useDemo()
 
-Json.clearCache ()
+// Clear the cache
+Json.clearCache (FilePath.useDemo ())
+
 // Load all
 printfn "Loading GenPresProduct ..."
 GenPresProduct.load []
@@ -42,6 +46,15 @@ DoseRule.routes ()
 
 
 // load demo cache
+Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "0")
+FilePath.useDemo()
+
+// Check the demo cache
+FilePath.productCache (FilePath.useDemo ())
+|> File.exists
+Json.clearCache (FilePath.useDemo ())
+
+// Load demo
 
 let gpks =
     [
@@ -305,7 +318,6 @@ let gpks =
         175552 // argipressine
     ]
 
-// Load demo
 printfn "Loading GenPresProduct ..."
 GenPresProduct.load gpks
 printfn "Loading ATCGroup ..."
