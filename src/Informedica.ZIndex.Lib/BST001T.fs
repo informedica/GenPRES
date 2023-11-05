@@ -15,6 +15,10 @@ module BST001T =
     [<Literal>]
     let name = "BST001T"
 
+
+    /// <summary>
+    /// Position of the fields in the record
+    /// </summary>
     let posl = [ 0004; 0001; 0020; 0003; 0010; 0050; 0008; 0002; 0001; 0004; 0002; 0006; 0017 ]
 
 
@@ -47,6 +51,9 @@ module BST001T =
         }
 
 
+    /// <summary>
+    /// Create a BST001T record
+    /// </summary>
     let create mk tb vn nm bs ke tp ln dc fm =
         {
             MUTKOD = mk
@@ -62,6 +69,9 @@ module BST001T =
         }
 
 
+    /// <summary>
+    /// Picklist of fields to use
+    /// </summary>
     let pickList = [1..5] @ [7..11]
 
 
@@ -91,6 +101,10 @@ module BST001T =
     let _records = records ()
 
 
+    /// <summary>
+    /// Get the position of the fields in the record
+    /// </summary>
+    /// <param name="name">The name of the file</param>
     let getPosl name =
         _records
         |> Array.toList
@@ -98,21 +112,35 @@ module BST001T =
         |> List.map (fun d -> d.MDRLEN)
 
 
+    /// <summary>
+    /// Get the length of the record
+    /// </summary>
+    /// <param name="n">The name of the file</param>
     let recordLength n =
         _records
         |> Seq.filter (fun r -> r.MDBST = n)
         |> Seq.sumBy (fun r -> r.MDRLEN)
 
 
+    /// <summary>
+    /// Get the all colums for a file
+    /// </summary>
     let columns n =
         _records
         |> Seq.filter (fun r -> r.MDBST = n)
         |> Seq.filter (fun r -> r.MDRNAM <> "******")
 
 
+    /// Get the column count for a file
     let columnCount n = columns n |> Seq.length
 
 
+    /// <summary>
+    /// Get the column names for a file as a single
+    /// F# record string.
+    /// </summary>
+    /// <param name="n">The name of the file</param>
+    /// <param name="pl">The picklist of fields to use</param>
     let recordString n pl =
         let tab = "    "
         let s = $"type %s{n} =\n"
@@ -130,6 +158,12 @@ module BST001T =
         s + $"%s{tab}%s{tab}%s{tab}}}\n"
 
 
+    /// <summary>
+    /// Get the column names for a file as a single
+    /// F# create function string.
+    /// </summary>
+    /// <param name="n">The name of the file</param>
+    /// <param name="pl">The picklist of fields to use</param>
     let createString n pl =
         let tab = "    "
         let cs =

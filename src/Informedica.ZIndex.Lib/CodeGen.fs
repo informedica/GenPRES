@@ -51,6 +51,12 @@ module Zindex =
 
     """
 
+
+    /// <summary>
+    /// Generates the code for a single table.
+    /// </summary>
+    /// <param name="n">The name of the table.</param>
+    /// <param name="pl">The picklist of the table.</param>
     let generate n pl =
         let cm = BST000T.commentString n pl
         let rc = BST001T.recordString n pl
@@ -112,6 +118,10 @@ module Zindex =
         ]
 
 
+    /// <summary>
+    /// Generates the Z-Index file.
+    /// </summary>
+    /// <param name="tl">The table list.</param>
     let generateZIndex tl =
         let code =
             tl

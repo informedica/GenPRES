@@ -328,4 +328,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.search "amikacine"
+GenPresProduct.search "adrenaline"
+|> Array.head
+|> fun gpp -> gpp.GenericProducts |> Array.head
+

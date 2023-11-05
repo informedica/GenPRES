@@ -47,6 +47,9 @@ module BST000T =
         }
 
 
+    /// <summary>
+    /// Create a BST000T record
+    /// </summary>
     let create mc nm ds rl st ua dl al nw tt =
         {
             MUTKOD = mc
@@ -68,6 +71,9 @@ module BST000T =
     let pickList = [1] @ [2; 3] @ [5] @ [9..14]
 
 
+    /// <summary>
+    /// Get all the records from the BST000T file
+    /// </summary>
     let records _ =
         Parser.getData name posl pickList
         |> Array.map (Array.map String.trim)
@@ -81,11 +87,20 @@ module BST000T =
             create d[0] d[1] d[2] rl d[4] ua dl al nw tt)
 
 
+    /// <summary>
+    /// Get a specific record from the BST000T file
+    /// </summary>
+    /// <param name="n">The name of the table</param>
     let table n =
         records ()
         |> Array.find (fun r -> r.MDBST = n)
 
 
+    /// <summary>
+    /// Creat a code comment for a table.
+    /// </summary>
+    /// <param name="n">The name of the table</param>
+    /// <param name="pl">The picklist of columns to include in the comment</param>
     let commentString n pl =
         printfn $"processing: {n} {pl}"
         let tab = "    "
