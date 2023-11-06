@@ -7,6 +7,7 @@ module TradeProduct =
     open Informedica.Utils.Lib.BCL
 
 
+    /// Creates a new TradeProduct
     let create id nm lb br cm dn uw rt ps =
         {
             Id = id
@@ -44,4 +45,10 @@ module TradeProduct =
         )
 
 
+    /// <summary>
+    /// Gets the TradeProduct with the specified id
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized
+    /// </remarks>
     let get : int -> TradeProduct [] = Memoization.memoize _get

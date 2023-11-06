@@ -12,7 +12,7 @@ module RuleFinder =
     let createRoute = Route.fromString (Route.routeMapping ())
 
 
-    let eqsRoute = Route.eqsRoute (Route.routeMapping ())
+    let eqsRoute = Route.routeExists (Route.routeMapping ())
 
 
     type AgeInMo = decimal Option

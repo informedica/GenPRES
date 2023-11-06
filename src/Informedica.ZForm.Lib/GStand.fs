@@ -119,7 +119,7 @@ module GStand =
     // TODO: rewrite to frequency mapping
     /// Map GStand frequency string to a valid
     /// frequency `ValueUnit`.
-    let mapFreq (fr: DR.Frequency) =
+    let mapFreq (fr: ZIndexTypes.RuleFrequency) =
         let map vu =
             match [
                       2N, ValueUnit.freqUnitPerNday 3N, ValueUnit.freqUnitPerNHour 36N
@@ -202,7 +202,7 @@ module GStand =
 
                 vu * x |> Some
 
-        let minmax n mapping (mm: DR.MinMax) =
+        let minmax n mapping (mm: ZIndexTypes.RuleMinMax) =
             MinIncrMax.empty
             |> setMin (mm.Min |> Option.bind (toVu n mapping))
             |> setMax (mm.Max |> Option.bind (toVu n mapping))

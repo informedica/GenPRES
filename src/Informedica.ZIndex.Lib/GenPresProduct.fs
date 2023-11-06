@@ -7,6 +7,7 @@ module GenPresProduct =
     open Informedica.Utils.Lib
 
 
+    /// Create a GenPresProduct.
     let create nm sh rt ph gps dpn unt sns =
         {
             Name = nm
@@ -120,9 +121,16 @@ module GenPresProduct =
     let private memGet = Memoization.memoize _get
 
 
+    /// <summary>
+    /// Get all GenPresProducts for the given GenericProduct Ids.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized
+    /// </remarks>
     let get = memGet
 
 
+    /// Get a list of all GenericProduct Ids.
     let getGPKS all =
         get all
         |> Array.collect (fun gpp ->
@@ -132,10 +140,17 @@ module GenPresProduct =
         |> Array.distinct
 
 
+    /// Get the string representation of a GenPresProduct.
     let toString (gpp : GenPresProduct) =
         gpp.Name + " " + gpp.Shape + " " + (gpp.Routes |> String.concat "/")
 
 
+    /// <summary>
+    /// Filter GenPresProducts by name, shape and route.
+    /// </summary>
+    /// <param name="n">The name</param>
+    /// <param name="s">The shape</param>
+    /// <param name="r">The route</param>
     let filter n s r =
         get []
         |> Array.filter (fun gpp ->
@@ -145,6 +160,7 @@ module GenPresProduct =
         )
 
 
+    /// Get a Map of GenericProduct Ids to GenPresProducts.
     let getGPKMap =
         fun () ->
             get []
@@ -158,20 +174,18 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
+    /// Find GenPresProducts by GenericProduct Id.
     let findByGPK gpk =
         match (getGPKMap ()) |> Map.tryFind gpk with
         | Some gpps -> gpps
         | None -> [||]
-        // get []
-        // |> Array.filter (fun gpp ->
-        //     gpp.GenericProducts
-        //     |> Array.exists (fun gp -> gp.Id = gpk)
-        // )
 
 
+    /// Load all GenPresProducts in memory.
     let load = get >> ignore
 
 
+    /// Get all Routes for all GenPresProducts.
     let getRoutes =
         fun () ->
             get []
@@ -183,6 +197,7 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
+    /// Get all Shapes for all GenPresProducts.
     let getShapes =
         fun () ->
             get []
@@ -194,6 +209,7 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
+    /// Get all Units for all GenPresProducts.
     let getUnits =
         fun () ->
             get []
@@ -205,6 +221,12 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
+    /// <summary>
+    /// Get all ShapeRoutes for all GenPresProducts.
+    /// </summary>
+    /// <returns>
+    /// An array of tuples of Shape and Routes.
+    /// </returns>
     let getShapeRoutes =
         fun () ->
             get []
@@ -212,9 +234,9 @@ module GenPresProduct =
                 gpp.Shape, gpp.Routes
             )
             |> Array.groupBy fst
-            |> Array.map (fun (k, vs) ->
-                k,
-                vs
+            |> Array.map (fun (shape, routes) ->
+                shape,
+                routes
                 |> Array.collect snd
                 |> Array.distinct
             )
@@ -222,6 +244,32 @@ module GenPresProduct =
             |> Array.sort
 
 
+    /// <summary>
+    /// Get all RouteShapes for an array of GenPresProducts.
+    /// </summary>
+    /// <param name="gpps">The GenPresProducts</param>
+    /// <returns>
+    /// An array of tuples of Route and Shape.
+    /// </returns>
+    let routeShapes (gpps : GenPresProduct[]) =
+        // route shape
+        gpps
+        |> Array.collect (fun gpp ->
+            gpp.Routes
+            |> Array.map (fun route ->
+                route,
+                gpp.Shape
+            )
+        )
+        |> Array.distinct
+
+
+    /// <summary>
+    /// Get all ShapeUnits for all GenPresProducts.
+    /// </summary>
+    /// <returns>
+    /// An array of tuples of Shape and Units.
+    /// </returns>
     let getShapeUnits =
         fun () ->
             get []
@@ -233,6 +281,7 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
+    /// Get all Substance Units for all GenPresProducts.
     let getSubstanceUnits =
         fun () ->
             get []
@@ -249,6 +298,7 @@ module GenPresProduct =
 
 
 
+    /// Get all Generic Units for all GenPresProducts.
     let getGenericUnits =
         fun () ->
             get []
@@ -264,6 +314,14 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
+    /// <summary>
+    /// Get all Substance names, quantities and units
+    /// all GenPresProducts that contain the given GenericProduct Id.
+    /// </summary>
+    /// <param name="gpk">The GenericProduct id</param>
+    /// <returns>
+    /// An array of tuples of Substance name, quantity and unit.
+    /// </returns>
     let getSubstQtyUnit gpk =
         get []
         |> Array.collect (fun gpp ->
@@ -272,18 +330,24 @@ module GenPresProduct =
             |> Array.collect (fun gp ->
                 gp.Substances
                 |> Array.map (fun s ->
-                    s.SubstanceName, s.SubstanceQuantity, s.SubstanceUnit
+                    s.SubstanceName,
+                    s.SubstanceQuantity,
+                    s.SubstanceUnit
                 )
             )
         )
 
 
+    /// Get all GenericProducts for all GenPresProducts.
     let getGenericProducts () =
         get []
         |> Array.collect (fun gpp -> gpp.GenericProducts)
 
 
-    // Find a product
+    /// <summary>
+    /// Find all GenPresProducts that contain the given string.
+    /// </summary>
+    /// <param name="n">The string</param>
     let search n =
         let contains = String.containsCapsInsens
 
@@ -303,16 +367,3 @@ module GenPresProduct =
                 )
             )
         )
-
-
-    let routeShapes (gpps : GenPresProduct[]) =
-        // route shape
-        gpps
-        |> Array.collect (fun gpp ->
-            gpp.Routes
-            |> Array.map (fun r ->
-                r,
-                gpp.Shape
-            )
-        )
-        |> Array.distinct

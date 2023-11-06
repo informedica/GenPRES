@@ -7,6 +7,7 @@ module GenericProduct =
     open Informedica.Utils.Lib.BCL
 
 
+    /// Creates a ProductSubstance
     let createSubstance si so sn sq su gi gn gq gu un =
         {
             SubstanceId = si
@@ -22,6 +23,7 @@ module GenericProduct =
         }
 
 
+    /// Create a GenericProduct
     let create id nm lb ac an sh rt ss ps =
         {
             Id = id
@@ -36,6 +38,7 @@ module GenericProduct =
         }
 
 
+    /// Get the routes for a GenericProduct
     let getRoutes (gp : Zindex.BST711T.BST711T) =
         // try to get the 'enkelvoudige toedieningsweg'
         let rts =
@@ -74,7 +77,8 @@ module GenericProduct =
         |> Array.distinct
 
 
-    let getSubstances log un (gp : Zindex.BST711T.BST711T) hpks =
+    /// Get the Substances for a GenericProduct
+    let getSubstances un (gp : Zindex.BST711T.BST711T) hpks =
         Zindex.BST715T.records ()
         |> Array.filter (fun gs ->
             gs.GSKODE = gp.GSKODE &&
@@ -127,7 +131,7 @@ module GenericProduct =
         |> Array.sortBy (fun s -> s.SortOrder)
 
 
-    let private _get log gpks =
+    let private _get gpks =
         Zindex.BST711T.records ()
         |> Array.filter (fun gp ->
             gp.MUTKOD <> 1 &&
@@ -159,18 +163,26 @@ module GenericProduct =
                     pp.TradeProducts
                     |> Array.map (fun tp -> tp.Id)
                 )
-                |> getSubstances log un gp
+                |> getSubstances un gp
             printfn $"creating: {nm}"
             create gp.GPKODE nm lb (gp.ATCODE.Trim()) an sh rt ss ps
         )
 
 
-    let get : int list -> GenericProduct [] = Memoization.memoize (_get (fun _ -> ()))
+    /// <summary>
+    /// Get the GenericProducts for the given Ids
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized
+    /// </remarks>
+    let get : int list -> GenericProduct [] = Memoization.memoize _get
 
 
-    let getWithLog = _get
-
-
+    /// <summary>
+    /// Get the BarCodes for the given GenericProduct
+    /// </summary>
+    /// <param name="gp">The GenericProduct</param>
+    /// <returns>The GPK, BarCodes array</returns>
     let getBarCodes (gp : GenericProduct) =
         gp.PrescriptionProducts
         |> Array.collect (fun pp ->

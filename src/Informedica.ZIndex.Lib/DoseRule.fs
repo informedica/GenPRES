@@ -11,9 +11,6 @@ module DoseRule =
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
 
-    type MinMax = RuleMinMax
-    type Frequency = RuleFrequency
-    type Product = RuleProduct
 
 
     module Constants =
@@ -46,18 +43,29 @@ module DoseRule =
         let female = "vrouw"
 
 
+    /// <summary>
+    /// Get the most extreme min and max values from an array of MinMax.
+    /// </summary>
+    /// <param name="xs">The array of MinMax</param>
+    /// <returns>The most extreme MinMax as a RuleMinMax</returns>
     let foldMinMax xs =
-        xs |> Array.fold (fun { Min = min; Max = max} (acc: MinMax) ->
+        xs |> Array.fold (fun { Min = min; Max = max} (acc: RuleMinMax) ->
             { Min = Option.min acc.Min min; Max = Option.max acc.Max max }
         ) { Min = None; Max = None }
 
 
-    let freqToString (freq : Frequency) =
+    /// Get the string representation of a RuleFrequency.
+    let freqToString (freq : RuleFrequency) =
         (string freq.Frequency) + " " + freq.Time
 
 
-    let toString del (r: DoseRule)  =
-        let minMaxToString n u p (mm: MinMax) s =
+    /// <summary>
+    /// Get the string representation of a DoseRule.
+    /// </summary>
+    /// <param name="del">A delimiter</param>
+    /// <param name="dr">The DoseRule</param>
+    let toString del (dr: DoseRule)  =
+        let minMaxToString n u p (mm: RuleMinMax) s =
             let mms =
                 match mm.Min, mm.Max with
                 | Some min, Some max ->
@@ -84,81 +92,87 @@ module DoseRule =
                 s3 + s2 + del
 
         let gp =
-            r.GenericProduct |> Seq.fold(fun a gp ->
+            dr.GenericProduct |> Seq.fold(fun a gp ->
                 let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
                 s' + gp.Name) ""
 
         let pp =
-            r.PrescriptionProduct |> Seq.fold(fun a gp ->
+            dr.PrescriptionProduct |> Seq.fold(fun a gp ->
                 let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
                 s' + gp.Name) ""
 
         let tp =
-            r.TradeProduct |> Seq.fold(fun a gp ->
+            dr.TradeProduct |> Seq.fold(fun a gp ->
                 let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
                 s' + gp.Name) ""
 
-        let s = "" + (string r.Id) + del
+        let s = "" + (string dr.Id) + del
         let s = s |> adds "" gp
         let s = s |> adds "" pp
         let s = s |> adds "" tp
-        let s = s |> adds "Gebruik" r.Usage
-        let s = s |> adds "Groep" r.CareGroup
-        let s = s |> adds "Type" r.DoseType
-        let s = s |> adds "Route" (r.Routes |> String.concat "/")
-        let s = s |> adds "Indicatie" r.Indication
+        let s = s |> adds "Gebruik" dr.Usage
+        let s = s |> adds "Groep" dr.CareGroup
+        let s = s |> adds "Type" dr.DoseType
+        let s = s |> adds "Route" (dr.Routes |> String.concat "/")
+        let s = s |> adds "Indicatie" dr.Indication
 
-        let s = if r.HighRisk then s + "Hig Risk " else s
+        let s = if dr.HighRisk then s + "Hig Risk " else s
 
-        let s = s |> adds "" r.Gender
+        let s = s |> adds "" dr.Gender
 
-        let s = s |> minMaxToString "Leeftijd" "maanden" 1 r.Age
-        let s = s |> minMaxToString "Gewicht" "kg" 3 r.Weight
-        let s = s |> minMaxToString "BSA" "m2" 3 r.BSA
+        let s = s |> minMaxToString "Leeftijd" "maanden" 1 dr.Age
+        let s = s |> minMaxToString "Gewicht" "kg" 3 dr.Weight
+        let s = s |> minMaxToString "BSA" "m2" 3 dr.BSA
 
         let s =
-            if r.Freq.Frequency <= 0. then s
+            if dr.Freq.Frequency <= 0. then s
             else
-                s + "Freq: " + (r.Freq |> freqToString) + " " + del
+                s + "Freq: " + (dr.Freq |> freqToString) + " " + del
 
-        let s = s |> minMaxToString "Norm" r.Unit 3 r.Norm
-        let s = s |> minMaxToString "Norm/Kg" r.Unit 3 r.NormKg
-        let s = s |> minMaxToString "Abs" r.Unit 3 r.Abs
-        let s = s |> minMaxToString "Abs/Kg" r.Unit 3 r.AbsKg
+        let s = s |> minMaxToString "Norm" dr.Unit 3 dr.Norm
+        let s = s |> minMaxToString "Norm/Kg" dr.Unit 3 dr.NormKg
+        let s = s |> minMaxToString "Abs" dr.Unit 3 dr.Abs
+        let s = s |> minMaxToString "Abs/Kg" dr.Unit 3 dr.AbsKg
 
-        let s = s |> minMaxToString "Norm/m2" r.Unit 3 r.NormM2
-        let s = s |> minMaxToString "Abs/m2" r.Unit 3 r.AbsM2
+        let s = s |> minMaxToString "Norm/m2" dr.Unit 3 dr.NormM2
+        let s = s |> minMaxToString "Abs/m2" dr.Unit 3 dr.AbsM2
 
         let s = s |> String.subString 0 ((s |> String.length) - (del |> String.length))
         s
 
+
+    /// An empty RuleMinMax.
     let minmax = { Min = None; Max = None }
 
 
-    let createProduct id nm : Product = { Id = id; Name = nm }
+    /// Create a RuleProduct.
+    let createProduct id nm : RuleProduct = { Id = id; Name = nm }
 
 
+    /// Create a RuleGenericProduct.
     let createGenericProduct id nm rt un sl = { Id = id; Name = nm; Route = rt; Unit = un; Substances = sl }
 
 
+    /// Create a RuleFrequency.
     let createFrequency fr tm = { Frequency = fr; Time = tm }
 
 
-    let createMinMax mn mx =
-
-        let chkmx =
-            mx
+    /// Create a RuleMinMax.
+    let createMinMax min max =
+        let check =
+            max
             |> string
             |> String.forall (fun c -> c = '9' || c = '.')
 
-        if mx < mn then minmax
+        if max < min then minmax
         else
-            let mn = if mn = 0. then None else Some mn
-            let mx = if mx = 0. || chkmx then None else Some mx
+            let mn = if min = 0. then None else Some min
+            let mx = if max = 0. || check then None else Some max
 
             { Min = mn; Max = mx }
 
 
+    /// Create a DoseRule.
     let create id gr us dt gp pr tr rt ci ic hr sx ag wt bs fr no ab nk ak nm am un =
         {
             Id = id
@@ -187,6 +201,7 @@ module DoseRule =
         }
 
 
+    /// An empty DoseRule.
     let empty =
         {
             Id = 0
@@ -216,18 +231,6 @@ module DoseRule =
 
 
     let _getGenericProducts () =
-        (* ToDo check if this is a problem
-        GenPresProduct.get true
-        |> Array.collect (fun gpp ->
-            gpp.GenericProducts
-            |> Array.map (fun gp -> gp.Id)
-        )
-        // make distinct necessary?
-        |> Array.distinct
-        |> Array.toList
-        |> GenericProduct.get
-        *)
-
         GenPresProduct.getGenericProducts ()
         |> Array.map (fun gp ->
             let unt =
@@ -253,6 +256,12 @@ module DoseRule =
         )
 
 
+    /// <summary>
+    /// Map all GenericProducts from all GenPresProducts to RuleGenericProducts.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let getGenericProducts : unit -> RuleGenericProduct[] =
         Memoization.memoize _getGenericProducts
 
@@ -265,13 +274,20 @@ module DoseRule =
             where (p.MUTKOD <> 1)
             select
                 (
-                    createProduct p.PRKODE
-                                  (nm.NMNAAM.Trim())
+                    createProduct
+                        p.PRKODE
+                        (nm.NMNAAM.Trim())
                 )
         } |> Seq.toArray
 
 
-    let getPresciptionProducts : unit -> Product[] =
+    /// <summary>
+    /// Map all PrescriptionProducts RuleProducts.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
+    let getPresciptionProducts : unit -> RuleProduct[] =
         Memoization.memoize _getPrescriptionProducts
 
 
@@ -283,16 +299,24 @@ module DoseRule =
             where (p.MUTKOD <> 1)
             select
                 (
-                    createProduct p.HPKODE
-                                  (nm.NMNAAM.Trim())
+                    createProduct
+                        p.HPKODE
+                        (nm.NMNAAM.Trim())
                 )
         } |> Seq.toArray
 
 
-    let getTradeProducts : unit -> Product[] =
+    /// <summary>
+    /// Map all TradeProducts to RuleProducts.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
+    let getTradeProducts : unit -> RuleProduct[] =
         Memoization.memoize _getTradeProducts
 
 
+    /// Get all specifid DoseRule routes for a BST642T record.
     let getICPCRoute (icp : Zindex.BST642T.BST642T) =
         let r = Names.getThes icp.GPKTWG Names.Route Names.Fifty
         if r = "TOEDIENINGSWEG NIET INGEVULD" ||
@@ -303,8 +327,10 @@ module DoseRule =
             |> String.splitAt ','
             |> Array.map String.trim
         )
+        |> Array.distinct
 
 
+    /// Get the DoseType for a BST641T record.
     let getDoseType (bas : Zindex.BST641T.BST641T) =
         Zindex.BST902T.records ()
         |> Array.tryFind (fun tx ->
@@ -317,6 +343,7 @@ module DoseRule =
             else r.Value.THNM50.Trim())
 
 
+    /// Get the dose text for a BST642T record.
     let getICPCText (icp : Zindex.BST642T.BST642T) =
         Zindex.BST380T.records ()
         |> Array.tryFind (fun i ->
@@ -328,6 +355,7 @@ module DoseRule =
         )
 
 
+    /// Get the RuleFrequency for a BST643T record.
     let getFrequency (cat: Zindex.BST643T.BST643T) =
         Zindex.BST360T.records ()
         |> Array.tryFind (fun tx ->
@@ -476,22 +504,30 @@ module DoseRule =
         |> StopWatch.clockFunc "Getting DoseRules"
 
 
+    /// <summary>
+    /// Get all DoseRules for a list of GPKS.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let get : List<int> -> DoseRule [] = Memoization.memoize _get
 
 
+    /// Load all DoseRules in memory.
     let load = get >> ignore
 
 
+    /// Get the string representation of a DoseRule.
     let toString2 (dr : DoseRule) =
         let addString lbl s =
             if s = "" then ""
             else
                 lbl + ": " + s + ", "
 
-        let freqToString (fr: Frequency) =
+        let freqToString (fr: RuleFrequency) =
             (fr.Frequency |> string) + " " + (fr.Time |> string)
 
-        let minMaxToString u (mm: MinMax) =
+        let minMaxToString u (mm: RuleMinMax) =
             let s =
                 match mm.Min, mm.Max with
                 | None, None -> ""
@@ -520,13 +556,19 @@ module DoseRule =
 
 
     let indications_ () =
-        // Get all distinct indciations
+        // Get all distinct indications
         Zindex.BST642T.records ()
         |> Array.map getICPCText
         |> Array.distinct
         |> Array.sort
 
 
+    /// <summary>
+    /// Get all DoseRule indications.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let indications = Memoization.memoize indications_
 
 
@@ -537,6 +579,14 @@ module DoseRule =
         |> Array.sort
 
 
+
+
+    /// <summary>
+    /// Get all DoseRule routes.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let routes = Memoization.memoize routes_
 
 
@@ -547,6 +597,13 @@ module DoseRule =
         |> Array.sortBy (fun f -> (f.Time, f.Frequency))
 
 
+
+    /// <summary>
+    /// Get all DoseRule frequencies.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let frequencies = Memoization.memoize frequencies_
 
 

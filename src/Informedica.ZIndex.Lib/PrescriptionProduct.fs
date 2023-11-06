@@ -6,6 +6,7 @@ module PrescriptionProduct =
     open Informedica.Utils.Lib
 
 
+    /// Create a PrescriptionProduct record
     let create id nm lb qt un ct ps =
         {
             Id = id
@@ -38,4 +39,10 @@ module PrescriptionProduct =
         )
 
 
+    /// <summary>
+    /// Get all PrescriptionProducts for a given Z-Index id
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let get : int -> PrescriptionProduct [] = Memoization.memoize _get

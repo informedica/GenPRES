@@ -6,6 +6,7 @@ module ConsumerProduct =
     open Informedica.Utils.Lib
 
 
+    /// Creates a consumer product.
     let create id nm lb qt ct br =
         {
             Id = id
@@ -39,4 +40,10 @@ module ConsumerProduct =
         )
 
 
+    /// <summary>
+    /// Gets the consumer products for the given id.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let get : int -> ConsumerProduct [] = Memoization.memoize _get

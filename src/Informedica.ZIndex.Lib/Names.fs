@@ -8,6 +8,8 @@ module Names =
 
     open Types.Names
 
+
+    /// Map item to TSNR, i.e. the item number in BST902T
     let mapItem = function
         | Shape -> 6
         | Route -> 7
@@ -17,7 +19,11 @@ module Names =
         | ConsumerContainer -> 4
 
 
-    /// Look in BST020T Namen bestand
+    /// <summary>
+    /// Get the name of a record in BST020T
+    /// </summary>
+    /// <param name="id">The id of the record</param>
+    /// <param name="nm">The name type</param>
     let getName id nm =
         match
             Zindex.BST020T.records ()
@@ -34,7 +40,12 @@ module Names =
         | None -> ""
 
 
-    /// Look in BST902T Therauri totaal
+    /// <summary>
+    /// Get the name of a record in BST902T
+    /// </summary>
+    /// <param name="id">The id of the record</param>
+    /// <param name="it">The item type</param>
+    /// <param name="ln">The name length</param>
     let getThes id it ln =
         match
             Zindex.BST902T.records ()
@@ -47,6 +58,12 @@ module Names =
         | None -> ""
 
 
+    /// <summary>
+    /// Get all the name lengths for a record in BST020T
+    /// </summary>
+    /// <param name="id">The id of the record</param>
+    /// <param name="itm">The item type</param>
+    /// <param name="ln">The name length</param>
     let getItems itm ln =
             Zindex.BST902T.records()
             |> Array.filter (fun r ->
@@ -60,6 +77,7 @@ module Names =
             |> Array.sort
 
 
+    /// All the route names in the thesaurus.
     let getRoutes =
         fun () ->
             getItems Route TwentyFive
@@ -74,6 +92,7 @@ module Names =
         |> Memoization.memoize
 
 
+    /// All the shape names in the thesaurus.
     let getShapes =
         fun () ->
             getItems Shape Fifty
@@ -81,6 +100,7 @@ module Names =
         |> Memoization.memoize
 
 
+    /// All the generic unit names in the thesaurus.
     let getGenericUnits =
         fun () ->
             getItems GenericUnit Fifty
@@ -88,6 +108,7 @@ module Names =
         |> Memoization.memoize
 
 
+    /// All the shape unit names in the thesaurus.
     let getShapeUnits =
         fun () ->
             getItems ShapeUnit TwentyFive
@@ -95,6 +116,7 @@ module Names =
         |> Memoization.memoize
 
 
+    /// All the prescription container names in the thesaurus.
     let getPrescriptionContainers =
         fun () ->
             getItems PrescriptionContainer TwentyFive
@@ -102,6 +124,7 @@ module Names =
         |> Memoization.memoize
 
 
+    /// All the consumer container names in the thesaurus.
     let getConsumerContainers =
         fun () ->
             getItems ConsumerContainer TwentyFive

@@ -7,6 +7,9 @@ module Substance =
     open Informedica.Utils.Lib
 
 
+    /// <summary>
+    /// Create a Substance
+    /// </summary>
     let create id pk nm ms mr fm un ds =
         {
             Id = id
@@ -20,9 +23,18 @@ module Substance =
         }
 
 
-    let cache (sbs : Substance []) = Json.cache (FilePath.substanceCache false) sbs
+    /// <summary>
+    /// Write a Substance array to a cache file
+    /// </summary>
+    /// <param name="sbs"></param>
+    let cache (sbs : Substance []) =
+        let useDemo = FilePath.useDemo()
+        Json.cache (FilePath.substanceCache useDemo) sbs
 
 
+    /// <summary>
+    /// Parse the Zinc index file to create a Substance array
+    /// </summary>
     let parse () =
         Zindex.BST750T.records ()
         |> Array.filter (fun r -> r.MUTKOD <> 1)
@@ -56,8 +68,17 @@ module Substance =
         |> StopWatch.clockFunc "Getting Substances"
 
 
+    /// <summary>
+    /// Get the Substance array
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function
+    /// </remarks>
     let get : unit -> Substance [] =
         Memoization.memoize _get
 
 
+    /// <summary>
+    /// Load the Substance array
+    /// </summary>
     let load () = get () |> ignore

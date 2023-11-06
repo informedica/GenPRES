@@ -10,6 +10,14 @@ module Assortment =
 
 
 
+    /// <summary>
+    /// Create an Assortment product, a generic
+    /// product which is available in the assortment.
+    /// </summary>
+    /// <param name="gpk">The GPK code of the product.</param>
+    /// <param name="gen">The generic name of the product.</param>
+    /// <param name="tall">The tall man name of the product.</param>
+    /// <param name="div">The divisibility of the product.</param>
     let create gpk gen tall div =
         {
             GPK = gpk
@@ -49,4 +57,11 @@ module Assortment =
             )
         |> StopWatch.clockFunc "Getting Formulary"
 
+
+    /// <summary>
+    /// Gets the assortment of products.
+    /// </summary>
+    /// <remarks>
+    /// This is a memoized function.
+    /// </remarks>
     let assortment : unit -> Assortment [] = Memoization.memoize get_
