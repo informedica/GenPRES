@@ -12,12 +12,18 @@ module Types =
     type MinMax = Informedica.GenCore.Lib.Ranges.MinIncrMax
 
 
+    /// A patient category
     type PatientCategory =
         {
+            /// The min max gestational age of the patient
             GestAge : MinMax
+            /// The min max age of the patient
             Age : MinMax
+            /// The min max weight of the patient
             Weight : MinMax
+            /// The min max BSA of the patient
             BSA : MinMax
+            /// The gender of the patient
             Gender : Gender
         }
 
@@ -46,20 +52,20 @@ module Types =
 
 
 
-    /// Dose limits
+    /// Dose range limits
     type DoseRange =
         {
-            // Normal limits
+            /// Normal limits
             Norm : MinMax
-            // Normal limits adjusted by weight (Unit = weight unit)
+            /// Normal limits adjusted by weight (Unit = weight unit)
             NormWeight : MinMax * Unit
-            // Normal limits adjusted by BSA (Unit = BSA unit)
+            /// Normal limits adjusted by BSA (Unit = BSA unit)
             NormBSA : MinMax * Unit
-            // Absolute limits
+            /// Absolute limits
             Abs : MinMax
-            // Absolute limits adjusted by weight (Unit = weight unit)
+            /// Absolute limits adjusted by weight (Unit = weight unit)
             AbsWeight : MinMax * Unit
-            // Absolute limits adjusted by BSA (Unit = bsa unit)
+            /// Absolute limits adjusted by BSA (Unit = bsa unit)
             AbsBSA : MinMax * Unit
         }
         static member Norm_ :
@@ -93,7 +99,7 @@ module Types =
             (fun mm dr -> { dr with AbsBSA = mm })
 
 
-    /// Dosage
+    /// Dosage, DoseRanges for different dosage types.
     type Dosage =
         {
             /// Indentifies the indication
@@ -138,7 +144,7 @@ module Types =
             (Dosage -> Rule list) * (Rule list -> Dosage -> Dosage) =
             (fun d -> d.Rules) ,
             (fun rs d -> { d with Rules = rs })
-
+    /// The frequencies of a TotalDosage
     and Frequency =
         {
             Frequencies : Frequencies
@@ -165,17 +171,19 @@ module Types =
     and TimeUnit = Unit
 
     and RateUnit = Unit
-
+    /// The original Z-Index or PedForm rule
     and Rule = GStandRule of string | PedFormRule of string
 
 
+    /// A patient dosage, a patient category with
+    /// associated shape an substance dosages.
     type PatientDosage =
         {
-            // The patient group the doserules applies
+            /// The patient group the doserules applies
             Patient : PatientCategory
-            // List of shapes that have a dosage
+            /// A Dosage for the Shape
             ShapeDosage : Dosage
-            // List of substances that have a dosage
+            /// The Dosages for the Substances
             SubstanceDosages : Dosage list
         }
         static member Patient_ :
@@ -194,6 +202,7 @@ module Types =
             (fun d sd -> { sd with SubstanceDosages = d })
 
 
+    /// A trade product id and label for a ShapeDosage
     type TradeProductLabel =
         { HPK : int; Label : string }
         static member HPK_ :
@@ -208,6 +217,7 @@ module Types =
             (fun lbl tp -> { tp with Label = lbl })
 
 
+    /// A generic product id and label for a ShapeDosage
     type GenericProductLabel =
         { GPK : int; Label : string }
         static member GPK_ :
@@ -222,15 +232,18 @@ module Types =
             (fun lbl tp -> { tp with Label = lbl })
 
 
+    /// A ShapeDosage the shapes that can be given
+    /// by a route and associated GenericProducts,
+    /// TradeProducts and PatientDosages.
     type ShapeDosage =
         {
-            // Name of the shape the doserule applies to
+            /// Name of the shape the doserule applies to
             Shape : string list
-            // TradeProducts the doserule applies to
+            /// TradeProducts the doserule applies to
             TradeProducts : TradeProductLabel list
-            // GenericProducts the doserule applies to
+            /// GenericProducts the doserule applies to
             GenericProducts : GenericProductLabel list
-            // Patients to wich the doserule applies to
+            /// Patients to wich the doserule applies to
             PatientDosages : PatientDosage list
         }
 
@@ -255,11 +268,13 @@ module Types =
             (fun pdl rd -> { rd with PatientDosages = pdl })
 
 
+    /// A RouteDosage the administration routes
+    /// and associated ShapeDosages.
     type RouteDosage =
         {
-            // Administration route
+            /// Administration route
             Route : string
-            // The dosage rules per shape
+            /// The dosage rules per shape
             ShapeDosages : ShapeDosage list
         }
         static member Route_ :
@@ -291,24 +306,28 @@ module Types =
             (fun rdl inds -> { inds with RouteDosages = rdl })
 
 
-    /// Doserule
+    /// A DoseRule for a generic. The DoseRule applies to
+    /// a generic and has a list of IndicationDosages.
+    /// The full hierarchy is:
+    /// DoseRule -> IndicationDosage -> RouteDosage -> ShapeDosage -> PatientDosage
+    /// A PatientDosage has a ShapeDosages and/or a list of SubstanceDosages.
     type DoseRule =
         {
-            // Generic the doserule applies to
+            /// Generic the DoseRule applies to
             Generic : string
-            // List of synonyms for the generic
+            /// List of synonyms for the generic
             Synonyms : string list
-            // The ATC code
+            /// The ATC code
             ATC : string
-            // ATCTherapyGroup the doserule applies to
+            /// ATCTherapyGroup the DoseRule applies to
             ATCTherapyGroup : string
-            // ATCTherapySubGroup the doserule applies to
+            /// ATCTherapySubGroup the DoseRule applies to
             ATCTherapySubGroup : string
-            // The generic group the doserule applies to
+            /// The generic group the DoseRule applies to
             GenericGroup : string
-            // The generic subgroup the doserule applies to
+            /// The generic subgroup the DoseRule applies to
             GenericSubGroup : string
-            // The doserules per indication(-s)
+            /// The DoseRules per indication(-s), i.e. IndicationDosages
             IndicationsDosages : IndicationDosage list
         }
         static member Generic_ :
@@ -328,6 +347,7 @@ module Types =
             (fun inds dr -> { dr with IndicationsDosages = inds })
 
 
+    /// Maps the DosageTypes
     type DoseMapping =
         | Norm
         | Abs
@@ -337,6 +357,8 @@ module Types =
         | AbsM2
 
 
+    /// Maps Units to Z-Index units
+    /// or MetaVision units.
     type UnitMapping =
         {
             ZIndexLong : string
@@ -346,6 +368,8 @@ module Types =
         }
 
 
+    /// Maps Frequencies to Z-Index units
+    /// or MetaVision units.
     type FrequencyMapping =
         {
             ZIndex : string
@@ -359,23 +383,13 @@ module Types =
 
 
 
+    /// Can be used to create a DoseType.
     type CreateConfig =
         {
             GPKs : int list
             IsRate : bool
             SubstanceUnit : Unit Option
             TimeUnit : Unit Option
-        }
-
-
-    type TextConfig =
-        {
-            MainText: string
-            IndicationText : string
-            RouteText : string
-            ShapeText : string
-            PatientText : string
-            DosageText : string
         }
 
 
