@@ -11,7 +11,6 @@
     <Compile Include="Markdown.fs" />
     <Compile Include="Mapping.fs" />
     <Compile Include="ValueUnit.fs" />
-    <Compile Include="Product.fs" />
     <Compile Include="PatientCategory.fs" />
     <Compile Include="DoseRule.fs" />
     <Compile Include="GStand.fs" />

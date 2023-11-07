@@ -12,53 +12,6 @@ module Types =
     type MinMax = Informedica.GenCore.Lib.Ranges.MinIncrMax
 
 
-    /// A product is a medical substance or
-    /// substances with a specific shape
-    type Product =
-        {
-            // The name of the product which is the generic
-            // substance of the product or a concatenation of
-            // generic substance names or a 'name'.
-            Name : string
-            /// The pharmacological shape of a product.
-            DisplayName : string
-            Synonyms : string list
-            Shape : string
-            /// The route of a product
-            Unit : string
-            Routes : Route list
-            Pharmacologic : string list
-            /// The display name of the generic
-            DivisibleBy : Divisibility
-            GenericProducts : GenericProduct List
-        }
-
-    and Divisibility = NoDiv | Div of bigint
-
-    and GenericProduct =
-        {
-            Id : int
-            Label : string
-            /// The substances on which the concentration and dosing is based.
-            Substances : Substance list
-            TradeProducts : TradeProduct list
-        }
-
-    and Substance =
-        {
-            Name : string
-            Concentration : ValueUnit
-        }
-
-    and TradeProduct =
-        {
-            Id : int
-            Names : string
-            Label : string
-            Quantity : ValueUnit
-        }
-
-
     type PatientCategory =
         {
             GestAge : MinMax

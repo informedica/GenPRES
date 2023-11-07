@@ -7,6 +7,7 @@ module ATCGroup =
     open Informedica.Utils.Lib
 
 
+    /// Create a ATC group.
     let create atc1 ang ange atc2 thg thge atc3 ths thse atc4 phg phge atc5 sub sube gen shp rts =
         {
             ATC1 = atc1
@@ -30,9 +31,14 @@ module ATCGroup =
         }
 
 
+    /// An empty ATC group.
     let empty = create "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
 
 
+    /// <summary>
+    /// Parse the BST801T records into ATC groups.
+    /// </summary>
+    /// <param name="gpks">A list of GPKs for which to parse ATC groups</param>
     let parse gpks =
         query {
             for gpk in Zindex.BST711T.records () do
@@ -163,19 +169,32 @@ module ATCGroup =
         |> StopWatch.clockFunc "Getting ATC groups"
 
 
+    /// <summary>
+    /// Get all ATC groups.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let get : unit -> ATCGroup [] = Memoization.memoize _get
 
 
-    let findByATC5 all atc =
-        get all
+    /// <summary>
+    /// Find ATC groups by ATC5 code.
+    /// </summary>
+    /// <param name="all"></param>
+    /// <param name="atc"></param>
+    let findByATC5 atc =
+        get ()
         |> Array.filter (fun g ->
             g.ATC5 |> String.equalsCapInsens atc
         )
 
 
+    /// Load the ATC groups in memory.
     let load () = get () |> ignore
 
 
+    /// Create a CSV file for an array of GenPresProducts.
     let productCSV (gpps : GenPresProduct[]) =
             // create product file
             gpps
@@ -185,7 +204,7 @@ module ATCGroup =
                     gp.Substances
                     |> Array.collect (fun s ->
                         gp.ATC
-                        |> findByATC5 ()
+                        |> findByATC5
                         |> Array.map (fun atc ->
                             {|
                                 GPK = gp.Id

@@ -280,7 +280,7 @@ module Product =
                 |> Array.map (fun (gpp, gp) ->
                     let atc =
                         gp.ATC
-                        |> ATCGroup.findByATC5 ()
+                        |> ATCGroup.findByATC5
                     let su =
                         gp.Substances[0].ShapeUnit
                         |> String.toLower

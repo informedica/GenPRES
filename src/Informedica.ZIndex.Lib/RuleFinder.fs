@@ -3,27 +3,20 @@ namespace Informedica.ZIndex.Lib
 
 module RuleFinder =
 
-    open Informedica.Utils.Lib.BCL
 
     type MinMax = RuleMinMax
 
 
 
+    /// Create a route from a string
     let createRoute = Route.fromString (Route.routeMapping ())
 
 
+    /// Check if a route exists.
     let eqsRoute = Route.routeExists (Route.routeMapping ())
 
 
-    type AgeInMo = decimal Option
-
-
-    type WeightInKg = decimal Option
-
-
-    type BSAInM2 = decimal Option
-
-
+    /// Check whether a float n is in range of a MinMax.
     let inRange n { Min = min; Max = max } =
         if n |> Option.isNone then true
         else
@@ -35,6 +28,7 @@ module RuleFinder =
             | Some min, Some max -> n >= min && n <= max
 
 
+    /// An empty Filter.
     let filter =
         {
             Patient = { Age = None; Weight = None; BSA = None }
@@ -44,6 +38,16 @@ module RuleFinder =
         }
 
 
+    /// <summary>
+    /// Create a filter.
+    /// </summary>
+    /// <param name="age">Age</param>
+    /// <param name="wght">Weight</param>
+    /// <param name="bsa">Body Surface Area</param>
+    /// <param name="gpk">Generic Product Id</param>
+    /// <param name="gen">Generic name</param>
+    /// <param name="shp">Shape</param>
+    /// <param name="rte">Route</param>
     let createFilter age wght bsa gpk gen shp rte =
         let pat = { Age = age; Weight = wght; BSA = bsa }
         let prod =
@@ -62,10 +66,21 @@ module RuleFinder =
         }
 
 
+    /// <summary>
+    /// Create a Filter for GPK, Route.
+    /// </summary>
+    /// <param name="gpk">The Generic Product Id</param>
+    /// <param name="rte">The Route</param>
     let createGPKRouteFilter gpk rte = createFilter None None None gpk "" "" rte
 
 
-    let find gpks { Filter.Patient = pat; Product = prod } =
+    /// <summary>
+    /// Find all DoseRules for a list of GPKs and a Filter.
+    /// </summary>
+    /// <param name="gpks">The GPKs</param>
+    /// <param name="filter">The Filter</param>
+    let find gpks filter =
+        let { Filter.Patient = pat; Product = prod }  = filter
         let r =
             match prod with
             | GPKRoute (_, route)   -> route
@@ -94,6 +109,7 @@ module RuleFinder =
         )
 
 
+    /// Create a RuleResult.
     let createResult gpp drs ds =
         {
             Product = gpp
@@ -102,6 +118,7 @@ module RuleFinder =
         }
 
 
+    /// Create a FrequencyDose.
     let createFreqDose freq norm abs normKg absKg normM2 absM2 un =
         {
             Freq = freq
@@ -115,6 +132,14 @@ module RuleFinder =
         }
 
 
+    /// <summary>
+    /// Convert a list of DoseRules to a RuleResult.
+    /// </summary>
+    /// <param name="drs">The DoseRules</param>
+    /// <remarks>
+    /// If the DoseRules are not for the same GenPresProduct then
+    /// None is returned.
+    /// </remarks>
     let convertToResult (drs : DoseRule  []) =
 
         // Get the min max weight if there is one min weight or max weight
