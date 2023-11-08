@@ -6,10 +6,9 @@ open Informedica.ZForm.Lib
 
 
 
-
 let config =
     {
-        UseAll = true
+        GPKs = []
         IsRate = false
         SubstanceUnit = None
         TimeUnit = None

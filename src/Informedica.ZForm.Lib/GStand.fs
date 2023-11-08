@@ -22,11 +22,11 @@ module GStand =
     module RF = Informedica.ZIndex.Lib.RuleFinder
 
     module ZIndexTypes = Informedica.ZIndex.Lib.Types
-
-
     module Units = ValueUnit.Units
 
 
+    /// Utility function to get the group a tuple
+    /// by the first element.
     let groupByFst xs =
         xs
         |> Seq.groupBy fst
@@ -34,6 +34,7 @@ module GStand =
         |> Seq.map (fun (k, v) -> k, v |> Seq.map snd)
 
 
+    /// An empty `CreateConfig`.
     let config =
         {
             GPKs = []
@@ -44,8 +45,14 @@ module GStand =
         }
 
 
+    /// <summary>
     /// Map GSTand min max float Option values to
-    /// a `DoseRule` `MinMax`
+    /// a `DoseRule` `MinMax` for a given `Object`.
+    /// </summary>
+    /// <param name="setMin">Set the min value</param>
+    /// <param name="setMax">Set the max value</param>
+    /// <param name="minmax">The min max values</param>
+    /// <param name="o">The `Object` to map to</param>
     let mapMinMax<'a>
         (setMin: float Option -> 'a -> 'a)
         (setMax: float Option -> 'a -> 'a)
@@ -55,7 +62,11 @@ module GStand =
         o |> setMin minmax.Min |> setMax minmax.Max
 
 
-    // Get the min max weight if there is one min weight or max weight
+    /// <summary>
+    /// Get the min max weight if there is one min weight or max weight
+    /// i.e. if all min weights are the same and all max weights are the same.
+    /// </summary>
+    /// <param name="drs"></param>
     let calcWeightMinMax (drs: ZIndexTypes.DoseRule seq) =
 
         match drs |> Seq.toList with
@@ -74,7 +85,11 @@ module GStand =
              >> (Optic.set MinIncrMax.Optics.exclMaxLens))
 
 
-    // Get the min max bsa if there is one min bsa or max bsa
+    /// <summary>
+    /// Get the min max bsa if there is one min bsa or max bsa
+    /// i.e. if all min bsa are the same and all max bsa are the same.
+    /// </summary>
+    /// <param name="drs"></param>
     let calcBSAMinMax (drs: ZIndexTypes.DoseRule seq) =
 
         match drs |> Seq.toList with
@@ -93,7 +108,7 @@ module GStand =
 
 
     /// Make sure that a GSTand time string
-    /// is a valid unit time string
+    /// is a valid unit time string.
     let parseTimeString s =
         s
         |> String.replace "per " ""
@@ -111,14 +126,24 @@ module GStand =
         )
 
 
-    /// Map a GStand time period to a valid unit
+    /// Try to map a GStand time period to a valid unit.
     let mapTime s =
-        s |> parseTimeString |> Units.fromString
+        s
+        |> parseTimeString
+        |> Units.fromString
 
 
-    // TODO: rewrite to frequency mapping
+    /// <summary>
     /// Map GStand frequency string to a valid
     /// frequency `ValueUnit`.
+    /// </summary>
+    /// <param name="fr">The frequency to map</param>
+    /// <returns>The mapped frequency</returns>
+    /// <exception cref="System.Exception">Cannot parse freq value unit</exception>
+    /// <remarks>
+    /// Only perform mapping if the frequency is not 1 and if
+    /// the frequency is a valid unit.
+    /// </remarks>
     let mapFreq (fr: ZIndexTypes.RuleFrequency) =
         let map vu =
             match [
@@ -126,7 +151,7 @@ module GStand =
                   ]
                   |> List.tryFind (fun (f, u, _) -> f |> ValueUnit.createSingle u = vu)
                 with
-            | Some (_, _, c) -> vu |> ValueUnit.convertTo c
+            | Some (_, _, u) -> vu |> ValueUnit.convertTo u
             | None -> vu
 
         let s =
@@ -167,17 +192,28 @@ module GStand =
         |> map
 
 
-    /// Map GSTand doserule doses to
-    /// - normal   min max dose
-    /// - absolute min max dose
-    /// - normal   min max dose per kg
-    /// - absolute min max dose per kg
-    /// - normal   min max dose per m2
-    /// - absolute min max dose per m2
+    /// <summary>
+    /// Map G-STandard DoseRule doses to
+    /// <list type="bullet">
+    ///     <item>normal min max dose</item>
+    ///     <item>absolute min max dose</item>
+    ///     <item>normal min max dose per kg</item>
+    ///     <item>absolute min max dose per kg</item>
+    ///     <item>normal min max dose per m2</item>
+    ///     <item>absolute min max dose per m2</item>
+    /// </list>
     /// by calculating
     /// - substance shape concentration * dose shape quantity * frequency
     /// for each dose
-    /// {| absDose: MinIncrMax; absM2: MinIncrMax; absPerKg: MinIncrMax; doserule: Informedica.ZIndex.Lib.Types.DoseRule; frequency: ValueUnit; groupBy: {| isOne: bool; name: string; time: string |}; indication: string; normDose: MinIncrMax; normM2: MinIncrMax; normPerKg: MinIncrMax; routes: list<string> |}
+    /// </summary>
+    /// <param name="n">The name of the substance</param>
+    /// <param name="qty">The quantity of the substance</param>
+    /// <param name="unit">The unit of the substance</param>
+    /// <param name="gstdsr">The GSTand DoseRule</param>
+    /// <returns>
+    /// The mapped doses
+    /// {| absDose: MinIncrMax; absM2: MinIncrMax; absPerKg: MinIncrMax; doserule: Informedica.ZIndex.Lib.Types.DoseRule; frequency: ValueUnit; groupBy: {| isOne: bool; name: string; time: string |}; indication: string; normDose: MinIncrMax; normM2: MinIncrMax; normPerKg: MinIncrMax; routes: list of string |}
+    /// </returns>
     let mapDoses (n: string) qty unit (gstdsr: ZIndexTypes.DoseRule) =
 
         let fr = mapFreq gstdsr.Freq
@@ -192,7 +228,7 @@ module GStand =
         let toVu _ _ v =
 
             unit
-            |> ValueUnit.fromDecimal (v * qty)
+            |> ValueUnit.fromFloat (v * qty)
             |> fun vu ->
                 let x =
                     fr
@@ -227,6 +263,13 @@ module GStand =
         |}
 
 
+    /// <summary>
+    /// Get the Dosage and Indications for a given DoseRange and list of DoseRules. Uses a
+    /// config to create a Dosage with a start, rate or total dose.
+    /// </summary>
+    /// <param name="cfg">The Config</param>
+    /// <param name="n">The 'Name' of the Dosage</param>
+    /// <param name="dsr">The DoseRules</param>
     let getDosage
         cfg
         n
@@ -295,7 +338,14 @@ module GStand =
         |}
 
 
-    // {| doseRange: DoseRange; doserules: list<Informedica.ZIndex.Lib.Types.DoseRule>; frequencies: list<ValueUnit>; inds: list<string>; routes: list<string> |}
+    /// <summary>
+    /// Map MinMax DoseRanges to a DoseRange record.
+    /// </summary>
+    /// <param name="dsg">The DoseRange to map to</param>
+    /// <returns>
+    /// The mapped DoseRange
+    /// {| doseRange: DoseRange; doserules: list of Informedica.ZIndex.Lib.Types.DoseRule; frequencies: list of ValueUnit; inds: list of string; routes: list of string |}
+    /// </returns>
     let getDoseRange
         (dsg: {| absDose: MinMax
                  absKg: MinMax
@@ -373,6 +423,11 @@ module GStand =
         |> MinIncrMax.foldMaximize
 
 
+    /// <summary>
+    /// Folds a sequence of `Dosages` to a single `Dosages`
+    /// by minimizing the min and maximizing the max values.
+    /// </summary>
+    /// <param name="ds">The sequence of Dosages</param>
     let foldDosages
         (ds: {| absDose: MinIncrMax
                 absM2: MinIncrMax
@@ -468,6 +523,12 @@ module GStand =
 
 
 
+    /// <summary>
+    /// Create the `Dosages` for a given list of `DoseRules` for
+    /// a Substance.
+    /// </summary>
+    /// <param name="cfg">The Config</param>
+    /// <param name="drs">The DoseRules</param>
     let getSubstanceDoses (cfg: CreateConfig) (drs: ZIndexTypes.DoseRule seq) =
         drs
         |> Seq.collect (fun dr ->
@@ -493,6 +554,12 @@ module GStand =
         )
 
 
+    /// <summary>
+    /// Create the `Dosages` for a given list of `DoseRules` for
+    /// a PatientCategory.
+    /// </summary>
+    /// <param name="cfg">The Config</param>
+    /// <param name="drs">The DoseRules</param>
     let getPatients (cfg: CreateConfig) (drs: ZIndexTypes.DoseRule seq) =
         let map = mapMinMax<PatientCategory>
 
@@ -532,7 +599,7 @@ module GStand =
         )
 
 
-    // Get the ATC codes for a GenPresProduct
+    // Get the ATC codes for a GenPresProduct.
     let getATCs gpk (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
         |> Array.filter (fun gp ->
@@ -544,14 +611,14 @@ module GStand =
         |> Array.distinct
 
 
-    // Get the list of routes for a GenPresProduct
+    // Get the list of routes for a GenPresProduct.
     let getRoutes (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
         |> Array.collect (fun gp -> gp.Route)
         |> Array.distinct
 
 
-    // Get the list of ATC groups for a GenPresProduct
+    // Get the list of ATC groups for a GenPresProduct.
     let getATCGroups gpk (gpp: ZIndexTypes.GenPresProduct) =
 
         ATC.get ()
@@ -564,18 +631,24 @@ module GStand =
         |> Array.distinct
 
 
-    // Get the doserules for a genpresproduct
-    // ToDo Temp hack ignore route and shape
-    let getDoseRules all (gpp: ZIndexTypes.GenPresProduct) =
+
+    /// <summary>
+    /// Get the DoseRules for a given GenPresProduct per
+    /// indication and route.
+    /// </summary>
+    /// <param name="gpks">The list of GPKs</param>
+    /// <param name="gpp">The GenPresProduct</param>
+    let getDoseRules gpks (gpp: ZIndexTypes.GenPresProduct) =
         gpp.Routes
         |> Seq.collect (fun r ->
             RF.createFilter None None None None gpp.Name gpp.Shape r
-            |> RF.find all
+            |> RF.find gpks
             |> Seq.map (fun dr -> dr.Indication, (r, dr))
         )
         |> Seq.groupBy fst
 
 
+    /// Get a list of TradeNames for a GenPresProduct.
     let getTradeNames (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
         |> Seq.collect (fun gp -> gp.PrescriptionProducts)
@@ -701,7 +774,12 @@ module GStand =
         | _ -> ds |> Seq.append (seq { yield d })
 
 
-    // add indications, route, shape, patient and dosages
+    /// <summary>
+    /// Add indications, routes, shape, patient and dosages to
+    /// a starting `DosageRules` record.
+    /// </summary>
+    /// <param name="dr">The starting `DosageRules` record</param>
+    /// <param name="inds">The indications, routes, shape, patient and dosages</param>
     let addIndicationsRoutesShapePatientDosages
         dr
         (inds: seq<{| indications: list<string>
@@ -716,7 +794,8 @@ module GStand =
         |> Seq.fold
             (fun acc ind ->
                 let dr =
-                    acc |> addIndications ind.indications
+                    acc
+                    |> addIndications ind.indications
 
                 ind.routes
                 |> Seq.fold
@@ -799,7 +878,21 @@ module GStand =
             dr
 
 
-    // seq<{| indications: list<string>; routes: seq<{| route: string; shapeAndProducts: seq<{| genericProducts: seq<int * string>; patients: seq<PatientCategory * seq<Dosage>>; shape: string; tradeProducts: seq<int * string> |}> |}> |}>
+
+    /// <summary>
+    /// Group the GenPresProducts by indications, routes, shape and products and
+    /// add the patients and dosages.
+    /// </summary>
+    /// <param name="rte">The route</param>
+    /// <param name="age">Age in Months</param>
+    /// <param name="wght">Weight in Kg</param>
+    /// <param name="bsa">Body Surface Area in mˆ2</param>
+    /// <param name="gpk">Optional GPK</param>
+    /// <param name="cfg">The CreateConfig</param>
+    /// <param name="gpps">The GenPresProducts</param>
+    /// <returns>
+    /// The grouped GenPresProducts.
+    /// </returns>
     let groupGenPresProducts rte age wght bsa gpk cfg gpps =
         gpps
         |> Seq.collect (fun (gpp: ZIndexTypes.GenPresProduct) ->
@@ -868,7 +961,18 @@ module GStand =
         )
 
 
-    let foldDoseRules rte age wght bsa gpk cfg (dr, gpps) =
+    /// <summary>
+    /// Fold the GenPresProducts to a single DoseRule.
+    /// </summary>
+    /// <param name="rte">The route</param>
+    /// <param name="age">Age in Months</param>
+    /// <param name="wght">Weight in Kg</param>
+    /// <param name="bsa">Body Surface Area in mˆ2</param>
+    /// <param name="gpk">Optional GPK</param>
+    /// <param name="cfg">The CreateConfig</param>
+    /// <param name="dr">The DoseRule</param>
+    /// <param name="gpps">The GenPresProducts</param>
+    let foldDoseRules rte age wght bsa gpk cfg dr gpps =
         let dr =
             dr
             |> Optics.setSynonyms (gpps |> Seq.collect getTradeNames |> Seq.toList)
@@ -878,6 +982,23 @@ module GStand =
         |> addIndicationsRoutesShapePatientDosages dr
 
 
+    /// <summary>
+    /// Create the DoseRules.
+    /// </summary>
+    /// <param name="cfg">The CreateConfig</param>
+    /// <param name="age">Age in Months</param>
+    /// <param name="wght">Weight in Kg</param>
+    /// <param name="bsa">Body Surface Area in mˆ2</param>
+    /// <param name="gpk">Optional GPK</param>
+    /// <param name="gen">Generic Name</param>
+    /// <param name="shp">Shape</param>
+    /// <param name="rte">Route</param>
+    /// <remarks>
+    /// The GPK is used to filter the GenPresProducts and use those
+    /// GenericProducts to create the DoseRules. If the GPK is None
+    /// then generic name, shape and route are used to filter the
+    /// GenPresProducts.
+    /// </remarks>
     let createDoseRules (cfg: CreateConfig) age wght bsa gpk gen shp rte =
 
         GPP.filter gen shp rte
@@ -911,5 +1032,5 @@ module GStand =
             // create empty dose rule
             let dr = create gen [] atc tg tsg pg sg []
 
-            foldDoseRules rte age wght bsa gpk cfg (dr, gpps)
+            foldDoseRules rte age wght bsa gpk cfg dr gpps
         )

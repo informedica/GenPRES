@@ -10,12 +10,11 @@ module Mapping =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-    open Informedica.ZIndex.Lib
-    open MathNet.Numerics
     open Informedica.GenUnits.Lib
 
 
-
+    /// A list of time units and their corresponding
+    /// unit in the internal unit structure.
     let timeUnits =
         [
             ("minuut", Units.Time.nDay)
@@ -27,16 +26,17 @@ module Mapping =
         ]
 
 
-    let getUnits_ () = 
+    /// Get the online unit mapping.
+    let getUnits_ () =
         Web.getDataFromSheet "Units"
         |> fun data ->
-            data 
+            data
             |> Array.tryHead
-            |> function 
+            |> function
             | None -> Array.empty
-            | Some cs ->  
+            | Some cs ->
                 let getStr c r = Csv.getStringColumn cs r c
-                
+
                 data
                 |> Array.skip 1
                 |> Array.map (fun r ->
@@ -46,38 +46,45 @@ module Mapping =
                         mvunit = r |> getStr "MetaVisionUnit"
                         unit = r |> getStr "Unit"
                         group = r |> getStr "Group"
-                    |}            
+                    |}
                 )
                 |> Array.map (fun r ->
                     {
                         ZIndexLong = r.zindexlong
                         ZIndexShort = r.zindexshort
                         MetaVision = r.mvunit
-                        Unit = 
+                        Unit =
                             $"{r.unit}[{r.group}]"
                             |> Units.fromString
                             |> Option.defaultValue NoUnit
                     }
                 )
-        
 
+
+    /// <summary>
+    /// Get the unit mapping.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let getUnitMapping = Memoization.memoize getUnits_
 
 
+    /// Get the online Frequency mapping.
     let getFrequencies_ () =
         Web.getDataFromSheet "Frequencies"
         |> fun data ->
-            data 
+            data
             |> Array.tryHead
-            |> function 
+            |> function
             | None -> Array.empty
-            | Some cs ->  
+            | Some cs ->
                 let getStr c r = Csv.getStringColumn cs r c
                 let getInt c r = Csv.getInt32OptionColumn cs r c
-                
+
                 data
                 |> Array.skip 1
-                |> Array.map (fun r ->                
+                |> Array.map (fun r ->
                     {|
                         zindex = r |> getStr "ZIndex"
                         zindexfreq = r |> getInt "ZIndexFreq"
@@ -87,31 +94,31 @@ module Mapping =
                         freq = r |> getInt "Freq"
                         n = r |> getInt "n"
                         time = r |> getStr "Unit"
-                    |}            
+                    |}
                 )
                 |> Array.filter (fun r -> r.freq |> Option.isSome)
                 |> Array.map (fun r ->
                     {
                         ZIndex = r.zindex
-                        ZIndexFreq =    
+                        ZIndexFreq =
                             r.zindexfreq
                             |> Option.defaultValue 1
                             |> BigRational.fromInt
                         ZIndexUnit = r.zindexUnit
                         MetaVision1 = r.mv1
                         MetaVision2 = r.mv2
-                        Frequency = 
+                        Frequency =
                             r.freq
                             |> Option.defaultValue 1
                             |> BigRational.fromInt
 
                         Unit =
-                            let n = 
-                                r.n 
+                            let n =
+                                r.n
                                 |> Option.defaultValue 1
                                 |> BigRational.fromInt
-                            
-                            let tu = 
+
+                            let tu =
                                 timeUnits
                                 |> List.tryFind (fst >> String.equalsCapInsens r.time)
                                 |> function
@@ -123,10 +130,21 @@ module Mapping =
                     }
                 )
 
-    
+
+    /// <summary>
+    /// Get the frequency mapping.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let getFrequencyMapping = Memoization.memoize getFrequencies_
 
 
+    /// <summary>
+    /// Map a Unit to a string.
+    /// </summary>
+    /// <param name="mapping">The mapping</param>
+    /// <param name="u">The Unit</param>
     let unitToString (mapping : UnitMapping[]) u =
         mapping
         |> Array.tryFind (fun m -> m.Unit = u)
@@ -134,6 +152,11 @@ module Mapping =
         |> Option.defaultValue ""
 
 
+    /// <summary>
+    /// Map a string to a Unit.
+    /// </summary>
+    /// <param name="mapping">The mapping</param>
+    /// <param name="s">The string</param>
     let stringToUnit (mapping : UnitMapping[]) s =
         mapping
         |> Array.tryFind (fun m ->
@@ -145,9 +168,15 @@ module Mapping =
         |> Option.defaultValue NoUnit
 
 
-    let mapFrequency n s =
+    /// <summary>
+    /// Map a frequency value and frequency unit to
+    /// an optional FrequencyMapping.
+    /// </summary>
+    /// <param name="freq">The frequency value</param>
+    /// <param name="un">The frequency unit</param>
+    let mapFrequency freq un =
         getFrequencyMapping ()
         |> Array.tryFind(fun f ->
-            f.ZIndexFreq |> BigRational.toDecimal = n &&
-            f.ZIndexUnit = s
+            f.ZIndexFreq |> BigRational.toDecimal = freq &&
+            f.ZIndexUnit = un
         )

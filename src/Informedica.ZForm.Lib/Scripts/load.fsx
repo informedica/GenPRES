@@ -15,8 +15,6 @@
 #load "../Markdown.fs"
 #load "../Mapping.fs"
 #load "../ValueUnit.fs"
-#load "../ValueUnit.fs"
-#load "../Product.fs"
 #load "../PatientCategory.fs"
 #load "../DoseRule.fs"
 #load "../GStand.fs"

@@ -13,92 +13,78 @@ module ValueUnit =
 
     open ValueUnit
 
+
+    /// Try create a Unit from a string.
     let unitFromString = Units.fromString
 
-    let unitToString = Units.toString Units.Localization.English Units.Short
+
+    /// Return the Unit as a string.
+    let unitToString =
+        Units.toString
+            Units.Localization.English
+            Units.Short
 
 
+    /// Try create a Unit from a string.
     let readableStringToWeightUnit s =
         $"%s{s}[Weight]"
         |> Units.fromString
 
+
+    /// Try create a BSA Unit from a string.
     let readableStringToBSAUnit s =
         $"%s{s}[BSA]"
         |> Units.fromString
 
+
+    /// Try create a Time Unit from a string.
     let readableStringToTimeUnit s =
         $"%s{s}[Time]"
         |> Units.fromString
 
 
-    //TODO: rewrite to new online mapping
-    /// Create a unit from a GStand unit
-    let unitFromZIndexString = Mapping.stringToUnit (Mapping.getUnitMapping ())
+    /// Create a unit from a UnitMapping.
+    let unitFromZIndexString =
+        Mapping.getUnitMapping ()
+        |> Mapping.stringToUnit
 
 
-    /// Create a value unit using a specific mapping `m`
-    /// with value `v` and unit `u`.
-    let createValueUnit (d : decimal) u =
-        let v = d |> float
-        let u = u |> unitFromZIndexString
-
-        match v |> BigRational.fromFloat with
-        | None -> None
-        | Some v  -> createSingle u v |> Some
 
     /// Create a `ValueUnit` using a float value
     /// `v` and a `Unit` `u`.
-    let fromDecimal (v: float) u =
+    let fromFloat (v: float) u =
         v
         |> decimal
         |> BigRational.fromDecimal
         |> createSingle u
 
 
-    //TODO: rewrite to new online mapping
-    /// Turn a `ValueUnit` to a float, string tuple.
-    /// Where the unit string representation is a
-    /// ZIndex string.
-    let valueUnitToZIndexString vu =
-        let v, u = get vu
 
-        v |> Array.map BigRational.toDecimal,
-        u
-        |> Mapping.unitToString (Mapping.getUnitMapping ())
+    let timeInMinute = (fun n -> fromFloat n Units.Time.minute)
 
 
-    let valueUnitFromZIndexString v u =
-        let u = u |> unitFromZIndexString
-        v
-        |> BigRational.fromDecimal
-        |> ValueUnit.singleWithUnit u
+    let timeInHour =  (fun n -> fromFloat n Units.Time.hour)
 
 
-    let timeInMinute = (fun n -> fromDecimal n Units.Time.minute)
+    let timeInDay =  (fun n -> fromFloat n Units.Time.day)
 
 
-    let timeInHour =  (fun n -> fromDecimal n Units.Time.hour)
+    let timeInWeek =  (fun n -> fromFloat n Units.Time.week)
 
 
-    let timeInDay =  (fun n -> fromDecimal n Units.Time.day)
+    let ageInWk =  (fun n -> fromFloat n Units.Time.week)
 
 
-    let timeInWeek =  (fun n -> fromDecimal n Units.Time.week)
+    let ageInMo =  (fun n -> fromFloat n Units.Time.month)
 
 
-    let ageInWk =  (fun n -> fromDecimal n Units.Time.week)
+    let ageInYr =  (fun n -> fromFloat n Units.Time.year)
 
 
-    let ageInMo =  (fun n -> fromDecimal n Units.Time.month)
+    let weightInKg =  (fun n -> fromFloat n Units.Weight.kiloGram)
 
 
-    let ageInYr =  (fun n -> fromDecimal n Units.Time.year)
-
-
-    let weightInKg =  (fun n -> fromDecimal n Units.Weight.kiloGram)
-
-
-    let bsaInM2 =  (fun n -> fromDecimal n Units.BSA.m2)
+    let bsaInM2 =  (fun n -> fromFloat n Units.BSA.m2)
 
 
     /// Create a frequency unit
@@ -116,6 +102,7 @@ module ValueUnit =
         |> Units.Count.nTimes
         |> per (Units.Time.nHour n)
 
+
     /// Freq unit per 1 hour.
     let freqPerOneHour = freqUnitPerNHour 1N
 
@@ -125,10 +112,11 @@ module ValueUnit =
     let gestAgeInDaysAndWeeks gest =
         gest
         |> Option.bind (fun (w, d) ->
-            let vu1 = fromDecimal w Units.Time.week
-            let vu2 = fromDecimal d Units.Time.day
+            let vu1 = fromFloat w Units.Time.week
+            let vu2 = fromFloat d Units.Time.day
             vu1 + vu2 |> Some
         )
+
 
     /// Turn a frequency `ValueUnit` `freq`
     /// to a valueunit string representation.

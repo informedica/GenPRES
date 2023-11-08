@@ -36,7 +36,7 @@ module Route =
                 Route =
                     r.name
                     |> Reflection.fromString<Route.Route>
-                    |> Option.defaultValue Route.NoRoute
+                    |> Option.defaultValue NoRoute
                 Name = r.name
                 ZIndex = r.zindex
                 Product = r.product

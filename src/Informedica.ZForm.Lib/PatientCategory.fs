@@ -3,7 +3,6 @@
 
 module PatientCategory =
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
 
@@ -11,6 +10,7 @@ module PatientCategory =
     open Aether.Operators
 
 
+    /// Create a PatientCategory.
     let create ga age wght bsa gend =
         {
             GestAge = ga
@@ -21,6 +21,7 @@ module PatientCategory =
         }
 
 
+    /// An empty PatientCategory.
     let empty = create MinIncrMax.empty MinIncrMax.empty MinIncrMax.empty MinIncrMax.empty Undetermined
 
 
@@ -144,11 +145,13 @@ module PatientCategory =
         let setExclMaxBSA = Optic.set exclMaxBSA
 
 
+    /// Get the string representation of a Gener.
     let genderToString = function
     | Male -> "man"
     | Female -> "vrouw"
     | Undetermined -> ""
 
+    /// Create a Gender from a string.
     let stringToGender s =
         match s with
         | _ when s |> String.toLower |> String.trim = "man" -> Male
@@ -156,6 +159,7 @@ module PatientCategory =
         | _  -> Undetermined
 
 
+    /// Get the string representation of a PatientCategory.
     let toString { GestAge = ga; Age = age; Weight = wght; BSA = bsa; Gender = gen } =
         let (>+) sl sr =
             let l, s = sr

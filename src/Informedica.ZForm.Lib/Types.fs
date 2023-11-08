@@ -102,7 +102,7 @@ module Types =
     /// Dosage, DoseRanges for different dosage types.
     type Dosage =
         {
-            /// Indentifies the indication
+            /// Identifies the indication
             Name : string
             /// Dosage at the start
             StartDosage : DoseRange
@@ -112,7 +112,7 @@ module Types =
             RateDosage : DoseRange * RateUnit
             /// Total dosage per time period
             TotalDosage : DoseRange * Frequency
-            /// List of original doserules
+            /// List of original DoseRules
             Rules : Rule list
         }
         static member Name_ :

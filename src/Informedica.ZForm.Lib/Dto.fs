@@ -6,7 +6,6 @@ module Dto =
     open Aether
 
     open System
-    open MathNet.Numerics
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -28,6 +27,8 @@ module Dto =
     let (<?) = Limit.optST
 
 
+
+    /// A Dto to work wih the ZForm library.
     [<CLIMutable>]
     type Dto =
         {
@@ -104,6 +105,7 @@ module Dto =
 
 
 
+    /// An empty Dto.
     let dto =
         {
             AgeInMo = 0.
@@ -135,6 +137,7 @@ module Dto =
         }
 
 
+    /// Load the Zindex data in memory.
     let loadGenForm () =
         printfn "Start loading GenPresProducts ..."
         GPP.load []
@@ -145,11 +148,19 @@ module Dto =
         printfn "Finisched loading"
 
 
+
+    /// <summary>
+    /// Find the Generic Product info for the given dto.
+    /// </summary>
+    /// <param name="dto">The Dto</param>
+    /// <returns>The Generic Product info</returns>
     let find (dto : Dto) =
         let rte =
             dto.Route
-            //TODO: rewrite to new online mapping
-            //|> Informedica.ZIndex.Lib.Route.fromString
+            |> Informedica.ZIndex.Lib.Route.fromString
+                (Informedica.ZIndex.Lib.Route.routeMapping ())
+            |> Informedica.ZIndex.Lib.Route.toString
+                (Informedica.ZIndex.Lib.Route.routeMapping ())
 
         let gpps =
             let ps = dto.GPK |> GPP.findByGPK
@@ -165,7 +176,8 @@ module Dto =
                     match gpp.GenericProducts |> Seq.tryFind (fun p -> p.Id = dto.GPK) with
                     | Some gp -> gp |> Some
                     | None ->
-                        if gpp.GenericProducts |> Seq.length = 1 then gpp.GenericProducts |> Seq.head |> Some
+                        if gpp.GenericProducts |> Seq.length = 1 then
+                            gpp.GenericProducts |> Seq.head |> Some
                         else
                             printfn $"too many products ({gpp.GenericProducts |> Seq.length}) narrow the search"
                             None
@@ -199,7 +211,14 @@ module Dto =
             0, "", "", "", 0., "", ""
 
 
-    let fillRuleWithDosage  gpk (d : Dosage)  (r : Rule) =
+    /// <summary>
+    /// Fill the given Rule dto with the given Dosage for a given GPK.
+    /// </summary>
+    /// <param name="gpk">The GPK</param>
+    /// <param name="d">The Dosage</param>
+    /// <param name="r">The Rule dto</param>
+    /// <returns>The filled Rule dto</returns>
+    let fillRuleWithDosage gpk (d : Dosage)  (r : Rule) =
 
         let conc, unt =
             match
@@ -275,6 +294,11 @@ module Dto =
         }
 
 
+    /// <summary>
+    /// Convert the given Dto to a Dto with the rules filled in.
+    /// </summary>
+    /// <param name="dto">The Dto</param>
+    /// <returns>The Dto with the rules filled in</returns>
     let processDto (dto : Dto) =
 
         let u =

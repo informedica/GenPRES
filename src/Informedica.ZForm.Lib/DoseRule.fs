@@ -1,5 +1,6 @@
 ﻿namespace Informedica.ZForm.Lib
 
+
 module DoseRule =
 
     open MathNet.Numerics
@@ -16,20 +17,48 @@ module DoseRule =
     module PatientCategory = Informedica.ZForm.Lib.PatientCategory
 
 
-    /// Models a medication dose range with lower and upper limits
-    /// * Norm : the 'normal' non adjusted upper and lower limits
-    /// * NormWeight : the 'normal' by weight adjusted upper and lower limits
-    /// * NormBSA : the 'normal' by bsa adjusted upper and lower limits
-    /// * Abs : the 'absolute' non adjusted upper and lower limits
-    /// * AbsWeight : the 'absolute' by weight adjusted upper and lower limits
-    /// * AbsBSA : the 'absolute' by bsa adjusted upper and lower limits
+    /// <summary>
+    /// Functions that handles a DoseRange. A DoseRange models a
+    /// a medication dose range with lower and upper limits
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    ///     <item>
+    ///         <term>Norm</term>
+    ///         <description>the 'normal' non-adjusted upper and lower limits</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>NormWeight</term>
+    ///         <description>the 'normal' by weight adjusted upper and lower limits</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>NormBSA</term>
+    ///         <description>the 'normal' by BSA adjusted upper and lower limits</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>Abs</term>
+    ///         <description>the 'absolute' non-adjusted upper and lower limits</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>AbsWeight</term>
+    ///         <description>the 'absolute' by weight adjusted upper and lower limits</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>AbsBSA</term>
+    ///         <description>the 'absolute' by BSA adjusted upper and lower limits</description>
+    ///     </item>
+    /// </list>
+    /// </remarks>
     module DoseRange =
 
-
+        /// <summary>
         /// Create a DoseRange with a Norm, NormWeight, NormBSA,
         /// Abs, AbsWeight and AbsBSA min max values.
+        /// </summary>
+        /// <remarks>
         /// Note: units in normWght and absWght are weight units and
         /// units in normBSA and absBSA are bsa units.
+        /// </remarks>
         let create norm normWght normBSA abs absWght absBSA =
             {
                 Norm = norm
@@ -40,18 +69,27 @@ module DoseRule =
                 AbsBSA = absBSA
             }
 
+
+        /// An empty Weight MinMax.
         let emptyWeight =
             MinIncrMax.empty, NoUnit
 
 
+        /// An empty BSA MinMax.
         let emptyBSA = MinIncrMax.empty, NoUnit
 
 
+        /// An empty DoseRange.
         let empty =
             create MinIncrMax.empty emptyWeight emptyBSA MinIncrMax.empty emptyWeight emptyBSA
 
 
-        let count n =
+        /// <summary>
+        /// Creates a DoseRange with the same min and max values and
+        /// a Count unit.
+        /// </summary>
+        /// <param name="vu">The ValueUnit to create the DoseRange</param>
+        let count vu =
             let setMinIncl =
                 Optic.set MinIncrMax.Optics.inclMinLens
 
@@ -60,8 +98,8 @@ module DoseRule =
 
             let mm =
                 MinIncrMax.empty
-                |> setMinIncl (Some n)
-                |> setMaxIncl (Some n)
+                |> setMinIncl (Some vu)
+                |> setMaxIncl (Some vu)
 
             let wmm = (mm, Units.Weight.kiloGram)
 
@@ -70,6 +108,13 @@ module DoseRule =
             create mm wmm bmm mm wmm bmm
 
 
+        /// <summary>
+        /// Apply a calculation to a DoseRange.
+        /// </summary>
+        /// <param name="op">The calculation operator</param>
+        /// <param name="dr1">The first DoseRange</param>
+        /// <param name="dr2">The second DoseRange</param>
+        /// <returns>The resulting DoseRange of the calculation</returns>
         let calc op (dr1: DoseRange) (dr2: DoseRange) =
             { empty with
                 Norm = dr1.Norm |> op <| dr2.Norm
@@ -87,8 +132,15 @@ module DoseRule =
             }
 
 
+        /// <summary>
+        /// Convert the Unit of a DoseRange.
+        /// </summary>
+        /// <param name="u">The Unit to convert to</param>
+        /// <param name="dr">The DoseRange to convert</param>
+        /// <remarks>
         /// Only converts the substance unit to unit u
         /// weight and bsa units remain the same!
+        /// </remarks>
         let convertTo u (dr: DoseRange) =
 
             { dr with
@@ -239,17 +291,25 @@ module DoseRule =
 
 
 
-        let toString
-            ru
-            {
-                Norm = norm
-                NormWeight = normwght
-                NormBSA = normbsa
-                Abs = abs
-                AbsWeight = abswght
-                AbsBSA = absbsa
-            }
-            =
+        /// <summary>
+        /// Get the string representation of a DoseRange.
+        /// </summary>
+        /// <param name="ru">The unit to use for the string representation</param>
+        /// <param name="dr">The DoseRange to get the string representation of</param>
+        /// <remarks>
+        /// If the DoseRange is a rate unit, then ru is used.
+        /// </remarks>
+        let toString ru dr =
+            let
+                {
+                    Norm = norm
+                    NormWeight = normwght
+                    NormBSA = normbsa
+                    Abs = abs
+                    AbsWeight = abswght
+                    AbsBSA = absbsa
+                } = dr
+
             let (>+) sl sr =
                 let sl = sl |> String.trim
                 let sr = sr |> String.trim
@@ -400,20 +460,40 @@ module DoseRule =
 
 
 
+    /// <summary>
     /// Models a drug dosage. For each combination
     /// of a drug, indication there is one dosage.
     /// The indication is identified by the name of
-    /// the dosage. Per dosage the following `DoseRange`
+    /// the dosage.
+    /// </summary>
+    /// Per dosage the following `DoseRange`
+    /// <remarks>
     /// items can be defined:
-    /// * StartDosage: dosage at the start
-    /// * SingleDosage: dosage per administration
-    /// * RateDosage: dosage rate, has a rate unit
-    /// * TotalDosage: dosage per time period, has a `Frequency`
+    /// <list type="bullet">
+    ///     <item>
+    ///         <term>StartDosage</term>
+    ///         <description>dosage at the start</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>SingleDosage</term>
+    ///         <description>dosage per administration</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>RateDosage</term>
+    ///         <description>dosage rate, has a rate unit</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>TotalDosage</term>
+    ///         <description>dosage per time period, has a `Frequency`</description>
+    ///     </item>
+    /// </list>
     /// The frequency is defined by a list of possible frequencies
     /// per time period and/or a minimal interval
+    /// </remarks>
     module Dosage =
 
 
+        /// Creates the Frequency for a TotalDosage.
         let createFrequency frs tu mi =
             {
                 Frequencies = frs
@@ -422,6 +502,7 @@ module DoseRule =
             }
 
 
+        /// Creates a Dosage.
         let create nm start single rate total rls =
             {
                 Name = nm
@@ -433,6 +514,7 @@ module DoseRule =
             }
 
 
+        /// An empty Frequency.
         let emptyFrequency =
             {
                 Frequencies = []
@@ -441,6 +523,7 @@ module DoseRule =
             }
 
 
+        /// An empty Dosage.
         let empty =
             create
                 ""
@@ -451,6 +534,11 @@ module DoseRule =
                 []
 
 
+        /// <summary>
+        /// Change the substance unit of a Dosage.
+        /// </summary>
+        /// <param name="u">The unit to change to</param>
+        /// <param name="ds">The Dosage to change</param>
         let convertSubstanceUnitTo u (ds: Dosage) =
             let convert = DoseRange.convertTo u
 
@@ -462,6 +550,11 @@ module DoseRule =
             }
 
 
+        /// <summary>
+        /// Change the rate unit of a Dosage.
+        /// </summary>
+        /// <param name="u">The unit to change to</param>
+        /// <param name="ds">The Dosage to change</param>
         let convertRateUnitTo u (ds: Dosage) =
             let getCount u1 u2 =
                 1N
@@ -1134,7 +1227,7 @@ module DoseRule =
                 >-> DoseRange.exclMaxAbsBSALens
 
 
-
+        /// Get the string representation of a Frequency.
         let freqsToStr (freqs: Frequency) =
             let fu =
                 freqs.TimeUnit
@@ -1159,6 +1252,7 @@ module DoseRule =
             )
 
 
+        /// Get the string representation of a Dosage.
         let toString
             rules
             {
@@ -1340,8 +1434,12 @@ module DoseRule =
 
 
 
+    /// A PatientDosage is a ShapeDosage or list of SubstanceDosages
+    /// for a specific patient group.
     module PatientDosage =
 
+
+        /// Create a PatientDosage using a PatientCategory.
         let create pat =
             {
                 Patient = pat
@@ -1413,6 +1511,8 @@ module DoseRule =
 
 
 
+    /// A ShapeDosage is a Dosage for a specific Shape,
+    /// and related GenericProducts and TradeProducts.
     module ShapeDosage =
 
 
@@ -1522,12 +1622,21 @@ module DoseRule =
                 let fromDto (dto: Dto) = { GPK = dto.GPK; Label = dto.Label }
 
 
-        let create shp gps tps =
-            if shp |> List.exists String.isNullOrWhiteSpace then
+        /// <summary>
+        /// Create a ShapeDosage.
+        /// </summary>
+        /// <param name="shps">The list of Shapes</param>
+        /// <param name="gps">The list of GenericProducts</param>
+        /// <param name="tps">The list of TradeProducts</param>
+        /// <remarks>
+        /// If the list of Shapes is empty, None is returned.
+        /// </remarks>
+        let create shps gps tps =
+            if shps |> List.exists String.isNullOrWhiteSpace then
                 None
             else
                 {
-                    Shape = shp
+                    Shape = shps
                     GenericProducts = gps
                     TradeProducts = tps
                     PatientDosages = []
@@ -1629,9 +1738,17 @@ module DoseRule =
 
 
 
+    /// A RouteDosage are a ShapeDosages for a specific Route.
     module RouteDosage =
 
 
+        /// <summary>
+        /// Create a RouteDosage.
+        /// </summary>
+        /// <param name="rt">The Route</param>
+        /// <remarks>
+        /// If the Route is empty or only space(s), None is returned.
+        /// </remarks>
         let create rt =
             if rt |> String.isNullOrWhiteSpace then
                 None
@@ -1692,9 +1809,14 @@ module DoseRule =
 
 
 
+    /// An IndicationDosage is a list of RouteDosages for a specific Indication.
     module IndicationDosage =
 
 
+        /// <summary>
+        /// Create an IndicationDosage.
+        /// </summary>
+        /// <param name="inds">The Indications</param>
         let create inds =
             {
                 Indications = inds
@@ -1752,12 +1874,25 @@ module DoseRule =
 
 
 
+    /// Utility function to apply a function f to a DoseRule dr.
     let apply f (dr: DoseRule) = f dr
 
 
+    /// Utility function to enable type inference.
     let get = apply id
 
 
+    /// <summary>
+    /// Create a DoseRule.
+    /// </summary>
+    /// <param name="gen">The Generic</param>
+    /// <param name="syn">Synonyms for the Generic</param>
+    /// <param name="atc">The ATC5 code for the Generic</param>
+    /// <param name="thg">The TherapeuticGroup for the Generic</param>
+    /// <param name="sub">The TherapeuticSubGroup for the Generic</param>
+    /// <param name="ggp">The GenericGroup for the Generic</param>
+    /// <param name="gsg">The GenericSubGroup for the Generic</param>
+    /// <param name="idl">The list of IndicationDosages</param>
     let create gen syn atc thg sub ggp gsg idl =
         {
             Generic = gen
@@ -1771,23 +1906,29 @@ module DoseRule =
         }
 
 
+    /// Create an IndicationDosage.
     let createIndicationDosage =
         IndicationDosage.create
 
 
+    /// Create a RouteDosage.
     let createRouteDosage = RouteDosage.create
 
 
+    /// Create a ShapeDosage.
     let createShapeDosage = ShapeDosage.create
 
 
+    /// Create a PatientDosage.
     let createPatientDosage =
         PatientDosage.create
 
 
+    /// Create a Dosage.
     let createDosage n = Dosage.empty |> Dosage.Optics.setName n
 
 
+    /// Create a Dosage for a Substance.
     let createSubstanceDosage sn =
         if sn |> String.isNullOrWhiteSpace then
             None
@@ -1795,11 +1936,22 @@ module DoseRule =
             sn |> createDosage |> Some
 
 
+    /// <summary>
+    /// Try find the index of an IndicationDosage in a DoseRule.
+    /// </summary>
+    /// <param name="inds">The list of Indications</param>
+    /// <param name="dr">The DoseRule</param>
     let indxIndications inds (dr: DoseRule) =
         dr.IndicationsDosages
         |> List.tryFindIndex (fun id -> id.Indications = inds)
 
 
+    /// <summary>
+    /// Try find the indexs of a RouteDosage in a DoseRule.
+    /// </summary>
+    /// <param name="inds">The list of Indications</param>
+    /// <param name="rt">The Route</param>
+    /// <param name="dr">The DoseRule</param>
     let indxRoute inds rt dr =
         dr
         |> indxIndications inds
@@ -1812,6 +1964,13 @@ module DoseRule =
         )
 
 
+    /// <summary>
+    /// Try find the indexs of a ShapeDosage in a DoseRule.
+    /// </summary>
+    /// <param name="inds">The list of Indications</param>
+    /// <param name="rt">The Route</param>
+    /// <param name="shp">The Shape</param>
+    /// <param name="dr">The DoseRule</param>
     let indxShape inds rt shp dr =
         match dr |> indxRoute inds rt with
         | Some (ni, nr) ->
@@ -1824,6 +1983,14 @@ module DoseRule =
         | None -> None
 
 
+    /// <summary>
+    /// Try find the indexes of a PatientDosage in a DoseRule.
+    /// </summary>
+    /// <param name="inds">The list of Indications</param>
+    /// <param name="rt">The Route</param>
+    /// <param name="shp">The Shape</param>
+    /// <param name="pat">The PatientCategory</param>
+    /// <param name="dr">The DoseRule</param>
     let indxPatient inds rt shp pat dr =
         match dr |> indxShape inds rt shp with
         | Some (ni, nr, ns) ->
@@ -1837,6 +2004,11 @@ module DoseRule =
         | None -> None
 
 
+    /// <summary>
+    /// Add an IndicationDosage to a DoseRule.
+    /// </summary>
+    /// <param name="inds">The list of Indications</param>
+    /// <param name="dr">The DoseRule</param>
     let addIndications inds (dr: DoseRule) =
         let indd = createIndicationDosage inds
 
@@ -2018,6 +2190,13 @@ module DoseRule =
 
 
 
+    /// <summary>
+    /// Convert a Unit of a DoseRule to a new Unit.
+    /// </summary>
+    /// <param name="conv">The conversion function</param>
+    /// <param name="gen">The Generic</param>
+    /// <param name="u">The new SubstanceUnit</param>
+    /// <param name="dr">The DoseRule</param>
     let private convertTo conv gen u (dr: DoseRule) =
         { dr with
             IndicationsDosages =
@@ -2056,12 +2235,32 @@ module DoseRule =
         }
 
 
-    let convertSubstanceUnitTo =
-        convertTo Dosage.convertSubstanceUnitTo
+    /// <summary>
+    /// Convert the SubstanceUnit of a DoseRule to a new SubstanceUnit.
+    /// </summary>
+    /// <param name="gen">The Generic</param>
+    /// <param name="u">The new SubstanceUnit</param>
+    /// <param name="dr">The DoseRule</param>
+    let convertSubstanceUnitTo gen u dr =
+        convertTo
+            Dosage.convertSubstanceUnitTo
+            gen
+            u
+            dr
 
 
-    let convertRateUnitTo =
-        convertTo Dosage.convertRateUnitTo
+    /// <summary>
+    /// Convert the RateUnit of a DoseRule to a new RateUnit.
+    /// </summary>
+    /// <param name="gen">The Generic</param>
+    /// <param name="u">The new RateUnit</param>
+    /// <param name="dr">The DoseRule</param>
+    let convertRateUnitTo gen u dr =
+        convertTo
+            Dosage.convertRateUnitTo
+            gen
+            u
+            dr
 
 
     module Operators =
@@ -2125,6 +2324,7 @@ Synoniemen: {synonym}
 """
 
 
+    /// A type to configure the text output of a DoseRule.
     type TextConfig =
         {
             MainText: string
@@ -2136,6 +2336,7 @@ Synoniemen: {synonym}
         }
 
 
+    /// A markdown text configuration for a DoseRule.
     let mdConfig =
         {
             MainText = mdText
@@ -2147,6 +2348,12 @@ Synoniemen: {synonym}
         }
 
 
+    /// <summary>
+    /// Convert a DoseRule to a string using a TextConfig.
+    /// </summary>
+    /// <param name="config">The textConfig</param>
+    /// <param name="printRules">Whether or not to print the original DoseRules</param>
+    /// <param name="dr">The DoseRule</param>
     let toStringWithConfig (config: TextConfig) printRules (dr: DoseRule) =
         let gpsToString (gps: GenericProductLabel list) =
             gps
@@ -2220,6 +2427,7 @@ Synoniemen: {synonym}
         )
 
 
+    /// Get the markdown text of a DoseRule.
     let toString = toStringWithConfig mdConfig
 
 
