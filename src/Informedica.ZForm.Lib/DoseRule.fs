@@ -1238,11 +1238,11 @@ module DoseRule =
             if freqs.Frequencies
                |> List.isConsecutive 0N 1N
                |> not then
-                freqs.Frequencies |> List.toString
+                freqs.Frequencies |> List.toString2
             else
                 match freqs.Frequencies |> List.headTail with
                 | Some h, Some t -> $"%s{h.ToString()} - %s{t.ToString()}"
-                | _ -> freqs.Frequencies |> List.toString
+                | _ -> freqs.Frequencies |> List.toString2
             |> (fun s ->
                 if s |> String.isNullOrWhiteSpace
                    || s |> String.isNullOrWhiteSpace then

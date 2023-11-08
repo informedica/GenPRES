@@ -69,7 +69,7 @@ module Route =
 
 
     /// Get the string representation of a route.
-    let toString mapping r =
+    let toString mapping (r : Route) =
         $"%A{r}"
         |> tryFind mapping
         |> function

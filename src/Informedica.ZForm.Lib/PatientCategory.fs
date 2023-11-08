@@ -170,7 +170,7 @@ module PatientCategory =
             if s |> String.isNullOrWhiteSpace then sl
             else sl + (if sl = "" then " " else  ", ") + l + s
 
-        let mmToStr = MinIncrMax.toString "van" "van" "tot" "tot"
+        let mmToStr = MinIncrMax.toString "van " "van " "tot " "tot "
 
         ""
         >+ ("Zwangerschapsduur: ", ga |> MinIncrMax.gestAgeToString)

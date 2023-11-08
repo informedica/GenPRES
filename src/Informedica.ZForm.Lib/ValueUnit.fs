@@ -45,8 +45,7 @@ module ValueUnit =
 
     /// Create a unit from a UnitMapping.
     let unitFromZIndexString =
-        Mapping.getUnitMapping ()
-        |> Mapping.stringToUnit
+        Mapping.stringToUnit
 
 
 

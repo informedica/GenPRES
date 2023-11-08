@@ -143,10 +143,9 @@ module Mapping =
     /// <summary>
     /// Map a Unit to a string.
     /// </summary>
-    /// <param name="mapping">The mapping</param>
     /// <param name="u">The Unit</param>
-    let unitToString (mapping : UnitMapping[]) u =
-        mapping
+    let unitToString u =
+        getUnitMapping ()
         |> Array.tryFind (fun m -> m.Unit = u)
         |> Option.map (fun m -> m.ZIndexShort)
         |> Option.defaultValue ""
@@ -155,10 +154,9 @@ module Mapping =
     /// <summary>
     /// Map a string to a Unit.
     /// </summary>
-    /// <param name="mapping">The mapping</param>
     /// <param name="s">The string</param>
-    let stringToUnit (mapping : UnitMapping[]) s =
-        mapping
+    let stringToUnit s =
+        getUnitMapping ()
         |> Array.tryFind (fun m ->
             m.ZIndexLong |> String.equalsCapInsens s ||
             m.ZIndexShort |> String.equalsCapInsens s ||
@@ -177,6 +175,16 @@ module Mapping =
     let mapFrequency freq un =
         getFrequencyMapping ()
         |> Array.tryFind(fun f ->
-            f.ZIndexFreq |> BigRational.toDecimal = freq &&
+            f.ZIndexFreq |> BigRational.toFloat = freq &&
             f.ZIndexUnit = un
         )
+
+
+    let stringToRoute =
+        Informedica.ZIndex.Lib.Route.routeMapping ()
+        |> Informedica.ZIndex.Lib.Route.fromString
+
+
+    let routeToString =
+        Informedica.ZIndex.Lib.Route.routeMapping ()
+        |> Informedica.ZIndex.Lib.Route.toString

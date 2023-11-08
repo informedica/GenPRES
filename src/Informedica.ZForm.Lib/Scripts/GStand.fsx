@@ -1,7 +1,9 @@
 
+
 #load "load.fsx"
 
 
+open Informedica.Utils.Lib
 open Informedica.ZForm.Lib
 
 
@@ -15,14 +17,18 @@ let config =
     }
 
 
-let path = $"{__SOURCE_DIRECTORY__}/paracetamol.md"
+let path = $"{__SOURCE_DIRECTORY__}/temp.html"
 
 
-GStand.createDoseRules config None None None None "paracetamol" "" ""
+GStand.createDoseRules config None None None None "" "" ""
 |> Seq.map (fun dr ->
     dr
-    |> DoseRule.toString true
+    |> DoseRule.toString false
 )
-|> fun s -> System.IO.File.WriteAllText(path, s |> String.concat "\n")
+|> String.concat "\n"
+|> Markdown.toHtml
+|> File.writeTextToFile path
+
+
 
 

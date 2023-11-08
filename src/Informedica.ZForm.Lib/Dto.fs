@@ -40,7 +40,7 @@ module Dto =
             BirthWeightGram : float
             GestAgeWeeks : int
             GestAgeDays : int
-            GPK : int
+            GPK : int list
             ATC : string
             TherapyGroup : string
             TherapySubGroup : string
@@ -116,7 +116,7 @@ module Dto =
             BirthWeightGram = 0.
             GestAgeWeeks = 0
             GestAgeDays = 0
-            GPK = 0
+            GPK = []
             ATC = ""
             TherapyGroup = ""
             TherapySubGroup = ""
@@ -155,25 +155,22 @@ module Dto =
     /// <param name="dto">The Dto</param>
     /// <returns>The Generic Product info</returns>
     let find (dto : Dto) =
-        let rte =
-            dto.Route
-            |> Informedica.ZIndex.Lib.Route.fromString
-                (Informedica.ZIndex.Lib.Route.routeMapping ())
-            |> Informedica.ZIndex.Lib.Route.toString
-                (Informedica.ZIndex.Lib.Route.routeMapping ())
-
         let gpps =
-            let ps = dto.GPK |> GPP.findByGPK
+            let ps =
+                match dto.GPK with
+                | [ gpk ] -> gpk |> GPP.findByGPK
+                | _ -> [||]
             if ps |> Array.length = 0 then
-                GPP.filter dto.Generic dto.Shape rte
+                GPP.filter dto.Generic dto.Shape dto.Route
             else ps
             |> Array.toList
 
         match gpps with
-        | [gpp] ->
+        | [ gpp ] ->
             let gpk, lbl, conc, unt, tps =
                 let gp =
-                    match gpp.GenericProducts |> Seq.tryFind (fun p -> p.Id = dto.GPK) with
+                    match gpp.GenericProducts
+                          |> Seq.tryFind (fun p -> dto.GPK |> Seq.exists ((=) p.Id)) with
                     | Some gp -> gp |> Some
                     | None ->
                         if gpp.GenericProducts |> Seq.length = 1 then
@@ -202,12 +199,12 @@ module Dto =
                     gp.Id, gp.Label, conc, unt, tps
 
                 | None ->
-                    printfn "Could not find product %s %s %s with GPK: %i" dto.Generic dto.Shape dto.Route dto.GPK
+                    printfn $"Could not find product %s{dto.Generic} %s{dto.Shape} %s{dto.Route} with GPK: %A{dto.GPK}"
                     0, "", 0., "", ""
 
             gpk, gpp.Name, gpp.Shape, lbl, conc, unt, tps
         | _ ->
-            printfn "Could not find product %s %s %s with GPK: %i" dto.Generic dto.Shape dto.Route dto.GPK
+            printfn $"Could not find product %s{dto.Generic} %s{dto.Shape} %s{dto.Route} with GPK: %A{dto.GPK}"
             0, "", "", "", 0., "", ""
 
 
@@ -234,8 +231,6 @@ module Dto =
                 f
                 |> ValueUnit.createSingle (ValueUnit.createCombiUnit (Units.Count.times, OpPer, fr.TimeUnit))
                 |> ValueUnit.freqToValueUnitString
-                //TODO: rewrite to new online mapping
-                //|> Mapping.mapFreq Mapping.ValueUnitMap Mapping.GenPres
             )
             |> String.concat "||"
 
@@ -279,12 +274,14 @@ module Dto =
                         let d2 = d |> getValue Dosage.Optics.exclMaxNormStartDosagePrism
                         if d1 = 0. then d2 else d1
                     else r.MaxPerDose
+
                 MaxPerDosePerKg =
                     if r.MaxPerDosePerKg = 0. then
                         let d1 = d |> getValue Dosage.Optics.exclMaxNormWeightSingleDosagePrism
                         let d2 = d |> getValue Dosage.Optics.exclMaxNormWeightStartDosagePrism
                         if d1 = 0. then d2 else d1
                     else r.MaxPerDosePerKg
+
                 MaxPerDosePerM2 =
                     if r.MaxTotalDosePerM2 = 0. then
                         let d1 = d |> getValue Dosage.Optics.exclMaxNormBSASingleDosagePrism
@@ -302,21 +299,19 @@ module Dto =
     let processDto (dto : Dto) =
 
         let u =
-            // TODO: check this mapping
-            dto.MultipleUnit |> ValueUnit.unitFromZIndexString
-            |> Some
+            if dto.MultipleUnit |> String.isNullOrWhiteSpace then None
+            else
+                dto.MultipleUnit
+                |> Mapping.stringToUnit
+                |> Some
 
         let ru =
             dto.RateUnit |> Units.fromString
 
         let rte =
             dto.Route
-            //TODO: rewrite to new online mapping
-            //|> Mapping.mapRoute Mapping.GenPres Mapping.ZIndex
-            |> (fun r ->
-                if r = "" then printfn "Could not map route %s" dto.Route
-                r
-            )
+            |> Mapping.stringToRoute
+            |> Mapping.routeToString
 
         let dto =
             if dto.BSAInM2 > 0. then dto
@@ -340,20 +335,15 @@ module Dto =
                 if dto.MultipleUnit = "" then None
                 else
                     dto.MultipleUnit
-                    |> Mapping.stringToUnit (Mapping.getUnitMapping ())
+                    |> Mapping.stringToUnit
                     |> Some
-                    // TODO: check mapping
-                    //|> ValueUnit.unitFromAppString
-
 
             let tu =
                 if dto.RateUnit = "" then None
                 else
                     dto.RateUnit
-                    |> Mapping.stringToUnit (Mapping.getUnitMapping ())
+                    |> Mapping.stringToUnit
                     |> Some
-                    // TODO: check mapping
-                    //|> ValueUnit.unitFromAppString
 
             let cfg : CreateConfig =
                 {
@@ -375,7 +365,15 @@ module Dto =
 
         if rs |> Seq.length <> 1 then
             printfn "found %i rules for %s" (rs |> Seq.length) prodName
-            dto
+            { dto with
+                GPK =
+                    GPP.filter dto.Generic dto.Shape rte
+                    |> Array.collect (fun gpp ->
+                        gpp.GenericProducts
+                        |> Array.map (fun gp -> gp.Id)
+                    )
+                    |> Array.toList
+            }
         else
             let r = rs |> Seq.head
 
@@ -386,6 +384,7 @@ module Dto =
                         d.Indications
                         |> List.exists (fun s ->
                             if dto.Indication |> String.isNullOrWhiteSpace then
+                                d.Indications |> Seq.length = 1 ||
                                 s = "Algemeen"
                             else
                                 s = dto.Indication
@@ -465,7 +464,9 @@ module Dto =
                     ATC = r.ATC
                     TherapyGroup = r.ATCTherapyGroup
                     TherapySubGroup = r.ATCTherapySubGroup
-                    GPK = if dto.GPK <> gpk then gpk else dto.GPK
+                    GPK =
+                        if dto.GPK |> Seq.exists ((=) gpk) then [ gpk ]
+                        else dto.GPK
                     Generic = gen
                     TradeProduct = tps
                     Shape = shp
