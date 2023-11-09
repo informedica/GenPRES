@@ -77,6 +77,12 @@ This will create a production ready docker image:
 ```bash
 docker build -t [USERNAME]/genpres .
 ```
+**Note**: this will build using the local processor architecture.
+
+To build on a MacOs M1 and still want to publish for an ARM64
+```
+docker build --platform linux/amd64 -t halcwb/genpres .
+```
 
 To run the docker image locally:
 

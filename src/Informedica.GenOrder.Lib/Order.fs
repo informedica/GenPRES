@@ -1856,7 +1856,7 @@ module Order =
                 i.ComponentConcentration
                 |> toStr
                 |> fun s ->
-                    $"{s} {i.Name |> Name.toString}"
+                    $"%s{s} {i.Name |> Name.toString}"
             )
             |> String.concat " + "
 
@@ -1940,7 +1940,8 @@ module Order =
                             |> get
                             |> unt
                             |> fun s ->
-                                if on |> String.startsWith n then seq [ s ]
+                                if on |> String.startsWith n &&
+                                   sn |> Seq.length = 1 then seq [ s ]
                                 else
                                     seq [ $"{s} {n}" ]
 

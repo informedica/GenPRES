@@ -142,7 +142,7 @@ Patient.teenager
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "benzylpenicilline" &&
+    pr.DoseRule.Generic = "trimethoprim/sulfamethoxazol" &&
     pr.DoseRule.Route = "iv" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
@@ -150,7 +150,7 @@ Patient.teenager
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")
 
 |> Order.solveMinMax true OrderLogger.noLogger
 |> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
@@ -254,7 +254,7 @@ let testDto =
     |> PrescriptionRule.get
     |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
     |> Array.filter (fun pr ->
-        pr.DoseRule.Generic = "benzylpenicilline" &&
+        pr.DoseRule.Generic = "trimethoprim/sulfamethoxazol" &&
         pr.DoseRule.Route = "iv" //&&
 //        pr.DoseRule.Indication |> String.startsWith "juveniele"
     )
