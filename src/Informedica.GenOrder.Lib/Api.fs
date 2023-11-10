@@ -230,7 +230,6 @@ module Api =
                 | Some sr ->
                     { dro with
                         Dose =
-                            printfn $"setting sr: {sr.Volume}"
                             { DoseRule.DoseLimit.limit with
                                 Quantity  = sr.Volume
                                 DoseUnit = "mL"
