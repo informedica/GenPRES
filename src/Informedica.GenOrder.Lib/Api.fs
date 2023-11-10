@@ -182,8 +182,9 @@ module Api =
                 dl.Substance |> String.isNullOrWhiteSpace
             )
             |> function
-            | [|dl|] -> dl |> Some
+            | [| dl |] -> dl |> Some
             | _ -> None
+
         // if no subst, dose is based on shape
         let noSubst =
             dose
@@ -202,10 +203,7 @@ module Api =
             FreqUnit = pr.DoseRule.FreqUnit
             Unit =
                 pr.DoseRule.Products
-                |> tryHead (fun p ->
-                    if p.Shape |> String.contains "druppels" then "dr"
-                    else p.ShapeUnit
-                )
+                |> tryHead (fun p -> p.ShapeUnit)
             Time = pr.DoseRule.Time
             TimeUnit = pr.DoseRule.TimeUnit
             RateUnit = "uur"

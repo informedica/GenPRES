@@ -316,6 +316,20 @@ let gpks =
         170933 // adrenaline
         170976 // adrenaline
         175552 // argipressine
+        88641 // tramadol
+        88668 // tramadol
+        88692 // tramadol
+        94625 // tramadol
+        101761 // tramadol
+        104213 // tramadol
+        104221 // tramadol
+        104248 // tramadol
+        109959 // tramadol
+        107166 // tramadol
+        107174 // tramadol
+        107182 // tramadol
+        109738 // tramadol
+        117498 // tramadol
     ]
 
 printfn "Loading GenPresProduct ..."
@@ -328,7 +342,8 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.search "adrenaline"
-|> Array.head
-|> fun gpp -> gpp.GenericProducts |> Array.head
+GenPresProduct.search "tramadol"
+|> Array.collect (fun gpp -> gpp.GenericProducts)
+|> Array.map (fun gp -> gp.Id, gp.Label)
+|> Array.iter (fst >> printfn "%i // tramadol")
 

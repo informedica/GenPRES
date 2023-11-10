@@ -13,6 +13,8 @@ open Swensen.Unquote
 open Tests
 open ValueUnit
 
+"druppel"
+|> Units.stringWithGroup
 
 Tests.testNumDenom()
 
