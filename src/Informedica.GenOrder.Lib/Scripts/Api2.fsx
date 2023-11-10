@@ -131,20 +131,25 @@ let createScenarios () =
         |> run n
     )
 
+open Informedica.GenForm.Lib
+
+Mapping.mappingRouteShape
+
 startLogger ()
 stopLogger ()
+
 
 Patient.teenager
 |> fun p -> { p with VenousAccess = CVL }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "trimethoprim/sulfamethoxazol" &&
-    pr.DoseRule.Route = "iv" //&&
+    pr.DoseRule.Generic = "tramadol" &&
+    pr.DoseRule.Route = "or" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
-|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> fun pr -> pr |> Api.createDrugOrder None// (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")

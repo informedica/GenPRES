@@ -52,7 +52,7 @@ module Product =
 
 
         let private get_ () =
-            Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
+            Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
             |> fun data ->
 
                 let getColumn =
@@ -102,7 +102,7 @@ module Product =
         // ExpansionVol
         // Diluents
         let private get_ () =
-            Web.getDataFromSheet Web.dataUrlId2 "Reconstitution"
+            Web.getDataFromSheet Web.dataUrlIdGenPres "Reconstitution"
             |> fun data ->
 
                 let getColumn =
@@ -167,7 +167,7 @@ module Product =
     module Parenteral =
 
         let private get_ () =
-            Web.getDataFromSheet Web.dataUrlId2 "ParentMeds"
+            Web.getDataFromSheet Web.dataUrlIdGenPres "ParentMeds"
             |> fun data ->
                 let getColumn =
                     data
@@ -249,7 +249,7 @@ module Product =
         let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
 
         fun () ->
-            Web.getDataFromSheet Web.dataUrlId2 "Formulary"
+            Web.getDataFromSheet Web.dataUrlIdGenPres "Formulary"
             |> fun data ->
                 let getColumn =
                     data
@@ -364,7 +364,7 @@ module Product =
                             )
                         Divisible =
                             // TODO: need to map this to a config setting
-                            if gp.Shape |> String.contains "DRUPPEL" then Some 20N
+                            if gp.Shape |> String.containsCapsInsens "druppel" then Some 20N
                             else
                                 if isSol gp.Shape then 10N |> Some
                                     else Some 1N

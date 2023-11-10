@@ -34,7 +34,7 @@ module SolutionRule =
 
 
     let private get_ () =
-        Web.getDataFromSheet Web.dataUrlId2 "SolutionRules"
+        Web.getDataFromSheet Web.dataUrlIdGenPres "SolutionRules"
         |> fun data ->
             let getColumn =
                 data

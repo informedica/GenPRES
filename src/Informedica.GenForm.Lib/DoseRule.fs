@@ -352,7 +352,7 @@ module DoseRule =
 
 
     let private get_ () =
-        Web.getDataFromSheet Web.dataUrlId2 "DoseRules"
+        Web.getDataFromSheet Web.dataUrlIdGenPres "DoseRules"
         |> fun data ->
             let getColumn =
                 data

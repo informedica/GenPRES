@@ -262,6 +262,7 @@ module DrugOrder =
                     let cdto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
 
                     cdto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> createValueUnitDto ou
+
                     if p.Divisible.IsSome then
                         cdto.OrderableQuantity.Constraints.IncrOpt <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
                     if d.Products |> List.length = 1 then
@@ -270,6 +271,7 @@ module DrugOrder =
                         cdto.OrderableConcentration.Constraints.ValsOpt <- 1N |> createSingleValueUnitDto cu
 
                         if p.Divisible.IsSome then
+                            orbDto.Dose.Quantity.Constraints.IncrOpt <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
                             cdto.Dose.Quantity.Constraints.IncrOpt <- 1N / p.Divisible.Value |> createSingleValueUnitDto ou
 
                     cdto.Items <- [

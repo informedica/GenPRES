@@ -7,16 +7,27 @@ module Types =
     open MathNet.Numerics
 
 
+    /// Associate a Route and a Shape
+    /// setting default values for the other fields
     type RouteShape =
         {
+            /// The Route
             Route : string
+            /// The pharmacological Shape
             Shape : string
+            /// The Unit of the Shape
             Unit : string
+            /// The Dose Unit to use for Dose Limits
             DoseUnit : string
+            /// The minimum Dose quantity
             MinDoseQty : float option
+            /// The maximum Dose quantity
             MaxDoseQty : float option
+            /// Whether a Dose runs over a Time
             Timed : bool
+            /// Whether the Shape needs to be reconstituted
             Reconstitute : bool
+            /// Whether the Shape is a solution
             IsSolution : bool
         }
 

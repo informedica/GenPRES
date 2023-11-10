@@ -1792,7 +1792,7 @@ module Order =
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
             // the increments used to increase
             let incrs u =
-                [ 1N/10N; 1N/2N; 1N; 5N; 10N; 20N ]
+                [ 1N/20N; 1N/10N; 1N/2N; 1N; 5N; 10N; 20N ]
                 |> List.map (ValueUnit.singleWithUnit u)
                 |> List.map ValueRange.Increment.create
             // only increase incr for volume units

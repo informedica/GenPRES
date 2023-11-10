@@ -8,7 +8,7 @@ module Mapping =
 
 
     let routeMapping =
-        Web.getDataFromSheet Web.dataUrlId2 "Routes"
+        Web.getDataFromSheet Web.dataUrlIdGenPres "Routes"
         |> fun data ->
             let getColumn =
                 data
@@ -27,7 +27,7 @@ module Mapping =
             )
 
     let unitMapping =
-        Web.getDataFromSheet Web.dataUrlId2 "Units"
+        Web.getDataFromSheet Web.dataUrlIdGenPres "Units"
         |> fun data ->
             let getColumn =
                 data
@@ -67,7 +67,7 @@ module Mapping =
 
 
     let mappingRouteShape =
-        Web.getDataFromSheet Web.dataUrlId2 "ShapeRoute"
+        Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
         |> fun data ->
             let inline getColumn get =
                 data
@@ -84,7 +84,7 @@ module Mapping =
                     Route = getStr "Route"
                     Shape = getStr "Shape"
                     Unit = getStr "Unit"
-                    DoseUnit = getStr "Unit"
+                    DoseUnit = getStr "DoseUnit"
                     MinDoseQty = getFlt "MinDoseQty"
                     MaxDoseQty = getFlt "MaxDoseQty"
                     Timed = getStr "Timed" |> String.equalsCapInsens "true"
