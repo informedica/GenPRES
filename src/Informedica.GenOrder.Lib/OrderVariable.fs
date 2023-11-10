@@ -320,6 +320,14 @@ module OrderVariable =
                 }
 
 
+    /// <summary>
+    /// Check whether a Variable is solved
+    /// </summary>
+    /// <param name="ovar">The OrderVariable</param>
+    let isSolved (ovar : OrderVariable) =
+        ovar.Variable
+        |> Variable.isSolved
+
 
     module Dto =
 
@@ -831,6 +839,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
+        /// Check whether a PerTime is solved
+        let isSolved = toOrdVar >> isSolved
+
 
     module Rate =
 
@@ -900,6 +911,9 @@ module OrderVariable =
         let increaseIncrement maxCount incrs =
             toOrdVar >> increaseIncrement maxCount incrs >> Rate
 
+
+        /// Check whether a Rate is solved
+        let isSolved = toOrdVar >> isSolved
 
 
     /// Type and functions that represent a total
@@ -1088,6 +1102,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
 
 
+        /// Check whether a PerTimeAdjust is solved
+        let isSolved = toOrdVar >> isSolved
+
 
     /// Type and functions that represent a adjusted total,
     /// and a adjusted total is a quantity per time
@@ -1159,6 +1176,9 @@ module OrderVariable =
         /// Apply the constraints of a RateAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
+
+        /// Check whether a RateAdjust is solved
+        let isSolved = toOrdVar >> isSolved
 
 
     /// Type and functions that represent a adjusted quantity,

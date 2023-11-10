@@ -1790,12 +1790,12 @@ module Order =
         if ord.Prescription |> Prescription.isContinuous then ord
         else
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
-
+            // the increments used to increase
             let incrs u =
                 [ 1N/10N; 1N/2N; 1N; 5N; 10N; 20N ]
                 |> List.map (ValueUnit.singleWithUnit u)
                 |> List.map ValueRange.Increment.create
-
+            // only increase incr for volume units
             if orbQty.Variable
                |> Variable.getUnit
                |> Option.map (ValueUnit.Group.unitToGroup >> ((=) Group.VolumeGroup) >> not)
@@ -1820,7 +1820,7 @@ module Order =
                 ord // original order
             | Ok ord ->
                 ConsoleWriter.writeInfoMessage
-                    "solved order with increased increment"
+                    $"""=== solved order with increased increment === {ord |> toString |> String.concat "\n"}"""
                     true
                     false
 
@@ -1969,8 +1969,13 @@ module Order =
                     |> printItem
                         (fun i -> i.Dose.PerTimeAdjust)
                         perTimeAdjustToStr
+                    |> fun s ->
+                        if o.Orderable.Dose.PerTime |> PerTime.isSolved then
+                            $"= {s |> String.trim}"
+                        else
+                            $"({s |> String.trim})"
 
-                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt |> String.trim})"
+                let pres = $"{fr} {dq} {dt}"
                 let prep = $"{o |> compQtyToStr}"
                 let adm = $"{fr} {o |> orbDoseQtyToStr}"
 
@@ -2034,8 +2039,13 @@ module Order =
                     |> printItem
                         (fun i -> i.Dose.PerTimeAdjust)
                         perTimeAdjustToStr
+                    |> fun s ->
+                        if o.Orderable.Dose.PerTime |> PerTime.isSolved then
+                            $"= {s |> String.trim}"
+                        else
+                            $"({s |> String.trim})"
 
-                let pres = $"{o.Orderable.Name |> Name.toString} {fr} {dq} ({dt})"
+                let pres = $"{fr} {dq} {dt}"
                 let prep = o |> compQtyToStr
                 let adm = $"{fr} {o |> orbDoseQtyToStr} in {tme} = {rt}"
 

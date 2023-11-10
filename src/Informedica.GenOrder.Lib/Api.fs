@@ -171,6 +171,7 @@ module Api =
     /// <param name="pr">The PrescriptionRule to use</param>
     let createDrugOrder (sr: SolutionRule option) (pr : PrescriptionRule) =
         let parenteral = Product.Parenteral.get ()
+        // adjust unit defaults to kg
         let au =
             if pr.DoseRule.AdjustUnit |> String.isNullOrWhiteSpace then "kg"
             else pr.DoseRule.AdjustUnit
@@ -183,7 +184,7 @@ module Api =
             |> function
             | [|dl|] -> dl |> Some
             | _ -> None
-
+        // if no subst, dose is based on shape
         let noSubst =
             dose
             |> Option.map (fun d -> d.DoseUnit = "keer")
@@ -223,10 +224,17 @@ module Api =
             AdjustUnit = au
         }
         |> fun dro ->
+                // add an optional solution rule
                 match sr with
                 | None -> dro
                 | Some sr ->
                     { dro with
+                        Dose =
+                            printfn $"setting sr: {sr.Volume}"
+                            { DoseRule.DoseLimit.limit with
+                                Quantity  = sr.Volume
+                                DoseUnit = "mL"
+                            } |> Some
                         Quantities = sr.Volumes |> Array.toList
                         DoseCount = sr.DosePerc.Maximum
                         Products =
@@ -266,7 +274,7 @@ module Api =
 
 
     /// <summary>
-    /// Increase the Orderable Quantity Increment of an Order.
+    /// Increase the Orderable Quantity and Rate Increment of an Order.
     /// This allows speedy calculation by avoiding large amount
     /// of possible values.
     /// </summary>

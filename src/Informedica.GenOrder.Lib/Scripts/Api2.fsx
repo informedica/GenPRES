@@ -131,11 +131,8 @@ let createScenarios () =
         |> run n
     )
 
-
-
 startLogger ()
 stopLogger ()
-
 
 Patient.teenager
 |> fun p -> { p with VenousAccess = CVL }
