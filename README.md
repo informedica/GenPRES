@@ -14,13 +14,13 @@ This project is initially aimed at the Dutch medical setting, but can easily be 
 
 ## Background
 
-Medication errors are one of the most common sources of medical complications. However, the medication proces, prescribing, preparing and adminstration of medication is als one of the most thoroughly protocolized medical processes.
+Medication errors are one of the most common sources of medical complications. However, the medication process, prescribing, preparing and administration of medication is als one of the most thoroughly protocolized medical processes.
 
-In order to achief a safe and efficient medication workflow the following human error prone activities can be solved by Clinical Decision Support Software (CDSS):
+In order to achieve a safe and efficient medication workflow the following human error prone activities can be solved by Clinical Decision Support Software (CDSS):
 
 1. Looking up rules and constraints
 2. Calculations
-3. Vefification of correct applications of rules and constraints and subsequent calculations
+3. Verification of correct applications of rules and constraints and subsequent calculations
 
 
 With the assumption that software will not err in basic lookup and calculation activities, given the correct implementation, it can be assumed that such CDSS can achieve a significant reduction in medical errors and increase efficiency of workflow.
@@ -35,10 +35,10 @@ Some more background information can be found at:
 
 ## Build
 
-GitHub Actions |
-:---: |
-[![GitHub Actions](https://github.com/halcwb/GenPres2/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPres2/actions?query=branch%3Amaster) |
-[![Build History](https://buildstats.info/github/chart/halcwb/GenPres2)](https://github.com/halcwb/GenPres2/actions?query=branch%3Amaster) |
+|                                                                        GitHub Actions                                                                        |
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| [![GitHub Actions](https://github.com/halcwb/GenPres2/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPres2/actions?query=branch%3Amaster) |
+|          [![Build History](https://buildstats.info/github/chart/halcwb/GenPres2)](https://github.com/halcwb/GenPres2/actions?query=branch%3Amaster)          |
 
 
 
@@ -53,7 +53,7 @@ Current known build configuration
 * npm: 8.4.1
 * node: v17.5.0
 
-For the full application to run a propreitary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
+For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
 A demo cache file with medication product data is include in this repository. This contains some sample medication data from a much larger drug formulary database.
 
@@ -110,7 +110,7 @@ Any help or collaboration is welcome! You can fork this repository, post issues,
 
 Some specifics:
 
-- An opt-in strategy is used in the `.gitignore` file, i.e. you have to specifically define what should be included instead of the otherway around.
+- An opt-in strategy is used in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around.
 - commits are tagged with
     - chore: something that needs to be done
     - feat: a new feature

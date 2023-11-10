@@ -229,6 +229,7 @@ module Drug =
 
         type Target =
             | Target of TargetType * TargetAge * TargetWeight
+            | Unknown of string * string
         and TargetType =
             | AllType
             | Girl
@@ -247,9 +248,15 @@ module Drug =
             | BirthWeight of QuantityUnit Option * QuantityUnit Option
         and QuantityUnit = { Quantity : float; Unit : string }
 
+
         let createQuantity v u = { Quantity = v; Unit = u }
 
-        let getTarget (Target(tt , ta , tw)) = (tt , ta , tw)
+
+        let getTarget targ =
+            match targ with
+            | Target (tt , ta , tw) -> (tt, ta, tw) |> Some
+            | Unknown _ -> None
+
 
         let getQuantityUnit { Quantity = q; Unit = u} = (q, u)
 
@@ -265,17 +272,20 @@ module Drug =
             Unit : string
         }
 
+
     type Route =
         {
             Name : string
             Schedules : Schedule list
         }
 
+
     type Dose =
         {
             Indication : string
             Routes : Route list
         }
+
 
     type Drug =
         {
@@ -524,12 +534,13 @@ module FormularyParser =
 
     module TargetParser =
 
+
         open Drug.Target
 
 
         let inline failParse o =
-            sprintf "Fail to parse %A" o
-            |> failwith
+            $"fail to match %A{o}"
+            |> Error
 
 
         let parseQuantityUnit c (s1, s2) =
@@ -537,27 +548,41 @@ module FormularyParser =
                 s
                 |> String.replace "." ""
                 |> String.replace "," "."
-                |> Double.parse
+                |> Double.tryParse
             let split =
                 (String.splitAt " ") >> Array.toList >> (List.filter String.notNullOrEmpty)
             match (s1 |> split, s2 |> split) with
             | [v1;u1], [v2;u2] ->
-                createQuantity (v1 |> double) u1 |> Some ,
-                createQuantity (v2 |> double) u2 |> Some
+                match v1 |> double, v2 |> double with
+                | Some v1, Some v2 ->
+                    (createQuantity v1 u1 |> Some ,
+                    createQuantity v2 u2 |> Some)
+                    |> Ok
+                | _ -> $"couldn't parse {v1}, {v2} to double" |> Error
             | [v;u], [s] ->
                 if s = "None" then
-                    createQuantity (v |> double) u |> Some ,
-                    None
+                    match v |> double with
+                    | Some v ->
+                        (createQuantity v u |> Some ,
+                        None) |> Ok
+                    | None -> $"couldn't parse {v} to double" |> Error
                 else (s1, s2) |> failParse
             | [s], [v;u] ->
                 if s = "None" then
-                    None ,
-                    createQuantity (v |> double) u |> Some
+                    match v |> double with
+                    | Some v ->
+                        (None ,
+                        createQuantity v u |> Some)
+                        |> Ok
+                    | None -> $"couldn't parse {v} to double" |> Error
                 else
-                    createQuantity (s |> double) u |> Some,
-                    createQuantity (v |> double) u |> Some
-
-            | _ -> None, None //(s1, s2) |> failParse
+                    match s |> double, v |> double with
+                    | Some v1, Some v2 ->
+                        (createQuantity v1 u |> Some,
+                        createQuantity v2 u |> Some)
+                        |> Ok
+                    | _ -> $"couldn't parse {s}, {v} to double" |> Error
+            | _ -> (None, None) |> Ok //(s1, s2) |> failParse
             |> c
 
 
@@ -565,9 +590,11 @@ module FormularyParser =
             match s1 |> String.splitAt ":" |> Array.toList with
             | [tp; s] ->
                 match tp |> String.trim with
-                | tp' when tp' = "bwght"  -> (s, s2) |> parseQuantityUnit BirthWeight
+                | tp' when tp' = "birthweight"  ->
+                    (s, s2)
+                    |> parseQuantityUnit (Result.map BirthWeight)
                 | _ -> s1 |> failParse
-            | [_] -> (s1, s2) |> parseQuantityUnit Weight
+            | [_] -> (s1, s2) |> parseQuantityUnit (Result.map Weight)
             | _ -> (s1, s2) |> failParse
 
 
@@ -575,10 +602,10 @@ module FormularyParser =
             match s1 |> String.splitAt ":" |> Array.toList with
             | [tp; s] ->
                 match tp |> String.trim with
-                | tp' when tp' = "pca"  -> (s, s2) |> parseQuantityUnit PostConc
-                | tp' when tp' = "preg" -> (s, s2) |> parseQuantityUnit Pregnancy
+                | tp' when tp' = "pca"  -> (s, s2) |> parseQuantityUnit (Result.map PostConc)
+                | tp' when tp' = "preg" -> (s, s2) |> parseQuantityUnit (Result.map Pregnancy)
                 | _ -> s1 |> failParse
-            | [_] -> (s1, s2) |> parseQuantityUnit Age
+            | [_] -> (s1, s2) |> parseQuantityUnit (Result.map Age)
             | _   -> (s1, s2) |> failParse
 
 
@@ -589,14 +616,14 @@ module FormularyParser =
             | [s1] ->
                 if s1 |> String.contains "kg" ||
                    s1 |> String.contains "gr" ||
-                   s1 |> String.contains "bwght" then (s1, s1) |> parseWeight
-                else AllWeight
+                   s1 |> String.contains "birthweight" then (s1, s1) |> parseWeight
+                else AllWeight |> Ok
             | [s1;s2] ->
                 if s1 |> String.contains "kg" ||
                    s1 |> String.contains "gr" ||
                    s2 |> String.contains "kg" ||
                    s2 |> String.contains "gr" then (s1, s2) |> parseWeight
-                else AllWeight
+                else AllWeight |> Ok
             | _ -> s |> failParse
 
 
@@ -607,31 +634,56 @@ module FormularyParser =
             | [s1] ->
                 if s1 |> String.contains "kg" ||
                    s1 |> String.contains "gr" ||
-                   s1 |> String.contains "bwght" then AllAge
+                   s1 |> String.contains "birthweight" then Ok AllAge
                 else (s1, s1) |> parseAge
             | [s1;s2] ->
                 if s1 |> String.contains "kg" ||
                    s1 |> String.contains "gr" ||
                    s2 |> String.contains "kg" ||
-                   s2 |> String.contains "gr" then AllAge
+                   s2 |> String.contains "gr" then Ok AllAge
                 else (s1, s2) |> parseAge
             | _ -> s |> failParse
 
 
         let parseType s =
             match s |> String.replace "#" "" |> String.trim with
-            | tp when tp = "aterm" -> Aterm
-            | tp when tp = "neon"  -> Neonate
-            | tp when tp = "prem"  -> Premature
-            | tp when tp = "girl"  -> Girl
-            | tp when tp = "boy"   -> Boy
+            | tp when tp = "aterm" -> Ok Aterm
+            | tp when tp = "neon"  -> Ok Neonate
+            | tp when tp = "prem"  -> Ok Premature
+            | tp when tp = "girl"  -> Ok Girl
+            | tp when tp = "boy"   -> Ok Boy
             | _ -> s |> failParse
 
 
         let replaceList =
             [
-                ("(zwangerschapsduur > 35 weken) a terme neonaat", "preg ; > 35 weken")
-                ("geboortegewicht", "bwght:")
+                ("zwangerschapsduur zwangerschapsduur", "zwangerschapsduur")
+                ("post-menarche ", "#girl ; ")
+                ("kinderen inclusief a terme neonaten 0 jaar tot 1 jaar", "#neon ; < 1 jaar")
+                ("a terme neonaten en zuigelingen 0 maanden tot 5 maanden", "#neon ; < 5 maand")
+                ("kinderen inclusief a terme neonaten 0 jaar tot 18 jaar", "preg: >= 37 week")
+                ("a terme neonaten en kinderen 0 maanden tot 18 jaar", "preg: >= 37 week")
+                ("kinderen inclusief neonaten 0 jaar tot 18 jaar", "preg: >= 37 week")
+                ("kinderen, inclusief premature en a-terme neonaten 0 maanden tot 18 jaar", "")
+                ("kinderen, inclusief premature en a-terme neonaten 0 jaar tot 18 jaar", "")
+                ("vlbw premature neonaten ", "#prem ; ")
+                ("premature neonaten: zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken")
+                ("premature neonaten zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken")
+                ("prematuren, zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken")
+                ("prematuren, zwangerschapsduur < 28 weken", "#prem ; preg: < 28 weken")
+                ("zwangerschapsduur < 37 weken postnatale leeftijd ≥ 14 dagen", "#prem ; preg >= 14 dag")
+                ("(zwangerschapsduur > 35 weken) a terme neonaat", "#aterm ; preg: > 35 weken")
+                ("zwangerschapsduur < 37 weken postnatale leeftijd 0 dagen tot 14 dagen", "#prem ; preg: < 15 dag")
+                ("preterme neonaten ", "")
+                ("preterm neonate", "prem# ; ")
+                ("premature neonaten: ", "prem# ; ")
+                ("premature neonaat", "prem# ; ")
+                ("a terme neonaat tot < 1 jaar", "< 1 jaar")
+                ("a terme en premature neonaten", "#neon ; ")
+                ("a terme neonaten en prematuren", "#neon ; ")
+                ("premature en a terme neonaten", "#neon ; ")
+                ("premature neonaten", "#prem ; ")
+                ("geboortegewicht", "birthweight:")
                 ("neonaten zwangerschapsduur", "preg:")
                 ("extreem prematuren zwangerschapsduur", "preg:")
                 ("prematuren zwangerschapsduur", "preg:")
@@ -644,6 +696,9 @@ module FormularyParser =
                 ("postnatale leeftijd", "")
                 ("postconceptionele leeftijd", "pca:")
 
+//                ("premature neonaten zwangerschapsduur < 37 weken", "#prem ")
+//                ("prematuren, zwangerschapsduur < 37 weken", "#prem ; ")
+                ("a terme", "#aterm ; ")
                 ("a terme neonaat tot", "#aterm ; ")
                 ("a terme neonaat", "#aterm ; ")
                 ("a terme neonaten", "#aterm ; ")
@@ -664,7 +719,7 @@ module FormularyParser =
 
                 (" tot ", " - ")
                 (" en ", " ; ")
-                ("<", "None -")
+                ("< ", "None -")
 
                 ("≥ 1 kg", "1 kg - None")
                 ("≥ 1,5 kg", "1,5 kg - None")
@@ -738,54 +793,131 @@ module FormularyParser =
             ]
 
 
-        let parse s =
+        let inline getErr e =
+            match e with
+            | Error e -> e
+            | Ok _ -> ""
 
-            let s' =
+
+        let createUnknown s err = (s, err) |> Unknown
+
+
+        let parse s =
+            let unknown = createUnknown s
+
+            let replaced =
                 replaceList
                 |> List.fold (fun a (os, ns) ->
                     let os = os |> String.toLower
                     a |> String.replace os ns
                 ) (s |> String.trim |> String.toLower)
 
-            match s' |> String.splitAt ";" |> Array.toList with
+            match replaced |> String.splitAt ";" |> Array.toList with
             | [s1;s2;s3] ->
                 match s1 with
                 | _ when s1 |> String.contains "#" ->
-                    s1 |> parseType ,
-                    s2 |> parseAllAge ,
-                    s3 |> parseAllWeight
-
-                | _ -> s1 |> failParse
+                    match
+                        s1 |> parseType ,
+                        s2 |> parseAllAge ,
+                        s3 |> parseAllWeight with
+                    | Ok pt, Ok pa, Ok pw -> (pt, pa, pw) |> Target
+                    | errs ->
+                        let r1, r2, r3 = errs
+                        let err =
+                            [
+                                r1 |> Result.map (fun _ -> 0)
+                                r2 |> Result.map (fun _ -> 0)
+                                r3 |> Result.map (fun _ -> 0)
+                            ]
+                            |> List.map getErr
+                            |> List.filter (String.IsNullOrEmpty >> not)
+                        $"couldn't parse: |{replaced}| |{s1}| |{s2}| |{s3}| errs: |{err}|"
+                        |> unknown
+                | _ ->
+                    s1 |> unknown
 
             | [s1;s2] ->
                 match s1 with
                 | _ when s1 |> String.contains "#" ->
-                    s1 |> parseType ,
-                    s2 |> parseAllAge ,
-                    s2 |> parseAllWeight
+                    match
+                        s1 |> parseType ,
+                        s2 |> parseAllAge ,
+                        s2 |> parseAllWeight with
+                    | Ok pt, Ok pa, Ok pw -> (pt, pa, pw) |> Target
+                    | errs ->
+                        let r1, r2, r3 = errs
+                        let err =
+                            [
+                                r1 |> Result.map (fun _ -> 0)
+                                r2 |> Result.map (fun _ -> 0)
+                                r3 |> Result.map (fun _ -> 0)
+                            ]
+                            |> List.map getErr
+                            |> List.filter (String.IsNullOrEmpty >> not)
 
+                        $"couldn't parse: |{replaced}| |{s1}| |{s2}| errs: |{err}|" |> unknown
                 | _ ->
-                    AllType ,
-                    s1 |> parseAllAge ,
-                    s2 |> parseAllWeight
+                    match
+                        Ok AllType,
+                        s1 |> parseAllAge ,
+                        s2 |> parseAllWeight with
+                    | Ok pt, Ok pa, Ok pw -> (pt, pa, pw) |> Target
+                    | errs ->
+                        let r1, r2, r3 = errs
+                        let err =
+                            [
+                                r1 |> Result.map (fun _ -> 0)
+                                r2 |> Result.map (fun _ -> 0)
+                                r3 |> Result.map (fun _ -> 0)
+                            ]
+                            |> List.map getErr
+                            |> List.filter (String.IsNullOrEmpty >> not)
+
+                        $"couldn't parse: |{replaced}| |{s1}| |{s2}| errs: |{err}|" |> unknown
 
             | [s1] ->
                 match s1 with
                 | _ when s1 |> String.contains "#" ->
-                    s1 |> parseType ,
-                    AllAge ,
-                    AllWeight
+                    match
+                        s1 |> parseType ,
+                        Ok AllAge,
+                        Ok AllWeight with
+                    | Ok pt, Ok pa, Ok pw -> (pt, pa, pw) |> Target
+                    | errs ->
+                        let r1, r2, r3 = errs
+                        let err =
+                            [
+                                r1 |> Result.map (fun _ -> 0)
+                                r2 |> Result.map (fun _ -> 0)
+                                r3 |> Result.map (fun _ -> 0)
+                            ]
+                            |> List.map getErr
+                            |> List.filter (String.IsNullOrEmpty >> not)
+
+                        $"couldn't parse: |{replaced}| |{s1}| errs: |{err}|" |> unknown
 
                 | _ ->
-                    AllType ,
-                    s1 |> parseAllAge ,
-                    s1 |> parseAllWeight
+                    match
+                        Ok AllType,
+                        s1 |> parseAllAge ,
+                        s1 |> parseAllWeight with
+                    | Ok pt, Ok pa, Ok pw -> (pt, pa, pw) |> Target
+                    | errs ->
+                        let r1, r2, r3 = errs
+                        let err =
+                            [
+                                r1 |> Result.map (fun _ -> 0)
+                                r2 |> Result.map (fun _ -> 0)
+                                r3 |> Result.map (fun _ -> 0)
+                            ]
+                            |> List.map getErr
+                            |> List.filter (String.IsNullOrEmpty >> not)
+
+                        $"couldn't parse: |{replaced}| |{s1}| errors: |{err}|" |> unknown
 
             | _ ->
-                s'
-                |> failParse
-
-            |> Target
+                $"couldn't parse |{replaced}| |{replaced}|"
+                |> unknown
 
 
 
@@ -804,10 +936,13 @@ module WebSiteParser =
     let _medications () =
         let res = JsonValue.Load(kinderFormUrl)
         [ for v in res do
-            yield Drug.createDrug (v?id.AsString())
-                                  ""
-                                  (v?generic_name.AsString())
-                                  (v?branded_name.AsString()) ]
+            Drug.createDrug
+                      (v?id.AsString())
+                      ""
+                      (v?generic_name.AsString())
+                      (v?branded_name.AsString())
+        ]
+        |> List.distinctBy (fun m -> m.Id, m.Generic.Trim().ToLower())
 
 
     let medications : unit -> Drug.Drug list = Memoization.memoize _medications
@@ -902,66 +1037,70 @@ module WebSiteParser =
             | None -> $"Couldn't get {med.Id} {med.Generic}" |> pf
 
 
-    let parseDocForDoses (m: Drug.Drug) doc =
-        printfn $"Parsing dose rules for: %s{m.Generic}"
+    let parseDocForDoses i (m: Drug.Drug) doc =
+        printfn $"{i}. parsing dose rules for: %s{m.Generic}"
         let atc =
             match doc
                 |> getItemTypeFromDoc "http://schema.org/MedicalCode" |> List.ofSeq with
             | h::_-> h |> getItemPropString "codeValue"
             | _ -> ""
+
         let getPar = getParentFromDoc doc
-        { m with
-            Atc = atc
-            Doses =
-                [
-                    for i in doc |> getItemTypeFromDoc "http://schema.org/MedicalIndication" do
-                        let n = i |> getItemPropString "name"
-                        let i' = i |> getPar |> getPar
-                        yield
-                            {
-                                Indication = n
-                                Routes =
-                                    [
-                                        for r in i' |> getItemProp "administrationRoute" do
-                                            let n = r |> getItemPropString "administrationRoute"
-                                            let r' = r |> getParentFromNode i'
-                                            yield
-                                                {
-                                                    Name = n
-                                                    Schedules =
-                                                        [
-                                                            for s in r' |> getItemTypeFromNode "http://schema.org/DoseSchedule" do
-                                                                let tp = s |> getItemPropString "targetPopulation"
-                                                                let dv = s |> getItemPropString "doseValue"
-                                                                let du = s |> getItemPropString "doseUnit"
-                                                                let fr = s |> getItemPropString "frequency"
-                                                                yield
-                                                                    {
-                                                                        Drug.TargetText = tp |> String.trim
-                                                                        Drug.Target = tp |> TargetParser.parse
-                                                                        Drug.FrequencyText = fr |> String.trim
-                                                                        Drug.Frequency = fr |> FrequencyParser.parse
-                                                                        Drug.ValueText = dv |> String.trim
-                                                                        Drug.Value = dv |> MinMaxParser.parse |> snd
-                                                                        Drug.Unit = du |> String.trim
-                                                                    }
-                                                        ]
-                                                }
-                                    ]
-                        }
-                ]
-        }
+        try
+            { m with
+                Atc = atc
+                Doses =
+                    [
+                        for i in doc |> getItemTypeFromDoc "http://schema.org/MedicalIndication" do
+                            let n = i |> getItemPropString "name"
+                            let i' = i |> getPar |> getPar
+                            yield
+                                {
+                                    Indication = n
+                                    Routes =
+                                        [
+                                            for r in i' |> getItemProp "administrationRoute" do
+                                                let n = r |> getItemPropString "administrationRoute"
+                                                let r' = r |> getParentFromNode i'
+                                                yield
+                                                    {
+                                                        Name = n
+                                                        Schedules =
+                                                            [
+                                                                for s in r' |> getItemTypeFromNode "http://schema.org/DoseSchedule" do
+                                                                    let tp = s |> getItemPropString "targetPopulation"
+                                                                    let dv = s |> getItemPropString "doseValue"
+                                                                    let du = s |> getItemPropString "doseUnit"
+                                                                    let fr = s |> getItemPropString "frequency"
+                                                                    yield
+                                                                        {
+                                                                            Drug.TargetText = tp |> String.trim
+                                                                            Drug.Target = tp |> TargetParser.parse
+                                                                            Drug.FrequencyText = fr |> String.trim
+                                                                            Drug.Frequency = fr |> FrequencyParser.parse
+                                                                            Drug.ValueText = dv |> String.trim
+                                                                            Drug.Value = dv |> MinMaxParser.parse |> snd
+                                                                            Drug.Unit = du |> String.trim
+                                                                        }
+                                                            ]
+                                                    }
+                                        ]
+                            }
+                    ]
+            }
+        with
+        | _ -> m
 
 
-    let addDoses (m: Drug.Drug) =
+    let addDoses i (m: Drug.Drug) =
         async {
             try
                 let! doc = getDocAsync m.Id m.Generic
-                return doc |> parseDocForDoses m |> Some
+                return doc |> parseDocForDoses i m |> Some
             with
             | e ->
                 let l =
-                    if e.ToString().Length - 1 > 50 then 50
+                    if e.ToString().Length - 1 > 100 then 100
                     else e.ToString().Length - 1
                 let e = e.ToString().Substring(0, l)
                 printfn $"couldn't add doses for {m.Id}, {m.Generic} because of:\n{e}"
@@ -973,19 +1112,35 @@ module WebSiteParser =
         match ns with
         | [] ->
             medications ()
+            |> List.skip 1
         | _ ->
             medications ()
             |> List.filter (fun m ->
                 ns |> List.exists (fun n ->
                     m.Generic |> String.startsWithCaseInsens n))
-        |> List.map addDoses
-        |> Async.Parallel
-        |> Async.RunSynchronously
-        |> Array.choose id
+        |> fun meds ->
+            let meds =
+                meds
+                |> List.sortBy (fun m -> m.Generic.Trim().ToLower())
+                |> List.chunkBySize 20
+
+            let n = ref 1
+
+            [|
+                for m in meds do
+                    yield!
+                        m
+                        |> List.mapi (fun i -> addDoses (i + n.Value))
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> Array.choose id
+
+                    n.Value <- n.Value + (m |> List.length)
+            |]
 
 
-    let cacheFormulary (_ : Drug.Drug []) =
-        _parseWebSite []
+    let cacheFormulary (ds : Drug.Drug []) =
+        ds
         |> Json.serialize
         |> File.writeTextToFile File.cachePath
 
@@ -1019,9 +1174,59 @@ module WebSiteParser =
         |> Array.sort
 
 
-//
-WebSiteParser.getFormulary () |> Array.length
-|> Array.iter (printfn "%A")
+
+WebSiteParser.medications ()
+//|> List.distinctBy (fun m -> m.Id, m.Generic.Trim().ToLower())
+|> List.length
+
+
+
+WebSiteParser.getFormulary () //|> Array.length
+(*
+|> Array.filter (fun d ->
+    d.Doses
+    |> List.exists (fun dd ->
+        dd.Routes
+        |> List.exists (fun dr ->
+            dr.Schedules
+            |> List.exists(fun ds ->
+                match ds.Target with
+                | Drug.Target.Unknown _ ->
+                    true
+                | _ -> false
+            )
+        )
+    )
+)
+*)
+|> Array.toList
+|> List.collect (fun d ->
+    d.Doses
+    |> List.collect (fun dd ->
+        dd.Routes
+        |> List.collect (fun dr ->
+            dr.Schedules
+            |> List.collect(fun ds ->
+                match ds.Target with
+                | Drug.Target.Unknown (s, _) -> [s.ToLower().Trim()]
+                | _ -> [ ds.TargetText  ]
+            )
+        )
+    )
+)
+|> List.distinct
+|> List.map (fun s -> s |> FormularyParser.TargetParser.parse)
+|> List.filter (fun t -> match t with Drug.Target.Unknown _ -> true | _ -> false)
+|> List.iteri (printfn "%i. %A")
+
+
+
+WebSiteParser.getFormulary()
+|> Array.mapi (fun i d ->
+    $"{i}. {d.Generic} {d.Doses |> List.length}"
+)
+|> Array.iter (printfn "%s")
+
 
 let drug =
     (WebSiteParser._medications ())[1]
@@ -1036,307 +1241,3 @@ fun (s : string) ->
     System.IO.File.AppendAllText(path, s)
 |> WebSiteParser.printFormulary
 
-
-//[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-//module Target =
-//
-//    type Target =
-//        | Target of TargetType * TargetAge * TargetWeight
-//    and TargetType =
-//        | AllType
-//        | Girl
-//        | Boy
-//        | Neonate
-//        | Aterm
-//        | Premature
-//    and TargetAge =
-//        | AllAge
-//        | Age of QuantityUnit Option * QuantityUnit Option
-//        | Pregnancy of QuantityUnit Option * QuantityUnit Option
-//        | PostConc of QuantityUnit Option * QuantityUnit Option
-//    and TargetWeight =
-//        | AllWeight
-//        | Weight of QuantityUnit Option * QuantityUnit Option
-//        | BirthWeight of QuantityUnit Option * QuantityUnit Option
-//    and QuantityUnit = { Quantity : float; Unit : string }
-//
-//    let inline failParse o =
-//        sprintf "Fail to parse %A" o
-//        |> failwith
-//
-//    let parseQuantityUnit c (s1, s2) =
-//        let double s =
-//            s
-//            |> String.replace "." ""
-//            |> String.replace "," "."
-//            |> Double.parse
-//        let split =
-//            (String.splitAt " ") >> Array.toList >> (List.filter String.notNullOrEmpty)
-//        match (s1 |> split, s2 |> split) with
-//        | [v1;u1], [v2;u2] ->
-//            { Quantity = v1 |> double; Unit = u1 } |> Some ,
-//            { Quantity = v2 |> double; Unit = u2 } |> Some
-//        | [v;u], [s] ->
-//            if s = "None" then
-//                { Quantity = v |> double; Unit = u } |> Some ,
-//                None
-//            else (s1, s2) |> failParse
-//        | [s], [v;u] ->
-//            if s = "None" then
-//                None ,
-//                { Quantity = v |> double; Unit = u } |> Some
-//            else
-//                { Quantity = s |> double; Unit = u } |> Some,
-//                { Quantity = v |> double; Unit = u } |> Some
-//
-//        | _ -> None, None //(s1, s2) |> failParse
-//        |> c
-//
-//
-//    let parseWeight (s1, s2) =
-//        match s1 |> String.splitAt ":" |> Array.toList with
-//        | [tp; s] ->
-//            match tp |> String.trim with
-//            | tp' when tp' = "bwght"  -> (s, s2) |> parseQuantityUnit BirthWeight
-//            | _ -> s1 |> failParse
-//        | [_] -> (s1, s2) |> parseQuantityUnit Weight
-//        | _ -> (s1, s2) |> failParse
-//
-//
-//    let parseAge (s1, s2) =
-//        match s1 |> String.splitAt ":" |> Array.toList with
-//        | [tp; s] ->
-//            match tp |> String.trim with
-//            | tp' when tp' = "pca"  -> (s, s2) |> parseQuantityUnit PostConc
-//            | tp' when tp' = "preg" -> (s, s2) |> parseQuantityUnit Pregnancy
-//            | _ -> s1 |> failParse
-//        | [_] -> (s1, s2) |> parseQuantityUnit Age
-//        | _ -> (s1, s2) |> failParse
-//
-//
-//    let parseAllWeight s =
-//        let split = (String.splitAt "-") >> (Array.map String.trim) >> Array.toList
-//
-//        match s |> split with
-//        | [s1] ->
-//            if s1 |> String.contains "kg" ||
-//               s1 |> String.contains "gr" ||
-//               s1 |> String.contains "bwght" then (s1, s1) |> parseWeight
-//            else AllWeight
-//        | [s1;s2] ->
-//            if s1 |> String.contains "kg" ||
-//               s1 |> String.contains "gr" ||
-//               s2 |> String.contains "kg" ||
-//               s2 |> String.contains "gr" then (s1, s2) |> parseWeight
-//            else AllWeight
-//        | _ -> s |> failParse
-//
-//    let parseAllAge s =
-//        let split = (String.splitAt "-") >> (Array.map String.trim) >> Array.toList
-//
-//        match s |> split with
-//        | [s1] ->
-//            if s1 |> String.contains "kg" ||
-//               s1 |> String.contains "gr" ||
-//               s1 |> String.contains "bwght" then AllAge
-//            else (s1, s1) |> parseAge
-//        | [s1;s2] ->
-//            if s1 |> String.contains "kg" ||
-//               s1 |> String.contains "gr" ||
-//               s2 |> String.contains "kg" ||
-//               s2 |> String.contains "gr" then AllAge
-//            else (s1, s2) |> parseAge
-//        | _ -> s |> failParse
-//
-//
-//    let parseType s =
-//        match s |> String.replace "#" "" |> String.trim with
-//        | tp when tp = "aterm" -> Aterm
-//        | tp when tp = "neon"  -> Neonate
-//        | tp when tp = "prem"  -> Premature
-//        | tp when tp = "girl"  -> Girl
-//        | tp when tp = "boy"   -> Boy
-//        | _ -> s |> failParse
-//
-//
-//    let replaceList =
-//        [
-//            (" tot ", " - ")
-//            (" en ", " ; ")
-//            ("<", "None -")
-//            ("≥ 1 kg", "1 kg - None")
-//            ("≥ 1,5 kg", "1,5 kg - None")
-//            ("≥ 2,5 kg", "2,5 kg - None")
-//            ("≥ 5 kg", "5 kg - None")
-//            ("≥ 10 kg", "10 kg - None")
-//            ("≥ 15 kg", "15 kg - None")
-//            ("≥ 20 kg", "20 kg - None")
-//            ("≥ 25 kg", "25 kg - None")
-//            ("≥ 30 kg", "30 kg - None")
-//            ("≥ 32,6 kg", "32,6 kg - None")
-//            ("≥ 33 kg", "33 kg - None")
-//            ("≥ 35 kg", "35 kg - None")
-//            ("≥ 40 kg ", "40 kg - None")
-//            ("≥ 41 kg ", "41 kg - None")
-//            ("≥ 44 kg ", "44 kg - None")
-//            ("≥ 45 kg ", "45 kg - None")
-//            ("≥ 50 kg", "50 kg - None")
-//            ("≥ 57 kg", "57 kg - None")
-//            ("≥ 70 kg", "70 kg - None")
-//            ("≥ 80 kg", "80 kg - None")
-//            ("≥ 100 kg", "100 kg - None")
-//
-//            ("≥ 1250 gr", "1250 gr - None")
-//            ("≥ 1500 gr", "1500 gr - None")
-//            ("≥ 2000 gr", "2000 gr - None")
-//
-//            ("≥ 7 dagen", "7 dag - None")
-//            ("≥ 14 dagen", "14 dag - None")
-//
-//            ("≥ 4 weken", "4 week - None")
-//            ("≥ 30 weken", "30 week - None")
-//            ("≥ 32 weken", "32 week - None")
-//            ("≥ 34 weken", "34 week - None")
-//            ("≥ 35 weken", "35 week - None")
-//            ("≥ 36 weken", "36 week - None")
-//            ("≥ 37 weken", "37 week - None")
-//
-//            ("≥ 1 maand", "1 maand - None")
-//            ("≥ 3 maanden", "3 maand - None")
-//            ("≥ 4 maanden", "4 maand - None")
-//            ("≥ 6 maanden", "6 maand - None")
-//            ("≥ 8 maanden", "8 maand - None")
-//            ("≥ 9 maanden", "9 maand - None")
-//            ("≥ 12 maanden", "12 maand - None")
-//
-//            ("≥ 1 jaar", "1 jaar - None")
-//            ("≥ 2 jaar", "2 jaar - None")
-//            ("≥ 3 jaar", "3 jaar - None")
-//            ("≥ 4 jaar", "4 jaar - None")
-//            ("≥ 5 jaar", "5 jaar - None")
-//            ("≥ 6 jaar", "6 jaar - None")
-//            ("≥ 7 jaar", "7 jaar - None")
-//            ("≥ 8 jaar", "8 jaar - None")
-//            ("≥ 9 jaar", "9 jaar - None")
-//            ("≥ 10 jaar", "10 jaar - None")
-//            ("≥ 11 jaar", "11 jaar - None")
-//            ("≥ 12 jaar", "12 jaar - None")
-//            ("≥ 13 jaar", "13 jaar - None")
-//            ("≥ 14 jaar", "14 jaar - None")
-//            ("≥ 15 jaar", "15 jaar - None")
-//            ("≥ 16 jaar", "16 jaar - None")
-//            ("≥ 18 jaar", "18 jaar - None")
-//
-//            ("geboortegewicht", "bwght:")
-//            ("neonaten zwangerschapsduur", "preg:")
-//            ("extreem prematuren zwangerschapsduur", "preg:")
-//            ("prematuren zwangerschapsduur", "preg:")
-//            ("zwangerschapsduur", "preg:")
-//            ("prematuren postmenstruele leeftijd", "preg:")
-//            ("extreem prematuren postconceptionele leeftijd", "pca:")
-//            ("prematuur postconceptionele leeftijd", "pca:")
-//            ("prematuren postconceptionele leeftijd", "pca:")
-//            ("postnatale leeftijd", "")
-//            ("postconceptionele leeftijd", "pca:")
-//
-//            ("a terme neonaat", "#aterm ; ")
-//            ("a terme neonaten", "#aterm ; ")
-//            ("neonaten", "#neon ; ")
-//            ("prematuren postnatale leeftijd", "#prem ; ")
-//            ("prematuren", "#prem ; ")
-//            ("menstruerende meisjes/vrouwen, vanaf circa", "#girl ; ")
-//            ("menstruerende meisjes/vrouwen, circa", "#girl ; ")
-//            ("jongens", "#boy ; ")
-//            ("meisjes", "#girl ; ")
-//            (" na menarche, ", "#girl ; ")
-//            ("zuigelingen ; kinderen ", "")
-//
-//            ("1e vaccinatie:", "")
-//            ("2e vaccinatie:", "")
-//            ("3e vaccinatie:", "")
-//            ("4e vaccinatie:", "")
-//
-//            ("dagen", "day")
-//            ("jaar", "year")
-//            ("weken", "week")
-//            ("maanden", "month")
-//            ("maand", "month")
-//        ]
-//
-//
-//    let parse s =
-//        match s |> String.splitAt ";" |> Array.toList with
-//        | [s1;s2;s3] ->
-//            match s1 with
-//            | _ when s1 |> String.contains "#" ->
-//                s1 |> parseType ,
-//                s2 |> parseAllAge ,
-//                s3 |> parseAllWeight
-//
-//            | _ -> s1 |> failParse
-//
-//        | [s1;s2] ->
-//            match s1 with
-//            | _ when s1 |> String.contains "#" ->
-//                s1 |> parseType ,
-//                s2 |> parseAllAge ,
-//                s2 |> parseAllWeight
-//
-//            | _ ->
-//                AllType ,
-//                s1 |> parseAllAge ,
-//                s2 |> parseAllWeight
-//
-//        | [s1] ->
-//            match s1 with
-//            | _ when s1 |> String.contains "#" ->
-//                s1 |> parseType ,
-//                AllAge ,
-//                AllWeight
-//
-//            | _ ->
-//                AllType ,
-//                s1 |> parseAllAge ,
-//                s1 |> parseAllWeight
-//
-//        | _ -> s |> failParse
-//
-//        |> Target
-//
-
-//WebSiteParser.getDocSync "324" "meropenem"
-//|> WebSiteParser.parseDocForDoses (Drug.createDrug "324" "meropenem" "" "")
-
-//WebSiteParser.getFormulary ()
-//|> Array.filter (fun dr ->
-//    dr.Doses
-//    |> List.exists (fun ds ->
-//        ds.Routes
-//        |> List.exists (fun rt ->
-//            rt.Schedules
-//            |> List.exists (fun sd ->
-//                match sd.Target with
-//                | Drug.Target.Target(_, ta, _) ->
-//                    match ta with
-//                    | Drug.Target.Age(min, max) ->
-//                        min |> Option.isSome && (max |> Option.isNone)
-//                    | _ -> false
-//            )
-//        )
-//    )
-//) |> Array.length
-
-//FormularyParser.FrequencyParser.freqMap
-//|> List.map snd
-//|> List.distinct
-//|> List.iter (fun fr ->
-//    match fr with
-//    | Some fr' ->
-//        match fr' with
-//        | Drug.Frequency.Frequency minmax | Drug.Frequency.PRN minmax ->
-//            printfn "%i - %i per %i %s" minmax.Min minmax.Max minmax.Time minmax.Unit
-//        | Drug.Frequency.AnteNoctum -> printfn "Antenoctum"
-//        | Drug.Frequency.Once  -> printfn "Once"
-//        | Drug.Frequency.Bolus -> printfn "Bolus"
-//    | None -> printfn ""
-//)
