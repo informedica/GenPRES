@@ -1970,8 +1970,23 @@ module Order =
                         (fun i -> i.Dose.PerTimeAdjust)
                         perTimeAdjustToStr
                     |> fun s ->
-                        if o.Orderable.Dose.PerTime |> PerTime.isSolved then
-                            $"= {s |> String.trim}"
+                        if o.Orderable.Dose.Quantity |> Quantity.isSolved then
+                            let nv =
+                                o.Orderable.Components[0].Items
+                                |> List.map (fun i ->
+                                    i.Dose.PerTimeAdjust
+                                    |> PerTimeAdjust.toOrdVar
+                                    |> fun ovar ->
+                                        ovar.Constraints
+                                        |> OrderVariable.Constraints.toMinMaxString 3
+                                )
+                                |> List.filter (String.isNullOrWhiteSpace >> not)
+                                |> String.concat " + "
+                                |> fun s ->
+                                    if s |> String.isNullOrWhiteSpace then s
+                                    else
+                                        $" ({s})"
+                            $"= {s |> String.trim}{nv}"
                         else
                             $"({s |> String.trim})"
 
@@ -2004,6 +2019,21 @@ module Order =
                     |> printItem
                         (fun i -> i.Dose.RateAdjust)
                         doseRateAdjustToStr
+                    |> fun s ->
+                        if o.Orderable.Dose.Rate |> Rate.isSolved |> not then s
+                        else
+                            let nv =
+                                o.Orderable.Components[0].Items
+                                |> List.map (fun i ->
+                                    i.Dose.RateAdjust
+                                    |> RateAdjust.toOrdVar
+                                    |> fun ovar ->
+                                        ovar.Constraints
+                                        |> OrderVariable.Constraints.toMinMaxString 3
+                                )
+                                |> List.filter (String.isNullOrWhiteSpace >> not)
+                                |> String.concat " + "
+                            $"{s} ({nv})"
 
                 let pres = $"""{sn |> String.concat " + "} {dr}"""
                 let prep = o |> compQtyToStr
@@ -2040,8 +2070,23 @@ module Order =
                         (fun i -> i.Dose.PerTimeAdjust)
                         perTimeAdjustToStr
                     |> fun s ->
-                        if o.Orderable.Dose.PerTime |> PerTime.isSolved then
-                            $"= {s |> String.trim}"
+                        if o.Orderable.Dose.Quantity |> Quantity.isSolved then
+                            let nv =
+                                o.Orderable.Components[0].Items
+                                |> List.map (fun i ->
+                                    i.Dose.PerTimeAdjust
+                                    |> PerTimeAdjust.toOrdVar
+                                    |> fun ovar ->
+                                        ovar.Constraints
+                                        |> OrderVariable.Constraints.toMinMaxString 3
+                                )
+                                |> List.filter (String.isNullOrWhiteSpace >> not)
+                                |> String.concat " + "
+                                |> fun s ->
+                                    if s |> String.isNullOrWhiteSpace then s
+                                    else
+                                        $" ({s})"
+                            $"= {s |> String.trim}{nv}"
                         else
                             $"({s |> String.trim})"
 

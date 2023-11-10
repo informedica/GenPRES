@@ -77,6 +77,16 @@ module OrderVariable =
                 |> ValueUnit.toStringDutchShort
 
 
+        let toMinMaxString prec (cs : Constraints) =
+            let toStr = ValueUnit.toStringDecimalDutchShortWithPrec prec
+
+            match cs.Min |> Option.map Minimum.toValueUnit,
+                  cs.Max |> Option.map Maximum.toValueUnit with
+            | Some min, Some max ->
+                $"{min |> toStr} - {max |> toStr}"
+            | _ -> ""
+
+
         /// <summary>
         /// Map the functions, fMin, fMax, fIncr and fVals over the `Constraints` record
         /// </summary>
@@ -776,6 +786,10 @@ module OrderVariable =
         /// <param name="incrs">The list of increments to choose from</param>
         let increaseIncrement maxCount incrs =
             toOrdVar >> increaseIncrement maxCount incrs >> Quantity
+
+
+        /// Check whether a Quantity is solved
+        let isSolved = toOrdVar >> isSolved
 
 
 

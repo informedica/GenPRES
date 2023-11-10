@@ -202,7 +202,10 @@ module Api =
             FreqUnit = pr.DoseRule.FreqUnit
             Unit =
                 pr.DoseRule.Products
-                |> tryHead (fun p -> p.ShapeUnit)
+                |> tryHead (fun p ->
+                    if p.Shape |> String.contains "druppels" then "dr"
+                    else p.ShapeUnit
+                )
             Time = pr.DoseRule.Time
             TimeUnit = pr.DoseRule.TimeUnit
             RateUnit = "uur"
