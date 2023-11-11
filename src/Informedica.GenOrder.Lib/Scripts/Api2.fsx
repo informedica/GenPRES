@@ -208,7 +208,7 @@ Patient.child
             // |> printfn "%s"
         | Ok ord  ->
             ord
-            |> Order.Print.printOrderToString [|"benzylpenicilline"|]
+            |> Order.Print.printOrderToString [|"paracetamol"|]
             |> fun (prs, prep, adm) -> printfn $"{prs}"
             // ord
             // |> Order.toString
@@ -375,3 +375,8 @@ createNew
     "rect"
 |> Dto.toDto
 |> Dto.fromDto
+
+
+OrderVariable.Count.create ("test" |> Name.fromString)
+|> OrderVariable.Count.toDto
+|> OrderVariable.Count.fromDto

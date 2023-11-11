@@ -1459,12 +1459,22 @@ module Units =
                     // need to replace nan as this otherwise will be a float
                     let s = s |> String.replace "nan" "nnn"
                     match s |> run Parser.parseUnit with
-                    | Success (u, _, _) -> u
+                    | Success (u, _, _) -> Some u
                     | Failure _ ->
-                        s |> Units.General.general
+                        if s |> String.isNullOrWhiteSpace then None
+                        else
+                            s
+                            |> Units.General.general
+                            |> Some
                 )
-                |> List.reduce (fun u1 u2 -> u1 |> Units.per u2)
-                |> Some
+                |> fun us ->
+                    if us |> List.forall Option.isSome then
+                        us
+                        |> List.map Option.get
+                        |> List.reduce (fun u1 u2 -> u1 |> Units.per u2)
+                        |> Some
+                    else
+                        None
             | _ -> None
 
 
