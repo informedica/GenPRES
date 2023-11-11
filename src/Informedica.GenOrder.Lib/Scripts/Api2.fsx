@@ -15,6 +15,10 @@ open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
 
+open Informedica.ZIndex.Lib
+// load demo or product cache
+System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+
 
 
 let path = Some $"{__SOURCE_DIRECTORY__}/log.txt"
@@ -131,7 +135,6 @@ let createScenarios () =
         |> run n
     )
 
-open Informedica.GenForm.Lib
 
 Mapping.mappingRouteShape
 
@@ -139,22 +142,39 @@ startLogger ()
 stopLogger ()
 
 
-Patient.teenager
+
+Patient.child
 |> fun p -> { p with VenousAccess = CVL }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "tramadol" &&
-    pr.DoseRule.Route = "or" //&&
+    pr.DoseRule.Generic = "paracetamol" &&
+    pr.DoseRule.Route = "rect" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
 |> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder None// (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints |> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> fun ord ->
+    printfn "constraints applied"
+    printfn $"{ord.Orderable.Dose.Quantity}"
+    ord
+    |> Order.toString
+    |> String.concat "\n"
+    |> printfn "%s"
+    ord
 
-|> Order.solveMinMax true OrderLogger.noLogger
+|> Order.solveMinMax true OrderLogger.logger.Logger
+|> Result.map (fun ord ->
+    printfn "solve min max"
+    ord
+    |> Order.toString
+    |> String.concat "\n"
+    |> printfn "%s"
+    ord
+)
 |> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
@@ -168,7 +188,7 @@ Patient.teenager
 | Ok ord  ->
 //    ord.Orderable.OrderableQuantity
 //    |> printfn "%A"
-
+    printfn "increased increment"
     ord
     //|> Order.Markdown.printPrescription [|"insuline aspart"|]
     //|> fun (prs, prep, adm) -> printfn $"{prs}"
@@ -321,3 +341,37 @@ Informedica.ZIndex.Lib.GenPresProduct.findByGPK 47929
 |> List.map (fun (x1, x2) -> x1 * x2)
 |> List.distinct
 |> List.length
+
+
+let failDto =
+
+    Patient.child
+    |> fun p -> { p with VenousAccess = CVL }
+    |> PrescriptionRule.get
+    //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+    |> Array.filter (fun pr ->
+        pr.DoseRule.Generic = "paracetamol" &&
+        pr.DoseRule.Route = "rect" //&&
+    //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
+    )
+    |> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
+    |> fun pr -> pr |> Api.createDrugOrder None// (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+    |> DrugOrder.toOrderDto
+
+
+failDto.Orderable.OrderCount.Variable.MinOpt.Value.Group
+|> Units.fromString
+
+|> OrderVariable.Dto.fromDto
+
+Order.Dto.discontinuous "1" "test" "or" []
+|> Order.Dto.fromDto
+
+
+createNew
+    "1"
+    "test"
+    (Prescription.discontinuous NoUnit NoUnit)
+    "rect"
+|> Dto.toDto
+|> Dto.fromDto

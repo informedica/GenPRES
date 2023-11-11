@@ -342,8 +342,9 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.search "tramadol"
+GenPresProduct.filter "paracetamol" "zetpil" ""
 |> Array.collect (fun gpp -> gpp.GenericProducts)
+|> Array.filter (fun gpp -> gpp.Substances[0].SubstanceQuantity = 250.)
 |> Array.map (fun gp -> gp.Id, gp.Label)
 |> Array.iter (fst >> printfn "%i // tramadol")
 

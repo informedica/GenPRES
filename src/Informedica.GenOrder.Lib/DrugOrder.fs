@@ -175,8 +175,8 @@ module DrugOrder =
             | _ -> $"cannot parse adjust unit: {d.AdjustUnit}" |> failwith
         let du =
             match d.Dose with
-            | Some dl -> dl.DoseUnit |> unitGroup
-            | None -> ou
+            | Some dl when dl.DoseUnit |> String.notEmpty -> dl.DoseUnit |> unitGroup
+            | _ -> ou
         let ft = $"{d.FreqUnit}[Time]"
         let ru = $"{d.RateUnit}[Time]"
         let tu = $"{d.TimeUnit}[Time]"

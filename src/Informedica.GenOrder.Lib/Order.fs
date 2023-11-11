@@ -2230,7 +2230,7 @@ module Order =
         /// <param name="cmps">The Components of the Orderable</param>
         let discontinuous id orbN rte cmps =
             Prescription.discontinuous Unit.NoUnit Unit.NoUnit
-            |> dto  id orbN rte cmps
+            |> dto id orbN rte cmps
 
 
         /// <summary>
@@ -2240,7 +2240,7 @@ module Order =
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        let timed  id orbN rte cmps=
+        let timed id orbN rte cmps=
             Prescription.timed Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 

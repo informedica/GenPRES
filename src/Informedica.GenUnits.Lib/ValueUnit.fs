@@ -445,6 +445,9 @@ module Units =
         /// </code>
         /// </example>
         let createGeneral n v =
+            if n |> String.isNullOrWhiteSpace then
+                "The name for a general unit cannot be an empty string"
+                |> failwith
             let un = (n, v) |> General
             let ab = { Eng = n; EngPlural = n; Dut = n; DutchPlural = n }
             let nm = ab
@@ -1111,7 +1114,10 @@ module Units =
         /// create a general unit
         let toGeneral = General
         /// create a general unit with unit value = 1
-        let general n = (n, 1N) |> toGeneral
+        let general n =
+            if n |> String.isNullOrWhiteSpace then
+                failwith "the name of a General Unit cannot be an empty string"
+            (n, 1N) |> toGeneral
 
 
     module Count =
@@ -3491,7 +3497,9 @@ module ValueUnit =
             let v =
                 dto.Value |> Array.map (fst >> BigRational.parse)
 
-            dto.Unit
+            if dto.Group |> String.isNullOrWhiteSpace then dto.Unit
+            else
+                $"{dto.Unit}[{dto.Group}]"
             |> Units.fromString
             |> function
             | None -> None
