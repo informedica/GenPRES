@@ -371,10 +371,6 @@ module private Elmish =
             { state with Scenarios = InProgress }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
-            result.Scenarios
-            |> Array.iter (fun s ->
-                Logging.log "order" $"order: {s.Order}"
-            )
             { state with
                 Scenarios = Resolved result
             },
@@ -497,6 +493,23 @@ module private Elmish =
                         state.SelectedScenarioOrder
                         |> Option.map (fun (sc, _) -> sc, o)
                     CalculatedOrder = o |> Some |> Resolved
+                    // show only the calculated order scenario
+                    Scenarios = 
+                        state.Scenarios
+                        |> Deferred.map (fun scr ->
+                            { scr with
+                                Scenarios =
+                                    scr.Scenarios
+                                    |> Array.filter (fun sc ->
+                                        sc.Order
+                                        |> Option.map (fun so ->
+                                            printfn $"comparing {so.Orderable} = {o.Orderable}"
+                                            so.Id = o.Id
+                                        )
+                                        |> Option.defaultValue true
+                                    )
+                            }
+                        )
                 }, Cmd.none
             | Error s ->
                 printfn "eror calculating order"
@@ -620,7 +633,7 @@ let View () =
                         bolusMedication = bm
                         continuousMedication = cm
                         products = state.Products
-                        scenario = state.Scenarios
+                        scenarioResult = state.Scenarios
                         updateScenario = UpdateScenarios >> dispatch
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch

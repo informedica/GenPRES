@@ -117,7 +117,7 @@ module GenPres =
             bolusMedication: Deferred<Intervention list>
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
-            scenario: Deferred<ScenarioResult>
+            scenarioResult: Deferred<ScenarioResult>
             updateScenario : ScenarioResult -> unit
             selectOrder : (Scenario * Order option) -> unit
             order : Deferred<Order option>
@@ -136,7 +136,7 @@ module GenPres =
                 box props.page
                 box props.updatePage 
                 box lang
-                box props.scenario
+                box props.scenarioResult
             |]
         let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
@@ -218,7 +218,7 @@ module GenPres =
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View ({|
                                     order = props.order
-                                    scenarios = props.scenario
+                                    scenarios = props.scenarioResult
                                     updateScenario = props.updateScenario
                                     selectOrder = props.selectOrder
                                     loadOrder = props.loadOrder

@@ -3,6 +3,8 @@ namespace Informedica.GenOrder.Lib
 
 module Api =
 
+    open System
+
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -192,7 +194,7 @@ module Api =
             |> Option.defaultValue false
 
         { DrugOrder.drugOrder with
-            Id = "1" //Guid.NewGuid().ToString()
+            Id = Guid.NewGuid().ToString()
             Name = pr.DoseRule.Generic
             Products =
                 pr.DoseRule.Products
