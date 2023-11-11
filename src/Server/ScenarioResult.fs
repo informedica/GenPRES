@@ -16,15 +16,19 @@ module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
     Shared.Order.ValueUnit.create
         dto.Value
-        dto.Unit "" true ""
+        dto.Unit
+        dto.Group
+        dto.Short
+        dto.Language
 
 
 let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
     let dto = ValueUnit.Dto.dto ()
     dto.Value <- vu.Value
+    dto.Unit <- vu.Unit
     dto.Group <- vu.Group
     dto.Language <- vu.Language
-    dto.Unit <- vu.Unit
+    dto.Short <- vu.Short
 
     dto
 

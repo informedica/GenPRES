@@ -3507,9 +3507,18 @@ module ValueUnit =
             let v =
                 dto.Value |> Array.map (fst >> BigRational.parse)
 
-            if dto.Group |> String.isNullOrWhiteSpace then dto.Unit
+            if dto.Group |> String.isNullOrWhiteSpace then
+                dto.Unit
             else
-                $"{dto.Unit}[{dto.Group}]"
+                // TODO only works for "per" combiunits
+                let us = dto.Unit |> String.split "/"
+                let gs = dto.Group |> String.split "/"
+                List.zip us gs
+                |> List.map (fun (u, g) ->
+                    $"{u}[{g}]"
+                )
+                |> String.concat "/"
+
             |> Units.fromString
             |> function
             | None -> None
