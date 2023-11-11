@@ -21,9 +21,11 @@ module Types =
         /// </summary>
         type OrderVariable =
             {
+                /// The Constraints to apply to the Variable
                 Constraints : Constraints
                 /// Stores the values/range
                 Variable:  Variable
+
             }
         and Constraints =
             {

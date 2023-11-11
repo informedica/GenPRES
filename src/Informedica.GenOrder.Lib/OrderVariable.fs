@@ -313,7 +313,6 @@ module OrderVariable =
     let setUnit (ovar: OrderVariable) =
         [
             ovar.Constraints.Min |> Option.map (Minimum.toValueUnit >> ValueUnit.getUnit)
-            ovar.Constraints.Incr |> Option.map (Increment.toValueUnit >> ValueUnit.getUnit)
             ovar.Constraints.Max |> Option.map (Maximum.toValueUnit >> ValueUnit.getUnit)
             ovar.Constraints.Values |> Option.map (ValueSet.toValueUnit >> ValueUnit.getUnit)
         ]
@@ -347,6 +346,7 @@ module OrderVariable =
             member val Name = "" with get, set
             member val Constraints = Variable.Dto.dto () with get, set
             member val Variable = Variable.Dto.dto () with get, set
+            member val Unit = "" with get, set
 
 
         /// Create a new `Dto` for an OrderVariable
@@ -380,6 +380,7 @@ module OrderVariable =
 
                 let min  = dto.Constraints.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Constraints.MinIncl)))
                 let max  = dto.Constraints.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Constraints.MaxIncl)))
+
                 Constraints.create min incr max vs
 
             let n = dto.Name |> Name.fromString

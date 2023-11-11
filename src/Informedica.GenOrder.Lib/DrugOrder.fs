@@ -166,7 +166,6 @@ module DrugOrder =
         // create the units
         let cu = "x[Count]"
         let ml = "ml[Volume]"
-        let dr = "dr[Volume]"
 
         let ou = d.Unit |> unitGroup
         let au =
