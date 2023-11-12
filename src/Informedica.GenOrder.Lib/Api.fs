@@ -403,7 +403,7 @@ module Api =
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
         match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
-        | Some w, Some _, d when d |> String.notEmpty ->
+        | Some w, Some h, d when d |> String.notEmpty ->
 
             let ind =
                 if sc.Indication.IsSome then sc.Indication
@@ -424,6 +424,7 @@ module Api =
                     Age = sc.Patient.Age
                     GestAge = sc.Patient.GestAge
                     Weight = Some w
+                    Height = Some h
                     Indication = ind
                     Generic = gen
                     Route = rte
@@ -455,15 +456,10 @@ module Api =
                     | Some _, Some _,    Some _, _
                     | Some _, Some _, _, Some _ ->
                         { filter with
-                            Department = Some d
                             Indication = ind
                             Generic = gen
                             Route = rte
                             Shape = shp
-                            Age = sc.Patient.Age
-                            GestAge = sc.Patient.GestAge
-                            Weight = sc.Patient.Weight
-                            Location = sc.Patient.VenousAccess
                         }
                         |> PrescriptionRule.filter
                         |> Array.collect (fun pr ->

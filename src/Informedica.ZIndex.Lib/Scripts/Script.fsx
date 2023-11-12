@@ -330,6 +330,17 @@ let gpks =
         107182 // tramadol
         109738 // tramadol
         117498 // tramadol
+        16918 // methotrexaat
+        168459 // methotrexaat
+        47996 // methotrexaat
+        109568 // methotrexaat
+        168440 // methotrexaat
+        168505 // methotrexaat
+        168513 // methotrexaat
+        170453 // methotrexaat
+        185884 // methotrexaat
+        151084 // methotrexaat
+        153133 // methotrexaat
     ]
 
 printfn "Loading GenPresProduct ..."
@@ -342,9 +353,8 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "paracetamol" "zetpil" ""
+GenPresProduct.filter "methotrexaat" "" ""
 |> Array.collect (fun gpp -> gpp.GenericProducts)
-|> Array.filter (fun gpp -> gpp.Substances[0].SubstanceQuantity = 250.)
 |> Array.map (fun gp -> gp.Id, gp.Label)
-|> Array.iter (fst >> printfn "%i // tramadol")
+|> Array.iter (fst >> printfn "%i // methotrexaat")
 

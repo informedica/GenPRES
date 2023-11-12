@@ -15,7 +15,7 @@ module Filter =
             Gender = AnyGender
             Age = None
             Weight = None
-            BSA = None
+            Height = None
             GestAge = None
             PMAge = None
             DoseType = AnyDoseType
@@ -31,7 +31,7 @@ module Filter =
             Gender = pat.Gender
             Age = pat.Age
             Weight = pat.Weight
-            BSA = pat |> Patient.calcBSA
+            Height = pat.Height
             GestAge = pat.GestAge
             PMAge = pat.PMAge
             Location = pat.VenousAccess
@@ -45,9 +45,9 @@ module Filter =
             Gender = filter.Gender
             Age = filter.Age
             Weight = filter.Weight
+            Height = filter.Height
             GestAge = filter.GestAge
             PMAge = filter.PMAge
             VenousAccess = filter.Location
         }
-        
-        
+

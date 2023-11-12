@@ -31,6 +31,8 @@ module PatientCategory =
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
 
+    module BSA = Informedica.GenCore.Lib.Calculations.BSA
+    module Conversions = Informedica.GenCore.Lib.Conversions
 
 
     let sortBy (pat : PatientCategory) =
@@ -64,7 +66,17 @@ module PatientCategory =
             fun (p: PatientCategory) -> filter.Department |> eqs p.Department
             fun (p: PatientCategory) -> filter.Age |> MinMax.isBetween p.Age
             fun (p: PatientCategory) -> filter.Weight |> MinMax.isBetween p.Weight
-            fun (p: PatientCategory) -> filter.BSA |> MinMax.isBetween p.BSA
+            fun (p: PatientCategory) ->
+                match filter.Weight, filter.Height with
+                | Some w, Some h ->
+                    BSA.calcDuBois (Some 3)
+                        (w |> BigRational.toDecimal |> Conversions.kgFromDecimal)
+                        (h |> BigRational.toDecimal |> Conversions.cmFromDecimal)
+                    |> decimal
+                    |> BigRational.fromDecimal
+                    |> Some
+                | _ -> None
+                |> MinMax.isBetween p.BSA
             if filter.Age |> Option.isSome then
                 yield! [|
                     fun (p: PatientCategory) ->

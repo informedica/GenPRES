@@ -25,6 +25,7 @@ module PrescriptionRule =
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
                             Weight = pat.Weight
+                            Height =  pat.Height
                             DoseType = dr.DoseType
                             Location = pat.VenousAccess
                         }
