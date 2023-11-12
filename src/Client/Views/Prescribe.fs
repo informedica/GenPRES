@@ -84,7 +84,13 @@ module Prescribe =
                 printfn $"indication change {s}"
                 match scenarios with
                 | Resolved sc ->
-                    if s |> Option.isNone then ScenarioResult.empty
+                    if s |> Option.isNone then
+                        { sc with
+                            Indications = 
+                                ScenarioResult.empty.Indications
+                            Indication = None
+                            Scenarios = [||]
+                        } 
                     else
                         { sc with Indication = s }
                     |> updateScenario
@@ -95,7 +101,18 @@ module Prescribe =
             | MedicationChange s ->
                 match scenarios with
                 | Resolved sc ->
-                    if s |> Option.isNone then ScenarioResult.empty
+                    if s |> Option.isNone then
+                        { sc with
+                            Indications = 
+                                ScenarioResult.empty.Indications
+                            Indication = None
+                            Medications =
+                                ScenarioResult.empty.Medications
+                            Medication = None
+                            Shape = None                
+                            Scenarios = [||]
+                        }
+                        
                     else
                         { sc with Medication = s }
                     |> updateScenario
