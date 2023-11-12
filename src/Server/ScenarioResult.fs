@@ -354,7 +354,28 @@ let calcMinIncrMaxToValues (ord : Order) =
         ord
         |> mapFromOrder
         |> Order.Dto.fromDto
-        |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+        |> fun ord ->
+            if ord |> Order.isSolved then
+                let dto =
+                    ord
+                    |> Order.Dto.toDto
+                dto |> Order.Dto.cleanDose
+
+                dto
+                |> Order.Dto.fromDto
+                |> Order.applyConstraints
+                |> Order.solveMinMax false OrderLogger.logger.Logger
+                |> function
+                | Ok ord ->
+                    ord
+                    |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+
+                | Error msgs ->
+                    ConsoleWriter.writeErrorMessage $"{msgs}" true false
+                    ord
+            else
+                ord
+                |> Order.minIncrMaxToValues OrderLogger.logger.Logger
         |> Order.Dto.toDto
         |> mapToOrder
         |> Ok

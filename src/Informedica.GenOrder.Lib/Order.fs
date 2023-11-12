@@ -431,6 +431,15 @@ module Order =
 
                 let dto () = Dto ()
 
+                let clean (dto: Dto) =
+                    dto.Quantity |> OrderVariable.Dto.clean
+                    dto.PerTime |> OrderVariable.Dto.clean
+                    dto.Rate |> OrderVariable.Dto.clean
+                    dto.Total |> OrderVariable.Dto.clean
+                    dto.QuantityAdjust |> OrderVariable.Dto.clean
+                    dto.PerTimeAdjust |> OrderVariable.Dto.clean
+                    dto.RateAdjust |> OrderVariable.Dto.clean
+                    dto.TotalAdjust |> OrderVariable.Dto.clean
 
 
         /// Type and functions that models an
@@ -1182,6 +1191,8 @@ module Order =
 
 
 
+    open Orderable
+
     module Prescription =
 
 
@@ -1427,6 +1438,7 @@ module Order =
     module RateAdjust = OrderVariable.RateAdjust
     module Time = OrderVariable.Time
     module Units = ValueUnit.Units
+    module Dose = Dose
 
 
     type Equation = Informedica.GenSolver.Lib.Types.Equation
@@ -1566,6 +1578,12 @@ module Order =
             let s = ord |> toString |> String.concat "\n"
             printfn $"couldn't apply constraints:\n{s}"
             reraise()
+
+
+    let isSolved (ord: Order) =
+        ord.Orderable.Dose
+        |> Dose.toOrdVars
+        |> List.forall OrderVariable.isSolved
 
 
     /// <summary>
@@ -2207,6 +2225,33 @@ module Order =
                 ]
 
             dto
+
+
+        let cleanDose (dto : Dto) =
+            dto.Duration |> OrderVariable.Dto.clean
+            if dto.Prescription.IsDiscontinuous || dto.Prescription.IsTimed then
+                dto.Prescription.Frequency |> OrderVariable.Dto.clean
+            if dto.Prescription.IsTimed then
+                dto.Prescription.Time |> OrderVariable.Dto.clean
+            if not dto.Prescription.IsContinuous then
+                dto.Orderable.OrderableQuantity |> OrderVariable.Dto.clean
+            dto.Orderable.Dose |> Dose.Dto.clean
+
+            dto.Orderable.Components
+                |> List.iter (fun c ->
+                    c.OrderableQuantity |> OrderVariable.Dto.clean
+                    c.OrderableConcentration |> OrderVariable.Dto.clean
+                    c.OrderableCount |> OrderVariable.Dto.clean
+                    c.Dose |> Dose.Dto.clean
+                    c.Items
+                    |> List.iter (fun i ->
+                        i.ComponentConcentration |> OrderVariable.Dto.clean
+                        i.ComponentQuantity |> OrderVariable.Dto.clean
+                        i.OrderableQuantity |> OrderVariable.Dto.clean
+                        i.OrderableConcentration |> OrderVariable.Dto.clean
+                        i.Dose |> Dose.Dto.clean
+                    )
+                )
 
 
         /// <summary>

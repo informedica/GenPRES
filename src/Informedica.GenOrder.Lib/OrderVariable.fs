@@ -335,7 +335,9 @@ module OrderVariable =
     /// <param name="ovar">The OrderVariable</param>
     let isSolved (ovar : OrderVariable) =
         ovar.Variable
-        |> Variable.isSolved
+        |> Variable.isSolved ||
+        ovar.Variable
+        |> Variable.isUnrestricted
 
 
     module Dto =
@@ -350,6 +352,13 @@ module OrderVariable =
 
         /// Create a new `Dto` for an OrderVariable
         let dto () = Dto ()
+
+
+        let clean (old : Dto) =
+            old.Variable.MinOpt <- None
+            old.Variable.IncrOpt <- None
+            old.Variable.MaxOpt <- None
+            old.Variable.ValsOpt <- None
 
 
         /// Create an OrderVariable from a Dto
