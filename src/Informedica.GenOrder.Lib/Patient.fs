@@ -24,11 +24,11 @@ module Patient =
             Department = ""
             Diagnoses = [||]
             Gender = AnyGender
-            Age = None
-            Weight = None
-            Height = None
-            GestAge = None
-            PMAge = None
+            AgeInDays = None
+            WeightInGram = None
+            HeightInCm = None
+            GestAgeInDays = None
+            PMAgeInDays = None
             VenousAccess = AnyAccess
         }
 

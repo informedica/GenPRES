@@ -11,6 +11,7 @@
 #r "../../Informedica.GenUnits.Lib/bin/Debug/net6.0/Informedica.GenUnits.Lib.dll"
 #r "../../Informedica.ZIndex.Lib/bin/Debug/net6.0/Informedica.ZIndex.Lib.dll"
 #r "../../Informedica.ZForm.Lib//bin/Debug/net6.0/Informedica.ZForm.Lib.dll"
+#r "../../Informedica.GenCore.Lib//bin/Debug/net6.0/Informedica.GenCore.Lib.dll"
 
 open System
 open Informedica.Utils.Lib

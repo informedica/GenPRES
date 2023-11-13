@@ -7,6 +7,7 @@ module Mapping =
     open Informedica.Utils.Lib.BCL
 
 
+    /// Mapping of long Z-index route names to short names
     let routeMapping =
         Web.getDataFromSheet Web.dataUrlIdGenPres "Routes"
         |> fun data ->
@@ -26,6 +27,8 @@ module Mapping =
                 |}
             )
 
+
+    /// Mapping of long Z-index unit names to short names
     let unitMapping =
         Web.getDataFromSheet Web.dataUrlIdGenPres "Units"
         |> fun data ->
@@ -47,6 +50,7 @@ module Mapping =
             )
 
 
+    /// Try to find mapping for a route
     let mapRoute rte =
         routeMapping
         |> Array.tryFind (fun r ->
@@ -57,6 +61,7 @@ module Mapping =
         |> Option.map (fun r -> r.Short)
 
 
+    /// Try to map a unit to a short name
     let mapUnit unt =
         unitMapping
         |> Array.tryFind (fun r ->
@@ -66,6 +71,7 @@ module Mapping =
         |> Option.map (fun r -> r.Short)
 
 
+    /// Get the array of RouteShape records
     let mappingRouteShape =
         Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
         |> fun data ->
@@ -94,6 +100,13 @@ module Mapping =
             )
 
 
+    /// <summary>
+    /// Filter the mappingRouteShape array on route, shape and unit
+    /// </summary>
+    /// <param name="rte">The Route</param>
+    /// <param name="shape">The Shape</param>
+    /// <param name="unt">The Unit</param>
+    /// <returns>An array of RouteShape records</returns>
     let filterRouteShapeUnit rte shape unt =
         mappingRouteShape
         |> Array.filter (fun xs ->
@@ -119,6 +132,7 @@ module Mapping =
         |> Array.exists id
 
 
+    /// Check if reconstitution is required for a route, shape and unit
     let requiresReconstitution =
         Memoization.memoize requires_
 

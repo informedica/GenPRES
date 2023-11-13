@@ -15,7 +15,7 @@ module Web =
         /// Create a url to download a sheet from a google spreadsheet
         /// The id is the unique id of the spreadsheet and the sheet is the name of the sheet
         let createUrl sheet id =
-            $"https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}"
+            $"https://docs.google.com/spreadsheets/d/%s{id}/gviz/tq?tqx=out:csv&sheet=%s{sheet}"
 
 
         /// Instantiated http client

@@ -13,13 +13,12 @@ module Filter =
             Department = None
             Diagnoses = [||]
             Gender = AnyGender
-            Age = None
-            Weight = None
-            Height = None
-            GestAge = None
+            AgeInDays = None
+            WeightInGram = None
+            HeightInCm = None
+            GestAgeInDays = None
             PMAge = None
             DoseType = AnyDoseType
-            Dose = None
             Location = AnyAccess
         }
 
@@ -29,11 +28,11 @@ module Filter =
             Department = pat.Department |> Some
             Diagnoses = pat.Diagnoses
             Gender = pat.Gender
-            Age = pat.Age
-            Weight = pat.Weight
-            Height = pat.Height
-            GestAge = pat.GestAge
-            PMAge = pat.PMAge
+            AgeInDays = pat.AgeInDays
+            WeightInGram = pat.WeightInGram
+            HeightInCm = pat.HeightInCm
+            GestAgeInDays = pat.GestAgeInDays
+            PMAge = pat.PMAgeInDays
             Location = pat.VenousAccess
         }
 
@@ -43,11 +42,11 @@ module Filter =
             Department = filter.Department |> Option.defaultValue ""
             Diagnoses = filter.Diagnoses
             Gender = filter.Gender
-            Age = filter.Age
-            Weight = filter.Weight
-            Height = filter.Height
-            GestAge = filter.GestAge
-            PMAge = filter.PMAge
+            AgeInDays = filter.AgeInDays
+            WeightInGram = filter.WeightInGram
+            HeightInCm = filter.HeightInCm
+            GestAgeInDays = filter.GestAgeInDays
+            PMAgeInDays = filter.PMAge
             VenousAccess = filter.Location
         }
 

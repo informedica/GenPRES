@@ -8,38 +8,22 @@ module Product =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
+
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
     module ATCGroup = Informedica.ZIndex.Lib.ATCGroup
-
-
-    [<AutoOpen>]
-    module Utils =
-
-        let toBrs s =
-            s
-            |> String.splitAt ';'
-            |> Array.choose Double.tryParse
-            |> Array.choose BigRational.fromFloat
-
-
-        let toBrOpt brs = brs |> Array.tryHead
-
-
-        let tupleBrOpt brs1 brs2 =
-            brs1 |> Array.tryHead,
-            brs2 |> Array.tryHead
-
 
 
     module Location =
 
 
+        /// Get a string representation of the VenousAccess.
         let toString = function
             | PVL -> "PVL"
             | CVL -> "CVL"
             | AnyAccess -> ""
 
 
+        /// Get a VenousAccess from a string.
         let fromString s =
             match s with
             | _ when s |> String.equalsCapInsens "PVL" -> PVL
@@ -76,10 +60,22 @@ module Product =
                 )
 
 
+        /// <summary>
+        /// Get the ShapeRoute array.
+        /// </summary>
+        /// <remarks>
+        /// This function is memoized.
+        /// </remarks>
         let get : unit -> ShapeRoute [] =
             Memoization.memoize get_
 
 
+        /// <summary>
+        /// Check if the given shape is a solution using
+        /// a ShapeRoute array.
+        /// </summary>
+        /// <param name="srs">The ShapeRoute array</param>
+        /// <param name="shape">The Shape</param>
         let isSolution (srs : ShapeRoute []) shape  =
             srs
             |> Array.tryFind (fun sr ->
@@ -91,6 +87,8 @@ module Product =
 
 
     module Reconstitution =
+
+        open Utils
 
         // GPK
         // Route
@@ -114,7 +112,7 @@ module Product =
                 |> Array.tail
                 |> Array.map (fun r ->
                     let get = getColumn r
-                    let toBrOpt = toBrs >> toBrOpt
+                    let toBrOpt = BigRational.toBrs >> BigRational.toBrOpt
 
                     {|
                         GPK = get "GPK"
@@ -133,10 +131,18 @@ module Product =
                 )
 
 
-        let get =
-            Memoization.memoize get_
+        /// Get the Reconstitution array.
+        /// Returns an anonymous record with the following fields:
+        /// unit -> {| Dep: string; DiluentVol: BigRational option; Diluents: string; DoseType: DoseType; ExpansionVol: BigRational option; GPK: string; Location: VenousAccess; Route: string |} array
+        let get = Memoization.memoize get_
 
 
+        /// <summary>
+        /// Filter the Reconstitution array to get all the reconstitution rules
+        /// that match the given filter.
+        /// </summary>
+        /// <param name="filter">The Filter</param>
+        /// <param name="rs">The array of reconstitution rules</param>
         let filter (filter : Filter) (rs : Reconstitution []) =
             let eqs a b =
                 a
@@ -178,7 +184,7 @@ module Product =
                 |> Array.tail
                 |> Array.map (fun r ->
                     let get = getColumn r
-                    let toBrOpt = toBrs >> toBrOpt
+                    let toBrOpt = BigRational.toBrs >> BigRational.toBrOpt
 
                     {|
                         Name = get "Name"
@@ -240,15 +246,19 @@ module Product =
                 )
 
 
+        /// Get the Parenterals as a Product array.
         let get : unit -> Product [] =
             Memoization.memoize get_
 
 
 
     let private get_ () =
+        // check if the shape is a solution
         let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
 
         fun () ->
+            // first get the products from the GenPres Formulary, i.e.
+            // the assortment
             Web.getDataFromSheet Web.dataUrlIdGenPres "Formulary"
             |> fun data ->
                 let getColumn =
@@ -270,14 +280,17 @@ module Product =
                         HCK = get "HCK"
                     |}
                 )
+                // find the matching GenPresProducts
                 |> Array.collect (fun r ->
                     r.GPKODE
                     |> GenPresProduct.findByGPK
                 )
+                // collect the GenericProducts
                 |> Array.collect (fun gpp ->
                     gpp.GenericProducts
                     |> Array.map (fun gp -> gpp, gp)
                 )
+                // create the Product records
                 |> Array.map (fun (gpp, gp) ->
                     let atc =
                         gp.ATC
@@ -341,7 +354,8 @@ module Product =
                             gp.Substances[0].ShapeUnit
                             |> Mapping.mapUnit
                             |> Option.defaultValue ""
-                        RequiresReconstitution = Mapping.requiresReconstitution (gp.Route, su, gp.Shape)
+                        RequiresReconstitution =
+                            Mapping.requiresReconstitution (gp.Route, su, gp.Shape)
                         Reconstitution =
                             Reconstitution.get ()
                             |> Array.filter (fun r ->
@@ -391,10 +405,29 @@ module Product =
         |> StopWatch.clockFunc "created products"
 
 
+    /// <summary>
+    /// Get the Product array.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let get : unit -> Product [] =
         Memoization.memoize get_
 
 
+    /// <summary>
+    /// Reconstitute the given product according to
+    /// route, DoseType, department and VenousAccess location.
+    /// </summary>
+    /// <param name="rte">The route</param>
+    /// <param name="dtp">The dose type</param>
+    /// <param name="dep">The department</param>
+    /// <param name="loc">The venous access location</param>
+    /// <param name="prod">The product</param>
+    /// <returns>
+    /// The reconstituted product or None if the product
+    /// does not require reconstitution.
+    /// </returns>
     let reconstitute rte dtp dep loc (prod : Product) =
         if prod.RequiresReconstitution |> not then None
         else
@@ -425,6 +458,11 @@ module Product =
             | _       -> None
 
 
+    /// <summary>
+    /// Filter the Product array to get all the products
+    /// </summary>
+    /// <param name="filter">The Filter</param>
+    /// <param name="prods">The array of Products</param>
     let filter (filter : Filter) (prods : Product []) =
         let repl s =
             s
@@ -454,6 +492,7 @@ module Product =
         )
 
 
+    /// Get all Generics from the given Product array.
     let generics (products : Product array) =
         products
         |> Array.map (fun p ->
@@ -462,6 +501,7 @@ module Product =
         |> Array.distinct
 
 
+    /// Get all Synonyms from the given Product array.
     let synonyms (products : Product array) =
         products
         |> Array.collect (fun p ->
@@ -471,6 +511,7 @@ module Product =
         |> Array.distinct
 
 
+    /// Get all Shapes from the given Product array.
     let shapes  (products : Product array) =
         products
         |> Array.map (fun p -> p.Shape)

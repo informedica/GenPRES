@@ -44,7 +44,7 @@ let test pat n =
         | Ok (ord, pr) ->
             let ns =
                 pr.DoseRule.DoseLimits
-                |> Array.map (fun dl -> dl.Substance)
+                |> Array.map (fun dl -> dl.DoseLimitTarget)
             let o =
                 ord
                 |> Order.Print.printOrderToString ns

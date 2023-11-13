@@ -254,7 +254,7 @@ let get (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
         $"""
 {stage}:
-Patient: {sc.Age} days, {sc.Weight} kg, {sc.Height} cm, CVL {sc.CVL}, {sc.GestAge} days
+Patient: {sc.AgeInDays} days, {sc.WeightInKg} kg, {sc.HeightInCm} cm, CVL {sc.CVL}, {sc.GestAgeInDays} days
 Indications: {sc.Indications |> Array.length}
 Medications: {sc.Medications |> Array.length}
 Routes: {sc.Routes |> Array.length}
@@ -269,18 +269,18 @@ Scenarios: {sc.Scenarios |> Array.length}
     let pat =
         { Patient.patient with
             Department = "ICK"
-            Age =
-                sc.Age
+            AgeInDays =
+                sc.AgeInDays
                 |> Option.bind BigRational.fromFloat
-            GestAge =
-                sc.GestAge
+            GestAgeInDays =
+                sc.GestAgeInDays
                 |> Option.map BigRational.fromInt
-            Weight =
-                sc.Weight
+            WeightInGram =
+                sc.WeightInKg
                 |> Option.map (fun w -> w * 1000.)
                 |> Option.bind BigRational.fromFloat
-            Height =
-                sc.Height
+            HeightInCm =
+                sc.HeightInCm
                 |> Option.bind BigRational.fromFloat
             VenousAccess = if sc.CVL then VenousAccess.CVL else VenousAccess.AnyAccess
         }

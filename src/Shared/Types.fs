@@ -318,10 +318,10 @@ module Types =
             Medication: string option
             Shape : string option
             Route: string option
-            Age : float option
-            GestAge : int option
-            Weight: float option
-            Height: float option
+            AgeInDays : float option
+            GestAgeInDays : int option
+            WeightInKg: float option
+            HeightInCm: float option
             CVL : bool
         }
 

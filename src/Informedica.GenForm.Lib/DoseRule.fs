@@ -28,18 +28,18 @@ module DoseRule =
 
         let limit =
             {
-                Substance = ""
+                DoseLimitTarget = NoDoseLimitTarget
                 DoseUnit = ""
                 RateUnit = ""
-                NormQuantity = [||]
+                NormQuantity = None
                 Quantity = MinMax.none
                 NormQuantityAdjust = None
                 QuantityAdjust = MinMax.none
-                NormPerTime = [||]
+                NormPerTime = None
                 PerTime = MinMax.none
                 NormPerTimeAdjust = None
                 PerTimeAdjust = MinMax.none
-                NormRate = [||]
+                NormRate = None
                 Rate = MinMax.none
                 NormRateAdjust = None
                 RateAdjust = MinMax.none
@@ -59,15 +59,15 @@ module DoseRule =
 
                 if frs |> String.isNullOrWhiteSpace then ""
                 else
-                    if r.FreqUnit |> String.isNullOrWhiteSpace then $"{frs} x"
+                    if r.FreqTimeUnit |> String.isNullOrWhiteSpace then $"{frs} x"
                     else
-                        $"{frs} x / {r.FreqUnit}"
+                        $"{frs} x / {r.FreqTimeUnit}"
 
 
         let printInterval (dr: DoseRule) =
-            if dr.IntervalUnit |> String.isNullOrWhiteSpace then ""
+            if dr.IntervalTimeUnit |> String.isNullOrWhiteSpace then ""
             else
-                let s = dr.Interval |> MinMax.toString
+                let s = dr.IntervalTime |> MinMax.toString
                 if s |> String.isNullOrWhiteSpace then ""
                 else
                     let s =
@@ -77,16 +77,16 @@ module DoseRule =
                         |> fun s ->
                             if s |> String.contains "-" then $"elke {s}"
                             else s
-                    $"{s} {dr.IntervalUnit}"
+                    $"{s} {dr.IntervalTimeUnit}"
 
 
         let printTime (dr: DoseRule) =
-            if dr.TimeUnit |> String.isNullOrWhiteSpace then ""
+            if dr.AdministrationTimeUnit |> String.isNullOrWhiteSpace then ""
             else
-                let s = dr.Time |> MinMax.toString
+                let s = dr.AdministrationTime |> MinMax.toString
                 if s |> String.isNullOrWhiteSpace then ""
                 else
-                    $"{s} {dr.TimeUnit}"
+                    $"{s} {dr.AdministrationTimeUnit}"
                     |> String.replace "<" "max"
 
 
@@ -114,27 +114,17 @@ module DoseRule =
             | Some br -> $"{br |> BigRational.toStringNl} {u}"
 
 
-        let printDoses u brs =
-            if brs |> Array.isEmpty then ""
-            else
-                let s =
-                    brs
-                    |> Array.map BigRational.toStringNl
-                    |> String.concat ", "
-                $"{s} {u}"
-
-
         let printDose wrap (dr : DoseRule) =
             dr.DoseLimits
             |> Array.map (fun dl ->
                 let doseQtyAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/keer"
-                let doseTotAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dr.FreqUnit}"
-                let doseTotUnit = $"{dl.DoseUnit}/{dr.FreqUnit}"
+                let doseTotAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dr.FreqTimeUnit}"
+                let doseTotUnit = $"{dl.DoseUnit}/{dr.FreqTimeUnit}"
                 let doseQtyUnit = $"{dl.DoseUnit}/keer"
                 let doseRateUnit = $"{dl.DoseUnit}/{dl.RateUnit}"
                 let doseRateAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dl.RateUnit}"
                 [
-                    $"{dl.NormRate |> printDoses doseRateUnit} " +
+                    $"{dl.NormRate |> printNormDose doseRateUnit} " +
                     $"{dl.Rate |> printMinMaxDose doseRateUnit}"
 
                     $"{dl.NormRateAdjust |> printNormDose doseRateAdjUnit} " +
@@ -143,19 +133,19 @@ module DoseRule =
                     $"{dl.NormPerTimeAdjust |> printNormDose doseTotAdjUnit} " +
                     $"{dl.PerTimeAdjust |> printMinMaxDose doseTotAdjUnit}"
 
-                    $"{dl.NormPerTime |> printDoses doseTotUnit} " +
+                    $"{dl.NormPerTime |> printNormDose doseTotUnit} " +
                     $"{dl.PerTime |> printMinMaxDose doseTotUnit}"
 
                     $"{dl.NormQuantityAdjust |> printNormDose doseQtyAdjUnit} " +
                     $"{dl.QuantityAdjust |> printMinMaxDose doseQtyAdjUnit}"
 
-                    $"{dl.NormQuantity |> printDoses doseQtyUnit} " +
+                    $"{dl.NormQuantity |> printNormDose doseQtyUnit} " +
                     $"{dl.Quantity |> printMinMaxDose doseQtyUnit}"
                 ]
                 |> List.map String.trim
                 |> List.filter (String.IsNullOrEmpty >> not)
                 |> String.concat " "
-                |> fun s -> $"{dl.Substance} {wrap}{s}{wrap}"
+                |> fun s -> $"{dl.DoseLimitTarget} {wrap}{s}{wrap}"
             )
 
 
@@ -343,7 +333,9 @@ module DoseRule =
     let reconstitute dep loc (dr : DoseRule) =
         { dr with
             Products =
-                if dr.Products |> Array.exists (fun p -> p.RequiresReconstitution) |> not then dr.Products
+                if dr.Products
+                   |> Array.exists (fun p -> p.RequiresReconstitution)
+                   |> not then dr.Products
                 else
                     dr.Products
                     |> Array.choose (Product.reconstitute dr.Route dr.DoseType dep loc)
@@ -443,11 +435,11 @@ module DoseRule =
                     AdjustUnit = r.AdjustUnit
                     DoseType = r.DoseType
                     Frequencies = r.Frequencies
-                    FreqUnit = r.FreqUnit
-                    Time = (r.MinTime, r.MaxTime) |> MinMax.fromTuple
-                    TimeUnit = r.TimeUnit
-                    Interval = (r.MinInterval, r.MaxInterval) |> MinMax.fromTuple
-                    IntervalUnit = r.IntervalUnit
+                    FreqTimeUnit = r.FreqUnit
+                    AdministrationTime = (r.MinTime, r.MaxTime) |> MinMax.fromTuple
+                    AdministrationTimeUnit = r.TimeUnit
+                    IntervalTime = (r.MinInterval, r.MaxInterval) |> MinMax.fromTuple
+                    IntervalTimeUnit = r.IntervalUnit
                     Duration = (r.MinDur, r.MaxDur) |> MinMax.fromTuple
                     DurationUnit = r.DurUnit
                     DoseLimits = [||]
@@ -455,14 +447,13 @@ module DoseRule =
                 }
             )
             |> Array.map (fun (dr, rs) ->
-                let toArr = Option.map Array.singleton >> Option.defaultValue [||]
                 { dr with
                     DoseLimits =
                         let shapeLimits =
                              Mapping.filterRouteShapeUnit dr.Route dr.Shape ""
                              |> Array.map (fun rsu ->
                                 { DoseLimit.limit with
-                                    Substance = ""
+                                    DoseLimitTarget = dr.Shape |> ShapeDoseLimitTarget
                                     DoseUnit = rsu.DoseUnit
                                     Quantity =
                                         let min = rsu.MinDoseQty |> Option.bind BigRational.fromFloat
@@ -474,7 +465,7 @@ module DoseRule =
                         rs
                         |> Array.map (fun r ->
                             {
-                                Substance = r.Substance
+                                DoseLimitTarget = r.Substance |> SubstanceDoseLimitTarget
                                 DoseUnit =
                                     if r.Substance |> String.isNullOrWhiteSpace |> not then r.DoseUnit
                                     else
@@ -482,15 +473,15 @@ module DoseRule =
                                         | Some sl -> sl.DoseUnit
                                         | None -> ""
                                 RateUnit = r.RateUnit
-                                NormQuantity = r.NormQty |> toArr
+                                NormQuantity = r.NormQty
                                 Quantity = (r.MinQty, r.MaxQty) |> MinMax.fromTuple
                                 NormQuantityAdjust = r.NormQtyAdj
                                 QuantityAdjust = (r.MinQtyAdj, r.MaxQtyAdj) |> MinMax.fromTuple
-                                NormPerTime = r.NormPerTime |> toArr
+                                NormPerTime = r.NormPerTime
                                 PerTime = (r.MinPerTime, r.MaxPerTime) |> MinMax.fromTuple
                                 NormPerTimeAdjust = r.NormPerTimeAdj
                                 PerTimeAdjust = (r.MinPerTimeAdj, r.MaxPerTimeAdj) |> MinMax.fromTuple
-                                NormRate = r.NormRate |> toArr
+                                NormRate = r.NormRate
                                 Rate = (r.MinRate, r.MaxRate) |> MinMax.fromTuple
                                 NormRateAdjust = r.NormRateAdj
                                 RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple

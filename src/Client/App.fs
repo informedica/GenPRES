@@ -340,22 +340,22 @@ module private Elmish =
                 | _ -> ScenarioResult.empty
                 |> fun sc ->
                     { sc with
-                        Age =
+                        AgeInDays =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getAgeInDays
-                            | None -> sc.Age
-                        GestAge =
+                            | None -> sc.AgeInDays
+                        GestAgeInDays =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getGestAgeInDays
-                            | None -> sc.GestAge
-                        Weight =
+                            | None -> sc.GestAgeInDays
+                        WeightInKg =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getWeight
-                            | None -> sc.Weight
-                        Height =
+                            | None -> sc.WeightInKg
+                        HeightInCm =
                             match state.Patient with
                             | Some pat -> pat |> Patient.getHeight
-                            | None -> sc.Height
+                            | None -> sc.HeightInCm
                         CVL =
                             match state.Patient with
                             | Some pat -> pat.CVL
@@ -407,10 +407,10 @@ module private Elmish =
         | UpdateScenarios sc ->
             let sc =
                 { sc with
-                    Weight =
+                    WeightInKg =
                         match state.Patient with
                         | Some pat -> pat |> Patient.getWeight
-                        | None -> sc.Weight
+                        | None -> sc.WeightInKg
                 }
 
             { state with 

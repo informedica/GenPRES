@@ -24,14 +24,17 @@ module PrescriptionRule =
                             Generic = dr.Generic |> Some
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
-                            Weight = pat.Weight
-                            Height =  pat.Height
+                            //WeightInGram = pat.WeightInGram
+                            //HeightInCm =  pat.HeightInCm
                             DoseType = dr.DoseType
-                            Location = pat.VenousAccess
+                            //Location = pat.VenousAccess
                         }
             }
         )
-        |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+        |> Array.filter (fun pr ->
+            pr.DoseRule.Products |> Array.isEmpty |> not  &&
+            pr.DoseRule.DoseType <> DoseType.Contraindicated
+        )
 
 
     let get (pat : Patient) =
@@ -40,9 +43,10 @@ module PrescriptionRule =
         |> filter
 
 
-    let filterProducts shapeQuantities
-                       (substs : (string * BigRational option) array)
-                       (pr : PrescriptionRule) =
+    let filterProducts
+        shapeQuantities
+        (substs : (string * BigRational option) array)
+        (pr : PrescriptionRule) =
         { pr with
             DoseRule =
                 { pr.DoseRule with

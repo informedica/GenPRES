@@ -137,7 +137,7 @@ module SolutionRule =
         [|
             fun (sr : SolutionRule) -> sr.Generic |> eqs filter.Generic
             fun (sr : SolutionRule) ->
-                PatientCategory.isAgeWeight filter.Age filter.Weight sr.Age sr.Weight
+                PatientCategory.checkAgeWeightMinMax filter.AgeInDays filter.WeightInGram sr.Age sr.Weight
             fun (sr : SolutionRule) -> sr.Shape |> eqs filter.Shape
             fun (sr : SolutionRule) -> sr.Route |> eqs filter.Route
             fun (sr : SolutionRule) -> sr.Department |> eqs filter.Department
@@ -146,7 +146,7 @@ module SolutionRule =
                 | AnyDoseType, _
                 | _, AnyDoseType -> true
                 | _ -> filter.DoseType = sr.DoseType
-            fun (sr : SolutionRule) -> filter.Weight |> MinMax.isBetween sr.Weight
+            fun (sr : SolutionRule) -> filter.WeightInGram |> MinMax.isBetween sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
                 | CVL -> filter.Location = CVL

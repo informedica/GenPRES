@@ -7,6 +7,7 @@ module DoseType =
     open Informedica.Utils.Lib.BCL
 
 
+    /// Get a sort order for a dose type.
     let sortBy = function
         | Start -> 0
         | Once -> 1
@@ -19,6 +20,7 @@ module DoseType =
         | Contraindicated -> -1
 
 
+    /// Get a dose type from a string.
     let fromString s =
         let s = s |> String.toLower |> String.trim
 
@@ -61,6 +63,7 @@ module DoseType =
             AnyDoseType
 
 
+    /// Get a string representation of a dose type.
     let toString = function
         | Start -> "start"
         | Once -> "eenmalig"

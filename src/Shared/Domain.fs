@@ -1371,10 +1371,10 @@ module ScenarioResult =
             Medication = None
             Shape = None
             Route = None
-            Age = None
-            GestAge = None
-            Weight = None
-            Height = None
+            AgeInDays = None
+            GestAgeInDays = None
+            WeightInKg = None
+            HeightInCm = None
             CVL = false
         }
 
