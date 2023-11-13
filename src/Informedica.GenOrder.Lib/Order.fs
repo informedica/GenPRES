@@ -1988,7 +1988,7 @@ module Order =
                         (fun i -> i.Dose.PerTimeAdjust)
                         perTimeAdjustToStr
                     |> fun s ->
-                        if o.Orderable.Dose.Quantity |> Quantity.isSolved then
+                        if o.Orderable.Components[0].Dose.Quantity |> Quantity.isSolved then
                             let nv =
                                 o.Orderable.Components[0].Items
                                 |> List.map (fun i ->
@@ -2088,7 +2088,7 @@ module Order =
                         (fun i -> i.Dose.PerTimeAdjust)
                         perTimeAdjustToStr
                     |> fun s ->
-                        if o.Orderable.Dose.Quantity |> Quantity.isSolved then
+                        if o.Orderable.Components[0].Dose.Quantity |> Quantity.isSolved then
                             let nv =
                                 o.Orderable.Components[0].Items
                                 |> List.map (fun i ->
