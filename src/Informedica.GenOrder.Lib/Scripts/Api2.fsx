@@ -148,15 +148,15 @@ Patient.child
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "paracetamol" &&
-    pr.DoseRule.Route = "rect" //&&
+    pr.DoseRule.Generic = "meropenem" &&
+    pr.DoseRule.Route = "iv" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
-|> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> Api.createDrugOrder None// (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints // |> Order.toString |> List.iter (printfn "%s")
 |> fun ord ->
     printfn "constraints applied"
     printfn $"{ord.Orderable.Dose.Quantity}"

@@ -569,6 +569,12 @@ module Variable =
             let restrict newMin oldMin =
                 newMin |> checkOverflow
 
+                let oldMin =
+                    if oldMin |> hasZeroUnit |> not then oldMin
+                    else
+                        oldMin
+                        |> convertTo newMin
+
                 if newMin |> minGTmin oldMin then
                     newMin |> convertTo oldMin
                 else
@@ -2161,7 +2167,7 @@ module Variable =
                 vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
 
             match oldVs with
-            | None -> newVs |> filter min incr max
+            | None    -> newVs |> filter min incr max
             | Some vs -> newVs |> ValueSet.intersect vs
             |> ValSet
 
@@ -2986,6 +2992,7 @@ module Variable =
         /// </code>
         /// </example>
         let applyExpr y expr =
+
             let apply get set vr =
                 match expr |> get with
                 | Some m -> vr |> set m

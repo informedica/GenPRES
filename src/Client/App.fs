@@ -189,7 +189,7 @@ module private Elmish =
             SelectedScenarioOrder = None
             Formulary = HasNotStartedYet
             Localization = HasNotStartedYet
-            Language = lang |> Option.defaultValue Localization.English
+            Language = lang |> Option.defaultValue Localization.Dutch
         }
 
     let init () : Model * Cmd<Msg> =
