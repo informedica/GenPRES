@@ -10,18 +10,6 @@ module DoseRule =
     open Informedica.Utils.Lib.BCL
 
 
-    [<AutoOpen>]
-    module Utils =
-
-        let toBrs = BigRational.toBrs
-
-
-        let toBrOpt = BigRational.toBrOpt
-
-
-        let tupleBrOpt = BigRational.tupleBrOpt
-
-
 
     module DoseLimit =
 
@@ -330,6 +318,15 @@ module DoseRule =
             )
 
 
+    open Utils
+
+
+    /// <summary>
+    /// Reconstitute the products in a DoseRule that require reconstitution.
+    /// </summary>
+    /// <param name="dep">The Department to select the reconstitution</param>
+    /// <param name="loc">The VenousAccess location to select the reconstitution</param>
+    /// <param name="dr">The DoseRule</param>
     let reconstitute dep loc (dr : DoseRule) =
         { dr with
             Products =
@@ -355,7 +352,7 @@ module DoseRule =
             |> Array.tail
             |> Array.map (fun r ->
                 let get = getColumn r
-                let toBrOpt = toBrs >> toBrOpt
+                let toBrOpt = BigRational.toBrs >> BigRational.toBrOpt
 
                 {|
                     Indication = get "Indication"
@@ -376,7 +373,7 @@ module DoseRule =
                     MinPMAge = get "MinPMAge" |> toBrOpt
                     MaxPMAge = get "MaxPMAge" |> toBrOpt
                     DoseType = get "DoseType" |> DoseType.fromString
-                    Frequencies = get "Freqs" |> toBrs
+                    Frequencies = get "Freqs" |> BigRational.toBrs
                     DoseUnit = get "DoseUnit"
                     AdjustUnit = get "AdjustUnit"
                     FreqUnit = get "FreqUnit"
@@ -501,10 +498,21 @@ module DoseRule =
             )
 
 
+    /// <summary>
+    /// Get the DoseRules from the Google Sheet.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let get : unit -> DoseRule [] =
         Memoization.memoize get_
 
 
+    /// <summary>
+    /// Filter the DoseRules according to the Filter.
+    /// </summary>
+    /// <param name="filter">The Filter</param>
+    /// <param name="drs">The DoseRule array</param>
     let filter (filter : Filter) (drs : DoseRule array) =
         let eqs a b =
             a
@@ -536,21 +544,28 @@ module DoseRule =
         |> Array.sortBy String.toLower
 
 
+
+    /// Extract all indications from the DoseRules.
     let indications = getMember (fun dr -> dr.Indication)
 
 
+    /// Extract all the generics from the DoseRules.
     let generics = getMember (fun dr -> dr.Generic)
 
 
+    /// Extract all the shapes from the DoseRules.
     let shapes = getMember (fun dr -> dr.Shape)
 
 
+    /// Extract all the routes from the DoseRules.
     let routes = getMember (fun dr -> dr.Route)
 
 
+    /// Extract all the departments from the DoseRules.
     let departments = getMember (fun dr -> dr.Patient.Department |> Option.defaultValue "")
 
 
+    /// Extract all the diagnoses from the DoseRules.
     let diagnoses (drs : DoseRule []) =
         drs
         |> Array.collect (fun dr ->
@@ -560,9 +575,11 @@ module DoseRule =
         |> Array.sortBy String.toLower
 
 
+    /// Extract all genders from the DoseRules.
     let genders = getMember (fun dr -> dr.Patient.Gender |> Gender.toString)
 
 
+    /// Extract all patient categories from the DoseRules as strings.
     let patients (drs : DoseRule array) =
         drs
         |> Array.map (fun r -> r.Patient)
@@ -571,6 +588,7 @@ module DoseRule =
         |> Array.distinct
 
 
+    /// Extract all frequencies from the DoseRules as strings.
     let frequencies (drs : DoseRule array) =
         drs
         |> Array.map Print.printFreqs

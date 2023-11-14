@@ -8,21 +8,11 @@ module SolutionRule =
     open Informedica.Utils.Lib.BCL
 
 
-    [<AutoOpen>]
-    module Utils =
-
-        let toBrs = BigRational.toBrs
-
-
-        let toBrOpt = BigRational.toBrOpt
-
-
-        let tupleBrOpt = BigRational.tupleBrOpt
-
-
 
     module SolutionLimit =
 
+
+        /// An empty SolutionLimit.
         let limit =
             {
                 Substance = ""
@@ -45,7 +35,7 @@ module SolutionRule =
             |> Array.tail
             |> Array.map (fun r ->
                 let get = getColumn r
-                let toBrOpt = toBrs >> toBrOpt
+                let toBrOpt = BigRational.toBrs >> BigRational.toBrOpt
 
                 {|
                     Generic = get "Generic"
@@ -62,14 +52,14 @@ module SolutionRule =
                     MaxDose = get "MaxDose" |> toBrOpt
                     DoseType = get "DoseType"
                     Solutions = get "Solutions" |> String.split "|"
-                    Volumes = get "Volumes" |> toBrs
+                    Volumes = get "Volumes" |> BigRational.toBrs
                     MinVol = get "MinVol" |> toBrOpt
                     MaxVol = get "MaxVol" |> toBrOpt
                     MinPerc = get "MinPerc" |> toBrOpt
                     MaxPerc = get "MaxPerc" |> toBrOpt
                     Substance = get "Substance"
                     Unit = get "Unit"
-                    Quantities = get "Quantities" |> toBrs
+                    Quantities = get "Quantities" |> BigRational.toBrs
                     MinQty = get "MinQty" |> toBrOpt
                     MaxQty = get "MaxQty" |> toBrOpt
                     MinConc = get "MinConc" |> toBrOpt
@@ -124,10 +114,22 @@ module SolutionRule =
             )
 
 
+    /// <summary>
+    /// Gets the SolutionRules.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
     let get : unit -> SolutionRule [] =
         Memoization.memoize get_
 
 
+    /// <summary>
+    /// Get all the SolutionRules that match the given Filter.
+    /// </summary>
+    /// <param name="filter">The Filter</param>
+    /// <param name="solutionRules">The SolutionRules</param>
+    /// <returns>The matching SolutionRules</returns>
     let filter (filter : Filter) (solutionRules : SolutionRule []) =
         let eqs a b =
             a
@@ -158,6 +160,7 @@ module SolutionRule =
         ) solutionRules
 
 
+    /// Helper function to get the distinct values of a member of SolutionRule.
     let getMember getter (rules : SolutionRule[]) =
         rules
         |> Array.map getter
@@ -165,11 +168,13 @@ module SolutionRule =
         |> Array.sort
 
 
+    /// Get all the distinct Generics from the given SolutionRules.
     let generics = getMember (fun sr -> sr.Generic)
 
 
     module Print =
 
+        /// Get the string representation of a SolutionLimit.
         let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
             let loc =
                 match sr.Location with
@@ -241,6 +246,7 @@ module SolutionRule =
             $"\n{loc}{limit.Substance}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
 
 
+        /// Get the markdown representation of the given SolutionRules.
         let toMarkdown text (rules: SolutionRule []) =
             let generic_md generic products =
                 let text = if text |> String.isNullOrWhiteSpace then generic else text
@@ -379,6 +385,7 @@ module SolutionRule =
             |> fun md -> md.md
 
 
+        /// Get the markdown representation of the given SolutionRules.
         let printGenerics (rules: SolutionRule []) =
             rules
             |> generics

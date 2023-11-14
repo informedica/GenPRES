@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module Filter =
 
 
+    /// An empty Filter.
     let filter =
         {
             Indication = None
@@ -23,6 +24,12 @@ module Filter =
         }
 
 
+    /// <summary>
+    /// Apply a Patient to a Filter.
+    /// </summary>
+    /// <param name="pat">The Patient</param>
+    /// <param name="filter">The Filter</param>
+    /// <returns>The Filter with the Patient applied</returns>
     let setPatient (pat : Patient) (filter : Filter) =
         { filter with
             Department = pat.Department |> Some
@@ -37,6 +44,11 @@ module Filter =
         }
 
 
+    /// <summary>
+    /// Extract a Patient from a Filter.
+    /// </summary>
+    /// <param name="filter">The Filter</param>
+    /// <returns>The Patient</returns>
     let getPatient (filter : Filter) =
         { Patient.patient with
             Department = filter.Department |> Option.defaultValue ""
