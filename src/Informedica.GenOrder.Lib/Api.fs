@@ -314,6 +314,36 @@ module Api =
             | Ok ord ->
                 let dto = ord |> Order.Dto.toDto
 
+                let compItems =
+                    [
+                        for c in dto.Orderable.Components do
+                                c.ComponentQuantity.Variable.ValsOpt
+                                |> Option.map (fun v ->
+                                    {|
+                                        shapeQty =
+                                            v.Value
+                                            |> Array.map (fst >> BigRational.parse)
+                                        substs =
+                                            [
+                                                for i in c.Items do
+                                                    i.ComponentConcentration.Variable.ValsOpt
+                                                    |> Option.map (fun v ->
+                                                        {|
+                                                            name = i.Name
+                                                            qty =
+                                                                v.Value
+                                                                |> Array.map (fst >> BigRational.parse)
+                                                        |}
+                                                    )
+                                            ]
+                                            |> List.choose id
+                                    |}
+                                )
+                    ]
+                    |> List.choose id
+
+                printfn $"{compItems}"
+
                 let shps =
                     dto.Orderable.Components
                     |> List.choose (fun cDto -> cDto.ComponentQuantity.Variable.ValsOpt)

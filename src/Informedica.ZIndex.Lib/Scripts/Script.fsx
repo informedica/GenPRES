@@ -374,7 +374,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "meropenem" "" ""
+GenPresProduct.filter "aztreonam" "" ""
 |> Array.collect (fun gpp -> gpp.GenericProducts)
 |> Array.map (fun gp -> gp.Id, gp.Label)
 |> Array.iter (fst >> printfn "%i // meropenem")
