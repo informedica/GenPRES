@@ -255,6 +255,7 @@ let get (sc: ScenarioResult) =
         $"""
 {stage}:
 Patient: {sc.AgeInDays} days, {sc.WeightInKg} kg, {sc.HeightInCm} cm, CVL {sc.CVL}, {sc.GestAgeInDays} days
+Department: {sc.Department}
 Indications: {sc.Indications |> Array.length}
 Medications: {sc.Medications |> Array.length}
 Routes: {sc.Routes |> Array.length}
@@ -268,7 +269,9 @@ Scenarios: {sc.Scenarios |> Array.length}
 
     let pat =
         { Patient.patient with
-            Department = "ICK"
+            Department =
+                sc.Department
+                |> Option.defaultValue "ICK"
             AgeInDays =
                 sc.AgeInDays
                 |> Option.bind BigRational.fromFloat

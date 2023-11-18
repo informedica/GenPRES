@@ -44,7 +44,7 @@ module Patient =
             | None ->
                 Patient.create
                     (s |> Option.bind tryParse)
-                    None None None None None None None false
+                    None None None None None None None false None
             | Some p ->
                 Patient.create
                     (s |> Option.bind tryParse)
@@ -56,6 +56,8 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     (p.CVL)
+                    p.Department
+
 
         let setMonth s (p : Patient option) =
             match p with
@@ -63,7 +65,7 @@ module Patient =
                 Patient.create
                     None
                     (s |> Option.bind tryParse)
-                    None None None None None None false
+                    None None None None None None false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -75,6 +77,8 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.CVL
+                    p.Department
+
 
         let setWeek s (p : Patient option) =
             match p with
@@ -82,7 +86,7 @@ module Patient =
                 Patient.create
                     None None
                     (s |> Option.bind tryParse)
-                    None None None None None false
+                    None None None None None false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -94,6 +98,8 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.CVL
+                    p.Department
+
 
         let setDay s (p : Patient option) =
             match p with
@@ -101,7 +107,7 @@ module Patient =
                 Patient.create
                     None None None
                     (s |> Option.bind tryParse)
-                    None None None None false
+                    None None None None false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -113,6 +119,8 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.CVL
+                    p.Department
+
 
         let setWeight s (p : Patient option) =
             match p with
@@ -120,7 +128,7 @@ module Patient =
                 Patient.create
                     None None None None
                     (s |> Option.bind tryParse |> Option.map (fun v -> (v |> float) / 1000.))
-                    None None None false
+                    None None None false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -132,6 +140,8 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.CVL
+                    p.Department
+
 
         let setHeight s (p : Patient option) =
             match p with
@@ -139,7 +149,7 @@ module Patient =
                 Patient.create
                     None None None None None
                     (s |> Option.bind tryParse |> Option.map float)
-                    None None false
+                    None None false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -151,6 +161,8 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.CVL
+                    p.Department
+
 
         let setGAWeek s (p : Patient option) =
             match p with
@@ -158,7 +170,7 @@ module Patient =
                 Patient.create
                     None None None None None None
                     (s |> Option.bind tryParse |> Option.map int)
-                    None false
+                    None false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -169,6 +181,8 @@ module Patient =
                     (s |> Option.bind tryParse |> Option.map int)
                     (p |> Patient.getGADays)
                     p.CVL
+                    p.Department
+
 
         let setGADay s (p : Patient option) =
             match p with
@@ -176,7 +190,7 @@ module Patient =
                 Patient.create
                     None None None None None None None
                     (s |> Option.bind tryParse |> Option.map int)
-                    false
+                    false None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -187,6 +201,7 @@ module Patient =
                     (p |> Patient.getGAWeeks)
                     (s |> Option.bind tryParse |> Option.map int)
                     p.CVL
+                    p.Department
 
 
         let toggleCVL (p: Patient option) : Patient option =

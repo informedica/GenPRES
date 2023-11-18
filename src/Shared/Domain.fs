@@ -182,35 +182,6 @@ module Utils =
             (mos / 12), (mos % 12)
 
 
-module Configuration =
-
-    open Types
-
-
-    let calculateRanges dep config =
-        let ranges =
-            {
-                Years = []
-                Months = []
-                Weights = []
-                Heights = []
-            }
-
-        match config
-              |> List.tryFind (fun s -> s.Department = dep)
-            with
-        | Some set ->
-            { ranges with
-                Years = [ set.MinAge .. set.MaxAge / 12 ]
-                Months = [ 0..11 ]
-                Weights =
-                    [ set.MinWeight .. 0.1 .. 9.9 ]
-                    @ [ 10.0..1.0..19.0 ]
-                      @ [ 20.0 .. 5.0 .. set.MaxWeight ]
-                Heights = [ 50..200 ]
-            }
-        | None -> ranges
-
 
 module Patient =
 
@@ -484,7 +455,7 @@ module Patient =
         p.GestationalAge |> Option.map (fun ga -> ga.Days)
 
 
-    let create years months weeks days weight height gw gd cvl =
+    let create years months weeks days weight height gw gd cvl dep =
         if [
             years
             months
@@ -545,6 +516,7 @@ module Patient =
                 Weight = { Estimated = ew; Measured = weight }
                 Height = { Estimated = eh; Measured = height }
                 CVL = cvl
+                Department = dep
             }
             |> Some
 
@@ -1402,6 +1374,7 @@ module ScenarioResult =
             WeightInKg = None
             HeightInCm = None
             CVL = false
+            Department = None
         }
 
 

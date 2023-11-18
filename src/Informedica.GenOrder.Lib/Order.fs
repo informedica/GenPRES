@@ -1059,47 +1059,62 @@ module Order =
         /// <param name="incrs">The list of increments</param>
         /// <param name="orb">The Orderable</param>
         let increaseQuantityIncrement maxCount incrs orb =
-            // first calculate the minimum increment increase for the orderable and components
-            let ord_qty = (orb |> get).OrderQuantity
-            let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
-            let ord_cnt = orb.OrderCount
-            let dos_cnt = orb.DoseCount
-            let dos = orb.Dose //|> Dose.increaseIncrement incr
-
-            orb.Components
-            |> List.map (Component.increaseIncrement maxCount incrs)
-            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
-
-            |> fun orb ->
+            // check if all relevant OrderVariables have an increment
+            if
                 [
-                    (orb.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
-                    yield! orb.Components
-                    |> List.map (fun c ->
-                        (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
-                    )
-                ]
-                |> List.choose Variable.ValueRange.getIncr
-                |> function
-                    | [] -> orb
-                    | incrs ->
-                        let incr =
-                            incrs
-                            |> List.minBy (fun i ->
-                                i
-                                |> Variable.ValueRange.Increment.toValueUnit
-                                |> ValueUnit.getBaseValue
-                            )
-
-                        // apply the minimum increment increase to the orderable and components
-                        let ord_qty = (orb |> get).OrderQuantity
-                        let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [incr]
-                        let ord_cnt = orb.OrderCount
-                        let dos_cnt = orb.DoseCount
-                        let dos = orb.Dose //|> Dose.increaseIncrement incr
-
+                    orb.OrderableQuantity
+                    yield!
                         orb.Components
-                        |> List.map (Component.increaseIncrement maxCount [incr])
-                        |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+                        |> List.map (fun c -> c.OrderableQuantity)
+                ]
+                |> List.forall Quantity.hasIncrement
+                |> not
+                then orb
+            else
+                // first calculate the minimum increment increase for the orderable and components
+                let ord_qty = (orb |> get).OrderQuantity
+                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
+                let ord_cnt = orb.OrderCount
+                let dos_cnt = orb.DoseCount
+                let dos = orb.Dose //|> Dose.increaseIncrement incr
+
+                orb.Components
+                |> List.map (Component.increaseIncrement maxCount incrs)
+                |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+
+                |> fun newOrb ->
+                    [
+                        (newOrb.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+                        yield! newOrb.Components
+                        |> List.map (fun c ->
+                            (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+                        )
+                    ]
+                    |> List.choose Variable.ValueRange.getIncr
+                    |> function
+                        | [] -> orb
+                        | incrs ->
+                            if incrs |> List.length <> ((orb.Components |> List.length) + 1) then orb
+                            else
+                                printfn $"increments: {incrs}"
+                                let incr =
+                                    incrs
+                                    |> List.minBy (fun i ->
+                                        i
+                                        |> Variable.ValueRange.Increment.toValueUnit
+                                        |> ValueUnit.getBaseValue
+                                    )
+
+                                // apply the minimum increment increase to the orderable and components
+                                let ord_qty = (orb |> get).OrderQuantity
+                                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [incr]
+                                let ord_cnt = orb.OrderCount
+                                let dos_cnt = orb.DoseCount
+                                let dos = orb.Dose //|> Dose.increaseIncrement incr
+
+                                orb.Components
+                                |> List.map (Component.increaseIncrement maxCount [incr])
+                                |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
         /// <summary>
@@ -1601,7 +1616,7 @@ module Order =
         { ord with
             Orderable =
                 ord.Orderable
-                |> Orderable.increaseQuantityIncrement
+                |> increaseQuantityIncrement
                        maxCount
                        incrs
         }

@@ -76,6 +76,7 @@ module private Elmish =
     // * la: language (en; du; fr; ge; sp; it; ch)
     // * dc: show disclaimer (n;_)
     // * cv: central venous line (y;_)
+    // * dp: department
     let parseUrl sl =
         printfn $"parsing url with {sl}"
         match sl with
@@ -122,6 +123,8 @@ module private Elmish =
                         | Some s when s = "y" -> true
                         | _ -> false
 
+                    let dep =  Map.tryFind "dp"queryParamsMap 
+
                     let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
                     let patient =
@@ -135,6 +138,7 @@ module private Elmish =
                             gaWeeks 
                             gaDays
                             cvl
+                            dep
 
                     Logging.log "parsed: " patient
                     patient
@@ -360,6 +364,8 @@ module private Elmish =
                             match state.Patient with
                             | Some pat -> pat.CVL
                             | None -> sc.CVL
+                        Department = 
+                            state.Patient |> Option.bind (fun p -> p.Department)
                     }
 
             let load =

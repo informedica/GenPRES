@@ -64,6 +64,7 @@ module Types =
             Weight: Weight
             Height: Height
             CVL : bool
+            Department : string option
         }
     /// Weight in kg
     and Weight =
@@ -323,6 +324,7 @@ module Types =
             WeightInKg: float option
             HeightInCm: float option
             CVL : bool
+            Department : string option
         }
 
 

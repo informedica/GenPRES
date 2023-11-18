@@ -342,7 +342,7 @@ module Api =
                     ]
                     |> List.choose id
 
-                printfn $"{compItems}"
+                //printfn $"{compItems}"
 
                 let shps =
                     dto.Orderable.Components

@@ -193,6 +193,11 @@ module OrderVariable =
         }
 
 
+    let hasIncrement (ovar: OrderVariable) =
+        ovar.Variable
+        |> Variable.isMinIncrMax
+
+
     /// <summary>
     /// Try and increase the increment of a `ValueRange` of a Variable to an
     /// increment in incrs such that the resulting ValueRange contains
@@ -799,6 +804,10 @@ module OrderVariable =
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
+
+
+        let hasIncrement =
+            toOrdVar >> hasIncrement
 
 
         /// <summary>
