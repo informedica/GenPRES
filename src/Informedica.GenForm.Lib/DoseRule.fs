@@ -34,6 +34,19 @@ module DoseRule =
             }
 
 
+        let doseLimitTargetToString =
+            function
+                | NoDoseLimitTarget -> ""
+                | ShapeDoseLimitTarget s
+                | SubstanceDoseLimitTarget s -> s
+
+
+        let substanceDoseLimitTargetToString =
+            function
+                | SubstanceDoseLimitTarget s -> s
+                | _ -> ""
+
+
 
     module Print =
 
@@ -133,7 +146,7 @@ module DoseRule =
                 |> List.map String.trim
                 |> List.filter (String.IsNullOrEmpty >> not)
                 |> String.concat " "
-                |> fun s -> $"{dl.DoseLimitTarget} {wrap}{s}{wrap}"
+                |> fun s -> $"%s{dl.DoseLimitTarget |> DoseLimit.substanceDoseLimitTargetToString} {wrap}{s}{wrap}"
             )
 
 
@@ -144,11 +157,11 @@ module DoseRule =
                 $"\n# {generic}\n---\n"
 
             let route_md route products =
-                $"\n### Route: {route}\n\n#### Producten\n{products}\n"
+                $"\n### Route: {route}\n\n#### Producten\n%s{products}\n"
 
             let product_md product =  $"* {product}"
 
-            let indication_md indication = $"\n## Indicatie: {indication}\n---\n"
+            let indication_md indication = $"\n## Indicatie: %s{indication}\n---\n"
 
             let doseCapt_md = "\n#### Doseringen\n"
 
@@ -178,9 +191,9 @@ module DoseRule =
 
             let patient_md patient diagn =
                 if diagn |> String.isNullOrWhiteSpace then
-                    $"\n##### Patient: **{patient}**\n"
+                    $"\n##### Patient: **%s{patient}**\n"
                 else
-                    $"\n##### Patient: **{patient}**\n\n%s{diagn}"
+                    $"\n##### Patient: **%s{patient}**\n\n%s{diagn}"
 
             let printDoses (rules : DoseRule array) =
                 ("", rules |> Array.groupBy (fun d -> d.DoseType))
