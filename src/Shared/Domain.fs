@@ -475,8 +475,10 @@ module Patient =
     let getAgeDays p =
         p |> getAge |> Option.map (fun a -> a.Days)
 
+
     let getGAWeeks (p : Patient) =
         p.GestationalAge |> Option.map (fun ga -> ga.Weeks)
+
 
     let getGADays (p : Patient) =
         p.GestationalAge |> Option.map (fun ga -> ga.Days)
@@ -522,7 +524,7 @@ module Patient =
                     let a =
                         ((years |> Option.defaultValue 0 |> float) * 12.)
                         + ((months |> Option.defaultValue 0 |> float) / 12.)
-                        + ((weeks |> Option.defaultValue 0 |> float) / 56.)
+                        + ((weeks |> Option.defaultValue 0 |> float) / 52.)
                         + ((days |> Option.defaultValue 0 |> float) / 365.)
 
                     let w =
@@ -548,27 +550,51 @@ module Patient =
 
 
     let getAgeInYears p =
-        p
-        |> getAgeYears
-        |> Option.bind (fun ys ->
-            p
-            |> getAgeMonths
-            |> Option.bind (fun ms ->
-                (ys |> float) + ((ms |> float) / 12.) |> Some
-            )
-        )
+        [
+            p |> getAgeYears |> Option.map float
+            p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) / 12.)
+            p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) / 52.)
+            p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 365.)
+        ]
+        |> List.choose id
+        |> function
+        | [] -> None
+        | xs -> 
+            xs
+            |> List.sum
+            |> Some
 
 
     let getAgeInMonths p =
-        p
-        |> getAgeInYears
-        |> Option.bind (fun ys -> ys * 12. |> Some)
+        [
+            p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 12.)
+            p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) / 1.)
+            p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) / 4.)
+            p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 30.)
+        ]
+        |> List.choose id
+        |> function
+        | [] -> None
+        | xs -> 
+            xs
+            |> List.sum
+            |> Some
 
 
     let getAgeInDays p =
-        p
-        |> getAgeInYears
-        |> Option.bind (fun ys -> ys * 365. |> Some)
+        [
+            p |> getAgeYears |> Option.map (fun ys -> (ys |> float) * 365.)
+            p |> getAgeMonths |> Option.map (fun ms -> (ms |> float) * 30.)
+            p |> getAgeWeeks |> Option.map (fun ws -> (ws |> float) * 7.)
+            p |> getAgeDays |> Option.map (fun ds -> (ds |> float) / 1.)
+        ]
+        |> List.choose id
+        |> function
+        | [] -> None
+        | xs -> 
+            xs
+            |> List.sum
+            |> Some
 
 
     let getGestAgeInDays (p : Patient) =
