@@ -35,7 +35,7 @@ module SolutionRule =
             |> Array.tail
             |> Array.map (fun r ->
                 let get = getColumn r
-                let toBrOpt = BigRational.toBrs >> BigRational.toBrOpt
+                let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                 {|
                     Generic = get "Generic"

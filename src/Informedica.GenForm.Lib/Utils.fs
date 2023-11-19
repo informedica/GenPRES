@@ -16,10 +16,12 @@ module Utils =
     module Web =
 
 
-        //https://docs.google.com/spreadsheets/d/1nny8rn9zWtP8TMawB3WeNWhl5d4ofbWKbGzGqKTd49g/edit?usp=sharing
+        /// The url to the data sheet for Constraints
         let [<Literal>] dataUrlIdConstraints = "1nny8rn9zWtP8TMawB3WeNWhl5d4ofbWKbGzGqKTd49g"
 
-        //https://docs.google.com/spreadsheets/d/1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ/edit?usp=sharing
+
+        /// The url to the data sheet for GenPRES
+        /// https://docs.google.com/spreadsheets/d/1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ/edit?usp=sharing
         let [<Literal>] dataUrlIdGenPres = "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
 
 
@@ -38,7 +40,20 @@ module Utils =
     module BigRational =
 
 
+        /// <summary>
         /// Parse an array of strings in float format to an array of BigRational
+        /// </summary>
+        /// <remarks>
+        /// Uses ; as separator. Filters out non parsable strings.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// let brs = toBrs "1.0;2.0;3.0"
+        /// // returns [|1N; 2N; 3N|]
+        /// let brs = toBrs "1.0;2.0;3.0;abc"
+        /// // returns [|1N; 2N; 3N|]
+        /// </code>
+        /// </example>
         let toBrs s =
             s
             |> String.splitAt ';'
@@ -46,13 +61,22 @@ module Utils =
             |> Array.choose BigRational.fromFloat
 
 
-        /// Get an optional first BigRational from an array of BigRational.
-        /// If the array is empty, return None.
-        let toBrOpt brs = brs |> Array.tryHead
-
-
+        /// <summary>
         /// Return 2 BigRational arrays as a tuple of optional first BigRational
         /// of the first and second array. A None is returned for an empty array.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// let brs1 = [|1N|]
+        /// let brs2 = [|4N|]
+        /// tupleBrOpt brs1 brs2
+        /// // returns (Some 1N, Some 4N)
+        /// let brs1 = [|1N|]
+        /// let brs2 = [||]
+        /// tupleBrOpt brs1 brs2
+        /// // returns (Some 1N, None)
+        /// </code>
+        /// </example>
         let tupleBrOpt brs1 brs2 =
             brs1 |> Array.tryHead,
             brs2 |> Array.tryHead

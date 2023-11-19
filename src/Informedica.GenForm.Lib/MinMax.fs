@@ -37,8 +37,30 @@ module MinMax =
         minMax.Minimum |> Option.isNone &&
         minMax.Maximum |> Option.isNone
 
-
+    /// <summary>
     /// Check if a value is between the minimum and maximum of a MinMax
+    /// </summary>
+    /// <remarks>
+    /// Assumes that the minimum is inclusive and the maximum is exclusive
+    /// and if either is None, it is ignored. If both are None, the result is
+    /// always true. If the optional value to check is None, the result is
+    /// always true.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// let minMax = MinMax.fromTuple (Some 1N, Some 10N)
+    /// let result = MinMax.isBetween minMax (Some 5N)
+    /// // result is true
+    /// let result = MinMax.isBetween minMax (Some 10N)
+    /// // result is false
+    /// let result = MinMax.isBetween minMax (Some 1N)
+    /// // result is true
+    /// let result = MinMax.isBetween minMax (Some 0N)
+    /// // result is false
+    /// let result = MinMax.isBetween minMax None
+    /// // result is true
+    /// </code>
+    /// </example>
     let isBetween (minMax : MinMax) = function
         | None -> true
         | Some v ->

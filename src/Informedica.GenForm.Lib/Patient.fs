@@ -254,6 +254,7 @@ module Patient =
     module Conversions = Informedica.GenCore.Lib.Conversions
 
 
+    /// An empty Patient.
     let patient =
         {
             Department = ""

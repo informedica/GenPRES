@@ -14,6 +14,7 @@ module DoseRule =
     module DoseLimit =
 
 
+        /// An empty DoseLimit.
         let limit =
             {
                 DoseLimitTarget = NoDoseLimitTarget
@@ -30,6 +31,14 @@ module DoseRule =
             }
 
 
+        /// <summary>
+        /// Check whether an adjust is used in
+        /// the DoseLimit.
+        /// </summary>
+        /// <remarks>
+        /// If any of the adjust values is not None
+        /// then an adjust is used.
+        /// </remarks>
         let useAdjust (dl : DoseLimit) =
             [
                 dl.NormQuantityAdjust = None
@@ -42,17 +51,20 @@ module DoseRule =
             |> not
 
 
+        /// Get the DoseLimitTarget as a string.
         let doseLimitTargetToString = function
             | NoDoseLimitTarget -> ""
             | ShapeDoseLimitTarget s
             | SubstanceDoseLimitTarget s -> s
 
 
+        /// Get the substance from the SubstanceDoseLimitTarget.
         let substanceDoseLimitTargetToString = function
             | SubstanceDoseLimitTarget s -> s
             | _ -> ""
 
 
+        /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
         let isSubstanceLimit (dl : DoseLimit) =
             dl.DoseLimitTarget
             |> function
@@ -374,7 +386,7 @@ module DoseRule =
             |> Array.tail
             |> Array.map (fun r ->
                 let get = getColumn r
-                let toBrOpt = BigRational.toBrs >> BigRational.toBrOpt
+                let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                 {|
                     Indication = get "Indication"
