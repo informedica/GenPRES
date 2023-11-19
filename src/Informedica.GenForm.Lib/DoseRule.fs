@@ -19,17 +19,13 @@ module DoseRule =
                 DoseLimitTarget = NoDoseLimitTarget
                 DoseUnit = ""
                 RateUnit = ""
-                NormQuantity = None
                 Quantity = MinMax.none
                 NormQuantityAdjust = None
                 QuantityAdjust = MinMax.none
-                NormPerTime = None
                 PerTime = MinMax.none
                 NormPerTimeAdjust = None
                 PerTimeAdjust = MinMax.none
-                NormRate = None
                 Rate = MinMax.none
-                NormRateAdjust = None
                 RateAdjust = MinMax.none
             }
 
@@ -125,28 +121,24 @@ module DoseRule =
                 let doseRateUnit = $"{dl.DoseUnit}/{dl.RateUnit}"
                 let doseRateAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dl.RateUnit}"
                 [
-                    $"{dl.NormRate |> printNormDose doseRateUnit} " +
                     $"{dl.Rate |> printMinMaxDose doseRateUnit}"
-
-                    $"{dl.NormRateAdjust |> printNormDose doseRateAdjUnit} " +
                     $"{dl.RateAdjust |> printMinMaxDose doseRateAdjUnit}"
 
                     $"{dl.NormPerTimeAdjust |> printNormDose doseTotAdjUnit} " +
                     $"{dl.PerTimeAdjust |> printMinMaxDose doseTotAdjUnit}"
 
-                    $"{dl.NormPerTime |> printNormDose doseTotUnit} " +
                     $"{dl.PerTime |> printMinMaxDose doseTotUnit}"
 
                     $"{dl.NormQuantityAdjust |> printNormDose doseQtyAdjUnit} " +
                     $"{dl.QuantityAdjust |> printMinMaxDose doseQtyAdjUnit}"
 
-                    $"{dl.NormQuantity |> printNormDose doseQtyUnit} " +
                     $"{dl.Quantity |> printMinMaxDose doseQtyUnit}"
                 ]
                 |> List.map String.trim
                 |> List.filter (String.IsNullOrEmpty >> not)
                 |> String.concat " "
-                |> fun s -> $"%s{dl.DoseLimitTarget |> DoseLimit.substanceDoseLimitTargetToString} {wrap}{s}{wrap}"
+                |> fun s ->
+                    $"%s{dl.DoseLimitTarget |> DoseLimit.substanceDoseLimitTargetToString} {wrap}{s}{wrap}"
             )
 
 
@@ -401,22 +393,18 @@ module DoseRule =
                     MaxDur = get "MaxDur" |> toBrOpt
                     DurUnit = get "DurUnit"
                     Substance = get "Substance"
-                    NormQty = get "NormQty" |> toBrOpt
                     MinQty = get "MinQty" |> toBrOpt
                     MaxQty = get "MaxQty" |> toBrOpt
                     NormQtyAdj = get "NormQtyAdj" |> toBrOpt
                     MinQtyAdj = get "MinQtyAdj" |> toBrOpt
                     MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
-                    NormPerTime = get "NormPerTime" |> toBrOpt
                     MinPerTime = get "MinPerTime" |> toBrOpt
                     MaxPerTime = get "MaxPerTime" |> toBrOpt
                     NormPerTimeAdj = get "NormPerTimeAdj" |> toBrOpt
                     MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
                     MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
-                    NormRate = get "NormRate" |> toBrOpt
                     MinRate = get "MinRate" |> toBrOpt
                     MaxRate = get "MaxRate" |> toBrOpt
-                    NormRateAdj = get "NormRateAdj" |> toBrOpt
                     MinRateAdj = get "MinRateAdj" |> toBrOpt
                     MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                 |}
@@ -483,17 +471,13 @@ module DoseRule =
                                         | Some sl -> sl.DoseUnit
                                         | None -> ""
                                 RateUnit = r.RateUnit
-                                NormQuantity = r.NormQty
                                 Quantity = (r.MinQty, r.MaxQty) |> MinMax.fromTuple
                                 NormQuantityAdjust = r.NormQtyAdj
                                 QuantityAdjust = (r.MinQtyAdj, r.MaxQtyAdj) |> MinMax.fromTuple
-                                NormPerTime = r.NormPerTime
                                 PerTime = (r.MinPerTime, r.MaxPerTime) |> MinMax.fromTuple
                                 NormPerTimeAdjust = r.NormPerTimeAdj
                                 PerTimeAdjust = (r.MinPerTimeAdj, r.MaxPerTimeAdj) |> MinMax.fromTuple
-                                NormRate = r.NormRate
                                 Rate = (r.MinRate, r.MaxRate) |> MinMax.fromTuple
-                                NormRateAdjust = r.NormRateAdj
                                 RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple
                             }
                         )

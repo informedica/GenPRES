@@ -177,8 +177,6 @@ module Types =
             DoseUnit : string
             /// The RateUnit to use for the DoseLimit
             RateUnit : string
-            /// An optional Dose Quantity for the DoseLimit
-            NormQuantity : BigRational option
             /// A MinMax Dose Quantity for the DoseLimit
             Quantity : MinMax
             /// An optional Dose Quantity Adjust for the DoseLimit
@@ -186,19 +184,13 @@ module Types =
             /// A MinMax Quantity Adjust for the DoseLimit
             QuantityAdjust : MinMax
             /// An optional Dose Per Time for the DoseLimit
-            NormPerTime : BigRational option
-            /// A MinMax Per Time for the DoseLimit
             PerTime : MinMax
             /// An optional Per Time Adjust for the DoseLimit
             NormPerTimeAdjust : BigRational option
             /// A MinMax Per Time Adjust for the DoseLimit
             PerTimeAdjust : MinMax
-            /// An optional Rate for the DoseLimit
-            NormRate : BigRational option
             /// A MinMax Rate for the DoseLimit
             Rate : MinMax
-            /// An optional Rate Adjust for the DoseLimit
-            NormRateAdjust : BigRational option
             /// A MinMax Rate Adjust for the DoseLimit
             RateAdjust : MinMax
         }
