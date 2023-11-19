@@ -1950,86 +1950,119 @@ module Order =
             orderableDoseQuantityTo (Quantity.toValueUnitMarkdown -1)
 
 
-        let printOrderTo
-            freqToStr
-            doseQtyToStr
-            perTimeAdjustToStr
-            compQtyToStr
-            orbDoseQtyToStr
-            doseRateToStr
-            orbQtyToStr
-            orbQtyToStr2
-            doseRateAdjustToStr
-            timeToStr
-            sn (o : Order) =
-
+        let inline printItem sn get vuToStr o =
             let on = o.Orderable.Name |> Name.toString
+
+            o.Orderable.Components
+            |> Seq.collect (fun c ->
+                c.Items
+                |> Seq.collect (fun i ->
+                    let n = i.Name |> Name.toString
+                    if sn |> Seq.exists ((=) n) then
+                        i
+                        |> get
+                        |> vuToStr
+                        |> fun s ->
+                            if on |> String.startsWith n &&
+                               sn |> Seq.length = 1 then seq [ s ]
+                            else
+                                seq [ $"{s} {n}" ]
+
+                    else Seq.empty
+                )
+            )
+            |> String.concat " + "
+
+
+        let printOrderTo
+            useAdj
+            printMd
+            sn (ord : Order) =
+
             let sn = sn |> Array.filter String.notEmpty
 
-            let printItem get unt o =
-                o.Orderable.Components
-                |> Seq.collect (fun c ->
-                    c.Items
-                    |> Seq.collect (fun i ->
-                        let n = i.Name |> Name.toString
-                        if sn |> Seq.exists ((=) n) then
-                            i
-                            |> get
-                            |> unt
-                            |> fun s ->
-                                if on |> String.startsWith n &&
-                                   sn |> Seq.length = 1 then seq [ s ]
-                                else
-                                    seq [ $"{s} {n}" ]
-
-                        else Seq.empty
-                    )
-                )
-                |> String.concat " + "
-
-            match o.Prescription with
-            | Discontinuous fr ->
-                // frequencies
-                let fr =
+            let printFr fr =
                     fr
-                    |> freqToStr
+                    |> (if printMd then (Frequency.toValueUnitMarkdown -1) else (Frequency.toValueUnitString -1))
                     |> String.replace "/" " per "
 
-                let dq =
-                    o
+            let printDq () =
+                    let vuToStr =
+                        if printMd then Quantity.toValueUnitMarkdown 3
+                        else Quantity.toValueUnitString 3
+                    ord
                     |> printItem
-                        (fun i -> i.Dose.Quantity)
-                        doseQtyToStr
+                           sn
+                           (fun i -> i.Dose.Quantity)
+                           vuToStr
 
-                let dt =
-                    o
-                    |> printItem
+            let printDt ord =
+                if useAdj then
+                    let vuToStr =
+                        if printMd then PerTimeAdjust.toValueUnitMarkdown 3
+                        else PerTimeAdjust.toValueUnitString 3
+
+                    printItem
+                        sn
                         (fun i -> i.Dose.PerTimeAdjust)
-                        perTimeAdjustToStr
-                    |> fun s ->
-                        if o.Orderable.Components[0].Dose.Quantity |> Quantity.isSolved then
-                            let nv =
-                                o.Orderable.Components[0].Items
-                                |> List.map (fun i ->
+                        vuToStr
+                        ord
+                else
+                    let vuToStr =
+                        (if printMd then (PerTime.toValueUnitMarkdown 3) else (PerTime.toValueUnitString 3))
+
+                    printItem
+                        sn
+                        (fun i -> i.Dose.PerTime)
+                        vuToStr
+                        ord
+                // add dose limits to string
+                |> fun s ->
+                    if ord.Orderable.Components[0].Dose.Quantity |> Quantity.isSolved then
+                        let nv =
+                            ord.Orderable.Components[0].Items
+                            |> List.map (fun i ->
+                                if not useAdj then ""
+                                else
                                     i.Dose.PerTimeAdjust
                                     |> PerTimeAdjust.toOrdVar
                                     |> fun ovar ->
                                         ovar.Constraints
                                         |> OrderVariable.Constraints.toMinMaxString 3
-                                )
-                                |> List.filter (String.isNullOrWhiteSpace >> not)
-                                |> String.concat " + "
-                                |> fun s ->
-                                    if s |> String.isNullOrWhiteSpace then s
-                                    else
-                                        $" ({s})"
-                            $"= {s |> String.trim}{nv}"
-                        else
-                            $"({s |> String.trim})"
+                            )
+                            |> List.filter (String.isNullOrWhiteSpace >> not)
+                            |> String.concat " + "
+                            |> fun s ->
+                                if s |> String.isNullOrWhiteSpace then s
+                                else
+                                    $" ({s})"
+                        $"= {s |> String.trim}{nv}"
+                    else
+                        $"({s |> String.trim})"
+
+            let compQtyToStr =
+                if printMd then componentQuantityToMd
+                else componentQuantityToString
+            let orbDoseQtyToStr =
+                if printMd then orderableDoseQuantityToMd
+                else orderableDoseQuantityToString
+            let doseRateToStr =
+                if printMd then Rate.toValueUnitMarkdown -1
+                else Rate.toValueUnitString -1
+            let orbQtyToStr =
+                if printMd then Quantity.toValueUnitMarkdown -1
+                else Quantity.toValueUnitString -1
+
+            match ord.Prescription with
+            | Discontinuous fr ->
+                // frequencies
+                let fr = fr |> printFr
+                let dq = printDq ()
+                let dt = printDt ord
 
                 let pres = $"{fr} {dq} {dt}"
-                let prep = $"{o |> compQtyToStr}"
-                let adm = $"{fr} {o |> orbDoseQtyToStr}"
+                let prep = $"{ord |> compQtyToStr}"
+                let adm = $"{fr} {ord |> orbDoseQtyToStr}"
 
                 pres |> String.replace "()" "",
                 prep,
@@ -2038,29 +2071,34 @@ module Order =
             | Continuous ->
                 // infusion rate
                 let rt =
-                    o.Orderable.Dose.Rate
+                    ord.Orderable.Dose.Rate
                     |> doseRateToStr
 
                 let oq =
-                    o.Orderable.OrderableQuantity
+                    ord.Orderable.OrderableQuantity
                     |> orbQtyToStr
 
                 let it =
-                    o
+                    ord
                     |> printItem
+                        sn
                         (fun i -> i.OrderableQuantity)
-                        orbQtyToStr2
+                        orbQtyToStr
 
                 let dr =
-                    o
+                    let vuToStr =
+                        if printMd then RateAdjust.toValueUnitMarkdown 3
+                        else RateAdjust.toValueUnitString 3
+                    ord
                     |> printItem
+                        sn
                         (fun i -> i.Dose.RateAdjust)
-                        doseRateAdjustToStr
+                        vuToStr
                     |> fun s ->
-                        if o.Orderable.Dose.Rate |> Rate.isSolved |> not then s
+                        if ord.Orderable.Dose.Rate |> Rate.isSolved |> not then s
                         else
                             let nv =
-                                o.Orderable.Components[0].Items
+                                ord.Orderable.Components[0].Items
                                 |> List.map (fun i ->
                                     i.Dose.RateAdjust
                                     |> RateAdjust.toOrdVar
@@ -2073,7 +2111,7 @@ module Order =
                             $"{s} ({nv})"
 
                 let pres = $"""{sn |> String.concat " + "} {dr}"""
-                let prep = o |> compQtyToStr
+                let prep = ord |> compQtyToStr
                 let adm = $"""{sn |> String.concat " + "} {it} in {oq}, {rt}"""
 
                 pres, prep, adm
@@ -2081,55 +2119,26 @@ module Order =
             | Timed (fr, tme) ->
 
                 // frequencies
-                let fr =
-                    fr
-                    |> freqToStr
-                    |> String.replace "/" " per "
+                let fr = fr |> printFr
+                let dq = printDq ()
+                let dt = printDt ord
 
                 let tme =
+                    let vuToStr =
+                        if printMd then Time.toValueUnitMarkdown 2
+                        else Time.toValueUnitString 2
+
                     tme
-                    |> timeToStr
+                    |> vuToStr
 
                 // infusion rate
                 let rt =
-                    o.Orderable.Dose.Rate
+                    ord.Orderable.Dose.Rate
                     |> doseRateToStr
 
-                let dq =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.Quantity)
-                        doseQtyToStr
-
-                let dt =
-                    o
-                    |> printItem
-                        (fun i -> i.Dose.PerTimeAdjust)
-                        perTimeAdjustToStr
-                    |> fun s ->
-                        if o.Orderable.Components[0].Dose.Quantity |> Quantity.isSolved then
-                            let nv =
-                                o.Orderable.Components[0].Items
-                                |> List.map (fun i ->
-                                    i.Dose.PerTimeAdjust
-                                    |> PerTimeAdjust.toOrdVar
-                                    |> fun ovar ->
-                                        ovar.Constraints
-                                        |> OrderVariable.Constraints.toMinMaxString 3
-                                )
-                                |> List.filter (String.isNullOrWhiteSpace >> not)
-                                |> String.concat " + "
-                                |> fun s ->
-                                    if s |> String.isNullOrWhiteSpace then s
-                                    else
-                                        $" ({s})"
-                            $"= {s |> String.trim}{nv}"
-                        else
-                            $"({s |> String.trim})"
-
                 let pres = $"{fr} {dq} {dt}"
-                let prep = o |> compQtyToStr
-                let adm = $"{fr} {o |> orbDoseQtyToStr} in {tme} = {rt}"
+                let prep = ord |> compQtyToStr
+                let adm = $"{fr} {ord |> orbDoseQtyToStr} in {tme} = {rt}"
 
                 pres |> String.replace "()" "",
                 prep,
@@ -2140,36 +2149,20 @@ module Order =
         /// Print an Order to a string using an array of strings
         /// to pick the Orderable Items to print.
         /// </summary>
-        let printOrderToString =
+        let printOrderToString useAdj =
             printOrderTo
-                (Frequency.toValueUnitString -1)
-                (Quantity.toValueUnitString 3)
-                (PerTimeAdjust.toValueUnitString 2)
-                componentQuantityToString
-                orderableDoseQuantityToString
-                (Rate.toValueUnitString -1)
-                (Quantity.toValueUnitString -1)
-                (Quantity.toValueUnitString 2)
-                (RateAdjust.toValueUnitString 2)
-                (Time.toValueUnitString 2)
+                useAdj
+                false
 
 
         /// <summary>
         /// Print an Order to a markdown string using an array of strings
         /// to pick the Orderable Items to print.
         /// </summary>
-        let printOrderToMd =
+        let printOrderToMd printAdj =
             printOrderTo
-                (Frequency.toValueUnitMarkdown -1)
-                (Quantity.toValueUnitMarkdown 3)
-                (PerTimeAdjust.toValueUnitMarkdown 2)
-                componentQuantityToMd
-                orderableDoseQuantityToMd
-                (Rate.toValueUnitMarkdown -1)
-                (Quantity.toValueUnitMarkdown -1)
-                (Quantity.toValueUnitMarkdown 2)
-                (RateAdjust.toValueUnitMarkdown 2)
-                (Time.toValueUnitMarkdown 2)
+                printAdj
+                true
 
 
 

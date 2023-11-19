@@ -350,6 +350,8 @@ module Types =
                 Administration : string
                 // the order itself
                 Order : Order option
+                // Whether or not to us adjust
+                UseAdjust : bool
             }
 
 

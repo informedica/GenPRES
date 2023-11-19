@@ -514,9 +514,11 @@ module Api =
                                             | _ -> None
                                         )
 
+                                    let useAdjust = pr.DoseRule |> DoseRule.useAdjust
+
                                     let prs, prp, adm =
                                         ord
-                                        |> Order.Print.printOrderToMd ns
+                                        |> Order.Print.printOrderToMd useAdjust ns
 
                                     {
                                         No = i
@@ -529,6 +531,7 @@ module Api =
                                         Preparation =prp |> replace
                                         Administration = adm |> replace
                                         Order = Some ord
+                                        UseAdjust = useAdjust
                                     }
                                     |> Some
 

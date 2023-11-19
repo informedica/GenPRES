@@ -306,6 +306,7 @@ module Types =
             Preparation : TextItem[]
             Administration : TextItem[]
             Order : Order option
+            UseAdjust : bool
         }
 
 

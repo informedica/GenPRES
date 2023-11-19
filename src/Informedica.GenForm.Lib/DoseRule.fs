@@ -30,17 +30,34 @@ module DoseRule =
             }
 
 
-        let doseLimitTargetToString =
-            function
-                | NoDoseLimitTarget -> ""
-                | ShapeDoseLimitTarget s
-                | SubstanceDoseLimitTarget s -> s
+        let useAdjust (dl : DoseLimit) =
+            [
+                dl.NormQuantityAdjust = None
+                dl.QuantityAdjust = MinMax.none
+                dl.NormPerTimeAdjust = None
+                dl.PerTimeAdjust = MinMax.none
+                dl.RateAdjust = MinMax.none
+            ]
+            |> List.forall id
+            |> not
 
 
-        let substanceDoseLimitTargetToString =
-            function
-                | SubstanceDoseLimitTarget s -> s
-                | _ -> ""
+        let doseLimitTargetToString = function
+            | NoDoseLimitTarget -> ""
+            | ShapeDoseLimitTarget s
+            | SubstanceDoseLimitTarget s -> s
+
+
+        let substanceDoseLimitTargetToString = function
+            | SubstanceDoseLimitTarget s -> s
+            | _ -> ""
+
+
+        let isSubstanceLimit (dl : DoseLimit) =
+            dl.DoseLimitTarget
+            |> function
+            | SubstanceDoseLimitTarget _ -> true
+            | _ -> false
 
 
 
@@ -592,3 +609,7 @@ module DoseRule =
         |> Array.distinct
 
 
+    let useAdjust (dr : DoseRule) =
+        dr.DoseLimits
+        |> Array.filter DoseLimit.isSubstanceLimit
+        |> Array.exists DoseLimit.useAdjust

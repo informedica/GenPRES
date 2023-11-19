@@ -531,7 +531,7 @@ module Patient =
         |> List.choose id
         |> function
         | [] -> None
-        | xs -> 
+        | xs ->
             xs
             |> List.sum
             |> Some
@@ -547,7 +547,7 @@ module Patient =
         |> List.choose id
         |> function
         | [] -> None
-        | xs -> 
+        | xs ->
             xs
             |> List.sum
             |> Some
@@ -563,7 +563,7 @@ module Patient =
         |> List.choose id
         |> function
         | [] -> None
-        | xs -> 
+        | xs ->
             xs
             |> List.sum
             |> Some
@@ -1348,7 +1348,7 @@ module ScenarioResult =
         |> Seq.toArray
 
 
-    let createScenario shp dst prs prep adm o =
+    let createScenario shp dst prs prep adm o adj =
         {
             Shape = shp
             DoseType = dst
@@ -1356,6 +1356,7 @@ module ScenarioResult =
             Preparation = prep |> parseTextItem
             Administration = adm |> parseTextItem
             Order = o
+            UseAdjust = adj
         }
 
 

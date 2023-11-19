@@ -299,7 +299,7 @@ module OrderLogger =
         orders
         |> List.iteri (fun i o ->
             o
-            |> Order.Print.printOrderToString ns
+            |> Order.Print.printOrderToString true ns
             |> fun (p, a, d) ->
                 printfn $"%i{i + 1}\tprescription:\t%s{p}"
                 printfn $"  \tdispensing:\t%s{a}"

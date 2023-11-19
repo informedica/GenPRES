@@ -338,6 +338,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                             sc.Preparation
                             sc.Administration
                             (sc.Order |> Option.map (Order.Dto.toDto >> mapToOrder))
+                            sc.UseAdjust
                     )
             }
         ConsoleWriter.writeInfoMessage $"""{msg "finished" sc}""" true true
@@ -405,6 +406,7 @@ let print (sc: ScenarioResult) =
             Scenarios =
                 sc.Scenarios
                 |> Array.map (fun sc ->
+
                     let prs, prp, adm =
                         sc.Order
                         |> Option.map (fun ord ->
@@ -415,7 +417,7 @@ let print (sc: ScenarioResult) =
                             ord
                             |> mapFromOrder
                             |> Order.Dto.fromDto
-                            |> Order.Print.printOrderToMd sn
+                            |> Order.Print.printOrderToMd sc.UseAdjust sn
                             |> fun (prs, prp, adm) ->
                                 prs |> Api.replace |> Shared.ScenarioResult.parseTextItem,
                                 prp |> Api.replace |> Shared.ScenarioResult.parseTextItem,
