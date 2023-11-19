@@ -41,7 +41,17 @@ module PatientCategory =
     module Conversions = Informedica.GenCore.Lib.Conversions
 
 
+    /// <summary>
     /// Use a PatientCategory to get a sort value.
+    /// </summary>
+    /// <remarks>
+    /// The order will be based on the following:
+    /// - Age
+    /// - Weight
+    /// - Gestational Age
+    /// - Post Menstrual Age
+    /// The first will receive the highest weight and the last the lowest.
+    /// </remarks>
     let sortBy (pat : PatientCategory) =
         let toInt = function
             | Some x -> x |> BigRational.ToInt32
@@ -57,7 +67,7 @@ module PatientCategory =
     /// Check whether a Filter belongs to a PatientCategory.
     /// </summary>
     /// <param name="filter">The Filter</param>
-    /// <param name="pat">The Patient</param>
+    /// <param name="pat">The Patient Category</param>
     let filter (filter : Filter) (pat : PatientCategory) =
         let eqs a b =
             match a, b with

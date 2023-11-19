@@ -429,7 +429,7 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) ->
+                        | Resolved (Some o) when o.Orderable.Components[0].Items |> Array.length > 0->
                             o.Orderable.Components[0].Items[0].Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
@@ -440,7 +440,8 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) when o.Prescription.IsContinuous |> not ->
+                        | Resolved (Some o) when o.Prescription.IsContinuous |> not &&
+                                                 o.Orderable.Components[0].Items |> Array.length > 0->
                             o.Orderable.Components[0].Items[0].Dose.PerTimeAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
@@ -451,7 +452,8 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) when o.Prescription.IsContinuous ->
+                        | Resolved (Some o) when o.Prescription.IsContinuous &&
+                                                 o.Orderable.Components[0].Items |> Array.length > 0->
                             o.Orderable.Components[0].Items[0].Dose.RateAdjust.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
@@ -473,7 +475,7 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some o) ->
+                        | Resolved (Some o) when o.Orderable.Components[0].Items |> Array.length > 0 ->
                             o.Orderable.Components[0].Items[0].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]

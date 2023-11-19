@@ -72,6 +72,14 @@ module DoseRule =
             | _ -> false
 
 
+        /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
+        let isShapeLimit (dl : DoseLimit) =
+            dl.DoseLimitTarget
+            |> function
+            | ShapeDoseLimitTarget _ -> true
+            | _ -> false
+
+
 
     module Print =
 
@@ -141,7 +149,18 @@ module DoseRule =
 
 
         let printDose wrap (dr : DoseRule) =
-            dr.DoseLimits
+            let substDls =
+                    dr.DoseLimits
+                    |> Array.filter DoseLimit.isSubstanceLimit
+
+            let shapeDls =
+                dr.DoseLimits
+                |> Array.filter DoseLimit.isShapeLimit
+
+            let useSubstDl = substDls |> Array.length > 0
+            // only use shape dose limits if there are no substance dose limits
+            if useSubstDl then substDls
+            else shapeDls
             |> Array.map (fun dl ->
                 let doseQtyAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/keer"
                 let doseTotAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dr.FreqTimeUnit}"
@@ -488,6 +507,7 @@ module DoseRule =
                                         (min, max) |> MinMax.fromTuple
                                 }
                              )
+                             |> Array.distinct
 
                         rs
                         |> Array.map (fun r ->
