@@ -266,20 +266,24 @@ module Product =
                     |> Array.head
                     |> Csv.getStringColumn
 
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
+                let formulary =
+                    data
+                    |> Array.tail
+                    |> Array.map (fun r ->
+                        let get = getColumn r
 
-                    {|
-                        GPKODE = get "GPKODE" |> Int32.parse
-                        Apotheek = get "UMCU"
-                        ICC = get "ICC"
-                        NEO = get "NEO"
-                        ICK = get "ICK"
-                        HCK = get "HCK"
-                    |}
-                )
+                        {|
+                            GPKODE = get "GPKODE" |> Int32.parse
+                            Apotheek = get "UMCU"
+                            ICC = get "ICC"
+                            NEO = get "NEO"
+                            ICK = get "ICK"
+                            HCK = get "HCK"
+                            tallMan = get "TallMan"
+                        |}
+                    )
+
+                formulary
                 // find the matching GenPresProducts
                 |> Array.collect (fun r ->
                     r.GPKODE
@@ -312,8 +316,17 @@ module Product =
                             |> Array.map (fun g -> g.TherapeuticSubGroup)
                             |> Array.tryHead
                             |> Option.defaultValue ""
-                        Generic = gpp.Name |> String.toLower
-                        TallMan = "" //r.TallMan
+                        Generic =
+                            // TODO: temp hack
+                            if gp.Substances[0].SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" then
+                                gp.Substances[0].GenericName
+                            else
+                                gpp.Name
+                            |> String.toLower
+                        TallMan =
+                            match formulary |> Array.tryFind(fun f -> f.GPKODE = gp.Id) with
+                            | Some p when p.tallMan |> String.notEmpty -> p.tallMan
+                            | _ -> ""
                         Synonyms =
                             gpp.GenericProducts
                             |> Array.collect (fun gp ->
@@ -387,7 +400,9 @@ module Product =
                             |> Array.map (fun s ->
                                 {
                                     Name =
-                                        s.SubstanceName
+                                        // TODO temporary solution
+                                        if s.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" then s.GenericName
+                                        else s.SubstanceName
                                         |> String.toLower
                                     Quantity =
                                         s.SubstanceQuantity

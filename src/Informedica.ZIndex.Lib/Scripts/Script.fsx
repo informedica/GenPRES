@@ -374,8 +374,14 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "trimethoprim/sulfametrol" "" ""
+GenPresProduct.filter "amfotericine b" "" ""
 |> Array.collect (fun gpp -> gpp.GenericProducts)
-|> Array.map (fun gp -> gp.Id, gp.Label)
-|> Array.iter (fst >> printfn "%i // meropenem")
+|> Array.map (fun gp ->
+    gp.Id, gp.Name, gp.Label,
+    gp.Substances[0].SubstanceName,
+    gp.Substances[0].GenericName
+)
+|> Array.iter (fun (id, n, lbl, sn, gn) ->
+    printfn $"{id}\t{n}\t{lbl}\t{sn}\t{gn}"
+)
 

@@ -36,7 +36,7 @@ Environment.CurrentDirectory
     AgeInDays = (Some (18N * 365N))
     WeightInGram = (Some (79N * 100N))
     HeightInCm = (Some 100N)
-    Generic = (Some "amoxicilline")
+    Generic = (Some "amfotericine")
 }
 |> PrescriptionRule.filter
 |> Array.map (fun pr -> pr.DoseRule)
