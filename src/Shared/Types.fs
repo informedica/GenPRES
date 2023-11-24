@@ -343,5 +343,6 @@ module Types =
             Age : float option
             Weight: float option
             Height: float option
+            GestAge: int option
             Markdown : string
         }

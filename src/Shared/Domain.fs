@@ -1395,5 +1395,6 @@ module Formulary =
             Age = None
             Weight= None
             Height= None
+            GestAge = None
             Markdown = ""
         }

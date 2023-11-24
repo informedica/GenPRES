@@ -279,6 +279,18 @@ module Patient =
         }
 
 
+    let calcPMAge (pat: Patient) =
+        { pat with
+            PMAgeInDays =
+                pat.AgeInDays
+                |> Option.map (fun ad ->
+                    (pat.GestAgeInDays
+                    |> Option.defaultValue 0N) +
+                    ad
+                )
+        }
+
+
     /// Calculate the BSA of a Patient.
     let calcBSA (pat: Patient) =
         match pat.WeightInGram, pat.HeightInCm with

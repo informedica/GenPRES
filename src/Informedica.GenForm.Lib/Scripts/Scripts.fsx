@@ -33,13 +33,15 @@ Environment.CurrentDirectory
 
 { Filter.filter with
     Department = (Some "ICK")
-    AgeInDays = (Some (18N * 365N))
-    WeightInGram = (Some (79N * 100N))
-    HeightInCm = (Some 100N)
-    Generic = (Some "amfotericine")
+    AgeInDays = (Some (0N * 7N))
+    WeightInGram = (Some (2100N))
+    HeightInCm = (Some 40N)
+    GestAgeInDays = (Some (36N * 7N))
+    Generic = (Some "paracetamol")
+    Route = Some "rect"
 }
 |> PrescriptionRule.filter
-|> Array.map (fun pr -> pr.DoseRule)
+|> Array.map (fun pr -> pr.Patient)
 |> Array.take 1
 |> DoseRule.Print.toMarkdown
 

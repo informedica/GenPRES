@@ -18,9 +18,18 @@ let mapFormularyToFilter (form: Formulary)=
         Generic = form.Generic
         Indication = form.Indication
         Route = form.Route
-        AgeInDays = form.Age |> Option.bind BigRational.fromFloat
-        WeightInGram = form.Weight |> Option.map ((*) 1000.) |> Option.bind BigRational.fromFloat
+        AgeInDays =
+            form.Age
+            |> Option.bind BigRational.fromFloat
+        WeightInGram =
+            form.Weight
+            |> Option.map ((*) 1000.)
+            |> Option.bind BigRational.fromFloat
+        GestAgeInDays =
+            form.GestAge
+            |> Option.map BigRational.fromInt
     }
+
 
 let selectIfOne sel xs =
     match sel, xs with

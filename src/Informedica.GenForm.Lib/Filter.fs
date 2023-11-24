@@ -31,6 +31,9 @@ module Filter =
     /// <param name="filter">The Filter</param>
     /// <returns>The Filter with the Patient applied</returns>
     let setPatient (pat : Patient) (filter : Filter) =
+        let pat =
+            pat
+            |> Patient.calcPMAge
         { filter with
             Department = pat.Department |> Some
             Diagnoses = pat.Diagnoses
