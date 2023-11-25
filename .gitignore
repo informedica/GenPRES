@@ -166,6 +166,10 @@
 !/src/Informedica.MetaVision.Lib/
 !/src/Informedica.MetaVision.Lib/Scripts/
 !/src/Informedica.MetaVision.Lib/Notebooks/
+#Informedica.KinderFormularium.Lib
+!/src/Informedica.KinderFormularium.Lib/
+!/src/Informedica.KinderFormularium.Lib/Scripts/
+!/src/Informedica.KinderFormularium.Lib/Notebooks/
 #Informedica.GenForm.Lib
 !/src/Informedica.GenForm.Lib/
 !/src/Informedica.GenForm.Lib/Scripts/
@@ -195,6 +199,9 @@
 # Informedica.GenSolver.Tests
 !/tests/Informedica.GenSolver.Tests/
 !/tests/Informedica.GenSolver.Tests/Scripts/
+# Informedica.GenForm.Tests
+!/tests/Informedica.GenForm.Tests/
+!/tests/Informedica.GenForm.Tests/Scripts/
 # Informedica.GenOrder.Tests
 !/tests/Informedica.GenOrder.Tests/
 !/tests/Informedica.GenOrder.Tests/Scripts/
