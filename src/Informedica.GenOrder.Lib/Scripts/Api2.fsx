@@ -15,6 +15,8 @@ open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
 
+module DoseLimit = Informedica.GenForm.Lib.DoseRule.DoseLimit
+
 open Informedica.ZIndex.Lib
 // load demo or product cache
 System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
@@ -44,10 +46,10 @@ let test pat n =
         | Ok (ord, pr) ->
             let ns =
                 pr.DoseRule.DoseLimits
-                |> Array.map (fun dl -> dl.DoseLimitTarget)
+                |> Array.map (fun dl -> dl.DoseLimitTarget |> DoseLimit.doseLimitTargetToString)
             let o =
                 ord
-                |> Order.Print.printOrderToString ns
+                |> Order.Print.printOrderToString true ns
             let p =
                 $"{pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toString} {pr.DoseRule.Indication}"
             Ok (pat, p, o)
@@ -143,15 +145,17 @@ stopLogger ()
 
 
 
-Patient.child
-|> fun p -> { p with VenousAccess = CVL }
+Patient.newBorn
+|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic = "meropenem" &&
-    pr.DoseRule.Route = "iv" //&&
+    pr.DoseRule.Route = "rect" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
+|> Array.map (fun pr -> pr.DoseRule.Generic)
+|> Array.distinct
+
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto

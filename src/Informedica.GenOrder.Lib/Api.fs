@@ -342,8 +342,6 @@ module Api =
                     ]
                     |> List.choose id
 
-                //printfn $"{compItems}"
-
                 let shps =
                     dto.Orderable.Components
                     |> List.choose (fun cDto -> cDto.ComponentQuantity.Variable.ValsOpt)

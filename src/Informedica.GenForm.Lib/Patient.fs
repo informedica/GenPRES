@@ -282,12 +282,9 @@ module Patient =
     let calcPMAge (pat: Patient) =
         { pat with
             PMAgeInDays =
-                pat.AgeInDays
-                |> Option.map (fun ad ->
-                    (pat.GestAgeInDays
-                    |> Option.defaultValue 0N) +
-                    ad
-                )
+                match pat.AgeInDays, pat.GestAgeInDays with
+                | Some ad, Some ga -> ad + ga |> Some
+                | _ -> None
         }
 
 
