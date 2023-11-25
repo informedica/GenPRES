@@ -339,33 +339,30 @@ module private Elmish =
 
         | LoadScenarios Started ->
             let scenarios =
-                match state.Scenarios with
-                | Resolved sc -> sc
+                match state.Scenarios, state.Patient with
+                | Resolved sc, Some _ -> sc
                 | _ -> ScenarioResult.empty
                 |> fun sc ->
                     { sc with
                         AgeInDays =
-                            match state.Patient with
-                            | Some pat -> pat |> Patient.getAgeInDays
-                            | None -> sc.AgeInDays
+                            state.Patient 
+                            |> Option.bind Patient.getAgeInDays
                         GestAgeInDays =
-                            match state.Patient with
-                            | Some pat -> pat |> Patient.getGestAgeInDays
-                            | None -> sc.GestAgeInDays
+                            state.Patient 
+                            |> Option.bind Patient.getGestAgeInDays
                         WeightInKg =
-                            match state.Patient with
-                            | Some pat -> pat |> Patient.getWeight
-                            | None -> sc.WeightInKg
+                            state.Patient 
+                            |> Option.bind Patient.getWeight
                         HeightInCm =
-                            match state.Patient with
-                            | Some pat -> pat |> Patient.getHeight
-                            | None -> sc.HeightInCm
+                            state.Patient 
+                            |> Option.bind Patient.getHeight
                         CVL =
                             match state.Patient with
                             | Some pat -> pat.CVL
-                            | None -> sc.CVL
+                            | None -> false
                         Department = 
-                            state.Patient |> Option.bind (fun p -> p.Department)
+                            state.Patient 
+                            |> Option.bind (fun p -> p.Department)
                     }
 
             let load =
@@ -527,13 +524,17 @@ module private Elmish =
                 | Resolved form when state.Patient.IsSome ->
                     { form with
                         Age =
-                            match state.Patient with
-                            | Some pat -> pat |> Patient.getAgeInDays
-                            | None -> form.Age
+                            state.Patient 
+                            |> Option.bind Patient.getAgeInDays
                         Weight =
-                            match state.Patient with
-                            | Some pat -> pat |> Patient.getWeight
-                            | None -> form.Weight
+                            state.Patient 
+                            |> Option.bind Patient.getWeight
+                        Height =
+                            state.Patient
+                            |> Option.bind Patient.getHeight
+                        GestAge =
+                            state.Patient
+                            |> Option.bind Patient.getGestAgeInDays
                     }
                 | Resolved form -> form
                 | _ -> Formulary.empty

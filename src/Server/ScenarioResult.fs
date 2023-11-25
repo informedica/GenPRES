@@ -250,6 +250,7 @@ let mapFromOrder (order : Shared.Types.Order) : Order.Dto.Dto =
 
     dto
 
+
 let get (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
         $"""
@@ -287,6 +288,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                 |> Option.bind BigRational.fromFloat
             VenousAccess = if sc.CVL then VenousAccess.CVL else VenousAccess.AnyAccess
         }
+        |> Patient.calcPMAge
 
     try
         let newSc =

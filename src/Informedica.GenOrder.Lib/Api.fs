@@ -461,6 +461,7 @@ module Api =
                     Department = Some d
                     AgeInDays = sc.Patient.AgeInDays
                     GestAgeInDays = sc.Patient.GestAgeInDays
+                    PMAge = sc.Patient.PMAgeInDays
                     WeightInGram = Some w
                     HeightInCm = Some h
                     Indication = ind

@@ -29,6 +29,7 @@ let mapFormularyToFilter (form: Formulary)=
             form.GestAge
             |> Option.map BigRational.fromInt
     }
+    |> Filter.calcPMAge
 
 
 let selectIfOne sel xs =

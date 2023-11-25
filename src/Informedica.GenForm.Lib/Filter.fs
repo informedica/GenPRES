@@ -34,6 +34,7 @@ module Filter =
         let pat =
             pat
             |> Patient.calcPMAge
+
         { filter with
             Department = pat.Department |> Some
             Diagnoses = pat.Diagnoses
@@ -65,3 +66,12 @@ module Filter =
             VenousAccess = filter.Location
         }
 
+
+    let calcPMAge (filter : Filter) =
+        { filter with
+            PMAge =
+                filter
+                |> getPatient
+                |> Patient.calcPMAge
+                |> fun pat -> pat.PMAgeInDays
+        }
