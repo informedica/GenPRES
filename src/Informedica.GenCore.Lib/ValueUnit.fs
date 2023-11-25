@@ -3,7 +3,6 @@ namespace Informedica.GenCore.Lib.ValueUnits
 
 module ValueUnit =
 
-    open System
     open MathNet.Numerics
     open FsToolkit.ErrorHandling
 
@@ -247,7 +246,7 @@ module ValueUnit =
                     (Calculations.Age.toBirthDate dt)
 
 
-            let postMenstrualAge actD gestW gestD =
+            let postMenstrualAge =
                 calc3
                     Measures.toIntDay
                     Measures.toIntWeek

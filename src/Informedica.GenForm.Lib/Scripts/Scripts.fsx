@@ -41,7 +41,7 @@ Environment.CurrentDirectory
     Route = Some "rect"
 }
 |> PrescriptionRule.filter
-|> Array.map (fun pr -> pr.DoseRule.Generic)
+|> Array.map (fun pr -> pr.DoseRule)
 |> Array.take 1
 |> DoseRule.Print.toMarkdown
 

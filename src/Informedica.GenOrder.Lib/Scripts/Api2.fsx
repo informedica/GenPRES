@@ -15,7 +15,7 @@ open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
 
-module DoseLimit = Informedica.GenForm.Lib.DoseRule.DoseLimit
+module DoseLimit = DoseRule.DoseLimit
 
 open Informedica.ZIndex.Lib
 // load demo or product cache
@@ -63,8 +63,6 @@ let test pat n =
 
             Error ($"%A{m}", p, o)
     )
-
-
 
 
 let getN pat =
@@ -137,9 +135,6 @@ let createScenarios () =
         |> run n
     )
 
-
-Mapping.mappingRouteShape
-
 startLogger ()
 stopLogger ()
 
@@ -153,9 +148,6 @@ Patient.newBorn
     pr.DoseRule.Route = "rect" //&&
 //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
 )
-|> Array.map (fun pr -> pr.DoseRule.Generic)
-|> Array.distinct
-
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
@@ -212,7 +204,7 @@ Patient.newBorn
             // |> printfn "%s"
         | Ok ord  ->
             ord
-            |> Order.Print.printOrderToString [|"paracetamol"|]
+            |> Order.Print.printOrderToString true [|"paracetamol"|]
             |> fun (prs, prep, adm) -> printfn $"{prs}"
             // ord
             // |> Order.toString
@@ -238,8 +230,6 @@ test Patient.premature 111
 )
 
 
-open Order
-
 try
     let ord =
         Patient.child
@@ -251,17 +241,17 @@ try
 
     let mapping =
         match ord.Prescription with
-        | Continuous -> Mapping.continuous
-        | Discontinuous _ -> Mapping.discontinuous
-        | Timed _ -> Mapping.timed
-        |> Mapping.getEquations
-        |> Mapping.getEqsMapping ord
+        | Continuous -> Order.Mapping.continuous
+        | Discontinuous _ -> Order.Mapping.discontinuous
+        | Timed _ -> Order.Mapping.timed
+        |> Order.Mapping.getEquations
+        |> Order.Mapping.getEqsMapping ord
 
     printfn $"{mapping}"
 
     let oEqs =
         ord
-        |> mapToOrderEquations mapping
+        |> Order.mapToOrderEquations mapping
 
     oEqs
     |> Solver.mapToSolverEqs
@@ -295,92 +285,3 @@ testDto.Orderable.Components[0].Items[0].ComponentConcentration.Constraints.Vals
     $"1 {s}"
     |> ValueUnit.fromString
 
-
-
-"miljIE[IUnit]"
-|> Informedica.GenUnits.Lib.Units.fromString
-
-Patient.infant
-|> Api.getGenerics
-|> Array.iter (printfn "%s")
-
-
-DoseRule.get ()
-|> Array.filter (fun dr -> dr.Generic = "amiodaron")
-
-
-let filter1 =
-    { Filter.filter with
-        Generic = Some "argipressine"
-        Route = Some "iv"
-    }
-    |> Filter.setPatient Patient.child
-
-DoseRule.get ()
-|> DoseRule.filter filter1
-|> Array.map (DoseRule.reconstitute "" AnyAccess)
-
-PrescriptionRule.get Patient.patient
-|> Array.map (fun pr -> pr.DoseRule.Generic)
-|> Array.distinct
-|> Array.sort
-
-// quick check of products in assortment
-Informedica.ZIndex.Lib.GenPresProduct.search "benzylpenicilline"
-|> Array.map (fun gpp -> $"{gpp.Name}, {gpp.Shape} {(gpp.GenericProducts |> Array.head).Id}")
-|> Array.distinct
-|> Array.sort
-|> Array.iter (printfn "%s")
-175552
-
-Informedica.ZIndex.Lib.GenPresProduct.findByGPK 47929
-"INFUSIEVLOEISTOF"
-
-"MACROGOL/NATRIUMCHLORIDE/NATRIUMWATERSTOFCARBONAAT/KALIUMCHLORIDE"
-|> String.toLower
-
-//[1.gentamicine.vlstf]_orb_qty [1 mL..0,1 mL..12,8 mL] + [1.gentamicine.oplosvlstf]_orb_qty [18,7 mL..0,1 mL..63,1 mL]
-[1.0 .. 0.1 .. 12.8]
-|> List.allPairs [18.7 .. 0.1 .. 63.1]
-|> List.map (fun (x1, x2) -> x1 * x2)
-|> List.distinct
-|> List.length
-
-
-let failDto =
-
-    Patient.child
-    |> fun p -> { p with VenousAccess = CVL }
-    |> PrescriptionRule.get
-    //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
-    |> Array.filter (fun pr ->
-        pr.DoseRule.Generic = "paracetamol" &&
-        pr.DoseRule.Route = "rect" //&&
-    //    pr.DoseRule.Indication |> String.startsWith "vassopressie"
-    )
-    |> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
-    |> fun pr -> pr |> Api.createDrugOrder None// (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
-    |> DrugOrder.toOrderDto
-
-
-failDto.Orderable.OrderCount.Variable.MinOpt.Value.Group
-|> Units.fromString
-
-|> OrderVariable.Dto.fromDto
-
-Order.Dto.discontinuous "1" "test" "or" []
-|> Order.Dto.fromDto
-
-
-createNew
-    "1"
-    "test"
-    (Prescription.discontinuous NoUnit NoUnit)
-    "rect"
-|> Dto.toDto
-|> Dto.fromDto
-
-
-OrderVariable.Count.create ("test" |> Name.fromString)
-|> OrderVariable.Count.toDto
-|> OrderVariable.Count.fromDto
