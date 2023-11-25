@@ -1215,8 +1215,14 @@ WebSiteParser.getFormulary () //|> Array.length
     )
 )
 |> List.distinct
+|> List.map String.toLower
+|> List.sort
+|> fun xs ->
+    xs |> List.iteri (printfn "%i\t%s")
+    xs
 |> List.map (fun s -> s |> FormularyParser.TargetParser.parse)
-|> List.filter (fun t -> match t with Drug.Target.Unknown _ -> true | _ -> false)
+|> List.filter (fun t -> match t with Drug.Target.Unknown _ -> false | _ -> true)
+|> List.distinct
 |> List.iteri (printfn "%i. %A")
 
 

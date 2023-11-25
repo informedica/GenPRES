@@ -326,6 +326,7 @@ module Types =
             HeightInCm: float option
             CVL : bool
             Department : string option
+            DemoVersion : bool
         }
 
 

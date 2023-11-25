@@ -1376,6 +1376,7 @@ module ScenarioResult =
             HeightInCm = None
             CVL = false
             Department = None
+            DemoVersion = true
         }
 
 

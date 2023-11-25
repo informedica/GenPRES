@@ -344,11 +344,19 @@ Scenarios: {sc.Scenarios |> Array.length}
                     )
             }
         ConsoleWriter.writeInfoMessage $"""{msg "finished" sc}""" true true
-        sc |> Ok
+        sc //|> Ok
     with
     | e ->
         ConsoleWriter.writeErrorMessage $"errored:\n{e}" true true
-        sc |> Ok
+        sc //|> Ok
+    |> fun sc ->
+        { sc with
+            DemoVersion =
+                Env.getItem "GENPRES_PROD"
+                |> Option.map (fun v -> v <> "1")
+                |> Option.defaultValue true
+        }
+        |> Ok
 
 
 let calcMinIncrMaxToValues (ord : Order) =

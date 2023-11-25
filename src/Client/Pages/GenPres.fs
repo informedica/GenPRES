@@ -110,6 +110,7 @@ module GenPres =
     let View
         (props: {|
             showDisclaimer: bool
+            isDemo: bool
             acceptDisclaimer: bool -> unit
             patient: Patient option
             updatePatient: Patient option -> unit
@@ -174,7 +175,10 @@ module GenPres =
         <React.Fragment>
             <Box>
                 {Components.TitleBar.View({|
-                    title = $"GenPRES 2023 {props.page |> (Global.pageToString props.localizationTerms lang)}"
+                    title =
+                        let s = $"GenPRES 2023 {props.page |> (Global.pageToString props.localizationTerms lang)}"
+                        if props.isDemo then $"{s} - DEMO VERSION!" else s
+
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch
                     languages = props.languages
                     switchLang = props.switchLang

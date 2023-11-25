@@ -32,6 +32,7 @@ module private Elmish =
             Localization : Deferred<string [][]>
             Language : Localization.Locales
             ShowDisclaimer: bool
+            IsDemo : bool
         }
 
 
@@ -194,6 +195,7 @@ module private Elmish =
             Formulary = HasNotStartedYet
             Localization = HasNotStartedYet
             Language = lang |> Option.defaultValue Localization.Dutch
+            IsDemo = false
         }
 
     let init () : Model * Cmd<Msg> =
@@ -376,6 +378,7 @@ module private Elmish =
         | LoadScenarios (Finished (Ok result)) ->
             { state with
                 Scenarios = Resolved result
+                IsDemo = result.DemoVersion
             },
             Cmd.none
 
@@ -633,6 +636,7 @@ let View () =
                 {
                     Pages.GenPres.View({|
                         showDisclaimer = state.ShowDisclaimer
+                        isDemo = state.IsDemo
                         acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
                         patient = state.Patient
                         updatePage = UpdatePage >> dispatch
