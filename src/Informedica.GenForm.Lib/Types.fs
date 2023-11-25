@@ -277,7 +277,7 @@ module Types =
             /// The Route of administration of the DoseRule
             Route : string
             /// The PatientCategory of the DoseRule
-            Patient : PatientCategory
+            PatientCategory : PatientCategory
             /// The Adjustment Unit of the DoseRule
             AdjustUnit : string
             /// The DoseType of the DoseRule

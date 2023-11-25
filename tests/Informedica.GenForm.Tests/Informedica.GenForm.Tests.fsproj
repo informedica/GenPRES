@@ -11,7 +11,7 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Informedica.GenOrder.Lib\Informedica.GenOrder.Lib.fsproj" />
+    <ProjectReference Include="..\..\src\Informedica.GenForm.Lib\Informedica.GenForm.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

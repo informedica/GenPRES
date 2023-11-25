@@ -374,7 +374,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "amfotericine b" "" ""
+GenPresProduct.filter "coffeine" "" ""
 |> Array.collect (fun gpp -> gpp.GenericProducts)
 |> Array.map (fun gp ->
     gp.Id, gp.Name, gp.Label,

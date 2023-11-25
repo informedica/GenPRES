@@ -43,8 +43,8 @@ module MinMax =
     /// <remarks>
     /// Assumes that the minimum is inclusive and the maximum is exclusive
     /// and if either is None, it is ignored. If both are None, the result is
-    /// always true. If the optional value to check is None, the result is
-    /// always true.
+    /// always true. If the optional value to check is None, the result is only
+    /// true when MinMax is also None.
     /// </remarks>
     /// <example>
     /// <code>
@@ -58,17 +58,18 @@ module MinMax =
     /// let result = MinMax.isBetween minMax (Some 0N)
     /// // result is false
     /// let result = MinMax.isBetween minMax None
-    /// // result is true
+    /// // result is false
     /// </code>
     /// </example>
     let isBetween (minMax : MinMax) = function
-        | None -> true
         | Some v ->
             match minMax.Minimum, minMax.Maximum with
             | None, None -> true
             | Some min, None -> v >= min
             | None, Some max -> v < max
             | Some min, Some max -> v >= min && v < max
+        | None when minMax |> isNone -> true
+        | _ -> false
 
 
     /// Get the string representation of a MinMax

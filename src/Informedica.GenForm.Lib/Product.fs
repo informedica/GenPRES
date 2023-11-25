@@ -256,6 +256,14 @@ module Product =
         // check if the shape is a solution
         let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
 
+        let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
+            if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||
+               subst.SubstanceName |> String.startsWithCapsInsens "COFFEINE" then
+                subst.GenericName
+                |> String.replace "0-WATER" "BASE"
+            else defN
+            |> String.toLower
+
         fun () ->
             // first get the products from the GenPres Formulary, i.e.
             // the assortment
@@ -317,12 +325,7 @@ module Product =
                             |> Array.tryHead
                             |> Option.defaultValue ""
                         Generic =
-                            // TODO: temp hack
-                            if gp.Substances[0].SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" then
-                                gp.Substances[0].GenericName
-                            else
-                                gpp.Name
-                            |> String.toLower
+                            rename gp.Substances[0] gpp.Name
                         TallMan =
                             match formulary |> Array.tryFind(fun f -> f.GPKODE = gp.Id) with
                             | Some p when p.tallMan |> String.notEmpty -> p.tallMan
@@ -399,11 +402,7 @@ module Product =
                             gp.Substances
                             |> Array.map (fun s ->
                                 {
-                                    Name =
-                                        // TODO temporary solution
-                                        if s.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" then s.GenericName
-                                        else s.SubstanceName
-                                        |> String.toLower
+                                    Name = rename s gpp.Name
                                     Quantity =
                                         s.SubstanceQuantity
                                         |> BigRational.fromFloat

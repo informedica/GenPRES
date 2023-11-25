@@ -9,11 +9,11 @@
     <None Include="Scripts\PedFormParser.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
-    <ProjectReference Include="..\Informedica.GenCore.Lib\Informedica.GenCore.Lib.fsproj" />
-    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
-    <ProjectReference Include="..\Informedica.ZForm.Lib\Informedica.ZForm.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.ZIndex.Lib\Informedica.ZIndex.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.ZForm.Lib\Informedica.ZForm.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenCore.Lib\Informedica.GenCore.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

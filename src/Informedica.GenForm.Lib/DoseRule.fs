@@ -335,8 +335,8 @@ module DoseRule =
                                             if r.rules = Array.empty then r
                                             else
                                                 (r, r.rules
-                                                    |> Array.sortBy (fun d -> d.Patient |> PatientCategory.sortBy)
-                                                    |> Array.groupBy (fun d -> d.Patient))
+                                                    |> Array.sortBy (fun d -> d.PatientCategory |> PatientCategory.sortBy)
+                                                    |> Array.groupBy (fun d -> d.PatientCategory))
                                                 ||> Array.fold (fun acc (pat, rs) ->
                                                     let doses =
                                                         rs
@@ -463,7 +463,7 @@ module DoseRule =
                     Generic = r.Generic
                     Shape = r.Shape
                     Route = r.Route
-                    Patient =
+                    PatientCategory =
                         {
                             Department =
                                 if r.Department |> String.isNullOrWhiteSpace then None
@@ -570,7 +570,7 @@ module DoseRule =
             fun (dr : DoseRule) -> dr.Generic |> eqs filter.Generic
             fun (dr : DoseRule) -> dr.Shape |> eqs filter.Shape
             fun (dr : DoseRule) -> dr.Route |> eqs filter.Route
-            fun (dr : DoseRule) -> dr.Patient |> PatientCategory.filter filter
+            fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
             fun (dr : DoseRule) ->
                 match filter.DoseType, dr.DoseType with
                 | AnyDoseType, _
@@ -608,27 +608,27 @@ module DoseRule =
 
 
     /// Extract all the departments from the DoseRules.
-    let departments = getMember (fun dr -> dr.Patient.Department |> Option.defaultValue "")
+    let departments = getMember (fun dr -> dr.PatientCategory.Department |> Option.defaultValue "")
 
 
     /// Extract all the diagnoses from the DoseRules.
     let diagnoses (drs : DoseRule []) =
         drs
         |> Array.collect (fun dr ->
-            dr.Patient.Diagnoses
+            dr.PatientCategory.Diagnoses
         )
         |> Array.distinct
         |> Array.sortBy String.toLower
 
 
     /// Extract all genders from the DoseRules.
-    let genders = getMember (fun dr -> dr.Patient.Gender |> Gender.toString)
+    let genders = getMember (fun dr -> dr.PatientCategory.Gender |> Gender.toString)
 
 
     /// Extract all patient categories from the DoseRules as strings.
     let patients (drs : DoseRule array) =
         drs
-        |> Array.map (fun r -> r.Patient)
+        |> Array.map (fun r -> r.PatientCategory)
         |> Array.sortBy PatientCategory.sortBy
         |> Array.map PatientCategory.toString
         |> Array.distinct
