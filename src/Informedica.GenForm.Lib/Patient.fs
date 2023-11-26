@@ -24,10 +24,10 @@ module Gender =
 
     /// Check if a Filter contains a Gender.
     /// Note if AnyGender is specified, this will always return true.
-    let filter pat (filter : Filter) =
-        match filter.Gender, pat with
-        | AnyGender, _ -> true
-        | _ -> filter.Gender = pat
+    let filter gender (filter : Filter) =
+        match filter.Gender, gender with
+        | _, AnyGender -> true
+        | _ -> filter.Gender = gender
 
 
 
@@ -64,18 +64,19 @@ module PatientCategory =
 
 
     /// <summary>
-    /// Check whether a Filter belongs to a PatientCategory.
+    /// Filters a PatientCategory using a Filter.
+    /// Returns true if the PatientCategory matches the Filter criteria.
     /// </summary>
-    /// <param name="filter">The Filter</param>
-    /// <param name="pat">The Patient Category</param>
-    let filter (filter : Filter) (pat : PatientCategory) =
+    /// <param name="filter">The Filter to filter the PatientCategory with</param>
+    /// <param name="patCat">The Patient Category</param>
+    let filter (filter : Filter) (patCat : PatientCategory) =
         let eqs a b =
             match a, b with
             | None, _
             | _, None -> true
             | Some a, Some b -> a = b
 
-        ([| pat |]
+        ([| patCat |]
         |> Array.filter (fun p ->
             if filter.Diagnoses |> Array.isEmpty then true
             else
