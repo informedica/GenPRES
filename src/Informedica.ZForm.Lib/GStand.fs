@@ -41,7 +41,6 @@ module GStand =
             IsRate = false
             SubstanceUnit = None
             TimeUnit = None
-
         }
 
 
@@ -156,8 +155,8 @@ module GStand =
 
         let s =
             fr.Frequency
-            |> decimal
-            |> BigRational.fromDecimal
+            |> int
+            |> BigRational.fromInt
             |> string
 
         let s = s + " X[Count]"
@@ -183,13 +182,18 @@ module GStand =
                     s + "/1" + " " + u
             | _ -> ""
         )
-        |> ValueUnit.fromString
-        |> function
-        | Failure (err, _, _) ->
-            ConsoleWriter.writeErrorMessage $"Cannot parse freq value unit: {err}" true false
-            err |> failwith
-        | Success (vu, _, _) -> vu
-        |> map
+        |> fun s ->
+            s
+            |> ValueUnit.fromString
+            |> function
+            | Failure (err, _, _) ->
+                ConsoleWriter.writeErrorMessage
+                    $"Cannot parse |{s}| freq value unit: {fr}\n{err}"
+                    true
+                    false
+                err |> failwith
+            | Success (vu, _, _) -> vu
+            |> map
 
 
     /// <summary>
@@ -297,6 +301,7 @@ module GStand =
                     |> List.map (DR.toString2 >> GStandRule)
                 )
                 |> (fun ds ->
+                    printfn $"created dosage: {ds}"
                     match tu with
                     | _ when tu = Unit.NoUnit || (tu |> ValueUnit.isCountUnit) ->
                         ds
@@ -665,8 +670,8 @@ module GStand =
     let mergeDosages d ds =
 
         let merge d1 d2 =
-            //printfn "merging d1: %s" (d1 |> Dosage.toString false)
-            //printfn "merging d2: %s" (d2 |> Dosage.toString false)
+            printfn "merging d1: %s" (d1 |> Dosage.toString false)
+            printfn "merging d2: %s" (d2 |> Dosage.toString false)
 
             Dosage.empty
             // merge name
@@ -764,10 +769,10 @@ module GStand =
                 d
                 |> Dosage.Optics.setFrequencyTimeUnit (d1 |> Dosage.Optics.getFrequencyTimeUnit)
             )
-        //|> (fun d ->
-        //    printfn "dosage is now: %s" (d |> Dosage.toString false)
-        //    d
-        //)
+            |> (fun d ->
+                printfn "dosage is now: %s" (d |> Dosage.toString false)
+                d
+            )
 
         match ds |> Seq.toList with
         | [ d1 ] -> seq { merge d1 d }
@@ -1034,3 +1039,4 @@ module GStand =
 
             foldDoseRules rte age wght bsa gpk cfg dr gpps
         )
+

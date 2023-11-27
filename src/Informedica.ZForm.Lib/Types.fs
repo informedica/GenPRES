@@ -181,7 +181,9 @@ module Types =
         {
             /// The patient group the doserules applies
             Patient : PatientCategory
-            /// A Dosage for the Shape
+            /// A Dosage for the Shape, note this only applies
+            /// when there is only one shape and one generic product
+            /// TODO make this optional?
             ShapeDosage : Dosage
             /// The Dosages for the Substances
             SubstanceDosages : Dosage list
@@ -380,7 +382,6 @@ module Types =
             Frequency : BigRational
             Unit : Unit
         }
-
 
 
     /// Can be used to create a DoseType.
