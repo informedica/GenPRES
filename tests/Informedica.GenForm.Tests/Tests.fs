@@ -1,6 +1,7 @@
 namespace Informedica.GenForm.Tests
 
 
+
 module Tests =
 
 
@@ -8,12 +9,11 @@ module Tests =
     open Expecto
     open Expecto.Flip
 
-    open Informedica.Utils.Lib.BCL
-    open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
 
 
     module PatientCategoryTests =
+
 
         let tests = testList "PatientCategory" [
             let filter = Filter.filter
@@ -218,6 +218,50 @@ module Tests =
                 |> Expect.isTrue "should return true"
             }
 
+            test "a filter with age 0, ga = 32 and weight 1.45 with a patient category with max age = 30 and max gest 37 and max weight 1.5" {
+                let filter =
+                    { filter with
+                        AgeInDays = Some 0N
+                        GestAgeInDays = Some (32N * 7N)
+                        WeightInGram = Some 1450N
+                    }
+
+                { patCat with
+                    Age =
+                        { patCat.Age with
+                            Maximum = Some 30N
+                        }
+                    GestAge =
+                        { patCat.GestAge with
+                            Maximum = Some (37N * 7N)
+                        }
+                    Weight =
+                        { patCat.Weight with
+                            Maximum = Some 1500N
+                        }
+                }
+                |> PatientCategory.filter filter
+                |> Expect.isTrue "should return true"
+            }
+
+            test "a filter with age 0, ga = 32 and weight 1.45 with a patient category with min age = 30 and max age = 720" {
+                let filter =
+                    { filter with
+                        AgeInDays = Some 0N
+                        GestAgeInDays = Some (32N * 7N)
+                        WeightInGram = Some 1450N
+                    }
+
+                { patCat with
+                    Age =
+                        { patCat.Age with
+                            Minimum = Some 30N
+                            Maximum = Some 720N
+                        }
+                }
+                |> PatientCategory.filter filter
+                |> Expect.isFalse "should return false"
+            }
         ]
 
 
@@ -225,4 +269,5 @@ module Tests =
     let tests = testList "GenForm Tests" [
         PatientCategoryTests.tests
     ]
+
 
