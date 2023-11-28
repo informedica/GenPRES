@@ -25,8 +25,18 @@ module GStand =
     module Units = ValueUnit.Units
 
 
-    /// Utility function to get the group a tuple
-    /// by the first element.
+    /// <summary>
+    /// Utility function to get the grouped
+    /// sequence of a seq of tuples. Grouping
+    /// is by the first element of the tuple.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// let xs = [ (1, "a"); (1, "b"); (2, "c"); (2, "d") ]
+    /// groupByFst xs |> Seq.toList
+    /// // [(1, seq ["a"; "b"]); (2, seq ["c"; "d"])]
+    /// </code>
+    /// </example>
     let groupByFst xs =
         xs
         |> Seq.groupBy fst
@@ -45,20 +55,28 @@ module GStand =
 
 
     /// <summary>
-    /// Map GSTand min max float Option values to
-    /// a `DoseRule` `MinMax` for a given `Object`.
+    /// Map a ZIndex MinMax to a GenCore MinIncrMax
     /// </summary>
     /// <param name="setMin">Set the min value</param>
     /// <param name="setMax">Set the max value</param>
     /// <param name="minmax">The min max values</param>
-    /// <param name="o">The `Object` to map to</param>
+    /// <param name="minIncrMax">The minIncrMax to map to</param>
+    /// <example>
+    /// <code>
+    /// let setMin = ((Option.map ValueUnit.weightInKg) >> (Optic.set MinIncrMax.Optics.inclMinLens))
+    /// let setMax = ((Option.map ValueUnit.weightInKg) >> (Optic.set MinIncrMax.Optics.inclMaxLens))
+    /// mapMinMax setMin setMax DR.minmax MinIncrMax.empty
+    /// </code>
+    /// </example>
     let mapMinMax<'a>
         (setMin: float Option -> 'a -> 'a)
         (setMax: float Option -> 'a -> 'a)
         (minmax: ZIndexTypes.RuleMinMax)
-        (o: 'a)
+        (minIncrMax: 'a)
         =
-        o |> setMin minmax.Min |> setMax minmax.Max
+        minIncrMax
+        |> setMin minmax.Min
+        |> setMax minmax.Max
 
 
     /// <summary>
@@ -66,17 +84,18 @@ module GStand =
     /// i.e. if all min weights are the same and all max weights are the same.
     /// </summary>
     /// <param name="drs"></param>
+    /// <exception cref="System.Exception">Cannot calculate weight min max with: {drs}</exception>
     let calcWeightMinMax (drs: ZIndexTypes.DoseRule seq) =
 
         match drs |> Seq.toList with
-        | [] -> DR.minmax
+        | []    -> DR.minmax
         | [ h ] -> h.Weight
         | h :: tail ->
             if tail
                |> List.forall (fun mm -> mm.Weight = h.Weight) then
                 h.Weight
             else
-                DR.minmax
+                failwith $"cannot calculate weight min max with: {drs}"
         |> mapMinMax
             ((Option.map ValueUnit.weightInKg)
              >> (Optic.set MinIncrMax.Optics.inclMinLens))
@@ -89,16 +108,17 @@ module GStand =
     /// i.e. if all min bsa are the same and all max bsa are the same.
     /// </summary>
     /// <param name="drs"></param>
+    /// <exception cref="System.Exception">Cannot calculate bsa min max with: {drs}</exception>
     let calcBSAMinMax (drs: ZIndexTypes.DoseRule seq) =
 
         match drs |> Seq.toList with
         | [] -> DR.minmax
         | [ h ] -> h.BSA
         | h :: tail ->
-            if tail |> List.forall (fun mm -> mm.BSA = h.Weight) then
+            if tail |> List.forall (fun mm -> mm.BSA = h.BSA) then
                 h.BSA
             else
-                DR.minmax
+                failwith $"cannot calculate bsa min max with: {drs}"
         |> mapMinMax
             ((Option.map ValueUnit.bsaInM2)
              >> (Optic.set MinIncrMax.Optics.inclMinLens))
@@ -139,11 +159,14 @@ module GStand =
     /// <param name="fr">The frequency to map</param>
     /// <returns>The mapped frequency</returns>
     /// <exception cref="System.Exception">Cannot parse freq value unit</exception>
-    /// <remarks>
-    /// Only perform mapping if the frequency is not 1 and if
-    /// the frequency is a valid unit.
-    /// </remarks>
-    let mapFreq (fr: ZIndexTypes.RuleFrequency) =
+    /// <example>
+    /// <code>
+    /// let fr : ZIndexTypes.RuleFrequency = { Frequency = 1.; Time = "dag" }
+    /// mapFreq fr
+    /// // ValueUnit ([|1N|], CombiUnit (Count (Times 1N), OpPer, Time (Day 1N)))
+    /// </code>
+    /// </example>
+    let mapFreqToValueUnit (fr: ZIndexTypes.RuleFrequency) =
         let map vu =
             match [
                       2N, ValueUnit.freqUnitPerNday 3N, ValueUnit.freqUnitPerNHour 36N
@@ -197,7 +220,7 @@ module GStand =
 
 
     /// <summary>
-    /// Map G-STandard DoseRule doses to
+    /// Map G-Standard DoseRule doses to
     /// <list type="bullet">
     ///     <item>normal min max dose</item>
     ///     <item>absolute min max dose</item>
@@ -220,7 +243,7 @@ module GStand =
     /// </returns>
     let mapDoses (n: string) qty unit (gstdsr: ZIndexTypes.DoseRule) =
 
-        let fr = mapFreq gstdsr.Freq
+        let fr = mapFreqToValueUnit gstdsr.Freq
 
         let setMin =
             Optic.set MinIncrMax.Optics.inclMinLens
@@ -268,82 +291,6 @@ module GStand =
 
 
     /// <summary>
-    /// Get the Dosage and Indications for a given DoseRange and list of DoseRules. Uses a
-    /// config to create a Dosage with a start, rate or total dose.
-    /// </summary>
-    /// <param name="cfg">The Config</param>
-    /// <param name="n">The 'Name' of the Dosage</param>
-    /// <param name="dsr">The DoseRules</param>
-    let getDosage
-        cfg
-        n
-        (dsr: {| doseRange: DoseRange
-                 doserules: list<Informedica.ZIndex.Lib.Types.DoseRule>
-                 frequencies: list<ValueUnit>
-                 inds: list<string>
-                 routes: list<string> |})
-        =
-        let tu =
-            match dsr.frequencies with
-            | fr :: _ ->
-                match fr |> ValueUnit.get |> snd with
-                | CombiUnit (_, OpPer, tu) -> tu
-                | _ -> NoUnit
-            | _ -> NoUnit
-
-        {|
-            indications = dsr.inds
-            Dosage =
-                Dosage.empty
-                |> Dosage.Optics.setName n
-                |> Dosage.Optics.setRules (
-                    dsr.doserules
-                    |> List.map (DR.toString2 >> GStandRule)
-                )
-                |> (fun ds ->
-                    printfn $"created dosage: {ds}"
-                    match tu with
-                    | _ when tu = Unit.NoUnit || (tu |> ValueUnit.isCountUnit) ->
-                        ds
-                        |> (Optic.set Dosage.StartDosage_ dsr.doseRange)
-
-                    | _ when
-                        cfg.IsRate
-                        && dsr.frequencies |> List.length = 1
-                        && tu = Units.Time.hour
-                        ->
-
-                        ds
-                        |> (Optic.set Dosage.RateDosage_ (dsr.doseRange, tu))
-                        |> (fun ds ->
-                            match cfg.TimeUnit with
-                            | Some u -> ds |> Dosage.convertRateUnitTo u
-                            | None -> ds
-                        )
-
-                    | _ ->
-                        let frs =
-                            let fr =
-                                dsr.frequencies
-                                |> List.collect (ValueUnit.getValue >> Array.toList)
-                                |> List.sort
-
-                            Dosage.createFrequency fr tu None
-
-                        ds
-                        |> (Optic.set Dosage.TotalDosage_ (dsr.doseRange, frs))
-                    // Perform unit conversion
-                    |> (fun ds ->
-                        match cfg.SubstanceUnit with
-                        | Some u -> ds |> Dosage.convertSubstanceUnitTo u
-                        | None -> ds
-
-                    )
-                )
-        |}
-
-
-    /// <summary>
     /// Map MinMax DoseRanges to a DoseRange record.
     /// </summary>
     /// <param name="dsg">The DoseRange to map to</param>
@@ -382,7 +329,6 @@ module GStand =
                 | None ->
                     match x1, x2 with
                     | Some x1_, Some x2_ ->
-                        // printfn "calculating %A %A = %A" x1_ x2_ (x1_ |> op <| x2_)
                         (x1_ |> op <| x2_) |> Some
                     | _ -> y
 
@@ -452,7 +398,7 @@ module GStand =
         ds
         |> Seq.fold
             (fun acc d ->
-                let _, inds, frs, gstdsrs, norm_, abs_, normKg_, absKg_, normM2_, absM2_ =
+                let frs, norm_, abs_, normKg_, absKg_, normM2_, absM2_ =
                     acc
 
                 let frs =
@@ -482,13 +428,15 @@ module GStand =
                     else
                         d.frequency :: frs
 
+                (*
                 let inds =
                     if inds |> List.exists ((=) d.indication) then
                         inds
                     else
                         d.indication :: inds
+                *)
 
-                let gstdsrs = d.doserule :: gstdsrs
+                //let gstdsrs = d.doserule :: gstdsrs
 
                 let norm = foldMaximize d.normDose norm_
                 let abs = foldMaximize d.absDose abs_
@@ -500,22 +448,26 @@ module GStand =
                 let normM2 = foldMaximize d.normM2 normM2_
                 let absM2 = foldMaximize d.absM2 absM2_
 
-                d.routes, inds, frs, gstdsrs, norm, abs, normKg, absKg, normM2, absM2
+                frs, norm, abs, normKg, absKg, normM2, absM2
             )
             ([],
-             [],
-             [],
-             [],
              MinIncrMax.empty,
              MinIncrMax.empty,
              MinIncrMax.empty,
              MinIncrMax.empty,
              MinIncrMax.empty,
              MinIncrMax.empty)
-        |> fun (rts, inds, frs, gstdsrs, norm, abs, normKg, absKg, normM2, absM2) ->
+        |> fun (frs, norm, abs, normKg, absKg, normM2, absM2) ->
             {|
-                routes = rts
-                indications = inds
+                routes =
+                    ds
+                    |> Seq.collect (fun r -> r.routes)
+                    |> Seq.toList
+                indications =
+                    ds
+                    |> Seq.map (fun r -> r.indication)
+                    |> Seq.distinct
+                    |> Seq.toList
                 frequencies = frs
                 normDose = norm
                 absDose = abs
@@ -523,9 +475,88 @@ module GStand =
                 absKg = absKg
                 normM2 = normM2
                 absM2 = absM2
-                doserules = gstdsrs
+                doserules =
+                    ds
+                    |> Seq.map (fun r -> r.doserule)
+                    |> Seq.toList
             |}
 
+
+    /// <summary>
+    /// Get the Dosage and Indications for a given DoseRange and list of DoseRules. Uses a
+    /// config to create a Dosage with a start, rate or total dose.
+    /// </summary>
+    /// <param name="cfg">The Config</param>
+    /// <param name="n">The 'Name' of the Dosage</param>
+    /// <param name="dsr">The DoseRules</param>
+    let getDosage
+        cfg
+        n
+        (dsr: {| doseRange: DoseRange
+                 doserules: list<Informedica.ZIndex.Lib.Types.DoseRule>
+                 frequencies: list<ValueUnit>
+                 inds: list<string>
+                 routes: list<string> |})
+        =
+        let tu =
+            match dsr.frequencies with
+            | fr :: _ ->
+                match fr |> ValueUnit.get |> snd with
+                | CombiUnit (_, OpPer, tu) -> tu
+                | _ -> NoUnit
+            | _ -> NoUnit
+
+        {|
+            indications = dsr.inds
+            dosage =
+                Dosage.empty
+                |> Dosage.Optics.setName n
+                |> Dosage.Optics.setRules (
+                    if dsr.doserules |> List.isEmpty then
+                        printfn $"EMPTY DOSERULES: {n}"
+                    dsr.doserules
+                    |> List.map (DR.toString2 >> GStandRule)
+                )
+                |> (fun ds ->
+                    match tu with
+                    | _ when tu = Unit.NoUnit || (tu |> ValueUnit.isCountUnit) ->
+                        ds
+                        |> (Optic.set Dosage.StartDosage_ dsr.doseRange)
+
+                    | _ when
+                        cfg.IsRate
+                        && dsr.frequencies |> List.length = 1
+                        && tu = Units.Time.hour
+                        ->
+
+                        ds
+                        |> (Optic.set Dosage.RateDosage_ (dsr.doseRange, tu))
+                        |> (fun ds ->
+                            match cfg.TimeUnit with
+                            | Some u -> ds |> Dosage.convertRateUnitTo u
+                            | None -> ds
+                        )
+
+                    | _ ->
+                        let frs =
+                            let fr =
+                                dsr.frequencies
+                                |> List.collect (ValueUnit.getValue >> Array.toList)
+                                |> List.sort
+
+                            Dosage.createFrequency fr tu None
+
+                        ds
+                        |> (Optic.set Dosage.TotalDosage_ (dsr.doseRange, frs))
+                    // Perform unit conversion
+                    |> (fun ds ->
+                        match cfg.SubstanceUnit with
+                        | Some u -> ds |> Dosage.convertSubstanceUnitTo u
+                        | None -> ds
+
+                    )
+                )
+        |}
 
 
     /// <summary>
@@ -564,7 +595,8 @@ module GStand =
     /// a PatientCategory.
     /// </summary>
     /// <param name="cfg">The Config</param>
-    /// <param name="drs">The DoseRules</param>
+    /// <param name="drs">The ZIndex DoseRules</param>
+    /// <returns>{| doseRules: DoseRule seq; patientCategory: PatientCategory; substanceDoses: {| Dosage: Dosage; indications: string list |} seq |} seq</returns>
     let getPatients (cfg: CreateConfig) (drs: ZIndexTypes.DoseRule seq) =
         let map = mapMinMax<PatientCategory>
 
@@ -572,33 +604,50 @@ module GStand =
 
         let wghtKg = Option.map ValueUnit.weightInKg
 
+        let bsaM2 = Option.map ValueUnit.bsaInM2
+
         let mapAge =
-            map (ageInMo >> PatientCategory.Optics.setInclMinAge) (ageInMo >> PatientCategory.Optics.setExclMaxAge)
+            map
+                (ageInMo >> PatientCategory.Optics.setInclMinAge)
+                (ageInMo >> PatientCategory.Optics.setExclMaxAge)
 
         let mapWght =
-            map (wghtKg >> PatientCategory.Optics.setInclMinWeight) (wghtKg >> PatientCategory.Optics.setInclMaxWeight)
+            map
+                (wghtKg >> PatientCategory.Optics.setInclMinWeight)
+                (wghtKg >> PatientCategory.Optics.setInclMaxWeight)
+
+        let mapBSA =
+            map
+                (bsaM2 >> PatientCategory.Optics.setInclMinBSA)
+                (bsaM2 >> PatientCategory.Optics.setInclMaxBSA)
 
         let mapGender s =
             match s with
             | _ when s = "man" -> Male
             | _ when s = "vrouw" -> Female
             | _ -> Undetermined
-            |> PatientCategory.Optics.setGender //(Optic.set Patient.Gender_)
+            |> PatientCategory.Optics.setGender
 
         drs
         |> Seq.map (fun dr ->
-            (dr.Indication,
-             PatientCategory.empty
-             |> mapAge dr.Age
-             |> mapWght dr.Weight
-             |> mapGender dr.Gender),
-            dr
+            {|
+                indication = dr.Indication
+                patientCat =
+                     PatientCategory.empty
+                     |> mapAge dr.Age
+                     |> mapWght dr.Weight
+                     |> mapBSA dr.BSA
+                     |> mapGender dr.Gender
+            |}, dr
         )
         |> Seq.groupBy fst
         |> Seq.map (fun (k, v) ->
             {|
-                patientCategory = k |> snd
-                substanceDoses = v |> Seq.map snd |> getSubstanceDoses cfg
+                patientCategory = k.patientCat
+                substanceDoses =
+                    v
+                    |> Seq.map snd
+                    |> getSubstanceDoses cfg
                 doseRules = drs
             |}
         )
@@ -636,23 +685,6 @@ module GStand =
         |> Array.distinct
 
 
-
-    /// <summary>
-    /// Get the DoseRules for a given GenPresProduct per
-    /// indication and route.
-    /// </summary>
-    /// <param name="gpks">The list of GPKs</param>
-    /// <param name="gpp">The GenPresProduct</param>
-    let getDoseRules gpks (gpp: ZIndexTypes.GenPresProduct) =
-        gpp.Routes
-        |> Seq.collect (fun r ->
-            RF.createFilter None None None None gpp.Name gpp.Shape r
-            |> RF.find gpks
-            |> Seq.map (fun dr -> dr.Indication, (r, dr))
-        )
-        |> Seq.groupBy fst
-
-
     /// Get a list of TradeNames for a GenPresProduct.
     let getTradeNames (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
@@ -668,11 +700,12 @@ module GStand =
 
 
     let mergeDosages d ds =
+        let rules =
+            d.Rules
+            |> Seq.append (ds |> Seq.collect (fun d -> d.Rules))
+            |> Seq.distinct
 
         let merge d1 d2 =
-            printfn "merging d1: %s" (d1 |> Dosage.toString false)
-            printfn "merging d2: %s" (d2 |> Dosage.toString false)
-
             Dosage.empty
             // merge name
             |> (fun d ->
@@ -717,24 +750,24 @@ module GStand =
             |> (fun d ->
                 // only merge frequencies for same total dose
                 // ToDo use ValueUnit eqs function
-                if d1 |> (Optic.get Dosage.TotalDosage_) = (d2 |> Optic.get Dosage.TotalDosage_)
-                   || d1 |> (Optic.get Dosage.TotalDosage_) |> fst = DoseRange.empty
-                   || d2 |> (Optic.get Dosage.TotalDosage_) |> fst = DoseRange.empty then
+                let td1 = d1 |> Optic.get Dosage.TotalDosage_ |> fst
+                let td2 = d2 |> Optic.get Dosage.TotalDosage_ |> fst
+
+                if td1 = td2
+                   || td1 = DoseRange.empty
+                   || td2 = DoseRange.empty then
+                    let d =
+                        if td1 = DoseRange.empty then
+                            d2.TotalDosage
+                        else
+                            d1.TotalDosage
+                        |> (fun td -> d |> (Optic.set Dosage.TotalDosage_ td))
+
                     d1
                     |> Dosage.Optics.getFrequencyValues
                     |> List.append (d2 |> Dosage.Optics.getFrequencyValues)
                     |> (fun vs -> d |> Dosage.Optics.setFrequencyValues vs)
-                    // merge Total dose
-                    |> (fun d ->
-                        if d.TotalDosage |> fst = DoseRange.empty then
-                            if d1.TotalDosage |> fst = DoseRange.empty then
-                                d2.TotalDosage
-                            else
-                                d1.TotalDosage
-                            |> (fun x -> d |> (Optic.set Dosage.TotalDosage_ x))
-                        else
-                            d
-                    )
+                    // merged Total dose
 
                 else if d1 |> Dosage.Optics.getFrequencyValues = [ 1N ] then
                     d
@@ -768,10 +801,7 @@ module GStand =
             |> (fun d ->
                 d
                 |> Dosage.Optics.setFrequencyTimeUnit (d1 |> Dosage.Optics.getFrequencyTimeUnit)
-            )
-            |> (fun d ->
-                printfn "dosage is now: %s" (d |> Dosage.toString false)
-                d
+                |> Dosage.Optics.setRules (rules |> Seq.toList)
             )
 
         match ds |> Seq.toList with
@@ -780,10 +810,110 @@ module GStand =
 
 
     /// <summary>
-    /// Add indications, routes, shape, patient and dosages to
-    /// a starting `DosageRules` record.
+    /// Group the GenPresProducts by indications, routes, shape and products and
+    /// add the patients and dosages.
     /// </summary>
-    /// <param name="dr">The starting `DosageRules` record</param>
+    /// <param name="rte">The route</param>
+    /// <param name="age">Age in Months</param>
+    /// <param name="wght">Weight in Kg</param>
+    /// <param name="bsa">Body Surface Area in mˆ2</param>
+    /// <param name="gpk">Optional GPK</param>
+    /// <param name="cfg">The CreateConfig</param>
+    /// <param name="gpps">The GenPresProducts</param>
+    /// <returns>
+    /// The grouped GenPresProducts.
+    /// </returns>
+    let groupGenPresProducts rte age wght bsa gpk cfg gpps =
+        gpps
+        |> Seq.collect (fun (gpp: ZIndexTypes.GenPresProduct) ->
+            gpp.Routes
+            |> Seq.filter (fun r ->
+                rte |> String.isNullOrWhiteSpace
+                || r |> String.equalsCapInsens rte
+            )
+            |> Seq.collect (fun rte ->
+                RF.createFilter age wght bsa gpk gpp.Name gpp.Shape rte
+                |> RF.find cfg.GPKs
+                |> getPatients cfg
+                |> Seq.sortBy (fun pats ->
+                    pats.patientCategory.Age.Min,
+                    pats.patientCategory.Weight.Min,
+                    pats.patientCategory.BSA.Min
+                )
+                |> Seq.collect (fun pats ->
+                    let gps =
+                        pats.doseRules
+                        |> Seq.collect (fun dr ->
+                            dr.GenericProduct
+                            |> Seq.map (fun gp -> gp.Id, gp.Name)
+                        )
+
+                    let tps =
+                        pats.doseRules
+                        |> Seq.collect (fun dr ->
+                            dr.TradeProduct
+                            |> Seq.map (fun tp -> tp.Id, tp.Name)
+                        )
+
+                    pats.substanceDoses
+                    |> Seq.map (fun dsg ->
+                        {|
+                            indications = dsg.indications
+                            route = rte
+                            shape = gpp.Shape
+                            genericProducts = gps
+                            tradeProducts = tps
+                            patientCategory = pats.patientCategory
+                            dosage = dsg.dosage
+                        |}
+                        //dsg.indications, (rte, (gpp.Shape, gps, tps, pats.patientCategory, dsg.Dosage))
+                    )
+                )
+            )
+        )
+        |> Seq.groupBy (fun r -> r.indications) // group by indications
+        |> Seq.map (fun (inds, v) ->
+            {|
+                indications = inds
+                routes =
+                    v
+                    |> Seq.groupBy (fun r -> r.route) // group by route
+                    |> Seq.map (fun (rte, v) ->
+                        {|
+                            route = rte
+                            shapeAndProducts =
+                                v
+//                                |> Seq.map (fun (shp, gps, tps, pat, sds) -> shp, gps, tps, pat, sds)
+//                                |> Seq.groupBy (fun (shp, gps, tps, _, _) -> (shp, gps, tps)) // group by shape and products
+                                |> Seq.groupBy (fun r -> r.shape, r.genericProducts, r.tradeProducts)
+                                |> Seq.sortBy (fst >> (fun (shp, _, _) -> shp))
+                                |> Seq.map (fun ((shp, gps, tps), v) ->
+                                    {|
+                                        shape = shp
+                                        genericProducts = gps
+                                        tradeProducts = tps
+                                        patients =
+                                            v
+                                            |> Seq.groupBy (fun r -> r.patientCategory)
+                                            |> Seq.map (fun (k, v) ->
+                                                k,
+                                                v |> Seq.map (fun r -> r.dosage)
+                                            )
+//                                            |> Seq.map (fun (_, _, _, pat, sds) -> pat, sds)
+//                                            |> groupByFst // group by patient
+                                    |}
+                                )
+                        |}
+                    )
+            |}
+        )
+
+
+    /// <summary>
+    /// Add indications, routes, shape, patient and dosages to
+    /// a starting GStand DoseRule.
+    /// </summary>
+    /// <param name="dr">The starting Gstand DoseRule record</param>
     /// <param name="inds">The indications, routes, shape, patient and dosages</param>
     let addIndicationsRoutesShapePatientDosages
         dr
@@ -854,8 +984,9 @@ module GStand =
                                                     | ns ->
                                                         match ns
                                                               |> List.filter (fun d ->
-                                                                  d |> Dosage.Optics.getFrequencyTimeUnit = (sd
-                                                                                                             |> Dosage.Optics.getFrequencyTimeUnit)
+                                                                  d |> Dosage.Optics.getFrequencyTimeUnit =
+                                                                     (sd
+                                                                     |> Dosage.Optics.getFrequencyTimeUnit)
                                                                   || sd |> Dosage.Optics.getFrequencyValues = []
                                                               )
                                                             with
@@ -881,89 +1012,6 @@ module GStand =
                     dr
             )
             dr
-
-
-
-    /// <summary>
-    /// Group the GenPresProducts by indications, routes, shape and products and
-    /// add the patients and dosages.
-    /// </summary>
-    /// <param name="rte">The route</param>
-    /// <param name="age">Age in Months</param>
-    /// <param name="wght">Weight in Kg</param>
-    /// <param name="bsa">Body Surface Area in mˆ2</param>
-    /// <param name="gpk">Optional GPK</param>
-    /// <param name="cfg">The CreateConfig</param>
-    /// <param name="gpps">The GenPresProducts</param>
-    /// <returns>
-    /// The grouped GenPresProducts.
-    /// </returns>
-    let groupGenPresProducts rte age wght bsa gpk cfg gpps =
-        gpps
-        |> Seq.collect (fun (gpp: ZIndexTypes.GenPresProduct) ->
-            //printfn $"{gpp.Name}: routes{gpp.Routes}"
-            gpp.Routes
-            |> Seq.filter (fun r ->
-                rte |> String.isNullOrWhiteSpace
-                || r |> String.equalsCapInsens rte
-            )
-            |> Seq.collect (fun rte ->
-                RF.createFilter age wght bsa gpk gpp.Name gpp.Shape rte
-                |> RF.find cfg.GPKs
-                |> getPatients cfg
-                |> Seq.sortBy (fun pats -> pats.patientCategory.Age.Min, pats.patientCategory.Weight.Min)
-                |> Seq.collect (fun pats ->
-                    let gps =
-                        pats.doseRules
-                        |> Seq.collect (fun dr ->
-                            dr.GenericProduct
-                            |> Seq.map (fun gp -> gp.Id, gp.Name)
-                        )
-
-                    let tps =
-                        pats.doseRules
-                        |> Seq.collect (fun dr ->
-                            dr.TradeProduct
-                            |> Seq.map (fun tp -> tp.Id, tp.Name)
-                        )
-
-                    pats.substanceDoses
-                    |> Seq.map (fun dsg ->
-                        dsg.indications, (rte, (gpp.Shape, gps, tps, pats.patientCategory, dsg.Dosage))
-                    )
-                )
-            )
-        )
-        |> groupByFst // group by indications
-        |> Seq.map (fun (k, v) ->
-            {|
-                indications = k
-                routes =
-                    v
-                    |> groupByFst // group by route
-                    |> Seq.map (fun (k, v) ->
-                        {|
-                            route = k
-                            shapeAndProducts =
-                                v
-                                |> Seq.map (fun (shp, gps, tps, pat, sds) -> shp, gps, tps, pat, sds)
-                                |> Seq.groupBy (fun (shp, gps, tps, _, _) -> (shp, gps, tps)) // group by shape and products
-                                |> Seq.sortBy (fst >> (fun (shp, _, _) -> shp))
-                                |> Seq.map (fun ((shp, gps, tps), v) ->
-                                    {|
-                                        shape = shp
-                                        genericProducts = gps
-                                        tradeProducts = tps
-                                        patients =
-                                            v
-                                            |> Seq.map (fun (_, _, _, pat, sds) -> pat, sds)
-                                            |> groupByFst // group by patient
-                                    |}
-                                )
-                        |}
-                    )
-            |}
-        )
 
 
     /// <summary>

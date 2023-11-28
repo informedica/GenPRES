@@ -140,13 +140,13 @@ stopLogger ()
 
 
 
-Patient.newBorn
-|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
+Patient.child
+//|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Route = "rect" //&&
-//    pr.DoseRule.Indication |> String.startsWith "vassopressie"
+    pr.DoseRule.Route = "iv" &&
+    pr.DoseRule.Indication |> String.startsWith "behandeling pneumocystis"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"

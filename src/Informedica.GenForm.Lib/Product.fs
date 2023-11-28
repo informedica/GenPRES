@@ -402,7 +402,7 @@ module Product =
                             gp.Substances
                             |> Array.map (fun s ->
                                 {
-                                    Name = rename s gpp.Name
+                                    Name = rename s s.SubstanceName
                                     Quantity =
                                         s.SubstanceQuantity
                                         |> BigRational.fromFloat

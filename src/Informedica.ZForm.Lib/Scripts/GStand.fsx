@@ -335,7 +335,6 @@ module GStand =
                 | None ->
                     match x1, x2 with
                     | Some x1_, Some x2_ ->
-                        // printfn "calculating %A %A = %A" x1_ x2_ (x1_ |> op <| x2_)
                         (x1_ |> op <| x2_) |> Some
                     | _ -> y
 
@@ -519,9 +518,8 @@ module GStand =
                 Dosage.empty
                 |> Dosage.Optics.setName n
                 |> Dosage.Optics.setRules (
-                    if dsr.doserules |> List.isEmpty then printfn "EMPTY DOSERULES"
-                        //
-                    printfn $"setting rules for dosage: {dsr.doserules |> List.map DR.toString2}"
+                    if dsr.doserules |> List.isEmpty then
+                        printfn $"EMPTY DOSERULES: {n}"
                     dsr.doserules
                     |> List.map (DR.toString2 >> GStandRule)
                 )
@@ -714,9 +712,6 @@ module GStand =
             |> Seq.distinct
 
         let merge d1 d2 =
-            printfn "merging d1: %s" (d1 |> Dosage.toString false)
-            printfn "merging d2: %s" (d2 |> Dosage.toString false)
-
             Dosage.empty
             // merge name
             |> (fun d ->
@@ -763,8 +758,7 @@ module GStand =
                 // ToDo use ValueUnit eqs function
                 let td1 = d1 |> Optic.get Dosage.TotalDosage_ |> fst
                 let td2 = d2 |> Optic.get Dosage.TotalDosage_ |> fst
-                printfn
-                    $"comparing {td1 |> DoseRange.toString None} = {td2 |> DoseRange.toString None} = {td1 = td2}"
+
                 if td1 = td2
                    || td1 = DoseRange.empty
                    || td2 = DoseRange.empty then
@@ -815,10 +809,6 @@ module GStand =
                 |> Dosage.Optics.setFrequencyTimeUnit (d1 |> Dosage.Optics.getFrequencyTimeUnit)
                 |> Dosage.Optics.setRules (rules |> Seq.toList)
             )
-            |> (fun d ->
-                printfn $"dosage merged: {d |> Dosage.toString false}"
-                d
-            )
 
         match ds |> Seq.toList with
         | [ d1 ] -> seq { merge d1 d }
@@ -842,7 +832,6 @@ module GStand =
     let groupGenPresProducts rte age wght bsa gpk cfg gpps =
         gpps
         |> Seq.collect (fun (gpp: ZIndexTypes.GenPresProduct) ->
-            //printfn $"{gpp.Name}: routes{gpp.Routes}"
             gpp.Routes
             |> Seq.filter (fun r ->
                 rte |> String.isNullOrWhiteSpace
@@ -874,7 +863,6 @@ module GStand =
 
                     pats.substanceDoses
                     |> Seq.map (fun dsg ->
-                        printfn $"{dsg.dosage.Rules |> Seq.length} rules"
                         {|
                             indications = dsg.indications
                             route = rte
@@ -1114,7 +1102,7 @@ let dr =
         None
         None
         None
-        "abacavir"
+        "paracetamol"
         ""
         ""
     |> Seq.head
