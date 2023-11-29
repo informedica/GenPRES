@@ -249,7 +249,7 @@ module GStand =
             Optic.set MinIncrMax.Optics.inclMinLens
 
         let setMax =
-            Optic.set MinIncrMax.Optics.exclMaxLens
+            Optic.set MinIncrMax.Optics.inclMaxLens
 
         // ToDo remove n and mapping
         let toVu _ _ v =

@@ -122,20 +122,74 @@ let checkDoseLimit (range: Informedica.ZForm.Lib.Types.DoseRange) tur (dl : Dose
         | None -> true
         | Some vu ->
             let vu =
-                let newU =
-                    du.Value
-                    |> Units.per tur
-                vu |> ValueUnit.convertTo newU
+                du.Value
+                |> Units.per tur
+                |> fun u -> vu |> ValueUnit.convertTo u
+
             range.NormWeight
             |> fst
-            |> Informedica.GenCore.Lib.Ranges.MinIncrMax.inRange vu ||
+            |> Informedica.GenCore.Lib.Ranges.MinIncrMax.inRange vu
+            |> fun b ->
+            if not b then
+                let vu2 =
+                    (range.NormWeight |> fst).Max
+                    |> Option.map (fun lim ->
+                        lim
+                        |> Informedica.GenCore.Lib.Ranges.Limit.getValueUnit
+                        |> ValueUnit.toStringDutchShort
+                    )
+                    |> Option.defaultValue ""
+
+                printfn $"norm weight do not match: {vu |> ValueUnit.toStringDutchShort} and {vu2}"
+                printfn $"{range.NormWeight}"
+            b
+
+            &&
             (range.AbsWeight
             |> fst
             |> Informedica.GenCore.Lib.Ranges.MinIncrMax.inRange vu)
 
 
+let checkFrequency
+    (dr: DoseRule)
+    (dl: DoseLimit)
+    (r: Informedica.ZForm.Lib.Types.Dosage) =
+    let d, f = r.TotalDosage
+
+    let f1 =
+        f.Frequencies
+        |> Seq.toArray
+        |> ValueUnit.withUnit f.TimeUnit
+    // check the frequency
+    dr.FreqTimeUnit
+    |> Units.fromString
+    |> Option.map (ValueUnit.withValue dr.Frequencies)
+    |> Option.map (fun vu ->
+        let v1 =
+            vu
+            |> ValueUnit.getBaseValue
+            |> Set.ofArray
+
+        f1
+        |> ValueUnit.getBaseValue
+        |> Set.ofArray
+        |> Set.isSubset v1
+        |> fun b ->
+            if not b then
+                printfn $"frequencies do not match"
+            b
+            &&
+            checkDoseLimit d f.TimeUnit dl (vu |> ValueUnit.getUnit)
+            |> fun b ->
+                if not b then
+                    printfn $"doses do not match"
+                b
+
+    )
+    |> Option.defaultValue true
+
+
 let checkDoseRule (dr: DoseRule) (rules: Informedica.ZForm.Lib.Types.Dosage seq) =
-    let eqs = ValueUnit.eqs
     let dls =
         dr.DoseLimits
         |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
@@ -151,29 +205,7 @@ let checkDoseRule (dr: DoseRule) (rules: Informedica.ZForm.Lib.Types.Dosage seq)
                     r.Name |> String.equalsCapInsens s
                 )
             for r in rules do
-
-                let d, f = r.TotalDosage
-
-                let f1 =
-                    f.Frequencies
-                    |> Seq.toArray
-                    |> ValueUnit.withUnit f.TimeUnit
-                // check the frequency
-                dr.FreqTimeUnit
-                |> Units.fromString
-                |> Option.map (ValueUnit.withValue dr.Frequencies)
-                |> Option.map (fun vu ->
-                    let v1 =
-                        vu
-                        |> ValueUnit.getBaseValue
-                        |> Set.ofArray
-                    f1
-                    |> ValueUnit.getBaseValue
-                    |> Set.ofArray
-                    |> Set.isSubset v1 &&
-                    checkDoseLimit d f.TimeUnit dl (vu |> ValueUnit.getUnit)
-                )
-                |> Option.defaultValue true
+                checkFrequency dr dl r
     ]
     |> List.exists id
 //    |> List.map (Option.defaultValue false)
@@ -182,58 +214,75 @@ let checkDoseRule (dr: DoseRule) (rules: Informedica.ZForm.Lib.Types.Dosage seq)
 let checkPath = $"{__SOURCE_DIRECTORY__}/check.html"
 
 
-doseRules
-|> Array.skip 0
-|> Array.take 100
-|> Array.map (fun dr ->
-    {|
-        doseRule = dr
-        zformRules =
-            ZForm.getRules dr.Generic dr.Route
-            |> Seq.collect (fun r ->
-                r.IndicationsDosages
-                |> Seq.collect (fun id ->
-                    id.RouteDosages
-                    |> Seq.collect (fun rd ->
-                        rd.ShapeDosages
-                        |> Seq.collect (fun sd ->
-                            sd.PatientDosages
-                            |> Seq.filter (fun p ->
-                                filter p.Patient dr.PatientCategory
-                            )
-                            |> Seq.collect (fun pd ->
-                                pd.SubstanceDosages
+let writeToFile (doseRules : {| doseRule : DoseRule ; zformRules : Informedica.ZForm.Lib.Types.Dosage seq |}[]) =
+    doseRules
+    |> Array.map (fun r ->
+        [
+            $"{[|r.doseRule|] |> DoseRule.Print.toMarkdown}\n## G-Standaard\n\n"
+            let s =
+                if r.zformRules |> Seq.isEmpty then "### Geen regels gevonden\n"
+                else
+                    r.zformRules
+                    |> Seq.map (Informedica.ZForm.Lib.DoseRule.Dosage.toString false)
+                    |> Seq.sortBy String.toLower
+                    |> Seq.distinct
+                    |> Seq.mapi (sprintf "%i. %s")
+                    |> String.concat "\n"
+            $"{s}"
+        ]
+        |> String.concat "\n"
+    )
+    |> String.concat "\n"
+    |> Informedica.ZForm.Lib.Markdown.toHtml
+    |> Informedica.Utils.Lib.File.writeTextToFile checkPath
+
+
+let failingCases =
+    doseRules
+    |> Array.filter (fun dr ->
+        dr.Generic |> String.equalsCapInsens "gentamicine"
+    )
+    |> Array.map (fun dr ->
+        {|
+            doseRule = dr
+            zformRules =
+                ZForm.getRules dr.Generic dr.Route
+                |> Seq.collect (fun r ->
+                    r.IndicationsDosages
+                    |> Seq.collect (fun id ->
+                        id.RouteDosages
+                        |> Seq.collect (fun rd ->
+                            rd.ShapeDosages
+                            |> Seq.collect (fun sd ->
+                                sd.PatientDosages
+                                |> Seq.filter (fun p ->
+                                    filter p.Patient dr.PatientCategory
+                                )
+                                |> Seq.collect (fun pd ->
+                                    pd.SubstanceDosages
+                                )
                             )
                         )
+
                     )
-
                 )
-            )
-            |> Seq.distinct
-    |}
-)
-|> Array.filter (fun r ->
-    r.zformRules |> checkDoseRule r.doseRule
-    |> not
-)
-|> Array.map (fun r ->
-    [
-        $"{[|r.doseRule|] |> DoseRule.Print.toMarkdown}\n## G-Standaard\n\n"
-        let s =
-            if r.zformRules |> Seq.isEmpty then "### Geen regels gevonden\n"
-            else
-                r.zformRules
-                |> Seq.map (Informedica.ZForm.Lib.DoseRule.Dosage.toString false)
-                |> Seq.sortBy String.toLower
                 |> Seq.distinct
-                |> Seq.mapi (sprintf "%i. %s")
-                |> String.concat "\n"
-        $"{s}"
-    ]
-    |> String.concat "\n"
-)
-|> String.concat "\n"
-|> Informedica.ZForm.Lib.Markdown.toHtml
-|> Informedica.Utils.Lib.File.writeTextToFile checkPath
+        |}
+    )
+    |> Array.filter (fun r ->
+        r.zformRules
+        |> checkDoseRule r.doseRule
+        |> not
+    )
 
 
+failingCases[0]
+|> fun r ->
+    {|
+        doseRule = r.doseRule
+        zformRules =
+            r.zformRules
+            |> Seq.skip 3
+            |> Seq.take 1
+    |}
+|> fun r -> checkDoseRule r.doseRule r.zformRules
