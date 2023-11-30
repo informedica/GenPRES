@@ -36,6 +36,9 @@ module Unquote =
     let min = create Units.Time.minute
     let week2 = create (Units.Time.nWeek 2N)
     let day14 = create (Units.Time.nDay 14N)
+    let dr20 = create (Units.Volume.droplet)
+
+    let dr40 = create (Units.Volume.dropletWithDropsPerMl 40N)
 
 
     let tests () =
@@ -88,6 +91,15 @@ module Unquote =
             test <@
                 ([|1000N|] |> mcg) =? ([|1N|] |> mg)
             @>
+
+            test <@
+                ([| 20N |] |> dr20) =? ([|1N|] |> ml)
+            @>
+
+            test <@
+                ([| 40N |] |> dr40) =? ([|1N|] |> ml)
+            @>
+
         ]
 
 
@@ -100,11 +112,6 @@ module Unquote =
 
     // ([|90N|] |> create mgPerKgPerDay) >? ([|3000N|] |> create mgPerKgPerDay)
     // ([|3000N|] |> create mgPerKgPerDay) >? ([|90N|] |> create mgPerKgPerDay)
-
-
-
-
-
 
 
 module Tests =
@@ -125,6 +132,18 @@ module Tests =
     let inline (>>*) u f =
         u |> printfn "%A"
         f u
+
+
+    let (>>?) res exp =
+        match exp |> fromString with
+        | Success (exp, _, _) ->
+            res = exp
+            |> Expect.isTrue  ""
+        | _ ->
+            false |> Expect.isTrue ""
+            failwith "can't run the test"
+        res
+
 
     // Some basic value units
     let mg400 = 400N |> createSingle Units.Mass.milliGram
@@ -281,16 +300,6 @@ module Tests =
 
 
     let calculationTests =
-
-        let (>>?) res exp =
-            match exp |> fromString with
-            | Success (exp, _, _) ->
-                res = exp
-                |> Expect.isTrue  ""
-            | _ ->
-                false |> Expect.isTrue ""
-                failwith "can't run the test"
-            res
 
 
         testList "Calculation" [
@@ -462,6 +471,28 @@ module Tests =
 
         ]
 
+
+    let useCaseTests =
+        testList "use case tests" [
+            test "100 mg/mL droplet fluid with 40 droplets per mL then 1 droplet = 2.5 mg" {
+                let fluid =
+                    100N
+                    |> createSingle (Units.Mass.milliGram |> Units.per Units.Volume.milliLiter)
+                let dr =
+                    1N
+                    |> createSingle (Units.Volume.dropletWithDropsPerMl 40N)
+                let exp =
+                    25N / 10N
+                    |> createSingle Units.Mass.milliGram
+
+                (fluid * dr) =? exp
+                |> Expect.isTrue $"should be 2.5 mg/ml, actual: {(fluid * dr)}"
+
+            }
+
+        ]
+
+
     [<Tests>]
     let tests =
         testList "ValueUnit Tests" [
@@ -471,6 +502,7 @@ module Tests =
             comparisonTests
             unitTests
             groupTests
+            useCaseTests
 
             test "Unquote tests" {
                 try

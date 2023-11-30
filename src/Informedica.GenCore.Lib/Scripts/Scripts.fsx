@@ -6,7 +6,7 @@
 #load "../Validus.fs"
 #load "../Calculations.fs"
 #load "../ValueUnit.fs"
-#load "../MinIncrMax.fs"
+#load "../MinMax.fs"
 #load "../Patient.fs"
 
 

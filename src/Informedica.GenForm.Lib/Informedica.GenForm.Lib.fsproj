@@ -20,6 +20,7 @@
     <None Include="Scripts\Scripts.fsx" />
     <None Include="Scripts\Tests.fsx" />
     <None Include="Scripts\Check.fsx" />
+    <None Include="Scripts\Update.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />

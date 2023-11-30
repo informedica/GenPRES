@@ -78,7 +78,7 @@ and VolumeUnit =
     | DeciLiter of BigRational
     | MilliLiter of BigRational
     | MicroLiter of BigRational
-    | Droplet of BigRational
+    | Droplet of BigRational * BigRational
 
 and TimeUnit =
     | Year of BigRational
@@ -1209,7 +1209,7 @@ module Units =
         /// Create a Volume unit microliter with unit value = n
         let nMicroLiter n = n |> MicroLiter |> toVolume
         /// Create a Volume unit droplet with unit value = n
-        let nDroplet n = n |> Droplet |> toVolume
+        let nDroplet n = (n, 20N) |> Droplet |> toVolume
 
         /// Create a Volume unit liter with unit value = 1
         let liter = 1N |> nLiter
@@ -1221,6 +1221,14 @@ module Units =
         let microLiter = 1N |> nMicroLiter
         /// Create a Volume unit droplet with unit value = 1
         let droplet = 1N |> nDroplet
+        /// Default is 20 drops per mL, however this can vary
+        let dropletWithDropsPerMl m = (1N, m) |> Droplet |> Volume
+        /// Set the multiplier of a droplet unit
+        let dropletSetDropsPerMl m dr =
+            match dr with
+            | Volume (Droplet (n, _)) ->
+                (n, m) |> Droplet |> Volume
+            | _ -> dr
 
 
     module Time =
@@ -1362,7 +1370,7 @@ module Units =
             | DeciLiter n -> (n, Volume.deciLiter)
             | MilliLiter n -> (n, Volume.milliLiter)
             | MicroLiter n -> (n, Volume.microLiter)
-            | Droplet n -> (n, Volume.droplet)
+            | Droplet (n, m) -> (n, Volume.dropletWithDropsPerMl m)
         | Time g ->
             match g with
             | Year n -> (n, Time.year)
@@ -1628,7 +1636,7 @@ module ValueUnit =
                 | DeciLiter n -> n |> f |> DeciLiter
                 | MilliLiter n -> n |> f |> MilliLiter
                 | MicroLiter n -> n |> f |> MicroLiter
-                | Droplet n -> n |> f |> Droplet
+                | Droplet (n, m) -> n |> f |> fun n -> Droplet (n, m)
                 |> Volume
             | Time g ->
                 match g with
@@ -1712,7 +1720,7 @@ module ValueUnit =
                 | DeciLiter n -> n |> Some
                 | MilliLiter n -> n |> Some
                 | MicroLiter n -> n |> Some
-                | Droplet n -> n |> Some
+                | Droplet (n, m) -> n / m |> Some
             | Time g ->
                 match g with
                 | Year n -> n |> Some
@@ -2063,7 +2071,7 @@ module ValueUnit =
                     | DeciLiter n -> n * deci
                     | MilliLiter n -> n * milli
                     | MicroLiter n -> n * micro
-                    | Droplet n -> n * (milli / 20N)
+                    | Droplet (n, m) -> n * (milli / m)
                 | Time g ->
                     match g with
                     | Year n -> n * year

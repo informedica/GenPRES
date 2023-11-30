@@ -13,8 +13,22 @@ open Swensen.Unquote
 open Tests
 open ValueUnit
 
-"druppel"
-|> Units.stringWithGroup
+
+let drDef = Units.Volume.droplet
+let dr25 = Units.Volume.dropletWithDropsPerMl 1N 25N
+
+let mL = Units.Volume.milliLiter
+
+mL |> Units.per drDef
+mL |> Units.per dr25
+
+let v1 = 1N |> singleWithUnit Units.Volume.droplet
+let v2 = 1N |> singleWithUnit Units.Volume.milliLiter
+
+v2 / v1
+v2 / (1N |> singleWithUnit (Units.Volume.dropletWithDropsPerMl 1N 25N))
+
+
 
 Tests.testNumDenom()
 
