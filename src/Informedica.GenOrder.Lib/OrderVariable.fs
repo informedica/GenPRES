@@ -65,12 +65,8 @@ module OrderVariable =
             | None ->
                 let min = cs.Min |> Option.map Minimum.toBoolValueUnit
                 let max = cs.Max |> Option.map Maximum.toBoolValueUnit
-                let incr =
-                    cs.Incr
-                    |> Option.map Increment.toValueUnit
-                    |> Option.map List.singleton
 
-                MinIncrMax.Calculator.toStringNL toStr min incr max
+                MinMax.Calculator.toStringNL toStr min max
             | Some vs ->
                 vs
                 |> ValueSet.toValueUnit

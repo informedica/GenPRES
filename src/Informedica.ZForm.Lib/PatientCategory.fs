@@ -22,12 +22,12 @@ module PatientCategory =
 
 
     /// An empty PatientCategory.
-    let empty = create MinIncrMax.empty MinIncrMax.empty MinIncrMax.empty MinIncrMax.empty Undetermined
+    let empty = create MinMax.empty MinMax.empty MinMax.empty MinMax.empty Undetermined
 
 
     module Optics =
 
-        module MinMax = MinIncrMax.Optics
+        module MinMax = MinMax.Optics
 
 
         let setGender = Optic.set PatientCategory.Gender_
@@ -170,11 +170,11 @@ module PatientCategory =
             if s |> String.isNullOrWhiteSpace then sl
             else sl + (if sl = "" then " " else  ", ") + l + s
 
-        let mmToStr = MinIncrMax.toString "van " "van " "tot " "tot "
+        let mmToStr = MinMax.toString "van " "van " "tot " "tot "
 
         ""
-        >+ ("Zwangerschapsduur: ", ga |> MinIncrMax.gestAgeToString)
-        >+ ("Leeftijd: ", age |> MinIncrMax.ageToString)
+        >+ ("Zwangerschapsduur: ", ga |> MinMax.gestAgeToString)
+        >+ ("Leeftijd: ", age |> MinMax.ageToString)
         >+ ("Gewicht: ", wght |> mmToStr)
         >+ ("BSA: ", bsa |> mmToStr)
         >+ ("Geslacht: ", gen |> genderToString)
@@ -184,10 +184,10 @@ module PatientCategory =
     module Dto =
 
         type Dto () =
-            member val GestAge = MinIncrMax.Dto.dto () with get ,set
-            member val Age = MinIncrMax.Dto.dto () with get ,set
-            member val Weight = MinIncrMax.Dto.dto () with get ,set
-            member val BSA = MinIncrMax.Dto.dto () with get ,set
+            member val GestAge = MinMax.Dto.dto () with get ,set
+            member val Age = MinMax.Dto.dto () with get ,set
+            member val Weight = MinMax.Dto.dto () with get ,set
+            member val BSA = MinMax.Dto.dto () with get ,set
             member val Gender = "" with get, set
 
 
@@ -196,20 +196,20 @@ module PatientCategory =
         let toDto { GestAge = gestAge; Age = age; Weight = wght; BSA = bsa; Gender = gnd } =
             let dto = dto ()
 
-            dto.GestAge <- gestAge |> MinIncrMax.Dto.toDto
-            dto.Age <- age |> MinIncrMax.Dto.toDto
-            dto.Weight <- wght |> MinIncrMax.Dto.toDto
-            dto.BSA <- bsa |> MinIncrMax.Dto.toDto
+            dto.GestAge <- gestAge |> MinMax.Dto.toDto
+            dto.Age <- age |> MinMax.Dto.toDto
+            dto.Weight <- wght |> MinMax.Dto.toDto
+            dto.BSA <- bsa |> MinMax.Dto.toDto
             dto.Gender <- gnd |> genderToString
 
             dto
 
 
         let fromDto (dto : Dto) =
-            let gestAge = dto.GestAge |> MinIncrMax.Dto.fromDto
-            let age = dto.Age |> MinIncrMax.Dto.fromDto
-            let wght = dto.Weight |> MinIncrMax.Dto.fromDto
-            let bsa = dto.BSA |> MinIncrMax.Dto.fromDto
+            let gestAge = dto.GestAge |> MinMax.Dto.fromDto
+            let age = dto.Age |> MinMax.Dto.fromDto
+            let wght = dto.Weight |> MinMax.Dto.fromDto
+            let bsa = dto.BSA |> MinMax.Dto.fromDto
             let gnd = dto.Gender |> stringToGender
 
             match gestAge, age, wght, bsa with

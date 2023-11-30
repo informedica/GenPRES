@@ -98,9 +98,9 @@ module GStand =
                 failwith $"cannot calculate weight min max with: {drs}"
         |> mapMinMax
             ((Option.map ValueUnit.weightInKg)
-             >> (Optic.set MinIncrMax.Optics.inclMinLens))
+             >> (Optic.set MinMax.Optics.inclMinLens))
             ((Option.map ValueUnit.weightInKg)
-             >> (Optic.set MinIncrMax.Optics.exclMaxLens))
+             >> (Optic.set MinMax.Optics.exclMaxLens))
 
 
     /// <summary>
@@ -121,9 +121,9 @@ module GStand =
                 failwith $"cannot calculate bsa min max with: {drs}"
         |> mapMinMax
             ((Option.map ValueUnit.bsaInM2)
-             >> (Optic.set MinIncrMax.Optics.inclMinLens))
+             >> (Optic.set MinMax.Optics.inclMinLens))
             ((Option.map ValueUnit.bsaInM2)
-             >> (Optic.set MinIncrMax.Optics.exclMaxLens))
+             >> (Optic.set MinMax.Optics.exclMaxLens))
 
 
     /// Make sure that a GSTand time string
@@ -246,10 +246,10 @@ module GStand =
         let fr = mapFreqToValueUnit gstdsr.Freq
 
         let setMin =
-            Optic.set MinIncrMax.Optics.inclMinLens
+            Optic.set MinMax.Optics.inclMinLens
 
         let setMax =
-            Optic.set MinIncrMax.Optics.inclMaxLens
+            Optic.set MinMax.Optics.inclMaxLens
 
         // ToDo remove n and mapping
         let toVu _ _ v =
@@ -266,7 +266,7 @@ module GStand =
                 vu * x |> Some
 
         let minmax n mapping (mm: ZIndexTypes.RuleMinMax) =
-            MinIncrMax.empty
+            MinMax.empty
             |> setMin (mm.Min |> Option.bind (toVu n mapping))
             |> setMax (mm.Max |> Option.bind (toVu n mapping))
 
@@ -311,17 +311,17 @@ module GStand =
                  routes: list<string> |})
         =
         let w =
-            MinIncrMax.empty |> calcWeightMinMax dsg.doserules
+            MinMax.empty |> calcWeightMinMax dsg.doserules
 
         let b =
-            MinIncrMax.empty |> calcBSAMinMax dsg.doserules
+            MinMax.empty |> calcBSAMinMax dsg.doserules
 
         // if weight or bsa is known the adjusted or unadjusted doses can be calculated
         let calcNoneAndAdjusted (c: MinMax) (un: MinMax) (adj: MinMax) =
             // remove the adjust unit by making it a count
             let c =
                 c
-                |> MinIncrMax.withUnit Units.Count.times
+                |> MinMax.withUnit Units.Count.times
 
             let calc op x1 x2 y =
                 match y with
@@ -367,11 +367,11 @@ module GStand =
         | Some m, None
         | None, Some m ->
             [
-                mm |> MinIncrMax.setMin (Some m)
-                mm_ |> MinIncrMax.setMin (Some m)
+                mm |> MinMax.setMin (Some m)
+                mm_ |> MinMax.setMin (Some m)
             ]
         | _ -> [ mm; mm_ ]
-        |> MinIncrMax.foldMaximize
+        |> MinMax.foldMaximize
 
 
     /// <summary>
@@ -380,18 +380,18 @@ module GStand =
     /// </summary>
     /// <param name="ds">The sequence of Dosages</param>
     let foldDosages
-        (ds: {| absDose: MinIncrMax
-                absM2: MinIncrMax
-                absPerKg: MinIncrMax
+        (ds: {| absDose: MinMax
+                absM2: MinMax
+                absPerKg: MinMax
                 doserule: Informedica.ZIndex.Lib.Types.DoseRule
                 frequency: ValueUnit
                 groupBy: {| isOne: bool
                             name: string
                             time: string |}
                 indication: string
-                normDose: MinIncrMax
-                normM2: MinIncrMax
-                normPerKg: MinIncrMax
+                normDose: MinMax
+                normM2: MinMax
+                normPerKg: MinMax
                 routes: list<string> |} seq)
         =
 
@@ -451,12 +451,12 @@ module GStand =
                 frs, norm, abs, normKg, absKg, normM2, absM2
             )
             ([],
-             MinIncrMax.empty,
-             MinIncrMax.empty,
-             MinIncrMax.empty,
-             MinIncrMax.empty,
-             MinIncrMax.empty,
-             MinIncrMax.empty)
+             MinMax.empty,
+             MinMax.empty,
+             MinMax.empty,
+             MinMax.empty,
+             MinMax.empty,
+             MinMax.empty)
         |> fun (frs, norm, abs, normKg, absKg, normM2, absM2) ->
             {|
                 routes =

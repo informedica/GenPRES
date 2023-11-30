@@ -6,10 +6,9 @@ open Informedica.GenUnits.Lib
 
 
 /// Range with min, incr and/or max
-type MinIncrMax =
+type MinMax =
     {
         Min: Limit option
-        Incr: LimitIncr option
         Max: Limit option
     }
 
@@ -27,17 +26,17 @@ module Errors =
     type Msg<'TLimit, 'TIncr> =
         | MinLargerThanMax of min: 'TLimit * max: 'TLimit
         | NoValidLimitIncr of incr: 'TIncr
-        | DifferentUnitGroup of MinIncrMax
+        | DifferentUnitGroup of MinMax
 
     let toString minToStr incrToStr maxToStr =
         function
         | MinLargerThanMax (min, max) -> $"{min |> minToStr} > {max |> maxToStr}"
         | NoValidLimitIncr incr -> incr |> incrToStr
         | DifferentUnitGroup mim ->
-            let minS, incrS, maxS =
-                mim.Min |> minToStr, mim.Incr |> incrToStr, mim.Max |> maxToStr
+            let minS, maxS =
+                mim.Min |> minToStr, mim.Max |> maxToStr
 
-            $"different unit groups in {minS}, {incrS} {maxS}"
+            $"different unit groups in {minS}, {maxS}"
 
 
 
@@ -406,13 +405,12 @@ module Limit =
 /// The min and/or max value can be inclusive or exclusive
 /// to model the difference of something being >= or >.
 /// This in turns enables ranges to be be complementary.
-module MinIncrMax =
+module MinMax =
 
     open MathNet.Numerics
     open Aether
 
     open Informedica.Utils.Lib
-    open Informedica.Utils.Lib.BCL
 
 
     module Calculator =
@@ -426,77 +424,48 @@ module MinIncrMax =
                 min |> gte <| max
 
 
-        let validate calcIncr minMultOf maxMultOf minGTmax min incr max =
-            match min, incr, max with
-            | None, None, None
-            | Some _, None, None
-            | None, None, Some _
-            | Some _, None, Some _ -> (min, incr, max) |> Ok
-            | None, Some incr, None ->
-                incr
-                |> calcIncr
-                |> Result.map (fun incr -> (min, incr |> Some, max))
-            | Some min, Some incr, None ->
-                incr
-                |> calcIncr
-                |> Result.map (fun incr -> (min |> minMultOf incr |> Some, incr |> Some, max))
-            | None, Some incr, Some max ->
-                incr
-                |> calcIncr
-                |> Result.map (fun incr -> (min, incr |> Some, max |> maxMultOf incr |> Some))
-            | Some min, Some incr, Some max ->
-                incr
-                |> calcIncr
-                |> Result.map (fun incr -> (min |> minMultOf incr |> Some, incr |> Some, max |> maxMultOf incr |> Some))
+        let validate minGTmax min max =
+            match min, max with
+            | None, None
+            | Some _, None
+            | None, Some _
+            | Some _, Some _ -> (min, max) |> Ok
             |> function
-                | Ok (Some min, incr, Some max) ->
+                | Ok (Some min, Some max) ->
                     if min |> minGTmax max then
                         (min, max) |> Errors.MinLargerThanMax |> Error
                     else
-                        (Some min, incr, Some max) |> Ok
+                        (Some min, Some max) |> Ok
                 | result -> result
 
 
-        let toString_ st ste gt gte dotsL dotsR dotsM brToStr min incr max =
-            let toStr xs =
-                xs |> Seq.map brToStr |> String.concat ","
+        let toString_ st ste gt gte dotsM brToStr min max =
 
-            match min, incr, max with
-            | None, None, None -> ""
-            | Some (minIncl, min), None, None ->
+            match min, max with
+            | None, None -> ""
+            | Some (minIncl, min), None ->
                 let gte = if minIncl then gte else gt
                 $"{gte}%s{min |> brToStr}"
-            | None, Some incr, None -> $"{dotsL}{incr |> toStr}{dotsR}"
-            | None, None, Some (maxIncl, max) ->
+            | None, Some (maxIncl, max) ->
                 let ste = if maxIncl then ste else st
                 $"{ste}%s{max |> brToStr}"
-            | Some (minIncl, min), Some incr, None ->
-                let gte = if minIncl then gte else gt
-                $"{gte}%s{min |> brToStr}{dotsL}{incr |> toStr}"
-            | None, Some incr, Some (maxIncl, max) ->
-                let ste = if maxIncl then ste else st
-                $"{incr |> toStr}{dotsR}{ste}%s{max |> brToStr}"
-            | Some (_, min), None, Some (_, max) -> $"%s{min |> brToStr}{dotsM}%s{max |> brToStr}"
-            | Some (minIncl, min), Some incr, Some (maxIncl, max) ->
-                let gte = if minIncl then gte else gt
-                let ste = if maxIncl then ste else st
-                $"{gte}%s{min |> brToStr}{dotsL}{incr |> toStr}{dotsR}{ste}%s{max |> brToStr}"
+            | Some (_, min), Some (_, max) -> $"%s{min |> brToStr}{dotsM}%s{max |> brToStr}"
 
 
-        let toString brToStr min incr max =
+        let toString brToStr min max =
             let gt, gte = ">", "\u2265"
             let st, ste = "<", "\u2264"
-            let dotsL, dotsR, dotsM = "..", "..", ".."
+            let dotsM = ".."
 
-            toString_ st ste gt gte dotsL dotsR dotsM brToStr min incr max
+            toString_ st ste gt gte dotsM brToStr min max
 
 
-        let toStringNL brToStr min incr max =
+        let toStringNL brToStr min max =
             let gt, gte = "vanaf ", "vanaf "
             let st, ste = " tot ", " tot en met "
-            let dotsL, dotsR, dotsM = " per ", "", " - "
+            let dotsM = " - "
 
-            toString_ st ste gt gte dotsL dotsR dotsM brToStr min incr max
+            toString_ st ste gt gte dotsM brToStr min max
 
 
     // ToDo use value unit operators
@@ -507,40 +476,35 @@ module MinIncrMax =
     let (>>=) l r = ValueUnit.convertTo r l
 
 
-    let create min incr max = { Min = min; Incr = incr; Max = max }
+    let create min max = { Min = min; Max = max }
 
 
-    let validate { Min = min; Incr = incr; Max = max } =
+    let validate { Min = min; Max = max } =
         let getGroup =
             Limit.getValueUnit >> ValueUnit.getGroup
 
         let validate_ =
             Calculator.validate
-                (Limit.calcLimitIncr >> Limit.validate)
-                Limit.minToMultipleOf
-                Limit.maxToMultipleOf
                 Limit.minGTmax
 
         [
             min |> Option.map getGroup
             max |> Option.map getGroup
-            incr
-            |> Option.map (Limit.getIncr >> ValueUnit.getGroup)
         ]
         |> List.choose id
         |> List.distinct
         |> List.length
         |> fun n ->
             if n > 1 then
-                { Min = min; Incr = incr; Max = max }
+                { Min = min; Max = max }
                 |> Errors.DifferentUnitGroup
                 |> Error
             else
-                validate_ min incr max
-                |> Result.map (fun (min, incr, max) -> create min incr max)
+                validate_ min max
+                |> Result.map (fun (min, max) -> create min max)
 
 
-    let empty = create None None None
+    let empty = create None None
 
 
     /// A `MinMax` range with value 1, can
@@ -552,11 +516,6 @@ module MinIncrMax =
                 1N
                 |> ValueUnit.createSingle u
                 |> Limit.inclusive
-                |> Some
-            Incr =
-                1N
-                |> ValueUnit.createSingle u
-                |> LimitIncr
                 |> Some
             Max =
                 1N
@@ -585,7 +544,7 @@ module MinIncrMax =
     /// Set the min value to `min` only
     /// when the condition `cond` appies
     /// to the `MinMax` `mm`.
-    let setMinCond cond min (mm: MinIncrMax) =
+    let setMinCond cond min (mm: MinMax) =
         match mm.Min, mm.Max with
         | Some m, Some max ->
             if cond min m |> not then
@@ -605,7 +564,7 @@ module MinIncrMax =
     /// Set the max value to `max` only
     /// when the condition `cond` applies
     /// to the `MinMax` `mm`.
-    let setMaxCond cond max (mm: MinIncrMax) =
+    let setMaxCond cond max (mm: MinMax) =
         match mm.Min, mm.Max with
         | Some min, Some m ->
             if cond max m |> not then
@@ -624,7 +583,7 @@ module MinIncrMax =
     /// Calculate the resulting `MinMax` value
     /// based on a list of `MinMax` values according
     /// to a conditioning rule `cond`.
-    let foldCond cond (mms: MinIncrMax list) =
+    let foldCond cond (mms: MinMax list) =
         let condMax m1 m2 = cond m2 m1
 
         mms
@@ -656,7 +615,7 @@ module MinIncrMax =
 
     /// Check whether a value `v` is in
     /// the range of a `MinMax` `mm`.
-    let inRange v (mm: MinIncrMax) =
+    let inRange v (mm: MinMax) =
         match mm.Min, mm.Max with
         | None, None -> true
         | Some min, None ->
@@ -687,7 +646,7 @@ module MinIncrMax =
 
     /// Perform a calculation for `Value` types
     /// of the `MinMax` values `mm1` and `mm2`.
-    let calc op (mm1: MinIncrMax) (mm2: MinIncrMax) =
+    let calc op (mm1: MinMax) (mm2: MinMax) =
         let c m1 m2 =
             match m1, m2 with
             | None, None
@@ -703,7 +662,7 @@ module MinIncrMax =
 
     /// Convert the units of the `ValueUnit` values
     /// in a `MinMax` `mm` to unit `u`.
-    let convertTo u (mm: MinIncrMax) =
+    let convertTo u (mm: MinMax) =
         let convert =
             Limit.apply (ValueUnit.convertTo u) (ValueUnit.convertTo u)
             >> Some
@@ -713,14 +672,6 @@ module MinIncrMax =
                 match mm.Min with
                 | None -> None
                 | Some v -> v |> convert
-            Incr =
-                mm.Incr
-                |> Option.map (
-                    Limit.getIncr
-                    >> (ValueUnit.convertTo u)
-                    >> LimitIncr
-                )
-
             Max =
                 match mm.Max with
                 | None -> None
@@ -731,7 +682,7 @@ module MinIncrMax =
 
     /// Set the units of the `ValueUnit` values
     /// in a `MinMax` `mm` to unit `u`.
-    let withUnit u (mm: MinIncrMax) =
+    let withUnit u (mm: MinMax) =
         let f =
             fun vu -> vu |> ValueUnit.getValue |> ValueUnit.create u
 
@@ -742,9 +693,6 @@ module MinIncrMax =
                 match mm.Min with
                 | None -> None
                 | Some v -> v |> convert
-            Incr =
-                mm.Incr
-                |> Option.map (Limit.getIncr >> f >> LimitIncr)
             Max =
                 match mm.Max with
                 | None -> None
@@ -899,7 +847,7 @@ module MinIncrMax =
                         | false -> Limit.exclusive vu
                         |> Some
 
-                    create min None None |> Some
+                    create min None |> Some
             | false, true ->
                 match dto.Max |> ValueUnit.Dto.fromDto with
                 | None -> None
@@ -910,7 +858,7 @@ module MinIncrMax =
                         | false -> Limit.exclusive vu
                         |> Some
 
-                    create None None max |> Some
+                    create None max |> Some
             | true, true ->
                 match dto.Min |> ValueUnit.Dto.fromDto, dto.Max |> ValueUnit.Dto.fromDto with
                 | None, None
@@ -925,14 +873,14 @@ module MinIncrMax =
                         | true, false -> Limit.inclusive vu1, Limit.exclusive vu2
                         | false, true -> Limit.exclusive vu1, Limit.inclusive vu2
 
-                    create (Some min) None (Some max)
+                    create (Some min) (Some max)
                     |> validate
                     |> function
                         | Ok mm -> mm |> Some
                         | Error _ -> None
 
 
-        let toDto (minmax: MinIncrMax) =
+        let toDto (minmax: MinMax) =
             let dto = dto ()
 
             match minmax.Min, minmax.Max with
@@ -1038,16 +986,16 @@ module MinIncrMax =
 type Limit with
 
 
-    static member (*)(v1, v2) = MinIncrMax.calcLimit (*) v1 v2
+    static member (*)(v1, v2) = MinMax.calcLimit (*) v1 v2
 
-    static member (/)(v1, v2) = MinIncrMax.calcLimit (/) v1 v2
+    static member (/)(v1, v2) = MinMax.calcLimit (/) v1 v2
 
 
 
 /// Extension methods for the `MinMax` type
-type MinIncrMax with
+type MinMax with
 
 
-    static member (*)(mm1, mm2) = MinIncrMax.calc (*) mm1 mm2
+    static member (*)(mm1, mm2) = MinMax.calc (*) mm1 mm2
 
-    static member (/)(mm1, mm2) = MinIncrMax.calc (/) mm1 mm2
+    static member (/)(mm1, mm2) = MinMax.calc (/) mm1 mm2

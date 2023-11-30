@@ -128,7 +128,7 @@ let checkDoseLimit (range: Informedica.ZForm.Lib.Types.DoseRange) tur (dl : Dose
 
             range.NormWeight
             |> fst
-            |> Informedica.GenCore.Lib.Ranges.MinIncrMax.inRange vu
+            |> Informedica.GenCore.Lib.Ranges.MinMax.inRange vu
             |> fun b ->
             if not b then
                 let vu2 =
@@ -147,7 +147,7 @@ let checkDoseLimit (range: Informedica.ZForm.Lib.Types.DoseRange) tur (dl : Dose
             &&
             (range.AbsWeight
             |> fst
-            |> Informedica.GenCore.Lib.Ranges.MinIncrMax.inRange vu)
+            |> Informedica.GenCore.Lib.Ranges.MinMax.inRange vu)
 
 
 let checkFrequency

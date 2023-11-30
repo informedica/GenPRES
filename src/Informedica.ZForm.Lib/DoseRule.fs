@@ -72,16 +72,16 @@ module DoseRule =
 
         /// An empty Weight MinMax.
         let emptyWeight =
-            MinIncrMax.empty, NoUnit
+            MinMax.empty, NoUnit
 
 
         /// An empty BSA MinMax.
-        let emptyBSA = MinIncrMax.empty, NoUnit
+        let emptyBSA = MinMax.empty, NoUnit
 
 
         /// An empty DoseRange.
         let empty =
-            create MinIncrMax.empty emptyWeight emptyBSA MinIncrMax.empty emptyWeight emptyBSA
+            create MinMax.empty emptyWeight emptyBSA MinMax.empty emptyWeight emptyBSA
 
 
         /// <summary>
@@ -91,13 +91,13 @@ module DoseRule =
         /// <param name="vu">The ValueUnit to create the DoseRange</param>
         let count vu =
             let setMinIncl =
-                Optic.set MinIncrMax.Optics.inclMinLens
+                Optic.set MinMax.Optics.inclMinLens
 
             let setMaxIncl =
-                Optic.set MinIncrMax.Optics.inclMaxLens
+                Optic.set MinMax.Optics.inclMaxLens
 
             let mm =
-                MinIncrMax.empty
+                MinMax.empty
                 |> setMinIncl (Some vu)
                 |> setMaxIncl (Some vu)
 
@@ -144,19 +144,19 @@ module DoseRule =
         let convertTo u (dr: DoseRange) =
 
             { dr with
-                Norm = dr.Norm |> MinIncrMax.convertTo u
-                NormWeight = dr.NormWeight |> fst |> MinIncrMax.convertTo u, dr.NormWeight |> snd
-                NormBSA = dr.NormBSA |> fst |> MinIncrMax.convertTo u, dr.NormBSA |> snd
-                Abs = dr.Abs |> MinIncrMax.convertTo u
-                AbsWeight = dr.AbsWeight |> fst |> MinIncrMax.convertTo u, dr.AbsWeight |> snd
-                AbsBSA = dr.AbsBSA |> fst |> MinIncrMax.convertTo u, dr.AbsBSA |> snd
+                Norm = dr.Norm |> MinMax.convertTo u
+                NormWeight = dr.NormWeight |> fst |> MinMax.convertTo u, dr.NormWeight |> snd
+                NormBSA = dr.NormBSA |> fst |> MinMax.convertTo u, dr.NormBSA |> snd
+                Abs = dr.Abs |> MinMax.convertTo u
+                AbsWeight = dr.AbsWeight |> fst |> MinMax.convertTo u, dr.AbsWeight |> snd
+                AbsBSA = dr.AbsBSA |> fst |> MinMax.convertTo u, dr.AbsBSA |> snd
             }
 
 
 
         module Optics =
 
-            module MinMax = MinIncrMax.Optics
+            module MinMax = MinMax.Optics
 
             let inclMinNormLens =
                 DoseRange.Norm_ >-> MinMax.inclMinLens
@@ -328,12 +328,12 @@ module DoseRule =
 
             let optRate mm =
                 match ru with
-                | Some u -> mm / (u |> MinIncrMax.one)
+                | Some u -> mm / (u |> MinMax.one)
                 | None -> mm
 
             let norm, abs =
                 if norm = abs then
-                    MinIncrMax.empty, abs |> optRate
+                    MinMax.empty, abs |> optRate
                 else
                     norm |> optRate, abs |> optRate
 
@@ -344,18 +344,18 @@ module DoseRule =
 
             let nw, aw =
                 if nw = aw then
-                    MinIncrMax.empty, aw / (auw |> MinIncrMax.one) |> optRate
+                    MinMax.empty, aw / (auw |> MinMax.one) |> optRate
                 else
-                    nw / (nuw |> MinIncrMax.one) |> optRate, aw / (auw |> MinIncrMax.one) |> optRate
+                    nw / (nuw |> MinMax.one) |> optRate, aw / (auw |> MinMax.one) |> optRate
 
             let nb, ab =
                 if nb = ab then
-                    MinIncrMax.empty, ab / (aub |> MinIncrMax.one) |> optRate
+                    MinMax.empty, ab / (aub |> MinMax.one) |> optRate
                 else
-                    nb / (nub |> MinIncrMax.one) |> optRate, ab / (aub |> MinIncrMax.one) |> optRate
+                    nb / (nub |> MinMax.one) |> optRate, ab / (aub |> MinMax.one) |> optRate
 
             let mmToStr =
-                MinIncrMax.toString "van " "van " "tot " "tot "
+                MinMax.toString "van " "van " "tot " "tot "
 
             norm |> mmToStr
             >+ (nw |> mmToStr)
@@ -392,15 +392,15 @@ module DoseRule =
         module Dto =
 
             type Dto() =
-                member val Norm = MinIncrMax.Dto.dto () with get, set
-                member val NormWeight = MinIncrMax.Dto.dto () with get, set
+                member val Norm = MinMax.Dto.dto () with get, set
+                member val NormWeight = MinMax.Dto.dto () with get, set
                 member val NormWeightUnit = "" with get, set
-                member val NormBSA = MinIncrMax.Dto.dto () with get, set
+                member val NormBSA = MinMax.Dto.dto () with get, set
                 member val NormBSAUnit = ""
-                member val Abs = MinIncrMax.Dto.dto () with get, set
-                member val AbsWeight = MinIncrMax.Dto.dto () with get, set
+                member val Abs = MinMax.Dto.dto () with get, set
+                member val AbsWeight = MinMax.Dto.dto () with get, set
                 member val AbsWeightUnit = "" with get, set
-                member val AbsBSA = MinIncrMax.Dto.dto () with get, set
+                member val AbsBSA = MinMax.Dto.dto () with get, set
                 member val AbsBSAUnit = "" with get, set
 
             let dto () = Dto()
@@ -411,14 +411,14 @@ module DoseRule =
                 let unstr =
                     snd >> ValueUnit.unitToReadableDutchString
 
-                dto.Norm <- dr.Norm |> MinIncrMax.Dto.toDto
-                dto.NormWeight <- dr.NormWeight |> fst |> MinIncrMax.Dto.toDto
+                dto.Norm <- dr.Norm |> MinMax.Dto.toDto
+                dto.NormWeight <- dr.NormWeight |> fst |> MinMax.Dto.toDto
                 dto.NormWeightUnit <- dr.NormWeight |> unstr
-                dto.NormBSA <- dr.NormBSA |> fst |> MinIncrMax.Dto.toDto
-                dto.Abs <- dr.Abs |> MinIncrMax.Dto.toDto
-                dto.AbsWeight <- dr.AbsWeight |> fst |> MinIncrMax.Dto.toDto
+                dto.NormBSA <- dr.NormBSA |> fst |> MinMax.Dto.toDto
+                dto.Abs <- dr.Abs |> MinMax.Dto.toDto
+                dto.AbsWeight <- dr.AbsWeight |> fst |> MinMax.Dto.toDto
                 dto.AbsWeightUnit <- dr.AbsWeight |> unstr
-                dto.AbsBSA <- dr.AbsBSA |> fst |> MinIncrMax.Dto.toDto
+                dto.AbsBSA <- dr.AbsBSA |> fst |> MinMax.Dto.toDto
                 dto.AbsBSAUnit <- dr.AbsBSA |> unstr
 
                 dto
@@ -437,19 +437,19 @@ module DoseRule =
                         match $"%s{u}[%s{g}]" |> Units.fromString with
                         | None -> o
                         | Some u ->
-                            match mm |> MinIncrMax.Dto.fromDto with
+                            match mm |> MinMax.Dto.fromDto with
                             | Some mm -> (mm, u)
                             | None -> o
 
                 { empty with
-                    Norm = dto.Norm |> set MinIncrMax.Dto.fromDto empty.Norm
+                    Norm = dto.Norm |> set MinMax.Dto.fromDto empty.Norm
                     NormWeight =
                         dto.NormWeight
                         |> setug dto.NormWeightUnit "weight" empty.NormWeight
                     NormBSA =
                         dto.NormBSA
                         |> setug dto.NormBSAUnit "bsa" empty.NormBSA
-                    Abs = dto.Abs |> set MinIncrMax.Dto.fromDto empty.Abs
+                    Abs = dto.Abs |> set MinMax.Dto.fromDto empty.Abs
                     AbsWeight =
                         dto.AbsWeight
                         |> setug dto.AbsWeightUnit "weight" empty.AbsWeight

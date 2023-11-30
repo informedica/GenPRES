@@ -5,7 +5,7 @@ namespace Informedica.ZForm.Lib
 module Utils =
 
 
-    module MinIncrMax =
+    module MinMax =
 
         open MathNet.Numerics
 
@@ -15,7 +15,7 @@ module Utils =
 
         /// Print a MinIncrMax value as an age string.
         let ageToString minIncrMax =
-            let { Min = min; Incr = _; Max = max } = minIncrMax
+            let { Min = min; Max = max } = minIncrMax
 
             let oneWk = 1N |> ValueUnit.createSingle Units.Time.week
             let oneMo = 1N |> ValueUnit.createSingle Units.Time.month
@@ -30,18 +30,18 @@ module Utils =
                     | _ -> vu ==> Units.Time.year
                 Option.bind (Limit.apply c c >> Some)
 
-            { Min = min |> convert; Incr = None; Max = max |> convert } |> MinIncrMax.toString "van " "van " "tot " "tot "
+            { Min = min |> convert; Max = max |> convert } |> MinMax.toString "van " "van " "tot " "tot "
 
 
         /// Print a MinIncrMax value as a gestational age string.
         let gestAgeToString minIncrMax =
-            let { Min = min; Incr = _; Max = max } = minIncrMax
+            let { Min = min; Max = max } = minIncrMax
 
             let convert =
                 let c vu = vu ==> Units.Time.week
                 Option.bind (Limit.apply c c >> Some)
 
-            { Min = min |> convert; Incr = None;  Max = max |> convert } |> MinIncrMax.toString "van " "van " "tot " "tot "
+            { Min = min |> convert; Max = max |> convert } |> MinMax.toString "van " "van " "tot " "tot "
 
 
 

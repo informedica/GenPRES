@@ -199,30 +199,9 @@ module Tests =
 
 
 
+    module MinMaxTests =
 
-
-    module MinIncrMaxTests =
-
-        module Calculator = MinIncrMax.Calculator
-
-        let maxMultipleOf incr min =
-            let b, br = min
-
-            if b then
-                br |> BigRational.maxInclMultipleOf incr
-            else
-                br |> BigRational.maxExclMultipleOf incr
-            |> fun br -> (true, br)
-
-
-        let minMultipleOf incr min =
-            let b, br = min
-
-            if b then
-                br |> BigRational.minInclMultipleOf incr
-            else
-                br |> BigRational.minExclMultipleOf incr
-            |> fun br -> (true, br)
+        module Calculator = MinMax.Calculator
 
 
         let minGTmax (maxIncl, max) (minIncl, min) =
@@ -231,29 +210,14 @@ module Tests =
             else
                 min >= max
 
-
-        let calcIncrement brs =
-            brs
-            |> Set.filter ((<) 0N)
-            |> Set.removeBigRationalMultiples
-            |> fun brs1 ->
-                if brs1 |> Set.isEmpty then
-                    $"No valid increments {brs}"
-                    |> Errors.NoValidLimitIncr
-                    |> Error
-                else
-                    brs1 |> Ok
-
-        let validate =
-            Calculator.validate calcIncrement minMultipleOf maxMultipleOf minGTmax
-
-
+        let validate (min : (bool * BigRational) option) max =
+            Calculator.validate minGTmax min max
 
         let tests =
             testList
-                "MinIncrMax.validate"
+                "MinMaxTests.validate2"
                 [
-                    fun min incr max ->
+                    fun min max ->
                         let min =
                             min
                             |> Option.map (fun (minIncl, min) -> minIncl, min |> BigRational.fromInt)
@@ -262,19 +226,16 @@ module Tests =
                             max
                             |> Option.map (fun (maxIncl, max) -> maxIncl, max |> BigRational.fromInt)
 
-                        let incr =
-                            incr |> Set.map BigRational.fromInt |> Some
-
                         try
-                            validate min incr max
+                            validate min max
                             |> function
                                 | Error _ -> ()
-                                | Ok (min, incr, max) ->
+                                | Ok (min, max) ->
                                     let toBrStr =
                                         BigRational.toFloat
                                         >> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 3
 
-                                    Calculator.toString toBrStr min incr max |> ignore //printfn "Pass: %s"
+                                    Calculator.toString toBrStr min max |> ignore //printfn "Pass: %s"
 
                             true
                         with
@@ -282,7 +243,7 @@ module Tests =
                     |> Generators.testProp "with simple integers never throws an exception"
 
 
-                    fun min incr max ->
+                    fun min max ->
                         let min =
                             min
                             |> Option.map (fun (minIncl, min) -> minIncl, min |> BigRational.fromInt)
@@ -291,19 +252,16 @@ module Tests =
                             max
                             |> Option.map (fun (maxIncl, max) -> maxIncl, max |> BigRational.fromInt)
 
-                        let incr =
-                            incr |> Set.map BigRational.fromInt |> Some
-
                         try
-                            validate min incr max
+                            validate min max
                             |> function
                                 | Error _ -> ()
-                                | Ok (min, incr, max) ->
+                                | Ok (min, max) ->
                                     let toBrStr =
                                         BigRational.toFloat
                                         >> Double.toStringNumberNLWithoutTrailingZerosFixPrecision 3
 
-                                    Calculator.toStringNL toBrStr min incr max
+                                    Calculator.toStringNL toBrStr min max
                                     |> ignore // printfn "Pass: %s"
 
                             true
@@ -321,10 +279,10 @@ module Tests =
                     |> Generators.testProp "never throws an exception"
 
 
-                    fun min incr max ->
-                        validate min incr max
+                    fun min max ->
+                        validate min max
                         |> function
-                            | Ok (Some min, _, Some max) ->
+                            | Ok (Some min, Some max) ->
                                 let min = min |> snd
                                 let max = max |> snd
                                 min <= max
@@ -334,12 +292,12 @@ module Tests =
 
 
 
-    module MinMaxTests =
+    module MinMaxTests2 =
 
-        module MinMax = MinIncrMax.Optics
+        module MinMax = MinMax.Optics
 
         let mmToStr =
-            MinIncrMax.toString "van (incl) " "van (incl) " "tot (incl) " "tot (excl) "
+            MinMax.toString "van (incl) " "van (incl) " "tot (incl) " "tot (excl) "
 
 
         let createValueUnit (d: decimal) u =
@@ -370,7 +328,7 @@ module Tests =
 
 
         let toString () =
-            MinIncrMax.empty
+            MinMax.empty
             |> MinMax.setMin (
                 createValueUnit 1.m "mg[Mass]"
                 |> Option.get
@@ -403,7 +361,7 @@ module Tests =
 
 
         let ageRange =
-            MinIncrMax.empty
+            MinMax.empty
             |> MinMax.setMin ageInclOneMo
             |> MinMax.setMax ageExclOneYr
 
@@ -449,39 +407,39 @@ module Tests =
         let testFold () =
             let mms =
                 [
-                    MinIncrMax.empty
-                    MinIncrMax.empty |> MinMax.setMin mgIncl10
-                    MinIncrMax.empty |> MinMax.setMin mgIncl20
-                    MinIncrMax.empty |> MinMax.setMax mgIncl30
-                    MinIncrMax.empty |> MinMax.setMax mgIncl40
-                    MinIncrMax.empty
+                    MinMax.empty
+                    MinMax.empty |> MinMax.setMin mgIncl10
+                    MinMax.empty |> MinMax.setMin mgIncl20
+                    MinMax.empty |> MinMax.setMax mgIncl30
+                    MinMax.empty |> MinMax.setMax mgIncl40
+                    MinMax.empty
                     |> MinMax.setMin mgIncl10
                     |> MinMax.setMax mgIncl30
-                    MinIncrMax.empty
+                    MinMax.empty
                     |> MinMax.setMin mgIncl20
                     |> MinMax.setMax mgIncl30
-                    MinIncrMax.empty
+                    MinMax.empty
                     |> MinMax.setMin mgIncl30
                     |> MinMax.setMax mgIncl30
-                    MinIncrMax.empty
+                    MinMax.empty
                     |> MinMax.setMin mgIncl40
                     |> MinMax.setMax mgIncl40
                 ]
 
-            mms |> MinIncrMax.foldMaximize |> mmToStr, mms |> MinIncrMax.foldMinimize |> mmToStr
+            mms |> MinMax.foldMaximize |> mmToStr, mms |> MinMax.foldMinimize |> mmToStr
 
 
         let inRange =
-            let mm1 = MinIncrMax.empty
+            let mm1 = MinMax.empty
 
             let mm2 =
-                MinIncrMax.empty |> MinMax.setMin mgIncl10
+                MinMax.empty |> MinMax.setMin mgIncl10
 
             let mm3 =
-                MinIncrMax.empty |> MinMax.setMax mgIncl40
+                MinMax.empty |> MinMax.setMax mgIncl40
 
             let mm4 =
-                MinIncrMax.empty
+                MinMax.empty
                 |> MinMax.setMin mgIncl20
                 |> MinMax.setMax mgIncl30
 
@@ -507,9 +465,7 @@ module Tests =
 
 
         let tests =
-            testList
-                "MinMax"
-                [
+            testList "MinMax2" [
                     test "minGTmax" {
                         mgIncl20
                         |> Limit.minGTmax mgIncl10
@@ -526,7 +482,7 @@ module Tests =
                         [
                             test "cannot set have limits with different unit groups" {
                                 { ageRange with Max = Some mgIncl10 }
-                                |> MinIncrMax.validate
+                                |> MinMax.validate
                                 |> function
                                     | Ok mm ->
                                         false
@@ -559,8 +515,8 @@ module Tests =
                         [
                             for v, mm, b in inRange do
                                 test
-                                    $"%s{v |> ValueUnit.toStringDecimalDutchShortWithPrec 0} in range: %s{mm |> mmToStr} = %A{MinIncrMax.inRange v mm}" {
-                                    MinIncrMax.inRange v mm
+                                    $"%s{v |> ValueUnit.toStringDecimalDutchShortWithPrec 0} in range: %s{mm |> mmToStr} = %A{MinMax.inRange v mm}" {
+                                    MinMax.inRange v mm
                                     |> Expect.equal $"should be {b}" b
                                 }
                         ]
@@ -569,29 +525,28 @@ module Tests =
 
         module DtoTests =
 
-            module Dto = MinIncrMax.Dto
+            module Dto = MinMax.Dto
 
             let dto () = Dto.dto ()
-
 
 
             let tests =
                 testList
                     "Dto"
                     [
-                        test "MinIncrMax from Dto is the same as empty" {
+                        test "MinMax from Dto is the same as empty" {
                             dto ()
                             |> Dto.fromDto
                             |> function
                                 | Some mm ->
                                     mm
-                                    |> Expect.equal "should be an empty mm" MinIncrMax.empty
+                                    |> Expect.equal "should be an empty mm" MinMax.empty
                                 | None ->
                                     false
                                     |> Expect.isTrue "could not create an empty dto"
                         }
 
-                        test "MinIncrMax dto setting min and max" {
+                        test "MinMax dto setting min and max" {
                             // Add min and max to dto and there and back again
                             let dto = dto ()
                             dto.Min.Value <- [| $"{1N}", 1m |]
@@ -613,7 +568,7 @@ module Tests =
                                 | None -> false |> Expect.isTrue "cannot set min and max"
                         }
 
-                        test "MinIncrMax that is not valid will not return from dto" {
+                        test "MinMax that is not valid will not return from dto" {
                             let dto = dto ()
 
                             dto.Min.Value <- [| $"{1N}", 1m |]
@@ -752,8 +707,8 @@ module Tests =
                         }
                     ]
 
-        module AgeTests =
 
+        module AgeTests =
 
 
             let tests =
@@ -834,8 +789,6 @@ module Tests =
                     ]
 
         module BirthDateTests =
-            open FsCheck
-
 
             let intGenerator s n = Gen.sample s n Arb.generate<int>
 
@@ -1115,9 +1068,9 @@ module Tests =
 
         [
             CalculationTests.tests
-            MinIncrMaxTests.tests
             MinMaxTests.tests
-            MinMaxTests.DtoTests.tests
+            MinMaxTests2.tests
+            MinMaxTests2.DtoTests.tests
             PatientTests.AgeTests.tests
             PatientTests.BirthDateTests.tests
             PatientTests.WeightTests.tests
