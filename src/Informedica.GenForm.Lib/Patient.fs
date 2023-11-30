@@ -110,7 +110,7 @@ module PatientCategory =
                         |> MinMax.isBetween p.GestAge
                     fun (p: PatientCategory) ->
                         // defaults to normal postmenstrual age
-                        filter.PMAge
+                        filter.PMAgeInDays
                         |> Option.defaultValue 259N
                         |> Some
                         |> MinMax.isBetween p.PMAge

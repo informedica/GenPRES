@@ -18,7 +18,7 @@ module Filter =
             WeightInGram = None
             HeightInCm = None
             GestAgeInDays = None
-            PMAge = None
+            PMAgeInDays = None
             DoseType = AnyDoseType
             Location = AnyAccess
         }
@@ -43,7 +43,7 @@ module Filter =
             WeightInGram = pat.WeightInGram
             HeightInCm = pat.HeightInCm
             GestAgeInDays = pat.GestAgeInDays
-            PMAge = pat.PMAgeInDays
+            PMAgeInDays = pat.PMAgeInDays
             Location = pat.VenousAccess
         }
 
@@ -62,14 +62,14 @@ module Filter =
             WeightInGram = filter.WeightInGram
             HeightInCm = filter.HeightInCm
             GestAgeInDays = filter.GestAgeInDays
-            PMAgeInDays = filter.PMAge
+            PMAgeInDays = filter.PMAgeInDays
             VenousAccess = filter.Location
         }
 
 
     let calcPMAge (filter : Filter) =
         { filter with
-            PMAge =
+            PMAgeInDays =
                 filter
                 |> getPatient
                 |> Patient.calcPMAge

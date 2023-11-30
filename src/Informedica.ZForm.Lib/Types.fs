@@ -50,8 +50,6 @@ module Types =
     and Gender = Male | Female | Undetermined
 
 
-
-
     /// Dose range limits
     type DoseRange =
         {
@@ -147,8 +145,11 @@ module Types =
     /// The frequencies of a TotalDosage
     and Frequency =
         {
+            /// The list of possible frequencies
             Frequencies : Frequencies
+            /// The TimeUnit to use for the frequencies
             TimeUnit : TimeUnit
+            /// The minimal interval between frequencies
             MinimalInterval : ValueUnit Option
         }
         static member Frequencies_ :

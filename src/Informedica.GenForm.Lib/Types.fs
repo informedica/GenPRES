@@ -385,7 +385,7 @@ module Types =
             /// The Gestational Age in days to filter on
             GestAgeInDays : BigRational option
             /// The Post Menstrual Age in days to filter on
-            PMAge : BigRational option
+            PMAgeInDays : BigRational option
             /// The DoseType to filter on
             DoseType : DoseType
             /// The Venous Access Location to filter on
