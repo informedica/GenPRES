@@ -1727,6 +1727,107 @@ module Units =
         app u
 
 
+    /// <summary>
+    /// Check whether unit u1 equals unit u2
+    /// irrespective of the unit value
+    /// </summary>
+    /// <param name="u1">The first unit</param>
+    /// <param name="u2">The second unit</param>
+    let eqsUnit u1 u2 =
+        match u1, u2 with
+        | NoUnit, NoUnit -> true
+        | NoUnit, _ 
+        | _, NoUnit -> false
+        | ZeroUnit, ZeroUnit -> true
+        | ZeroUnit, _
+        | _, ZeroUnit -> false
+        | General (n1, v1), General (n2, v2) ->
+            n1 = n2 && v1 = v2
+        | General _, _
+        | _, General _ -> false
+        | Count g1, Count g2 ->
+            match g1, g2 with
+            | Times _, Times _ -> true
+        | Count _, _
+        | _, Count _ -> false
+        | Distance d1, Distance d2 ->
+            match d1, d2 with
+            | Meter _, Meter _
+            | CentiMeter _, CentiMeter _
+            | MilliMeter _, MilliMeter _ -> true
+            | _ -> false
+        | Distance _, _
+        | _, Distance _ -> false
+        | Volume g1, Volume g2 ->
+            match g1, g2 with
+            | Liter _, Liter _
+            | DeciLiter _, DeciLiter _
+            | MilliLiter _, MilliLiter _
+            | MicroLiter _, MicroLiter _
+            | Droplet _, Droplet _ -> true
+            | _ -> false
+        | Volume _, _
+        | _, Volume _ -> false
+        | Mass g1, Mass g2 ->
+            match g1, g2 with
+            | KiloGram _, KiloGram _
+            | Gram _, Gram _
+            | MilliGram _, MilliGram _
+            | MicroGram _, MicroGram _
+            | NanoGram _, NanoGram _ -> true
+            | _ -> false
+        | Mass _, _
+        | _, Mass _ -> false
+        | Time g1, Time g2 ->
+            match g1, g2 with
+            | Year _, Year _
+            | Month _, Month _
+            | Week _, Week _
+            | Day _, Day _
+            | Hour _, Hour _
+            | Minute _, Minute _
+            | Second _, Second _ -> true
+            | _ -> false
+        | Time _, _
+        | _, Time _ -> false
+        | Molar g1, Molar g2 ->
+            match g1, g2 with
+            | Mole _, Mole _
+            | MilliMole _, MilliMole _
+            | MicroMole _, MicroMole _ -> true
+            | _ -> false
+        | Molar _, _
+        | _, Molar _ -> false
+        | International g1, International g2 ->
+            match g1, g2 with
+            | MIU _, MIU _
+            | IU _, IU _
+            | MilliIU _, MilliIU _ -> true
+            | _ -> false
+        | International _, _
+        | _, International _ -> false
+        | Weight g1, Weight g2 ->
+            match g1, g2 with
+            | WeightKiloGram _, WeightKiloGram _
+            | WeightGram _, WeightGram _ -> true
+            | _ -> false
+        | Weight _, _
+        | _, Weight _ -> false
+        | Height g1, Height g2 ->
+            match g1, g2 with
+            | HeightMeter _, HeightMeter _
+            | HeightCentiMeter _, HeightCentiMeter _ -> true
+            | _ -> false
+        | Height _, _
+        | _, Height _ -> false
+        | BSA g1, BSA g2 ->
+            match g1, g2 with
+            | M2 _, M2 _ -> true
+        | BSA _, _
+        | _, BSA _ -> false
+        | CombiUnit (ul1, op1, ur1), CombiUnit (ul2, op2, ur2) ->
+            op1 = op2 && eqsUnit ul1 ul2 && eqsUnit ur1 ur2
+
 
 module ValueUnit =
 

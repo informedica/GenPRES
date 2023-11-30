@@ -613,7 +613,6 @@ module Mapping =
             eqsRte && eqsShp && eqsUnt
         )
 
-    (*
 
     let private requires_ (rtes, unt, shape) =
         rtes
@@ -628,6 +627,7 @@ module Mapping =
     let requiresReconstitution =
         Memoization.memoize requires_
 
+    (*
     *)
 
 
