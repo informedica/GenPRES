@@ -155,7 +155,7 @@ module Parser =
     /// </example>
     let setUnitValue u v =
         u
-        |> ValueUnit.apply (fun _ -> v)
+        |> apply (fun _ -> v)
 
 
     /// <summary>
@@ -1562,35 +1562,6 @@ module Units =
 
 
 
-module ValueUnit =
-
-
-    //----------------------------------------------------------------------------
-    // Operator String functions
-    //----------------------------------------------------------------------------
-
-
-    /// Transforms an operator to a string
-    let opToStr op =
-        match op with
-        | OpPer   -> "/"
-        | OpTimes -> "*"
-        | OpPlus  -> "+"
-        | OpMinus -> "-"
-
-
-    /// Transforms an operator to a string
-    /// (*, /, +, -), throws an error if
-    /// no match
-    let opFromString s =
-        match s with
-        | _ when s = "/" -> OpPer
-        | _ when s = "*" -> OpPer
-        | _ when s = "+" -> OpPer
-        | _ when s = "-" -> OpPer
-        | _ -> failwith <| $"Cannot parse %s{s} to operand"
-
-
     //----------------------------------------------------------------------------
     // Apply and Map
     //----------------------------------------------------------------------------
@@ -1754,6 +1725,36 @@ module ValueUnit =
             | CombiUnit _ -> None
 
         app u
+
+
+
+module ValueUnit =
+
+
+    //----------------------------------------------------------------------------
+    // Operator String functions
+    //----------------------------------------------------------------------------
+
+
+    /// Transforms an operator to a string
+    let opToStr op =
+        match op with
+        | OpPer   -> "/"
+        | OpTimes -> "*"
+        | OpPlus  -> "+"
+        | OpMinus -> "-"
+
+
+    /// Transforms an operator to a string
+    /// (*, /, +, -), throws an error if
+    /// no match
+    let opFromString s =
+        match s with
+        | _ when s = "/" -> OpPer
+        | _ when s = "*" -> OpPer
+        | _ when s = "+" -> OpPer
+        | _ when s = "-" -> OpPer
+        | _ -> failwith <| $"Cannot parse %s{s} to operand"
 
 
     module Group =
@@ -2244,18 +2245,18 @@ module ValueUnit =
                 // this is not enough when u2 is combiunit but
                 // contains u1!
                 | _ when u1 |> Group.eqsGroup u2 ->
-                    let n1 = (u1 |> getUnitValue)
-                    let n2 = (u2 |> getUnitValue)
+                    let n1 = (u1 |> Units.getUnitValue)
+                    let n2 = (u2 |> Units.getUnitValue)
 
                     match n1, n2 with
-                    | Some x1, Some x2 -> count |> setUnitValue (x1 / x2)
+                    | Some x1, Some x2 -> count |> Units.setUnitValue (x1 / x2)
                     | _ -> count
                 | _ when u2 |> Group.eqsGroup count ->
-                    let n1 = u1 |> getUnitValue
-                    let n2 = u2 |> getUnitValue
+                    let n1 = u1 |> Units.getUnitValue
+                    let n2 = u2 |> Units.getUnitValue
 
                     match n1, n2 with
-                    | Some x1, Some x2 -> u1 |> setUnitValue (x1 / x2)
+                    | Some x1, Some x2 -> u1 |> Units.setUnitValue (x1 / x2)
                     | _ -> u1
                 | _ -> (u1, OpPer, u2) |> CombiUnit
             | OpTimes ->
@@ -2266,25 +2267,25 @@ module ValueUnit =
                     u1 |> Group.eqsGroup count
                     && u2 |> Group.eqsGroup count
                     ->
-                    let n1 = u1 |> getUnitValue
-                    let n2 = u2 |> getUnitValue
+                    let n1 = u1 |> Units.getUnitValue
+                    let n2 = u2 |> Units.getUnitValue
 
                     match n1, n2 with
-                    | Some x1, Some x2 -> u1 |> setUnitValue (x1 * x2)
+                    | Some x1, Some x2 -> u1 |> Units.setUnitValue (x1 * x2)
                     | _ -> u1
                 | _ when u1 |> Group.eqsGroup count ->
-                    let n1 = u1 |> getUnitValue
-                    let n2 = u2 |> getUnitValue
+                    let n1 = u1 |> Units.getUnitValue
+                    let n2 = u2 |> Units.getUnitValue
 
                     match n1, n2 with
-                    | Some x1, Some x2 -> u2 |> setUnitValue (x1 * x2)
+                    | Some x1, Some x2 -> u2 |> Units.setUnitValue (x1 * x2)
                     | _ -> u2
                 | _ when u2 |> Group.eqsGroup count ->
-                    let n1 = u1 |> getUnitValue
-                    let n2 = u2 |> getUnitValue
+                    let n1 = u1 |> Units.getUnitValue
+                    let n2 = u2 |> Units.getUnitValue
 
                     match n1, n2 with
-                    | Some x1, Some x2 -> u1 |> setUnitValue (x1 * x2)
+                    | Some x1, Some x2 -> u1 |> Units.setUnitValue (x1 * x2)
                     | _ -> u1
                 | _ ->
                     // In physics, multiplying quantities with different units, like mass and volume,
@@ -2308,11 +2309,11 @@ module ValueUnit =
                 | ZeroUnit, u
                 | u, ZeroUnit -> u
                 | _ when u1 |> Group.eqsGroup u2 ->
-                    let n1 = u1 |> getUnitValue
-                    let n2 = u2 |> getUnitValue
+                    let n1 = u1 |> Units.getUnitValue
+                    let n2 = u2 |> Units.getUnitValue
 
                     match n1, n2 with
-                    | Some x1, Some x2 -> u1 |> setUnitValue (x1 + x2)
+                    | Some x1, Some x2 -> u1 |> Units.setUnitValue (x1 + x2)
                     | _ -> u1
                 | _ ->
                     failwith <| $"Cannot combine units {u1} and {u2} with operator {op}"
