@@ -1736,7 +1736,7 @@ module Units =
     let eqsUnit u1 u2 =
         match u1, u2 with
         | NoUnit, NoUnit -> true
-        | NoUnit, _ 
+        | NoUnit, _
         | _, NoUnit -> false
         | ZeroUnit, ZeroUnit -> true
         | ZeroUnit, _
