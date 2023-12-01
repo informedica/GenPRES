@@ -488,6 +488,41 @@ module Utils =
             |> ValueUnit.singleWithUnit Units.BSA.m2
 
 
+    module Units =
+
+        open Informedica.GenUnits.Lib
+
+        let week = Units.Time.week
+
+        let day = Units.Time.day
+
+        let weightGram = Units.Weight.gram
+
+        let heightCm = Units.Height.centiMeter
+
+        let bsaM2 = Units.BSA.m2
+
+        let timeUnit s =
+            if s |> String.isNullOrWhiteSpace then None
+            else
+                $"{s}[Time]" |> Units.fromString
+
+        let freqUnit s =
+            if s |> String.isNullOrWhiteSpace then None
+            else
+                $"times[Count]/{s}[Time]" |> Units.fromString
+
+        let adjustUnit s =
+            match s with
+            | _ when s |> String.equalsCapInsens "kg" -> Units.Weight.kiloGram |> Some
+            | _ when s |> String.equalsCapInsens "m2" -> bsaM2 |> Some
+            | _ -> None
+
+
+        let mL = Units.Volume.milliLiter
+
+
+
     module ValueUnit =
 
         open MathNet.Numerics
@@ -496,9 +531,21 @@ module Utils =
 
         /// The full term age for a neonate
         /// which is 37 weeks
-        let ageFullTerm =
-            37N
-            |> ValueUnit.singleWithUnit Units.Time.week
+        let ageFullTerm = 37N |> ValueUnit.singleWithUnit Units.Time.week
+
+
+        let withOptionalUnit u v =
+            match v, u with
+            | Some v, Some u ->
+                v
+                |> ValueUnit.singleWithUnit u
+                |> Some
+            | _ -> None
+
+
+        let toString prec vu =
+            ValueUnit.toStringDecimalDutchShortWithPrec prec vu
+            |> String.replace ";" ", "
 
 
     module MinMax =
@@ -507,7 +554,7 @@ module Utils =
         open Informedica.GenCore.Lib.Ranges
 
         let fromTuple u (min, max) =
-            match u |> Units.fromString with
+            match u with
             | None -> MinMax.empty
             | Some u ->
                 {
@@ -520,6 +567,27 @@ module Utils =
                         |> Option.map (ValueUnit.singleWithUnit u)
                         |> Option.map Inclusive
                 }
+
+
+        let inRange minMax vu =
+            vu
+            |> Option.map (fun v ->
+                minMax |> MinMax.inRange v
+            )
+            |> Option.defaultValue true
+
+
+
+module VenousAccess =
+
+
+    let check location venousAccess =
+        match location, venousAccess with
+        | AnyAccess, xs
+        | _, xs when xs |> List.isEmpty  -> true
+        | _ ->
+            venousAccess
+            |> List.exists ((=) location)
 
 
 module Mapping =
@@ -764,13 +832,6 @@ module PatientCategory =
             | _, None -> true
             | Some a, Some b -> a = b
 
-        let inRange mm v =
-            v
-            |> Option.map (fun v ->
-                mm |> MinMax.inRange v
-            )
-            |> Option.defaultValue true
-
         ([| patCat |]
         |> Array.filter (fun p ->
             if filter.Patient.Diagnoses |> Array.isEmpty then true
@@ -783,15 +844,15 @@ module PatientCategory =
         ),
         [|
             fun (p: PatientCategory) -> filter.Patient.Department |> eqs p.Department
-            fun (p: PatientCategory) -> filter.Patient.Age |> inRange p.Age
-            fun (p: PatientCategory) -> filter.Patient.Weight |> inRange p.Weight
+            fun (p: PatientCategory) -> filter.Patient.Age |> Utils.MinMax.inRange p.Age
+            fun (p: PatientCategory) -> filter.Patient.Weight |> Utils.MinMax.inRange p.Weight
             fun (p: PatientCategory) ->
                 match filter.Patient.Weight, filter.Patient.Height with
                 | Some w, Some h ->
                     Utils.Calculations.calcDuBois w h
                     |> Some
                 | _ -> None
-                |> inRange p.BSA
+                |> Utils.MinMax.inRange p.BSA
             if filter.Patient.Age |> Option.isSome then
                 yield! [|
                     fun (p: PatientCategory) ->
@@ -799,22 +860,16 @@ module PatientCategory =
                         filter.Patient.GestAge
                         |> Option.defaultValue Utils.ValueUnit.ageFullTerm
                         |> Some
-                        |> inRange p.GestAge
+                        |> Utils.MinMax.inRange p.GestAge
                     fun (p: PatientCategory) ->
                         // defaults to normal postmenstrual age
                         filter.Patient.PMAge
                         |> Option.defaultValue Utils.ValueUnit.ageFullTerm
                         |> Some
-                        |> inRange p.PMAge
+                        |> Utils.MinMax.inRange p.PMAge
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
-            fun (p: PatientCategory) ->
-                match p.Location, filter.Patient.VenousAccess with
-                | AnyAccess, xs
-                | _, xs when xs |> List.isEmpty  -> true
-                | _ ->
-                    filter.Patient.VenousAccess
-                    |> List.exists ((=) p.Location)
+            fun (p: PatientCategory) -> VenousAccess.check p.Location filter.Patient.VenousAccess
         |])
         ||> Array.fold(fun acc pred ->
             acc
@@ -837,15 +892,9 @@ module PatientCategory =
     /// </remarks>
     let checkAgeWeightMinMax age weight aMinMax wMinMax =
         // TODO rename aMinMax and wMinMax to ageMinMax and weightMinMax
-        let inRange mm v =
-            v
-            |> Option.map (fun v ->
-                mm |> MinMax.inRange v
-            )
-            |> Option.defaultValue true
 
-        age |> inRange aMinMax &&
-        weight |> inRange wMinMax
+        age |> Utils.MinMax.inRange aMinMax &&
+        weight |> Utils.MinMax.inRange wMinMax
 
 
     /// Prints an age in days as a string.
@@ -949,23 +998,16 @@ module PatientCategory =
             | _ -> ""
 
         let weight =
-            let toStr vu =
-                let v =
-                    vu
-                    |> Limit.getValueUnit
-                    |> ValueUnit.getValue
-                    |> Array.tryHead
-                    |> Option.defaultValue 0N
-                if v.Denominator = 1I then v |> BigRational.ToInt32 |> sprintf "%i"
-                else
-                    v
-                    |> BigRational.ToDouble
-                    |> sprintf "%A"
+            let toStr lim =
+                lim
+                |> Limit.getValueUnit
+                |> ValueUnit.convertTo Units.Weight.kiloGram
+                |> Utils.ValueUnit.toString -1
 
             match pat.Weight.Min, pat.Weight.Max with
-            | Some min, Some max -> $"gewicht %s{min |> toStr} tot %s{max |> toStr} kg"
-            | Some min, None     -> $"gewicht vanaf %s{min |> toStr} kg"
-            | None,     Some max -> $"gewicht tot %s{max |> toStr} kg"
+            | Some min, Some max -> $"gewicht %s{min |> toStr} tot %s{max |> toStr}"
+            | Some min, None     -> $"gewicht vanaf %s{min |> toStr}"
+            | None,     Some max -> $"gewicht tot %s{max |> toStr}"
             | None,     None     -> ""
 
         [
@@ -1073,7 +1115,7 @@ module Patient =
             pat
             |> calcBSA
             |> Option.map (fun bsa ->
-                $"BSA {bsa |> ValueUnit.toStringDutchShort}"
+                $"BSA {bsa |> Utils.ValueUnit.toString 3}"
             )
             |> Option.defaultValue ""
         ]
@@ -1858,28 +1900,12 @@ module DoseRule =
         open Informedica.GenUnits.Lib
 
         let printFreqs (r : DoseRule) =
-                let frs =
-                    r.Frequencies
-                    |> Option.map (fun vu ->
-                        vu
-                        |> ValueUnit.getValue
-                        |> Array.map BigRational.ToInt32
-                        |> Array.map string
-                        |> String.concat ", "
-                    )
-                    |> Option.defaultValue ""
-
-                if frs |> String.isNullOrWhiteSpace then ""
-                else
-                    let tu =
-                        r.Frequencies
-                        |> Option.map ValueUnit.getUnit
-                        |> Option.map Units.toStringDutchShort
-                        |> Option.defaultValue ""
-
-                    if tu |> String.isNullOrWhiteSpace then $"{frs} x"
-                    else
-                        $"{frs} {tu}"
+            r.Frequencies
+            |> Option.map (fun vu ->
+                vu
+                |> Utils.ValueUnit.toString 0
+            )
+            |> Option.defaultValue ""
 
 
         let printInterval (dr: DoseRule) =
@@ -1929,7 +1955,7 @@ module DoseRule =
         let printNormDose vu =
             match vu with
             | None    -> ""
-            | Some vu -> $"{vu |> ValueUnit.toStringDutchShort}"
+            | Some vu -> $"{vu |> Utils.ValueUnit.toString 3}"
 
 
         let printDose wrap (dr : DoseRule) =
@@ -1972,16 +1998,16 @@ module DoseRule =
         /// fold: https://github.com/dotnet/fsharp/issues/6699
         let toMarkdown (rules : DoseRule array) =
             let generic_md generic =
-                $"\n# {generic}\n---\n"
+                $"\n\n# {generic}\n\n---\n"
 
             let route_md route products =
-                $"\n### Route: {route}\n\n#### Producten\n%s{products}\n"
+                $"\n\n### Route: {route}\n\n#### Producten\n%s{products}\n"
 
             let product_md product =  $"* {product}"
 
-            let indication_md indication = $"\n## Indicatie: %s{indication}\n---\n"
+            let indication_md indication = $"\n\n## Indicatie: %s{indication}\n\n---\n"
 
-            let doseCapt_md = "\n#### Doseringen\n"
+            let doseCapt_md = "\n\n#### Doseringen\n\n"
 
             let dose_md dt dose freqs intv time dur =
                 let dt = dt |> DoseType.toString
@@ -2009,9 +2035,9 @@ module DoseRule =
 
             let patient_md patient diagn =
                 if diagn |> String.isNullOrWhiteSpace then
-                    $"\n##### Patient: **%s{patient}**\n"
+                    $"\n\n##### Patient: **%s{patient}**\n\n"
                 else
-                    $"\n##### Patient: **%s{patient}**\n\n%s{diagn}"
+                    $"\n\n##### Patient: **%s{patient}**\n\n%s{diagn}"
 
             let printDoses (rules : DoseRule array) =
                 ("", rules |> Array.groupBy (fun d -> d.DoseType))
@@ -2255,24 +2281,40 @@ module DoseRule =
                                     r.Department |> Some
                             Diagnoses = [| r.Diagn |] |> Array.filter String.notEmpty
                             Gender = r.Gender
-                            Age = (r.MinAge, r.MaxAge) |> MinMax.fromTuple "days"
-                            Weight = (r.MinWeight, r.MaxWeight) |> MinMax.fromTuple "gram"
-                            BSA = (r.MinBSA, r.MaxBSA) |> MinMax.fromTuple "m2"
-                            GestAge = (r.MinGestAge, r.MaxGestAge) |> MinMax.fromTuple "days"
-                            PMAge = (r.MinPMAge, r.MaxPMAge) |> MinMax.fromTuple "days"
+                            Age =
+                                (r.MinAge, r.MaxAge)
+                                |> MinMax.fromTuple (Some Utils.Units.day)
+                            Weight =
+                                (r.MinWeight, r.MaxWeight)
+                                |> MinMax.fromTuple (Some Utils.Units.weightGram)
+                            BSA =
+                                (r.MinBSA, r.MaxBSA)
+                                |> MinMax.fromTuple (Some Utils.Units.bsaM2)
+                            GestAge =
+                                (r.MinGestAge, r.MaxGestAge)
+                                |> MinMax.fromTuple (Some Utils.Units.day)
+                            PMAge =
+                                (r.MinPMAge, r.MaxPMAge)
+                                |> MinMax.fromTuple (Some Utils.Units.day)
                             Location = AnyAccess
                         }
                     DoseType = r.DoseType
                     Frequencies =
-                        match r.FreqUnit |> Units.fromString with
+                        match r.FreqUnit |> Units.freqUnit with
                         | None -> None
                         | Some u ->
                             r.Frequencies
                             |> ValueUnit.withUnit u
                             |> Some
-                    AdministrationTime = (r.MinTime, r.MaxTime) |> MinMax.fromTuple
-                    IntervalTime = (r.MinInterval, r.MaxInterval) |> MinMax.fromTuple
-                    Duration = (r.MinDur, r.MaxDur) |> MinMax.fromTuple
+                    AdministrationTime =
+                        (r.MinTime, r.MaxTime)
+                        |> MinMax.fromTuple (r.TimeUnit |> Utils.Units.timeUnit)
+                    IntervalTime =
+                        (r.MinInterval, r.MaxInterval)
+                        |> MinMax.fromTuple (r.IntervalUnit |> Utils.Units.timeUnit)
+                    Duration =
+                        (r.MinDur, r.MaxDur)
+                        |> MinMax.fromTuple (r.DurUnit |> Utils.Units.timeUnit)
                     DoseLimits = [||]
                     Products = [||]
                 }
@@ -2285,27 +2327,92 @@ module DoseRule =
                              |> Array.map (fun rsu ->
                                 { DoseLimit.limit with
                                     DoseLimitTarget = dr.Shape |> ShapeDoseLimitTarget
-                                    DoseUnit = rsu.DoseUnit
                                     Quantity =
-                                        let min = rsu.MinDoseQty |> Option.bind BigRational.fromFloat
-                                        let max = rsu.MaxDoseQty |> Option.bind BigRational.fromFloat
-                                        (min, max) |> MinMax.fromTuple
+                                        {
+                                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
+                                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
+                                        }
                                 }
                              )
                              |> Array.distinct
 
                         rs
                         |> Array.map (fun r ->
+                            // the adjust unit
+                            let adj = r.AdjustUnit |> Utils.Units.adjustUnit
+                            // the dose unit
+                            let du = r.DoseUnit |> Units.fromString
+                            // the adjusted dose unit
+                            let duAdj =
+                                match adj, du with
+                                | Some adj, Some du ->
+                                    du
+                                    |> Units.per adj
+                                    |> Some
+                                | _ -> None
+                            // the time unit
+                            let tu = r.FreqUnit |> Utils.Units.timeUnit
+                            // the dose unit per time unit
+                            let duTime =
+                                match du, tu with
+                                | Some du, Some tu ->
+                                    du
+                                    |> Units.per tu
+                                    |> Some
+                                | _ -> None
+                            // the adjusted dose unit per time unit
+                            let duAdjTime =
+                                match duAdj, tu with
+                                | Some duAdj, Some tu ->
+                                    duAdj
+                                    |> Units.per tu
+                                    |> Some
+                                | _ -> None
+                            // the rate unit
+                            let ru = r.RateUnit |> Units.fromString
+                            // the dose unit per rate unit
+                            let duRate =
+                                match du, ru with
+                                | Some du, Some ru ->
+                                    du
+                                    |> Units.per ru
+                                    |> Some
+                                | _ -> None
+                            // the adjusted dose unit per rate unit
+                            let duAdjRate =
+                                match duAdj, ru with
+                                | Some duAdj, Some ru ->
+                                    duAdj
+                                    |> Units.per ru
+                                    |> Some
+                                | _ -> None
+
                             {
                                 DoseLimitTarget = r.Substance |> SubstanceDoseLimitTarget
-                                Quantity = (r.MinQty, r.MaxQty) |> MinMax.fromTuple
-                                NormQuantityAdjust = r.NormQtyAdj
-                                QuantityAdjust = (r.MinQtyAdj, r.MaxQtyAdj) |> MinMax.fromTuple
-                                PerTime = (r.MinPerTime, r.MaxPerTime) |> MinMax.fromTuple
-                                NormPerTimeAdjust = r.NormPerTimeAdj
-                                PerTimeAdjust = (r.MinPerTimeAdj, r.MaxPerTimeAdj) |> MinMax.fromTuple
-                                Rate = (r.MinRate, r.MaxRate) |> MinMax.fromTuple
-                                RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple
+                                Quantity =
+                                    (r.MinQty, r.MaxQty)
+                                    |> MinMax.fromTuple du
+                                NormQuantityAdjust =
+                                    r.NormQtyAdj
+                                    |> ValueUnit.withOptionalUnit duAdj
+                                QuantityAdjust =
+                                    (r.MinQtyAdj, r.MaxQtyAdj)
+                                    |> MinMax.fromTuple duAdj
+                                PerTime =
+                                    (r.MinPerTime, r.MaxPerTime)
+                                    |> MinMax.fromTuple duTime
+                                NormPerTimeAdjust =
+                                    r.NormPerTimeAdj
+                                    |> ValueUnit.withOptionalUnit duAdjTime
+                                PerTimeAdjust =
+                                    (r.MinPerTimeAdj, r.MaxPerTimeAdj)
+                                    |> MinMax.fromTuple duAdjTime
+                                Rate =
+                                    (r.MinRate, r.MaxRate)
+                                    |> MinMax.fromTuple duRate
+                                RateAdjust =
+                                    (r.MinRateAdj, r.MaxRateAdj)
+                                    |> MinMax.fromTuple duAdjRate
                             }
                         )
                         |> Array.append shapeLimits
@@ -2321,7 +2428,6 @@ module DoseRule =
                 }
             )
 
-    (*
 
     /// <summary>
     /// Get the DoseRules from the Google Sheet.
@@ -2424,6 +2530,436 @@ module DoseRule =
         dr.DoseLimits
         |> Array.filter DoseLimit.isSubstanceLimit
         |> Array.exists DoseLimit.useAdjust
+
+
+
+module SolutionRule =
+
+    open MathNet.Numerics
+    open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.BCL
+
+
+
+    module SolutionLimit =
+
+        open Informedica.GenCore.Lib.Ranges
+
+        /// An empty SolutionLimit.
+        let limit =
+            {
+                Substance = ""
+                Quantity = MinMax.empty
+                Quantities = None
+                Concentration = MinMax.empty
+            }
+
+
+    open Informedica.GenUnits.Lib
+
+
+    let private get_ () =
+        Web.getDataFromSheet Web.dataUrlIdGenPres "SolutionRules"
+        |> fun data ->
+            let getColumn =
+                data
+                |> Array.head
+                |> Csv.getStringColumn
+
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let get = getColumn r
+                let toBrOpt = BigRational.toBrs >> Array.tryHead
+
+                {|
+                    Generic = get "Generic"
+                    Shape = get "Shape"
+                    Route = get "Route"
+                    Department = get "Dep"
+                    CVL = get "CVL"
+                    PVL = get "PVL"
+                    MinAge = get "MinAge" |> toBrOpt
+                    MaxAge = get "MaxAge" |> toBrOpt
+                    MinWeight = get "MinWeight" |> toBrOpt
+                    MaxWeight = get "MaxWeight" |> toBrOpt
+                    MinDose = get "MinDose" |> toBrOpt
+                    MaxDose = get "MaxDose" |> toBrOpt
+                    DoseType = get "DoseType"
+                    Solutions = get "Solutions" |> String.split "|"
+                    Volumes = get "Volumes" |> BigRational.toBrs
+                    MinVol = get "MinVol" |> toBrOpt
+                    MaxVol = get "MaxVol" |> toBrOpt
+                    MinPerc = get "MinPerc" |> toBrOpt
+                    MaxPerc = get "MaxPerc" |> toBrOpt
+                    Substance = get "Substance"
+                    Unit = get "Unit"
+                    Quantities = get "Quantities" |> BigRational.toBrs
+                    MinQty = get "MinQty" |> toBrOpt
+                    MaxQty = get "MaxQty" |> toBrOpt
+                    MinConc = get "MinConc" |> toBrOpt
+                    MaxConc = get "MaxConc" |> toBrOpt
+                |}
+            )
+            |> Array.groupBy (fun r ->
+                let du = r.Unit |> Units.fromString
+                {
+                    Generic = r.Generic
+                    Shape = r.Shape
+                    Route = r.Route
+                    Department = r.Department
+                    Location =
+                        if r.CVL = "x" then CVL
+                        else
+                            if r.PVL = "x" then PVL
+                            else
+                                AnyAccess
+                    Age =
+                        (r.MinAge, r.MaxAge)
+                        |> MinMax.fromTuple (Some Utils.Units.day)
+                    Weight =
+                        (r.MinWeight, r.MaxWeight)
+                        |> MinMax.fromTuple (Some Utils.Units.weightGram)
+                    Dose =
+                        (r.MinDose, r.MaxDose)
+                        |> MinMax.fromTuple du
+                    DoseType = r.DoseType |> DoseType.fromString
+                    Solutions = r.Solutions |> List.toArray
+                    Volumes =
+                        if r.Volumes |> Array.isEmpty then None
+                        else
+                            r.Volumes
+                            |> ValueUnit.withUnit Units.mL
+                            |> Some
+                    Volume =
+                        (r.MinVol, r.MaxVol)
+                        |> MinMax.fromTuple (Some Units.mL)
+                    DosePerc =
+                        (r.MinPerc, r.MaxPerc)
+                        |> MinMax.fromTuple (Some Units.Count.times)
+                    Products = [||]
+                    SolutionLimits = [||]
+                }
+            )
+            |> Array.map (fun (sr, rs) ->
+                { sr with
+                    SolutionLimits =
+                        rs
+                        |> Array.map (fun l ->
+                            let u = l.Unit |> Units.fromString
+                            {
+                                Substance = l.Substance
+                                Quantity =
+                                    (l.MinQty, l.MaxQty)
+                                    |> MinMax.fromTuple u
+                                Quantities =
+                                    if l.Quantities |> Array.isEmpty then None
+                                    else
+                                        match u with
+                                        | None -> None
+                                        | Some u ->
+                                            l.Quantities
+                                            |> ValueUnit.withUnit u
+                                            |> Some
+                                Concentration =
+                                    (l.MinConc, l.MaxConc)
+                                    |> MinMax.fromTuple (Some Units.Count.times)
+                            }
+                        )
+                    Products =
+                        Product.get ()
+                        |> Array.filter (fun p ->
+                            p.Generic = sr.Generic &&
+                            p.Shape = sr.Shape
+                        )
+
+                }
+            )
+
+
+    /// <summary>
+    /// Gets the SolutionRules.
+    /// </summary>
+    /// <remarks>
+    /// This function is memoized.
+    /// </remarks>
+    let get : unit -> SolutionRule [] =
+        Memoization.memoize get_
+
+
+    /// <summary>
+    /// Get all the SolutionRules that match the given Filter.
+    /// </summary>
+    /// <param name="filter">The Filter</param>
+    /// <param name="solutionRules">The SolutionRules</param>
+    /// <returns>The matching SolutionRules</returns>
+    let filter (filter : Filter) (solutionRules : SolutionRule []) =
+        let eqs a b =
+            a
+            |> Option.map (fun x -> x = b)
+            |> Option.defaultValue true
+
+        [|
+            fun (sr : SolutionRule) -> sr.Generic |> eqs filter.Generic
+            fun (sr : SolutionRule) ->
+                PatientCategory.checkAgeWeightMinMax filter.Patient.Age filter.Patient.Weight sr.Age sr.Weight
+            fun (sr : SolutionRule) -> sr.Shape |> eqs filter.Shape
+            fun (sr : SolutionRule) -> sr.Route |> eqs filter.Route
+            fun (sr : SolutionRule) -> sr.Department |> eqs filter.Patient.Department
+            fun (sr : SolutionRule) ->
+                match filter.DoseType, sr.DoseType with
+                | AnyDoseType, _
+                | _, AnyDoseType -> true
+                | _ -> filter.DoseType = sr.DoseType
+            fun (sr : SolutionRule) -> filter.Patient.Weight |> MinMax.inRange sr.Weight
+            fun (sr : SolutionRule) ->
+                match sr.Location with
+                | CVL -> filter.Patient.VenousAccess |> List.exists ((=) CVL)
+                | PVL //-> filter.Location = PVL
+                | AnyAccess -> true
+        |]
+        |> Array.fold (fun (acc : SolutionRule[]) pred ->
+            acc |> Array.filter pred
+        ) solutionRules
+
+
+    /// Helper function to get the distinct values of a member of SolutionRule.
+    let getMember getter (rules : SolutionRule[]) =
+        rules
+        |> Array.map getter
+        |> Array.distinct
+        |> Array.sort
+
+
+    /// Get all the distinct Generics from the given SolutionRules.
+    let generics = getMember (fun sr -> sr.Generic)
+
+
+    module Print =
+
+
+        module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+
+
+        /// Get the string representation of a SolutionLimit.
+        let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
+            let mmToStr = MinMax.toString "van " "van " "tot " "tot"
+
+            let loc =
+                match sr.Location with
+                | CVL -> "###### centraal: \n* "
+                | PVL -> "###### perifeer: \n* "
+                | AnyAccess -> "* "
+
+            let qs =
+                limit.Quantities
+                |> Option.map (Utils.ValueUnit.toString -1)
+                |> Option.defaultValue ""
+
+            let q =
+                limit.Quantity
+               |> mmToStr
+
+            let vol =
+                if sr.Volume
+                   |> mmToStr
+                   |> String.isNullOrWhiteSpace then
+                    ""
+                else
+                    sr.Volume
+                    |> mmToStr
+                    |> fun s -> $""" in {s} ml {sr.Solutions |> String.concat "/"}"""
+                |> fun s ->
+                    if s |> String.isNullOrWhiteSpace |> not then s
+                    else
+                        sr.Volumes
+                        |> Option.map (Utils.ValueUnit.toString -1)
+                        |> Option.defaultValue ""
+                        |> fun s ->
+                            let sols = sr.Solutions |> String.concat "/"
+                            if s |> String.isNullOrWhiteSpace then
+                                if sols |> String.isNullOrWhiteSpace then " puur"
+                                else $" in {sols}"
+                            else
+                                $" in {s} ml {sols}"
+
+            let conc =
+                if limit.Concentration
+                   |> mmToStr
+                   |> String.isNullOrWhiteSpace then ""
+                else
+                    $"* concentratie: {limit.Concentration |> mmToStr}/ml"
+
+            let dosePerc =
+                let p =
+                    sr.DosePerc
+                    |> mmToStr
+
+                if p |> String.isNullOrWhiteSpace then ""
+                else
+                    $"* geef {p}%% van de bereiding"
+
+            $"\n{loc}{limit.Substance}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
+
+
+        /// Get the markdown representation of the given SolutionRules.
+        let toMarkdown text (rules: SolutionRule []) =
+            let generic_md generic products =
+                let text = if text |> String.isNullOrWhiteSpace then generic else text
+                $"\n# %s{text}\n---\n#### Producten\n%s{products}\n"
+
+            let department_md dep =
+                let dep =
+                    match dep with
+                    | _ when dep = "AICU" -> "ICC"
+                    | _ -> dep
+
+                $"\n### Afdeling: {dep}\n"
+
+            let pat_md pat =
+                $"\n##### %s{pat}\n"
+
+            let product_md product =
+                $"\n* %s{product}\n"
+
+
+            ({| md = ""; rules = [||] |}, rules |> Array.groupBy (fun d -> d.Generic))
+            ||> Array.fold (fun acc (generic, rs) ->
+                let prods =
+                    rs
+                    |> Array.collect (fun d -> d.Products)
+                    |> Array.sortBy (fun p ->
+                        p.Substances
+                        |> Array.sumBy (fun s ->
+                            s.Quantity
+                            |> Option.map ValueUnit.getValue
+                            |> Option.bind Array.tryHead
+                            |> Option.defaultValue 0N
+                        )
+                    )
+                    |> Array.collect (fun p ->
+                        if p.Reconstitution |> Array.isEmpty then
+                            [| product_md p.Label |]
+                        else
+                            p.Reconstitution
+                            |> Array.map (fun r ->
+                                $"{p.Label} oplossen in {r.DiluentVolume |> Utils.ValueUnit.toString -1} voor {r.Route}"
+                                |> product_md
+                            )
+                    )
+                    |> Array.distinct
+                    |> String.concat "\n"
+
+                {| acc with
+                    md = generic_md generic prods
+                    rules = rs
+                |}
+                |> fun r ->
+                    if r.rules = Array.empty then r
+                    else
+                        (r, r.rules |> Array.groupBy (fun d -> d.Department))
+                        ||> Array.fold (fun acc (dep, rs) ->
+                            {| acc with
+                                md = acc.md + (department_md dep)
+                                rules = rs
+                            |}
+                            |> fun r ->
+                                if r.rules |> Array.isEmpty then r
+                                else
+                                    (r,
+                                     r.rules
+                                     |> Array.groupBy (fun r ->
+                                        {|
+                                            Age = r.Age
+                                            Weight = r.Weight
+                                            Dose = r.Dose
+                                            DoseType = r.DoseType
+                                        |}
+                                     )
+                                    )
+                                    ||> Array.fold (fun acc (sel, rs) ->
+                                        let sol =
+                                            rs
+                                            |> Array.groupBy (fun r -> r.Location)
+                                            |> Array.collect (fun (_, rs) ->
+                                                rs
+                                                |> Array.tryHead
+                                                |> function
+                                                    | None -> [||]
+                                                    | Some r ->
+                                                        r.SolutionLimits
+                                                        |> Array.map (printSolutionLimit r)
+                                            )
+                                            |> String.concat "\n"
+
+                                        let pat =
+                                            let a = sel.Age |> PatientCategory.printAgeMinMax
+
+                                            let w =
+                                                let s =
+                                                    sel.Weight
+                                                    |> MinMax.toString
+                                                        "van "
+                                                        "van "
+                                                        "tot "
+                                                        "tot "
+
+                                                if s |> String.isNullOrWhiteSpace then
+                                                    ""
+                                                else
+                                                    $"gewicht %s{s} kg"
+
+                                            if a |> String.isNullOrWhiteSpace
+                                               && w |> String.isNullOrWhiteSpace then
+                                                ""
+                                            else
+                                                $"patient: %s{a} %s{w}" |> String.trim
+
+                                        let dose =
+                                            sel.Dose
+                                            |> MinMax.toString
+                                                    "van "
+                                                    "van "
+                                                    "tot "
+                                                    "tot "
+
+                                        let dt =
+                                            let s = sel.DoseType |> DoseType.toString
+                                            if s |> String.isNullOrWhiteSpace then ""
+                                            else
+                                                $"{s}"
+
+
+                                        {| acc with
+                                            rules = rs
+                                            md =
+                                                if pat |> String.isNullOrWhiteSpace &&
+                                                   dose |> String.isNullOrWhiteSpace then
+                                                    acc.md + $"##### {dt}"
+                                                else
+                                                    acc.md + pat_md $"{dt}, {pat}{dose}"
+                                                |> fun s -> $"{s}\n{sol}"
+                                        |}
+                                    )
+                        )
+
+
+            )
+            |> fun md -> md.md
+
+
+        /// Get the markdown representation of the given SolutionRules.
+        let printGenerics (rules: SolutionRule []) =
+            rules
+            |> generics
+            |> Array.map (fun generic ->
+                rules
+                |> Array.filter (fun sr -> sr.Generic = generic)
+                |> Array.sortBy (fun sr -> sr.Generic)
+                |> toMarkdown ""
+            )
+
+    (*
     *)
 
 
@@ -2483,3 +3019,9 @@ DoseRule.Print.printInterval
         Products = [||]
 
     }
+
+
+DoseRule.get()
+|> Array.take 200
+|> DoseRule.Print.printGenerics DoseRule.generics
+|> Array.iter (printfn "%s")

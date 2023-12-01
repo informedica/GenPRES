@@ -976,9 +976,12 @@ module MinMax =
 
         match min, max with
         | None, None -> ""
-        | Some min_, Some max_ -> $"%s{min_ |> minToString} - %s{max_ |> maxToString}"
-        | Some min_, None -> (min_ |> minToString)
-        | None, Some max_ -> (max_ |> maxToString)
+        | Some min_, Some max_ when Limit.eq min_ max_ ->
+            min_ |> Limit.getValueUnit |> vuToStr
+        | Some min_, Some max_ ->
+            $"%s{min_ |> Limit.getValueUnit |> vuToStr} - %s{max_ |> Limit.getValueUnit |> vuToStr}"
+        | Some min_, None -> min_ |> minToString
+        | None, Some max_ -> max_ |> maxToString
 
 
 
