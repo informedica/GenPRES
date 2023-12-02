@@ -19,7 +19,7 @@ module DoseLimit = DoseRule.DoseLimit
 
 open Informedica.ZIndex.Lib
 // load demo or product cache
-System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "0")
 
 
 
@@ -139,14 +139,45 @@ startLogger ()
 stopLogger ()
 
 
+Informedica.GenForm.Lib.DoseRule.get ()
+|> DoseRule.filter
+//    Filter.filter
+   { Filter.filter with Patient = Patient.premature }
+|> Array.filter (fun dr ->
+    dr.Generic = "amoxicilline/clavulaanzuur" &&
+    dr.Route = "iv"
+)
+|> Array.take 1
+|> Array.length
+
+
+Informedica.GenForm.Lib.DoseRule.get ()
+|> Array.item 2
+|> fun dr ->
+    dr.PatientCategory
+    |> PatientCategory.filter { Filter.filter with Patient = Patient.child }
+
+
+{ Department = Some ("ICK")
+  Diagnoses = [||]
+  Gender = AnyGender
+  Age = Some (ValueUnit ([|0N|], Units.Time.day))
+  Weight = Some (ValueUnit ([|757N/200N|], Weight (WeightKiloGram 1N)))
+  Height = Some (ValueUnit ([|1059N/20N|], Height (HeightCentiMeter 1N)))
+  GestAge = None
+  PMAge = None
+  VenousAccess = []
+}
+|> Api.scenarioResult
+|> Api.filter
 
 Patient.child
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Route = "iv" &&
-    pr.DoseRule.Indication |> String.startsWith "behandeling pneumocystis"
+    pr.DoseRule.Route = "rect" &&
+    pr.DoseRule.Generic = "paracetamol"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"

@@ -1,12 +1,11 @@
 namespace Informedica.GenForm.Lib
 
 
+
 [<AutoOpen>]
 module Utils =
 
     open System
-    open System.IO
-    open System.Net.Http
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -80,3 +79,127 @@ module Utils =
         let tupleBrOpt brs1 brs2 =
             brs1 |> Array.tryHead,
             brs2 |> Array.tryHead
+
+
+    module Calculations =
+
+        open MathNet.Numerics
+        open Informedica.GenUnits.Lib
+
+        module Conversions = Informedica.GenCore.Lib.Conversions
+        module BSA = Informedica.GenCore.Lib.Calculations.BSA
+
+        let calcDuBois weight height =
+            let w =
+                weight
+                |> ValueUnit.convertTo Units.Mass.kiloGram
+                |> ValueUnit.getValue
+                |> Array.tryHead
+                |> Option.defaultValue 0N
+                |> BigRational.toDecimal
+                |> Conversions.kgFromDecimal
+            let h =
+                height
+                |> ValueUnit.convertTo Units.Height.centiMeter
+                |> ValueUnit.getValue
+                |> Array.tryHead
+                |> Option.defaultValue 0N
+                |> BigRational.toDecimal
+                |> Conversions.cmFromDecimal
+
+            BSA.calcDuBois (Some 2) w h
+            |> decimal
+            |> BigRational.fromDecimal
+            |> ValueUnit.singleWithUnit Units.BSA.m2
+
+
+    module Units =
+
+        open Informedica.GenUnits.Lib
+
+        let week = Units.Time.week
+
+        let day = Units.Time.day
+
+        let weightGram = Units.Weight.gram
+
+        let heightCm = Units.Height.centiMeter
+
+        let bsaM2 = Units.BSA.m2
+
+        let timeUnit s =
+            if s |> String.isNullOrWhiteSpace then None
+            else
+                $"{s}[Time]" |> Units.fromString
+
+        let freqUnit s =
+            if s |> String.isNullOrWhiteSpace then None
+            else
+                $"times[Count]/{s}[Time]" |> Units.fromString
+
+        let adjustUnit s =
+            match s with
+            | _ when s |> String.equalsCapInsens "kg" -> Units.Weight.kiloGram |> Some
+            | _ when s |> String.equalsCapInsens "m2" -> bsaM2 |> Some
+            | _ -> None
+
+
+        let mL = Units.Volume.milliLiter
+
+
+
+    module ValueUnit =
+
+        open MathNet.Numerics
+        open Informedica.GenUnits.Lib
+
+
+        /// The full term age for a neonate
+        /// which is 37 weeks
+        let ageFullTerm = 37N |> ValueUnit.singleWithUnit Units.Time.week
+
+
+        let withOptionalUnit u v =
+            match v, u with
+            | Some v, Some u ->
+                v
+                |> ValueUnit.singleWithUnit u
+                |> Some
+            | _ -> None
+
+
+        let toString prec vu =
+            ValueUnit.toStringDecimalDutchShortWithPrec prec vu
+            |> String.replace ";" ", "
+
+
+    module MinMax =
+
+        open Informedica.GenUnits.Lib
+        open Informedica.GenCore.Lib.Ranges
+
+        let fromTuple u (min, max) =
+            match u with
+            | None -> MinMax.empty
+            | Some u ->
+                {
+                    Min =
+                        min
+                        |> Option.map (ValueUnit.singleWithUnit u)
+                        |> Option.map Inclusive
+                    Max =
+                        max
+                        |> Option.map (ValueUnit.singleWithUnit u)
+                        |> Option.map Inclusive
+                }
+
+
+        let inRange minMax vu =
+            if minMax = MinMax.empty then true
+            else
+                vu
+                |> Option.map (fun v ->
+                    minMax |> MinMax.inRange v
+                )
+                |> Option.defaultValue false
+

@@ -11,6 +11,7 @@ module Api =
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
+    open Informedica.GenCore.Lib.Ranges
 
 
     /// <summary>
@@ -98,7 +99,8 @@ module Api =
     /// <param name="freqUnit">The TimeUnit for the Frequencies</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     /// <param name="ps">The Products to create the ProductComponent from</param>
-    let createProductComponent noSubst freqUnit (doseLimits : DoseLimit []) (ps : Product []) =
+    let createProductComponent noSubst (doseLimits : DoseLimit []) (ps : Product []) =
+        printfn $"{noSubst} with {doseLimits}"
         { DrugOrder.productComponent with
             Name =
                 ps
@@ -114,11 +116,10 @@ module Api =
                     else s
             Quantities =
                 ps
-                |> Array.collect (fun p -> p.ShapeQuantities)
-                |> Array.distinct
-                |> Array.toList
-            TimeUnit = freqUnit
-            RateUnit = "uur" //doseRule.RateUnit
+                |> Array.map (fun p ->
+                    p.ShapeQuantities
+                )
+                |> ValueUnit.collect
             Divisible =
                 ps
                 |> Array.choose (fun p -> p.Divisible)
@@ -136,9 +137,7 @@ module Api =
                                 xs
                                 |> Array.choose (fun s -> s.Quantity)
                                 |> Array.distinct
-                                |> Array.toList
-                            Unit = xs |> tryHead (fun x -> x.Unit)
-                            TimeUnit = freqUnit
+                                |> ValueUnit.collect
                             Dose =
                                 doseLimits
                                 |> Array.tryFind (fun l ->
@@ -178,61 +177,58 @@ module Api =
     /// <param name="pr">The PrescriptionRule to use</param>
     let createDrugOrder (sr: SolutionRule option) (pr : PrescriptionRule) =
         let parenteral = Product.Parenteral.get ()
-        // adjust unit defaults to kg
+            // adjust unit defaults to kg
         let au =
-            if pr.DoseRule.AdjustUnit |> String.isNullOrWhiteSpace then "kg"
-            else pr.DoseRule.AdjustUnit
+            pr.DoseRule.AdjustUnit
+            |> Option.defaultValue Units.Weight.kiloGram
 
         let dose =
             pr.DoseRule.DoseLimits
-            |> Array.filter (fun dl ->
-                // TODO make a specific match for ShapeDoseLimitTarget
-                match dl.DoseLimitTarget with
-                | ShapeDoseLimitTarget _ -> true
-                | _ -> false
-            )
-            |> function
-            | [| dl |] -> dl |> Some
-            | _ -> None
+            |> Array.filter DoseRule.DoseLimit.isShapeLimit
+            |> Array.tryHead
 
         // if no subst, dose is based on shape
         let noSubst =
-            dose
-            |> Option.map (fun d -> d.DoseUnit = "keer")
-            |> Option.defaultValue false
+            pr.DoseRule.DoseLimits
+            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+            |> Array.filter (fun d ->
+                d.DoseUnit = NoUnit ||
+                d.DoseUnit |> ValueUnit.Group.eqsGroup Units.Count.times
+            )
+            |> Array.isEmpty |> not
+
+        let substLimits =
+            pr.DoseRule.DoseLimits
+            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
 
         { DrugOrder.drugOrder with
             Id = Guid.NewGuid().ToString()
             Name = pr.DoseRule.Generic
             Products =
                 pr.DoseRule.Products
-                |> createProductComponent noSubst pr.DoseRule.FreqTimeUnit pr.DoseRule.DoseLimits
+                |> createProductComponent noSubst substLimits
                 |> List.singleton
-            Quantities = []
-            Frequencies = pr.DoseRule.Frequencies |> Array.toList
-            FreqUnit = pr.DoseRule.FreqTimeUnit
-            Unit =
-                pr.DoseRule.Products
-                |> tryHead (fun p -> p.ShapeUnit)
+            Quantities = None
+            Frequencies = pr.DoseRule.Frequencies
             Time = pr.DoseRule.AdministrationTime
-            TimeUnit = pr.DoseRule.AdministrationTimeUnit
-            RateUnit = "uur"
             Route = pr.DoseRule.Route
             DoseCount =
-                if pr.SolutionRules |> Array.isEmpty then Some 1N
-                else None
+                if pr.SolutionRules |> Array.isEmpty |> not then None
+                else
+                    Units.Count.times
+                    |> ValueUnit.withSingleValue 1N
+                    |> Some
             OrderType =
                 match pr.DoseRule.DoseType with
                 | Informedica.GenForm.Lib.Types.Continuous -> ContinuousOrder
-                | _ when pr.DoseRule.AdministrationTimeUnit |> String.isNullOrWhiteSpace -> DiscontinuousOrder
+                | _ when pr.DoseRule.AdministrationTime = MinMax.empty -> DiscontinuousOrder
                 | _ -> TimedOrder
             Dose = dose
             Adjust =
-                if au = "kg" then
-                    pr.Patient.WeightInGram
-                    |> Option.map (fun v -> v / 1000N)
+                if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
+                    pr.Patient.Weight
                 else pr.Patient |> Patient.calcBSA
-            AdjustUnit = au
+            AdjustUnit = Some au
         }
         |> fun dro ->
                 // add an optional solution rule
@@ -243,10 +239,12 @@ module Api =
                         Dose =
                             { DoseRule.DoseLimit.limit with
                                 Quantity  = sr.Volume
-                                DoseUnit = "mL"
+                                DoseUnit = Units.Volume.milliLiter
                             } |> Some
-                        Quantities = sr.Volumes |> Array.toList
-                        DoseCount = sr.DosePerc.Maximum
+                        Quantities = sr.Volumes
+                        DoseCount =
+                            sr.DosePerc.Max
+                            |> Option.map Limit.getValueUnit
                         Products =
                             let ps =
                                 dro.Products
@@ -274,7 +272,7 @@ module Api =
                             |> function
                             | Some p ->
                                 [|p|]
-                                |> createProductComponent true pr.DoseRule.FreqTimeUnit [||]
+                                |> createProductComponent true  [||]
                                 |> List.singleton
                                 |> List.append ps
                             | None ->
@@ -438,8 +436,8 @@ module Api =
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
-        match sc.Patient.WeightInGram, sc.Patient.HeightInCm, sc.Patient.Department with
-        | Some w, Some h, d when d |> String.notEmpty ->
+        match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
+        | Some w, Some h, d when d |> Option.isSome ->
 
             let ind =
                 if sc.Indication.IsSome then sc.Indication
@@ -456,17 +454,21 @@ module Api =
 
             let filter =
                 { Filter.filter with
-                    Department = Some d
-                    AgeInDays = sc.Patient.AgeInDays
-                    GestAgeInDays = sc.Patient.GestAgeInDays
-                    PMAgeInDays = sc.Patient.PMAgeInDays
-                    WeightInGram = Some w
-                    HeightInCm = Some h
                     Indication = ind
                     Generic = gen
                     Route = rte
                     Shape = shp
-                    Location = sc.Patient.VenousAccess
+                    Patient = {
+                        Department = d
+                        Age = sc.Patient.Age
+                        GestAge = sc.Patient.GestAge
+                        PMAge = sc.Patient.PMAge
+                        Weight = Some w
+                        Height = Some h
+                        Diagnoses = [||]
+                        Gender = sc.Patient.Gender
+                        VenousAccess = sc.Patient.VenousAccess
+                    }
                 }
 
             let inds = filter |> filterIndications

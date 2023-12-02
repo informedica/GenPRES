@@ -3,6 +3,7 @@ module ScenarioResult
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
@@ -273,25 +274,30 @@ Scenarios: {sc.Scenarios |> Array.length}
             Department =
                 sc.Department
                 |> Option.defaultValue "ICK"
-            AgeInDays =
+                |> Some
+            Age =
                 sc.AgeInDays
                 |> Option.bind BigRational.fromFloat
-            GestAgeInDays =
+                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+            GestAge =
                 sc.GestAgeInDays
                 |> Option.map BigRational.fromInt
-            WeightInGram =
+                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+            Weight =
                 sc.WeightInKg
-                |> Option.map (fun w -> w * 1000.)
                 |> Option.bind BigRational.fromFloat
-            HeightInCm =
+                |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+            Height =
                 sc.HeightInCm
                 |> Option.bind BigRational.fromFloat
-            VenousAccess = if sc.CVL then VenousAccess.CVL else VenousAccess.AnyAccess
+                |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+            VenousAccess = if sc.CVL then [VenousAccess.CVL] else []
         }
         |> Patient.calcPMAge
 
     try
         let newSc =
+            printfn $"{pat}"
             let r = Api.scenarioResult pat
             { Api.scenarioResult pat with
                 Indications =

@@ -8,19 +8,21 @@ module SolutionRule =
     open Informedica.Utils.Lib.BCL
 
 
-
     module SolutionLimit =
 
+        open Informedica.GenCore.Lib.Ranges
 
         /// An empty SolutionLimit.
         let limit =
             {
                 Substance = ""
-                Unit = ""
-                Quantity = MinMax.none
-                Quantities = [||]
-                Concentration = MinMax.none
+                Quantity = MinMax.empty
+                Quantities = None
+                Concentration = MinMax.empty
             }
+
+
+    open Informedica.GenUnits.Lib
 
 
     let private get_ () =
@@ -67,6 +69,7 @@ module SolutionRule =
                 |}
             )
             |> Array.groupBy (fun r ->
+                let du = r.Unit |> Units.fromString
                 {
                     Generic = r.Generic
                     Shape = r.Shape
@@ -78,14 +81,29 @@ module SolutionRule =
                             if r.PVL = "x" then PVL
                             else
                                 AnyAccess
-                    Age = (r.MinAge, r.MaxAge) |> MinMax.fromTuple
-                    Weight = (r.MinWeight, r.MaxWeight) |> MinMax.fromTuple
-                    Dose = (r.MinDose, r.MaxDose) |> MinMax.fromTuple
+                    Age =
+                        (r.MinAge, r.MaxAge)
+                        |> MinMax.fromTuple (Some Utils.Units.day)
+                    Weight =
+                        (r.MinWeight, r.MaxWeight)
+                        |> MinMax.fromTuple (Some Utils.Units.weightGram)
+                    Dose =
+                        (r.MinDose, r.MaxDose)
+                        |> MinMax.fromTuple du
                     DoseType = r.DoseType |> DoseType.fromString
                     Solutions = r.Solutions |> List.toArray
-                    Volumes = r.Volumes
-                    Volume = (r.MinVol, r.MaxVol) |> MinMax.fromTuple
-                    DosePerc = (r.MinPerc, r.MaxPerc) |> MinMax.fromTuple
+                    Volumes =
+                        if r.Volumes |> Array.isEmpty then None
+                        else
+                            r.Volumes
+                            |> ValueUnit.withUnit Units.mL
+                            |> Some
+                    Volume =
+                        (r.MinVol, r.MaxVol)
+                        |> MinMax.fromTuple (Some Units.mL)
+                    DosePerc =
+                        (r.MinPerc, r.MaxPerc)
+                        |> MinMax.fromTuple (Some Units.Count.times)
                     Products = [||]
                     SolutionLimits = [||]
                 }
@@ -95,12 +113,24 @@ module SolutionRule =
                     SolutionLimits =
                         rs
                         |> Array.map (fun l ->
+                            let u = l.Unit |> Units.fromString
                             {
                                 Substance = l.Substance
-                                Unit = l.Unit
-                                Quantity = (l.MinQty, l.MaxQty) |> MinMax.fromTuple
-                                Quantities = l.Quantities
-                                Concentration = (l.MinConc, l.MaxConc) |> MinMax.fromTuple
+                                Quantity =
+                                    (l.MinQty, l.MaxQty)
+                                    |> MinMax.fromTuple u
+                                Quantities =
+                                    if l.Quantities |> Array.isEmpty then None
+                                    else
+                                        match u with
+                                        | None -> None
+                                        | Some u ->
+                                            l.Quantities
+                                            |> ValueUnit.withUnit u
+                                            |> Some
+                                Concentration =
+                                    (l.MinConc, l.MaxConc)
+                                    |> MinMax.fromTuple (Some Units.Count.times)
                             }
                         )
                     Products =
@@ -139,19 +169,19 @@ module SolutionRule =
         [|
             fun (sr : SolutionRule) -> sr.Generic |> eqs filter.Generic
             fun (sr : SolutionRule) ->
-                PatientCategory.checkAgeWeightMinMax filter.AgeInDays filter.WeightInGram sr.Age sr.Weight
+                PatientCategory.checkAgeWeightMinMax filter.Patient.Age filter.Patient.Weight sr.Age sr.Weight
             fun (sr : SolutionRule) -> sr.Shape |> eqs filter.Shape
             fun (sr : SolutionRule) -> sr.Route |> eqs filter.Route
-            fun (sr : SolutionRule) -> sr.Department |> eqs filter.Department
+            fun (sr : SolutionRule) -> sr.Department |> eqs filter.Patient.Department
             fun (sr : SolutionRule) ->
                 match filter.DoseType, sr.DoseType with
                 | AnyDoseType, _
                 | _, AnyDoseType -> true
                 | _ -> filter.DoseType = sr.DoseType
-            fun (sr : SolutionRule) -> filter.WeightInGram |> MinMax.isBetween sr.Weight
+            fun (sr : SolutionRule) -> filter.Patient.Weight |> MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
-                | CVL -> filter.Location = CVL
+                | CVL -> filter.Patient.VenousAccess |> List.exists ((=) CVL)
                 | PVL //-> filter.Location = PVL
                 | AnyAccess -> true
         |]
@@ -174,8 +204,14 @@ module SolutionRule =
 
     module Print =
 
+
+        module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+
+
         /// Get the string representation of a SolutionLimit.
         let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
+            let mmToStr = MinMax.toString "van " "van " "tot " "tot"
+
             let loc =
                 match sr.Location with
                 | CVL -> "###### centraal: \n* "
@@ -183,43 +219,29 @@ module SolutionRule =
                 | AnyAccess -> "* "
 
             let qs =
-                if limit.Quantities |> Array.isEmpty then
-                    ""
-                else
-                    limit.Quantities
-                    |> Array.map BigRational.toStringNl
-                    |> String.concat ", "
-                    |> fun s -> $" {s} {limit.Unit}"
+                limit.Quantities
+                |> Option.map (Utils.ValueUnit.toString -1)
+                |> Option.defaultValue ""
 
             let q =
-                if limit.Quantity
-                   |> MinMax.toString
-                   |> String.isNullOrWhiteSpace then
-                    ""
-                else
-                    limit.Quantity
-                    |> MinMax.toString
-                    |> fun s ->
-                        if qs |> String.isNullOrWhiteSpace then
-                            $" {s} {limit.Unit}"
-                        else
-                            $" ({s} {limit.Unit})"
+                limit.Quantity
+               |> mmToStr
 
             let vol =
                 if sr.Volume
-                   |> MinMax.toString
+                   |> mmToStr
                    |> String.isNullOrWhiteSpace then
                     ""
                 else
                     sr.Volume
-                    |> MinMax.toString
+                    |> mmToStr
                     |> fun s -> $""" in {s} ml {sr.Solutions |> String.concat "/"}"""
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace |> not then s
                     else
                         sr.Volumes
-                        |> Array.map BigRational.toStringNl
-                        |> String.concat "\n"
+                        |> Option.map (Utils.ValueUnit.toString -1)
+                        |> Option.defaultValue ""
                         |> fun s ->
                             let sols = sr.Solutions |> String.concat "/"
                             if s |> String.isNullOrWhiteSpace then
@@ -229,15 +251,16 @@ module SolutionRule =
                                 $" in {s} ml {sols}"
 
             let conc =
-                if limit.Concentration |> MinMax.toString |> String.isNullOrWhiteSpace then ""
+                if limit.Concentration
+                   |> mmToStr
+                   |> String.isNullOrWhiteSpace then ""
                 else
-                    $"* concentratie: {limit.Concentration |> MinMax.toString} {limit.Unit}/ml"
+                    $"* concentratie: {limit.Concentration |> mmToStr}/ml"
 
             let dosePerc =
                 let p =
                     sr.DosePerc
-                    |> MinMax.map (fun br -> br * 100N) (fun br -> br * 100N)
-                    |> MinMax.toString
+                    |> mmToStr
 
                 if p |> String.isNullOrWhiteSpace then ""
                 else
@@ -274,7 +297,12 @@ module SolutionRule =
                     |> Array.collect (fun d -> d.Products)
                     |> Array.sortBy (fun p ->
                         p.Substances
-                        |> Array.sumBy (fun s -> s.Quantity |> Option.defaultValue 0N)
+                        |> Array.sumBy (fun s ->
+                            s.Quantity
+                            |> Option.map ValueUnit.getValue
+                            |> Option.bind Array.tryHead
+                            |> Option.defaultValue 0N
+                        )
                     )
                     |> Array.collect (fun p ->
                         if p.Reconstitution |> Array.isEmpty then
@@ -282,7 +310,7 @@ module SolutionRule =
                         else
                             p.Reconstitution
                             |> Array.map (fun r ->
-                                $"{p.Label} oplossen in {r.DiluentVolume |> BigRational.toStringNl} ml voor {r.Route}"
+                                $"{p.Label} oplossen in {r.DiluentVolume |> Utils.ValueUnit.toString -1} voor {r.Route}"
                                 |> product_md
                             )
                     )
@@ -335,7 +363,13 @@ module SolutionRule =
                                             let a = sel.Age |> PatientCategory.printAgeMinMax
 
                                             let w =
-                                                let s = sel.Weight |> MinMax.toString
+                                                let s =
+                                                    sel.Weight
+                                                    |> MinMax.toString
+                                                        "van "
+                                                        "van "
+                                                        "tot "
+                                                        "tot "
 
                                                 if s |> String.isNullOrWhiteSpace then
                                                     ""
@@ -349,16 +383,12 @@ module SolutionRule =
                                                 $"patient: %s{a} %s{w}" |> String.trim
 
                                         let dose =
-                                            let d = sel.Dose |> MinMax.toString
-                                            let u =
-                                                match rs |> Array.collect (fun r -> r.SolutionLimits) with
-                                                | [| sl |] -> sl.Unit
-                                                | _ -> ""
-
-                                            if d |> String.isNullOrWhiteSpace ||
-                                               u |> String.isNullOrWhiteSpace then ""
-                                            else
-                                                $"{d} {u}"
+                                            sel.Dose
+                                            |> MinMax.toString
+                                                    "van "
+                                                    "van "
+                                                    "tot "
+                                                    "tot "
 
                                         let dt =
                                             let s = sel.DoseType |> DoseType.toString
@@ -395,4 +425,5 @@ module SolutionRule =
                 |> Array.sortBy (fun sr -> sr.Generic)
                 |> toMarkdown ""
             )
+
 

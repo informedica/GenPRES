@@ -25,9 +25,9 @@ module Gender =
     /// Check if a Filter contains a Gender.
     /// Note if AnyGender is specified, this will always return true.
     let filter gender (filter : Filter) =
-        match filter.Gender, gender with
+        match filter.Patient.Gender, gender with
         | _, AnyGender -> true
-        | _ -> filter.Gender = gender
+        | _ -> filter.Patient.Gender = gender
 
 
 
@@ -36,9 +36,26 @@ module PatientCategory =
 
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
 
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
+    module Limit = Informedica.GenCore.Lib.Ranges.Limit
+    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Conversions = Informedica.GenCore.Lib.Conversions
+
+
+    let patientCategory : PatientCategory =
+        {
+              Department = None
+              Diagnoses = [||]
+              Gender = AnyGender
+              Age = MinMax.empty
+              Weight = MinMax.empty
+              BSA = MinMax.empty
+              GestAge = MinMax.empty
+              PMAge = MinMax.empty
+              Location = AnyAccess
+        }
 
 
     /// <summary>
@@ -54,13 +71,20 @@ module PatientCategory =
     /// </remarks>
     let sortBy (pat : PatientCategory) =
         let toInt = function
-            | Some x -> x |> BigRational.ToInt32
+            | Some x ->
+                x
+                |> Limit.getValueUnit
+                |> ValueUnit.getValue
+                |> Array.tryHead
+                |> function
+                    | None -> 0
+                    | Some x -> x |> BigRational.ToInt32
             | None -> 0
 
-        (pat.Age.Minimum |> toInt |> fun i -> if i > 0 then i + 300 else i) +
-        (pat.GestAge.Minimum |> toInt) +
-        (pat.PMAge.Minimum |> toInt) +
-        (pat.Weight.Minimum |> Option.map (fun w -> w / 1000N) |> toInt)
+        (pat.Age.Min |> toInt |> fun i -> if i > 0 then i + 300 else i) +
+        (pat.GestAge.Min |> toInt) +
+        (pat.PMAge.Min |> toInt) +
+        (pat.Weight.Min |> toInt |> fun w -> w / 1000)
 
 
     /// <summary>
@@ -78,49 +102,43 @@ module PatientCategory =
 
         ([| patCat |]
         |> Array.filter (fun p ->
-            if filter.Diagnoses |> Array.isEmpty then true
+            if filter.Patient.Diagnoses |> Array.isEmpty then true
             else
                 p.Diagnoses
                 |> Array.exists (fun d ->
-                    filter.Diagnoses |> Array.exists (String.equalsCapInsens d)
+                    filter.Patient.Diagnoses
+                    |> Array.exists (String.equalsCapInsens d)
                 )
         ),
         [|
-            fun (p: PatientCategory) -> filter.Department |> eqs p.Department
-            fun (p: PatientCategory) -> filter.AgeInDays |> MinMax.isBetween p.Age
-            fun (p: PatientCategory) -> filter.WeightInGram |> MinMax.isBetween p.Weight
+            fun (p: PatientCategory) -> filter.Patient.Department |> eqs p.Department
+            fun (p: PatientCategory) -> filter.Patient.Age |> Utils.MinMax.inRange p.Age
+            fun (p: PatientCategory) -> filter.Patient.Weight |> Utils.MinMax.inRange p.Weight
             fun (p: PatientCategory) ->
-                match filter.WeightInGram, filter.HeightInCm with
+                match filter.Patient.Weight, filter.Patient.Height with
                 | Some w, Some h ->
-                    BSA.calcDuBois (Some 3)
-                        (w |> BigRational.toDecimal |> Conversions.kgFromDecimal)
-                        (h |> BigRational.toDecimal |> Conversions.cmFromDecimal)
-                    |> decimal
-                    |> BigRational.fromDecimal
+                    Calculations.calcDuBois w h
                     |> Some
-                | _ -> None
-                |> MinMax.isBetween p.BSA
-            if filter.AgeInDays |> Option.isSome then
+                    |> Utils.MinMax.inRange p.BSA
+                | _ -> true
+            if filter.Patient.Age |> Option.isSome then
                 yield! [|
                     fun (p: PatientCategory) ->
                         // defaults to normal gestation
-                        filter.GestAgeInDays
-                        |> Option.defaultValue 259N
+                        filter.Patient.GestAge
+                        |> Option.defaultValue Utils.ValueUnit.ageFullTerm
                         |> Some
-                        |> MinMax.isBetween p.GestAge
+                        |> Utils.MinMax.inRange p.GestAge
                     fun (p: PatientCategory) ->
                         // defaults to normal postmenstrual age
-                        filter.PMAgeInDays
-                        |> Option.defaultValue 259N
+                        filter.Patient.PMAge
+                        |> Option.defaultValue Utils.ValueUnit.ageFullTerm
                         |> Some
-                        |> MinMax.isBetween p.PMAge
+                        |> Utils.MinMax.inRange p.PMAge
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
             fun (p: PatientCategory) ->
-                match p.Location, filter.Location with
-                | AnyAccess, _
-                | _, AnyAccess -> true
-                | _ -> p.Location = filter.Location
+                VenousAccess.check p.Location filter.Patient.VenousAccess
         |])
         ||> Array.fold(fun acc pred ->
             acc
@@ -142,12 +160,20 @@ module PatientCategory =
     /// considered to be between the minimum and maximum.
     /// </remarks>
     let checkAgeWeightMinMax age weight aMinMax wMinMax =
-        age |> MinMax.isBetween aMinMax &&
-        weight |> MinMax.isBetween wMinMax
+        // TODO rename aMinMax and wMinMax to ageMinMax and weightMinMax
+
+        age |> Utils.MinMax.inRange aMinMax &&
+        weight |> Utils.MinMax.inRange wMinMax
 
 
     /// Prints an age in days as a string.
     let printAge age =
+        let age =
+            age
+            |> ValueUnit.convertTo Units.Time.day
+            |> ValueUnit.getValue
+            |> Array.tryHead
+            |> Option.defaultValue 0N
         let a = age |> BigRational.ToInt32
         match a with
         | _ when a < 7 ->
@@ -169,13 +195,21 @@ module PatientCategory =
 
     /// Print days as weeks.
     let printDaysToWeeks d =
+        let d =
+            d
+            |> ValueUnit.convertTo Units.Time.day
+            |> ValueUnit.getValue
+            |> Array.tryHead
+            |> Option.defaultValue 0N
+
         let d = d |> BigRational.ToInt32
         (d / 7) |> sprintf "%i weken"
 
 
     /// Print an MinMax age as a string.
     let printAgeMinMax (age : MinMax) =
-        match age.Minimum, age.Maximum with
+        let printAge = Limit.getValueUnit >> printAge
+        match age.Min, age.Max with
         | Some min, Some max ->
             let min = min |> printAge
             let max = max |> printAge
@@ -199,10 +233,14 @@ module PatientCategory =
 
         let neonate =
             let s =
-                if pat.GestAge.Maximum.IsSome && pat.GestAge.Maximum.Value < 259N then "prematuren"
+                if pat.GestAge.Max.IsSome &&
+                   pat.GestAge.Max.Value
+                   |> Limit.getValueUnit  <? Utils.ValueUnit.ageFullTerm then "prematuren"
                 else "neonaten"
 
-            match pat.GestAge.Minimum, pat.GestAge.Maximum, pat.PMAge.Minimum, pat.PMAge.Maximum with
+            let printDaysToWeeks = Limit.getValueUnit >> printDaysToWeeks
+
+            match pat.GestAge.Min, pat.GestAge.Max, pat.PMAge.Min, pat.PMAge.Max with
             | _, _, Some min, Some max ->
                 let min = min |> printDaysToWeeks
                 let max = max |> printDaysToWeeks
@@ -229,18 +267,16 @@ module PatientCategory =
             | _ -> ""
 
         let weight =
-            let toStr (v : BigRational) =
-                let v = v / 1000N
-                if v.Denominator = 1I then v |> BigRational.ToInt32 |> sprintf "%i"
-                else
-                    v
-                    |> BigRational.ToDouble
-                    |> sprintf "%A"
+            let toStr lim =
+                lim
+                |> Limit.getValueUnit
+                |> ValueUnit.convertTo Units.Weight.kiloGram
+                |> Utils.ValueUnit.toString -1
 
-            match pat.Weight.Minimum, pat.Weight.Maximum with
-            | Some min, Some max -> $"gewicht %s{min |> toStr} tot %s{max |> toStr} kg"
-            | Some min, None     -> $"gewicht vanaf %s{min |> toStr} kg"
-            | None,     Some max -> $"gewicht tot %s{max |> toStr} kg"
+            match pat.Weight.Min, pat.Weight.Max with
+            | Some min, Some max -> $"gewicht %s{min |> toStr} tot %s{max |> toStr}"
+            | Some min, None     -> $"gewicht vanaf %s{min |> toStr}"
+            | None,     Some max -> $"gewicht tot %s{max |> toStr}"
             | None,     None     -> ""
 
         [
@@ -260,30 +296,31 @@ module Patient =
 
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
 
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
     module Conversions = Informedica.GenCore.Lib.Conversions
-
+    module Limit = Informedica.GenCore.Lib.Ranges.Limit
 
     /// An empty Patient.
     let patient =
         {
-            Department = ""
+            Department = None
             Diagnoses = [||]
             Gender = AnyGender
-            AgeInDays = None
-            WeightInGram = None
-            HeightInCm = None
-            GestAgeInDays = None
-            PMAgeInDays = None
-            VenousAccess = AnyAccess
+            Age = None
+            Weight = None
+            Height = None
+            GestAge = None
+            PMAge = None
+            VenousAccess = [ ]
         }
 
 
     let calcPMAge (pat: Patient) =
         { pat with
-            PMAgeInDays =
-                match pat.AgeInDays, pat.GestAgeInDays with
+            PMAge =
+                match pat.Age, pat.GestAge with
                 | Some ad, Some ga -> ad + ga |> Some
                 | _ -> None
         }
@@ -291,21 +328,9 @@ module Patient =
 
     /// Calculate the BSA of a Patient.
     let calcBSA (pat: Patient) =
-        match pat.WeightInGram, pat.HeightInCm with
+        match pat.Weight, pat.Height with
         | Some w, Some h ->
-            let w =
-                (w |> BigRational.toDouble) / 1000.
-                |> decimal
-                |> Conversions.kgFromDecimal
-            let h =
-                h
-                |> BigRational.toDouble
-                |> decimal
-                |> Conversions.cmFromDecimal
-
-            BSA.calcDuBois (Some 2) w h
-            |> decimal
-            |> BigRational.fromDecimal
+            Utils.Calculations.calcDuBois w h
             |> Some
         | _ -> None
 
@@ -313,19 +338,20 @@ module Patient =
     /// Get the string representation of a Patient.
     let rec toString (pat: Patient) =
         [
-            pat.Department
+            pat.Department |> Option.defaultValue ""
             pat.Gender |> Gender.toString
-            pat.AgeInDays
+            pat.Age
             |> Option.map PatientCategory.printAge
             |> Option.defaultValue ""
 
             let printDaysToWeeks = PatientCategory.printDaysToWeeks
 
             let s =
-                if pat.GestAgeInDays.IsSome && pat.GestAgeInDays.Value < 259N then "prematuren"
+                if pat.GestAge.IsSome &&
+                   pat.GestAge.Value  < Utils.ValueUnit.ageFullTerm then "prematuren"
                 else "neonaten"
 
-            match pat.GestAgeInDays, pat.PMAgeInDays with
+            match pat.GestAge, pat.PMAge with
             | _, Some a ->
                 let a = a |> printDaysToWeeks
                 $"{s} postconceptie leeftijd %s{a}"
@@ -334,33 +360,36 @@ module Patient =
                 $"{s} zwangerschapsduur %s{a}"
             | _ -> ""
 
-            let toStr (v : BigRational) =
-                let v = v / 1000N
+            let toStr u vu =
+                let v =
+                    vu
+                    |> ValueUnit.convertTo u
+                    |> ValueUnit.getValue
+                    |> Array.tryHead
+                    |> Option.defaultValue 0N
                 if v.Denominator = 1I then v |> BigRational.ToInt32 |> sprintf "%i"
                 else
                     v
-                    |> BigRational.toStringNl
+                    |> BigRational.ToDouble
+                    |> sprintf "%A"
 
-            pat.WeightInGram
-            |> Option.map (fun w -> $"gewicht %s{w |> toStr} kg")
+            pat.Weight
+            |> Option.map (fun w -> $"gewicht %s{w |> toStr Units.Mass.kiloGram } kg")
             |> Option.defaultValue ""
 
-            pat.HeightInCm
-            |> Option.map (fun h -> $"lengte {h |> BigRational.toStringNl} cm")
+            pat.Height
+            |> Option.map (fun h -> $"lengte {h |> toStr Units.Height.centiMeter} cm")
             |> Option.defaultValue ""
 
             pat
             |> calcBSA
             |> Option.map (fun bsa ->
-                let bsa =
-                    bsa
-                    |> BigRational.toDouble
-                    |> Double.fixPrecision 2
-                $"BSA {bsa} m2"
+                $"BSA {bsa |> Utils.ValueUnit.toString 3}"
             )
             |> Option.defaultValue ""
         ]
         |> List.filter String.notEmpty
         |> List.filter (String.isNullOrWhiteSpace >> not)
         |> String.concat ", "
+
 

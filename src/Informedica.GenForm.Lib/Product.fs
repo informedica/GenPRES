@@ -2,6 +2,7 @@ namespace Informedica.GenForm.Lib
 
 
 
+
 module Product =
 
     open MathNet.Numerics
@@ -34,6 +35,8 @@ module Product =
 
     module ShapeRoute =
 
+        open Informedica.GenUnits.Lib
+
 
         let private get_ () =
             Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
@@ -51,8 +54,14 @@ module Product =
                     {
                         Shape = get "Shape"
                         Route = get "Route"
-                        Unit = get "Unit"
-                        DoseUnit = get "DoseUnit"
+                        Unit =
+                            get "Unit"
+                            |> Units.fromString
+                            |> Option.defaultValue NoUnit
+                        DoseUnit =
+                            get "DoseUnit"
+                            |> Units.fromString
+                            |> Option.defaultValue NoUnit
                         Timed = get "Timed" = "TRUE"
                         Reconstitute = get "Reconstitute" = "TRUE"
                         IsSolution = get "IsSolution" = "TRUE"
@@ -152,17 +161,21 @@ module Product =
             [|
                 fun (r : Reconstitution) -> r.Route |> eqs filter.Route
                 fun (r : Reconstitution) ->
-                    if filter.Location = AnyAccess then true
+                    if filter.Patient.VenousAccess = [AnyAccess] ||
+                       filter.Patient.VenousAccess |> List.isEmpty then true
                     else
                         match filter.DoseType with
                         | AnyDoseType -> true
                         | _ -> filter.DoseType = r.DoseType
-                fun (r : Reconstitution) -> r.Department |> eqs filter.Department
+                fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
                 fun (r : Reconstitution) ->
-                    match r.Location, filter.Location with
+                    match r.Location, filter.Patient.VenousAccess with
                     | AnyAccess, _
-                    | _, AnyAccess -> true
-                    | _ -> r.Location = filter.Location
+                    | _, []
+                    | _, [ AnyAccess ] -> true
+                    | _ ->
+                        filter.Patient.VenousAccess
+                        |> List.exists ((=) r.Location)
             |]
             |> Array.fold (fun (acc : Reconstitution[]) pred ->
                 acc |> Array.filter pred
@@ -171,6 +184,9 @@ module Product =
 
 
     module Parenteral =
+
+        open Informedica.GenUnits.Lib
+
 
         let private get_ () =
             Web.getDataFromSheet Web.dataUrlIdGenPres "ParentMeds"
@@ -222,11 +238,15 @@ module Product =
                         Label = r.Name
                         Shape = ""
                         Routes = [||]
-                        ShapeQuantities = [| 1N |]
-                        ShapeUnit = "mL"
+                        ShapeQuantities =
+                            1N
+                            |> ValueUnit.singleWithUnit
+                                   Units.Volume.milliLiter
+                        ShapeUnit =
+                            Units.Volume.milliLiter
                         RequiresReconstitution = false
                         Reconstitution = [||]
-                        Divisible = 10N |> Some
+                        Divisible = Some 10N
                         Substances =
                             r.Substances
                             |> Array.map (fun (s, q) ->
@@ -236,10 +256,19 @@ module Product =
                                     | _ -> failwith $"cannot parse substance {s}"
                                 {
                                     Name = n
-                                    Quantity = q
-                                    Unit = u
+                                    Quantity =
+                                        q
+                                        |> Option.bind (fun q ->
+                                            u
+                                            |> Units.fromString
+                                            |> function
+                                                | None -> None
+                                                | Some u ->
+                                                    q
+                                                    |> ValueUnit.singleWithUnit u
+                                                    |> Some
+                                        )
                                     MultipleQuantity = None
-                                    MultipleUnit = ""
                                 }
                             )
                     }
@@ -252,10 +281,13 @@ module Product =
 
 
 
+    open Informedica.GenUnits.Lib
+
+
     let private get_ () =
         // check if the shape is a solution
         let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
-
+        // TODO make this a configuration
         let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
             if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||
                subst.SubstanceName |> String.startsWithCapsInsens "COFFEINE" then
@@ -307,9 +339,11 @@ module Product =
                     let atc =
                         gp.ATC
                         |> ATCGroup.findByATC5
-                    let su =
+                    let shpUnit =
                         gp.Substances[0].ShapeUnit
                         |> String.toLower
+                        |> Units.fromString
+                        |> Option.defaultValue NoUnit
 
                     {
                         GPK =  $"{gp.Id}"
@@ -366,12 +400,10 @@ module Product =
                             |> Array.distinct
                             |> fun xs ->
                                 if xs |> Array.isEmpty then [| 1N |] else xs
-                        ShapeUnit =
-                            gp.Substances[0].ShapeUnit
-                            |> Mapping.mapUnit
-                            |> Option.defaultValue ""
+                                |> ValueUnit.withUnit shpUnit
+                        ShapeUnit = shpUnit
                         RequiresReconstitution =
-                            Mapping.requiresReconstitution (gp.Route, su, gp.Shape)
+                            Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
                         Reconstitution =
                             Reconstitution.get ()
                             |> Array.filter (fun r ->
@@ -384,8 +416,15 @@ module Product =
                                     DoseType = r.DoseType
                                     Department = r.Dep
                                     Location = r.Location
-                                    DiluentVolume = r.DiluentVol.Value
-                                    ExpansionVolume = r.ExpansionVol
+                                    DiluentVolume =
+                                        r.DiluentVol.Value
+                                        |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                                    ExpansionVolume =
+                                        r.ExpansionVol
+                                        |> Option.map (fun v ->
+                                            v
+                                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                                        )
                                     Diluents =
                                         r.Diluents
                                         |> String.splitAt ';'
@@ -394,24 +433,31 @@ module Product =
                             )
                         Divisible =
                             // TODO: need to map this to a config setting
-                            if gp.Shape |> String.containsCapsInsens "druppel" then Some 20N
+                            if gp.Shape |> String.containsCapsInsens "druppel" then 20N
                             else
-                                if isSol gp.Shape then 10N |> Some
-                                    else Some 1N
+                                if isSol gp.Shape then 10N
+                                    else 1N
+                            |> Some
                         Substances =
                             gp.Substances
                             |> Array.map (fun s ->
+                                let su =
+                                    s.SubstanceUnit
+                                    |> Units.fromString
+                                    |> Option.map (fun u ->
+                                        u |> ValueUnit.per shpUnit
+                                    )
+                                    |> Option.defaultValue NoUnit
                                 {
                                     Name = rename s s.SubstanceName
                                     Quantity =
                                         s.SubstanceQuantity
                                         |> BigRational.fromFloat
-                                    Unit =
-                                        s.SubstanceUnit
-                                        |> Mapping.mapUnit
-                                        |> Option.defaultValue ""
+                                        |> Option.map (fun q ->
+                                            q
+                                            |> ValueUnit.singleWithUnit su
+                                        )
                                     MultipleQuantity = None
-                                    MultipleUnit = ""
                                 }
                             )
                     }
@@ -449,20 +495,25 @@ module Product =
             |> Array.filter (fun r ->
                 (rte |> String.isNullOrWhiteSpace || r.Route |> String.equalsCapInsens rte) &&
                 (r.DoseType = AnyDoseType || r.DoseType = dtp) &&
-                (dep |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) &&
-                (r.Location = AnyAccess || r.Location = loc)
+                (dep |> Option.map (fun dep -> r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true) &&
+                (loc |> List.isEmpty || loc |> List.exists ((=) r.Location) || loc |> List.exists ((=) AnyAccess))
             )
             |> Array.map (fun r ->
                 { prod with
-                    ShapeUnit = "milliliter"
-                    ShapeQuantities = [| r.DiluentVolume |]
+                    ShapeUnit =
+                        Units.Volume.milliLiter
+                    ShapeQuantities = r.DiluentVolume
                     Substances =
                         prod.Substances
                         |> Array.map (fun s ->
                             { s with
                                 Quantity =
                                     s.Quantity
-                                    |> Option.map (fun q -> q / r.DiluentVolume)
+                                    |> Option.map (fun q ->
+                                        // replace the old shapeunit with the new one
+                                        let one = 1N |> ValueUnit.singleWithUnit prod.ShapeUnit
+                                        (one * q) / r.DiluentVolume
+                                    )
                             }
                         )
                 }

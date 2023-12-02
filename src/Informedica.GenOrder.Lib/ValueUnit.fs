@@ -55,6 +55,18 @@ module ValueUnit =
         | _ -> vu
 
 
+    let collect (vus : ValueUnit[]) =
+        match vus |> Array.tryHead with
+        | None    -> None
+        | Some vu ->
+            let u = vu |> getUnit
+            vus
+            |> Array.collect (toBase >> getValue)
+            |> withUnit u
+            |> toUnit
+            |> Some
+
+
 
     module Units =
 

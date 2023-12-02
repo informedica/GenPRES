@@ -5,7 +5,9 @@ namespace Informedica.GenForm.Lib
 module Types =
 
     open MathNet.Numerics
+    open Informedica.GenUnits.Lib
 
+    type MinMax = Informedica.GenCore.Lib.Ranges.MinMax
 
     /// Associate a Route and a Shape
     /// setting default values for the other fields
@@ -16,13 +18,13 @@ module Types =
             /// The pharmacological Shape
             Shape : string
             /// The Unit of the Shape
-            Unit : string
+            Unit : Unit
             /// The Dose Unit to use for Dose Limits
-            DoseUnit : string
+            DoseUnit : Unit
             /// The minimum Dose quantity
-            MinDoseQty : float option
+            MinDoseQty : ValueUnit option
             /// The maximum Dose quantity
-            MaxDoseQty : float option
+            MaxDoseQty : ValueUnit option
             /// Whether a Dose runs over a Time
             Timed : bool
             /// Whether the Shape needs to be reconstituted
@@ -68,14 +70,6 @@ module Types =
         | AnyDoseType
 
 
-    /// A MinMax type with an optional Minimum and Maximum.
-    type MinMax = { Minimum : BigRational option; Maximum : BigRational option }
-
-
-    /// A frequency type with a Count and a TimeUnit.
-    type Frequency = { Count : BigRational; TimeUnit : string }
-
-
     /// A Shape Route with associated attributes.
     type ShapeRoute =
         {
@@ -84,9 +78,9 @@ module Types =
             /// The Route of administration
             Route : string
             /// The Unit of the Shape
-            Unit  : string
+            Unit  : Unit
             /// The Dose Unit to use for Dose Limits
-            DoseUnit : string
+            DoseUnit : Unit
             /// Whether a Dose runs over a Time
             Timed : bool
             /// Whether the Shape needs to be reconstituted
@@ -101,14 +95,10 @@ module Types =
         {
             /// The name of the Substance
             Name : string
-            /// The Unit of the Substance
-            Unit : string
             /// The Quantity of the Substance
-            Quantity : BigRational option
+            Quantity : ValueUnit option
             /// The indivisible Quantity of the Substance
-            MultipleQuantity : BigRational option
-            /// The Unit of the indivisible Quantity of the Substance
-            MultipleUnit : string
+            MultipleQuantity : ValueUnit option
         }
 
     /// A Product type.
@@ -137,9 +127,9 @@ module Types =
             /// The possible Routes of administration of the Product
             Routes : string []
             /// The possible quantities of the Shape of the Product
-            ShapeQuantities : BigRational []
+            ShapeQuantities : ValueUnit
             /// The uid of the Shape of the Product
-            ShapeUnit : string
+            ShapeUnit : Unit
             /// Whether the Shape of the Product requires reconstitution
             RequiresReconstitution : bool
             /// The possible reconstitution rules for the Product
@@ -160,9 +150,9 @@ module Types =
             /// The location for the reconstitution
             Location : VenousAccess
             /// The volume of the reconstitution
-            DiluentVolume : BigRational
+            DiluentVolume : ValueUnit
             /// An optional expansion volume of the reconstitution
-            ExpansionVolume : BigRational option
+            ExpansionVolume : ValueUnit option
             /// The Diluents for the reconstitution
             Diluents : string []
         }
@@ -173,16 +163,14 @@ module Types =
         {
             /// The Target for the Doselimit
             DoseLimitTarget : DoseLimitTarget
-            /// The DoseUnit to use for the DoseLimit
-            DoseUnit : string
-            /// The RateUnit to use for the DoseLimit
-            RateUnit : string
+            /// The unit to dose with
+            DoseUnit: Unit
             /// A MinMax Dose Quantity for the DoseLimit
             Quantity : MinMax
             /// An optional Dose Quantity Adjust for the DoseLimit.
             /// Note: if this is specified a min and max QuantityAdjust
             /// will be assumed to be 10% minus and plus the normal value
-            NormQuantityAdjust : BigRational option
+            NormQuantityAdjust : ValueUnit option
             /// A MinMax Quantity Adjust for the DoseLimit
             QuantityAdjust : MinMax
             /// An optional Dose Per Time for the DoseLimit
@@ -190,7 +178,7 @@ module Types =
             /// An optional Per Time Adjust for the DoseLimit
             /// Note: if this is specified a min and max NormPerTimeAdjust
             /// will be assumed to be 10% minus and plus the normal value
-            NormPerTimeAdjust : BigRational option
+            NormPerTimeAdjust : ValueUnit option
             /// A MinMax Per Time Adjust for the DoseLimit
             PerTimeAdjust : MinMax
             /// A MinMax Rate for the DoseLimit
@@ -223,42 +211,41 @@ module Types =
     type Patient =
         {
             /// The Department of the Patient
-            Department : string
+            Department : string option
             /// A list of Diagnoses of the Patient
             Diagnoses : string []
             /// The Gender of the Patient
             Gender : Gender
             /// The Age in days of the Patient
-            AgeInDays : BigRational option
+            Age : ValueUnit option
             /// The Weight in grams of the Patient
-            WeightInGram : BigRational option
+            Weight : ValueUnit option
             /// The Height in cm of the Patient
-            HeightInCm : BigRational option
+            Height : ValueUnit option
             /// The Gestational Age in days of the Patient
-            GestAgeInDays : BigRational option
+            GestAge : ValueUnit option
             /// The Post Menstrual Age in days of the Patient
-            PMAgeInDays : BigRational option
+            PMAge : ValueUnit option
             /// The Venous Access of the Patient
-            /// TODO: should be a list
-            VenousAccess : VenousAccess
+            VenousAccess : VenousAccess list
         }
         static member Gender_ =
             (fun (p : Patient) -> p.Gender), (fun g (p : Patient) -> { p with Gender = g})
 
         static member Age_ =
-            (fun (p : Patient) -> p.AgeInDays), (fun a (p : Patient) -> { p with AgeInDays = a})
+            (fun (p : Patient) -> p.Age), (fun a (p : Patient) -> { p with Age = a})
 
         static member Weight_ =
-            (fun (p : Patient) -> p.WeightInGram), (fun w (p : Patient) -> { p with WeightInGram = w})
+            (fun (p : Patient) -> p.Weight), (fun w (p : Patient) -> { p with Weight = w})
 
         static member Height_ =
-            (fun (p : Patient) -> p.HeightInCm), (fun b (p : Patient) -> { p with HeightInCm = b})
+            (fun (p : Patient) -> p.Height), (fun b (p : Patient) -> { p with Height = b})
 
         static member GestAge_ =
-            (fun (p : Patient) -> p.GestAgeInDays), (fun a (p : Patient) -> { p with GestAgeInDays = a})
+            (fun (p : Patient) -> p.GestAge), (fun a (p : Patient) -> { p with GestAge = a})
 
         static member PMAge_ =
-            (fun (p : Patient) -> p.PMAgeInDays), (fun a (p : Patient) -> { p with PMAgeInDays = a})
+            (fun (p : Patient) -> p.PMAge), (fun a (p : Patient) -> { p with PMAge = a})
 
         static member Department_ =
             (fun (p : Patient) -> p.Department), (fun d (p : Patient) -> { p with Department = d})
@@ -278,26 +265,18 @@ module Types =
             Route : string
             /// The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
-            /// The Adjustment Unit of the DoseRule
-            AdjustUnit : string
             /// The DoseType of the DoseRule
             DoseType : DoseType
+            /// The unit to adjust dosing with
+            AdjustUnit : Unit option
             /// The possible Frequencies of the DoseRule
-            Frequencies : BigRational array
-            /// The frequency time unit of the DoseRule
-            FreqTimeUnit : string
+            Frequencies : ValueUnit option
             /// The MinMax Administration Time of the DoseRule
             AdministrationTime : MinMax
-            /// The Administration Time Unit of the DoseRule
-            AdministrationTimeUnit : string
             /// The MinMax Interval Time of the DoseRule
             IntervalTime : MinMax
-            /// The Interval Time Unit of the DoseRule
-            IntervalTimeUnit : string
             /// The MinMax Duration of the DoseRule
             Duration : MinMax
-            /// The Duration Unit of the DoseRule
-            DurationUnit : string
             /// The list of associated DoseLimits of the DoseRule.
             /// In principle for the Shape and each Substance .
             DoseLimits : DoseLimit array
@@ -311,12 +290,10 @@ module Types =
         {
             /// The Substance for the SolutionLimit
             Substance : string
-            /// The unit of the Substance for the SolutionLimit
-            Unit : string
             /// The MinMax Quantity of the Substance for the SolutionLimit
             Quantity : MinMax
             /// A list of possible Quantities of the Substance for the SolutionLimit
-            Quantities : BigRational []
+            Quantities : ValueUnit option
             /// The Minmax Concentration of the Substance for the SolutionLimit
             Concentration : MinMax
         }
@@ -349,7 +326,7 @@ module Types =
             /// The possible Solutions to use
             Solutions : string []
             /// The possible Volumes to use
-            Volumes : BigRational []
+            Volumes : ValueUnit option
             /// A MinMax Volume range to use
             Volume : MinMax
             /// The percentage to be use as a DoseQuantity
@@ -370,26 +347,10 @@ module Types =
             Shape : string option
             /// The Route to filter on
             Route : string option
-            /// The Department to filter on
-            Department : string option
-            /// The list of Diagnoses to filter on
-            Diagnoses : string []
-            /// The Gender to filter on
-            Gender : Gender
-            /// The Age in days to filter on
-            AgeInDays : BigRational option
-            /// The Weight in grams to filter on
-            WeightInGram : BigRational option
-            /// The Height in cm to filter on
-            HeightInCm : BigRational option
-            /// The Gestational Age in days to filter on
-            GestAgeInDays : BigRational option
-            /// The Post Menstrual Age in days to filter on
-            PMAgeInDays : BigRational option
             /// The DoseType to filter on
             DoseType : DoseType
-            /// The Venous Access Location to filter on
-            Location : VenousAccess
+            /// The patient to filter on
+            Patient : Patient
         }
 
 
@@ -401,3 +362,4 @@ module Types =
             DoseRule : DoseRule
             SolutionRules : SolutionRule []
         }
+

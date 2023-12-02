@@ -3,6 +3,7 @@ module Formulary
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
@@ -18,16 +19,22 @@ let mapFormularyToFilter (form: Formulary)=
         Generic = form.Generic
         Indication = form.Indication
         Route = form.Route
-        AgeInDays =
-            form.Age
-            |> Option.bind BigRational.fromFloat
-        WeightInGram =
-            form.Weight
-            |> Option.map ((*) 1000.)
-            |> Option.bind BigRational.fromFloat
-        GestAgeInDays =
-            form.GestAge
-            |> Option.map BigRational.fromInt
+        Patient =
+            { Patient.patient with
+                Age =
+                    form.Age
+                    |> Option.bind BigRational.fromFloat
+                    |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+                Weight =
+                    form.Weight
+                    |> Option.bind BigRational.fromFloat
+                    |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+                GestAge =
+                    form.GestAge
+                    |> Option.map BigRational.fromInt
+                    |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+
+            }
     }
     |> Filter.calcPMAge
 

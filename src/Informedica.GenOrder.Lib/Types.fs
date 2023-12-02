@@ -115,17 +115,17 @@ module Types =
         /// Models an `Item` in a `Component`
         type Item =
             {
-                // The name of the item
+                /// The name of the item
                 Name: Name
-                // The quantity of an `Item` in a `Component`
+                /// The quantity of an `Item` in a `Component`
                 ComponentQuantity: Quantity
-                // The quantity of an `Item` in an `Orderable`
+                /// The quantity of an `Item` in an `Orderable`
                 OrderableQuantity: Quantity
-                // The `Item` concentration in a `Component`
+                /// The `Item` concentration in a `Component`
                 ComponentConcentration: Concentration
-                // The  `Item` concentration in an `Orderable`
+                /// The  `Item` concentration in an `Orderable`
                 OrderableConcentration: Concentration
-                // The `Item` `Dose` of `Item` administered
+                /// The `Item` `Dose` of `Item` administered
                 Dose: Dose
             }
 
@@ -242,79 +242,61 @@ module Types =
         /// to an Orderable and a Prescription.
         type DrugOrder =
             {
-                // Identifies the specific drug order
+                /// Identifies the specific drug order
                 Id:  string
-                // The name of the order
+                /// The name of the order
                 Name : string
-                // The list of drug products that can be used for the order
+                /// The list of drug products that can be used for the order
                 Products : ProductComponent list
-                // The quantities of the drug order
-                Quantities :  BigRational list
-                // The unit the `DrugOrder` is measured in,
-                // i.e. of the `Quantities`
-                Unit : string
-                // The route by which the order is applied
+                /// The quantities of the drug order
+                Quantities :  ValueUnit option
+                /// The route by which the order is applied
                 Route : string
-                // The type of order
+                /// The type of order
                 OrderType : OrderType
-                // The list of possible frequency values
-                Frequencies : BigRational list
-                // The time unit to be used when using a frequency
-                FreqUnit : string
-                // The list of possible rate values
-                Rates : BigRational list
-                // The time unit to be used when using a rate
-                RateUnit : string
-                // The min and/or max time for the infusion time
+                /// The unit to adjust the dose with
+                AdjustUnit : Unit option
+                /// The list of possible frequency values
+                Frequencies : ValueUnit option
+                /// The list of possible rate values
+                Rates : ValueUnit option
+                /// The min and/or max time for the infusion time
                 Time : MinMax
-                // The time unit for infusion time (duration)
-                TimeUnit : string
-                // The dose limits for an DrugOrder
+                /// The dose limits for an DrugOrder
                 Dose : DoseLimit option
-                // The amount of orderable that will be given each time
-                DoseCount : BigRational option
-                // The adjust quantity for the adjusted dose calculations
-                Adjust : BigRational option
-                // The adjust unit
-                AdjustUnit : string
+                /// The amount of orderable that will be given each time
+                DoseCount : ValueUnit option
+                /// The adjust quantity for the adjusted dose calculations
+                Adjust : ValueUnit option
             }
         /// The product components that are used by the drug order.
         /// A product component maps to a Component in an Orderable.
         and ProductComponent =
             {
-                // The name of the product
+                /// The name of the product
                 Name : string
-                // The shape of the product
+                /// The shape of the product
                 Shape : string
-                // The quantities of the product
-                // Note: measured in the same unit as
-                // the `DrugOrder` unit
-                Quantities : BigRational list
-                // The "divisibility" of the products
+                /// The quantities of the product
+                /// Note: measured in the same unit as
+                /// the `DrugOrder` unit
+                Quantities : ValueUnit option
+                /// The "divisibility" of the products
                 Divisible : BigRational option
-                // The time unit used for frequency
-                TimeUnit : string
-                // The time unit used for rate
-                RateUnit : string
-                // The list of substances contained in the product
+                /// The list of substances contained in the product
                 Substances: SubstanceItem list
             }
         /// A substance in a product. A substance maps to an Item in a Component.
         and SubstanceItem =
             {
-                // The name of the substance
+                /// The name of the substance
                 Name : string
-                // The possible concentrations of the substance
-                // in the products
-                Concentrations : BigRational list
-                // The unit by which the substance is
-                // measured.
-                Unit : string
-                // The time unit used for the frequency
-                TimeUnit : string
-                // The dose limits for a substance
+                /// The possible concentrations of the substance
+                /// in the products
+                Concentrations : ValueUnit option
+                /// The dose limits for a substance
                 Dose : DoseLimit option
-                // The solution limits for a solution
+                /// The solution limits for a solution
                 Solution : SolutionLimit option
             }
 
@@ -330,27 +312,27 @@ module Types =
         /// </summary>
         type Scenario =
             {
-                // the id of the scenario
+                /// the id of the scenario
                 No : int
-                // the indication for the the order
+                /// the indication for the the order
                 Indication : string
-                // the dose type of the order
+                /// the dose type of the order
                 DoseType : string
-                // the name of the order
+                /// the name of the order
                 Name : string
-                // the shape of the order
+                /// the shape of the order
                 Shape : string
-                // the route of the order
+                /// the route of the order
                 Route : string
-                // the prescription of the order
+                /// the prescription of the order
                 Prescription : string
-                // the preparation of the order
+                /// the preparation of the order
                 Preparation : string
-                // the administration of the order
+                /// the administration of the order
                 Administration : string
-                // the order itself
+                /// the order itself
                 Order : Order option
-                // Whether or not to us adjust
+                /// Whether or not to us adjust
                 UseAdjust : bool
             }
 
@@ -362,25 +344,25 @@ module Types =
         /// </summary>
         type ScenarioResult =
             {
-                // the list of indications to select from
+                /// the list of indications to select from
                 Indications: string []
-                // the list of generics to select from
+                /// the list of generics to select from
                 Generics: string []
-                // the list of routes to select from
+                /// the list of routes to select from
                 Routes: string []
-                // the list of shapes to select from
+                /// the list of shapes to select from
                 Shapes: string []
-                // the selected indication
+                /// the selected indication
                 Indication: string option
-                // the selected generic
+                /// the selected generic
                 Generic: string option
-                // the selected route
+                /// the selected route
                 Route: string option
-                // the selected shape
+                /// the selected shape
                 Shape: string option
-                // the patient
+                /// the patient
                 Patient: Patient
-                // the list of scenarios
+                /// the list of scenarios
                 Scenarios: Scenario []
             }
 

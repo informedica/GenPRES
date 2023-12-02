@@ -5,11 +5,12 @@ module PrescriptionRule =
 
     open Informedica.Utils.Lib
     open MathNet.Numerics
+    open Informedica.GenUnits.Lib
 
 
     /// Use a Filter to get matching PrescriptionRules.
     let filter (filter : Filter) =
-        let pat = filter |> Filter.getPatient
+        let pat = filter.Patient
 
         DoseRule.get ()
         |> DoseRule.filter filter
@@ -25,10 +26,7 @@ module PrescriptionRule =
                             Generic = dr.Generic |> Some
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
-                            //WeightInGram = pat.WeightInGram
-                            //HeightInCm =  pat.HeightInCm
                             DoseType = dr.DoseType
-                            //Location = pat.VenousAccess
                         }
             }
         )
@@ -57,13 +55,21 @@ module PrescriptionRule =
                     Products =
                         pr.DoseRule.Products
                         |> Array.filter (fun p ->
+                            // TODO rewrite to compare valueunits
                             p.ShapeQuantities
+                            |> ValueUnit.getValue
                             |> Array.exists (fun sq ->
                                 shapeQuantities
                                 |> Array.exists ((=) sq)
                             ) &&
                             p.Substances
-                            |> Array.map (fun s -> s.Name.ToLower(), s.Quantity)
+                            // TODO rewrite to compare valueunits
+                            |> Array.map (fun s ->
+                                s.Name.ToLower(),
+                                s.Quantity
+                                |> Option.map ValueUnit.getValue
+                                |> Option.bind Array.tryHead
+                            )
                             |> Array.forall (fun sq ->
                                 substs
                                 |> Array.exists((=) sq)
@@ -131,4 +137,7 @@ module PrescriptionRule =
 
     /// Get all frequencies of an array of PrescriptionRules.
     let frequencies = getDoseRules >> DoseRule.frequencies
+
+
+
 

@@ -1,33 +1,31 @@
 namespace Informedica.GenForm.Lib
 
 
-
 module DoseRule =
 
     open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-
-
+    open Informedica.GenCore.Lib.Ranges
 
     module DoseLimit =
 
+        open Informedica.GenUnits.Lib
 
         /// An empty DoseLimit.
         let limit =
             {
                 DoseLimitTarget = NoDoseLimitTarget
-                DoseUnit = ""
-                RateUnit = ""
-                Quantity = MinMax.none
+                DoseUnit = NoUnit
+                Quantity = MinMax.empty
                 NormQuantityAdjust = None
-                QuantityAdjust = MinMax.none
-                PerTime = MinMax.none
+                QuantityAdjust = MinMax.empty
+                PerTime = MinMax.empty
                 NormPerTimeAdjust = None
-                PerTimeAdjust = MinMax.none
-                Rate = MinMax.none
-                RateAdjust = MinMax.none
+                PerTimeAdjust = MinMax.empty
+                Rate = MinMax.empty
+                RateAdjust = MinMax.empty
             }
 
 
@@ -42,10 +40,10 @@ module DoseRule =
         let useAdjust (dl : DoseLimit) =
             [
                 dl.NormQuantityAdjust = None
-                dl.QuantityAdjust = MinMax.none
+                dl.QuantityAdjust = MinMax.empty
                 dl.NormPerTimeAdjust = None
-                dl.PerTimeAdjust = MinMax.none
-                dl.RateAdjust = MinMax.none
+                dl.PerTimeAdjust = MinMax.empty
+                dl.RateAdjust = MinMax.empty
             ]
             |> List.forall id
             |> not
@@ -84,68 +82,65 @@ module DoseRule =
     module Print =
 
 
-        let printFreqs (r : DoseRule) =
-                let frs =
-                    r.Frequencies
-                    |> Array.map BigRational.ToInt32
-                    |> Array.map string
-                    |> String.concat ", "
+        open Informedica.GenUnits.Lib
 
-                if frs |> String.isNullOrWhiteSpace then ""
-                else
-                    if r.FreqTimeUnit |> String.isNullOrWhiteSpace then $"{frs} x"
-                    else
-                        $"{frs} x / {r.FreqTimeUnit}"
+        let printFreqs (r : DoseRule) =
+            r.Frequencies
+            |> Option.map (fun vu ->
+                vu
+                |> Utils.ValueUnit.toString 0
+            )
+            |> Option.defaultValue ""
 
 
         let printInterval (dr: DoseRule) =
-            if dr.IntervalTimeUnit |> String.isNullOrWhiteSpace then ""
+            if dr.IntervalTime = MinMax.empty then ""
             else
-                let s = dr.IntervalTime |> MinMax.toString
-                if s |> String.isNullOrWhiteSpace then ""
-                else
-                    let s =
-                        s
-                        |> String.replace "≥" "min. interval "
-                        |> String.replace "<" "max. interval"
-                        |> fun s ->
-                            if s |> String.contains "-" then $"elke {s}"
-                            else s
-                    $"{s} {dr.IntervalTimeUnit}"
+                dr.IntervalTime
+                |> MinMax.toString
+                    "min. interval "
+                    "min. interval "
+                    "max. interval "
+                    "max. interval "
 
 
         let printTime (dr: DoseRule) =
-            if dr.AdministrationTimeUnit |> String.isNullOrWhiteSpace then ""
+            if dr.AdministrationTime = MinMax.empty then ""
             else
-                let s = dr.AdministrationTime |> MinMax.toString
-                if s |> String.isNullOrWhiteSpace then ""
-                else
-                    $"{s} {dr.AdministrationTimeUnit}"
-                    |> String.replace "<" "max"
+                dr.AdministrationTime
+                |> MinMax.toString
+                    "min. "
+                    "min. "
+                    "max. "
+                    "max. "
 
 
         let printDuration (dr: DoseRule) =
-            if dr.DurationUnit |> String.isNullOrWhiteSpace then ""
+            if dr.Duration = MinMax.empty then ""
             else
-                let s = dr.Duration |> MinMax.toString
-                if s |> String.isNullOrWhiteSpace then ""
-                else
-                    $"{s} {dr.DurationUnit}"
-                    |> String.replace "<" "max"
+                dr.Duration
+                |> MinMax.toString
+                    "min. duur "
+                    "min. duur "
+                    "max. duur "
+                    "max. duur "
 
 
-        let printMinMaxDose u (minMax : MinMax) =
-            let s = minMax |> MinMax.toString
-            if s |> String.isNullOrWhiteSpace then ""
+        let printMinMaxDose (minMax : MinMax) =
+            if minMax = MinMax.empty then ""
             else
-                $"{s} {u}"
-                |> String.replace "<" "max"
+                minMax
+                |> MinMax.toString
+                    "> "
+                    "> "
+                    "< "
+                    "< "
 
 
-        let printNormDose u br =
-            match br with
+        let printNormDose vu =
+            match vu with
             | None    -> ""
-            | Some br -> $"{br |> BigRational.toStringNl} {u}"
+            | Some vu -> $"{vu |> Utils.ValueUnit.toString 3}"
 
 
         let printDose wrap (dr : DoseRule) =
@@ -162,25 +157,19 @@ module DoseRule =
             if useSubstDl then substDls
             else shapeDls
             |> Array.map (fun dl ->
-                let doseQtyAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/keer"
-                let doseTotAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dr.FreqTimeUnit}"
-                let doseTotUnit = $"{dl.DoseUnit}/{dr.FreqTimeUnit}"
-                let doseQtyUnit = $"{dl.DoseUnit}/keer"
-                let doseRateUnit = $"{dl.DoseUnit}/{dl.RateUnit}"
-                let doseRateAdjUnit = $"{dl.DoseUnit}/{dr.AdjustUnit}/{dl.RateUnit}"
                 [
-                    $"{dl.Rate |> printMinMaxDose doseRateUnit}"
-                    $"{dl.RateAdjust |> printMinMaxDose doseRateAdjUnit}"
+                    $"{dl.Rate |> printMinMaxDose}"
+                    $"{dl.RateAdjust |> printMinMaxDose}"
 
-                    $"{dl.NormPerTimeAdjust |> printNormDose doseTotAdjUnit} " +
-                    $"{dl.PerTimeAdjust |> printMinMaxDose doseTotAdjUnit}"
+                    $"{dl.NormPerTimeAdjust |> printNormDose} " +
+                    $"{dl.PerTimeAdjust |> printMinMaxDose}"
 
-                    $"{dl.PerTime |> printMinMaxDose doseTotUnit}"
+                    $"{dl.PerTime |> printMinMaxDose}"
 
-                    $"{dl.NormQuantityAdjust |> printNormDose doseQtyAdjUnit} " +
-                    $"{dl.QuantityAdjust |> printMinMaxDose doseQtyAdjUnit}"
+                    $"{dl.NormQuantityAdjust |> printNormDose} " +
+                    $"{dl.QuantityAdjust |> printMinMaxDose}"
 
-                    $"{dl.Quantity |> printMinMaxDose doseQtyUnit}"
+                    $"{dl.Quantity |> printMinMaxDose}"
                 ]
                 |> List.map String.trim
                 |> List.filter (String.IsNullOrEmpty >> not)
@@ -194,16 +183,16 @@ module DoseRule =
         /// fold: https://github.com/dotnet/fsharp/issues/6699
         let toMarkdown (rules : DoseRule array) =
             let generic_md generic =
-                $"\n# {generic}\n---\n"
+                $"\n\n# {generic}\n\n---\n"
 
             let route_md route products =
-                $"\n### Route: {route}\n\n#### Producten\n%s{products}\n"
+                $"\n\n### Route: {route}\n\n#### Producten\n%s{products}\n"
 
             let product_md product =  $"* {product}"
 
-            let indication_md indication = $"\n## Indicatie: %s{indication}\n---\n"
+            let indication_md indication = $"\n\n## Indicatie: %s{indication}\n\n---\n"
 
-            let doseCapt_md = "\n#### Doseringen\n"
+            let doseCapt_md = "\n\n#### Doseringen\n\n"
 
             let dose_md dt dose freqs intv time dur =
                 let dt = dt |> DoseType.toString
@@ -231,9 +220,9 @@ module DoseRule =
 
             let patient_md patient diagn =
                 if diagn |> String.isNullOrWhiteSpace then
-                    $"\n##### Patient: **%s{patient}**\n"
+                    $"\n\n##### Patient: **%s{patient}**\n\n"
                 else
-                    $"\n##### Patient: **%s{patient}**\n\n%s{diagn}"
+                    $"\n\n##### Patient: **%s{patient}**\n\n%s{diagn}"
 
             let printDoses (rules : DoseRule array) =
                 ("", rules |> Array.groupBy (fun d -> d.DoseType))
@@ -321,7 +310,12 @@ module DoseRule =
                                             |> Array.collect (fun d -> d.Products)
                                             |> Array.sortBy (fun p ->
                                                 p.Substances
-                                                |> Array.sumBy (fun s -> s.Quantity |> Option.defaultValue 0N)
+                                                |> Array.sumBy (fun s ->
+                                                    s.Quantity
+                                                    |> Option.map ValueUnit.getValue
+                                                    |> Option.bind Array.tryHead
+                                                    |> Option.defaultValue 0N
+                                                )
                                             )
                                             |> Array.map (fun p -> product_md p.Label)
                                             |> Array.distinct
@@ -372,6 +366,7 @@ module DoseRule =
 
 
     open Utils
+    open Informedica.GenUnits.Lib
 
 
     /// <summary>
@@ -471,23 +466,41 @@ module DoseRule =
                                     r.Department |> Some
                             Diagnoses = [| r.Diagn |] |> Array.filter String.notEmpty
                             Gender = r.Gender
-                            Age = (r.MinAge, r.MaxAge) |> MinMax.fromTuple
-                            Weight = (r.MinWeight, r.MaxWeight) |> MinMax.fromTuple
-                            BSA = (r.MinBSA, r.MaxBSA) |> MinMax.fromTuple
-                            GestAge = (r.MinGestAge, r.MaxGestAge) |> MinMax.fromTuple
-                            PMAge = (r.MinPMAge, r.MaxPMAge) |> MinMax.fromTuple
+                            Age =
+                                (r.MinAge, r.MaxAge)
+                                |> MinMax.fromTuple (Some Utils.Units.day)
+                            Weight =
+                                (r.MinWeight, r.MaxWeight)
+                                |> MinMax.fromTuple (Some Utils.Units.weightGram)
+                            BSA =
+                                (r.MinBSA, r.MaxBSA)
+                                |> MinMax.fromTuple (Some Utils.Units.bsaM2)
+                            GestAge =
+                                (r.MinGestAge, r.MaxGestAge)
+                                |> MinMax.fromTuple (Some Utils.Units.day)
+                            PMAge =
+                                (r.MinPMAge, r.MaxPMAge)
+                                |> MinMax.fromTuple (Some Utils.Units.day)
                             Location = AnyAccess
                         }
-                    AdjustUnit = r.AdjustUnit
                     DoseType = r.DoseType
-                    Frequencies = r.Frequencies
-                    FreqTimeUnit = r.FreqUnit
-                    AdministrationTime = (r.MinTime, r.MaxTime) |> MinMax.fromTuple
-                    AdministrationTimeUnit = r.TimeUnit
-                    IntervalTime = (r.MinInterval, r.MaxInterval) |> MinMax.fromTuple
-                    IntervalTimeUnit = r.IntervalUnit
-                    Duration = (r.MinDur, r.MaxDur) |> MinMax.fromTuple
-                    DurationUnit = r.DurUnit
+                    AdjustUnit = r.AdjustUnit |> Units.adjustUnit
+                    Frequencies =
+                        match r.FreqUnit |> Units.freqUnit with
+                        | None -> None
+                        | Some u ->
+                            r.Frequencies
+                            |> ValueUnit.withUnit u
+                            |> Some
+                    AdministrationTime =
+                        (r.MinTime, r.MaxTime)
+                        |> MinMax.fromTuple (r.TimeUnit |> Utils.Units.timeUnit)
+                    IntervalTime =
+                        (r.MinInterval, r.MaxInterval)
+                        |> MinMax.fromTuple (r.IntervalUnit |> Utils.Units.timeUnit)
+                    Duration =
+                        (r.MinDur, r.MaxDur)
+                        |> MinMax.fromTuple (r.DurUnit |> Utils.Units.timeUnit)
                     DoseLimits = [||]
                     Products = [||]
                 }
@@ -496,38 +509,97 @@ module DoseRule =
                 { dr with
                     DoseLimits =
                         let shapeLimits =
-                             Mapping.filterRouteShapeUnit dr.Route dr.Shape ""
+                             Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
                              |> Array.map (fun rsu ->
                                 { DoseLimit.limit with
                                     DoseLimitTarget = dr.Shape |> ShapeDoseLimitTarget
-                                    DoseUnit = rsu.DoseUnit
                                     Quantity =
-                                        let min = rsu.MinDoseQty |> Option.bind BigRational.fromFloat
-                                        let max = rsu.MaxDoseQty |> Option.bind BigRational.fromFloat
-                                        (min, max) |> MinMax.fromTuple
+                                        {
+                                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
+                                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
+                                        }
                                 }
                              )
                              |> Array.distinct
 
                         rs
                         |> Array.map (fun r ->
+                            // the adjust unit
+                            let adj = r.AdjustUnit |> Utils.Units.adjustUnit
+                            // the dose unit
+                            let du = r.DoseUnit |> Units.fromString
+                            // the adjusted dose unit
+                            let duAdj =
+                                match adj, du with
+                                | Some adj, Some du ->
+                                    du
+                                    |> Units.per adj
+                                    |> Some
+                                | _ -> None
+                            // the time unit
+                            let tu = r.FreqUnit |> Utils.Units.timeUnit
+                            // the dose unit per time unit
+                            let duTime =
+                                match du, tu with
+                                | Some du, Some tu ->
+                                    du
+                                    |> Units.per tu
+                                    |> Some
+                                | _ -> None
+                            // the adjusted dose unit per time unit
+                            let duAdjTime =
+                                match duAdj, tu with
+                                | Some duAdj, Some tu ->
+                                    duAdj
+                                    |> Units.per tu
+                                    |> Some
+                                | _ -> None
+                            // the rate unit
+                            let ru = r.RateUnit |> Units.fromString
+                            // the dose unit per rate unit
+                            let duRate =
+                                match du, ru with
+                                | Some du, Some ru ->
+                                    du
+                                    |> Units.per ru
+                                    |> Some
+                                | _ -> None
+                            // the adjusted dose unit per rate unit
+                            let duAdjRate =
+                                match duAdj, ru with
+                                | Some duAdj, Some ru ->
+                                    duAdj
+                                    |> Units.per ru
+                                    |> Some
+                                | _ -> None
+
                             {
                                 DoseLimitTarget = r.Substance |> SubstanceDoseLimitTarget
-                                DoseUnit =
-                                    if r.Substance |> String.isNullOrWhiteSpace |> not then r.DoseUnit
-                                    else
-                                        match shapeLimits |> Array.tryHead with
-                                        | Some sl -> sl.DoseUnit
-                                        | None -> ""
-                                RateUnit = r.RateUnit
-                                Quantity = (r.MinQty, r.MaxQty) |> MinMax.fromTuple
-                                NormQuantityAdjust = r.NormQtyAdj
-                                QuantityAdjust = (r.MinQtyAdj, r.MaxQtyAdj) |> MinMax.fromTuple
-                                PerTime = (r.MinPerTime, r.MaxPerTime) |> MinMax.fromTuple
-                                NormPerTimeAdjust = r.NormPerTimeAdj
-                                PerTimeAdjust = (r.MinPerTimeAdj, r.MaxPerTimeAdj) |> MinMax.fromTuple
-                                Rate = (r.MinRate, r.MaxRate) |> MinMax.fromTuple
-                                RateAdjust = (r.MinRateAdj, r.MaxRateAdj) |> MinMax.fromTuple
+                                DoseUnit = du |> Option.defaultValue NoUnit
+                                Quantity =
+                                    (r.MinQty, r.MaxQty)
+                                    |> MinMax.fromTuple du
+                                NormQuantityAdjust =
+                                    r.NormQtyAdj
+                                    |> ValueUnit.withOptionalUnit duAdj
+                                QuantityAdjust =
+                                    (r.MinQtyAdj, r.MaxQtyAdj)
+                                    |> MinMax.fromTuple duAdj
+                                PerTime =
+                                    (r.MinPerTime, r.MaxPerTime)
+                                    |> MinMax.fromTuple duTime
+                                NormPerTimeAdjust =
+                                    r.NormPerTimeAdj
+                                    |> ValueUnit.withOptionalUnit duAdjTime
+                                PerTimeAdjust =
+                                    (r.MinPerTimeAdj, r.MaxPerTimeAdj)
+                                    |> MinMax.fromTuple duAdjTime
+                                Rate =
+                                    (r.MinRate, r.MaxRate)
+                                    |> MinMax.fromTuple duRate
+                                RateAdjust =
+                                    (r.MinRateAdj, r.MaxRateAdj)
+                                    |> MinMax.fromTuple duAdjRate
                             }
                         )
                         |> Array.append shapeLimits
@@ -645,3 +717,5 @@ module DoseRule =
         dr.DoseLimits
         |> Array.filter DoseLimit.isSubstanceLimit
         |> Array.exists DoseLimit.useAdjust
+
+

@@ -5,6 +5,7 @@ module Mapping =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
 
 
     /// Mapping of long Z-index route names to short names
@@ -86,17 +87,48 @@ module Mapping =
                 let getStr = getColumn Csv.getStringColumn r
                 let getFlt = getColumn Csv.getFloatOptionColumn r
 
+                let un = getStr "Unit" |> Units.fromString |> Option.defaultValue NoUnit
                 {
                     Route = getStr "Route"
                     Shape = getStr "Shape"
-                    Unit = getStr "Unit"
-                    DoseUnit = getStr "DoseUnit"
-                    MinDoseQty = getFlt "MinDoseQty"
-                    MaxDoseQty = getFlt "MaxDoseQty"
+                    Unit = un
+                    DoseUnit = getStr "DoseUnit" |> Units.fromString |> Option.defaultValue NoUnit
+                    MinDoseQty =
+                        if un = NoUnit then None
+                        else
+                            getFlt "MinDoseQty"
+                            |> Option.bind BigRational.fromFloat
+                            |> Option.map (ValueUnit.singleWithUnit un)
+                    MaxDoseQty =
+                        if un = NoUnit then None
+                        else
+                            getFlt "MaxDoseQty"
+                            |> Option.bind BigRational.fromFloat
+                            |> Option.map (ValueUnit.singleWithUnit un)
                     Timed = getStr "Timed" |> String.equalsCapInsens "true"
                     Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                     IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
                 }
+                |> fun rs ->
+                    match rs.DoseUnit with
+                    | NoUnit -> rs
+                    | du ->
+                        { rs with
+                            MinDoseQty =
+                                getFlt "MinDoseQty"
+                                |> Option.bind (fun v ->
+                                   v
+                                   |> BigRational.fromFloat
+                                   |> Option.map (ValueUnit.singleWithUnit du)
+                                )
+                            MaxDoseQty =
+                                getFlt "MaxDoseQty"
+                                |> Option.bind (fun v ->
+                                   v
+                                   |> BigRational.fromFloat
+                                   |> Option.map (ValueUnit.singleWithUnit du)
+                                )
+                        }
             )
 
 
@@ -116,9 +148,8 @@ module Mapping =
                 xs.Route |> mapRoute |> Option.map (String.equalsCapInsens (rte |> String.trim)) |> Option.defaultValue false
             let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens xs.Shape
             let eqsUnt =
-                unt |> String.isNullOrWhiteSpace ||
-                unt |> String.trim |> String.equalsCapInsens xs.Unit ||
-                xs.Unit |> mapUnit |> Option.map (String.equalsCapInsens (unt |> String.trim)) |> Option.defaultValue false
+                unt = NoUnit ||
+                unt |> Units.eqsUnit xs.Unit
             eqsRte && eqsShp && eqsUnt
         )
 

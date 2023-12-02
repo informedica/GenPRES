@@ -1482,8 +1482,11 @@ module Units =
                         |> List.reduce (fun u1 u2 -> u1 |> Units.per u2)
                         |> Some
                     else
+                        printfn $"cannot parse {s}"
                         None
-            | _ -> None
+            | _ ->
+                printfn $"cannot parse {s}"
+                None
 
 
     /// Turn a unit u to a string with
