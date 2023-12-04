@@ -40,7 +40,7 @@ RUN cd src/Server && dotnet publish -c release -o ../../deploy
 FROM build as client-build
 COPY package.json package-lock.json ./
 RUN npm install
-COPY vite.config.js ./
+COPY vite.config.mts ./
 COPY src/Shared src/Shared
 COPY src/Client src/Client
 RUN npm run build

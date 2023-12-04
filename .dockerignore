@@ -32,6 +32,7 @@
 
 !webpack.config.js
 !vite.config.js
+!vite.config.mts
 
 # Add yml files to ci on appveyor and travis
 !appveyor.yml
