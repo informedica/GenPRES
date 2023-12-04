@@ -474,7 +474,7 @@ module Tests =
 
                     test "toString" {
                         toString ()
-                        |> Expect.equal "should equal" "van (incl) 1 mg - tot (incl) 10 mg"
+                        |> Expect.equal "should equal" "1 mg - 10 mg"
                     }
 
                     testList
@@ -507,7 +507,7 @@ module Tests =
                         testFold ()
                         |> Expect.equal
                             "should equal"
-                            ("van (incl) 10 mg - tot (incl) 40 mg", "van (incl) 30 mg - tot (incl) 30 mg")
+                            ("10 mg - 40 mg", "30 mg")
                     }
 
                     testList
