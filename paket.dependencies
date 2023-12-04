@@ -19,6 +19,7 @@ nuget Fable.Elmish.HMR ~> 7
 nuget Fable.Mocha ~> 2
 nuget Fable.Remoting.Client ~> 7
 nuget Fable.Remoting.Giraffe
+nuget Fable.React.UseElmish
 nuget Feliz ~> 2
 nuget Feliz.UseElmish
 
