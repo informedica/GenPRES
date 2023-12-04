@@ -35,7 +35,7 @@ module ResponsiveTable =
                             if cell.field = "id" || String.IsNullOrWhiteSpace(cell.value) then JSX.jsx "<></>"
                             else
                                 let b, s =
-                                    match s with
+                                    match cell.value with
                                     | _ when cell.value.Contains("**") -> "h6", cell.value.Replace("**", "")
                                     | _ when cell.value.Contains("*") -> "h5", cell.value.Replace("*", "")
                                     | _ -> "subtitle2", cell.value
