@@ -23,7 +23,7 @@ module Decimal =
 
     /// Get the double value of a string
     /// using `InvariantCulture`
-    let parse s = Decimal.Parse(s, CultureInfo.InvariantCulture)
+    let parse (s : string) = Decimal.Parse(s, CultureInfo.InvariantCulture)
 
 
     /// Get a `float Option` from a string

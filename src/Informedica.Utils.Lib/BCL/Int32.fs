@@ -9,7 +9,7 @@ module Int32 =
 
 
     /// Parses a string to an Int32. If the string cannot be parsed, an exception is thrown.
-    let parse s =
+    let parse (s: string) =
         try
         Int32.Parse(s, CultureInfo.InvariantCulture)
         with

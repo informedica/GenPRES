@@ -20,7 +20,7 @@ module DateTime =
 
 
     /// Create a date from a year, month and day
-    let create yr mo ds = DateTime(yr, mo, ds)
+    let create (yr : int) mo ds = DateTime(yr, mo, ds)
 
 
     /// Create a DateTime from Now
@@ -34,7 +34,7 @@ module DateTime =
 
     /// Try to create a DateTime from a year, month and day option.
     /// When one is None, None is returned
-    let optionToDate yr mo dy =
+    let optionToDate (yr : int option) mo dy =
         match yr, mo, dy with
         | Some y, Some m, Some d -> DateTime(y, m, d) |> Some
         | _ -> None

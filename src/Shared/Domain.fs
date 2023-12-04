@@ -158,9 +158,9 @@ module Utils =
         let get = apply id
 
 
-        let optionToDate yr mo dy =
+        let optionToDate (yr : int option) mo dy =
             match yr, mo, dy with
-            | Some y, Some m, Some d -> new DateTime(y, m, d) |> Some
+            | Some y, Some m, Some d -> DateTime(y, m, d) |> Some
             | _ -> None
 
 

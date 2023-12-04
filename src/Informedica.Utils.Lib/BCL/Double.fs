@@ -47,7 +47,7 @@ module Double =
 
     /// Get the double value of a string
     /// using `InvariantCulture`
-    let parse s = Double.Parse(s, CultureInfo.InvariantCulture)
+    let parse (s : string) = Double.Parse(s, CultureInfo.InvariantCulture)
 
 
     /// Get a `float Option` from a string
