@@ -19,7 +19,7 @@ module DoseLimit = DoseRule.DoseLimit
 
 open Informedica.ZIndex.Lib
 // load demo or product cache
-System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "0")
+System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
 
 
 
@@ -138,15 +138,15 @@ let createScenarios () =
 startLogger ()
 stopLogger ()
 
-
 Informedica.GenForm.Lib.DoseRule.get ()
 |> DoseRule.filter
 //    Filter.filter
-   { Filter.filter with Patient = Patient.premature }
+   { Filter.filter with Patient = Patient.child }
 |> Array.filter (fun dr ->
-    dr.Generic = "amoxicilline/clavulaanzuur" &&
+    dr.Generic = "vancomycine" &&
     dr.Route = "iv"
 )
+|> Array.skip 2
 |> Array.take 1
 |> Array.length
 
@@ -172,21 +172,32 @@ Informedica.GenForm.Lib.DoseRule.get ()
 |> Api.filter
 
 Patient.child
+|> Patient.toString
+
+"1000 kg[Weight]"
+|> Units.fromString
+
+
+Patient.infant
+|> fun p -> { p with
+                Weight =
+                  p.Weight
+                  |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+}
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Route = "rect" &&
-    pr.DoseRule.Generic = "paracetamol"
+    pr.DoseRule.Route = "iv" &&
+    pr.DoseRule.Generic = "vancomycine"
 )
-|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> Api.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> Array.item 3 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
-|> Order.applyConstraints // |> Order.toString |> List.iter (printfn "%s")
+|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
 |> fun ord ->
     printfn "constraints applied"
-    printfn $"{ord.Orderable.Dose.Quantity}"
     ord
     |> Order.toString
     |> String.concat "\n"
@@ -235,7 +246,7 @@ Patient.child
             // |> printfn "%s"
         | Ok ord  ->
             ord
-            |> Order.Print.printOrderToString true [|"paracetamol"|]
+            |> Order.Print.printOrderToString true [|"vancomycine"|]
             |> fun (prs, prep, adm) -> printfn $"{prs}"
             // ord
             // |> Order.toString
@@ -265,7 +276,7 @@ try
     let ord =
         Patient.child
         |> getRule 703
-        |> Api.createDrugOrder None
+        |> DrugOrder.createDrugOrder None
         |> DrugOrder.toOrderDto
         |> Order.Dto.fromDto
         |> Order.applyConstraints
@@ -306,7 +317,7 @@ let testDto =
 //        pr.DoseRule.Indication |> String.startsWith "juveniele"
     )
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-    |> fun pr -> pr |> Api.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+    |> fun pr -> pr |> DrugOrder.createDrugOrder None //(pr.SolutionRules[0] |> Some)  //|> printfn "%A"
     |> DrugOrder.toOrderDto
 
 
@@ -316,3 +327,39 @@ testDto.Orderable.Components[0].Items[0].ComponentConcentration.Constraints.Vals
     $"1 {s}"
     |> ValueUnit.fromString
 
+
+let vancoDoseRules =
+    Informedica.GenForm.Lib.DoseRule.get ()
+    |> DoseRule.filter
+    //    Filter.filter
+       { Filter.filter with Patient = Patient.child }
+    |> Array.filter (fun dr ->
+        dr.Generic = "vancomycine" &&
+        dr.Route = "iv"
+    )
+    |> Array.skip 2
+    |> Array.take 1
+
+
+vancoDoseRules
+//Informedica.GenForm.Lib.DoseRule.get ()
+|> DoseRule.filter
+    { Filter.filter with
+        Patient =
+            Patient.child
+            |> Patient.calcPMAge
+    }
+|> Array.map (fun dr -> dr |> DoseRule.reconstitute Patient.child.Department [VenousAccess.CVL])
+|> Array.filter (fun dr ->
+    dr.Generic = "vancomycine" &&
+    dr.Route = "iv" &&
+    dr.Products |> Array.isEmpty |> not
+)
+
+
+Patient.child
+|> PrescriptionRule.get
+|> Array.filter (fun dr ->
+    dr.DoseRule.Generic = "vancomycine" &&
+    dr.DoseRule.Route = "iv"
+)

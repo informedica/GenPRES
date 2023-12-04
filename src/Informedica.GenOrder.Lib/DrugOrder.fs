@@ -4,17 +4,24 @@ namespace Informedica.GenOrder.Lib
 
 module DrugOrder =
 
+    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
 
-    type MinMax = Informedica.GenForm.Lib.Types.MinMax
+//    type MinMax = Informedica.GenForm.Lib.Types.MinMax
 
-    module DoseRule = Informedica.GenForm.Lib.DoseRule
+//    module DoseRule = Informedica.GenForm.Lib.DoseRule
     module DoseLimit = DoseRule.DoseLimit
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
+
+
+
+    let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
+
 
 
     /// <summary>
@@ -144,6 +151,206 @@ module DrugOrder =
     let unitGroup = Units.stringWithGroup
 
 
+
+    /// <summary>
+    /// Create a ProductComponent from a list of Products.
+    /// DoseLimits are used to set the Dose for the ProductComponent.
+    /// If noSubst is true, the substances will not be added to the ProductComponent.
+    /// The freqUnit is used to set the TimeUnit for the Frequencies.
+    /// </summary>
+    /// <param name="noSubst">Whether or not to add the substances to the ProductComponent</param>
+    /// <param name="freqUnit">The TimeUnit for the Frequencies</param>
+    /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
+    /// <param name="ps">The Products to create the ProductComponent from</param>
+    let createProductComponent noSubst (doseLimits : DoseLimit []) (ps : Product []) =
+        let qt =
+            ps
+            |> Array.map (fun p ->
+                p.ShapeQuantities
+            )
+            |> ValueUnit.collect
+
+
+        { productComponent with
+            Name =
+                ps
+                |> tryHead (fun p -> p.Shape)
+                |> fun s ->
+                    if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
+                    else s
+            Shape =
+                ps
+                |> tryHead (fun p -> p.Shape)
+                |> fun s ->
+                    if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
+                    else s
+            Quantities = qt
+            Divisible =
+                ps
+                |> Array.choose (fun p -> p.Divisible)
+                |> Array.tryHead
+            Substances =
+                if noSubst then []
+                else
+                    ps
+                    |> Array.collect (fun p -> p.Substances)
+                    |> Array.groupBy (fun s -> s.Name)
+                    |> Array.map (fun (n, xs) ->
+                        {
+                            Name = n
+                            Concentrations =
+                                match qt with
+                                | None -> None
+                                | Some qt ->
+                                    xs
+                                    |> Array.choose (fun s -> s.Quantity)
+                                    |> Array.distinct
+                                    |> ValueUnit.collect
+                                    |> Option.map (fun vu -> vu / qt)
+                            Dose =
+                                doseLimits
+                                |> Array.tryFind (fun l ->
+                                    match l.DoseLimitTarget with
+                                    | SubstanceDoseLimitTarget s ->
+                                        s |> String.equalsCapInsens n
+                                    | _ -> false
+                                )
+                            Solution = None
+                        }
+                    )
+                    |> Array.toList
+        }
+
+
+    /// <summary>
+    /// Set the SolutionLimits for a list of SubstanceItems.
+    /// </summary>
+    /// <param name="sls">The SolutionLimits to set</param>
+    /// <param name="items">The SubstanceItems to set the SolutionLimits for</param>
+    let setSolutionLimit (sls : SolutionLimit[]) (items : SubstanceItem list) =
+        items
+        |> List.map (fun item ->
+            match sls |> Array.tryFind (fun sl -> sl.Substance |> String.equalsCapInsens item.Name) with
+            | None -> item
+            | Some sl ->
+                { item with
+                    Solution = Some sl
+                }
+        )
+
+
+    /// <summary>
+    /// Create a DrugOrder from a PrescriptionRule and a SolutionRule.
+    /// </summary>
+    /// <param name="sr">The optional SolutionRule to use</param>
+    /// <param name="pr">The PrescriptionRule to use</param>
+    let createDrugOrder (sr: SolutionRule option) (pr : PrescriptionRule) =
+        let parenteral = Product.Parenteral.get ()
+            // adjust unit defaults to kg
+        let au =
+            pr.DoseRule.AdjustUnit
+            |> Option.defaultValue Units.Weight.kiloGram
+
+        let dose =
+            pr.DoseRule.DoseLimits
+            |> Array.filter DoseRule.DoseLimit.isShapeLimit
+            |> Array.tryHead
+
+        // if no subst, dose is based on shape
+        let noSubst =
+            pr.DoseRule.DoseLimits
+            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+            |> Array.filter (fun d ->
+                d.DoseUnit = NoUnit ||
+                d.DoseUnit |> ValueUnit.Group.eqsGroup Units.Count.times
+            )
+            |> Array.isEmpty |> not
+
+        let substLimits =
+            pr.DoseRule.DoseLimits
+            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+
+        { drugOrder with
+            Id = "1" //Guid.NewGuid().ToString()
+            Name = pr.DoseRule.Generic
+            Products =
+                pr.DoseRule.Products
+                |> createProductComponent noSubst substLimits
+                |> List.singleton
+            Quantities = None
+            Frequencies = pr.DoseRule.Frequencies
+            Time = pr.DoseRule.AdministrationTime
+            Route = pr.DoseRule.Route
+            DoseCount =
+                if pr.SolutionRules |> Array.isEmpty |> not then None
+                else
+                    Units.Count.times
+                    |> ValueUnit.withSingleValue 1N
+                    |> Some
+            OrderType =
+                match pr.DoseRule.DoseType with
+                | Informedica.GenForm.Lib.Types.Continuous -> ContinuousOrder
+                | _ when pr.DoseRule.AdministrationTime = MinMax.empty -> DiscontinuousOrder
+                | _ -> TimedOrder
+            Dose = dose
+            Adjust =
+                if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
+                    pr.Patient.Weight
+                else pr.Patient |> Patient.calcBSA
+            AdjustUnit = Some au
+        }
+        |> fun dro ->
+                // add an optional solution rule
+                match sr with
+                | None -> dro
+                | Some sr ->
+                    { dro with
+                        Dose =
+                            { DoseRule.DoseLimit.limit with
+                                Quantity  = sr.Volume
+                                DoseUnit = Units.Volume.milliLiter
+                            } |> Some
+                        Quantities = sr.Volumes
+                        DoseCount =
+                            sr.DosePerc.Max
+                            |> Option.map Limit.getValueUnit
+                        Products =
+                            let ps =
+                                dro.Products
+                                |> List.map (fun p ->
+                                    { p with
+                                        Name = dro.Name
+                                        Shape = p.Shape
+                                        Substances =
+                                            p.Substances
+                                            |> setSolutionLimit sr.SolutionLimits
+                                    }
+                                )
+
+                            let s =
+                                // ugly hack to get default solution
+                                sr.Solutions
+                                |> Array.tryHead
+                                |> Option.defaultValue "x"
+
+                            parenteral
+                            |> Array.tryFind (fun p ->
+                                    s |> String.notEmpty &&
+                                    p.Generic |> String.startsWith s
+                                )
+                            |> function
+                            | Some p ->
+                                [|p|]
+                                |> createProductComponent true  [||]
+                                |> List.singleton
+                                |> List.append ps
+                            | None ->
+                                printfn $"couldn't find {s} in parenterals"
+                                ps
+                    }
+
+
+
     /// <summary>
     /// Map a DrugOrder record to a DrugOrderDto record.
     /// </summary>
@@ -151,8 +358,6 @@ module DrugOrder =
     /// The DrugOrder will mainly mapping the constraints of the DrugOrderDto.
     /// </remarks>
     let toOrderDto (d : DrugOrder) =
-        let toArr = Option.map Array.singleton >> Option.defaultValue [||]
-
         let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
 
         let limToDto = Option.map Limit.getValueUnit >> vuToDto

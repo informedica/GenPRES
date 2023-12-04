@@ -129,8 +129,11 @@ module SolutionRule =
                                             |> ValueUnit.withUnit u
                                             |> Some
                                 Concentration =
+                                    let u =
+                                        u
+                                        |> Option.map (Units.per Units.Volume.milliLiter)
                                     (l.MinConc, l.MaxConc)
-                                    |> MinMax.fromTuple (Some Units.Count.times)
+                                    |> MinMax.fromTuple u
                             }
                         )
                     Products =

@@ -239,7 +239,14 @@ module OrderVariable =
     /// <param name="exact">Whether to use the exact representation of the ValueRange</param>
     /// <param name="ovar">The OrderVariable</param>
     let toString exact ovar =
-        let ns = ovar |> getName |> Variable.Name.toString
+        let ns =
+            ovar
+            |> getName
+            |> Variable.Name.toString
+            |> String.split "."
+            |> List.skip 1
+            |> String.concat "."
+            |> fun s -> $"[{s}"
 
         ns +
         (ovar.Variable

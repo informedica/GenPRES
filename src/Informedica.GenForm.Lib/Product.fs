@@ -339,12 +339,18 @@ module Product =
                     let atc =
                         gp.ATC
                         |> ATCGroup.findByATC5
+
                     let shpUnit =
                         gp.Substances[0].ShapeUnit
                         |> String.toLower
                         |> Units.fromString
                         |> Option.defaultValue NoUnit
 
+                    let reqReconst = Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
+                    let shpUnit =
+                        if not reqReconst then shpUnit
+                        else
+                            Units.Volume.milliLiter
                     {
                         GPK =  $"{gp.Id}"
                         ATC = gp.ATC |> String.trim
@@ -394,7 +400,6 @@ module Product =
                                 gp.PrescriptionProducts
                                 |> Array.map (fun pp -> pp.Quantity)
                                 |> Array.choose BigRational.fromFloat
-
                             )
                             |> Array.filter (fun br -> br > 0N)
                             |> Array.distinct
@@ -402,41 +407,42 @@ module Product =
                                 if xs |> Array.isEmpty then [| 1N |] else xs
                                 |> ValueUnit.withUnit shpUnit
                         ShapeUnit = shpUnit
-                        RequiresReconstitution =
-                            Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
+                        RequiresReconstitution = reqReconst
                         Reconstitution =
-                            Reconstitution.get ()
-                            |> Array.filter (fun r ->
-                                r.GPK = $"{gp.Id}" &&
-                                r.DiluentVol |> Option.isSome
-                            )
-                            |> Array.map (fun r ->
-                                {
-                                    Route = r.Route
-                                    DoseType = r.DoseType
-                                    Department = r.Dep
-                                    Location = r.Location
-                                    DiluentVolume =
-                                        r.DiluentVol.Value
-                                        |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                                    ExpansionVolume =
-                                        r.ExpansionVol
-                                        |> Option.map (fun v ->
-                                            v
+                            if not reqReconst then [||]
+                            else
+                                Reconstitution.get ()
+                                |> Array.filter (fun r ->
+                                    r.GPK = $"{gp.Id}" &&
+                                    r.DiluentVol |> Option.isSome
+                                )
+                                |> Array.map (fun r ->
+                                    {
+                                        Route = r.Route
+                                        DoseType = r.DoseType
+                                        Department = r.Dep
+                                        Location = r.Location
+                                        DiluentVolume =
+                                            r.DiluentVol.Value
                                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                                        )
-                                    Diluents =
-                                        r.Diluents
-                                        |> String.splitAt ';'
-                                        |> Array.map String.trim
-                                }
-                            )
+                                        ExpansionVolume =
+                                            r.ExpansionVol
+                                            |> Option.map (fun v ->
+                                                v
+                                                |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                                            )
+                                        Diluents =
+                                            r.Diluents
+                                            |> String.splitAt ';'
+                                            |> Array.map String.trim
+                                    }
+                                )
                         Divisible =
                             // TODO: need to map this to a config setting
                             if gp.Shape |> String.containsCapsInsens "druppel" then 20N
                             else
-                                if isSol gp.Shape then 10N
-                                    else 1N
+                                if isSol gp.Shape || reqReconst then 10N
+                                else 1N
                             |> Some
                         Substances =
                             gp.Substances
@@ -444,9 +450,11 @@ module Product =
                                 let su =
                                     s.SubstanceUnit
                                     |> Units.fromString
+                                    (*
                                     |> Option.map (fun u ->
                                         u |> ValueUnit.per shpUnit
                                     )
+                                    *)
                                     |> Option.defaultValue NoUnit
                                 {
                                     Name = rename s s.SubstanceName
@@ -496,13 +504,14 @@ module Product =
                 (rte |> String.isNullOrWhiteSpace || r.Route |> String.equalsCapInsens rte) &&
                 (r.DoseType = AnyDoseType || r.DoseType = dtp) &&
                 (dep |> Option.map (fun dep -> r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true) &&
-                (loc |> List.isEmpty || loc |> List.exists ((=) r.Location) || loc |> List.exists ((=) AnyAccess))
+                (loc |> List.isEmpty || loc |> List.exists ((=) r.Location) || r.Location = AnyAccess)
             )
             |> Array.map (fun r ->
                 { prod with
                     ShapeUnit =
                         Units.Volume.milliLiter
                     ShapeQuantities = r.DiluentVolume
+                    (*
                     Substances =
                         prod.Substances
                         |> Array.map (fun s ->
@@ -511,11 +520,14 @@ module Product =
                                     s.Quantity
                                     |> Option.map (fun q ->
                                         // replace the old shapeunit with the new one
-                                        let one = 1N |> ValueUnit.singleWithUnit prod.ShapeUnit
+                                        let one =
+                                            Units.Volume.milliLiter
+                                            |> ValueUnit.withSingleValue 1N
                                         (one * q) / r.DiluentVolume
                                     )
                             }
                         )
+                    *)
                 }
             )
             |> function
