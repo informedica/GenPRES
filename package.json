@@ -3,6 +3,10 @@
     "version": "1.0.0",
     "description": "Generic Medication Order Entry",
     "private": true,
+    "engines": {
+        "node": "~18 || ~20",
+        "npm": "~9 || ~10"
+    },
     "scripts": {
         "init-assets": "[ -d dist ] || mkdir dist && cp src/Client/public/*.* dist/.",
         "watch-server": "dotnet watch --project src/Server/Server.fsproj",
@@ -10,8 +14,13 @@
         "build": "dotnet fable src/Client -o dist -e .jsx && npm run init-assets && vite build --outDir ./../deploy"
     },
     "devDependencies": {
-        "@vitejs/plugin-react": "^3.0.1",
-        "vite": "^4.0.4"
+        "@types/node": "^20.9.1",
+        "@vitejs/plugin-react": "^4.2.0",
+        "autoprefixer": "^10.4.16",
+        "postcss": "^8.4.31",
+        "remotedev": "^0.2.9",
+        "sass": "^1.69.5",
+        "vite": "^5.0.0"        
     },
     "dependencies": {
         "@emotion/react": "^11.10.5",

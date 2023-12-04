@@ -6,7 +6,6 @@ Fable.Elmish.React
 Fable.Elmish.Debugger
 Fable.Elmish.HMR
 Fable.Mocha
-Fable.React
 Fable.React.UseElmish
 Fable.Remoting.Client
 Feliz
