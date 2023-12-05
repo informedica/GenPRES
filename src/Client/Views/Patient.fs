@@ -312,7 +312,7 @@ module Patient =
             | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
 
-        let checkBox () =
+        let checkBox =
             JSX.jsx $"""
             import Checkbox from '@mui/material/Checkbox';
 
@@ -388,7 +388,7 @@ module Patient =
                 import Checkbox from '@mui/material/Checkbox';
 
                 <FormControlLabel
-                    control={{{ checkBox () }}}
+                    control={ checkBox }
                     label="CVL" />
                 """
 
