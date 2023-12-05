@@ -26,7 +26,7 @@ FROM build as server-build
 COPY src/Informedica.Utils.Lib src/Informedica.Utils.Lib
 COPY src/Informedica.ZIndex.Lib src/Informedica.ZIndex.Lib
 COPY src/Informedica.ZForm.Lib src/Informedica.ZForm.Lib
-COPY src/Informedica.MetaVision.Lib src/Informedica.MetaVision.Lib
+COPY src/Informedica.KinderFormularium.Lib src/Informedica.KinderFormularium.Lib
 COPY src/Informedica.GenUnits.Lib src/Informedica.GenUnits.Lib
 COPY src/Informedica.GenCore.Lib src/Informedica.GenCore.Lib
 COPY src/Informedica.GenSolver.Lib src/Informedica.GenSolver.Lib

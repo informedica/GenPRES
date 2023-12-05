@@ -318,10 +318,9 @@ module Patient =
 
             <Checkbox
                 checked={props.patient |> Option.map (fun p -> p.CVL) |> Option.defaultValue false}
-                onChange={fun _ -> ToggleCVL |> dispatch}
-            />
+                onChange={fun _ -> ToggleCVL |> dispatch} >
+            </Checkbox>
             """
-
 
         let items =
             [|
@@ -386,8 +385,10 @@ module Patient =
 
                 JSX.jsx
                     $"""
+                import Checkbox from '@mui/material/Checkbox';
+
                 <FormControlLabel
-                    control={ checkBox () }
+                    control={{{ checkBox () }}}
                     label="CVL" />
                 """
 
