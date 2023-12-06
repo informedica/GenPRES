@@ -15,7 +15,7 @@ open Fable.Core.JsInterop
 module Localization =
 
 
-    [<ReactComponent>]
+//    [<ReactComponent>]
     let View (props : {|
             languages : Shared.Localization.Locales []
             switchLang : Shared.Localization.Locales -> unit

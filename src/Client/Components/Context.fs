@@ -16,7 +16,7 @@ module Context =
 
 
     [<ReactComponent>]
-    let context (language: Shared.Localization.Locales) el =
+    let Context (language: Shared.Localization.Locales) el =
         React.contextProvider (
             Global.languageContext,
             language,

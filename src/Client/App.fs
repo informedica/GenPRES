@@ -656,7 +656,7 @@ let View () =
                         localizationTerms = state.Localization
                         languages = Localization.languages
                         switchLang = UpdateLanguage >> dispatch
-                    |}) |> toReact |> Components.Context.context state.Language
+                    |}) |> toReact |> Components.Context.Context state.Language
                 }
             </Box>
         </ThemeProvider>
