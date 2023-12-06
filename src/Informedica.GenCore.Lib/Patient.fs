@@ -124,9 +124,6 @@ and AgeWeeksDays = { Weeks: int<week>; Days : int<day> }
 module AgeType =
 
 
-    open Informedica.Utils.Lib
-
-
     let normalValues =
         let female = [
                     NewBorn, 3.6m<kg>, 52.5m<cm>
@@ -577,7 +574,6 @@ module BirthDate =
 module PatientAge =
 
 
-    open Informedica.Utils.Lib
 
 
     let birthDate bd = bd |> BirthDate
@@ -1618,7 +1614,7 @@ module AgeWeeksDays =
         (awd.Weeks |> Conversions.weeksToDays) + awd.Days
 
 
-    let comp (op) awd1 awd2 = awd1 |> op <| awd2
+    let comp op awd1 awd2 = awd1 |> op <| awd2
 
 
     module Operators =

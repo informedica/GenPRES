@@ -14,7 +14,7 @@ module DoseRule =
     open Informedica.GenUnits.Lib
 
     module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
-    module PatientCategory = Informedica.ZForm.Lib.PatientCategory
+    module PatientCategory = PatientCategory
 
 
     /// <summary>
@@ -116,7 +116,7 @@ module DoseRule =
         /// <param name="dr2">The second DoseRange</param>
         /// <returns>The resulting DoseRange of the calculation</returns>
         let calc op (dr1: DoseRange) (dr2: DoseRange) =
-            { empty with
+            {
                 Norm = dr1.Norm |> op <| dr2.Norm
                 NormWeight =
                     (dr1.NormWeight |> fst) |> op
@@ -143,7 +143,7 @@ module DoseRule =
         /// </remarks>
         let convertTo u (dr: DoseRange) =
 
-            { dr with
+            {
                 Norm = dr.Norm |> MinMax.convertTo u
                 NormWeight = dr.NormWeight |> fst |> MinMax.convertTo u, dr.NormWeight |> snd
                 NormBSA = dr.NormBSA |> fst |> MinMax.convertTo u, dr.NormBSA |> snd
@@ -167,11 +167,11 @@ module DoseRule =
 
 
             let inclMaxNormLens =
-                DoseRange.Norm_ >-> (MinMax.inclMaxLens)
+                DoseRange.Norm_ >-> MinMax.inclMaxLens
 
 
             let exclMaxNormLens =
-                DoseRange.Norm_ >-> (MinMax.exclMaxLens)
+                DoseRange.Norm_ >-> MinMax.exclMaxLens
 
 
             let normWeightUnitLens =
@@ -227,19 +227,19 @@ module DoseRule =
 
 
             let inclMinAbsLens =
-                DoseRange.Abs_ >-> (MinMax.inclMinLens)
+                DoseRange.Abs_ >-> MinMax.inclMinLens
 
 
             let exclMinAbsLens =
-                DoseRange.Abs_ >-> (MinMax.exclMinLens)
+                DoseRange.Abs_ >-> MinMax.exclMinLens
 
 
             let inclMaxAbsLens =
-                DoseRange.Abs_ >-> (MinMax.inclMaxLens)
+                DoseRange.Abs_ >-> MinMax.inclMaxLens
 
 
             let exclMaxAbsLens =
-                DoseRange.Abs_ >-> (MinMax.exclMaxLens)
+                DoseRange.Abs_ >-> MinMax.exclMaxLens
 
 
             let absWeightUnitLens =
@@ -441,7 +441,7 @@ module DoseRule =
                             | Some mm -> (mm, u)
                             | None -> o
 
-                { empty with
+                {
                     Norm = dto.Norm |> set MinMax.Dto.fromDto empty.Norm
                     NormWeight =
                         dto.NormWeight
@@ -1395,7 +1395,7 @@ module DoseRule =
 
 
             let fromDto (dto: Dto) =
-                { empty with
+                {
                     Name = dto.Name
                     StartDosage = dto.StartDosage |> DoseRange.Dto.fromDto
                     SingleDosage = dto.SingleDosage |> DoseRange.Dto.fromDto

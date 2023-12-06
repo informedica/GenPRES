@@ -330,7 +330,7 @@ module Patient =
     let calcBSA (pat: Patient) =
         match pat.Weight, pat.Height with
         | Some w, Some h ->
-            Utils.Calculations.calcDuBois w h
+            Calculations.calcDuBois w h
             |> Some
         | _ -> None
 

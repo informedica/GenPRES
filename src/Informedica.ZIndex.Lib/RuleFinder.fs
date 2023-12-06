@@ -93,7 +93,7 @@ module RuleFinder =
             GenPresProduct.filter gsr.Generic gsr.Shape gsr.Route
             |> Array.collect (fun gpp ->
                 gpp.GenericProducts
-                |> Array.map (fun gp -> gp.Id)
+                |> Array.map (_.Id)
             )
         |> Array.collect (fun gpk ->
             DoseRule.get gpks
@@ -256,14 +256,15 @@ module RuleFinder =
 
                 // Norm.min = PerKg.min * Wght.min
                 // Norm.max = PerKg.max * Wght.max
-                { norm with
+                {
                     Min = norm.Min |> calc (*) perKg.Min wght.Min
                     Max = norm.Max |> calc (*) perKg.Max wght.Max } ,
                 // PerKg.min = Norm.min / Wght.max
                 // PerKg.max = norm.max / Wght.min
-                { perKg with
+                {
                     Min = perKg.Min |> calc (/) norm.Min wght.Max
-                    Max = perKg.Max |> calc (/) norm.Max wght.Min }
+                    Max = perKg.Max |> calc (/) norm.Max wght.Min
+                }
 
             let calcNormPerKg = calcNoneAndAdjusted wghtMinMax norm normKg
             let calcAbsPerKg  = calcNoneAndAdjusted wghtMinMax abs  absKg

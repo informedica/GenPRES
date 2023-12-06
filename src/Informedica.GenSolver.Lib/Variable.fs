@@ -3316,8 +3316,6 @@ module Variable =
     /// vice versa.
     module Dto =
 
-        open Informedica.Utils.Lib
-
         module ValueSet = ValueRange.ValueSet
         module Increment = ValueRange.Increment
 

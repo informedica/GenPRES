@@ -81,11 +81,10 @@ module Names =
     let getRoutes =
         fun () ->
             getItems Route TwentyFive
-            |> Array.collect (fun rt ->
-                rt
-                |> snd
-                |> String.splitAt ','
-                |> Array.map String.trim
+            |> Array.collect (
+                snd
+                >> String.splitAt ','
+                >> Array.map String.trim
             )
             |> Array.distinct
             |> Array.sort

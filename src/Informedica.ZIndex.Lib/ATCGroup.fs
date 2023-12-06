@@ -110,7 +110,7 @@ module ATCGroup =
                         |> Array.tryFind (fun r -> r.Id = gpk.GPKODE) with
                     | Some p ->
                         if p.Route |> Array.isEmpty || p.Route |> Array.length > 1 then ""
-                        else p.Route.[0]
+                        else p.Route[0]
                     | None -> ""
 
 
@@ -124,25 +124,24 @@ module ATCGroup =
 
             select
                 ({
-                    empty with
-                        ATC1 = main.ATCODE.Trim()
-                        AnatomicalGroup = main.ATOMS.Trim()
-                        AnatomicalGroupEng = main.ATOMSE.Trim()
-                        ATC2 = ther.ATCODE.Trim()
-                        TherapeuticMainGroup = ther.ATOMS.Trim()
-                        TherapeuticMainGroupEng = ther.ATOMSE.Trim()
-                        ATC3 = thes.ATCODE.Trim()
-                        TherapeuticSubGroup = thes.ATOMS.Trim()
-                        TherapeuticSubGroupEng = thes.ATOMSE.Trim()
-                        ATC4 = phar.ATCODE.Trim()
-                        PharmacologicalGroup = phar.ATOMS.Trim()
-                        PharmacologicalGroupEng = phar.ATOMSE.Trim()
-                        ATC5 = subs.ATCODE.Trim()
-                        Substance = subs.ATOMS.Trim()
-                        SubstanceEng = subs.ATOMSE.Trim()
-                        Generic = generic
-                        Shape = shape
-                        Routes = route
+                    ATC1 = main.ATCODE.Trim()
+                    AnatomicalGroup = main.ATOMS.Trim()
+                    AnatomicalGroupEng = main.ATOMSE.Trim()
+                    ATC2 = ther.ATCODE.Trim()
+                    TherapeuticMainGroup = ther.ATOMS.Trim()
+                    TherapeuticMainGroupEng = ther.ATOMSE.Trim()
+                    ATC3 = thes.ATCODE.Trim()
+                    TherapeuticSubGroup = thes.ATOMS.Trim()
+                    TherapeuticSubGroupEng = thes.ATOMSE.Trim()
+                    ATC4 = phar.ATCODE.Trim()
+                    PharmacologicalGroup = phar.ATOMS.Trim()
+                    PharmacologicalGroupEng = phar.ATOMSE.Trim()
+                    ATC5 = subs.ATCODE.Trim()
+                    Substance = subs.ATOMS.Trim()
+                    SubstanceEng = subs.ATOMSE.Trim()
+                    Generic = generic
+                    Shape = shape
+                    Routes = route
                 })
         }
         |> Seq.toArray
@@ -181,7 +180,6 @@ module ATCGroup =
     /// <summary>
     /// Find ATC groups by ATC5 code.
     /// </summary>
-    /// <param name="all"></param>
     /// <param name="atc"></param>
     let findByATC5 atc =
         get ()

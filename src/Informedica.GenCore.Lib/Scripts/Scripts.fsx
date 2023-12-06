@@ -101,7 +101,6 @@ module PatientScripts =
     |> Department.toString
 
 
-    open Informedica.Utils.Lib.BCL
 
     "UMCU"
     |> Department.adultICU
@@ -214,7 +213,6 @@ module ValueUnitScripts =
     open System
 
     open MathNet.Numerics
-    open FsToolkit.ErrorHandling
 
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib

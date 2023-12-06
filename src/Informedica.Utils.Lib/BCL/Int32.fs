@@ -20,7 +20,7 @@ module Int32 =
 
     /// Parses a string to an Int32. If the string cannot be parsed, None is returned.
     let tryParse (s : string) =
-        let (b, n) = Int32.TryParse(s)
+        let b, n = Int32.TryParse(s)
         if b then n |> Some else None
 
 

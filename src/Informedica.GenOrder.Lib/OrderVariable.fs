@@ -92,7 +92,7 @@ module OrderVariable =
         /// <param name="fVals">The function to map the Values</param>
         /// <param name="cs">The Constraints record</param>
         let map fMin fMax fIncr fVals (cs : Constraints) =
-            { cs with
+            {
                 Min = cs.Min |> Option.map fMin
                 Max = cs.Max |> Option.map fMax
                 Incr = cs.Incr |> Option.map fIncr

@@ -24,8 +24,6 @@ BigRational.Tests.testValueToFactorRatio()
 ConsoleWriter.writeSeparator '-'
 
 
-open MathNet.Numerics
-
 /// Generic function to check whether a `divisor`
 /// is a divisor of a `dividend`, i.e. the number being
 /// divided

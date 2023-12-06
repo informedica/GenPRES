@@ -4,7 +4,6 @@ namespace Informedica.ZIndex.Lib
 module DoseRule =
 
     open System
-    open System.Text
 
     open Aether
 

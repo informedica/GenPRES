@@ -45,7 +45,7 @@ module Calculations =
             let ws = int ws * -1
             let ds = int ds * -1
 
-            dt 
+            dt
             |> DateTime.addYears ys
             |> DateTime.addMonths ms
             |> DateTime.addWeeks ws
@@ -71,10 +71,10 @@ module Calculations =
             let dToStr = Conversions.dayToString "day" "days"
 
             [
-                yrs |> Option.map yToStr 
-                mos |> Option.map mToStr 
-                wks |> Option.map wToStr 
-                dys |> Option.map dToStr 
+                yrs |> Option.map yToStr
+                mos |> Option.map mToStr
+                wks |> Option.map wToStr
+                dys |> Option.map dToStr
             ]
             |> List.map (Option.defaultValue "")
 
@@ -86,23 +86,23 @@ module Calculations =
             let dToStr = Conversions.dayToString "dag" "dagen"
 
             [
-                yrs |> Option.map yToStr 
-                mos |> Option.map mToStr 
-                wks |> Option.map wToStr 
-                dys |> Option.map dToStr 
+                yrs |> Option.map yToStr
+                mos |> Option.map mToStr
+                wks |> Option.map wToStr
+                dys |> Option.map dToStr
             ]
             |> List.map (Option.defaultValue "")
 
 
         let ageToStringNlShort yrs mos wks dys =
-            ageToStringNL yrs mos wks dys 
+            ageToStringNL yrs mos wks dys
             |> function
-            | [ys; ms; _; _] when ys |> String.notEmpty -> 
-                [ys; ms] 
-            | [_; ms; ws; _] when ms |> String.notEmpty -> 
-                [ms; ws] 
-            | [_; _; ws; ds] when ws |> String.notEmpty -> 
-                [ws; ds] 
+            | [ys; ms; _; _] when ys |> String.notEmpty ->
+                [ys; ms]
+            | [_; ms; ws; _] when ms |> String.notEmpty ->
+                [ms; ws]
+            | [_; _; ws; ds] when ws |> String.notEmpty ->
+                [ws; ds]
             | xs -> xs
             |> List.filter String.notEmpty
             |> String.concat ", "
@@ -150,26 +150,26 @@ module Calculations =
         let calcFujimoto = calcBSA fujimoto
 
 
-    
+
     module Renal =
 
-        
+
         type Gender = Male | Female
 
-        
+
         type Race = Black | Other
 
-        
+
         type Creat = | CreatinineMicroMolePerLiter of float<microMol/L> | CreatinineMilligramPerDeciLiter of float<mg/dL>
 
-        
+
         type Cystatin = CystatinMilligramPerLiter of float<mg/L>
 
-        
+
         type Urea = UreaMilligramPerDeciLiter of float<mg/dL> | UreaMilliMolePerLiter of float<mmol/L>
 
 
-        type RenalFunction = 
+        type RenalFunction =
             | Normal
             | MildlyDecreased
             | MildToModeratelyDecreased
@@ -199,7 +199,7 @@ module Calculations =
             | _ when eGfr >= failure -> SeverelyDecreased
             | _ when eGfr < failure && eGfr >= 0.<mL/min/normalM2> -> KidneyFailure
             | _ -> $"this {eGfr} is not valid" |> InvalidKidneyFunction
-        
+
 
 
         let toMlMinNormBsa x = x * 1.<mL/min/normalM2>
@@ -209,25 +209,25 @@ module Calculations =
             let sCr = sCr |> float
             let age = age |> float
 
-            141. * 
+            141. *
             (([ sCr / k; 1. ] |> List.min) ** alpha) *
-            (([ sCr / k; 1. ] |> List.max) ** (-1.209)) *
+            (([ sCr / k; 1. ] |> List.max) ** -1.209) *
             (0.993 ** age) * a * b
             |> toMlMinNormBsa
 
 
         let calcCreatinine09 gend race age creat =
-            let sCr = 
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
-            
+
             let alpha, k, a =
                 match gend with
                 | Female -> -0.329, 0.7, 1.018
                 | Male -> -0.411, 0.9, 1.
 
-            let b = 
+            let b =
                 match race with
                 | Black -> 1.159
                 | Other -> 1.
@@ -239,19 +239,19 @@ module Calculations =
             let sCr = sCr |> float
             let age = age |> float
 
-            142. * 
+            142. *
             (([ sCr / k; 1. ] |> List.min) ** alpha) *
-            (([ sCr / k; 1. ] |> List.max) ** (-1.200)) *
+            (([ sCr / k; 1. ] |> List.max) ** -1.200) *
             (0.9938 ** age) * a
             |> toMlMinNormBsa
 
 
         let calcCreatinine21 gend age creat =
-            let sCr = 
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
-            
+
             let alpha, k, a =
                 match gend with
                 | Female -> -0.241, 0.7, 1.018
@@ -265,7 +265,7 @@ module Calculations =
             let sCy = sCy |> float
             let age = age |> float
 
-            135. * 
+            135. *
             (([ sCr / k; 1. ] |> List.min) ** alpha) *
             (([ sCr / k; 1. ] |> List.max) ** -0.601) *
             (([ sCy / 0.8; 1. ] |> List.min) ** -0.375) *
@@ -275,11 +275,11 @@ module Calculations =
 
 
         let calcCystatinCreatinine12 gend race age creat cystatin =
-            let sCr = 
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
-            
+
             let (CystatinMilligramPerLiter sCy) = cystatin
 
             let alpha, k,  a =
@@ -287,7 +287,7 @@ module Calculations =
                 | Female -> -0.248, 0.7, 0.969
                 | Male -> -0.207, 0.9, 1.
 
-            let b = 
+            let b =
                 match race with
                 | Black -> 1.08
                 | Other -> 1.
@@ -300,7 +300,7 @@ module Calculations =
             let sCy = sCy |> float
             let age = age |> float
 
-            135. * 
+            135. *
             (([ sCr / k; 1. ] |> List.min) ** alpha) *
             (([ sCr / k; 1. ] |> List.max) ** -0.544) *
             (([ sCy / 0.8; 1. ] |> List.min) ** -0.323) *
@@ -310,11 +310,11 @@ module Calculations =
 
 
         let calcCystatinCreatinine21 gend age creat cystatin =
-            let sCr = 
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
-            
+
             let (CystatinMilligramPerLiter sCy) = cystatin
 
             let alpha, k,  a =
@@ -329,14 +329,14 @@ module Calculations =
             let sCy = sCy |> float
             let age = age |> float
 
-            133. * 
+            133. *
             (([ sCy / 0.8; 1. ] |> List.min) ** -0.4999) *
-            (([ sCy / 0.8; 1. ] |> List.max) ** -1.328) * 
+            (([ sCy / 0.8; 1. ] |> List.max) ** -1.328) *
             (0.996 ** age) * a
             |> toMlMinNormBsa
 
 
-        let calcCystatin12 gend age cystatin =            
+        let calcCystatin12 gend age cystatin =
             let (CystatinMilligramPerLiter sCy) = cystatin
 
             let a =
@@ -344,21 +344,21 @@ module Calculations =
                 | Female -> 0.932
                 | Male -> 1.
 
-            cystatin12Formula sCy age a 
+            cystatin12Formula sCy age a
 
 
         let mdrdFormula (sCr: float<mg/dL>) (age : float<year>) a b =
             let sCr = sCr |> float
             let age = age |> float
 
-            175. * 
+            175. *
             (sCr ** -1.154) *
             (age ** -0.203) * a * b
             |> toMlMinNormBsa
 
 
         let calcMDRD gend race age creat =
-            let sCr = 
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
@@ -368,7 +368,7 @@ module Calculations =
                 | Female -> 0.742
                 | Male -> 1.
 
-            let b = 
+            let b =
                 match race with
                 | Black -> 1.212
                 | Other -> 1.
@@ -385,7 +385,7 @@ module Calculations =
 
 
         let calcPediatricScharz height creat =
-            let sCr = 
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
@@ -398,30 +398,30 @@ module Calculations =
             let cyst = cyst |> float
             let bun = bun |> float
             let height = height |> float
-             
-            39.8 * // 39.8 
+
+            39.8 * // 39.8
             ((height / sCr) ** 0.456) * // x [ht/Scr]0.456
-            ((1.8 / cyst) ** 0.418) * // x [1.8/cysC]0.418 
+            ((1.8 / cyst) ** 0.418) * // x [1.8/cysC]0.418
             ((30. / bun) ** 0.079) * // x [30/BUN]0.079
             ((height / 1.4) ** 0.179) * // x [ht/140]0.179
-            k // x [1.076male] [1.00female] 
+            k // x [1.076male] [1.00female]
             |> toMlMinNormBsa
 
-    
+
         let calcPediatricCystatinCreatinineCKID gender height creat cystatin bun =
-            let bun = 
-                match bun with 
+            let bun =
+                match bun with
                 | UreaMilligramPerDeciLiter v -> v
                 | UreaMilliMolePerLiter v -> v |> Conversions.Urea.toMilliGramPerDeciLiter
-            
-            let sCr = 
+
+            let sCr =
                 match creat with
                 | CreatinineMilligramPerDeciLiter v -> v
                 | CreatinineMicroMolePerLiter v -> v |> Conversions.Creatinine.toMilliGramPerDeciLiter
 
             let (CystatinMilligramPerLiter cyst) = cystatin
 
-            let k = 
+            let k =
                 match gender with
                 | Female -> 1.
                 | Male -> 1.076

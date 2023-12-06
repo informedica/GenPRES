@@ -3,7 +3,7 @@
 #load "../Types.fs"
 #load "../Utils.fs"
 #load "../Mapping.fs"
-#load "../MinMax.fs"
+#load "../VenousAccess.fs"
 #load "../Patient.fs"
 #load "../DoseType.fs"
 #load "../Product.fs"
@@ -69,7 +69,7 @@ let toBr u lim =
     |> ValueUnit.getValue
     |> Array.head
 
-
+(*
 let filter
     (p1 : Informedica.ZForm.Lib.Types.PatientCategory)
     (p2 : Types.PatientCategory)
@@ -286,3 +286,4 @@ failingCases[0]
             |> Seq.take 1
     |}
 |> fun r -> checkDoseRule r.doseRule r.zformRules
+*)

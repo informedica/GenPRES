@@ -5,7 +5,6 @@ namespace Informedica.GenForm.Lib
 [<AutoOpen>]
 module Utils =
 
-    open System
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL

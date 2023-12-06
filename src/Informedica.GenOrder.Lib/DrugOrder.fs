@@ -4,9 +4,7 @@ namespace Informedica.GenOrder.Lib
 
 module DrugOrder =
 
-    open System
     open MathNet.Numerics
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
@@ -54,13 +52,8 @@ module DrugOrder =
     module MinMax =
 
         /// <summary>
-        /// Set the min and max values of a Variable dto using a MinMax record or
-        /// a single big rational. If the MinMax record is None, and there is a
-        /// single big rational, the function will use the big rational to set
-        /// the min and max values.
         /// </summary>
-        /// <param name="un">The unit as a string.</param>
-        /// <param name="brs">A sequence of big rationals.</param>
+        /// <param name="norm">A sequence of big rationals.</param>
         /// <param name="minMax">The MinMax record.</param>
         /// <param name="dto">The Variable dto.</param>
         /// <remarks>
@@ -159,7 +152,6 @@ module DrugOrder =
     /// The freqUnit is used to set the TimeUnit for the Frequencies.
     /// </summary>
     /// <param name="noSubst">Whether or not to add the substances to the ProductComponent</param>
-    /// <param name="freqUnit">The TimeUnit for the Frequencies</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     /// <param name="ps">The Products to create the ProductComponent from</param>
     let createProductComponent noSubst (doseLimits : DoseLimit []) (ps : Product []) =
@@ -171,7 +163,7 @@ module DrugOrder =
             |> ValueUnit.collect
 
 
-        { productComponent with
+        {
             Name =
                 ps
                 |> tryHead (fun p -> p.Shape)
@@ -289,7 +281,7 @@ module DrugOrder =
                     |> Some
             OrderType =
                 match pr.DoseRule.DoseType with
-                | Informedica.GenForm.Lib.Types.Continuous -> ContinuousOrder
+                | Continuous -> ContinuousOrder
                 | _ when pr.DoseRule.AdministrationTime = MinMax.empty -> DiscontinuousOrder
                 | _ -> TimedOrder
             Dose = dose
@@ -511,7 +503,7 @@ module DrugOrder =
                                     itmDto.Dose.QuantityAdjust.Constraints <-
                                         itmDto.Dose.QuantityAdjust.Constraints
                                         |> MinMax.setConstraints
-                                               (dl.NormQuantityAdjust)
+                                               dl.NormQuantityAdjust
                                                dl.QuantityAdjust
 
                                     itmDto.Dose.PerTime.Constraints <-
@@ -523,7 +515,7 @@ module DrugOrder =
                                     itmDto.Dose.PerTimeAdjust.Constraints <-
                                         itmDto.Dose.PerTimeAdjust.Constraints
                                         |> MinMax.setConstraints
-                                               (dl.NormPerTimeAdjust)
+                                               dl.NormPerTimeAdjust
                                                dl.PerTimeAdjust
 
 

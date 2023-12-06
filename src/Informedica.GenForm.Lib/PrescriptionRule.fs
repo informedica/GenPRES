@@ -3,7 +3,6 @@ namespace Informedica.GenForm.Lib
 
 module PrescriptionRule =
 
-    open Informedica.Utils.Lib
     open MathNet.Numerics
     open Informedica.GenUnits.Lib
 

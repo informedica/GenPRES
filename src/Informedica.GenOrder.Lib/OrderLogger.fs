@@ -11,7 +11,6 @@ module OrderLogger =
 
     open Informedica.GenSolver.Lib
 
-    open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenOrder.Lib
 

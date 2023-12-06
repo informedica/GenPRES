@@ -60,17 +60,15 @@ module BigInteger =
 
     module Tests =
 
-        open Swensen.Unquote
-
 
         /// Test the farey function by generating and printing Farey sequences.
         let testFareySequence () =
             let order = 10I
-            printfn "Ascending Farey Sequence of Order %A:" order
+            printfn $"Ascending Farey Sequence of Order %A{order}:"
             farey order true
             |> Seq.iter (fun (p, q) -> printfn "%A/%A" p q)
 
-            printfn "\nDescending Farey Sequence of Order %A:" order
+            printfn $"\nDescending Farey Sequence of Order %A{order}:"
             farey order false
             |> Seq.iter (fun (p, q) -> printfn "%A/%A" p q)
 

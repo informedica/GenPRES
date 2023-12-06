@@ -7,7 +7,6 @@ module Dto =
 
     open System
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
@@ -328,7 +327,7 @@ module Dto =
 
         let gpk, gen, shp, lbl, conc, unt, tps = find dto
 
-        let prodName = sprintf "%i: %s " gpk lbl
+        let prodName = $"%i{gpk}: %s{lbl} "
 
         let rs =
             let su =
@@ -364,7 +363,7 @@ module Dto =
                 rte
 
         if rs |> Seq.length <> 1 then
-            printfn "found %i rules for %s" (rs |> Seq.length) prodName
+            printfn $"found %i{rs |> Seq.length} rules for %s{prodName}"
             { dto with
                 GPK =
                     GPP.filter dto.Generic dto.Shape rte
@@ -392,7 +391,7 @@ module Dto =
                     )
 
                 if ids |> Seq.length <> 1 then
-                    printfn "wrong ids count: %i for %s" (ids |> Seq.length) prodName
+                    printfn $"wrong ids count: %i{ids |> Seq.length} for %s{prodName}"
                     []
                 else
                     let id = ids |> Seq.head
@@ -404,12 +403,12 @@ module Dto =
                             rds
                             |> List.map(fun rd -> rd.Route)
                             |> String.concat ", "
-                        printfn "wrong rds count: %i for %s with routes: %s using route: %s" (rds |> Seq.length) prodName rts rte
+                        printfn $"wrong rds count: %i{rds |> Seq.length} for %s{prodName} with routes: %s{rts} using route: %s{rte}"
                         []
                     else
                         let rd = rds |> Seq.head
                         if rd.ShapeDosages |> Seq.length <> 1 then
-                            printfn "wrong sds count: %i for %s" (rd.ShapeDosages |> Seq.length) prodName
+                            printfn $"wrong sds count: %i{rd.ShapeDosages |> Seq.length} for %s{prodName}"
                             []
                         else
                             let sd = rd.ShapeDosages |> Seq.head

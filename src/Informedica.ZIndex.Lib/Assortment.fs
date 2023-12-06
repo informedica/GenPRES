@@ -5,7 +5,6 @@ module Assortment =
 
 
     open Informedica.Utils.Lib
-    open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib.Web
 
 

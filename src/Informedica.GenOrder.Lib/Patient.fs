@@ -66,7 +66,7 @@ module Patient =
         /// <summary>
         /// Converts a decimal representing the number of days to a list of Age values
         /// </summary>
-        /// <param name="d">The age in days</param>
+        /// <param name="vu">The age ValueUnit</param>
         let ageFromValueUnit (vu : ValueUnit) =
             let vu =
                 vu
@@ -87,7 +87,7 @@ module Patient =
 
         // Helper method for the Optics below
         let ageAgeList =
-            Option.map (ageFromValueUnit)
+            Option.map ageFromValueUnit
             >> (Option.defaultValue []),
             (ageToValueUnit >> Some)
 
@@ -105,7 +105,7 @@ module Patient =
                     | Years _ | Months _ -> false
                     | _ -> true
                 )
-            Option.map (ageFromDec)
+            Option.map ageFromDec
             >> (Option.defaultValue []),
             (ageToValueUnit >> Some)
 
@@ -135,8 +135,8 @@ module Patient =
                 |> BigRational.fromDecimal
                 |> ValueUnit.singleWithUnit Units.Weight.gram
 
-            Option.map (get),
-            Option.map (set)
+            Option.map get,
+            Option.map set
 
 
         let weight_ = Patient.Weight_ >-> vuWeight
@@ -162,8 +162,8 @@ module Patient =
                 |> BigRational.fromDecimal
                 |> ValueUnit.singleWithUnit Units.Height.centiMeter
 
-            Option.map (get),
-            Option.map (set)
+            Option.map get,
+            Option.map set
 
 
         let height_ = Patient.Height_ >-> vuHeight

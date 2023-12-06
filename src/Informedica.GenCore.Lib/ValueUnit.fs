@@ -6,7 +6,6 @@ module ValueUnit =
     open MathNet.Numerics
     open FsToolkit.ErrorHandling
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib
     open Informedica.GenUnits.Lib

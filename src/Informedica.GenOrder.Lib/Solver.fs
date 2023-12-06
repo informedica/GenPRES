@@ -7,9 +7,6 @@ namespace Informedica.GenOrder.Lib
 /// `Informedica.GenSolver.Lib`
 module Solver =
 
-
-    open Informedica.Utils.Lib
-    open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib.Types
 
 

@@ -7,6 +7,7 @@ namespace Informedica.GenOrder.Lib
 /// An `Order` models the `Prescription` of an
 /// `Orderable` with a `StartStop` start date and
 /// stop date.
+[<RequireQualifiedAccess>]
 module Order =
 
 
@@ -195,6 +196,7 @@ module Order =
     /// Types and functions to deal
     /// with an `Orderable`, i.e. something
     /// that can be ordered.
+    [<RequireQualifiedAccess>]
     module Orderable =
 
 
@@ -218,7 +220,6 @@ module Order =
             let order = Mapping.ord
             [<Literal>]
             let dose = Mapping.dos
-
 
 
         module Dose =
@@ -445,6 +446,7 @@ module Order =
         /// Type and functions that models an
         /// `Order` `Item` that is contained in
         /// a `Component`
+        [<RequireQualifiedAccess>]
         module Item =
 
             module Quantity = OrderVariable.Quantity
@@ -643,6 +645,7 @@ module Order =
         /// `Component` in an `Orderable`.
         /// A `Component` contains a list
         /// of `Item`s
+        [<RequireQualifiedAccess>]
         module Component =
 
 
@@ -1209,9 +1212,7 @@ module Order =
                 |> toDto
 
 
-
-    open Orderable
-
+    [<RequireQualifiedAccess>]
     module Prescription =
 
 
@@ -1407,6 +1408,7 @@ module Order =
     /// Types and functions that
     /// model a start and stop date time
     /// of an `Order`
+    [<RequireQualifiedAccess>]
     module StartStop =
 
 
@@ -1423,7 +1425,7 @@ module Order =
                 |> sprintf "%s - %s" (start |> DateTime.formattedString "dd-MM-yy")
 
 
-
+    [<RequireQualifiedAccess>]
     module OrderType =
 
         let toString = function
@@ -1457,7 +1459,7 @@ module Order =
     module RateAdjust = OrderVariable.RateAdjust
     module Time = OrderVariable.Time
     module Units = ValueUnit.Units
-    module Dose = Dose
+    module Dose = Orderable.Dose
 
 
     type Equation = Informedica.GenSolver.Lib.Types.Equation
@@ -1616,7 +1618,7 @@ module Order =
         { ord with
             Orderable =
                 ord.Orderable
-                |> increaseQuantityIncrement
+                |> Orderable.increaseQuantityIncrement
                        maxCount
                        incrs
         }

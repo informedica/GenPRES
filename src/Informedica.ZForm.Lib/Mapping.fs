@@ -6,8 +6,6 @@
 /// internal unit structure and an application.
 module Mapping =
 
-    open System
-
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib

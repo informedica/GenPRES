@@ -334,13 +334,13 @@ module GStand =
 
             // Norm.min = PerKg.min * Wght.min
             // Norm.max = PerKg.max * Wght.max
-            { un with
+            {
                 Min = un.Min |> calc (*) adj.Min c.Min
                 Max = un.Max |> calc (*) adj.Max c.Max
             },
             // PerKg.min = Norm.min / Wght.max
             // PerKg.max = norm.max / Wght.min
-            { adj with
+            {
                 Min = adj.Min |> calc (/) un.Min c.Max
                 Max = adj.Max |> calc (/) un.Max c.Min
             }

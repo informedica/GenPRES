@@ -24,8 +24,8 @@ module ValueUnit =
     /// </summary>
     /// <param name="u">The Unit</param>
     let isAdjust (u : Unit) =
-        u |> Group.eqsGroup (Units.Weight.kiloGram) ||
-        u |> Group.eqsGroup (Units.BSA.m2)
+        u |> Group.eqsGroup Units.Weight.kiloGram ||
+        u |> Group.eqsGroup Units.BSA.m2
 
 
     /// <summary>

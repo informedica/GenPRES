@@ -158,7 +158,7 @@ Informedica.GenForm.Lib.DoseRule.get ()
     |> PatientCategory.filter { Filter.filter with Patient = Patient.child }
 
 
-{ Department = Some ("ICK")
+{ Department = Some "ICK"
   Diagnoses = [||]
   Gender = AnyGender
   Age = Some (ValueUnit ([|0N|], Units.Time.day))

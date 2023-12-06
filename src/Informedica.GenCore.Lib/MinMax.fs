@@ -654,7 +654,7 @@ module MinMax =
             | None, Some _ -> None
             | Some v1, Some v2 -> v1 |> op <| v2 |> Some
 
-        { empty with
+        {
             Min = c mm1.Min mm2.Min
             Max = c mm1.Max mm2.Max
         }

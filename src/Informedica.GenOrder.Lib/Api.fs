@@ -3,15 +3,12 @@ namespace Informedica.GenOrder.Lib
 
 module Api =
 
-    open System
 
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-    open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
-    open Informedica.GenCore.Lib.Ranges
 
 
     /// <summary>

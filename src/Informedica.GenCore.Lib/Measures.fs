@@ -70,8 +70,6 @@ module Constants =
 
 module Conversions =
 
-    open System
-
 
     let fromInt (one: int<_>) (x :int) = x * one
 
@@ -118,7 +116,7 @@ module Conversions =
     let milliLiterFromDecimal x : decimal<mL> = x |> fromDecimal 1m<mL>
 
 
-    let literFromDecimal x : decimal<L> = x |> fromDecimal 1m<L> 
+    let literFromDecimal x : decimal<L> = x |> fromDecimal 1m<L>
 
 
     let kilo = decimal Constants.kilo
@@ -179,7 +177,7 @@ module Conversions =
         |> int
         |> cmFromInt
 
-    
+
     let inline intToString u1 u2 x =
         let x = int x
         match x with
@@ -189,7 +187,7 @@ module Conversions =
         | _ -> ""
 
 
-    let yearToString u1 u2 (y : int<year>) = intToString u1 u2 y 
+    let yearToString u1 u2 (y : int<year>) = intToString u1 u2 y
 
     let monthToString u1 u2 (m : int<month>) = intToString u1 u2 m
 
@@ -226,19 +224,19 @@ module Conversions =
 
         let kMicroMolePerLiter = 88.42<microMol/L>
 
-        let kMilliGramPerDeciLiter = (1./kMicroMolePerLiter |> float) * (1.<mg/dL>)
+        let kMilliGramPerDeciLiter = (1./kMicroMolePerLiter |> float) * 1.<mg/dL>
 
 
         let toMicroMolePerLiter (cr : float<mg/dL>) : float<microMol/L> = (cr  |> float) * kMicroMolePerLiter
 
         let toMilliGramPerDeciLiter (cr : float<microMol/L>) : float<mg/dL> = (cr  |> float) * kMilliGramPerDeciLiter
-    
+
 
     module Urea =
 
-        let kMilliGramPerDeciLiter = 1. / 0.3571 * (1.<mg/dL>)
+        let kMilliGramPerDeciLiter = 1. / 0.3571 * 1.<mg/dL>
 
-        let kMilliMolePerLiter = 0.3571 * (1.<mmol/L>)
+        let kMilliMolePerLiter = 0.3571 * 1.<mmol/L>
 
 
         let toMilliMolePerLiter (urea : float<mg/dL>) = (urea |> float) * kMilliMolePerLiter

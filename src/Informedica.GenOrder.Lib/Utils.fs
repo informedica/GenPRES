@@ -4,9 +4,6 @@
 [<AutoOpen>]
 module Utils =
 
-    open System
-    open System.IO
-    open System.Net.Http
 
     open Informedica.Utils.Lib.Web
 

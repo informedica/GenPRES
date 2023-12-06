@@ -3,8 +3,6 @@ namespace Informedica.GenSolver.Lib
 
 module SolverLogging =
 
-    open Informedica.Utils.Lib.BCL
-
     open Types
     open Types.Logging
     open Types.Events

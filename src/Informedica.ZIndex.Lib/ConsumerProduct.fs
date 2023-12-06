@@ -34,7 +34,7 @@ module ConsumerProduct =
                 |> Array.filter (fun b ->
                     b.ATKODE = r.ATKODE
                 )
-                |> Array.map (fun b -> b.BARCOD)
+                |> Array.map (_.BARCOD)
 
             create r.ATKODE nm lb r.VPDLHV ct br
         )
