@@ -311,7 +311,7 @@ module DoseRule =
                                             |> Array.sortBy (fun p ->
                                                 p.Substances
                                                 |> Array.sumBy (fun s ->
-                                                    s.Quantity
+                                                    s.Concentration
                                                     |> Option.map ValueUnit.getValue
                                                     |> Option.bind Array.tryHead
                                                     |> Option.defaultValue 0N

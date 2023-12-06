@@ -486,7 +486,7 @@ module Tests =
 
                 let create isIncl br =
                     Units.Count.times
-                    |> ValueUnit.withSingleValue br
+                    |> ValueUnit.singleWithValue br
                     |> Minimum.create isIncl
 
 
@@ -554,11 +554,11 @@ module Tests =
                         test "100 mg < 1 g" {
                             let min1 =
                                 Units.Mass.milliGram
-                                |> ValueUnit.withSingleValue 100N
+                                |> ValueUnit.singleWithValue 100N
                                 |> Minimum.create true
                             let min2 =
                                 Units.Mass.gram
-                                |> ValueUnit.withSingleValue 1N
+                                |> ValueUnit.singleWithValue 1N
                                 |> Minimum.create true
 
                             min1 |> Minimum.minSTmin min2
@@ -606,7 +606,7 @@ module Tests =
 
                 let create isIncl br =
                     Units.Count.times
-                    |> ValueUnit.withSingleValue br
+                    |> ValueUnit.singleWithValue br
                     |> Maximum.create isIncl
 
 
@@ -665,11 +665,11 @@ module Tests =
                         test "100 mg < 1 g" {
                             let min1 =
                                 Units.Mass.milliGram
-                                |> ValueUnit.withSingleValue 100N
+                                |> ValueUnit.singleWithValue 100N
                                 |> Maximum.create true
                             let min2 =
                                 Units.Mass.gram
-                                |> ValueUnit.withSingleValue 1N
+                                |> ValueUnit.singleWithValue 1N
                                 |> Maximum.create true
 
                             min1 |> Maximum.maxSTmax min2
@@ -747,7 +747,7 @@ module Tests =
 
                 let create isIncl brOpt =
                     brOpt
-                    |> Option.map (fun br -> Units.Count.times |> ValueUnit.withSingleValue br),
+                    |> Option.map (fun br -> Units.Count.times |> ValueUnit.singleWithValue br),
                     isIncl
 
 
@@ -1417,17 +1417,17 @@ module Tests =
 
             let createMin isIncl br =
                 Units.Count.times
-                |> ValueUnit.withSingleValue br
+                |> ValueUnit.singleWithValue br
                 |> Minimum.create isIncl
 
             let createMax isIncl br =
                 Units.Count.times
-                |> ValueUnit.withSingleValue br
+                |> ValueUnit.singleWithValue br
                 |> Maximum.create isIncl
 
             let createIncr br =
                 Units.Count.times
-                |> ValueUnit.withSingleValue br
+                |> ValueUnit.singleWithValue br
                 |> Increment.create
 
 

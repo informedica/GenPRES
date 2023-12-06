@@ -143,11 +143,11 @@ Informedica.GenForm.Lib.DoseRule.get ()
 //    Filter.filter
    { Filter.filter with Patient = Patient.child }
 |> Array.filter (fun dr ->
-    dr.Generic = "vancomycine" &&
+    dr.Generic = "adrenaline" &&
     dr.Route = "iv"
 )
-|> Array.skip 2
-|> Array.take 1
+//|> Array.skip 2
+//|> Array.take 1
 |> Array.length
 
 

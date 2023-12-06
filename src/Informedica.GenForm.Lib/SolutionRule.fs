@@ -297,11 +297,11 @@ module SolutionRule =
             ||> Array.fold (fun acc (generic, rs) ->
                 let prods =
                     rs
-                    |> Array.collect (fun d -> d.Products)
+                    |> Array.collect _.Products
                     |> Array.sortBy (fun p ->
                         p.Substances
                         |> Array.sumBy (fun s ->
-                            s.Quantity
+                            s.Concentration
                             |> Option.map ValueUnit.getValue
                             |> Option.bind Array.tryHead
                             |> Option.defaultValue 0N
@@ -327,7 +327,7 @@ module SolutionRule =
                 |> fun r ->
                     if r.rules = Array.empty then r
                     else
-                        (r, r.rules |> Array.groupBy (fun d -> d.Department))
+                        (r, r.rules |> Array.groupBy _.Department)
                         ||> Array.fold (fun acc (dep, rs) ->
                             {| acc with
                                 md = acc.md + (department_md dep)
@@ -350,7 +350,7 @@ module SolutionRule =
                                     ||> Array.fold (fun acc (sel, rs) ->
                                         let sol =
                                             rs
-                                            |> Array.groupBy (fun r -> r.Location)
+                                            |> Array.groupBy _.Location
                                             |> Array.collect (fun (_, rs) ->
                                                 rs
                                                 |> Array.tryHead
@@ -425,7 +425,7 @@ module SolutionRule =
             |> Array.map (fun generic ->
                 rules
                 |> Array.filter (fun sr -> sr.Generic = generic)
-                |> Array.sortBy (fun sr -> sr.Generic)
+                |> Array.sortBy _.Generic
                 |> toMarkdown ""
             )
 

@@ -90,7 +90,7 @@ module Product =
             |> Array.tryFind (fun sr ->
                 sr.Shape |> String.equalsCapInsens shape
             )
-            |> Option.map (fun sr -> sr.IsSolution)
+            |> Option.map _.IsSolution
             |> Option.defaultValue false
 
 
@@ -239,9 +239,8 @@ module Product =
                         Shape = ""
                         Routes = [||]
                         ShapeQuantities =
-                            1N
-                            |> ValueUnit.singleWithUnit
-                                   Units.Volume.milliLiter
+                            Units.Volume.milliLiter
+                            |> ValueUnit.singleWithValue 1N
                         ShapeUnit =
                             Units.Volume.milliLiter
                         RequiresReconstitution = false
@@ -256,7 +255,7 @@ module Product =
                                     | _ -> failwith $"cannot parse substance {s}"
                                 {
                                     Name = n
-                                    Quantity =
+                                    Concentration =
                                         q
                                         |> Option.bind (fun q ->
                                             u
@@ -264,6 +263,9 @@ module Product =
                                             |> function
                                                 | None -> None
                                                 | Some u ->
+                                                    let u =
+                                                        u
+                                                        |> Units.per Units.Volume.milliLiter
                                                     q
                                                     |> ValueUnit.singleWithUnit u
                                                     |> Some
@@ -356,12 +358,12 @@ module Product =
                         ATC = gp.ATC |> String.trim
                         MainGroup =
                             atc
-                            |> Array.map (fun g -> g.AnatomicalGroup)
+                            |> Array.map _.AnatomicalGroup
                             |> Array.tryHead
                             |> Option.defaultValue ""
                         SubGroup =
                             atc
-                            |> Array.map (fun g -> g.TherapeuticSubGroup)
+                            |> Array.map _.TherapeuticSubGroup
                             |> Array.tryHead
                             |> Option.defaultValue ""
                         Generic =
@@ -376,7 +378,7 @@ module Product =
                                 gp.PrescriptionProducts
                                 |> Array.collect (fun pp ->
                                     pp.TradeProducts
-                                    |> Array.map (fun tp -> tp.Brand)
+                                    |> Array.map (_.Brand)
                                 )
                             )
                             |> Array.distinct
@@ -385,7 +387,7 @@ module Product =
                             gp.PrescriptionProducts
                             |> Array.collect (fun pp ->
                                 pp.TradeProducts
-                                |> Array.map (fun tp -> tp.Label)
+                                |> Array.map _.Label
                             )
                             |> Array.distinct
                             |> function
@@ -398,7 +400,7 @@ module Product =
                             gpp.GenericProducts
                             |> Array.collect (fun gp ->
                                 gp.PrescriptionProducts
-                                |> Array.map (fun pp -> pp.Quantity)
+                                |> Array.map _.Quantity
                                 |> Array.choose BigRational.fromFloat
                             )
                             |> Array.filter (fun br -> br > 0N)
@@ -450,15 +452,13 @@ module Product =
                                 let su =
                                     s.SubstanceUnit
                                     |> Units.fromString
-                                    (*
                                     |> Option.map (fun u ->
                                         u |> ValueUnit.per shpUnit
                                     )
-                                    *)
                                     |> Option.defaultValue NoUnit
                                 {
                                     Name = rename s s.SubstanceName
-                                    Quantity =
+                                    Concentration =
                                         s.SubstanceQuantity
                                         |> BigRational.fromFloat
                                         |> Option.map (fun q ->
@@ -511,23 +511,21 @@ module Product =
                     ShapeUnit =
                         Units.Volume.milliLiter
                     ShapeQuantities = r.DiluentVolume
-                    (*
                     Substances =
                         prod.Substances
                         |> Array.map (fun s ->
                             { s with
-                                Quantity =
-                                    s.Quantity
+                                Concentration =
+                                    s.Concentration
                                     |> Option.map (fun q ->
                                         // replace the old shapeunit with the new one
                                         let one =
                                             Units.Volume.milliLiter
-                                            |> ValueUnit.withSingleValue 1N
+                                            |> ValueUnit.singleWithValue 1N
                                         (one * q) / r.DiluentVolume
                                     )
                             }
                         )
-                    *)
                 }
             )
             |> function
@@ -572,18 +570,14 @@ module Product =
     /// Get all Generics from the given Product array.
     let generics (products : Product array) =
         products
-        |> Array.map (fun p ->
-            p.Generic
-        )
+        |> Array.map _.Generic
         |> Array.distinct
 
 
     /// Get all Synonyms from the given Product array.
     let synonyms (products : Product array) =
         products
-        |> Array.collect (fun p ->
-            p.Synonyms
-        )
+        |> Array.collect _.Synonyms
         |> Array.append (generics products)
         |> Array.distinct
 
@@ -591,7 +585,7 @@ module Product =
     /// Get all Shapes from the given Product array.
     let shapes  (products : Product array) =
         products
-        |> Array.map (fun p -> p.Shape)
+        |> Array.map _.Shape
         |> Array.distinct
 
 

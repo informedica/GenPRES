@@ -65,7 +65,7 @@ module PrescriptionRule =
                             // TODO rewrite to compare valueunits
                             |> Array.map (fun s ->
                                 s.Name.ToLower(),
-                                s.Quantity
+                                s.Concentration
                                 |> Option.map ValueUnit.getValue
                                 |> Option.bind Array.tryHead
                             )

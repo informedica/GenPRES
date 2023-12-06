@@ -374,14 +374,14 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "coffeine" "" ""
-|> Array.collect (fun gpp -> gpp.GenericProducts)
+GenPresProduct.filter "adrenaline" "" ""
+|> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
-    gp.Id, gp.Name, gp.Label,
+    gp.Id, gp.Label,
     gp.Substances[0].SubstanceName,
-    gp.Substances[0].GenericName
+    gp.Substances[0].SubstanceQuantity
 )
-|> Array.iter (fun (id, n, lbl, sn, gn) ->
-    printfn $"{id}\t{n}\t{lbl}\t{sn}\t{gn}"
+|> Array.iter (fun (id, lbl, sn, sq) ->
+    printfn $"{id}\t{lbl}\t{sn}\t{sq}"
 )
 

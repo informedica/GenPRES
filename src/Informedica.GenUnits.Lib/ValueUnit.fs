@@ -2291,7 +2291,7 @@ module ValueUnit =
     /// <example>
     /// (Mass (KiloGram 1N)) |> withSingleValue 1N = ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))
     /// </example>
-    let withSingleValue v u = [| v |] |> create u
+    let singleWithValue v u = [| v |] |> create u
 
 
     /// create a general unit with unit value n

@@ -9,9 +9,6 @@ module DrugOrder =
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
 
-//    type MinMax = Informedica.GenForm.Lib.Types.MinMax
-
-//    module DoseRule = Informedica.GenForm.Lib.DoseRule
     module DoseLimit = DoseRule.DoseLimit
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
@@ -155,50 +152,41 @@ module DrugOrder =
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     /// <param name="ps">The Products to create the ProductComponent from</param>
     let createProductComponent noSubst (doseLimits : DoseLimit []) (ps : Product []) =
-        let qt =
-            ps
-            |> Array.map (fun p ->
-                p.ShapeQuantities
-            )
-            |> ValueUnit.collect
-
-
         {
             Name =
                 ps
-                |> tryHead (fun p -> p.Shape)
+                |> tryHead _.Shape
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else s
             Shape =
                 ps
-                |> tryHead (fun p -> p.Shape)
+                |> tryHead _.Shape
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else s
-            Quantities = qt
+            Quantities =
+                ps
+                |> Array.map _.ShapeQuantities
+                |> ValueUnit.collect
             Divisible =
                 ps
-                |> Array.choose (fun p -> p.Divisible)
+                |> Array.choose _.Divisible
                 |> Array.tryHead
             Substances =
                 if noSubst then []
                 else
                     ps
-                    |> Array.collect (fun p -> p.Substances)
-                    |> Array.groupBy (fun s -> s.Name)
+                    |> Array.collect _.Substances
+                    |> Array.groupBy _.Name
                     |> Array.map (fun (n, xs) ->
                         {
                             Name = n
                             Concentrations =
-                                match qt with
-                                | None -> None
-                                | Some qt ->
-                                    xs
-                                    |> Array.choose (fun s -> s.Quantity)
-                                    |> Array.distinct
-                                    |> ValueUnit.collect
-                                    |> Option.map (fun vu -> vu / qt)
+                                xs
+                                |> Array.choose _.Concentration
+                                |> Array.distinct
+                                |> ValueUnit.collect
                             Dose =
                                 doseLimits
                                 |> Array.tryFind (fun l ->
@@ -277,7 +265,7 @@ module DrugOrder =
                 if pr.SolutionRules |> Array.isEmpty |> not then None
                 else
                     Units.Count.times
-                    |> ValueUnit.withSingleValue 1N
+                    |> ValueUnit.singleWithValue 1N
                     |> Some
             OrderType =
                 match pr.DoseRule.DoseType with

@@ -868,7 +868,7 @@ module Variable =
                 max
                 |> toValueUnit
                 |> ValueUnit.getUnit
-                |> ValueUnit.withSingleValue 0N
+                |> ValueUnit.singleWithValue 0N
                 |> Minimum.create false,
                 max
                 |> map (ValueUnit.filter (fun br -> br > 0N)) (ValueUnit.filter (fun br -> br > 0N))

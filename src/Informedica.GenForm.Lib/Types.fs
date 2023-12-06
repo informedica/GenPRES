@@ -96,7 +96,7 @@ module Types =
             /// The name of the Substance
             Name : string
             /// The Quantity of the Substance
-            Quantity : ValueUnit option
+            Concentration : ValueUnit option
             /// The indivisible Quantity of the Substance
             MultipleQuantity : ValueUnit option
         }

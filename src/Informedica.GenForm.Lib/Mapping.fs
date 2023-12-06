@@ -159,7 +159,7 @@ module Mapping =
         |> Array.collect (fun rte ->
             filterRouteShapeUnit rte shape unt
         )
-        |> Array.map (fun xs -> xs.Reconstitute)
+        |> Array.map _.Reconstitute
         |> Array.exists id
 
 

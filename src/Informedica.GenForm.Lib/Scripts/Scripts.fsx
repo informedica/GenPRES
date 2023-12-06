@@ -35,7 +35,7 @@ Environment.CurrentDirectory
     Route = Some "rect"
 }
 |> PrescriptionRule.filter
-|> Array.map (fun pr -> pr.DoseRule)
+|> Array.map _.DoseRule
 |> Array.take 1
 |> DoseRule.Print.toMarkdown
 
@@ -44,11 +44,11 @@ let printAllDoseRules () =
     let rs =
         Filter.filter
         |> PrescriptionRule.filter
-        |> Array.map (fun pr -> pr.DoseRule)
+        |> Array.map _.DoseRule
 
     let gs (rs : DoseRule[]) =
         rs
-        |> Array.map (fun dr -> dr.Generic)
+        |> Array.map _.Generic
         |> Array.distinct
 
     DoseRule.Print.printGenerics gs rs

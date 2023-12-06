@@ -221,11 +221,11 @@ module ValueUnitScripts =
 
 
     Units.Height.centiMeter
-    |> ValueUnit.withSingleValue 100N
+    |> ValueUnit.singleWithValue 100N
     |> ValueUnit.Measures.toDecimalCm
 
     Units.Weight.kiloGram
-    |> ValueUnit.withSingleValue 100N
+    |> ValueUnit.singleWithValue 100N
     |> ValueUnit.Measures.toDecimalCm
 
 
