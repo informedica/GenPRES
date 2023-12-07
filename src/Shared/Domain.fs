@@ -772,24 +772,24 @@ module EmergencyTreatment =
 
     let calcTube =
         let textfn m =
-            sprintf "%A-%A-%A" (m - 0.5) m (m + 0.5)
+            $"%A{m - 0.5}-%A{m}-%A{m + 0.5}"
 
         let formula age =
-            4. + age / 4.
+            3.5 + age / 4.
             |> Math.roundBy0_5
             |> (fun m -> if m > 7. then 7. else m)
 
         calcIntervention
             "reanimatie"
             "tube maat"
-            "4 + leeftijd / 4"
+            "3.5 + leeftijd / 4"
             formula
             textfn
 
 
     let calcOralLength =
         let formula age = 12. + age / 2. |> Math.roundBy0_5
-        let textfn m = sprintf "%A cm" m
+        let textfn m = $"%A{m} cm"
 
         calcIntervention
             "reanimatie"
@@ -801,7 +801,7 @@ module EmergencyTreatment =
 
     let calcNasalLength =
         let formula age = 15. + age / 2. |> Math.roundBy0_5
-        let textfn m = sprintf "%A cm" m
+        let textfn m = $"%A{m} cm"
 
         calcIntervention
             "reanimatie"
@@ -868,13 +868,23 @@ module EmergencyTreatment =
 
 
     let calcBolusMedication wght (bolus: BolusMedication) =
-        let d, v =
-            calcDoseVol
-                wght
-                bolus.NormDose
-                bolus.Concentration
-                bolus.MinDose
-                bolus.MaxDose
+        let d, v, c =
+            let d, v =
+                calcDoseVol
+                    wght
+                    bolus.NormDose
+                    bolus.Concentration
+                    bolus.MinDose
+                    bolus.MaxDose
+            if d > 0. then (d, v, bolus.Concentration)
+            else
+                calcDoseVol
+                    wght
+                    bolus.NormDose
+                    (bolus.Concentration / 10.)
+                    bolus.MinDose
+                    bolus.MaxDose
+                |> fun (d, v) -> d, v, (bolus.Concentration / 10.)
 
         let adv s =
             if s <> "" then
@@ -899,13 +909,13 @@ module EmergencyTreatment =
         { Intervention.emptyIntervention with
             Indication = bolus.Indication
             Name = bolus.Generic
-            Quantity = Some(bolus.Concentration)
+            Quantity = Some(c)
             QuantityUnit = bolus.Unit
             TotalUnit = "ml"
             InterventionDose = Some v
             InterventionDoseUnit = "ml"
             InterventionDoseText =
-                $"{v} ml van {bolus.Concentration} {bolus.Unit}/ml"
+                $"{v} ml van {c} {bolus.Unit}/ml"
             SubstanceDose = Some d
             SubstanceMinDose =
                 if bolus.MinDose = 0. then
@@ -1003,6 +1013,8 @@ module EmergencyTreatment =
                 |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
                 |> List.map (calcBolusMedication weight.Value)
             |> List.append xs
+            |> List.distinct
+
 
 
 module ContinuousMedication =

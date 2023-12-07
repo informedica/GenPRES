@@ -49,9 +49,9 @@ You'll need to install the following pre-requisites in order to build SAFE appli
 
 Current known build configuration
 
-* dotnet: 6.0.403
-* npm: 8.4.1
-* node: v17.5.0
+* dotnet: 8.0.0
+* npm: 9.8.1
+* node: v18.18.2
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
