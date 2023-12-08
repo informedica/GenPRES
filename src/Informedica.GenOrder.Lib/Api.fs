@@ -176,7 +176,8 @@ module Api =
                         sbsts
 
                 Ok (ord, pr)
-            | Error (ord, m) when retry ->
+            | Error (ord, m) when retry -> Error(ord, pr, m)
+                    (*
                     if sr |> Option.isSome then Error(ord, pr, m)
                     else
                         let dose = ord.Orderable.Components[0].Items[0].Dose.Quantity
@@ -194,6 +195,7 @@ module Api =
                                 }
                         }
                         |> solve false None
+                    *)
             | Error (ord, m) -> Error (ord, pr, m)
 
         if rule.SolutionRules |> Array.isEmpty then [| solve true None rule |]

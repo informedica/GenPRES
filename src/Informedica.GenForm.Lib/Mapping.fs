@@ -47,8 +47,24 @@ module Mapping =
                     Long = get "ZIndexUnitLong"
                     Short = get "Unit"
                     MV = get "MetaVisionUnit"
+                    Group = get "Group"
                 |}
             )
+
+
+    let mapUnit s =
+        if s |> String.isNullOrWhiteSpace then None
+        else
+            let s = s |> String.toLower |> String.trim
+            unitMapping
+            |> Array.tryFind (fun r ->
+                r.Long = s ||
+                r.Short = s ||
+                r.MV = s
+            )
+            |> function
+                | Some r -> $"{r.Short}[{r.Group}]" |> Units.fromString
+                | None -> None
 
 
     /// Try to find mapping for a route
@@ -59,21 +75,11 @@ module Mapping =
             r.Short |> String.equalsCapInsens rte
 
         )
-        |> Option.map (fun r -> r.Short)
+        |> Option.map _.Short
 
 
-    /// Try to map a unit to a short name
-    let mapUnit unt =
-        unitMapping
-        |> Array.tryFind (fun r ->
-            r.Long |> String.equalsCapInsens unt ||
-            r.Short |> String.equalsCapInsens unt
-        )
-        |> Option.map (fun r -> r.Short)
-
-
-    /// Get the array of RouteShape records
-    let mappingRouteShape =
+    /// Get the array of ShapeRoute records
+    let mappingShapeRoute =
         Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
         |> fun data ->
             let inline getColumn get =
@@ -87,12 +93,12 @@ module Mapping =
                 let getStr = getColumn Csv.getStringColumn r
                 let getFlt = getColumn Csv.getFloatOptionColumn r
 
-                let un = getStr "Unit" |> Units.fromString |> Option.defaultValue NoUnit
+                let un = getStr "Unit" |> mapUnit |> Option.defaultValue NoUnit
                 {
                     Route = getStr "Route"
                     Shape = getStr "Shape"
                     Unit = un
-                    DoseUnit = getStr "DoseUnit" |> Units.fromString |> Option.defaultValue NoUnit
+                    DoseUnit = getStr "DoseUnit" |> mapUnit |> Option.defaultValue NoUnit
                     MinDoseQty =
                         if un = NoUnit then None
                         else
@@ -105,6 +111,9 @@ module Mapping =
                             getFlt "MaxDoseQty"
                             |> Option.bind BigRational.fromFloat
                             |> Option.map (ValueUnit.singleWithUnit un)
+                    Divisibility =
+                        getFlt "Divisible"
+                        |> Option.bind BigRational.fromFloat
                     Timed = getStr "Timed" |> String.equalsCapInsens "true"
                     Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                     IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
@@ -140,7 +149,7 @@ module Mapping =
     /// <param name="unt">The Unit</param>
     /// <returns>An array of RouteShape records</returns>
     let filterRouteShapeUnit rte shape unt =
-        mappingRouteShape
+        mappingShapeRoute
         |> Array.filter (fun xs ->
             let eqsRte =
                 rte |> String.isNullOrWhiteSpace ||
@@ -166,5 +175,4 @@ module Mapping =
     /// Check if reconstitution is required for a route, shape and unit
     let requiresReconstitution =
         Memoization.memoize requires_
-
 

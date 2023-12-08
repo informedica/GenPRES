@@ -1989,7 +1989,7 @@ module ValueUnit =
                 | Group.VolumeGroup -> "Volume"
                 | Group.TimeGroup -> "Time"
                 | Group.MolarGroup -> "Molar"
-                | Group.InterNatUnitGroup -> "IUnit"
+                | Group.InterNatUnitGroup -> "InternationalUnit"
                 | Group.WeightGroup -> "Weight"
                 | Group.HeightGroup -> "Height"
                 | Group.BSAGroup -> "BSA"

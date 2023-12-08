@@ -35,49 +35,6 @@ module Product =
 
     module ShapeRoute =
 
-        open Informedica.GenUnits.Lib
-
-
-        let private get_ () =
-            Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
-            |> fun data ->
-
-                let getColumn =
-                    data
-                    |> Array.head
-                    |> Csv.getStringColumn
-
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
-                    {
-                        Shape = get "Shape"
-                        Route = get "Route"
-                        Unit =
-                            get "Unit"
-                            |> Units.fromString
-                            |> Option.defaultValue NoUnit
-                        DoseUnit =
-                            get "DoseUnit"
-                            |> Units.fromString
-                            |> Option.defaultValue NoUnit
-                        Timed = get "Timed" = "TRUE"
-                        Reconstitute = get "Reconstitute" = "TRUE"
-                        IsSolution = get "IsSolution" = "TRUE"
-                    }
-                )
-
-
-        /// <summary>
-        /// Get the ShapeRoute array.
-        /// </summary>
-        /// <remarks>
-        /// This function is memoized.
-        /// </remarks>
-        let get : unit -> ShapeRoute [] =
-            Memoization.memoize get_
-
 
         /// <summary>
         /// Check if the given shape is a solution using
@@ -85,8 +42,8 @@ module Product =
         /// </summary>
         /// <param name="srs">The ShapeRoute array</param>
         /// <param name="shape">The Shape</param>
-        let isSolution (srs : ShapeRoute []) shape  =
-            srs
+        let isSolution shape  =
+            Mapping.mappingShapeRoute
             |> Array.tryFind (fun sr ->
                 sr.Shape |> String.equalsCapInsens shape
             )
@@ -259,7 +216,7 @@ module Product =
                                         q
                                         |> Option.bind (fun q ->
                                             u
-                                            |> Units.fromString
+                                            |> Mapping.mapUnit
                                             |> function
                                                 | None -> None
                                                 | Some u ->
@@ -288,7 +245,7 @@ module Product =
 
     let private get_ () =
         // check if the shape is a solution
-        let isSol = ShapeRoute.isSolution (ShapeRoute.get ())
+        let isSol = ShapeRoute.isSolution
         // TODO make this a configuration
         let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
             if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||
@@ -344,8 +301,7 @@ module Product =
 
                     let shpUnit =
                         gp.Substances[0].ShapeUnit
-                        |> String.toLower
-                        |> Units.fromString
+                        |> Mapping.mapUnit
                         |> Option.defaultValue NoUnit
 
                     let reqReconst = Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
@@ -440,18 +396,16 @@ module Product =
                                     }
                                 )
                         Divisible =
-                            // TODO: need to map this to a config setting
-                            if gp.Shape |> String.containsCapsInsens "druppel" then 20N
+                            let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) shpUnit
+                            if rs |> Array.distinct |> Array.length <> 1 then None
                             else
-                                if isSol gp.Shape || reqReconst then 10N
-                                else 1N
-                            |> Some
+                                rs[0].Divisibility
                         Substances =
                             gp.Substances
                             |> Array.map (fun s ->
                                 let su =
                                     s.SubstanceUnit
-                                    |> Units.fromString
+                                    |> Mapping.mapUnit
                                     |> Option.map (fun u ->
                                         u |> ValueUnit.per shpUnit
                                     )

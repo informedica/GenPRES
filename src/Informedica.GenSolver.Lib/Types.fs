@@ -67,16 +67,16 @@ module rec Types =
     /// </list>
     /// </remarks>
     type ValueRange =
-        | Unrestricted
-        | NonZeroNoneNegative
-        | Min of Minimum
-        | Max of Maximum
-        | MinMax of Minimum * Maximum
-        | Incr of Increment
-        | MinIncr of min: Minimum * incr: Increment
-        | IncrMax of incr: Increment * max: Maximum
-        | MinIncrMax of min: Minimum * incr: Increment * max: Maximum
-        | ValSet of ValueSet // Set<BigRational>
+        | Unrestricted // <..>
+        | NonZeroNoneNegative // <0..>
+        | Min of Minimum // <min .. >
+        | Max of Maximum // <..max >
+        | MinMax of Minimum * Maximum // <min .. max>
+        | Incr of Increment // <..incr ..>
+        | MinIncr of min: Minimum * incr: Increment // <min .. incr ..>
+        | IncrMax of incr: Increment * max: Maximum // <.. incr .. max >
+        | MinIncrMax of min: Minimum * incr: Increment * max: Maximum // <min .. incr .. mac>
+        | ValSet of ValueSet // [x1;x2;x3]
 
 
     /// <summary>

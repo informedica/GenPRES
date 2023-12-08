@@ -138,18 +138,27 @@ let createScenarios () =
 startLogger ()
 stopLogger ()
 
+
 Informedica.GenForm.Lib.DoseRule.get ()
 |> DoseRule.filter
 //    Filter.filter
-   { Filter.filter with Patient = Patient.child }
+   { Filter.filter with Patient = Patient.infant }
 |> Array.filter (fun dr ->
-    dr.Generic = "adrenaline" &&
-    dr.Route = "iv"
+    dr.Generic = "propranolol" &&
+    dr.Route = "or"
 )
 //|> Array.skip 2
 //|> Array.take 1
 |> Array.length
 
+Mapping.mappingShapeRoute
+|> Array.map _.DoseUnit
+|> Array.distinct
+|> Array.iter (printfn "%A")
+
+Mapping.mapUnit ""
+
+Units.fromString "E[InternationalUnit]"
 
 Informedica.GenForm.Lib.DoseRule.get ()
 |> Array.item 2
@@ -363,3 +372,8 @@ Patient.child
     dr.DoseRule.Generic = "vancomycine" &&
     dr.DoseRule.Route = "iv"
 )
+
+let add a b = a + b
+let addOne = add 1
+
+addOne 4

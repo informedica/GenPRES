@@ -11,7 +11,7 @@ module Types =
 
     /// Associate a Route and a Shape
     /// setting default values for the other fields
-    type RouteShape =
+    type ShapeRoute =
         {
             /// The Route
             Route : string
@@ -25,6 +25,8 @@ module Types =
             MinDoseQty : ValueUnit option
             /// The maximum Dose quantity
             MaxDoseQty : ValueUnit option
+            /// The divisibility of a shape
+            Divisibility: BigRational option
             /// Whether a Dose runs over a Time
             Timed : bool
             /// Whether the Shape needs to be reconstituted
@@ -68,26 +70,6 @@ module Types =
         | Contraindicated
         /// Any Dosetype
         | AnyDoseType
-
-
-    /// A Shape Route with associated attributes.
-    type ShapeRoute =
-        {
-            /// The pharmacological Shape
-            Shape : string
-            /// The Route of administration
-            Route : string
-            /// The Unit of the Shape
-            Unit  : Unit
-            /// The Dose Unit to use for Dose Limits
-            DoseUnit : Unit
-            /// Whether a Dose runs over a Time
-            Timed : bool
-            /// Whether the Shape needs to be reconstituted
-            Reconstitute : bool
-            /// Whether the Shape is a solution
-            IsSolution : bool
-        }
 
 
     /// A Substance type.
