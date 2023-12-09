@@ -1995,7 +1995,7 @@ module Order =
                     ord
                     |> printItem
                            sn
-                           (fun i -> i.Dose.Quantity)
+                           (_.Dose.Quantity)
                            vuToStr
 
             let printDt ord =
@@ -2006,7 +2006,7 @@ module Order =
 
                     printItem
                         sn
-                        (fun i -> i.Dose.PerTimeAdjust)
+                        (_.Dose.PerTimeAdjust)
                         vuToStr
                         ord
                 else
@@ -2015,7 +2015,7 @@ module Order =
 
                     printItem
                         sn
-                        (fun i -> i.Dose.PerTime)
+                        (_.Dose.PerTime)
                         vuToStr
                         ord
                 // add dose limits to string
@@ -2084,7 +2084,7 @@ module Order =
                     ord
                     |> printItem
                         sn
-                        (fun i -> i.OrderableQuantity)
+                        (_.OrderableQuantity)
                         orbQtyToStr
 
                 let dr =
@@ -2094,7 +2094,7 @@ module Order =
                     ord
                     |> printItem
                         sn
-                        (fun i -> i.Dose.RateAdjust)
+                        (_.Dose.RateAdjust)
                         vuToStr
                     |> fun s ->
                         if ord.Orderable.Dose.Rate |> Rate.isSolved |> not then s

@@ -103,13 +103,13 @@ module Api =
     /// An array of Results, containing the Order and the PrescriptionRule.
     /// </returns>
     let evaluate logger (rule : PrescriptionRule) =
-        let rec solve retry sr pr =
+        let rec solve sr pr =
             pr
             |> DrugOrder.createDrugOrder sr
             |> DrugOrder.toOrderDto
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
-            |> Result.bind (increaseIncrements logger) // not sure if this is usable
+            |> Result.bind (increaseIncrements logger)
             |> function
             | Ok ord ->
                 let dto = ord |> Order.Dto.toDto
@@ -144,7 +144,7 @@ module Api =
 
                 let shps =
                     dto.Orderable.Components
-                    |> List.choose (fun cDto -> cDto.ComponentQuantity.Variable.ValsOpt)
+                    |> List.choose _.ComponentQuantity.Variable.ValsOpt
                     |> List.toArray
                     |> Array.collect (fun dto ->
                         dto.Value
@@ -176,32 +176,12 @@ module Api =
                         sbsts
 
                 Ok (ord, pr)
-            | Error (ord, m) when retry -> Error(ord, pr, m)
-                    (*
-                    if sr |> Option.isSome then Error(ord, pr, m)
-                    else
-                        let dose = ord.Orderable.Components[0].Items[0].Dose.Quantity
-                        printfn $"trying a second time with manual product: {dose |> OrderVariable.Quantity.toString}"
-                        { pr with
-                            DoseRule =
-                                { pr.DoseRule with
-                                    Products =
-                                        pr.DoseRule.Products
-                                        |> Array.map (fun p ->
-                                            { p with
-                                                Divisible = None
-                                            }
-                                        )
-                                }
-                        }
-                        |> solve false None
-                    *)
             | Error (ord, m) -> Error (ord, pr, m)
 
-        if rule.SolutionRules |> Array.isEmpty then [| solve true None rule |]
+        if rule.SolutionRules |> Array.isEmpty then [| solve None rule |]
         else
             rule.SolutionRules
-            |> Array.map (fun sr -> solve true (Some sr) rule)
+            |> Array.map (fun sr -> solve (Some sr) rule)
 
 
     /// <summary>
