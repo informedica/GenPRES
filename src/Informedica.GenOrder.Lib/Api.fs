@@ -112,6 +112,17 @@ module Api =
             |> Result.bind (increaseIncrements logger)
             |> function
             | Ok ord ->
+                let ord =
+                    pr.DoseRule.DoseLimits
+                    |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                    |> Array.fold (fun acc dl ->
+                        let sn =
+                            dl.DoseLimitTarget
+                            |> DoseRule.DoseLimit.substanceDoseLimitTargetToString
+                        acc
+                        |> Order.setDoseUnit sn dl.DoseUnit
+                    ) ord
+                    
                 let dto = ord |> Order.Dto.toDto
 
                 let compItems =

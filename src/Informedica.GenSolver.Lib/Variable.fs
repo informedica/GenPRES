@@ -1316,7 +1316,7 @@ module Variable =
         /// Convert the unit of a `ValueRange` to **u**.
         /// </summary>
         /// <param name="u">The unit to convert to</param>
-        let setUnit u = mapValueUnit (ValueUnit.convertTo u)
+        let convertToUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
         let getUnit = applyValueUnit (ValueUnit.getUnit >> Some)
@@ -3232,11 +3232,11 @@ module Variable =
     /// <summary>
     /// Set the unit of a Variable
     /// </summary>
-    let setUnit unit var =
+    let convertToUnit unit var =
         { var with
             Values =
                 var.Values
-                |> ValueRange.setUnit unit
+                |> ValueRange.convertToUnit unit
         }
 
 

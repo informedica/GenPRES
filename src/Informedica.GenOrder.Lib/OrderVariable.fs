@@ -233,6 +233,28 @@ module OrderVariable =
         }
 
 
+    let setFirstUnit u ovar =
+        let u =
+            ovar.Variable |> Variable.getUnit
+            |> Option.map (fun u1 ->
+                match u1 |> ValueUnit.getUnits with
+                | _ :: rest ->
+                    rest
+                    |> List.fold (fun acc x ->
+                        acc
+                        |> Units.per x
+                    ) u
+                | _ -> u
+            )
+            |> Option.defaultValue u
+
+        { ovar with
+            Variable =
+                ovar.Variable
+                |> Variable.convertToUnit u
+        }
+
+
     /// <summary>
     /// Get the string representation of an OrderVariable.
     /// </summary>
@@ -333,7 +355,7 @@ module OrderVariable =
                 { ovar with
                     Variable =
                         ovar.Variable
-                        |> Variable.setUnit u
+                        |> Variable.convertToUnit u
                 }
 
 
@@ -789,6 +811,9 @@ module OrderVariable =
             |> Quantity
 
 
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> Quantity
+
+
         /// Turn a `Quantity` to a string
         let toString = toOrdVar >> (toString false)
 
@@ -868,6 +893,9 @@ module OrderVariable =
             |> PerTime
 
 
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> PerTime
+
+
         /// Turn a `PerTime` to a string
         let toString = toOrdVar >> (toString false)
 
@@ -929,6 +957,10 @@ module OrderVariable =
                 |> ValueUnit.per tu
             |> createNew (n |> Name.add name)
             |> Rate
+
+
+
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> Rate
 
 
         /// Turn a `Rate` to a string
@@ -1000,6 +1032,10 @@ module OrderVariable =
             |> Total
 
 
+
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> Total
+
+
         /// Turn a `Total` to a string
         let toString = toOrdVar >> (toString false)
 
@@ -1061,6 +1097,9 @@ module OrderVariable =
                 |> ValueUnit.per adj
             |> createNew (n |> Name.add name)
             |> QuantityAdjust
+
+
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> QuantityAdjust
 
 
         /// Turn a `QuantityAdjust` to a string
@@ -1135,6 +1174,10 @@ module OrderVariable =
             |> PerTimeAdjust
 
 
+
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> PerTimeAdjust
+
+
         let toString = toOrdVar >> (toString false)
 
 
@@ -1206,6 +1249,9 @@ module OrderVariable =
             |> RateAdjust
 
 
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> RateAdjust
+
+
         /// Turn a `RateAdjust` to a string
         let toString = toOrdVar >> (toString false)
 
@@ -1270,6 +1316,9 @@ module OrderVariable =
                 |> ValueUnit.per adj
             |> createNew (n |> Name.add name)
             |> TotalAdjust
+
+
+        let setDoseUnit u = toOrdVar >> setFirstUnit u >> TotalAdjust
 
 
         /// Turn a `TotalAdjust` to a string

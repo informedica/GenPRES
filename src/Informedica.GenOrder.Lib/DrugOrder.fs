@@ -14,7 +14,6 @@ module DrugOrder =
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
 
 
-
     let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
 
 
@@ -479,7 +478,9 @@ module DrugOrder =
 
                                 itmDto.Dose.RateAdjust.Constraints <-
                                     itmDto.Dose.RateAdjust.Constraints
-                                    |> MinMax.setConstraints None dl.RateAdjust
+                                    |> MinMax.setConstraints
+                                           None
+                                           dl.RateAdjust
 
                             let setDoseQty (dl : DoseLimit) =
                                     itmDto.Dose.Quantity.Constraints <-

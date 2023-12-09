@@ -368,6 +368,19 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            let setDoseUnit du (dos : Dose) =
+                let qty = dos.Quantity |> Quantity.setDoseUnit du
+                let ptm = dos.PerTime |> PerTime.setDoseUnit du
+                let rte = dos.Rate |> Rate.setDoseUnit du
+                let tot = dos.Total |> Total.setDoseUnit du
+                let qty_adj = dos.QuantityAdjust |> QuantityAdjust.setDoseUnit du
+                let ptm_adj = dos.PerTimeAdjust |> PerTimeAdjust.setDoseUnit du
+                let rte_adj = dos.RateAdjust |> RateAdjust.setDoseUnit du
+                let tot_adj = dos.TotalAdjust |> TotalAdjust.setDoseUnit du
+
+                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+
+
             /// <summary>
             /// Create a string list from a Dose where each string is
             /// a variable name with the value range and the Unit
@@ -567,6 +580,15 @@ module Order =
 
                 create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
 
+
+            let setDoseUnit sn du itm =
+                if itm
+                   |> getName
+                   |> Name.toStringList
+                   |> List.exists ((=) sn)
+                   |> not then itm
+                else
+                    { itm with Dose = itm.Dose |> Dose.setDoseUnit du }
 
 
             /// <summary>
@@ -818,6 +840,11 @@ module Order =
                 cmp.Items
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
+
+            let setDoseUnit sn du cmp =
+                { cmp with
+                    Items = cmp.Items |> List.map (Item.setDoseUnit sn du)
+                }
 
 
             /// <summary>
@@ -1138,6 +1165,12 @@ module Order =
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
+        let setDoseUnit sn du orb =
+            { orb with
+                Components = orb.Components |> List.map (Component.setDoseUnit sn du)
+            }
+
+
         /// Helper functions for the Orderable Dto
         module Dto =
 
@@ -1295,6 +1328,12 @@ module Order =
                 (frq |> Frequency.applyConstraints,
                 tme |> Time.applyConstraints)
                 |> Timed
+
+
+        let setDoseUnit sn du ord =
+            { ord with
+                Orderable = ord.Orderable |> Orderable.setDoseUnit sn du
+            }
 
 
         /// <summary>
@@ -1885,6 +1924,10 @@ module Order =
 
                     ord // calculated order
         |> Ok
+
+
+    let setDoseUnit sn du ord =
+        { ord with Orderable = ord.Orderable |> Orderable.setDoseUnit sn du }
 
 
     module Print =
