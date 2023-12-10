@@ -122,7 +122,7 @@ module Api =
                         acc
                         |> Order.setDoseUnit sn dl.DoseUnit
                     ) ord
-                    
+
                 let dto = ord |> Order.Dto.toDto
 
                 let compItems =

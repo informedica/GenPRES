@@ -396,8 +396,8 @@ module Product =
                                     }
                                 )
                         Divisible =
-                            let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) shpUnit
-                            if rs |> Array.distinct |> Array.length <> 1 then None
+                            let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) NoUnit
+                            if rs |> Array.length = 0 then None
                             else
                                 rs[0].Divisibility
                         Substances =

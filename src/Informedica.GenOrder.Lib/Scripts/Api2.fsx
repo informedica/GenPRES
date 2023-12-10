@@ -144,8 +144,8 @@ Informedica.GenForm.Lib.DoseRule.get ()
 //    Filter.filter
    { Filter.filter with Patient = Patient.infant }
 |> Array.filter (fun dr ->
-    dr.Generic = "propranolol" &&
-    dr.Route = "or"
+    dr.Generic = "benzylpenicilline" &&
+    dr.Route = "iv"
 )
 //|> Array.skip 2
 //|> Array.take 1
@@ -159,6 +159,7 @@ Mapping.mappingShapeRoute
 Mapping.mapUnit ""
 
 Units.fromString "E[InternationalUnit]"
+
 
 Informedica.GenForm.Lib.DoseRule.get ()
 |> Array.item 2
@@ -187,7 +188,7 @@ Patient.child
 |> Units.fromString
 
 
-Patient.infant
+Patient.child
 |> fun p -> { p with
                 Weight =
                   p.Weight
@@ -198,9 +199,9 @@ Patient.infant
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
     pr.DoseRule.Route = "iv" &&
-    pr.DoseRule.Generic = "vancomycine"
+    pr.DoseRule.Generic = "benzylpenicilline"
 )
-|> Array.item 3 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
