@@ -4,6 +4,7 @@ namespace Informedica.GenOrder.Lib
 
 module DrugOrder =
 
+    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
@@ -250,7 +251,7 @@ module DrugOrder =
             |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
 
         { drugOrder with
-            Id = "1" //Guid.NewGuid().ToString()
+            Id = Guid.NewGuid().ToString()
             Name = pr.DoseRule.Generic
             Products =
                 pr.DoseRule.Products
