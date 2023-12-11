@@ -68,32 +68,32 @@ module Types =
         }
         static member Norm_ :
             (DoseRange -> MinMax) * (MinMax -> DoseRange -> DoseRange) =
-            (fun dr -> dr.Norm),
+            (_.Norm),
             (fun mm dr -> { dr with Norm = mm })
 
         static member NormWeight_ :
             (DoseRange -> MinMax * Unit) * (MinMax * Unit -> DoseRange -> DoseRange) =
-            (fun dr -> dr.NormWeight),
+            (_.NormWeight),
             (fun mm dr -> { dr with NormWeight = mm })
 
         static member NormBSA_ :
             (DoseRange -> MinMax * Unit) * (MinMax * Unit -> DoseRange -> DoseRange) =
-            (fun dr -> dr.NormBSA),
+            (_.NormBSA),
             (fun mm dr -> { dr with NormBSA = mm })
 
         static member Abs_ :
             (DoseRange -> MinMax) * (MinMax -> DoseRange -> DoseRange) =
-            (fun dr -> dr.Abs),
+            (_.Abs),
             (fun mm dr -> { dr with Abs = mm })
 
         static member AbsWeight_ :
             (DoseRange -> MinMax * Unit) * (MinMax * Unit -> DoseRange -> DoseRange) =
-            (fun dr -> dr.AbsWeight),
+            (_.AbsWeight),
             (fun mm dr -> { dr with AbsWeight = mm })
 
         static member AbsBSA_ :
             (DoseRange -> MinMax * Unit) * (MinMax * Unit -> DoseRange -> DoseRange) =
-            (fun dr -> dr.AbsBSA),
+            (_.AbsBSA),
             (fun mm dr -> { dr with AbsBSA = mm })
 
 
@@ -115,32 +115,32 @@ module Types =
         }
         static member Name_ :
             (Dosage -> string) * (string -> Dosage -> Dosage) =
-            (fun d -> d.Name),
+            (_.Name),
             (fun s d -> { d with Name = s })
 
         static member StartDosage_ :
             (Dosage -> DoseRange) * (DoseRange -> Dosage -> Dosage) =
-            (fun d -> d.StartDosage),
+            (_.StartDosage),
             (fun dr d -> { d with StartDosage = dr })
 
         static member SingleDosage_ :
             (Dosage -> DoseRange) * (DoseRange -> Dosage -> Dosage) =
-            (fun d -> d.SingleDosage),
+            (_.SingleDosage),
             (fun dr d -> { d with SingleDosage = dr })
 
         static member RateDosage_ :
             (Dosage -> DoseRange * RateUnit) * (DoseRange * RateUnit -> Dosage -> Dosage) =
-            (fun d -> d.RateDosage),
+            (_.RateDosage),
             (fun dr d -> { d with RateDosage = dr })
 
         static member TotalDosage_ :
             (Dosage -> DoseRange * Frequency) * (DoseRange * Frequency -> Dosage -> Dosage) =
-            (fun d -> d.TotalDosage),
+            (_.TotalDosage),
             (fun dt d -> { d with TotalDosage = dt })
 
         static member Rules_ :
             (Dosage -> Rule list) * (Rule list -> Dosage -> Dosage) =
-            (fun d -> d.Rules) ,
+            (_.Rules) ,
             (fun rs d -> { d with Rules = rs })
     /// The frequencies of a TotalDosage
     and Frequency =
@@ -154,17 +154,17 @@ module Types =
         }
         static member Frequencies_ :
             (Frequency -> Frequencies) * (Frequencies -> Frequency -> Frequency) =
-            (fun fr -> fr.Frequencies) ,
+            (_.Frequencies) ,
             (fun frs fr -> { fr with Frequencies = frs })
 
         static member TimeUnit_ :
             (Frequency -> Unit) * (Unit -> Frequency -> Frequency) =
-            (fun fr -> fr.TimeUnit) ,
+            (_.TimeUnit) ,
             (fun tu fr -> { fr with TimeUnit = tu })
 
         static member MinimalInterval_ :
             (Frequency -> ValueUnit Option) * (ValueUnit Option -> Frequency -> Frequency) =
-            (fun fr -> fr.MinimalInterval) ,
+            (_.MinimalInterval) ,
             (fun mi fr -> { fr with MinimalInterval = mi })
 
     and Frequencies = BigRational list
@@ -191,17 +191,17 @@ module Types =
         }
         static member Patient_ :
             (PatientDosage -> PatientCategory) * (PatientCategory -> PatientDosage -> PatientDosage) =
-            (fun pd -> pd.Patient) ,
+            (_.Patient) ,
             (fun pat pd -> { pd with Patient = pat })
 
         static member ShapeDosage_ :
             (PatientDosage -> Dosage) * (Dosage -> PatientDosage -> PatientDosage) =
-            (fun pd -> pd.ShapeDosage) ,
+            (_.ShapeDosage) ,
             (fun sd pd -> { pd with ShapeDosage = sd })
 
         static member SubstanceDosages_ :
             (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
-            (fun sd -> sd.SubstanceDosages) ,
+            (_.SubstanceDosages) ,
             (fun d sd -> { sd with SubstanceDosages = d })
 
 
@@ -210,13 +210,13 @@ module Types =
         { HPK : int; Label : string }
         static member HPK_ :
             (TradeProductLabel -> int) * (int -> TradeProductLabel -> TradeProductLabel) =
-            (fun tp -> tp.HPK) ,
+            (_.HPK) ,
             (fun hpk tp -> { tp with HPK = hpk })
 
 
         static member Label_ :
             (TradeProductLabel -> string) * (string -> TradeProductLabel -> TradeProductLabel) =
-            (fun tp -> tp.Label) ,
+            (_.Label) ,
             (fun lbl tp -> { tp with Label = lbl })
 
 
@@ -225,13 +225,13 @@ module Types =
         { GPK : int; Label : string }
         static member GPK_ :
             (GenericProductLabel -> int) * (int -> GenericProductLabel -> GenericProductLabel) =
-            (fun tp -> tp.GPK) ,
+            (_.GPK) ,
             (fun hpk tp -> { tp with GPK = hpk })
 
 
         static member Label_ :
             (GenericProductLabel -> string) * (string -> GenericProductLabel -> GenericProductLabel) =
-            (fun tp -> tp.Label) ,
+            (_.Label) ,
             (fun lbl tp -> { tp with Label = lbl })
 
 
@@ -246,28 +246,28 @@ module Types =
             TradeProducts : TradeProductLabel list
             /// GenericProducts the doserule applies to
             GenericProducts : GenericProductLabel list
-            /// Patients to wich the doserule applies to
+            /// Patients to which the doserule applies to
             PatientDosages : PatientDosage list
         }
 
         static member Shape_ :
             (ShapeDosage -> string list) * (string list -> ShapeDosage -> ShapeDosage) =
-            (fun rd -> rd.Shape) ,
+            (_.Shape) ,
             (fun s rd -> { rd with Shape = s })
 
         static member TradeProducts_ :
             (ShapeDosage -> TradeProductLabel list) * (TradeProductLabel list -> ShapeDosage -> ShapeDosage) =
-            (fun sd -> sd.TradeProducts) ,
+            (_.TradeProducts) ,
             (fun tps sd -> { sd with TradeProducts = tps |> List.distinct })
 
         static member GenericProducts_ :
             (ShapeDosage -> GenericProductLabel list) * (GenericProductLabel list -> ShapeDosage -> ShapeDosage) =
-            (fun sd -> sd.GenericProducts) ,
+            (_.GenericProducts) ,
             (fun tps sd -> { sd with GenericProducts = tps |> List.distinct })
 
         static member PatientDosages_ :
             (ShapeDosage -> PatientDosage list) * (PatientDosage list -> ShapeDosage -> ShapeDosage) =
-            (fun rd -> rd.PatientDosages) ,
+            (_.PatientDosages) ,
             (fun pdl rd -> { rd with PatientDosages = pdl })
 
 
@@ -282,7 +282,7 @@ module Types =
         }
         static member Route_ :
             (RouteDosage -> string) * (string -> RouteDosage -> RouteDosage) =
-            (fun rd -> rd.Route) ,
+            (_.Route) ,
             (fun s rd -> { rd with Route = s })
 
         static member ShapeDosages_ :
@@ -300,12 +300,12 @@ module Types =
         }
         static member Indications_ :
             (IndicationDosage -> string list) * (string list -> IndicationDosage -> IndicationDosage) =
-            (fun inds -> inds.Indications) ,
+            (_.Indications) ,
             (fun sl inds -> { inds with Indications = sl })
 
         static member RouteDosages_ :
             (IndicationDosage -> RouteDosage list) * (RouteDosage list -> IndicationDosage -> IndicationDosage) =
-            (fun inds -> inds.RouteDosages) ,
+            (_.RouteDosages) ,
             (fun rdl inds -> { inds with RouteDosages = rdl })
 
 
@@ -335,18 +335,18 @@ module Types =
         }
         static member Generic_ :
             (DoseRule -> string) * (string -> DoseRule -> DoseRule) =
-            (fun dr -> dr.Generic),
+            (_.Generic),
             (fun s dr -> { dr with Generic = s })
 
         static member Synonyms_ :
             (DoseRule -> string list) * (string list -> DoseRule -> DoseRule) =
-            (fun dr -> dr.Synonyms) ,
+            (_.Synonyms) ,
             (fun sns dr -> { dr with Synonyms = sns |> List.distinct })
 
 
         static member IndicationDosages_ :
             (DoseRule -> IndicationDosage list) * (IndicationDosage list -> DoseRule -> DoseRule) =
-            (fun dr -> dr.IndicationsDosages) ,
+            (_.IndicationsDosages) ,
             (fun inds dr -> { dr with IndicationsDosages = inds })
 
 

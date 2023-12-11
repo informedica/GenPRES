@@ -12,6 +12,7 @@ module Disclaimer =
 
     let private text =
         """
+ONLY FOR TEST/DEMO!!
 This application is intended for use by healthcare professionals only.
 It is not intended for use by patients or the general public.
 The information provided is not intended to replace the advice of a healthcare professional.
@@ -61,7 +62,7 @@ This application has not been certified as a medical device and is not intended 
         <Card sx={ {| p=4 |} } variant="outlined">
             <CardHeader
                 action={langBtn}
-                title={Terms.Disclaimer |> getTerm "Disclaimer" } />
+                title={(Disclaimer |> getTerm "Disclaimer").ToUpper()} />
             <CardContent>
                 <Typography variant="body2">
                     {Terms.``Disclaimer text`` |> getTerm text}
@@ -76,6 +77,5 @@ This application has not been certified as a medical device and is not intended 
                 </Button>
             </CardActions>
         </Card>
-
         """
 

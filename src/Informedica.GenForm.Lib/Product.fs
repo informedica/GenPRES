@@ -40,7 +40,6 @@ module Product =
         /// Check if the given shape is a solution using
         /// a ShapeRoute array.
         /// </summary>
-        /// <param name="srs">The ShapeRoute array</param>
         /// <param name="shape">The Shape</param>
         let isSolution shape  =
             Mapping.mappingShapeRoute
@@ -244,8 +243,6 @@ module Product =
 
 
     let private get_ () =
-        // check if the shape is a solution
-        let isSol = ShapeRoute.isSolution
         // TODO make this a configuration
         let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
             if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||

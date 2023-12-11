@@ -134,7 +134,7 @@ module Tests =
             test "a filter with age 5 and a patient category with a min age of 3 and max age of 7" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 5N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -164,7 +164,7 @@ module Tests =
                 { patCat with
                     Gender = Female
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 5N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -194,7 +194,7 @@ module Tests =
                 { patCat with
                     Gender = Female
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 5N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -221,10 +221,95 @@ module Tests =
                 |> Expect.isTrue "should return true"
             }
 
+            test "a filter with age 0 and gestational age 30 weeks with an empty patient category" {
+                patCat
+                |> PatientCategory.filter
+                    { filter with
+                        Patient =
+                            { filter.Patient with
+                                Age =
+                                    0N
+                                    |> ValueUnit.singleWithUnit Units.Time.day
+                                    |> Some
+                                GestAge =
+                                    30N
+                                    |> ValueUnit.singleWithUnit Units.Time.week
+                                    |> Some
+                            }
+                    }
+                |> Expect.isFalse "should return false"
+            }
+
+            test "a filter with age 0 and gestational age 30 weeks with a patient category with min age = 0" {
+                { patCat with
+                    Age =
+                        {
+                            Min =
+                                0N
+                                |> ValueUnit.singleWithUnit Units.Time.day
+                                |> Limit.Inclusive
+                                |> Some
+                            Max = None
+                        }
+                }
+                |> PatientCategory.filter
+                    { filter with
+                        Patient =
+                            { filter.Patient with
+                                Age =
+                                    0N
+                                    |> ValueUnit.singleWithUnit Units.Time.day
+                                    |> Some
+                                GestAge =
+                                    30N
+                                    |> ValueUnit.singleWithUnit Units.Time.week
+                                    |> Some
+                            }
+                    }
+                |> Expect.isFalse "should return false"
+            }
+
+            test "a filter with age 0 and gestational age 28 weeks, weight = 1.15 kg, height = 46 cm, with a patient category with min age = 0" {
+                { patCat with
+                    Age =
+                        {
+                            Min =
+                                0N
+                                |> ValueUnit.singleWithUnit Units.Time.day
+                                |> Limit.Inclusive
+                                |> Some
+                            Max = None
+                        }
+                }
+                |> PatientCategory.filter
+                    { filter with
+                        Patient =
+                            { filter.Patient with
+                                Age =
+                                    0N
+                                    |> ValueUnit.singleWithUnit Units.Time.day
+                                    |> Some
+                                GestAge =
+                                    28N
+                                    |> ValueUnit.singleWithUnit Units.Time.week
+                                    |> Some
+                                Weight =
+                                    (115N / 100N)
+                                    |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+                                    |> Some
+                                Height =
+                                    45N
+                                    |> ValueUnit.singleWithUnit Units.Height.centiMeter
+                                    |> Some
+                            }
+                    }
+                |> Expect.isFalse "should return false"
+            }
+
             test "a filter with age 0 and gestational age 30 weeks with a patient category with a min age of 0 and max age of 28 and gestational age min 28 and max 32 weeks" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 0N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -237,7 +322,7 @@ module Tests =
                                 |> Some
                         }
                     GestAge =
-                        { patCat.GestAge with
+                        {
                             Min =
                                 28N
                                 |> ValueUnit.singleWithUnit Units.Time.week
@@ -270,7 +355,7 @@ module Tests =
             test "a filter with age 0 and gestational age 37 weeks with a patient category with a min age of 0 and max age of 28 and gestational age min 28 and max 32 weeks" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 0N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -283,7 +368,7 @@ module Tests =
                                 |> Some
                         }
                     GestAge =
-                        { patCat.GestAge with
+                        {
                             Min =
                                 28N
                                 |> ValueUnit.singleWithUnit Units.Time.week
@@ -316,7 +401,7 @@ module Tests =
             test "a filter with age 8 and gestational age 27 weeks with a patient category with a min age of 0 and max age of 28 and gestational age min 28 and max 32 weeks" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 0N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -329,7 +414,7 @@ module Tests =
                                 |> Some
                         }
                     GestAge =
-                        { patCat.GestAge with
+                        {
                             Min =
                                 28N
                                 |> ValueUnit.singleWithUnit Units.Time.week
@@ -363,7 +448,7 @@ module Tests =
             test "a filter with age 0 and gestational age 30 weeks with a patient category with a min age of 0 and max age of 28 and pm age min 28 and max 32 weeks" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 0N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -376,7 +461,7 @@ module Tests =
                                 |> Some
                         }
                     PMAge =
-                        { patCat.PMAge with
+                        {
                             Min =
                                 28N
                                 |> ValueUnit.singleWithUnit Units.Time.week
@@ -411,7 +496,7 @@ module Tests =
             test "a filter with age 0 and gestational age 37 weeks with a patient category with a min age of 0 and max age of 28 and pm age min 28 and max 32 weeks" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 0N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -424,7 +509,7 @@ module Tests =
                                 |> Some
                         }
                     PMAge =
-                        { patCat.PMAge with
+                        {
                             Min =
                                 28N
                                 |> ValueUnit.singleWithUnit Units.Time.week
@@ -459,7 +544,7 @@ module Tests =
             test "a filter with age 8 and gestational age 27 weeks with a patient category with a min age of 0 and max age of 28 and pm age min 28 and max 32 weeks" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 0N
                                 |> ValueUnit.singleWithUnit Units.Time.day
@@ -472,7 +557,7 @@ module Tests =
                                 |> Some
                         }
                     PMAge =
-                        { patCat.PMAge with
+                        {
                             Min =
                                 28N
                                 |> ValueUnit.singleWithUnit Units.Time.week
@@ -557,7 +642,7 @@ module Tests =
             test "a filter with age 0, ga = 32 and weight 1.45 with a patient category with min age = 30 and max age = 720" {
                 { patCat with
                     Age =
-                        { patCat.Age with
+                        {
                             Min =
                                 30N
                                 |> ValueUnit.singleWithUnit Units.Time.day

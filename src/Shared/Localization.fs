@@ -79,7 +79,7 @@ module Localization =
         | German
         | Spanish
         | Italian
-        | Chinees
+//        | Chinees
 
 
     let toString =
@@ -90,7 +90,7 @@ module Localization =
         | Spanish -> "Español"
         | German -> "Deutsch"
         | Italian -> "Italiano"
-        | Chinees -> "中文"
+//        | Chinees -> "中文"
 
 
     let fromString (s: string) =
@@ -103,11 +103,11 @@ module Localization =
         | _ when s = "español" -> Spanish
         | _ when s = "deutsch" -> German
         | _ when s = "italiano" -> Italian
-        | _ when s = "中文" -> Chinees
+//        | _ when s = "中文" -> Chinees
         | _ -> failwith $"{s} is not a known language"
 
 
-    let languages = [| English; Dutch; French; German; Spanish; Italian; Chinees |]
+    let languages = [| English; Dutch; French; German; Spanish; Italian |]
 
 
     let getTerm (terms : string [][]) locale term =
@@ -120,7 +120,7 @@ module Localization =
             | German -> 4
             | Spanish -> 5
             | Italian -> 6
-            | Chinees -> 7
+//            | Chinees -> 7
 
         terms
         |> Array.tryFind (fun r ->

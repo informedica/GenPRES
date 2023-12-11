@@ -957,7 +957,7 @@ module GStand =
                                         (shp.genericProducts
                                          |> Seq.toList
                                          |> List.map (fun (id, nm) -> createGP id nm)
-                                         |> List.sortBy (fun gp -> gp.Label))
+                                         |> List.sortBy _.Label)
                                     |> Optics.setTradeProducts
                                         ind.indications
                                         rt.route
@@ -965,7 +965,7 @@ module GStand =
                                         (shp.tradeProducts
                                          |> Seq.toList
                                          |> List.map (fun (id, nm) -> createTP id nm)
-                                         |> List.sortBy (fun hp -> hp.Label))
+                                         |> List.sortBy _.Label)
 
                                 shp.patients
                                 |> Seq.fold

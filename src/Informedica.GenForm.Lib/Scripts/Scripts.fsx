@@ -21,18 +21,34 @@
 open System
 
 
-
+open MathNet.Numerics
 open Informedica.Utils.Lib
+open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.CurrentDirectory
 
+type SteeringWheel = { Type: string }
+type CarInterior = { Steering: SteeringWheel; Seats: int }
+type Car = { Interior: CarInterior; ExteriorColor: string option }
+
+
 
 { Filter.filter with
-//    GestAgeInDays = (Some (28N * 7N))
-//    Generic = (Some "paracetamol")
-    Route = Some "rect"
+    Patient =
+        { Filter.filter.Patient with
+            Age =
+                0N
+                |> ValueUnit.singleWithUnit Units.Time.day
+                |> Some
+            GestAge =
+                28N
+                |> ValueUnit.singleWithUnit Units.Time.week
+                |> Some
+        }
+    Generic = (Some "baclofen")
+    Route = Some "or"
 }
 |> PrescriptionRule.filter
 |> Array.map _.DoseRule

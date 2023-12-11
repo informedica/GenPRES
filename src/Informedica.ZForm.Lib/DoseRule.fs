@@ -2435,7 +2435,6 @@ Synoniemen: {synonym}
 
 
         type Dto() =
-            // Generic the doserule applies to
             member val Generic = "" with get, set
             // List of synonyms for the generic
             member val Synomyms: string list = [] with get, set

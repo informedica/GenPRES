@@ -124,16 +124,17 @@ module PatientCategory =
             if filter.Patient.Age |> Option.isSome then
                 yield! [|
                     fun (p: PatientCategory) ->
-                        // defaults to normal gestation
-                        filter.Patient.GestAge
-                        |> Option.defaultValue Utils.ValueUnit.ageFullTerm
-                        |> Some
-                        |> Utils.MinMax.inRange p.GestAge
+                        // if gestational is set and < full term filter out all
+                        // dose rules with no gestational age or pm age
+                        if filter.Patient.GestAge.IsSome &&
+                           p.GestAge = MinMax.empty &&
+                           p.PMAge = MinMax.empty then
+                            filter.Patient.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
+                        else
+                            filter.Patient.GestAge
+                            |> Utils.MinMax.inRange p.GestAge
                     fun (p: PatientCategory) ->
-                        // defaults to normal postmenstrual age
                         filter.Patient.PMAge
-                        |> Option.defaultValue Utils.ValueUnit.ageFullTerm
-                        |> Some
                         |> Utils.MinMax.inRange p.PMAge
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender

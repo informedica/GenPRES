@@ -164,7 +164,7 @@ module private Elmish =
                 | Some s when s = "gr" -> Some Localization.German
                 | Some s when s = "sp" -> Some Localization.Spanish
                 | Some s when s = "it" -> Some Localization.Italian
-                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
+//                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
                 | _ -> None
 
             let discl =
@@ -225,7 +225,7 @@ module private Elmish =
 
         | UpdateLanguage lang ->
             printfn $"update language to: {lang}"
-            { state with Language = lang}, Cmd.none
+            { state with ShowDisclaimer = true; Language = lang}, Cmd.none
 
         | UpdatePatient p ->
             printfn $"load patient: {p}"

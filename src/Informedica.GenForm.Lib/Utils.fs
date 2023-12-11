@@ -194,7 +194,8 @@ module Utils =
 
 
         let inRange minMax vu =
-            if minMax = MinMax.empty then true
+            if minMax = MinMax.empty &&
+               vu |> Option.isNone then true
             else
                 vu
                 |> Option.map (fun v ->
