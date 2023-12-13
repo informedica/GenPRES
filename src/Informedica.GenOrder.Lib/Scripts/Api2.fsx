@@ -142,9 +142,9 @@ stopLogger ()
 Informedica.GenForm.Lib.DoseRule.get ()
 |> DoseRule.filter
 //    Filter.filter
-   { Filter.filter with Patient = Patient.infant }
+   { Filter.filter with Patient = Patient.newBorn }
 |> Array.filter (fun dr ->
-    dr.Generic = "benzylpenicilline" &&
+    dr.Generic = "cefotaxim" &&
     dr.Route = "iv"
 )
 //|> Array.skip 2
@@ -188,7 +188,7 @@ Patient.child
 |> Units.fromString
 
 
-Patient.child
+Patient.newBorn
 |> fun p -> { p with
                 Weight =
                   p.Weight
@@ -199,7 +199,7 @@ Patient.child
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
     pr.DoseRule.Route = "iv" &&
-    pr.DoseRule.Generic = "benzylpenicilline"
+    pr.DoseRule.Generic = "cefotaxim"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"

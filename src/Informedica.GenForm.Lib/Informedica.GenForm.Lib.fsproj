@@ -14,6 +14,7 @@
     <Compile Include="Product.fs" />
     <Compile Include="Filter.fs" />
     <Compile Include="DoseRule.fs" />
+    <Compile Include="Check.fs" />
     <Compile Include="SolutionRule.fs" />
     <Compile Include="PrescriptionRule.fs" />
     <None Include="Scripts\load.fsx" />

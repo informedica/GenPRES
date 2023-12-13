@@ -62,7 +62,7 @@ This application has not been certified as a medical device and is not intended 
         <Card sx={ {| p=4 |} } variant="outlined">
             <CardHeader
                 action={langBtn}
-                title={(Disclaimer |> getTerm "Disclaimer").ToUpper()} />
+                title={(Disclaimer |> getTerm "Disclaimer only for test/demo").ToUpper()} />
             <CardContent>
                 <Typography variant="body2">
                     {Terms.``Disclaimer text`` |> getTerm text}
