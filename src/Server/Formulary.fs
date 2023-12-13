@@ -47,7 +47,7 @@ let selectIfOne sel xs =
 
 let get (form : Formulary) =
     let filter = form |> mapFormularyToFilter
-    ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true true
+    // ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true true
 
     let dsrs =
         DoseRule.get ()
