@@ -75,6 +75,12 @@ let get (form : Formulary) =
                         let s =
                             dsrs
                             |> Check.checkAll
+                            |> Array.map (fun s ->
+                                match s |> String.split "\t" with
+                                | [_; _; _; s] -> s
+                                | _ -> s
+                            )
+                            |> Array.map (fun s -> $"* {s}")
                             |> String.concat "\n"
                             |> fun s -> if s |> String.isNullOrWhiteSpace then "Ok!" else s
 

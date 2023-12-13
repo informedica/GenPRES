@@ -96,9 +96,9 @@ module Check =
                         Min = mm.Min |> convert
                         Max = mm.Max |> convert
                     }
-                |> MinMax.toString "" "" "" ""
+                |> MinMax.toString "min " "min " "max " "max "
             if not b then
-                b, $"{sn} {testRange |> toStr} not in range of {refRange |> toStr}"
+                b, $"{sn} {testRange |> toStr} niet in bereik van {refRange |> toStr}"
             else b, ""
 
 
@@ -257,7 +257,7 @@ module Check =
                 | Some gstand ->
                     let s = m.doseRule.PatientCategory |> PatientCategory.toString
                     let r = m.doseRule.Route
-                    let inRangeOf = inRangeOf $"{gstand.doseLimitTarget}\t{r}\t{s}\t"
+                    let inRangeOf m = inRangeOf $"{gstand.doseLimitTarget}\t{r}\t{s}\t{m}: "
 
                     let toMinMax vuOpt =
                         {
@@ -290,43 +290,43 @@ module Check =
                                     |> Option.map ValueUnit.toStringDutchShort
                                     |> Option.defaultValue ""
                                 b,
-                                $"{gstand.doseLimitTarget}\t{r}\t{s}\tfreq did not match {s1} with {s2}"
+                                $"{gstand.doseLimitTarget}\t{r}\t{s}\tfreqenties niet gelijk {s1} with {s2}"
                             else b, ""
 
 
                         dl.genForm.Quantity
-                        |> inRangeOf gstand.quantityNorm
+                        |> inRangeOf "keer dosering" gstand.quantityNorm
                         dl.genForm.Quantity
-                        |> inRangeOf gstand.quantityAbs
+                        |> inRangeOf "keer dosering" gstand.quantityAbs
 
                         dl.genForm.QuantityAdjust
-                        |> inRangeOf gstand.quantityAdjustNorm
+                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustNorm
                         dl.genForm.QuantityAdjust
-                        |> inRangeOf gstand.quantityAdjustAbs
+                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustAbs
 
                         dl.genForm.NormQuantityAdjust
                         |> toMinMax
-                        |> inRangeOf gstand.quantityAdjustNorm
+                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustNorm
                         dl.genForm.NormQuantityAdjust
                         |> toMinMax
-                        |> inRangeOf gstand.quantityAdjustAbs
+                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustAbs
 
                         dl.genForm.PerTime
-                        |> inRangeOf gstand.perTimeNorm
+                        |> inRangeOf "dosering per tijdseenheid" gstand.perTimeNorm
                         dl.genForm.PerTime
-                        |> inRangeOf gstand.perTimeAbs
+                        |> inRangeOf "dosering per tijdseenheid" gstand.perTimeAbs
 
                         dl.genForm.PerTimeAdjust
-                        |> inRangeOf gstand.perTimeAdjustNorm
+                        |> inRangeOf "dosering per kg per tijdseenheid" gstand.perTimeAdjustNorm
                         dl.genForm.PerTimeAdjust
-                        |> inRangeOf gstand.perTimeAdjustAbs
+                        |> inRangeOf "dosering per kg per tijdseenheid"  gstand.perTimeAdjustAbs
 
                         dl.genForm.NormPerTimeAdjust
                         |> toMinMax
-                        |> inRangeOf gstand.perTimeAdjustNorm
+                        |> inRangeOf "dosering per kg per tijdseenheid"  gstand.perTimeAdjustNorm
                         dl.genForm.NormPerTimeAdjust
                         |> toMinMax
-                        |> inRangeOf gstand.perTimeAdjustAbs
+                        |> inRangeOf "dosering per kg per tijdseenheid"  gstand.perTimeAdjustAbs
                     |]
             )
             |> Array.filter (fst >> not)
