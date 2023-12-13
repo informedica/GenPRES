@@ -132,9 +132,15 @@ module PatientCategory =
                             filter.Patient.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
                         else
                             filter.Patient.GestAge
+                            // if no gest age assume full term
+                            |> Option.defaultValue Utils.ValueUnit.ageFullTerm
+                            |> Some
                             |> Utils.MinMax.inRange p.GestAge
                     fun (p: PatientCategory) ->
                         filter.Patient.PMAge
+                        // if no gest age assume full term
+                        |> Option.defaultValue (filter.Patient.Age.Value + Utils.ValueUnit.ageFullTerm)
+                        |> Some
                         |> Utils.MinMax.inRange p.PMAge
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
