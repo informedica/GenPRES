@@ -9,7 +9,7 @@ open Informedica.GenOrder.Lib
 
 
 open Shared.Types
-open Shared.Api
+
 
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
@@ -72,9 +72,18 @@ let get (form : Formulary) =
                 Markdown =
                     match form.Generic, form.Indication, form.Route with
                     | Some _, Some _, Some _ ->
+                        let s =
+                            dsrs
+                            |> Check.checkAll
+                            |> String.concat "\n"
+                            |> fun s -> if s |> String.isNullOrWhiteSpace then "Ok!" else s
+
                         dsrs
                         |> DoseRule.filter filter
                         |> DoseRule.Print.toMarkdown
+                        |> fun md ->
+                            $"{md}\n\n## Dose Check\n\n{s}"
+
                     | _ -> ""
             }
 

@@ -131,10 +131,10 @@ module DoseRule =
             else
                 minMax
                 |> MinMax.toString
-                    "> "
-                    "> "
-                    "< "
-                    "< "
+                    "min "
+                    "min "
+                    "max "
+                    "max "
 
 
         let printNormDose vu =
