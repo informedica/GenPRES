@@ -85,15 +85,15 @@ module Utils =
 
                 // calculate number of remaining decimal digits (after '.')
                 let p =
-                    n - (if s.[0] = "0" then 0 else s.[0].Length)
+                    n - (if s[0] = "0" then 0 else s[0].Length)
 
                 let p = if p < 0 then 0 else p
 
-                if (int s.[0]) > 0 then
+                if (int s[0]) > 0 then
                     p
                 else
                     // calculate the the first occurance of a non-zero decimal digit
-                    let c = (s.[1] |> String.countFirstChar '0')
+                    let c = (s[1] |> String.countFirstChar '0')
                     c + p
 
         /// Fix the precision of a float f to
@@ -351,7 +351,7 @@ module Patient =
 
         let calcMonths a = (a |> getYears) * 12 + (a |> getMonths)
 
-        let gestAgeToString terms lang (age : Patient.GestationalAge) =
+        let gestAgeToString terms lang (age : GestationalAge) =
             let getTerm = Localization.getTerm terms
 
             $"""
@@ -359,7 +359,7 @@ module Patient =
             """
 
 
-        let toString terms lang (age : Patient.Age) =
+        let toString terms lang (age : Age) =
             let getTerm = Localization.getTerm terms lang
 
             let plur s1 s2 n =
@@ -455,7 +455,7 @@ module Patient =
         p.GestationalAge |> Option.map (fun ga -> ga.Days)
 
 
-    let create years months weeks days weight height gw gd cvl dep =
+    let create years months weeks days weight height gw gd cvl dep : Patient option =
         if [
             years
             months
@@ -472,7 +472,7 @@ module Patient =
                     None
                 else
                     { Age.ageZero with
-                        Years = years |> Option.defaultValue 0
+                        Age.Years = years |> Option.defaultValue 0
                         Months = months |> Option.defaultValue 0
                         Weeks = weeks |> Option.defaultValue 0
                         Days = days |> Option.defaultValue 0
@@ -630,7 +630,7 @@ module Patient =
         | Some w, _, None, Some h
         | None, Some w, Some h, _
         | None, Some w, None, Some h ->
-            sqrt (w * ((h |> float)) / 3600.)
+            sqrt (w * (h |> float) / 3600.)
             |> Math.fixPrecision 2
             |> Some
 
@@ -770,22 +770,21 @@ module EmergencyTreatment =
         }
 
 
-    let calcTube =
+    let calcTube s =
         let textfn m =
-            $"%A{m - 0.5}-%A{m}-%A{m + 0.5}"
+            $"%.1f{m - 0.5} - %.1f{m} - %.1f{m + 0.5}"
 
         let formula age =
-            3.5 + age / 4.
+            s + age / 4.
             |> Math.roundBy0_5
             |> (fun m -> if m > 7. then 7. else m)
 
         calcIntervention
             "reanimatie"
-            "tube maat"
-            "3.5 + leeftijd / 4"
+            $"""tube ({if s = 3.5 then "met" else "zonder"} cuff) maat"""
+            $"%A{s} + leeftijd / 4"
             formula
             textfn
-
 
     let calcOralLength =
         let formula age = 12. + age / 2. |> Math.roundBy0_5
@@ -978,43 +977,106 @@ module EmergencyTreatment =
 
 
     let calculate age weight (bolusMed: BolusMedication list) =
-        [
-            // tube
-            if age |> Option.isSome then
-                calcTube age.Value
-            // oral length
-            if age |> Option.isSome then
-                calcOralLength age.Value
-            // nasal length
-            if age |> Option.isSome then
-                calcNasalLength age.Value
-            // adrenalin
-            if weight |> Option.isSome then
-                yield!
-                    bolusMed
-                    |> List.filter (fun m -> m.Generic = "adrenaline")
-                    |> List.map (calcBolusMedication weight.Value)
-            // fluid bolus
-            if weight |> Option.isSome then
-                calcFluidBolus weight.Value
-            // defibrillation
-            if weight |> Option.isSome then
-                calcDefib weight.Value
-            // cardioversion
-            if weight |> Option.isSome then
-                calcCardioVersion weight.Value
-        ]
-        // add rest of bolus medication
-        |> fun xs ->
-            if weight.IsNone then
-                []
-            else
-                bolusMed
-                |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
-                |> List.map (calcBolusMedication weight.Value)
-            |> List.append xs
-            |> List.distinct
+            if weight |> Option.isSome &&
+               weight.Value < 3. then
+                [
+                    calcIntervention
+                        "reanimatie"
+                        "tube maat"
+                        "< 1 kg: 2.5, 1-3 kg: 3.0"
+                        (fun w -> if w < 1. then 2.5 else 3)
+                        (fun f -> $"%.1f{f}")
+                        weight.Value
 
+                    calcIntervention
+                        "reanimatie"
+                        "tube lengte oraal"
+                        "6.632 + 1.822 x ln(kg)"
+                        (fun w -> 6.632 + 1.822 * System.Math.Log(w))
+                        (fun f -> $"%.1f{f} cm")
+                        weight.Value
+
+                    calcIntervention
+                        "reanimatie"
+                        "tube lengte nasaal"
+                        "(45 + 1.15 x \u221A (gram)) / 10"
+                        (fun w -> (45. + 1.15 * System.Math.Sqrt(w * 1000.)) / 10.)
+                        (fun f -> $"%.1f{f} cm")
+                        weight.Value
+
+                    calcIntervention
+                        "reanimatie"
+                        "navel lijn maat"
+                        "< 1.5 kg: 3,5 anders 5 "
+                        (fun w -> if w < 1.5 then 3.5 else 5.)
+                        (fun f -> $"%A{f} French")
+                        weight.Value
+
+                    if weight.Value < 1.5 then
+                        calcIntervention
+                            "reanimatie"
+                            "navel arterie lijn lengte"
+                            "kg x 4 + 7"
+                            (fun w -> w * 4. + 7.)
+                            (fun f -> $"%.1f{f} cm")
+                            weight.Value
+                    else
+                        calcIntervention
+                            "reanimatie"
+                            "navel arterie lijn lengte"
+                            "kg x 2.5 + 9.7"
+                            (fun w -> w * 2.5 + 9.7)
+                            (fun f -> $"%.1f{f} cm")
+                            weight.Value
+
+                    calcIntervention
+                        "reanimatie"
+                        "navel vene lijn lengte"
+                        "kg x 1.5 + 5.5"
+                        (fun w -> w * 1.5 + 5.5)
+                        (fun f -> $"%.1f{f} cm")
+                        weight.Value
+
+                ]
+            else
+                [
+
+                    // tube
+                    if age |> Option.isSome then
+                        calcTube 3.5 age.Value
+                        calcTube 4.0 age.Value
+                    // oral length
+                    if age |> Option.isSome then
+                        calcOralLength age.Value
+                    // nasal length
+                    if age |> Option.isSome then
+                        calcNasalLength age.Value
+                    // adrenalin
+                    if weight |> Option.isSome then
+                        yield!
+                            bolusMed
+                            |> List.filter (fun m -> m.Generic = "adrenaline")
+                            |> List.map (calcBolusMedication weight.Value)
+                    // fluid bolus
+                    if weight |> Option.isSome then
+                        calcFluidBolus weight.Value
+                    // defibrillation
+                    if weight |> Option.isSome then
+                        calcDefib weight.Value
+                    // cardioversion
+                    if weight |> Option.isSome then
+                        calcCardioVersion weight.Value
+                ]
+                // add rest of bolus medication
+                |> fun xs ->
+                    if weight.IsNone then
+                        []
+                    else
+                        bolusMed
+                        |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
+                        |> List.map (calcBolusMedication weight.Value)
+                    |> List.append xs
+                    |> List.distinct
 
 
 module ContinuousMedication =
