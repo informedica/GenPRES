@@ -29,6 +29,7 @@ module private Elmish =
             SelectedScenarioOrder : (Scenario * Order) option
             CalculatedOrder : Deferred<Order option>
             Formulary: Deferred<Formulary>
+            Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
             Language : Localization.Locales
             ShowDisclaimer: bool
@@ -55,6 +56,8 @@ module private Elmish =
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
+        | LoadParenteralia of AsyncOperationStatus<Result<Parenteralia, string>>
+        | UpdateParenteralia of Parenteralia
         | LoadLocalization of AsyncOperationStatus<Result<string [][], string>>
         | UpdateLanguage of Localization.Locales
 
@@ -193,6 +196,7 @@ module private Elmish =
             CalculatedOrder = HasNotStartedYet
             SelectedScenarioOrder = None
             Formulary = HasNotStartedYet
+            Parenteralia = HasNotStartedYet
             Localization = HasNotStartedYet
             Language = lang |> Option.defaultValue Localization.Dutch
             IsDemo = false
@@ -209,6 +213,7 @@ module private Elmish =
                 Cmd.ofMsg (LoadProducts Started)
                 Cmd.ofMsg (LoadLocalization Started)
                 Cmd.ofMsg (LoadFormulary Started)
+                Cmd.ofMsg (LoadParenteralia Started)
             ]
 
         initialState pat page lang discl
@@ -548,7 +553,7 @@ module private Elmish =
                     return Finished result |> LoadFormulary
                 }
 
-            { state with Scenarios = InProgress }, Cmd.fromAsync load
+            { state with Formulary = InProgress }, Cmd.fromAsync load
 
         | LoadFormulary (Finished (Ok form)) ->
             { state with
@@ -569,8 +574,34 @@ module private Elmish =
             state,
             Cmd.batch [
                 Cmd.ofMsg (LoadFormulary Started)
-//                Cmd.ofMsg (LoadScenarios Started)
-            ] 
+            ]
+
+        | LoadParenteralia Started ->
+            let load = 
+                let par =
+                    state.Parenteralia
+                    |> Deferred.defaultValue Parenteralia.empty
+
+                async {
+                    let! result = par |> serverApi.getParenteralia
+                    return Finished result |> LoadParenteralia
+                }
+            state, Cmd.fromAsync load
+
+        | LoadParenteralia (Finished(Ok s)) ->
+            { state with Parenteralia = Resolved s }, Cmd.none
+
+        | LoadParenteralia (Finished (Error err)) ->
+            printfn $"LoadParenteralia finished with error: {err}"
+            state, Cmd.none
+
+        | UpdateParenteralia par ->
+            let state = 
+                { state with
+                    Parenteralia = Resolved par
+                }
+            state, Cmd.ofMsg(LoadParenteralia Started)
+
 
     let calculatInterventions calc meds pat =
         meds
@@ -648,6 +679,8 @@ let View () =
                         updateScenario = UpdateScenarios >> dispatch
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch
+                        parenteralia = state.Parenteralia
+                        updateParenteralia = UpdateParenteralia >> dispatch
                         selectOrder = SelectOrder >> dispatch
                         order = state.CalculatedOrder
                         loadOrder = LoadOrder >> dispatch

@@ -347,3 +347,17 @@ module Types =
             GestAge: int option
             Markdown : string
         }
+
+
+    type Parenteralia =
+        {
+            Generics : string []
+            Shapes : string []
+            Routes : string []
+            Patients : string []
+            Generic: string option
+            Shape: string option
+            Route : string option
+            Patient: string option
+            Markdown : string
+        }

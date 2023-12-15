@@ -32,6 +32,7 @@
     <Compile Include="./Views/ContinuousMeds.fs" />
     <Compile Include="./Views/Prescribe.fs" />
     <Compile Include="./Views/Formulary.fs" />
+    <Compile Include="./Views/Parenteralia.fs" />
     <Compile Include="./Pages/GenPres.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>

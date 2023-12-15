@@ -1473,3 +1473,19 @@ module Formulary =
             GestAge = None
             Markdown = ""
         }
+
+
+module Parenteralia =
+
+    let empty : Parenteralia =
+        {
+            Generics = [||]
+            Shapes = [||]
+            Routes = [||]
+            Patients = [||]
+            Generic = None
+            Shape = None
+            Route = None
+            Patient = None
+            Markdown = ""
+        }

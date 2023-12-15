@@ -20,6 +20,11 @@ let serverApi: IServerApi =
                     return form |> Formulary.get
                 }
 
+        getParenteralia =
+            fun (par: Parenteralia) ->
+                async {
+                    return par |> Parenteralia.get
+                }
 
         printScenarioResult =
             fun (sc : ScenarioResult) ->

@@ -126,6 +126,8 @@ module GenPres =
             updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
+            parenteralia : Deferred<Parenteralia>
+            updateParenteralia : Parenteralia -> unit
             page : Global.Pages
             localizationTerms : Deferred<string[][]>
             languages : Localization.Locales []
@@ -234,6 +236,11 @@ module GenPres =
                                     formulary = props.formulary
                                     updateFormulary = props.updateFormulary
                                     localizationTerms = props.localizationTerms
+                                |})
+                            | Global.Pages.Parenteralia ->
+                                Views.Parenteralia.View ({|
+                                    parenteralia = props.parenteralia
+                                    updateParenteralia = props.updateParenteralia
                                 |})
                             | _ -> notFound
                         }

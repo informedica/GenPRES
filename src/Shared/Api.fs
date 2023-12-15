@@ -18,5 +18,6 @@ module Api =
             calcMinIncrMax: Order -> Async<Result<Order, string>>
             solveOrder: Order -> Async<Result<Order, string>>
             getFormulary : Formulary -> Async<Result<Formulary, string>>
+            getParenteralia : Parenteralia -> Async<Result<Parenteralia, string>>
             test : unit -> Async<string>
         }

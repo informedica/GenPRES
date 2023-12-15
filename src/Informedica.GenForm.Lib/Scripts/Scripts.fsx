@@ -26,8 +26,9 @@ open Informedica.Utils.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+Environment.SetEnvironmentVariable("GENPRES_PROD", "0")
 Environment.CurrentDirectory
+
 
 type SteeringWheel = { Type: string }
 type CarInterior = { Steering: SteeringWheel; Seats: int }
@@ -75,3 +76,21 @@ printAllDoseRules ()
 |> Informedica.ZForm.Lib.Markdown.toHtml
 |> File.writeTextToFile "doserules.html"
 
+
+SolutionRule.get ()
+|> Array.take 2
+|> SolutionRule.Print.toMarkdown ""
+
+
+{ Patient.patient with
+    Age =
+        Units.Time.year
+        |> ValueUnit.singleWithValue 1N
+        |> Some
+}
+|> PrescriptionRule.get
+|> Array.filter (_.SolutionRules >> Array.isEmpty >> not)
+|> Array.item 1
+|> fun pr ->
+    pr.SolutionRules
+    |> SolutionRule.Print.toMarkdown "\n"
