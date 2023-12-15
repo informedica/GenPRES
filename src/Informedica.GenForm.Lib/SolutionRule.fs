@@ -202,7 +202,11 @@ module SolutionRule =
 
 
     /// Get all the distinct Generics from the given SolutionRules.
-    let generics = getMember (fun sr -> sr.Generic)
+    let generics = getMember _.Generic
+
+    let shapes = getMember _.Shape
+
+    let routes = getMember _.Route
 
 
     module Print =
@@ -214,7 +218,7 @@ module SolutionRule =
 
         /// Get the string representation of a SolutionLimit.
         let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
-            let mmToStr = MinMax.toString "min " "min " "max " "max"
+            let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
 
             let loc =
                 match sr.Location with
@@ -310,7 +314,7 @@ module SolutionRule =
                 $"\n* %s{product}\n"
 
 
-            ({| md = ""; rules = [||] |}, rules |> Array.groupBy (fun d -> d.Generic))
+            ({| md = ""; rules = [||] |}, rules |> Array.groupBy _.Generic)
             ||> Array.fold (fun acc (generic, rs) ->
                 let prods =
                     rs
@@ -432,7 +436,7 @@ module SolutionRule =
 
 
             )
-            |> fun md -> md.md
+            |> _.md
 
 
         /// Get the markdown representation of the given SolutionRules.

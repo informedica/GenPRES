@@ -22,9 +22,9 @@ let get (par : Parenteralia) : Result<Parenteralia, string> =
             }
 
     { par with
-        Generics = srs |> Array.map _.Generic |> Array.distinct
-        Shapes = srs |> Array.map _.Shape |> Array.distinct
-        Routes = srs |> Array.map _.Route |> Array.distinct
+        Generics = srs |> SolutionRule.generics
+        Shapes = srs |> SolutionRule.shapes
+        Routes = srs |> SolutionRule.routes
         Markdown =
             if par.Generic |> Option.isNone then ""
             else
