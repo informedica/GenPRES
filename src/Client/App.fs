@@ -435,10 +435,20 @@ module private Elmish =
                             Route = sc.Route
                         }
                     )
+                Parenteralia =
+                    state.Parenteralia
+                    |> Deferred.map (fun par ->
+                        { par with
+                            Generic = sc.Medication
+                            Shape = sc.Shape
+                            Route = sc.Route
+                        }
+                    )
             },
             Cmd.batch [
                 Cmd.ofMsg (LoadScenarios Started)
                 Cmd.ofMsg (LoadFormulary Started)
+                Cmd.ofMsg (LoadParenteralia Started)
             ]
 
         | UpdateScenarioOrder ->
@@ -586,10 +596,11 @@ module private Elmish =
                     let! result = par |> serverApi.getParenteralia
                     return Finished result |> LoadParenteralia
                 }
-            state, Cmd.fromAsync load
+            { state with Parenteralia = InProgress }, Cmd.fromAsync load
 
-        | LoadParenteralia (Finished(Ok s)) ->
-            { state with Parenteralia = Resolved s }, Cmd.none
+        | LoadParenteralia (Finished(Ok par)) ->
+
+            { state with Parenteralia = Resolved par }, Cmd.none
 
         | LoadParenteralia (Finished (Error err)) ->
             printfn $"LoadParenteralia finished with error: {err}"

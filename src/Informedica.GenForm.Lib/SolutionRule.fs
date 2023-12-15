@@ -209,11 +209,12 @@ module SolutionRule =
 
 
         module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+        module Limit = Informedica.GenCore.Lib.Ranges.Limit
 
 
         /// Get the string representation of a SolutionLimit.
         let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
-            let mmToStr = MinMax.toString "van " "van " "tot " "tot"
+            let mmToStr = MinMax.toString "min " "min " "max " "max"
 
             let loc =
                 match sr.Location with
@@ -238,7 +239,7 @@ module SolutionRule =
                 else
                     sr.Volume
                     |> mmToStr
-                    |> fun s -> $""" in {s} ml {sr.Solutions |> String.concat "/"}"""
+                    |> fun s -> $""" in {s} {sr.Solutions |> String.concat "/"}"""
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace |> not then s
                     else
@@ -251,23 +252,39 @@ module SolutionRule =
                                 if sols |> String.isNullOrWhiteSpace then " puur"
                                 else $" in {sols}"
                             else
-                                $" in {s} ml {sols}"
+                                $" in {s} {sols}"
 
             let conc =
                 if limit.Concentration
                    |> mmToStr
                    |> String.isNullOrWhiteSpace then ""
                 else
-                    $"* concentratie: {limit.Concentration |> mmToStr}/ml"
+                    $"* concentratie: {limit.Concentration |> mmToStr}"
 
             let dosePerc =
+                let toPerc l =
+                    l
+                    |> Limit.getValueUnit
+                    |> ValueUnit.getValue
+                    |> Array.item 0
+                    |> BigRational.toDouble
+                    |> fun x -> $"{x * 100.}"
+
                 let p =
-                    sr.DosePerc
-                    |> mmToStr
+                    match sr.DosePerc.Min, sr.DosePerc.Max with
+                    | None, None -> ""
+                    | Some l, None -> $"min. {l |> toPerc}"
+                    | None, Some l -> $"max. {l |> toPerc}"
+                    | Some min, Some max ->
+                        if min = max then
+                            $"{min |> toPerc}"
+                        else
+                            $"{min |> toPerc} - {max |> toPerc}"
+
 
                 if p |> String.isNullOrWhiteSpace then ""
                 else
-                    $"* geef {p}%% van de bereiding"
+                    $"* geef %s{p}%% van de bereiding"
 
             $"\n{loc}{limit.Substance}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
 
