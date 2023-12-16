@@ -9,6 +9,7 @@ module DoseRule =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
 
+
     module DoseLimit =
 
         open Informedica.GenUnits.Lib
@@ -388,6 +389,12 @@ module DoseRule =
         }
 
 
+    let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
+
+
+    let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
+
+
     let private get_ () =
         Web.getDataFromSheet Web.dataUrlIdGenPres "DoseRules"
         |> fun data ->
@@ -468,19 +475,19 @@ module DoseRule =
                             Gender = r.Gender
                             Age =
                                 (r.MinAge, r.MaxAge)
-                                |> MinMax.fromTuple (Some Utils.Units.day)
+                                |> fromTupleInclExcl (Some Utils.Units.day)
                             Weight =
                                 (r.MinWeight, r.MaxWeight)
-                                |> MinMax.fromTuple (Some Utils.Units.weightGram)
+                                |> fromTupleInclExcl (Some Utils.Units.weightGram)
                             BSA =
                                 (r.MinBSA, r.MaxBSA)
-                                |> MinMax.fromTuple (Some Utils.Units.bsaM2)
+                                |> fromTupleInclExcl (Some Utils.Units.bsaM2)
                             GestAge =
                                 (r.MinGestAge, r.MaxGestAge)
-                                |> MinMax.fromTuple (Some Utils.Units.day)
+                                |> fromTupleInclExcl (Some Utils.Units.day)
                             PMAge =
                                 (r.MinPMAge, r.MaxPMAge)
-                                |> MinMax.fromTuple (Some Utils.Units.day)
+                                |> fromTupleInclExcl (Some Utils.Units.day)
                             Location = AnyAccess
                         }
                     DoseType = r.DoseType
@@ -494,13 +501,13 @@ module DoseRule =
                             |> Some
                     AdministrationTime =
                         (r.MinTime, r.MaxTime)
-                        |> MinMax.fromTuple (r.TimeUnit |> Utils.Units.timeUnit)
+                        |> fromTupleInclIncl (r.TimeUnit |> Utils.Units.timeUnit)
                     IntervalTime =
                         (r.MinInterval, r.MaxInterval)
-                        |> MinMax.fromTuple (r.IntervalUnit |> Utils.Units.timeUnit)
+                        |> fromTupleInclIncl (r.IntervalUnit |> Utils.Units.timeUnit)
                     Duration =
                         (r.MinDur, r.MaxDur)
-                        |> MinMax.fromTuple (r.DurUnit |> Utils.Units.timeUnit)
+                        |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
                     DoseLimits = [||]
                     Products = [||]
                 }
@@ -578,28 +585,28 @@ module DoseRule =
                                 DoseUnit = du |> Option.defaultValue NoUnit
                                 Quantity =
                                     (r.MinQty, r.MaxQty)
-                                    |> MinMax.fromTuple du
+                                    |> fromTupleInclIncl du
                                 NormQuantityAdjust =
                                     r.NormQtyAdj
                                     |> ValueUnit.withOptionalUnit duAdj
                                 QuantityAdjust =
                                     (r.MinQtyAdj, r.MaxQtyAdj)
-                                    |> MinMax.fromTuple duAdj
+                                    |> fromTupleInclIncl duAdj
                                 PerTime =
                                     (r.MinPerTime, r.MaxPerTime)
-                                    |> MinMax.fromTuple duTime
+                                    |> fromTupleInclIncl duTime
                                 NormPerTimeAdjust =
                                     r.NormPerTimeAdj
                                     |> ValueUnit.withOptionalUnit duAdjTime
                                 PerTimeAdjust =
                                     (r.MinPerTimeAdj, r.MaxPerTimeAdj)
-                                    |> MinMax.fromTuple duAdjTime
+                                    |> fromTupleInclIncl duAdjTime
                                 Rate =
                                     (r.MinRate, r.MaxRate)
-                                    |> MinMax.fromTuple duRate
+                                    |> fromTupleInclIncl duRate
                                 RateAdjust =
                                     (r.MinRateAdj, r.MaxRateAdj)
-                                    |> MinMax.fromTuple duAdjRate
+                                    |> fromTupleInclIncl duAdjRate
                             }
                         )
                         |> Array.append shapeLimits

@@ -177,7 +177,7 @@ module Utils =
         open Informedica.GenUnits.Lib
         open Informedica.GenCore.Lib.Ranges
 
-        let fromTuple u (min, max) =
+        let fromTuple minIncl maxIncl u (min, max) =
             match u with
             | None -> MinMax.empty
             | Some u ->
@@ -185,11 +185,11 @@ module Utils =
                     Min =
                         min
                         |> Option.map (ValueUnit.singleWithUnit u)
-                        |> Option.map Inclusive
+                        |> Option.map minIncl
                     Max =
                         max
                         |> Option.map (ValueUnit.singleWithUnit u)
-                        |> Option.map Inclusive
+                        |> Option.map maxIncl
                 }
 
 

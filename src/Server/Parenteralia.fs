@@ -1,9 +1,7 @@
 module Parenteralia
 
 
-open MathNet.Numerics
 open Informedica.Utils.Lib
-open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
 type Parenteralia = Shared.Types.Parenteralia

@@ -23,6 +23,13 @@ module SolutionRule =
 
 
     open Informedica.GenUnits.Lib
+    open Informedica.GenCore.Lib.Ranges
+
+
+    let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
+
+
+    let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
     let private get_ () =
@@ -83,13 +90,13 @@ module SolutionRule =
                                 AnyAccess
                     Age =
                         (r.MinAge, r.MaxAge)
-                        |> MinMax.fromTuple (Some Utils.Units.day)
+                        |> fromTupleInclExcl (Some Utils.Units.day)
                     Weight =
                         (r.MinWeight, r.MaxWeight)
-                        |> MinMax.fromTuple (Some Utils.Units.weightGram)
+                        |> fromTupleInclExcl (Some Utils.Units.weightGram)
                     Dose =
                         (r.MinDose, r.MaxDose)
-                        |> MinMax.fromTuple du
+                        |> fromTupleInclIncl du
                     DoseType = r.DoseType |> DoseType.fromString
                     Solutions = r.Solutions |> List.toArray
                     Volumes =
@@ -100,10 +107,10 @@ module SolutionRule =
                             |> Some
                     Volume =
                         (r.MinVol, r.MaxVol)
-                        |> MinMax.fromTuple (Some Units.mL)
+                        |> fromTupleInclIncl (Some Units.mL)
                     DosePerc =
                         (r.MinPerc, r.MaxPerc)
-                        |> MinMax.fromTuple (Some Units.Count.times)
+                        |> fromTupleInclIncl (Some Units.Count.times)
                     Products = [||]
                     SolutionLimits = [||]
                 }
@@ -118,7 +125,7 @@ module SolutionRule =
                                 Substance = l.Substance
                                 Quantity =
                                     (l.MinQty, l.MaxQty)
-                                    |> MinMax.fromTuple u
+                                    |> fromTupleInclIncl u
                                 Quantities =
                                     if l.Quantities |> Array.isEmpty then None
                                     else
@@ -133,7 +140,7 @@ module SolutionRule =
                                         u
                                         |> Option.map (Units.per Units.Volume.milliLiter)
                                     (l.MinConc, l.MaxConc)
-                                    |> MinMax.fromTuple u
+                                    |> fromTupleInclIncl u
                             }
                         )
                     Products =
@@ -181,7 +188,7 @@ module SolutionRule =
                 | AnyDoseType, _
                 | _, AnyDoseType -> true
                 | _ -> filter.DoseType = sr.DoseType
-            fun (sr : SolutionRule) -> filter.Patient.Weight |> MinMax.inRange sr.Weight
+            fun (sr : SolutionRule) -> filter.Patient.Weight |> Utils.MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
                 | CVL -> filter.Patient.VenousAccess |> List.exists ((=) CVL)

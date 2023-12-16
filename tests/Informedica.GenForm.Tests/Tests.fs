@@ -676,6 +676,54 @@ module Tests =
 
                 |> Expect.isFalse "should return false"
             }
+
+            test "a filter with age 0, ga = None and weight 3500 gram with a patient category with pm age = 36 and max age = 37" {
+                { patCat with
+                    Age =
+                        {
+                            Min =
+                                0N
+                                |> ValueUnit.singleWithUnit Units.Time.day
+                                |> Limit.Inclusive
+                                |> Some
+                            Max =
+                                28N
+                                |> ValueUnit.singleWithUnit Units.Time.day
+                                |> Limit.Inclusive
+                                |> Some
+                        }
+                    PMAge =
+                        {
+                            Min =
+                                36N
+                                |> ValueUnit.singleWithUnit Units.Time.week
+                                |> Limit.Inclusive
+                                |> Some
+                            Max =
+                                37N
+                                |> ValueUnit.singleWithUnit Units.Time.week
+                                |> Limit.Exclusive
+                                |> Some
+                        }
+                }
+                |> PatientCategory.filter
+                    { filter with
+                        Patient =
+                            { filter.Patient with
+                                Age =
+                                    0N
+                                    |> ValueUnit.singleWithUnit Units.Time.day
+                                    |> Some
+                                Weight =
+                                    3500N
+                                    |> ValueUnit.singleWithUnit Units.Weight.gram
+                                    |> Some
+                            }
+                    }
+
+                |> Expect.isFalse "should return false"
+            }
+
         ]
 
 

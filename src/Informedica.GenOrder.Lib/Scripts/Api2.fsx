@@ -139,14 +139,28 @@ startLogger ()
 stopLogger ()
 
 
+let setAge a (pat : Patient) =
+    { pat with Age = Some a }
+
+let pat =
+    Patient.newBorn
+    |> setAge
+        (Units.Time.day |> ValueUnit.singleWithValue 0N)
+
+
+PatientCategory.filter
+
 Informedica.GenForm.Lib.DoseRule.get ()
 |> DoseRule.filter
 //    Filter.filter
-   { Filter.filter with Patient = Patient.newBorn }
+    { Filter.filter with
+        Patient = pat
+    }
 |> Array.filter (fun dr ->
-    dr.Generic = "cefotaxim" &&
-    dr.Route = "iv"
+    dr.Generic = "paracetamol" &&
+    dr.Route = "rect"
 )
+|> DoseRule.Print.toMarkdown
 //|> Array.skip 2
 //|> Array.take 1
 |> Array.length
