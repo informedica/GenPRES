@@ -31,11 +31,10 @@ module private Elmish =
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
-            Language : Localization.Locales
+            Context : Global.Context
             ShowDisclaimer: bool
             IsDemo : bool
         }
-
 
     type Msg =
         | AcceptDisclaimer
@@ -60,6 +59,7 @@ module private Elmish =
         | UpdateParenteralia of Parenteralia
         | LoadLocalization of AsyncOperationStatus<Result<string [][], string>>
         | UpdateLanguage of Localization.Locales
+        | UpdateHospital of string
 
 
     let serverApi =
@@ -198,7 +198,11 @@ module private Elmish =
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Localization = HasNotStartedYet
-            Language = lang |> Option.defaultValue Localization.Dutch
+            Context =
+                { 
+                    Localization = lang |> Option.defaultValue Localization.Dutch
+                    Hospital = "UMCU"
+                }
             IsDemo = false
         }
 
@@ -230,7 +234,17 @@ module private Elmish =
 
         | UpdateLanguage lang ->
             printfn $"update language to: {lang}"
-            { state with ShowDisclaimer = true; Language = lang}, Cmd.none
+            { state with 
+                ShowDisclaimer = true
+                Context =  { state.Context with Localization = lang } 
+            }, Cmd.none
+
+        | UpdateHospital hosp ->
+            printfn $"update hospital to: {hosp}"
+            { state with 
+                ShowDisclaimer = true
+                Context =  { state.Context with Hospital = hosp } 
+            }, Cmd.none
 
         | UpdatePatient p ->
             printfn $"load patient: {p}"
@@ -248,7 +262,11 @@ module private Elmish =
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
-                Language = lang |> Option.defaultValue Localization.English
+                Context =  
+                    {state.Context with 
+                        Localization =
+                            lang |> Option.defaultValue Localization.English 
+                    } 
             },
             Cmd.ofMsg (pat |> UpdatePatient)
 
@@ -700,7 +718,9 @@ let View () =
                         localizationTerms = state.Localization
                         languages = Localization.languages
                         switchLang = UpdateLanguage >> dispatch
-                    |}) |> toReact |> Components.Context.Context state.Language
+                        switchHosp = UpdateHospital >> dispatch
+                    |}) 
+                    |> toReact |> Components.Context.Context state.Context
                 }
             </Box>
         </ThemeProvider>

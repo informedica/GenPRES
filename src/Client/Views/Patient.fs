@@ -264,7 +264,9 @@ module Patient =
             |}
         ) =
 
-        let lang = React.useContext(Global.languageContext)
+        let context = React.useContext(Global.context)
+        let lang = context.Localization
+
         let isExpanded, setExpanded = React.useState true
         let depArr = [| box props.patient; box props.updatePatient; box lang |]
         let pat, dispatch =

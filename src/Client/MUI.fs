@@ -266,6 +266,12 @@ module Icons =
         <Language />
     """
 
+    [<JSX.Component>]
+    let LocalHospital = JSX.jsx $"""
+        import LocalHospital from '@mui/icons-material/LocalHospital';
+        <LocalHospital />
+    """
+
 
 type Color = {|
     ``50`` : string;

@@ -10,7 +10,7 @@ open Informedica.ZIndex.Lib
 open Informedica.ZForm.Lib
 
 
-GenPresProduct.filter "paracetamol" "zetpil" "rectaal"
+GenPresProduct.filter "amikacine" "" ""
 
 let path =
     $"{__SOURCE_DIRECTORY__}/temp.html"

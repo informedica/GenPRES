@@ -16,7 +16,9 @@ module EmergencyList =
     [<JSX.Component>]
     let View (props : {| interventions: Deferred<Types.Intervention list>; localizationTerms : Deferred<string [] []> |}) =
 
-        let lang = React.useContext(Global.languageContext)
+        let context = React.useContext(Global.context)
+        let lang = context.Localization
+        let hosp = context.Hospital
 
         let getTerm defVal term = 
             props.localizationTerms
@@ -65,6 +67,11 @@ module EmergencyList =
             match props.interventions with
             | Resolved items ->
                 items
+                |> List.filter (fun i ->
+                    hosp |> String.isNullOrWhiteSpace ||
+                    i.Hospital |> String.isNullOrWhiteSpace ||
+                    hosp = i.Hospital
+                )
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace

@@ -21,30 +21,61 @@ module TitleBar =
             toggleSideMenu : unit -> unit
             languages : Shared.Localization.Locales []
             switchLang : Shared.Localization.Locales -> unit
+            switchHosp : string -> unit
         |}) =
 
-        let lang = React.useContext(Global.languageContext)
+        let context = React.useContext(Global.context)
+
+        let anchorElHosp, setAnchorElHosp = React.useState(None)
+
+        let handleOpenHospMenu = fun ev -> ev?currentTarget |> setAnchorElHosp
+        let handleCloseHospMenu = fun _ -> setAnchorElHosp None
+
         let anchorElLang, setAnchorElLang = React.useState(None)
 
         let handleOpenLangMenu = fun ev -> ev?currentTarget |> setAnchorElLang
         let handleCloseLangMenu = fun _ -> setAnchorElLang None
 
-        let onClickMenuItem l =
+        let onClickLangMenuItem l =
             fun () ->
                 handleCloseLangMenu ()
                 l |> props.switchLang
+
+        let onClickHospMenuItem s =
+            fun () ->
+                handleCloseHospMenu ()
+                printfn $"setting hosptital to: {s}"
+                s |> props.switchHosp
 
         let menuItems =
             props.languages
             |> Array.mapi (fun i l ->
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={$"{l}"} onClick={onClickMenuItem l} >
+                <MenuItem key={i} value={$"{l}"} onClick={onClickLangMenuItem l} >
                     <Typography>{$"{l |> Shared.Localization.toString}"}</Typography>
                 </MenuItem>
                 """
             )
 
+        let hospitals =
+            //props.languages
+            [|
+                "AMC"
+                "UMCG"
+                "UMC+"
+                "Radboud UMC"
+                "Erasmus MC"
+                "UMCU"
+            |]
+            |> Array.mapi (fun i hosp ->
+                JSX.jsx
+                    $"""
+                <MenuItem key={i} value={$"{hosp}"} onClick={onClickHospMenuItem hosp} >
+                    <Typography>{$"{hosp}"}</Typography>
+                </MenuItem>
+                """
+            )
 
         JSX.jsx
             $"""
@@ -75,6 +106,27 @@ module TitleBar =
                     <Typography variant="body1" component="div" sx={ {| flexGrow = 1 |} }>
                         {props.title}
                     </Typography>
+
+                    <Box sx={ {| paddingLeft = 1 |} }>
+                        <IconButton color="inherit" onClick={handleOpenHospMenu}>
+                            { Mui.Icons.LocalHospital }
+                        </IconButton>
+                        <Menu
+                            sx={ {| mt="45px" |} }
+                            anchorEl={anchorElHosp}
+                            anchorOrigin={ {| vertical="top"; horizontal="right" |} }
+                            keepMounted
+                            transformOrigin={ {| vertical="top"; horizontal="right" |} }
+                            open={anchorElHosp.IsSome}
+                            onClose={handleCloseHospMenu}
+                        >
+                            {hospitals}
+                        </Menu>
+                    </Box>
+                    <Typography variant="body1" component="div" >
+                        {$"{context.Hospital}"}
+                    </Typography>
+
                     <Box >
                         <IconButton color="inherit" onClick={handleOpenLangMenu}>
                             { Mui.Icons.Language }
@@ -92,7 +144,7 @@ module TitleBar =
                         </Menu>
                     </Box>
                     <Typography variant="body1" component="div" >
-                        {$"{lang |> Shared.Localization.toString}"}
+                        {$"{context.Localization |> Shared.Localization.toString}"}
                     </Typography>
                     <Button color="inherit">Login</Button>
                 </Toolbar>

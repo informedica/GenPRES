@@ -501,7 +501,7 @@ module Product =
                 let s1 = s1 |> repl
                 let s2 = s2 |> repl
                 s1 |> String.equalsCapInsens s2
-            | _ -> false
+            | _ -> true
 
         prods
         |> Array.filter (fun p ->

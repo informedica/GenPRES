@@ -131,9 +131,12 @@ module GenPres =
             page : Global.Pages
             localizationTerms : Deferred<string[][]>
             languages : Localization.Locales []
-            switchLang : Localization.Locales -> unit |}) =
+            switchLang : Localization.Locales -> unit
+            switchHosp : string -> unit |}) =
 
-        let lang = React.useContext(Global.languageContext)
+        let context = React.useContext(Global.context)
+        let lang = context.Localization
+
         let deps = 
             [| 
                 box props.page
@@ -184,6 +187,7 @@ module GenPres =
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch
                     languages = props.languages
                     switchLang = props.switchLang
+                    switchHosp = props.switchHosp
                 |})}
             </Box>
             <React.Fragment>
@@ -242,7 +246,6 @@ module GenPres =
                                     parenteralia = props.parenteralia
                                     updateParenteralia = props.updateParenteralia
                                 |})
-                            | _ -> notFound
                         }
                     </Box>
                 </Stack>

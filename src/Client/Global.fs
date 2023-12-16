@@ -33,8 +33,12 @@ let pageToString terms locale page =
     | Parenteralia -> Terms.``Parenteralia`` |> getTerm
 
 
-let languageContext =
-    React.createContext (name = "language", defaultValue = Localization.Dutch)
+type Context = { Localization : Localization.Locales; Hospital : string }
+
+let defContext = { Localization = Localization.Dutch; Hospital = "" }
+
+let context =
+    React.createContext (name = "context", defaultValue = defContext)
 
 
 module Speech =

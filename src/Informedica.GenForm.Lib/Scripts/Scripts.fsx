@@ -26,7 +26,7 @@ open Informedica.Utils.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "0")
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.CurrentDirectory
 
 
@@ -94,3 +94,8 @@ SolutionRule.get ()
 |> fun pr ->
     pr.SolutionRules
     |> SolutionRule.Print.toMarkdown "\n"
+
+
+Product.get ()
+|> Array.filter (fun p -> p.Generic = "amikacine")
+

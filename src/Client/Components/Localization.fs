@@ -21,7 +21,7 @@ module Localization =
             switchLang : Shared.Localization.Locales -> unit
     |}) =
 
-        let lang = React.useContext(Global.languageContext)
+        let context = React.useContext(Global.context)
         let anchorElLang, setAnchorElLang = React.useState(None)
 
         let handleOpenLangMenu = fun ev -> ev?currentTarget |> setAnchorElLang
@@ -69,7 +69,7 @@ module Localization =
                 {menuItems}
             </Menu>
             <Typography variant="body1" component="div" >
-                {$"{lang |> Shared.Localization.toString}"}
+                {$"{context.Localization |> Shared.Localization.toString}"}
             </Typography>
         </Box>
         """

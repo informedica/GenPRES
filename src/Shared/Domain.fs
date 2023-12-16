@@ -703,6 +703,7 @@ module Intervention =
 
     let emptyIntervention =
         {
+            Hospital = ""
             Indication = ""
             Name = ""
             Quantity = None
@@ -758,10 +759,11 @@ module EmergencyTreatment =
     let ageInMoToYrs ageInMo = (ageInMo |> float) / 12.
 
 
-    let calcIntervention indication name text formula doseTextFn a =
+    let calcIntervention hosp indication name text formula doseTextFn a =
         let m = formula a
 
         { Intervention.emptyIntervention with
+            Hospital = hosp
             Indication = indication
             Name = name
             InterventionDose = Some m
@@ -780,6 +782,7 @@ module EmergencyTreatment =
             |> (fun m -> if m > 7. then 7. else m)
 
         calcIntervention
+            ""
             "reanimatie"
             $"""tube ({if s = 3.5 then "met" else "zonder"} cuff) maat"""
             $"%A{s} + leeftijd / 4"
@@ -791,6 +794,7 @@ module EmergencyTreatment =
         let textfn m = $"%A{m} cm"
 
         calcIntervention
+            ""
             "reanimatie"
             "tube lengte oraal"
             "12 + leeftijd / 2"
@@ -803,6 +807,7 @@ module EmergencyTreatment =
         let textfn m = $"%A{m} cm"
 
         calcIntervention
+            ""
             "reanimatie"
             "tube lengte nasaal"
             "15 + leeftijd / 2"
@@ -851,6 +856,7 @@ module EmergencyTreatment =
         let textfn m = $"{m} joule"
 
         calcIntervention
+            ""
             "reanimatie"
             "defibrillatie"
             "4 joule/kg"
@@ -863,7 +869,12 @@ module EmergencyTreatment =
             joules |> List.findNearestMax (wght * 2.)
 
         let textfn m = $"{m} joule"
-        calcIntervention "reanimatie" "cardioversie" "2 joule/kg" formula textfn
+        calcIntervention 
+            ""
+            "reanimatie" 
+            "cardioversie" 
+            "2 joule/kg" 
+            formula textfn
 
 
     let calcBolusMedication wght (bolus: BolusMedication) =
@@ -906,6 +917,7 @@ module EmergencyTreatment =
                 sprintf "%A %s/kg %s" bolus.NormDose bolus.Unit minmax
 
         { Intervention.emptyIntervention with
+            Hospital = bolus.Hospital
             Indication = bolus.Indication
             Name = bolus.Generic
             Quantity = Some(c)
@@ -936,8 +948,9 @@ module EmergencyTreatment =
         }
 
 
-    let createBolus indication medication dose min max conc unit remark =
+    let createBolus hosp indication medication dose min max conc unit remark =
         {
+            Hospital = hosp
             Indication = indication
             Generic = medication
             NormDose = dose
@@ -963,6 +976,7 @@ module EmergencyTreatment =
                 let getFloat = Csv.getFloatColumn cms sl
 
                 createBolus
+                    (getString "hospital")
                     (getString "indication")
                     (getString "medication")
                     (getFloat "dose")
@@ -981,6 +995,7 @@ module EmergencyTreatment =
                weight.Value < 3. then
                 [
                     calcIntervention
+                        ""
                         "reanimatie"
                         "tube maat"
                         "< 1 kg: 2.5, 1-3 kg: 3.0"
@@ -989,6 +1004,7 @@ module EmergencyTreatment =
                         weight.Value
 
                     calcIntervention
+                        ""
                         "reanimatie"
                         "tube lengte oraal"
                         "6.632 + 1.822 x ln(kg)"
@@ -997,6 +1013,7 @@ module EmergencyTreatment =
                         weight.Value
 
                     calcIntervention
+                        ""
                         "reanimatie"
                         "tube lengte nasaal"
                         "(45 + 1.15 x \u221A (gram)) / 10"
@@ -1005,6 +1022,7 @@ module EmergencyTreatment =
                         weight.Value
 
                     calcIntervention
+                        ""
                         "reanimatie"
                         "navel lijn maat"
                         "< 1.5 kg: 3,5 anders 5 "
@@ -1014,6 +1032,7 @@ module EmergencyTreatment =
 
                     if weight.Value < 1.5 then
                         calcIntervention
+                            ""
                             "reanimatie"
                             "navel arterie lijn lengte"
                             "kg x 4 + 7"
@@ -1022,6 +1041,7 @@ module EmergencyTreatment =
                             weight.Value
                     else
                         calcIntervention
+                            ""
                             "reanimatie"
                             "navel arterie lijn lengte"
                             "kg x 2.5 + 9.7"
@@ -1030,6 +1050,7 @@ module EmergencyTreatment =
                             weight.Value
 
                     calcIntervention
+                        ""
                         "reanimatie"
                         "navel vene lijn lengte"
                         "kg x 1.5 + 5.5"
@@ -1087,6 +1108,7 @@ module ContinuousMedication =
 
 
     let create
+        hospital
         indication
         medication
         unit
@@ -1103,6 +1125,7 @@ module ContinuousMedication =
         solution
         =
         {
+            Hospital = hospital
             Indication = indication
             Generic = medication
             Unit = unit
@@ -1134,6 +1157,7 @@ module ContinuousMedication =
                 let getFloat = Csv.getFloatColumn cms sl
 
                 create
+                    (getString "hospital")
                     (getString "indication")
                     (getString "medication")
                     (getString "unit")
@@ -1199,6 +1223,7 @@ module ContinuousMedication =
 
                 [
                     { Intervention.emptyIntervention with
+                        Hospital = med.Hospital
                         Indication = med.Indication
                         Name = med.Generic
                         Quantity = Some qty

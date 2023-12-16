@@ -294,6 +294,10 @@ module DrugOrder =
                         DoseCount =
                             sr.DosePerc.Max
                             |> Option.map Limit.getValueUnit
+                            |> Option.map (fun dc ->
+                                (Units.Count.times |> ValueUnit.one) / dc
+                            )
+
                         Products =
                             let ps =
                                 dro.Products
@@ -362,7 +366,9 @@ module DrugOrder =
 
         let orbDto = Order.Orderable.Dto.dto d.Id d.Name
 
-        orbDto.DoseCount.Constraints.ValsOpt <- d.DoseCount |> vuToDto
+        orbDto.DoseCount.Constraints.ValsOpt <-
+            d.DoseCount
+            |> vuToDto
 
         orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
 
@@ -411,7 +417,8 @@ module DrugOrder =
 
         | DiscontinuousOrder ->
             match d.Dose with
-            | Some dl -> dl |> setOrbDoseQty
+            | Some dl ->
+                dl |> setOrbDoseQty
             | None -> ()
 
         | TimedOrder ->
@@ -421,6 +428,11 @@ module DrugOrder =
             | Some dl ->
                 dl |> setOrbDoseRate
                 dl |> setOrbDoseQty
+                // assume timed order always solution
+                orbDto.Dose.Quantity.Constraints.IncrOpt <-
+                    1N/10N
+                    |> createSingleValueUnitDto
+                        (Units.Volume.milliLiter)
             | None -> ()
 
         orbDto.Components <-

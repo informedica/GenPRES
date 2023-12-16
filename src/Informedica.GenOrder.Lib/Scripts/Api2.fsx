@@ -160,10 +160,11 @@ Informedica.GenForm.Lib.DoseRule.get ()
     dr.Generic = "paracetamol" &&
     dr.Route = "rect"
 )
-|> DoseRule.Print.toMarkdown
+//|> DoseRule.Print.toMarkdown
 //|> Array.skip 2
 //|> Array.take 1
 |> Array.length
+
 
 Mapping.mappingShapeRoute
 |> Array.map _.DoseUnit
@@ -213,7 +214,7 @@ Patient.newBorn
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
     pr.DoseRule.Route = "iv" &&
-    pr.DoseRule.Generic = "cefotaxim"
+    pr.DoseRule.Generic = "amikacine"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"

@@ -195,6 +195,7 @@ module Types =
 
     and BolusMedication =
         {
+            Hospital : string
             Indication: string
             Generic: string
             NormDose: float
@@ -207,6 +208,7 @@ module Types =
 
     and ContinuousMedication =
         {
+            Hospital : string
             Indication: string
             Generic: string
             Unit: string
@@ -235,6 +237,7 @@ module Types =
     // DoseText
     type Intervention =
         {
+            Hospital : string
             // == Intervention ==
             // Indication for the intervention
             Indication: string

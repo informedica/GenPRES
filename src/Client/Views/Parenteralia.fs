@@ -106,7 +106,6 @@ module Parenteralia =
 
                 { state with Route = s }, Cmd.none
 
-            | _ -> state, Cmd.none
 
     open Elmish
     open Shared
@@ -119,8 +118,8 @@ module Parenteralia =
             updateParenteralia: Parenteralia -> unit
         |}) =
 
-        let lang = React.useContext(Global.languageContext)
-
+        let context = React.useContext(Global.context)
+        let lang = context.Localization
 
         let getTerm defVal term = 
             //props.localizationTerms
