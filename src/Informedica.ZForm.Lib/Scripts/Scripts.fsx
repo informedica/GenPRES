@@ -10,16 +10,15 @@ open Informedica.ZIndex.Lib
 open Informedica.ZForm.Lib
 
 
-GenPresProduct.filter "amikacine" "" ""
 
 let path =
     $"{__SOURCE_DIRECTORY__}/temp.html"
 
 
 { Dto.dto with
-     Generic = "paracetamol"
+     Generic = "adrenaline"
      Shape = ""
-     Route = "oraal"
+     Route = "iv"
 }
 |> Dto.processDto
 |> fun dto ->

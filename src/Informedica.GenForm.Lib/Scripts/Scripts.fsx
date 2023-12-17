@@ -26,30 +26,29 @@ open Informedica.Utils.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
+
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.CurrentDirectory
-
-
-type SteeringWheel = { Type: string }
-type CarInterior = { Steering: SteeringWheel; Seats: int }
-type Car = { Interior: CarInterior; ExteriorColor: string option }
 
 
 
 { Filter.filter with
     Patient =
         { Filter.filter.Patient with
+//            Department = Some "ICK"
             Age =
                 0N
                 |> ValueUnit.singleWithUnit Units.Time.day
                 |> Some
+            (*
             GestAge =
                 28N
                 |> ValueUnit.singleWithUnit Units.Time.week
                 |> Some
+            *)
         }
-    Generic = (Some "baclofen")
-    Route = Some "or"
+    Generic = (Some "adrenaline")
+    Route = Some "iv"
 }
 |> PrescriptionRule.filter
 |> Array.map _.DoseRule
@@ -78,7 +77,7 @@ printAllDoseRules ()
 
 
 SolutionRule.get ()
-|> Array.take 2
+|> Array.filter (fun sr -> sr.Generic = "adrenaline")
 |> SolutionRule.Print.toMarkdown ""
 
 
@@ -96,6 +95,23 @@ SolutionRule.get ()
     |> SolutionRule.Print.toMarkdown "\n"
 
 
-Product.get ()
-|> Array.filter (fun p -> p.Generic = "amikacine")
-
+DoseRule.get ()
+|> DoseRule.filter
+    { Filter.filter with
+        Patient =
+            { Filter.filter.Patient with
+    //            Department = Some "ICK"
+                Age =
+                    0N
+                    |> ValueUnit.singleWithUnit Units.Time.day
+                    |> Some
+                (*
+                GestAge =
+                    28N
+                    |> ValueUnit.singleWithUnit Units.Time.week
+                    |> Some
+                *)
+            }
+        Generic = (Some "adrenaline")
+        Route = Some "iv"
+    }

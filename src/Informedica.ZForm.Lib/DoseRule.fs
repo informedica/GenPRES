@@ -2357,7 +2357,7 @@ Synoniemen: {synonym}
     let toStringWithConfig (config: TextConfig) printRules (dr: DoseRule) =
         let gpsToString (gps: GenericProductLabel list) =
             gps
-            |> List.map (fun gp -> gp.Label)
+            |> List.map _.Label
             |> String.concat ", "
 
         config.MainText
@@ -2390,10 +2390,18 @@ Synoniemen: {synonym}
                                     sd.PatientDosages
                                     |> List.fold
                                         (fun acc pd ->
+                                            let pat =
+                                                if
+                                                    pd.Patient
+                                                    |> PatientCategory.toString
+                                                    |> String.isNullOrWhiteSpace then "alle patienten"
+                                                else
+                                                    pd.Patient
+                                                    |> PatientCategory.toString
 
                                             let s =
                                                 (config.PatientText
-                                                 |> String.replace "{patient}" (pd.Patient |> PatientCategory.toString))
+                                                 |> String.replace "{patient}" pat)
                                                 + ("{dosage}"
                                                    |> String.replace
                                                        "{dosage}"

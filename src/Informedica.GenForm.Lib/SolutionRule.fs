@@ -219,8 +219,8 @@ module SolutionRule =
     module Print =
 
 
-        module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
-        module Limit = Informedica.GenCore.Lib.Ranges.Limit
+        module MinMax = MinMax
+        module Limit = Limit
 
 
         /// Get the string representation of a SolutionLimit.
@@ -337,7 +337,10 @@ module SolutionRule =
                     )
                     |> Array.collect (fun p ->
                         if p.Reconstitution |> Array.isEmpty then
-                            [| product_md p.Label |]
+                            if p.RequiresReconstitution then
+                                [| $"{product_md p.Label} oplossen in ... " |]
+                            else
+                                [| product_md p.Label |]
                         else
                             p.Reconstitution
                             |> Array.map (fun r ->
@@ -396,6 +399,7 @@ module SolutionRule =
                                             let w =
                                                 let s =
                                                     sel.Weight
+                                                    |> MinMax.convertTo Units.Weight.kiloGram
                                                     |> MinMax.toString
                                                         "van "
                                                         "van "
@@ -405,7 +409,7 @@ module SolutionRule =
                                                 if s |> String.isNullOrWhiteSpace then
                                                     ""
                                                 else
-                                                    $"gewicht %s{s} kg"
+                                                    $"gewicht %s{s}"
 
                                             if a |> String.isNullOrWhiteSpace
                                                && w |> String.isNullOrWhiteSpace then

@@ -58,6 +58,13 @@ module PatientCategory =
         }
 
 
+    let isEmpty (p : PatientCategory) =
+        { patientCategory with
+            Department = p.Department
+            Location = p.Location
+        } = p
+
+
     /// <summary>
     /// Use a PatientCategory to get a sort value.
     /// </summary>
@@ -123,25 +130,33 @@ module PatientCategory =
                 | _ -> true
             if filter.Patient.Age |> Option.isSome then
                 yield! [|
+                    // check gestational age
                     fun (p: PatientCategory) ->
-                        // if gestational is set and < full term filter out all
-                        // dose rules with no gestational age or pm age
-                        if filter.Patient.GestAge.IsSome &&
-                           p.GestAge = MinMax.empty &&
-                           p.PMAge = MinMax.empty then
-                            filter.Patient.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
+                        // all patients rule
+                        if p |> isEmpty then true
                         else
-                            filter.Patient.GestAge
-                            // if no gest age assume full term
-                            |> Option.defaultValue Utils.ValueUnit.ageFullTerm
-                            |> Some
-                            |> Utils.MinMax.inRange p.GestAge
+                            // if gestational is set and < full term filter out all
+                            // dose rules with no gestational age or pm age
+                            if filter.Patient.GestAge.IsSome &&
+                               p.GestAge = MinMax.empty &&
+                               p.PMAge = MinMax.empty then
+                                filter.Patient.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
+                            else
+                                filter.Patient.GestAge
+                                // if no gest age assume full term
+                                |> Option.defaultValue Utils.ValueUnit.ageFullTerm
+                                |> Some
+                                |> Utils.MinMax.inRange p.GestAge
+                    // check pm age
                     fun (p: PatientCategory) ->
-                        filter.Patient.PMAge
-                        // if no gest age assume full term
-                        |> Option.defaultValue (filter.Patient.Age.Value + Utils.ValueUnit.ageFullTerm)
-                        |> Some
-                        |> Utils.MinMax.inRange p.PMAge
+                        // alle patients rule
+                        if p |> isEmpty then true
+                        else
+                            filter.Patient.PMAge
+                            // if no gest age assume full term
+                            |> Option.defaultValue (filter.Patient.Age.Value + Utils.ValueUnit.ageFullTerm)
+                            |> Some
+                            |> Utils.MinMax.inRange p.PMAge
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
             fun (p: PatientCategory) ->

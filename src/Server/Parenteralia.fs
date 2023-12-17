@@ -12,12 +12,17 @@ let get (par : Parenteralia) : Result<Parenteralia, string> =
 
     let srs =
         SolutionRule.get ()
-        |> SolutionRule.filter
-            { Filter.filter with
-                Generic = par.Generic
-                Shape = par.Shape
-                Route = par.Route
-            }
+        |> Array.filter (fun sr ->
+            par.Generic
+            |> Option.map ((=) sr.Generic)
+            |> Option.defaultValue true &&
+            par.Shape
+            |> Option.map ((=) sr.Shape)
+            |> Option.defaultValue true &&
+            par.Route
+            |> Option.map ((=) sr.Route)
+            |> Option.defaultValue true
+        )
 
     { par with
         Generics = srs |> SolutionRule.generics
@@ -27,12 +32,6 @@ let get (par : Parenteralia) : Result<Parenteralia, string> =
             if par.Generic |> Option.isNone then ""
             else
                 srs
-                |> SolutionRule.filter
-                    { Filter.filter with
-                        Generic = par.Generic
-                        Shape = par.Shape
-                        Route = par.Route
-                    }
                 |> SolutionRule.Print.toMarkdown ""
     }
     |> Ok

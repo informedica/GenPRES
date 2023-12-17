@@ -220,6 +220,9 @@ module DoseRule =
                 $"* *{dt}*: {dose}{freqs}{s}"
 
             let patient_md patient diagn =
+                let patient =
+                    if patient |> String.notEmpty then patient
+                    else "alle patienten"
                 if diagn |> String.isNullOrWhiteSpace then
                     $"\n\n##### Patient: **%s{patient}**\n\n"
                 else
@@ -284,7 +287,7 @@ module DoseRule =
 
             ({| md = ""; rules = [||] |},
              rules
-             |> Array.groupBy (fun d -> d.Generic)
+             |> Array.groupBy _.Generic
             )
             ||> Array.fold (fun acc (generic, rs) ->
                 {| acc with
@@ -294,7 +297,7 @@ module DoseRule =
                 |> fun r ->
                     if r.rules = Array.empty then r
                     else
-                        (r, r.rules |> Array.groupBy (fun d -> d.Indication))
+                        (r, r.rules |> Array.groupBy _.Indication)
                         ||> Array.fold (fun acc (indication, rs) ->
                             {| acc with
                                 md = acc.md + (indication_md indication)
@@ -303,12 +306,12 @@ module DoseRule =
                             |> fun r ->
                                 if r.rules = Array.empty then r
                                 else
-                                    (r, r.rules |> Array.groupBy (fun r -> r.Route))
+                                    (r, r.rules |> Array.groupBy _.Route)
                                     ||> Array.fold (fun acc (route, rs) ->
 
                                         let prods =
                                             rs
-                                            |> Array.collect (fun d -> d.Products)
+                                            |> Array.collect _.Products
                                             |> Array.sortBy (fun p ->
                                                 p.Substances
                                                 |> Array.sumBy (fun s ->

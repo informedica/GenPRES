@@ -34,7 +34,7 @@ module EmergencyList =
             {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 200; filterable = true; sortable = true |}
             {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 200; filterable = false; sortable = false |}
             {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 200; filterable = false; sortable = false |}
+            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 400; filterable = false; sortable = false |}
         |]
 
         let speakAct s =
