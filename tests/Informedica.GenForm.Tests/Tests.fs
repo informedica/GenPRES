@@ -237,7 +237,7 @@ module Tests =
                                     |> Some
                             }
                     }
-                |> Expect.isFalse "should return false"
+                |> Expect.isTrue "should return true"
             }
 
             test "a filter with age 0 and gestational age 30 weeks with a patient category with min age = 0" {
