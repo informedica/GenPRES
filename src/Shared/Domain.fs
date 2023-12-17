@@ -1239,16 +1239,16 @@ module ContinuousMedication =
                         Quantity = Some qty
                         QuantityUnit = med.Unit
                         Total = Some vol
-                        TotalUnit = "ml"
+                        TotalUnit = "mL"
                         Solution = med.Solution
                         InterventionDose = Some 1.
-                        InterventionDoseUnit = "ml/uur"
+                        InterventionDoseUnit = "mL/uur"
                         SubstanceMaxDose = Some med.AbsMax
                         SubstanceDoseAdjust = Some d
                         SubstanceDoseAdjustUnit = u
                         SubstanceMinDoseAdjust = Some med.MinDose
                         SubstanceMaxDoseAdjust = Some med.MaxDose
-                        SubstanceDoseText = $"1 ml/uur = {d} {u}"
+                        SubstanceDoseText = $"1 mL/uur = {d} {u}"
                         Text = (printAdv med.MinDose med.MaxDose med.DoseUnit)
                     }
                 ]
