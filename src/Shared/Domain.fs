@@ -1217,7 +1217,13 @@ module ContinuousMedication =
         |> List.sortBy (fun med -> med.Indication, med.Generic)
         |> List.collect (fun med ->
             let vol = med.Total
-            let qty = med.Quantity
+            // TODO: really ugly hack to meet specific dose calc
+            // need to create a config structure for this
+            let qty =
+                if med.Quantity = 0. &&
+                   med.Hospital = "Radboud UMC" &&
+                   med.Generic = "morfine" then wght / 2. |> int |> float
+                else med.Quantity
 
             if vol = 0. then
                 []
