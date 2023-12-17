@@ -869,11 +869,11 @@ module EmergencyTreatment =
             joules |> List.findNearestMax (wght * 2.)
 
         let textfn m = $"{m} joule"
-        calcIntervention 
+        calcIntervention
             ""
-            "reanimatie" 
-            "cardioversie" 
-            "2 joule/kg" 
+            "reanimatie"
+            "cardioversie"
+            "2 joule/kg"
             formula textfn
 
 
@@ -1179,7 +1179,11 @@ module ContinuousMedication =
 
     let calculate wght (contMeds: ContinuousMedication list) =
 
-        let calcDose qty vol unit doseU =
+        let calcDose qty vol wght unit doseU =
+            let wght =
+                if doseU |> String.contains "kg" then wght
+                else 1.
+
             let f =
                 let t =
                     match doseU with
@@ -1219,7 +1223,7 @@ module ContinuousMedication =
                 []
             else
                 let d, u =
-                    calcDose qty vol med.Unit med.DoseUnit
+                    calcDose qty vol wght med.Unit med.DoseUnit
 
                 [
                     { Intervention.emptyIntervention with
