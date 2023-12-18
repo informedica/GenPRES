@@ -20,6 +20,7 @@ module TitleBar =
             title: string
             toggleSideMenu : unit -> unit
             languages : Shared.Localization.Locales []
+            hospitals : Deferred<string []>
             switchLang : Shared.Localization.Locales -> unit
             switchHosp : string -> unit
         |}) =
@@ -59,15 +60,8 @@ module TitleBar =
             )
 
         let hospitals =
-            //props.languages
-            [|
-                "AMC"
-                "UMCG"
-                "UMC+"
-                "Radboud UMC"
-                "Erasmus MC"
-                "UMCU"
-            |]
+            props.hospitals
+            |> Deferred.defaultValue [||]
             |> Array.mapi (fun i hosp ->
                 JSX.jsx
                     $"""

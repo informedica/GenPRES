@@ -2,3 +2,6 @@ Unquote
 MathNet.Numerics.FSharp
 FParsec
 FSharp.Core
+FSharpPlus
+FSharp.Data
+HtmlAgilityPack

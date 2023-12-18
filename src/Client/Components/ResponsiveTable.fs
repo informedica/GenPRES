@@ -139,8 +139,9 @@ module ResponsiveTable =
                     |> Array.map (Array.filter (fun cell ->
                         cell.field = column.field
                     ))
-                    |> Array.collect (Array.map (fun cell -> cell.value))
+                    |> Array.collect (Array.map (_.value))
                     |> Array.distinct
+                    |> Array.sortBy (_.ToLower())
 
                 SimpleSelect.View({|
                     label = "Filter"

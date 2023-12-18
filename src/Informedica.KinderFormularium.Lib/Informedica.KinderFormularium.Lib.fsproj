@@ -7,6 +7,10 @@
   <ItemGroup>
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\PedFormParser.fsx" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Drug.fs" />
+    <Compile Include="FormularyParsers.fs" />
+    <Compile Include="WebSiteParser.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.ZIndex.Lib\Informedica.ZIndex.Lib.fsproj" />

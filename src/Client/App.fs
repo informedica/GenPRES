@@ -31,6 +31,7 @@ module private Elmish =
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
+            Hospitals : Deferred<string []>
             Context : Global.Context
             ShowDisclaimer: bool
             IsDemo : bool
@@ -198,6 +199,7 @@ module private Elmish =
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Localization = HasNotStartedYet
+            Hospitals = HasNotStartedYet
             Context =
                 { 
                     Localization = lang |> Option.defaultValue Localization.Dutch
@@ -321,6 +323,13 @@ module private Elmish =
 
             { state with
                 BolusMedication = meds |> Resolved
+                Hospitals =
+                    meds
+                    |> List.map _.Hospital
+                    |> List.distinct
+                    |> List.filter (String.isNullOrWhiteSpace >> not)
+                    |> List.toArray
+                    |> Resolved
             },
             Cmd.none
 
@@ -717,6 +726,7 @@ let View () =
                         page = state.Page
                         localizationTerms = state.Localization
                         languages = Localization.languages
+                        hospitals = state.Hospitals
                         switchLang = UpdateLanguage >> dispatch
                         switchHosp = UpdateHospital >> dispatch
                     |}) 

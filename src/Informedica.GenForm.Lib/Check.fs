@@ -283,14 +283,14 @@ module Check =
                             if not b then
                                 let s1 =
                                     m.mapping.frequencies.genform
-                                    |> Option.map ValueUnit.toStringDutchShort
+                                    |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 0)
                                     |> Option.defaultValue ""
                                 let s2 =
                                     m.mapping.frequencies.gstand
-                                    |> Option.map ValueUnit.toStringDutchShort
+                                    |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 0)
                                     |> Option.defaultValue ""
                                 b,
-                                $"{gstand.doseLimitTarget}\t{r}\t{s}\tfreqenties niet gelijk {s1} with {s2}"
+                                $"{gstand.doseLimitTarget}\t{r}\t{s}\tfreqenties niet gelijk {s1} aan {s2}"
                             else b, ""
 
 

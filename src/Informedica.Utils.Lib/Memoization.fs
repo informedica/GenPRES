@@ -4,6 +4,7 @@ namespace Informedica.Utils.Lib
 /// Utility functions to apply memoization
 module Memoization =
 
+    open System.Collections.Generic
 
     /// <summary>
     /// Memoize a function `f` according
@@ -23,6 +24,31 @@ module Memoization =
                 let r = f x
                 cache.Value <- cache.Value.Add(x, r)
                 r
+
+    let inline memoizeOne f =
+        let dic = Dictionary<_, _>()
+        let memoized par =
+            if dic.ContainsKey(par) then
+                dic[par]
+            else
+                let result = f par
+                dic.Add(par, result)
+                result
+
+        memoized
+
+    let inline memoize2Int f =
+        let dic = Dictionary<int * int, _>()
+        let memoized p1 p2 =
+            let hash = p1.GetHashCode(), p2.GetHashCode()
+            if dic.ContainsKey(hash) then
+                dic[hash]
+            else
+                let result = f p1 p2
+                dic.Add(hash, result)
+                result
+
+        memoized
 
 
     module Tests =

@@ -2,6 +2,7 @@ source https://api.nuget.org/v3/index.json
 framework: net8.0
 storage: none
 
+nuget FSharpPlus = 1.6.0-RC2
 nuget FSharp.Core ~> 8
 
 nuget Fable.Core ~> 4
@@ -27,6 +28,8 @@ nuget Saturn ~> 0
 nuget Fake.Core.Target ~> 5
 nuget Fake.IO.FileSystem ~> 5
 
+nuget FSharp.Data
+nuget HtmlAgilityPack
 nuget FParsec
 nuget FsToolkit.ErrorHandling
 nuget MathNet.Numerics.FSharp

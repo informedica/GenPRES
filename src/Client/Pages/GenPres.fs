@@ -131,6 +131,7 @@ module GenPres =
             page : Global.Pages
             localizationTerms : Deferred<string[][]>
             languages : Localization.Locales []
+            hospitals : Deferred<string []>
             switchLang : Localization.Locales -> unit
             switchHosp : string -> unit |}) =
 
@@ -186,6 +187,7 @@ module GenPres =
 
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch
                     languages = props.languages
+                    hospitals = props.hospitals
                     switchLang = props.switchLang
                     switchHosp = props.switchHosp
                 |})}
