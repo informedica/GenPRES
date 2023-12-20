@@ -90,6 +90,7 @@ let drug =
 
 WebSiteParser.getDoc id drug.Id drug.Generic
 
+Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let path = $"{Environment.CurrentDirectory}/kinderformularium.txt"
 
 

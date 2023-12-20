@@ -374,10 +374,10 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "adrenaline" "" ""
+GenPresProduct.filter "doxorubicine" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
-    gp.Id, gp.Label,
+    gp.Id, gp.Shape,
     gp.Substances[0].SubstanceName,
     gp.Substances[0].SubstanceQuantity
 )
