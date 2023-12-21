@@ -70,6 +70,10 @@ For the time being the application can be started by the following procedure:
 
 Open a browser to `http://localhost:5173` to view the site.
 
+Additionally, an environmental variable can be set to use a different GenPRES data excel url:
+`export GENPRES_URL_ID=<some url id>`. After starting the application, the url that is used will be
+printed to the terminal. If no env is set, the default url will be used.
+
 ### Deployment using Docker
 
 This will create a production ready docker image:
