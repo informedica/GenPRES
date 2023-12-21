@@ -10,7 +10,8 @@ module Mapping =
 
     /// Mapping of long Z-index route names to short names
     let routeMapping =
-        Web.getDataFromSheet Web.dataUrlIdGenPres "Routes"
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        Web.getDataFromSheet dataUrlId "Routes"
         |> fun data ->
             let getColumn =
                 data
@@ -31,7 +32,8 @@ module Mapping =
 
     /// Mapping of long Z-index unit names to short names
     let unitMapping =
-        Web.getDataFromSheet Web.dataUrlIdGenPres "Units"
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        Web.getDataFromSheet dataUrlId "Units"
         |> fun data ->
             let getColumn =
                 data
@@ -80,7 +82,8 @@ module Mapping =
 
     /// Get the array of ShapeRoute records
     let mappingShapeRoute =
-        Web.getDataFromSheet Web.dataUrlIdGenPres "ShapeRoute"
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        Web.getDataFromSheet dataUrlId "ShapeRoute"
         |> fun data ->
             let inline getColumn get =
                 data

@@ -53,6 +53,7 @@ module Product =
 
     module Reconstitution =
 
+
         open Utils
 
         // GPK
@@ -65,7 +66,8 @@ module Product =
         // ExpansionVol
         // Diluents
         let private get_ () =
-            Web.getDataFromSheet Web.dataUrlIdGenPres "Reconstitution"
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            Web.getDataFromSheet dataUrlId "Reconstitution"
             |> fun data ->
 
                 let getColumn =
@@ -145,7 +147,8 @@ module Product =
 
 
         let private get_ () =
-            Web.getDataFromSheet Web.dataUrlIdGenPres "ParentMeds"
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            Web.getDataFromSheet dataUrlId "ParentMeds"
             |> fun data ->
                 let getColumn =
                     data
@@ -255,7 +258,8 @@ module Product =
         fun () ->
             // first get the products from the GenPres Formulary, i.e.
             // the assortment
-            Web.getDataFromSheet Web.dataUrlIdGenPres "Formulary"
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            Web.getDataFromSheet dataUrlId "Formulary"
             |> fun data ->
                 let getColumn =
                     data

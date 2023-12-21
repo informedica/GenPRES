@@ -20,7 +20,15 @@ module Utils =
 
         /// The url to the data sheet for GenPRES
         /// https://docs.google.com/spreadsheets/d/1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ/edit?usp=sharing
-        let [<Literal>] dataUrlIdGenPres = "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
+        let [<Literal>] private dataUrlIdGenPres = "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
+
+
+        let getDataUrlIdGenPres () =
+            Env.getItem "GENPRES_URL_ID"
+            |> Option.defaultValue  dataUrlIdGenPres
+            |> fun s  ->
+                ConsoleWriter.writeInfoMessage $"using: {s}" true false
+                s
 
 
         /// <summary>
