@@ -20,12 +20,13 @@ let config =
         TimeUnit = None
     }
 
+
 let path = $"{__SOURCE_DIRECTORY__}/gstand.html"
 
 
-GStand.createDoseRules config None None None None "ondansetron" "" ""
+GStand.createDoseRules config None None None None "paracetamol" "zetpil" "rectaal"
 |> Seq.sortBy (fun dr -> dr.Generic |> String.toLower)
-|> Seq.map (DoseRule.toString false)
+|> Seq.map (Informedica.ZForm.Lib.DoseRule.toString false)
 |> String.concat "\n\n"
 |> Markdown.toHtml
 |> File.writeTextToFile path
@@ -34,15 +35,15 @@ GStand.createDoseRules config None None None None "ondansetron" "" ""
 open Informedica.ZIndex.Lib
 
 
-{ Patient = { Age = None
-              Weight = None
+{ Patient = { Age = Some 12.
+              Weight = Some 10.
               BSA = None }
-  Product = GenericShapeRoute { Generic = "ondansetron"
-                                Shape = ""
-                                Route = "intraveneus" } }
+  Product = GenericShapeRoute { Generic = "paracetamol"
+                                Shape = "zetpil"
+                                Route = "rectaal" } }
 |> RuleFinder.find []
-|> Array.skip 2
-|> Array.take 1
+//|> Array.skip 1
+//|> Array.take 1
 |> GStand.getSubstanceDoses config
 |> Seq.iter (printfn "%A")
 
