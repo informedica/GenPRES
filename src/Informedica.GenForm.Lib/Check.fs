@@ -15,6 +15,34 @@ module Check =
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
 
 
+    let getAdjustUnit (mm1: MinMax) (mm2 : MinMax) =
+        let getVU mm =
+            match mm.Min |> Option.map Limit.getValueUnit,
+                  mm.Max |> Option.map Limit.getValueUnit with
+            | Some vu, _
+            | _, Some vu ->
+                vu
+                |> Some
+            | _ -> None
+
+        match mm1 |> getVU with
+        | Some vu ->
+            match vu |> ValueUnit.getUnit |> ValueUnit.getUnits with
+            | [_; adj ]
+            | [_; adj; _ ] when
+                adj = Units.Weight.kiloGram ||
+                adj = Units.BSA.m2 ->
+                if
+                    mm2
+                    |> getVU
+                    |> Option.map ValueUnit.getUnit
+                    |> Option.map ((=) adj)
+                    |> Option.defaultValue false then Some adj
+                else None
+            | _ -> None
+        | _ -> None
+
+
     let mapRoute s =
         Mapping.routeMapping
         |> Array.tryFind(fun r -> r.Short |> String.equalsCapInsens s)
@@ -29,13 +57,13 @@ module Check =
             "" "" ""
 
 
-    let setWeightAndOrTimeUnit wu tu (mm : MinMax) =
+    let setAdjustAndOrTimeUnit adjUn tu (mm : MinMax) =
         let setUnits u =
-            match wu, tu with
+            match adjUn, tu with
             | None, None -> u
-            | Some wu, None -> u |> Units.per wu
+            | Some adj, None -> u |> Units.per adj
             | None, Some tu -> u |> Units.per tu
-            | Some wu, Some tu -> u |> Units.per wu |> Units.per tu
+            | Some adj, Some tu -> u |> Units.per adj |> Units.per tu
 
         {
             Min =
@@ -77,6 +105,8 @@ module Check =
         |> Option.map Limit.getValueUnit
         |> MinMax.inRange refRange))
         |> fun b ->
+            if not b then
+                printfn $"{testRange}\nnot in range of\n{refRange}"
             let u =
                 match testRange.Min, testRange.Max with
                 | Some l, _
@@ -188,12 +218,12 @@ module Check =
                                             |> String.equalsCapInsens g.Name
                                         )
                                         |> Option.map (fun x ->
-                                            let convert wu =
+                                            let convert adjUn =
                                                 x.TotalDosage
                                                 |> snd
                                                 |> _.TimeUnit
                                                 |> Some
-                                                |> setWeightAndOrTimeUnit wu
+                                                |> setAdjustAndOrTimeUnit adjUn
 
                                             {|
                                                 doseLimitTarget = x.Name |> String.toLower
@@ -206,21 +236,35 @@ module Check =
                                                        MinMax.empty then x.StartDosage.Abs
                                                     else x.SingleDosage.Abs
                                                 quantityAdjustNorm =
-                                                    if x.SingleDosage.NormWeight |> fst =
-                                                       MinMax.empty then x.StartDosage.NormWeight
-                                                    else x.SingleDosage.NormWeight
-                                                    |> fst
-                                                    |> setWeightAndOrTimeUnit
-                                                        (Some Units.Weight.kiloGram)
-                                                        None
+                                                    if x.SingleDosage.NormWeight |> fst = MinMax.empty then
+                                                       if x.SingleDosage.NormBSA |> fst = MinMax.empty then MinMax.empty
+                                                       else
+                                                            x.SingleDosage.NormBSA
+                                                           |> fst
+                                                           |> setAdjustAndOrTimeUnit
+                                                               (Some Units.BSA.m2)
+                                                               None
+                                                    else
+                                                        x.SingleDosage.NormWeight
+                                                        |> fst
+                                                        |> setAdjustAndOrTimeUnit
+                                                            (Some Units.Weight.kiloGram)
+                                                            None
                                                 quantityAdjustAbs =
-                                                    if x.SingleDosage.AbsWeight |> fst =
-                                                       MinMax.empty then x.StartDosage.AbsWeight
-                                                    else x.SingleDosage.AbsWeight
-                                                    |> fst
-                                                    |> setWeightAndOrTimeUnit
-                                                        (Some Units.Weight.kiloGram)
-                                                        None
+                                                    if x.SingleDosage.AbsWeight |> fst = MinMax.empty then
+                                                        if x.StartDosage.AbsBSA |> fst = MinMax.empty then MinMax.empty
+                                                        else
+                                                            x.StartDosage.AbsBSA
+                                                            |> fst
+                                                            |> setAdjustAndOrTimeUnit
+                                                                (Some Units.BSA.m2)
+                                                                None
+                                                    else
+                                                        x.SingleDosage.AbsWeight
+                                                        |> fst
+                                                        |> setAdjustAndOrTimeUnit
+                                                            (Some Units.Weight.kiloGram)
+                                                            None
                                                 perTimeNorm =
                                                     x.TotalDosage
                                                     |> fst
@@ -232,17 +276,43 @@ module Check =
                                                     |> _.Abs
                                                     |> convert None
                                                 perTimeAdjustNorm =
-                                                    x.TotalDosage
-                                                    |> fst
-                                                    |> _.NormWeight
-                                                    |> fst
-                                                    |> convert (Some Units.Weight.kiloGram)
+                                                    let normWeight =
+                                                        x.TotalDosage
+                                                        |> fst
+                                                        |> _.NormWeight
+                                                    if normWeight |> fst = MinMax.empty then
+                                                        let normBSA =
+                                                            x.TotalDosage
+                                                            |> fst
+                                                            |> _.NormBSA
+                                                        if normBSA |> fst = MinMax.empty then MinMax.empty
+                                                        else
+                                                            normBSA
+                                                            |> fst
+                                                            |> convert (Some Units.BSA.m2)
+                                                    else
+                                                        normWeight
+                                                        |> fst
+                                                        |> convert (Some Units.Weight.kiloGram)
                                                 perTimeAdjustAbs =
-                                                    x.TotalDosage
-                                                    |> fst
-                                                    |> _.AbsWeight
-                                                    |> fst
-                                                    |> convert (Some Units.Weight.kiloGram)
+                                                    let absWeight =
+                                                        x.TotalDosage
+                                                        |> fst
+                                                        |> _.AbsWeight
+                                                    if absWeight |> fst = MinMax.empty then
+                                                        let absBSA =
+                                                            x.TotalDosage
+                                                            |> fst
+                                                            |> _.AbsBSA
+                                                        if absBSA |> fst = MinMax.empty then MinMax.empty
+                                                        else
+                                                            absBSA
+                                                            |> fst
+                                                            |> convert (Some Units.BSA.m2)
+                                                    else
+                                                        absWeight
+                                                        |> fst
+                                                        |> convert (Some Units.Weight.kiloGram)
                                             |}
                                         )
                                 |}
@@ -299,34 +369,74 @@ module Check =
                         dl.genForm.Quantity
                         |> inRangeOf "keer dosering" gstand.quantityAbs
 
-                        dl.genForm.QuantityAdjust
-                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustNorm
-                        dl.genForm.QuantityAdjust
-                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustAbs
+                        match dl.genForm.QuantityAdjust |> getAdjustUnit gstand.quantityNorm with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            dl.genForm.QuantityAdjust
+                            |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustNorm
 
-                        dl.genForm.NormQuantityAdjust
-                        |> toMinMax
-                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustNorm
-                        dl.genForm.NormQuantityAdjust
-                        |> toMinMax
-                        |> inRangeOf "keer dosering per kg" gstand.quantityAdjustAbs
+                        match dl.genForm.QuantityAdjust |> getAdjustUnit gstand.quantityAdjustAbs with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            dl.genForm.QuantityAdjust
+                            |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustAbs
+
+                        let mm =
+                            dl.genForm.NormQuantityAdjust
+                            |> toMinMax
+
+                        match mm |> getAdjustUnit gstand.quantityNorm with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            mm
+                            |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustNorm
+
+                        match mm |> getAdjustUnit gstand.quantityAdjustAbs with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            mm
+                            |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustAbs
 
                         dl.genForm.PerTime
                         |> inRangeOf "dosering per tijdseenheid" gstand.perTimeNorm
                         dl.genForm.PerTime
                         |> inRangeOf "dosering per tijdseenheid" gstand.perTimeAbs
 
-                        dl.genForm.PerTimeAdjust
-                        |> inRangeOf "dosering per kg per tijdseenheid" gstand.perTimeAdjustNorm
-                        dl.genForm.PerTimeAdjust
-                        |> inRangeOf "dosering per kg per tijdseenheid"  gstand.perTimeAdjustAbs
+                        match dl.genForm.PerTimeAdjust |> getAdjustUnit gstand.perTimeAdjustNorm with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            dl.genForm.PerTimeAdjust
+                            |> inRangeOf $"dosering per %s{adj} per tijdseenheid" gstand.perTimeAdjustNorm
 
-                        dl.genForm.NormPerTimeAdjust
-                        |> toMinMax
-                        |> inRangeOf "dosering per kg per tijdseenheid"  gstand.perTimeAdjustNorm
-                        dl.genForm.NormPerTimeAdjust
-                        |> toMinMax
-                        |> inRangeOf "dosering per kg per tijdseenheid"  gstand.perTimeAdjustAbs
+                        match dl.genForm.PerTimeAdjust |> getAdjustUnit gstand.perTimeAdjustNorm with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            dl.genForm.PerTimeAdjust
+                            |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustAbs
+
+                        let mm =
+                            dl.genForm.NormPerTimeAdjust
+                            |> toMinMax
+
+                        match mm |> getAdjustUnit gstand.perTimeAdjustNorm with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            mm
+                            |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustNorm
+
+                        match mm |> getAdjustUnit gstand.perTimeAdjustNorm with
+                        | None -> ()
+                        | Some adj ->
+                            let adj = adj |> Units.toStringDutchShort
+                            mm
+                            |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustAbs
                     |]
             )
             |> Array.filter (fst >> not)

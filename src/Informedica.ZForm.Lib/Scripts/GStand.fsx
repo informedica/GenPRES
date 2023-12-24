@@ -23,9 +23,26 @@ let config =
 let path = $"{__SOURCE_DIRECTORY__}/gstand.html"
 
 
-GStand.createDoseRules config None None None None "" "" ""
+GStand.createDoseRules config None None None None "ondansetron" "" ""
 |> Seq.sortBy (fun dr -> dr.Generic |> String.toLower)
 |> Seq.map (DoseRule.toString false)
 |> String.concat "\n\n"
 |> Markdown.toHtml
 |> File.writeTextToFile path
+
+
+open Informedica.ZIndex.Lib
+
+
+{ Patient = { Age = None
+              Weight = None
+              BSA = None }
+  Product = GenericShapeRoute { Generic = "ondansetron"
+                                Shape = ""
+                                Route = "intraveneus" } }
+|> RuleFinder.find []
+|> Array.skip 2
+|> Array.take 1
+|> GStand.getSubstanceDoses config
+|> Seq.iter (printfn "%A")
+

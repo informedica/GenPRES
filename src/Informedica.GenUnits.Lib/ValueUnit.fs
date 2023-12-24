@@ -2551,6 +2551,9 @@ module ValueUnit =
     let hasZeroUnit = getUnit >> ((=) ZeroUnit)
 
 
+    let hasNoUnit = getUnit >> ((=) NoUnit)
+
+
     /// Check whether a ValueUnit is a single value
     let isSingleValue =
         getValue >> Array.length >> ((=) 1)
@@ -2908,7 +2911,10 @@ module ValueUnit =
     /// </example>
     let cmp cp vu1 vu2 =
         // ToDo need better eqsGroup like mg/kg/day = (mg/kg)/day = (mg/kg*day) <> mg/(kg/day) = mg*day/kg
-        //if vu1 |> eqsGroup vu2 |> not then false
+        if (vu1 |> hasZeroUnit |> not && vu2 |> hasZeroUnit |> not) &&
+           (vu1 |> hasNoUnit |> not && vu2 |> hasNoUnit |> not) &&
+           (vu1 |> eqsGroup vu2 |> not) then
+            failwith $"cannot compare {vu1} with {vu2}"
         //else
         let vs1 = vu1 |> toBaseValue
         let vs2 = vu2 |> toBaseValue

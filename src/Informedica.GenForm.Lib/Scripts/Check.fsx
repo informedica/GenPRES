@@ -16,10 +16,6 @@
 
 
 open System
-open MathNet.Numerics
-open Informedica.Utils.Lib.BCL
-open Informedica.GenUnits.Lib
-open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
 
 
@@ -42,6 +38,9 @@ Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
 let didNotPass =
     DoseRule.get ()
+    |> Array.filter (fun dr ->
+        dr.Generic = "ondansetron"
+    )
     |> Check.checkAll
 
 

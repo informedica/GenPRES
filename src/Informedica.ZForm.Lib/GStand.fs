@@ -100,7 +100,7 @@ module GStand =
             ((Option.map ValueUnit.weightInKg)
              >> (Optic.set MinMax.Optics.inclMinLens))
             ((Option.map ValueUnit.weightInKg)
-             >> (Optic.set MinMax.Optics.exclMaxLens))
+             >> (Optic.set MinMax.Optics.inclMaxLens))
 
 
     /// <summary>
@@ -123,7 +123,7 @@ module GStand =
             ((Option.map ValueUnit.bsaInM2)
              >> (Optic.set MinMax.Optics.inclMinLens))
             ((Option.map ValueUnit.bsaInM2)
-             >> (Optic.set MinMax.Optics.exclMaxLens))
+             >> (Optic.set MinMax.Optics.inclMaxLens))
 
 
     /// Make sure that a GSTand time string
@@ -461,11 +461,11 @@ module GStand =
             {|
                 routes =
                     ds
-                    |> Seq.collect (fun r -> r.routes)
+                    |> Seq.collect _.routes
                     |> Seq.toList
                 indications =
                     ds
-                    |> Seq.map (fun r -> r.indication)
+                    |> Seq.map _.indication
                     |> Seq.distinct
                     |> Seq.toList
                 frequencies = frs
@@ -477,7 +477,7 @@ module GStand =
                 absM2 = absM2
                 doserules =
                     ds
-                    |> Seq.map (fun r -> r.doserule)
+                    |> Seq.map _.doserule
                     |> Seq.toList
             |}
 
@@ -581,7 +581,7 @@ module GStand =
                 )
             )
         )
-        |> Seq.groupBy (fun r -> r.groupBy) // group by substance name frequency time and whether frequency = 1
+        |> Seq.groupBy _.groupBy // group by substance name frequency time and whether frequency = 1
         |> Seq.map (fun (k, mappedDoses) ->
             mappedDoses
             |> foldDosages
@@ -702,7 +702,7 @@ module GStand =
     let mergeDosages d ds =
         let rules =
             d.Rules
-            |> Seq.append (ds |> Seq.collect (fun d -> d.Rules))
+            |> Seq.append (ds |> Seq.collect _.Rules)
             |> Seq.distinct
 
         let merge d1 d2 =
@@ -877,7 +877,7 @@ module GStand =
                 indications = inds
                 routes =
                     v
-                    |> Seq.groupBy (fun r -> r.route) // group by route
+                    |> Seq.groupBy _.route // group by route
                     |> Seq.map (fun (rte, v) ->
                         {|
                             route = rte
@@ -894,10 +894,10 @@ module GStand =
                                         tradeProducts = tps
                                         patients =
                                             v
-                                            |> Seq.groupBy (fun r -> r.patientCategory)
+                                            |> Seq.groupBy _.patientCategory
                                             |> Seq.map (fun (k, v) ->
                                                 k,
-                                                v |> Seq.map (fun r -> r.dosage)
+                                                v |> Seq.map _.dosage
                                             )
 //                                            |> Seq.map (fun (_, _, _, pat, sds) -> pat, sds)
 //                                            |> groupByFst // group by patient

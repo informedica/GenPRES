@@ -290,12 +290,14 @@ type Color = {|
     A700 : string;
 |}
 
+
 type PaletteColor = {|
     main : string;
     light : string;
     dark : string;
     contrastText : string;
 |}
+
 
 [<Erase>]
 type Theme =
@@ -806,6 +808,7 @@ module TypoGraphy =
 open System.ComponentModel
 open Fable.Core.JsInterop
 
+
 [<EditorBrowsable(EditorBrowsableState.Never)>]
 module HookImports =
 
@@ -814,6 +817,7 @@ module HookImports =
 
     let useMediaQuery_theme (getQuery: Theme -> string) : bool =
         importDefault "@mui/material/useMediaQuery"
+
 
 
 [<Erase>]

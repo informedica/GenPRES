@@ -658,8 +658,10 @@ open Shared
 
 
 [<Literal>]
-let private themeDef = """createTheme({
-})"""
+let private themeDef = """
+responsiveFontSizes(createTheme())
+"""
+
 
 [<Import("createTheme", from="@mui/material/styles")>]
 [<Emit(themeDef)>]
@@ -691,6 +693,7 @@ let View () =
     JSX.jsx
         $"""
     import {{ ThemeProvider }} from '@mui/material/styles';
+    import {{ responsiveFontSizes }} from '@mui/material/styles';
     import CssBaseline from '@mui/material/CssBaseline';
     import React from "react";
     import Box from '@mui/material/Box';
