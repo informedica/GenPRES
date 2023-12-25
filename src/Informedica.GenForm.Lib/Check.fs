@@ -15,31 +15,29 @@ module Check =
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
 
 
-    let getAdjustUnit (mm1: MinMax) (mm2 : MinMax) =
-        let getVU mm =
+    let checkAdjustUnit (mm1: MinMax) (mm2 : MinMax) =
+        let getAdj mm =
             match mm.Min |> Option.map Limit.getValueUnit,
                   mm.Max |> Option.map Limit.getValueUnit with
             | Some vu, _
             | _, Some vu ->
-                vu
-                |> Some
+                match vu |> ValueUnit.getUnit |> ValueUnit.getUnits with
+                | [_; adj ]
+                | [_; adj; _ ] when
+                    adj = Units.Weight.kiloGram ||
+                    adj = Units.Weight.gram ||
+                    adj = Units.BSA.m2 -> Some adj
+                | _ -> None
             | _ -> None
 
-        match mm1 |> getVU with
-        | Some vu ->
-            match vu |> ValueUnit.getUnit |> ValueUnit.getUnits with
-            | [_; adj ]
-            | [_; adj; _ ] when
-                adj = Units.Weight.kiloGram ||
-                adj = Units.BSA.m2 ->
-                if
-                    mm2
-                    |> getVU
-                    |> Option.map ValueUnit.getUnit
-                    |> Option.map ((=) adj)
-                    |> Option.defaultValue false then Some adj
-                else None
-            | _ -> None
+        match mm1 |> getAdj with
+        | Some adj ->
+            if
+                mm2
+                |> getAdj
+                |> Option.map (ValueUnit.Group.eqsGroup adj)
+                |> Option.defaultValue false then Some adj
+            else None
         | _ -> None
 
 
@@ -375,17 +373,18 @@ module Check =
 
                     dl.genForm.Quantity
                     |> inRangeOf "keer dosering" gstand.quantityNorm
+
                     dl.genForm.Quantity
                     |> inRangeOf "keer dosering" gstand.quantityAbs
 
-                    match dl.genForm.QuantityAdjust |> getAdjustUnit gstand.quantityNorm with
+                    match dl.genForm.QuantityAdjust |> checkAdjustUnit gstand.quantityAdjustNorm with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
                         dl.genForm.QuantityAdjust
                         |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustNorm
 
-                    match dl.genForm.QuantityAdjust |> getAdjustUnit gstand.quantityAdjustAbs with
+                    match dl.genForm.QuantityAdjust |> checkAdjustUnit gstand.quantityAdjustAbs with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
@@ -396,14 +395,14 @@ module Check =
                         dl.genForm.NormQuantityAdjust
                         |> toMinMax
 
-                    match mm |> getAdjustUnit gstand.quantityNorm with
+                    match mm |> checkAdjustUnit gstand.quantityAdjustNorm with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
                         mm
                         |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustNorm
 
-                    match mm |> getAdjustUnit gstand.quantityAdjustAbs with
+                    match mm |> checkAdjustUnit gstand.quantityAdjustAbs with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
@@ -412,17 +411,18 @@ module Check =
 
                     dl.genForm.PerTime
                     |> inRangeOf "dosering per tijdseenheid" gstand.perTimeNorm
+
                     dl.genForm.PerTime
                     |> inRangeOf "dosering per tijdseenheid" gstand.perTimeAbs
 
-                    match dl.genForm.PerTimeAdjust |> getAdjustUnit gstand.perTimeAdjustNorm with
+                    match dl.genForm.PerTimeAdjust |> checkAdjustUnit gstand.perTimeAdjustNorm with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
                         dl.genForm.PerTimeAdjust
                         |> inRangeOf $"dosering per %s{adj} per tijdseenheid" gstand.perTimeAdjustNorm
 
-                    match dl.genForm.PerTimeAdjust |> getAdjustUnit gstand.perTimeAdjustNorm with
+                    match dl.genForm.PerTimeAdjust |> checkAdjustUnit gstand.perTimeAdjustAbs with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
@@ -433,14 +433,14 @@ module Check =
                         dl.genForm.NormPerTimeAdjust
                         |> toMinMax
 
-                    match mm |> getAdjustUnit gstand.perTimeAdjustNorm with
+                    match mm |> checkAdjustUnit gstand.perTimeAdjustNorm with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort
                         mm
                         |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustNorm
 
-                    match mm |> getAdjustUnit gstand.perTimeAdjustNorm with
+                    match mm |> checkAdjustUnit gstand.perTimeAdjustAbs with
                     | None -> ()
                     | Some adj ->
                         let adj = adj |> Units.toStringDutchShort

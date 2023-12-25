@@ -45,6 +45,23 @@ let selectIfOne sel xs =
     | _ -> sel
 
 
+let checkDoseRules (dsrs : DoseRule []) =
+    let empt, rs =
+        dsrs
+        |> Array.map Check.checkDoseRule
+        |> Array.partition (fun c -> c.zindex |> Array.isEmpty)
+
+    rs
+    |> Array.filter (_.didNotPass >> Array.isEmpty >> not)
+    |> Array.collect _.didNotPass
+    |> Array.filter String.notEmpty
+    |> Array.append [|
+        for e in empt do
+            $"geen doseer bewaking gevonden voor {e.doseRule.Generic}"
+    |]
+    |> Array.distinct
+
+
 let get (form : Formulary) =
     let filter = form |> mapFormularyToFilter
     // ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true true
@@ -74,7 +91,7 @@ let get (form : Formulary) =
                     | Some _, Some _, Some _ ->
                         let s =
                             dsrs
-                            |> Check.checkAll
+                            |> checkDoseRules
                             |> Array.map (fun s ->
                                 match s |> String.split "\t" with
                                 | [_; _; _; s] -> s
