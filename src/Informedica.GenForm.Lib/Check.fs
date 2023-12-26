@@ -15,6 +15,9 @@ module Check =
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
 
 
+    let unitToString = Units.toStringDutchShort >> String.removeBrackets
+
+
     let checkAdjustUnit (mm1: MinMax) (mm2 : MinMax) =
         let getAdj mm =
             match mm.Min |> Option.map Limit.getValueUnit,
@@ -94,6 +97,20 @@ module Check =
 
 
     let inRangeOf sn (refRange : MinMax) (testRange : MinMax) =
+        let getTimeUnit mm =
+            match mm.Min |> Option.map Limit.getValueUnit,
+                  mm.Max |> Option.map Limit.getValueUnit with
+            | Some vu, _
+            | _, Some vu ->
+                match vu |> ValueUnit.getUnit |> ValueUnit.getUnits with
+                | [_; tu ]
+                | [_; _; tu ] when
+                    tu |> ValueUnit.Group.eqsGroup Units.Time.day -> Some tu
+                | _ -> None
+            | _ -> None
+            |> Option.map unitToString
+            |> Option.defaultValue ""
+
         ((testRange.Min |> Option.isNone ||
         testRange.Min
         |> Option.map Limit.getValueUnit
@@ -103,8 +120,6 @@ module Check =
         |> Option.map Limit.getValueUnit
         |> MinMax.inRange refRange))
         |> fun b ->
-            if not b then
-                printfn $"{testRange}\nnot in range of\n{refRange}"
             let u =
                 match testRange.Min, testRange.Max with
                 | Some l, _
@@ -126,7 +141,9 @@ module Check =
                     }
                 |> MinMax.toString "min " "min " "max " "max "
             if not b then
-                b, $"{sn} {testRange |> toStr} niet in bereik van {refRange |> toStr}"
+                b,
+                $"{sn} {testRange |> toStr} niet in bereik van {refRange |> toStr}"
+                |> String.replace "<TIMEUNIT>" (refRange |> getTimeUnit)
             else b, ""
 
 
@@ -380,14 +397,14 @@ module Check =
                     match dl.genForm.QuantityAdjust |> checkAdjustUnit gstand.quantityAdjustNorm with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         dl.genForm.QuantityAdjust
                         |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustNorm
 
                     match dl.genForm.QuantityAdjust |> checkAdjustUnit gstand.quantityAdjustAbs with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         dl.genForm.QuantityAdjust
                         |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustAbs
 
@@ -398,36 +415,36 @@ module Check =
                     match mm |> checkAdjustUnit gstand.quantityAdjustNorm with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         mm
                         |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustNorm
 
                     match mm |> checkAdjustUnit gstand.quantityAdjustAbs with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         mm
                         |> inRangeOf $"keer dosering per %s{adj}" gstand.quantityAdjustAbs
 
                     dl.genForm.PerTime
-                    |> inRangeOf "dosering per tijdseenheid" gstand.perTimeNorm
+                    |> inRangeOf "dosering per <TIMEUNIT>" gstand.perTimeNorm
 
                     dl.genForm.PerTime
-                    |> inRangeOf "dosering per tijdseenheid" gstand.perTimeAbs
+                    |> inRangeOf "dosering per <TIMEUNIT>" gstand.perTimeAbs
 
                     match dl.genForm.PerTimeAdjust |> checkAdjustUnit gstand.perTimeAdjustNorm with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         dl.genForm.PerTimeAdjust
-                        |> inRangeOf $"dosering per %s{adj} per tijdseenheid" gstand.perTimeAdjustNorm
+                        |> inRangeOf $"dosering per %s{adj} per <TIMEUNIT>" gstand.perTimeAdjustNorm
 
                     match dl.genForm.PerTimeAdjust |> checkAdjustUnit gstand.perTimeAdjustAbs with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         dl.genForm.PerTimeAdjust
-                        |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustAbs
+                        |> inRangeOf $"dosering per %s{adj} per <TIMEUNIT>"  gstand.perTimeAdjustAbs
 
                     let mm =
                         dl.genForm.NormPerTimeAdjust
@@ -436,16 +453,16 @@ module Check =
                     match mm |> checkAdjustUnit gstand.perTimeAdjustNorm with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         mm
-                        |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustNorm
+                        |> inRangeOf $"dosering per %s{adj} per <TIMEUNIT>"  gstand.perTimeAdjustNorm
 
                     match mm |> checkAdjustUnit gstand.perTimeAdjustAbs with
                     | None -> ()
                     | Some adj ->
-                        let adj = adj |> Units.toStringDutchShort
+                        let adj = adj |> unitToString
                         mm
-                        |> inRangeOf $"dosering per %s{adj} per tijdseenheid"  gstand.perTimeAdjustAbs
+                        |> inRangeOf $"dosering per %s{adj} per <TIMEUNIT>"  gstand.perTimeAdjustAbs
                 |]
         )
         |> Array.filter (fst >> not)
