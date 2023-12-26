@@ -16,7 +16,7 @@ Shared.ScenarioResult.empty
         AgeInDays =  Some (18. * 365.)
         WeightInKg =  Some 70.
         HeightInCm =  Some 180.
-        Medication = Some "gentamicine"
+        Medication = Some "benzylpenicilline"
         Route = Some "iv"
     }
 |> serverApi.getScenarioResult

@@ -142,13 +142,15 @@ stopLogger ()
 let setAge a (pat : Patient) =
     { pat with Age = Some a }
 
+
 let pat =
-    Patient.newBorn
+    Patient.infant
     |> setAge
-        (Units.Time.day |> ValueUnit.singleWithValue 0N)
+        (Units.Time.year |> ValueUnit.singleWithValue 1N)
 
 
 PatientCategory.filter
+
 
 Informedica.GenForm.Lib.DoseRule.get ()
 |> DoseRule.filter
@@ -157,8 +159,8 @@ Informedica.GenForm.Lib.DoseRule.get ()
         Patient = pat
     }
 |> Array.filter (fun dr ->
-    dr.Generic = "paracetamol" &&
-    dr.Route = "rect"
+    dr.Generic = "benzylpenicilline" &&
+    dr.Route = "iv"
 )
 //|> DoseRule.Print.toMarkdown
 //|> Array.skip 2
@@ -214,7 +216,7 @@ Patient.newBorn
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
     pr.DoseRule.Route = "iv" &&
-    pr.DoseRule.Generic = "amikacine"
+    pr.DoseRule.Generic = "benzylpenicilline"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
@@ -271,7 +273,7 @@ Patient.newBorn
             // |> printfn "%s"
         | Ok ord  ->
             ord
-            |> Order.Print.printOrderToString true [|"vancomycine"|]
+            |> Order.Print.printOrderToString true [|"benzylpenicilline"|]
             |> fun (prs, prep, adm) -> printfn $"{prs}"
             // ord
             // |> Order.toString

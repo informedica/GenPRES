@@ -428,7 +428,7 @@ let print (sc: ScenarioResult) =
                         |> Option.map (fun ord ->
                             let sn =
                                 ord.Orderable.Components
-                                |> Array.collect (fun c -> c.Items |> Array.map (fun i -> i.Name))
+                                |> Array.collect (fun c -> c.Items |> Array.map _.Name)
 
                             ord
                             |> mapFromOrder

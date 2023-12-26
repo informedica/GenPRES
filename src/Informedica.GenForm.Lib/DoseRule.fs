@@ -8,7 +8,7 @@ module DoseRule =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
-
+    open Utils
 
     module DoseLimit =
 

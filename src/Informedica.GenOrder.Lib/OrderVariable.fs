@@ -75,11 +75,17 @@ module OrderVariable =
 
         let toMinMaxString prec (cs : Constraints) =
             let toStr = ValueUnit.toStringDecimalDutchShortWithPrec prec
+            let toVal =
+                ValueUnit.getValue
+                >> Array.tryHead
+                >> Option.map BigRational.toDecimal
+                >> Option.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3)
+                >> Option.defaultValue ""
 
             match cs.Min |> Option.map Minimum.toValueUnit,
                   cs.Max |> Option.map Maximum.toValueUnit with
             | Some min, Some max ->
-                $"{min |> toStr} - {max |> toStr}"
+                $"{min |> toVal} - {max |> toStr}"
             | _ -> ""
 
 

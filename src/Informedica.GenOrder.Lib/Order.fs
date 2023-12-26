@@ -1932,6 +1932,8 @@ module Order =
 
     module Print =
 
+        open Utils
+
         let itemConcentrationTo toStr (c : Component) =
             c.Items
             |> Seq.map (fun i ->

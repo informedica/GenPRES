@@ -595,13 +595,24 @@ module Variable =
             /// <summary>
             /// Get the markdown representation of a `Minimum`.
             /// </summary>
+            /// <param name="withUnit">whether or not to print the unit</param>
             /// <param name="prec">The precision</param>
             /// <param name="min">The minimum</param>
-            let toMarkdown prec min =
+            let toMarkdown withUnit prec min =
                 let b, vu = min |> toBoolValueUnit
 
+                let s =
+                    $"""{if b then "[" else "<"}{vu |> ValueUnit.toDelimitedString prec}"""
 
-                $"""{if b then "[" else "<"}{vu |> ValueUnit.toDelimitedString prec}"""
+                if withUnit then s
+                else
+                    let u =
+                        vu
+                        |> ValueUnit.getUnit
+                        |> Units.toStringDutchShort
+                        |> String.removeBrackets
+                    s
+                    |> String.replace $"|{u}|" ""
 
 
 
@@ -2419,14 +2430,14 @@ module Variable =
 
                 else
                     let printRange min max =
-                        let minToStr = Minimum.toMarkdown prec
+                        let minToStr withUnit = Minimum. toMarkdown withUnit prec
                         let maxToStr = Maximum.toMarkdown prec
 
                         match min, max with
                         | None, None -> $""
-                        | Some min, None -> $"{min |> minToStr} .."
+                        | Some min, None -> $"{min |> minToStr true} .."
                         | None, Some max -> $".. {max |> maxToStr}"
-                        | Some min, Some max -> $"{min |> minToStr} .. {max |> maxToStr}"
+                        | Some min, Some max -> $"{min |> minToStr false} .. {max |> maxToStr}"
 
                     match vs with
                     | Some vs -> $"{vs |> ValueSet.toMarkdown prec}"
