@@ -96,7 +96,7 @@ module Check =
         }
 
 
-    let inRangeOf sn (refRange : MinMax) (testRange : MinMax) =
+    let checkInRangeOf sn (refRange : MinMax) (testRange : MinMax) =
         let getTimeUnit mm =
             match mm.Min |> Option.map Limit.getValueUnit,
                   mm.Max |> Option.map Limit.getValueUnit with
@@ -143,7 +143,7 @@ module Check =
             if not b then
                 b,
                 $"{sn} {testRange |> toStr} niet in bereik van {refRange |> toStr}"
-                |> String.replace "<TIMEUNIT>" (refRange |> getTimeUnit)
+                |> String.replace "<TIMEUNIT>" (testRange |> getTimeUnit)
             else b, ""
 
 
@@ -243,7 +243,9 @@ module Check =
                                             |> setAdjustAndOrTimeUnit adjUn
 
                                         {|
-                                            doseLimitTarget = x.Name |> String.toLower
+                                            doseLimitTarget =
+                                                dl.DoseLimitTarget
+                                                |> DoseRule.DoseLimit.doseLimitTargetToString
                                             quantityNorm =
                                                 if x.SingleDosage.Norm =
                                                    MinMax.empty then x.StartDosage.Norm
@@ -349,9 +351,9 @@ module Check =
             match dl.gstand with
             | None -> [| true, "" |]
             | Some gstand ->
-                let s = m.doseRule.PatientCategory |> PatientCategory.toString
+                let p = m.doseRule.PatientCategory |> PatientCategory.toString
                 let r = m.doseRule.Route
-                let inRangeOf m = inRangeOf $"{gstand.doseLimitTarget}\t{r}\t{s}\t{m}: "
+                let inRangeOf m = checkInRangeOf $"{gstand.doseLimitTarget}\t{r}\t{p}\t{m}: "
 
                 let toMinMax vuOpt =
                     {
@@ -384,7 +386,7 @@ module Check =
                                 |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 0)
                                 |> Option.defaultValue ""
                             b,
-                            $"{gstand.doseLimitTarget}\t{r}\t{s}\tfreqenties niet gelijk {s1} aan {s2}"
+                            $"{gstand.doseLimitTarget}\t{r}\t{p}\tfreqenties niet gelijk {s1} aan {s2}"
                         else b, ""
 
 

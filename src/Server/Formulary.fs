@@ -55,11 +55,15 @@ let checkDoseRules (dsrs : DoseRule []) =
     |> Array.filter (_.didNotPass >> Array.isEmpty >> not)
     |> Array.collect _.didNotPass
     |> Array.filter String.notEmpty
-    |> Array.append [|
-        for e in empt do
-            $"geen doseer bewaking gevonden voor {e.doseRule.Generic}"
-    |]
     |> Array.distinct
+    |> function
+        | [||] ->
+            [|
+                for e in empt do
+                    $"geen doseer bewaking gevonden voor {e.doseRule.Generic}"
+            |]
+            |> Array.distinct
+        | xs -> xs
 
 
 let get (form : Formulary) =
@@ -94,7 +98,7 @@ let get (form : Formulary) =
                             |> checkDoseRules
                             |> Array.map (fun s ->
                                 match s |> String.split "\t" with
-                                | [_; _; _; s] -> s
+                                | [s1; _; _; s2] -> $"{s1} {s2}"
                                 | _ -> s
                             )
                             |> Array.map (fun s -> $"* {s}")
