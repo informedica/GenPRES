@@ -23,12 +23,15 @@ module Utils =
         let [<Literal>] private dataUrlIdGenPres = "1AEVYnqjAbVniu3VuczeoYvMu3RRBu930INhr3QzSDYQ"
 
 
-        let getDataUrlIdGenPres () =
+        let private getDataUrlId () =
             Env.getItem "GENPRES_URL_ID"
             |> Option.defaultValue  dataUrlIdGenPres
             |> fun s  ->
                 ConsoleWriter.writeInfoMessage $"using: {s}" true false
                 s
+
+
+        let getDataUrlIdGenPres = Memoization.memoize getDataUrlId
 
 
         /// <summary>
