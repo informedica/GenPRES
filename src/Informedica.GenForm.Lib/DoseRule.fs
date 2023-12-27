@@ -643,26 +643,29 @@ module DoseRule =
     /// <param name="filter">The Filter</param>
     /// <param name="drs">The DoseRule array</param>
     let filter (filter : Filter) (drs : DoseRule array) =
-        let eqs a b =
-            a
-            |> Option.map (fun x -> x = b)
-            |> Option.defaultValue true
+        // if the filter is 'empty' just return all
+        if filter = Filter.filter then drs
+        else
+            let eqs a b =
+                a
+                |> Option.map (fun x -> x = b)
+                |> Option.defaultValue true
 
-        [|
-            fun (dr : DoseRule) -> dr.Indication |> eqs filter.Indication
-            fun (dr : DoseRule) -> dr.Generic |> eqs filter.Generic
-            fun (dr : DoseRule) -> dr.Shape |> eqs filter.Shape
-            fun (dr : DoseRule) -> dr.Route |> eqs filter.Route
-            fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
-            fun (dr : DoseRule) ->
-                match filter.DoseType, dr.DoseType with
-                | AnyDoseType, _
-                | _, AnyDoseType -> true
-                | _ -> filter.DoseType = dr.DoseType
-        |]
-        |> Array.fold (fun (acc : DoseRule[]) pred ->
-            acc |> Array.filter pred
-        ) drs
+            [|
+                fun (dr : DoseRule) -> dr.Indication |> eqs filter.Indication
+                fun (dr : DoseRule) -> dr.Generic |> eqs filter.Generic
+                fun (dr : DoseRule) -> dr.Shape |> eqs filter.Shape
+                fun (dr : DoseRule) -> dr.Route |> eqs filter.Route
+                fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
+                fun (dr : DoseRule) ->
+                    match filter.DoseType, dr.DoseType with
+                    | AnyDoseType, _
+                    | _, AnyDoseType -> true
+                    | _ -> filter.DoseType = dr.DoseType
+            |]
+            |> Array.fold (fun (acc : DoseRule[]) pred ->
+                acc |> Array.filter pred
+            ) drs
 
 
     let private getMember getter (drs : DoseRule[]) =
