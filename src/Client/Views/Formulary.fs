@@ -72,28 +72,38 @@ module Formulary =
                 }
 
             match msg with                
-            | GenericChange s ->
-                match formulary with
-                | Resolved form ->
-                    if s |> Option.isNone then Formulary.empty
-                    else
-                        { form with Generic = s }
-                    |> updateFormulary
-                | _ -> ()
-
-                { state with Generic = s }, Cmd.none
-
             | IndicationChange s ->
                 printfn $"indication change {s}"
                 match formulary with
                 | Resolved form ->
-                    if s |> Option.isNone then Formulary.empty
+                    if s |> Option.isNone then 
+                        { form with 
+                            Indication = None
+                            Indications = [||] 
+                        }
                     else
                         { form with Indication = s }
                     |> updateFormulary
                 | _ -> ()
 
                 { state with Indication = s }, Cmd.none
+
+            | GenericChange s ->
+                match formulary with
+                | Resolved form ->
+                    if s |> Option.isNone then 
+                        { form with 
+                            Generic = None
+                            Generics = [||]
+                            Indication = None
+                            Indications = [||] 
+                        }
+                    else
+                        { form with Generic = s }
+                    |> updateFormulary
+                | _ -> ()
+
+                { state with Generic = s }, Cmd.none
 
             | RouteChange s ->
                 match formulary with

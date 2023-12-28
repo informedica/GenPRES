@@ -68,12 +68,14 @@ let checkDoseRules (dsrs : DoseRule []) =
 
 let get (form : Formulary) =
     let filter = form |> mapFormularyToFilter
-    // ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true true
+    //ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true false
 
     let dsrs =
         DoseRule.get ()
         |> DoseRule.filter filter
-
+    if dsrs |> Array.length = 2 then
+        printfn $"{dsrs |> Array.toList}"
+    printfn $"found: {dsrs |> Array.length} dose rules"
     let form =
         { form with
             Generics = dsrs |> DoseRule.generics
@@ -98,7 +100,10 @@ let get (form : Formulary) =
                             |> checkDoseRules
                             |> Array.map (fun s ->
                                 match s |> String.split "\t" with
-                                | [s1; _; _; s2] -> $"{s1} {s2}"
+                                | [s1; _; p; s2] ->
+                                    if dsrs |> Array.length = 1 then $"{s1} {s2}"
+                                    else
+                                        $"{s1} {p} {s2}"
                                 | _ -> s
                             )
                             |> Array.map (fun s -> $"* {s}")
@@ -106,7 +111,6 @@ let get (form : Formulary) =
                             |> fun s -> if s |> String.isNullOrWhiteSpace then "Ok!" else s
 
                         dsrs
-                        |> DoseRule.filter filter
                         |> DoseRule.Print.toMarkdown
                         |> fun md ->
                             $"{md}\n\n## Dose Check\n\n{s}"

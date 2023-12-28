@@ -229,7 +229,7 @@ module DoseRule =
                     $"\n\n##### Patient: **%s{patient}**\n\n%s{diagn}"
 
             let printDoses (rules : DoseRule array) =
-                ("", rules |> Array.groupBy (fun d -> d.DoseType))
+                ("", rules |> Array.groupBy _.DoseType)
                 ||> Array.fold (fun acc (dt, ds) ->
                     let dose =
                         if ds |> Array.isEmpty then ""
@@ -334,7 +334,7 @@ module DoseRule =
                                             else
                                                 (r, r.rules
                                                     |> Array.sortBy (fun d -> d.PatientCategory |> PatientCategory.sortBy)
-                                                    |> Array.groupBy (fun d -> d.PatientCategory))
+                                                    |> Array.groupBy _.PatientCategory)
                                                 ||> Array.fold (fun acc (pat, rs) ->
                                                     let doses =
                                                         rs
@@ -355,7 +355,7 @@ module DoseRule =
                                     )
                         )
             )
-            |> fun r -> r.md
+            |> (_.md)
 
 
         let printGenerics generics (doseRules : DoseRule[]) =
@@ -369,7 +369,6 @@ module DoseRule =
             )
 
 
-    open Utils
     open Informedica.GenUnits.Lib
 
 
@@ -656,7 +655,9 @@ module DoseRule =
                 fun (dr : DoseRule) -> dr.Generic |> eqs filter.Generic
                 fun (dr : DoseRule) -> dr.Shape |> eqs filter.Shape
                 fun (dr : DoseRule) -> dr.Route |> eqs filter.Route
-                fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
+                // don't filter on patients if patient is not set
+                if filter.Patient = Patient.patient |> not then
+                    fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
                 fun (dr : DoseRule) ->
                     match filter.DoseType, dr.DoseType with
                     | AnyDoseType, _

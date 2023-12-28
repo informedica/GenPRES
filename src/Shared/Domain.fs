@@ -510,6 +510,17 @@ module Patient =
 
                     w, h
 
+            let weight =
+                if weight |> Option.isSome then weight
+                else
+                    ew
+                    |> Option.map (Math.fixPrecision 2)
+
+            let height =
+                if height |> Option.isSome then height
+                else
+                    eh
+                    |> Option.map (Math.fixPrecision 0)
             {
                 Age = a
                 GestationalAge = ga
