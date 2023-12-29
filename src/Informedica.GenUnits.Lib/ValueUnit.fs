@@ -255,7 +255,7 @@ module Parser =
                 .>>. (pUnitGroup r.unit g >>% r.f)
                 |>> (fun (f, u) ->
                     f
-                    |> Option.map (decimal >> BigRational.fromDecimal)
+                    |> Option.bind BigRational.fromFloat
                     |> Option.defaultValue 1N |> u
                 )
             )
@@ -1440,6 +1440,12 @@ module Units =
         |> sprintf "%s[%s]" u
 
 
+    let groupIsGeneralOrNone s =
+        let xs = (String.regex "[^\[\]]+(?=\])").Matches(s)
+        xs
+        |> Seq.map _.Value
+        |> Seq.forall (String.equalsCapInsens "general")
+
 
     /// <summary>
     /// Creates a Unit from a string s, if possible
@@ -1471,7 +1477,10 @@ module Units =
                     | Failure _ ->
                         if s |> String.isNullOrWhiteSpace then None
                         else
+                            if s |> groupIsGeneralOrNone |> not then
+                                failwith $"invalid unit group {s}"
                             s
+                            |> String.removeBrackets
                             |> Units.General.general
                             |> Some
                 )

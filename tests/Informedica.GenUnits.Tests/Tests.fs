@@ -270,6 +270,15 @@ module Tests =
                 |> Expect.equal "should be equal" "4 weken[Time]"
             }
 
+            test "unit with invalid group should throw exception" {
+                fun () ->
+                    "day[Invalid]"
+                    |> Units.fromString
+                    |> fun u -> printfn $"{u}"; u
+                    |> ignore
+                |> Expect.throws "should throw an exception"
+            }
+
         ]
 
 

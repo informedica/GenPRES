@@ -397,6 +397,67 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
+    let mapToDoseRule (r : {| AdjustUnit: string; Department: string; Diagn: string; DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string |}) =
+        try
+            {
+                Indication = r.Indication
+                Generic = r.Generic
+                Shape = r.Shape
+                Route = r.Route
+                PatientCategory =
+                    {
+                        Department =
+                            if r.Department |> String.isNullOrWhiteSpace then None
+                            else
+                                r.Department |> Some
+                        Diagnoses = [| r.Diagn |] |> Array.filter String.notEmpty
+                        Gender = r.Gender
+                        Age =
+                            (r.MinAge, r.MaxAge)
+                            |> fromTupleInclExcl (Some Utils.Units.day)
+                        Weight =
+                            (r.MinWeight, r.MaxWeight)
+                            |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                        BSA =
+                            (r.MinBSA, r.MaxBSA)
+                            |> fromTupleInclExcl (Some Utils.Units.bsaM2)
+                        GestAge =
+                            (r.MinGestAge, r.MaxGestAge)
+                            |> fromTupleInclExcl (Some Utils.Units.day)
+                        PMAge =
+                            (r.MinPMAge, r.MaxPMAge)
+                            |> fromTupleInclExcl (Some Utils.Units.day)
+                        Location = AnyAccess
+                    }
+                DoseType = r.DoseType
+                AdjustUnit = r.AdjustUnit |> Units.adjustUnit
+                Frequencies =
+                    match r.FreqUnit |> Units.freqUnit with
+                    | None -> None
+                    | Some u ->
+                        r.Frequencies
+                        |> ValueUnit.withUnit u
+                        |> Some
+                AdministrationTime =
+                    (r.MinTime, r.MaxTime)
+                    |> fromTupleInclIncl (r.TimeUnit |> Utils.Units.timeUnit)
+                IntervalTime =
+                    (r.MinInterval, r.MaxInterval)
+                    |> fromTupleInclIncl (r.IntervalUnit |> Utils.Units.timeUnit)
+                Duration =
+                    (r.MinDur, r.MaxDur)
+                    |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
+                DoseLimits = [||]
+                Products = [||]
+            }
+            |> Some
+        with
+        | e ->
+            printfn $"{e}"
+            printfn $"cannot map {r}"
+            None
+
+
     let private get_ () =
         let dataUrlId = Web.getDataUrlIdGenPres ()
         Web.getDataFromSheet dataUrlId "DoseRules"
@@ -462,7 +523,9 @@ module DoseRule =
                     MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                 |}
             )
-            |> Array.groupBy (fun r ->
+            |> Array.groupBy mapToDoseRule
+                (*
+                fun r ->
                 {
                     Indication = r.Indication
                     Generic = r.Generic
@@ -515,6 +578,9 @@ module DoseRule =
                     Products = [||]
                 }
             )
+                *)
+            |> Array.filter (fst >> Option.isSome)
+            |> Array.map (fun (dr, rs) -> dr.Value, rs)
             |> Array.map (fun (dr, rs) ->
                 { dr with
                     DoseLimits =
