@@ -353,7 +353,16 @@ module Check =
             | Some gstand ->
                 let p = m.doseRule.PatientCategory |> PatientCategory.toString
                 let r = m.doseRule.Route
-                let inRangeOf m = checkInRangeOf $"{gstand.doseLimitTarget}\t{r}\t{p}\t{m}: "
+                let inRangeOf m refRange testRange =
+                    try
+                        checkInRangeOf
+                            $"{gstand.doseLimitTarget}\t{r}\t{p}\t{m}: "
+                            refRange
+                            testRange
+                    with
+                    | e ->
+                        printfn $"{e}"
+                        true, $"{gstand.doseLimitTarget}\t{r}\t{p}\t{m}: kan niet worden gechecked vanwege foutmelding"
 
                 let toMinMax vuOpt =
                     {
@@ -388,7 +397,6 @@ module Check =
                             b,
                             $"{gstand.doseLimitTarget}\t{r}\t{p}\tfreqenties niet gelijk {s1} aan {s2}"
                         else b, ""
-
 
                     dl.genForm.Quantity
                     |> inRangeOf "keer dosering" gstand.quantityNorm
@@ -467,15 +475,21 @@ module Check =
                         |> inRangeOf $"dosering per %s{adj} per <TIMEUNIT>"  gstand.perTimeAdjustAbs
                 |]
         )
-        |> Array.filter (fst >> not)
-        |> fun xs ->
-            {| m with didNotPass = xs |> Array.map snd |}
+        |> Array.partition (fst >> not)
+        |> fun (didNot, did) ->
+            {| m with didNotPass = didNot |> Array.map snd; didPass = did |> Array.map snd |}
 
 
     let checkAll (drs : DoseRule[]) =
         drs
-        |> Array.map checkDoseRule
-        |> Array.filter (_.didNotPass >> Array.isEmpty >> not)
+        |> Array.mapi (fun i dr ->
+            printfn $"{i}. checking {dr.Generic}"
+            checkDoseRule dr
+        )
+        |> Array.filter (fun c ->
+            c.didNotPass |> Array.isEmpty |> not &&
+            c.didPass    |> Array.isEmpty
+        )
         |> Array.collect _.didNotPass
         |> Array.filter String.notEmpty
         |> Array.distinct

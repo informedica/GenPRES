@@ -3,6 +3,7 @@
 #r "nuget: Aether"
 #r "nuget: FsToolkit.ErrorHandling"
 #r "nuget: Validus"
+#r "nuget: FParsec"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net8.0/Informedica.Utils.Lib.dll"

@@ -39,10 +39,11 @@ Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 let didNotPass =
     DoseRule.get ()
     |> Array.filter (fun dr ->
-        dr.Generic = "ondansetron"
+        true //dr.Generic = "ondansetron"
     )
     |> Check.checkAll
 
 
-didNotPass
+didNotPass |> Array.length
 |> Array.iter (printfn "%s")
+

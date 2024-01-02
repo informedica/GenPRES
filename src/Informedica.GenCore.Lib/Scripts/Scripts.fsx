@@ -272,3 +272,59 @@ module ValueUnitScripts =
     ValueUnit.Calculations.Age.ageToStringNL (Some y) None (Some w) (Some d)
     ValueUnit.Calculations.Age.ageToStringNLShort (Some y) None  (Some w) (Some d)
     ValueUnit.Calculations.Age.ageToStringNLShort None (Some m) (Some w) (Some d)
+
+
+open MathNet.Numerics
+open Informedica.GenUnits.Lib
+open Informedica.GenCore.Lib.Ranges
+
+
+let foldMaximize = MinMax.foldMaximize true true
+
+// a Minimum
+
+[
+    MinMax.create
+        None
+        None
+    MinMax.create
+        None
+        (Some (1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.exclusive))
+]
+|> foldMaximize
+
+
+[
+    MinMax.create
+        None
+        (Some (10N |> ValueUnit.singleWithUnit Units.Mass.gram |> Limit.exclusive))
+    MinMax.create
+        None
+        (Some (2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.exclusive))
+    MinMax.create
+        None
+        (Some (1N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.exclusive))
+    MinMax.create
+        None
+        (Some (2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.inclusive))
+
+]
+|> foldMaximize
+
+
+[
+    MinMax.create
+        (Some (1N |> ValueUnit.singleWithUnit Units.Mass.gram |> Limit.exclusive))
+        (Some (10N |> ValueUnit.singleWithUnit Units.Mass.gram |> Limit.exclusive))
+    MinMax.create
+        (Some (1N |> ValueUnit.singleWithUnit Units.Mass.gram |> Limit.inclusive))
+        (Some (2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.exclusive))
+    MinMax.create
+        None
+        (Some (1N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.exclusive))
+    MinMax.create
+        (Some (1N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.exclusive))
+        (Some (2N |> ValueUnit.singleWithUnit Units.Mass.kiloGram |> Limit.inclusive))
+
+]
+|> foldMaximize

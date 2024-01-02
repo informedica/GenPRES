@@ -276,6 +276,7 @@ module GStand =
                     name = n
                     time = gstdsr.Freq.Time
                     isOne = gstdsr.Freq.Frequency = 1.
+                    unitGroup = unit |> ValueUnit.Group.unitToGroup
                 |}
             routes = gstdsr.Routes |> Array.toList
             indication = gstdsr.Indication
@@ -363,15 +364,8 @@ module GStand =
 
     // fold maximize with preservation of min
     let foldMaximize (mm: MinMax) (mm_: MinMax) =
-        match mm.Min, mm.Min with
-        | Some m, None
-        | None, Some m ->
-            [
-                mm |> MinMax.setMin (Some m)
-                mm_ |> MinMax.setMin (Some m)
-            ]
-        | _ -> [ mm; mm_ ]
-        |> MinMax.foldMaximize
+        [mm; mm_]
+        |> MinMax.foldMaximize true true
 
 
     /// <summary>
@@ -387,7 +381,8 @@ module GStand =
                 frequency: ValueUnit
                 groupBy: {| isOne: bool
                             name: string
-                            time: string |}
+                            time: string
+                            unitGroup : Group.Group |}
                 indication: string
                 normDose: MinMax
                 normM2: MinMax

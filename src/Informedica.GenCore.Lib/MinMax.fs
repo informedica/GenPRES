@@ -583,34 +583,55 @@ module MinMax =
     /// Calculate the resulting `MinMax` value
     /// based on a list of `MinMax` values according
     /// to a conditioning rule `cond`.
-    let foldCond cond (mms: MinMax list) =
-        let condMax m1 m2 = cond m2 m1
-
+    let foldCond presMin presMax minCond maxCond (mms: MinMax list) =
         mms
         |> List.fold
             (fun acc mm ->
                 match mm.Min, mm.Max with
-                | None, None -> acc
-                | Some min, None -> setMinCond cond min acc
-                | None, Some max -> setMaxCond condMax max acc
+                | None, None ->
+                    match presMin, presMax with
+                    | true, true -> acc
+                    | true, false ->
+                        empty
+                        |> setMin acc.Min
+                    | false, true ->
+                        empty
+                        |> setMax acc.Max
+                    | false, false -> empty
+                | Some min, None ->
+                    if presMin then setMinCond minCond min acc
+                    else
+                        setMinCond minCond min acc
+                        |> setMax None
+                | None, Some max ->
+                    if presMax then setMaxCond maxCond max acc
+                    else
+                        setMaxCond maxCond max acc
+                        |> setMin None
                 | Some min, Some max ->
                     acc
-                    |> setMinCond cond min
-                    |> setMaxCond condMax max
+                    |> setMinCond minCond min
+                    |> setMaxCond maxCond max
             )
             empty
 
 
     /// Calculate the smallest range from
     /// a list of `MinMax` values.
-    let foldMinimize =
-        foldCond (Limit.gt true false)
+    let foldMinimize presMin presMax =
+        foldCond
+            presMin presMax
+            (Limit.gt true true)
+            (Limit.st false false)
 
 
     /// Calculate the largest range from
     /// a list of `MinMax` values.
-    let foldMaximize =
-        foldCond (Limit.st true false)
+    let foldMaximize presMin presMax =
+        foldCond
+            presMin presMax
+            (Limit.st true true)
+            (Limit.gt false false)
 
 
     /// Check whether a value `v` is in

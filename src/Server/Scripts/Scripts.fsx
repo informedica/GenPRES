@@ -1,7 +1,10 @@
 
 #load "load.fsx"
 
+open System
 
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1S4hXyqksDMYD0veSvUjwWTRb8Imm8nSa_yeYauqSbh0")
 
 let logger = Informedica.GenOrder.Lib.OrderLogger.logger
 
@@ -97,3 +100,14 @@ open Informedica.GenForm.Lib
 SolutionRule.get ()
 |> SolutionRule.filter
     Filter.filter
+
+
+Shared.Formulary.empty
+|> fun sc ->
+    { sc with
+        Generic = Some "benzylpenicilline"
+        Route = Some "iv"
+        Indication = Some "meningitis"
+    }
+|> serverApi.getFormulary
+|> Async.RunSynchronously
