@@ -405,6 +405,9 @@ module Tests =
 
         // ToDo handle None cases correctly?
         let testFold () =
+            let maximize = MinMax.foldMaximize true true
+            let minimize = MinMax.foldMinimize true true
+
             let mms =
                 [
                     MinMax.empty
@@ -426,7 +429,7 @@ module Tests =
                     |> MinMax.setMax mgIncl40
                 ]
 
-            mms |> MinMax.foldMaximize |> mmToStr, mms |> MinMax.foldMinimize |> mmToStr
+            mms |> maximize |> mmToStr, mms |> minimize |> mmToStr
 
 
         let inRange =
