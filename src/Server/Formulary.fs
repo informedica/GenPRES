@@ -49,7 +49,10 @@ let checkDoseRules (dsrs : DoseRule []) =
     let empt, rs =
         dsrs
         |> Array.map Check.checkDoseRule
-        |> Array.partition (fun c -> c.zindex |> Array.isEmpty)
+        |> Array.partition (fun c ->
+            c.didPass |> Array.isEmpty &&
+            c.didNotPass |> Array.isEmpty
+        )
 
     rs
     |> Array.filter (_.didNotPass >> Array.isEmpty >> not)
@@ -63,6 +66,7 @@ let checkDoseRules (dsrs : DoseRule []) =
                     $"geen doseer bewaking gevonden voor {e.doseRule.Generic}"
             |]
             |> Array.distinct
+
         | xs -> xs
 
 

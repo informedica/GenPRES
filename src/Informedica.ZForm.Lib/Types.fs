@@ -100,7 +100,7 @@ module Types =
     /// Dosage, DoseRanges for different dosage types.
     type Dosage =
         {
-            /// Identifies the indication
+            /// Identifies the substance
             Name : string
             /// Dosage at the start
             StartDosage : DoseRange

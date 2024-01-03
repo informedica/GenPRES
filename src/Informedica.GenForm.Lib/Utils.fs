@@ -240,7 +240,7 @@ module Utils =
                     | v, u when v >= [| 1000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
                     | _ -> vu
                 )
-                |> ValueUnit.toStringDecimalDutchShortWithPrec 2
+                |> ValueUnit.toStringDecimalDutchShortWithPrec -1
 
             let vuToVal vu =
                 vu

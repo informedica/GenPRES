@@ -12,8 +12,11 @@ module Check =
 
 
     module GStand = Informedica.ZForm.Lib.GStand
+    module Dosage = Informedica.ZForm.Lib.DoseRule.Dosage
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
 
+    type Dosage = Informedica.ZForm.Lib.Types.Dosage
+    type DoseRange = Informedica.ZForm.Lib.Types.DoseRange
 
     let unitToString = Units.toStringDutchShort >> String.removeBrackets
 
@@ -51,11 +54,13 @@ module Check =
         |> Option.defaultValue ""
 
 
-    let createDoseRules a w gpk =
-        GStand.createDoseRules
+    let createDoseRules gen shp rte =
+        rte
+        |> mapRoute
+        |> GStand.createDoseRules
             GStand.config
-            a w None gpk
-            "" "" ""
+            None None None None
+            gen shp
 
 
     let setAdjustAndOrTimeUnit adjUn tu (mm : MinMax) =
@@ -97,6 +102,9 @@ module Check =
 
 
     let checkInRangeOf sn (refRange : MinMax) (testRange : MinMax) =
+        //let toStr = MinMax.toString "min incl " "min excl " "max incl " "max excl "
+        //printfn $"refRange : {refRange |> toStr} testRange : {testRange |> toStr}"
+
         let getTimeUnit mm =
             match mm.Min |> Option.map Limit.getValueUnit,
                   mm.Max |> Option.map Limit.getValueUnit with
@@ -123,9 +131,11 @@ module Check =
             let u =
                 match testRange.Min, testRange.Max with
                 | Some l, _
-                | _, Some l -> l |> Limit.getValueUnit |> ValueUnit.getUnit
-                | _ -> NoUnit
-                |> Some
+                | _, Some l ->
+                    l
+                    |> Limit.getValueUnit |> ValueUnit.getUnit
+                    |> Some
+                | _ -> None
             let toStr mm =
                 if u |> Option.isNone then mm
                 else
@@ -140,62 +150,148 @@ module Check =
                         Max = mm.Max |> convert
                     }
                 |> MinMax.toString "min " "min " "max " "max "
-            if not b then
-                b,
-                $"{sn} {testRange |> toStr} niet in bereik van {refRange |> toStr}"
-                |> String.replace "<TIMEUNIT>" (testRange |> getTimeUnit)
-            else b, ""
+            b,
+            $"""%s{sn} {testRange |> toStr} {if b then "" else "niet "}in bereik van {refRange |> toStr}"""
+            |> String.replace "<TIMEUNIT>" (testRange |> getTimeUnit)
+
+
+    let maximizeDosages (dosages : Dosage list) =
+        let maximize = MinMax.foldMaximize true true
+
+        let maxRange (first : DoseRange) (rest : DoseRange list) =
+            rest
+            |> List.fold (fun (acc : DoseRange) (dr : DoseRange) ->
+                {
+                    Norm = maximize [dr.Norm; acc.Norm]
+                    NormWeight =
+                        [
+                            acc.NormWeight |> fst
+                            dr.NormWeight |> fst
+                        ] |> maximize,
+                        if acc.NormWeight |> snd = NoUnit then
+                            dr.NormWeight |> snd
+                        else
+                            acc.NormWeight |> snd
+                    NormBSA =
+                        [
+                            acc.NormBSA |> fst
+                            dr.NormBSA |> fst
+                        ] |> maximize,
+                        if acc.NormBSA |> snd = NoUnit then
+                            dr.NormBSA |> snd
+                        else
+                            acc.NormBSA |> snd
+                    Abs = maximize [dr.Norm; acc.Norm]
+                    AbsWeight =
+                        [
+                            acc.AbsWeight |> fst
+                            dr.AbsWeight |> fst
+                        ] |> maximize,
+                        if acc.AbsWeight |> snd = NoUnit then
+                            dr.AbsWeight |> snd
+                        else
+                            acc.AbsWeight |> snd
+                    AbsBSA =
+                        [
+                            acc.AbsBSA |> fst
+                            dr.AbsBSA |> fst
+                        ] |> maximize,
+                        if acc.AbsBSA |> snd = NoUnit then
+                            dr.AbsBSA |> snd
+                        else
+                            acc.AbsBSA |> snd
+                }
+            ) first
+
+        dosages
+        |> function
+            | [] -> None
+            | dosage::rest ->
+                { dosage with
+                    SingleDosage =
+                        rest
+                        |> List.map _.SingleDosage
+                        |> maxRange dosage.SingleDosage
+                    StartDosage =
+                        rest
+                        |> List.map _.StartDosage
+                        |> maxRange dosage.StartDosage
+                    RateDosage =
+                        if dosage.RateDosage |> snd = NoUnit then dosage.RateDosage
+                        else
+                            rest
+                            |> List.map _.RateDosage
+                            |> List.filter (snd >> ((=) NoUnit) >> not)
+                            |> List.map fst
+                            |> maxRange (dosage.RateDosage |> fst)
+                            , dosage.RateDosage |> snd
+                    TotalDosage =
+                        if (dosage.TotalDosage |> snd).TimeUnit = NoUnit then dosage.TotalDosage
+                        else
+                            let rest =
+                                rest
+                                |> List.map _.TotalDosage
+                                |> List.filter (fun (_, fr) -> fr.TimeUnit = NoUnit |> not)
+                            rest
+                            |> List.map fst
+                            |> maxRange (dosage.TotalDosage |> fst)
+                            ,
+                            { (dosage.TotalDosage |> snd) with
+                                Frequencies =
+                                    rest
+                                    |> List.map snd
+                                    |> List.collect _.Frequencies
+                                    |> List.append
+                                        (dosage.TotalDosage
+                                        |> snd
+                                        |> _.Frequencies)
+                                    |> List.distinct
+                            }
+                    Rules =
+                        rest
+                        |> List.collect _.Rules
+                        |> List.append dosage.Rules
+                }
+                |> Some
+
+
+    let filterPatient (pat : PatientCategory) (pdsg : Informedica.ZForm.Lib.Types.PatientDosage) =
+        let age =
+            pat.Age = MinMax.empty && pdsg.Patient.Age = MinMax.empty ||
+            (pdsg.Patient.Age |> MinMax.intersect pat.Age = MinMax.empty |> not)
+        let weight =
+            pat.Weight = MinMax.empty && pdsg.Patient.Weight = MinMax.empty ||
+            (pdsg.Patient.Weight |> MinMax.intersect pat.Weight = MinMax.empty |> not)
+        //printfn $"{pat |> PatientCategory.toString} intersects with {pdsg.Patient |> Informedica.ZForm.Lib.PatientCategory.toString}: {age && weight}"
+        age && weight
 
 
     let matchWithZIndex (dr : DoseRule) =
         {|
             doseRule = dr
             zindex =
-                dr.Products
-                |> Array.map _.GPK
-                |> Array.collect (fun gpk ->
-                    let gpk = Int32.tryParse gpk
-                    [|
-                        dr.PatientCategory.Age.Min, dr.PatientCategory.Weight.Min
-                        dr.PatientCategory.Age.Max, dr.PatientCategory.Weight.Max
-                        dr.PatientCategory.Age.Min, dr.PatientCategory.Weight.Max
-                        dr.PatientCategory.Age.Max, dr.PatientCategory.Weight.Min
-                    |]
-                    |> Array.filter (fun (a, w) -> a.IsSome || w.IsSome)
-                    |> Array.map (fun (a, w) ->
-                        a
-                        |> Option.map (
-                            Limit.getValueUnit
-                            >> ValueUnit.convertTo Units.Time.day
-                            >> ValueUnit.getValue
-                            >> Array.item 0
-                            >> BigRational.toDouble),
-                        w
-                        |> Option.map (
-                            Limit.getValueUnit
-                            >> ValueUnit.convertTo Units.Weight.kiloGram
-                            >> ValueUnit.getValue
-                            >> Array.item 0
-                            >> BigRational.toDouble)
-                    )
-                    |> Array.distinct
-                    |> Array.collect (fun (a, w) ->
-                        let a = a |> Option.map (fun x -> x / 28.)
-
-                        createDoseRules a w gpk
+                {|
+                    dosages =
+                        createDoseRules dr.Generic dr.Shape dr.Route
                         |> Seq.toList
                         |> List.collect _.IndicationsDosages
                         |> List.collect _.RouteDosages
                         |> List.collect _.ShapeDosages
                         |> List.collect _.PatientDosages
+                        |> List.filter (filterPatient dr.PatientCategory)
                         |> List.collect _.SubstanceDosages
-                        |> List.toArray
-                    )
-                )
+                        |> List.groupBy _.Name
+                        |> List.map (fun (n, dsgs) ->
+                            {|
+                                target = n
+                                dosage = dsgs |> maximizeDosages
+                            |}
+                        )
+                |}
         |}
 
 
-    let createMapping (r : {| doseRule: DoseRule; zindex: Informedica.ZForm.Lib.Types.Dosage array |}) =
+    let createMapping (r : {| doseRule: DoseRule; zindex: {| dosages: {| dosage: Dosage option; target: string |} list |} |}) =
         {| r with
             mapping =
                 {|
@@ -203,23 +299,30 @@ module Check =
                         {|
                             genform = r.doseRule.Frequencies
                             gstand =
-                                match r.doseRule.Frequencies
-                                      |> Option.map ValueUnit.getUnit with
-                                | None -> None
-                                | Some u ->
-                                    r.zindex
-                                    |> Array.map _.TotalDosage
-                                    |> Array.map snd
-                                    |> Array.map (fun fr ->
-                                        fr.Frequencies
-                                        |> List.toArray
-                                        |> ValueUnit.withUnit
-                                               (Units.Count.times |> Units.per fr.TimeUnit)
+                                r.zindex.dosages
+                                |> List.map _.dosage
+                                |> List.choose (fun ds ->
+                                    ds
+                                    |> Option.bind (fun ds ->
+                                        let fr = ds.TotalDosage |> snd
+                                        if fr.TimeUnit = NoUnit then None
+                                        else
+                                            Units.Count.times
+                                            |> Units.per fr.TimeUnit
+                                            |> ValueUnit.withValue (fr.Frequencies |> List.toArray)
+                                            |> Some
                                     )
-                                    |> Array.collect ValueUnit.getBaseValue
-                                    |> ValueUnit.withUnit u
-                                    |> ValueUnit.toUnit
-                                    |> Some
+                                )
+                                |> function
+                                    | [] -> None
+                                    | vu::rest ->
+                                        let u = vu |> ValueUnit.getUnit
+                                        let v =
+                                            vu::rest
+                                            |> List.toArray
+                                            |> Array.collect ValueUnit.getValue
+                                        ValueUnit.create u v
+                                        |> Some
                         |}
                     doseLimits =
                         r.doseRule.DoseLimits
@@ -228,12 +331,13 @@ module Check =
                             {|
                                 genForm = dl
                                 gstand =
-                                    r.zindex
-                                    |> Array.tryFind (fun g ->
+                                    r.zindex.dosages
+                                    |> List.tryFind (fun g ->
                                         dl.DoseLimitTarget
                                         |> DoseRule.DoseLimit.doseLimitTargetToString
-                                        |> String.equalsCapInsens g.Name
+                                        |> String.equalsCapInsens g.target
                                     )
+                                    |> Option.bind _.dosage
                                     |> Option.map (fun x ->
                                         let convert adjUn =
                                             x.TotalDosage
@@ -385,18 +489,22 @@ module Check =
                     )
                     |> Option.defaultValue true
                     |> fun b ->
+                        let u = m.mapping.frequencies.genform |> Option.map ValueUnit.getUnit
+                        let s1 =
+                            m.mapping.frequencies.genform
+                            |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec -1)
+                            |> Option.defaultValue ""
+                        let s2 =
+                            m.mapping.frequencies.gstand
+                            //|> Option.map (fun vu -> if u |> Option.isNone then vu else vu |> ValueUnit.convertTo u.Value)
+                            |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec -1)
+                            |> Option.defaultValue ""
                         if not b then
-                            let s1 =
-                                m.mapping.frequencies.genform
-                                |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 0)
-                                |> Option.defaultValue ""
-                            let s2 =
-                                m.mapping.frequencies.gstand
-                                |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 0)
-                                |> Option.defaultValue ""
                             b,
-                            $"{gstand.doseLimitTarget}\t{r}\t{p}\tfreqenties niet gelijk {s1} aan {s2}"
-                        else b, ""
+                            $"{m.doseRule.Generic}\t{r}\t{p}\tfreqenties {s1} niet gelijk aan {s2}"
+                        else
+                            b,
+                            $"{m.doseRule.Generic}\t{r}\t{p}\tfreqenties {s1} is subset van {s2}"
 
                     dl.genForm.Quantity
                     |> inRangeOf "keer dosering" gstand.quantityNorm
@@ -487,10 +595,11 @@ module Check =
             checkDoseRule dr
         )
         |> Array.filter (fun c ->
-            c.didNotPass |> Array.isEmpty |> not &&
-            c.didPass    |> Array.isEmpty
+            c.didNotPass |> Array.isEmpty |> not
         )
         |> Array.collect _.didNotPass
         |> Array.filter String.notEmpty
         |> Array.distinct
+
+
 

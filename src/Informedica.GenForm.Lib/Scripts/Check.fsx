@@ -26,24 +26,42 @@ module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
 
-//|> Array.length
-
-(*
+DoseRule.get ()
 |> Array.filter (fun dr ->
-    dr.Route = "iv" &&
-    dr.Generic = "amoxicilline"
+    dr.Generic = "abatacept" &&
+//    dr.Shape = "" &&
+    dr.Route = "iv"
 )
-*)
+|> Check.checkAll
 
 
-let didNotPass =
-    DoseRule.get ()
-    |> Array.filter (fun dr ->
-        true //dr.Generic = "ondansetron"
-    )
-    |> Check.checkAll
+open MathNet.Numerics
+open Informedica.GenUnits.Lib
+
+let range = Informedica.GenCore.Lib.Ranges.MinMax.empty
+
+let vu1 =
+    (1N |> ValueUnit.singleWithUnit Units.Mass.gram |> Some)
+let vu2 =
+    (1000N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Some)
+
+vu1
+|> MinMax.inRange
+    { range with
+        Max =
+            (1000N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Some)
+            |> Option.map (Informedica.GenCore.Lib.Ranges.Limit.inclusive)
+    }
 
 
-didNotPass |> Array.length
-|> Array.iter (printfn "%s")
+let refRange =
+    Informedica.GenCore.Lib.Ranges.MinMax.empty
+    |> Informedica.GenCore.Lib.Ranges.MinMax.setMax
+        (vu2 |> Option.map (Informedica.GenCore.Lib.Ranges.Limit.inclusive))
 
+let testRange =
+    Informedica.GenCore.Lib.Ranges.MinMax.empty
+    |> Informedica.GenCore.Lib.Ranges.MinMax.setMax
+        (vu1 |> Option.map (Informedica.GenCore.Lib.Ranges.Limit.inclusive))
+
+Check.checkInRangeOf "" refRange testRange

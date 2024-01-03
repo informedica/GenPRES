@@ -655,6 +655,31 @@ module MinMax =
             | Exclusive vuMin, Exclusive vuMax -> v >? vuMin && v <? vuMax
 
 
+    let intersect (mm1 : MinMax) (mm2 : MinMax) =
+        let min =
+            match mm1.Min, mm2.Min with
+            | None, None -> None
+            | Some min, None
+            | None, Some min -> Some min
+            | Some min1, Some min2 ->
+                if Limit.gt true true min1 min2 then min1 else min2
+                |> Some
+        let max =
+            match mm1.Max, mm2.Max with
+            | None, None -> None
+            | Some max, None
+            | None, Some max -> Some max
+            | Some max1, Some max2 ->
+                if Limit.st false false max1 max2 then max1 else max2
+                |> Some
+
+        create min max
+        |> validate
+        |> function
+            | Ok mm -> mm
+            | Error _ -> empty
+
+
     /// perform a calculation `op` to
     /// 2 values `v1` and `v2`.
     let calcLimit op v1 v2 =

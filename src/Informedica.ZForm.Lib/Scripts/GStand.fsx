@@ -47,3 +47,26 @@ open Informedica.ZIndex.Lib
 |> GStand.getSubstanceDoses config
 |> Seq.iter (printfn "%A")
 
+
+
+
+
+let maximizeDosages (dosages : Dosage list) =
+//    let maximize = MinMax.foldMaximize true true
+    let maxRange (first : DoseRange) (rest : DoseRange list) =
+        rest
+        |> List.fold (fun acc dr ->
+                { acc with Norm = dr.Norm }
+        ) first
+
+    dosages
+    |> function
+        | [] -> None
+        | dosage::rest ->
+            { dosage with
+                SingleDosage =
+                    rest
+                    |> List.map _.SingleDosage
+                    |> maxRange dosage.SingleDosage
+            }
+            |> Some
