@@ -524,61 +524,6 @@ module DoseRule =
                 |}
             )
             |> Array.groupBy mapToDoseRule
-                (*
-                fun r ->
-                {
-                    Indication = r.Indication
-                    Generic = r.Generic
-                    Shape = r.Shape
-                    Route = r.Route
-                    PatientCategory =
-                        {
-                            Department =
-                                if r.Department |> String.isNullOrWhiteSpace then None
-                                else
-                                    r.Department |> Some
-                            Diagnoses = [| r.Diagn |] |> Array.filter String.notEmpty
-                            Gender = r.Gender
-                            Age =
-                                (r.MinAge, r.MaxAge)
-                                |> fromTupleInclExcl (Some Utils.Units.day)
-                            Weight =
-                                (r.MinWeight, r.MaxWeight)
-                                |> fromTupleInclExcl (Some Utils.Units.weightGram)
-                            BSA =
-                                (r.MinBSA, r.MaxBSA)
-                                |> fromTupleInclExcl (Some Utils.Units.bsaM2)
-                            GestAge =
-                                (r.MinGestAge, r.MaxGestAge)
-                                |> fromTupleInclExcl (Some Utils.Units.day)
-                            PMAge =
-                                (r.MinPMAge, r.MaxPMAge)
-                                |> fromTupleInclExcl (Some Utils.Units.day)
-                            Location = AnyAccess
-                        }
-                    DoseType = r.DoseType
-                    AdjustUnit = r.AdjustUnit |> Units.adjustUnit
-                    Frequencies =
-                        match r.FreqUnit |> Units.freqUnit with
-                        | None -> None
-                        | Some u ->
-                            r.Frequencies
-                            |> ValueUnit.withUnit u
-                            |> Some
-                    AdministrationTime =
-                        (r.MinTime, r.MaxTime)
-                        |> fromTupleInclIncl (r.TimeUnit |> Utils.Units.timeUnit)
-                    IntervalTime =
-                        (r.MinInterval, r.MaxInterval)
-                        |> fromTupleInclIncl (r.IntervalUnit |> Utils.Units.timeUnit)
-                    Duration =
-                        (r.MinDur, r.MaxDur)
-                        |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
-                    DoseLimits = [||]
-                    Products = [||]
-                }
-            )
-                *)
             |> Array.filter (fst >> Option.isSome)
             |> Array.map (fun (dr, rs) -> dr.Value, rs)
             |> Array.map (fun (dr, rs) ->

@@ -140,7 +140,12 @@ module Utils =
         let timeUnit s =
             if s |> String.isNullOrWhiteSpace then None
             else
-                $"{s}[Time]" |> Units.fromString
+                // TODO need better fix than this
+                if s = "keer" then
+                    $"times[Count]"
+                else
+                    $"{s}[Time]"
+                |> Units.fromString
 
         let freqUnit s =
             if s |> String.isNullOrWhiteSpace then None
