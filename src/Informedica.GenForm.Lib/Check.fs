@@ -54,12 +54,40 @@ module Check =
         |> Option.defaultValue ""
 
 
-    let createDoseRules gen shp rte =
+    let createDoseRules (pat: Patient) gen shp rte =
+        let a =
+            pat.Age
+            |> Option.bind (fun vu ->
+                vu
+                |> ValueUnit.convertTo Units.Time.month
+                |> ValueUnit.getValue
+                |> function
+                    | [|v|] ->
+                        v
+                        |> BigRational.toDouble
+                        |> Some
+                    | _ -> None
+            )
+
+        let w =
+            pat.Weight
+            |> Option.bind (fun vu ->
+                vu
+                |> ValueUnit.convertTo Units.Mass.kiloGram
+                |> ValueUnit.getValue
+                |> function
+                    | [|v|] ->
+                        v
+                        |> BigRational.toDouble
+                        |> Some
+                    | _ -> None
+            )
+
         rte
         |> mapRoute
         |> GStand.createDoseRules
             GStand.config
-            None None None None
+            a w None None
             gen shp
 
 
@@ -266,13 +294,13 @@ module Check =
         age && weight
 
 
-    let matchWithZIndex (dr : DoseRule) =
+    let matchWithZIndex (pat : Patient) (dr : DoseRule) =
         {|
             doseRule = dr
             zindex =
                 {|
                     dosages =
-                        createDoseRules dr.Generic dr.Shape dr.Route
+                        createDoseRules pat dr.Generic dr.Shape dr.Route
                         |> Seq.toList
                         |> List.collect _.IndicationsDosages
                         |> List.collect _.RouteDosages
@@ -284,7 +312,12 @@ module Check =
                         |> List.map (fun (n, dsgs) ->
                             {|
                                 target = n
-                                dosage = dsgs |> maximizeDosages
+                                dosage =
+                                    // TODO: hack avoid cmp err with diff dose units (filgrastim)
+                                    try
+                                        dsgs |> maximizeDosages
+                                    with
+                                    | _ -> None
                             |}
                         )
                 |}
@@ -444,10 +477,10 @@ module Check =
         |}
 
 
-    let checkDoseRule (dr : DoseRule) =
+    let checkDoseRule (pat : Patient) (dr : DoseRule) =
         let m =
             dr
-            |> matchWithZIndex
+            |> matchWithZIndex pat
             |> createMapping
 
         m.mapping.doseLimits
@@ -489,7 +522,7 @@ module Check =
                     )
                     |> Option.defaultValue true
                     |> fun b ->
-                        let u = m.mapping.frequencies.genform |> Option.map ValueUnit.getUnit
+                        //let u = m.mapping.frequencies.genform |> Option.map ValueUnit.getUnit
                         let s1 =
                             m.mapping.frequencies.genform
                             |> Option.map (ValueUnit.toStringDecimalDutchShortWithPrec -1)
@@ -588,11 +621,11 @@ module Check =
             {| m with didNotPass = didNot |> Array.map snd; didPass = did |> Array.map snd |}
 
 
-    let checkAll (drs : DoseRule[]) =
+    let checkAll (pat : Patient) (drs : DoseRule[]) =
         drs
         |> Array.mapi (fun i dr ->
-            printfn $"{i}. checking {dr.Generic}"
-            checkDoseRule dr
+            printfn $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
+            checkDoseRule pat dr
         )
         |> Array.filter (fun c ->
             c.didNotPass |> Array.isEmpty |> not

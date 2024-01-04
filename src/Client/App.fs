@@ -566,7 +566,7 @@ module private Elmish =
         | LoadFormulary Started ->
             let form =
                 match state.Formulary with
-                | Resolved form when state.Patient.IsSome ->
+                | Resolved form ->
                     { form with
                         Age =
                             state.Patient 
@@ -581,7 +581,6 @@ module private Elmish =
                             state.Patient
                             |> Option.bind Patient.getGestAgeInDays
                     }
-                | Resolved form -> form
                 | _ -> Formulary.empty
 
             let load =

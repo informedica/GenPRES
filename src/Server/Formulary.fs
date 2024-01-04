@@ -45,10 +45,10 @@ let selectIfOne sel xs =
     | _ -> sel
 
 
-let checkDoseRules (dsrs : DoseRule []) =
+let checkDoseRules pat (dsrs : DoseRule []) =
     let empt, rs =
         dsrs
-        |> Array.map Check.checkDoseRule
+        |> Array.map (Check.checkDoseRule pat)
         |> Array.partition (fun c ->
             c.didPass |> Array.isEmpty &&
             c.didNotPass |> Array.isEmpty
@@ -77,8 +77,7 @@ let get (form : Formulary) =
     let dsrs =
         DoseRule.get ()
         |> DoseRule.filter filter
-    if dsrs |> Array.length = 2 then
-        printfn $"{dsrs |> Array.toList}"
+
     printfn $"found: {dsrs |> Array.length} dose rules"
     let form =
         { form with
@@ -101,7 +100,7 @@ let get (form : Formulary) =
                     | Some _, Some _, Some _ ->
                         let s =
                             dsrs
-                            |> checkDoseRules
+                            |> checkDoseRules filter.Patient
                             |> Array.map (fun s ->
                                 match s |> String.split "\t" with
                                 | [s1; _; p; s2] ->

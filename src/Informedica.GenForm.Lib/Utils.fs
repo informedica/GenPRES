@@ -236,8 +236,8 @@ module Utils =
                 vu
                 |> (fun vu ->
                     match vu |> ValueUnit.get with
-                    | v, u when v >= [| 1000N |] && u = milliGram -> vu |> convertTo gram
-                    | v, u when v >= [| 1000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
+                    | v, u when v >= [| 10_000N |] && u = milliGram -> vu |> convertTo gram
+                    | v, u when v >= [| 10_000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
                     | _ -> vu
                 )
                 |> ValueUnit.toStringDecimalDutchShortWithPrec -1
