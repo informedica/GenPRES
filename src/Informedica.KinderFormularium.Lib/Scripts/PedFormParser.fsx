@@ -1,100 +1,367 @@
 
-#r "nuget: MathNet.Numerics.FSharp"
-#r "nuget: FParsec"
-#r "nuget: Newtonsoft.Json"
-#r "nuget: FSharp.Data"
-#r "nuget: HtmlAgilityPack"
-#r "nuget: FSharpPlus, 1.6.0-RC2"
-
-
-#r "../../Informedica.Utils.Lib/bin/Debug/net8.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net8.0/Informedica.GenUnits.Lib.dll"
-#r "../../Informedica.GenCore.Lib/bin/Debug/net8.0/Informedica.GenCore.Lib.dll"
-
 
 #time
 
+#load "load.fsx"
+
 #load "../Utils.fs"
+#load "../Mapping.fs"
 #load "../Drug.fs"
 #load "../FormularyParsers.fs"
 #load "../WebSiteParser.fs"
 
+
 open System
 open FSharpPlus
+
+open Informedica.ZIndex.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.KinderFormularium.Lib
 
 
-WebSiteParser.medications ()
-//|> List.distinctBy (fun m -> m.Id, m.Generic.Trim().ToLower())
-|> List.length
+
+let formulary = WebSiteParser.getFormulary ()
 
 
+let mapped =
+    let minMaxToString (mm : Drug.MinMax.MinMax option) =
+        mm
+        |> Option.map (fun mm ->
+            mm.Min |> Option.map string |> Option.defaultValue "",
+            mm.Max |> Option.map string |> Option.defaultValue ""
+        )
+        |> Option.defaultValue ("", "")
 
-WebSiteParser.getFormulary () //|> Array.length
-(*
-|> Array.filter (fun d ->
-    d.Doses
-    |> List.exists (fun dd ->
-        dd.Routes
-        |> List.exists (fun dr ->
-            dr.Schedules
-            |> List.exists(fun ds ->
-                match ds.Target with
-                | Drug.Target.Unknown _ ->
-                    true
-                | _ -> false
+    formulary
+    |> Array.toList
+    |> List.collect (fun drug ->
+        drug.Doses
+        |> List.collect (fun dose ->
+            dose.Routes
+            |> List.collect (fun route ->
+                route.Schedules
+                |> List.collect (fun schedule ->
+                    let gn =
+                        drug.Generic
+                        |> String.toLower
+                        |> String.replace " + " "/"
+                        |> String.trim
+
+                    let doseUnit =
+                            Units.units
+                            |> List.tryFind (fun (s, _, _, _) -> s = schedule.Unit)
+                            |> Option.bind (fun (_, du, _, _) -> du)
+                            |> Option.map Informedica.GenUnits.Lib.Units.toStringDutchShort
+                            |> Option.defaultValue ""
+                    let adjustUnit =
+                            Units.units
+                            |> List.tryFind (fun (s, _, _, _) -> s = schedule.Unit)
+                            |> Option.bind (fun (_, _, au, _) -> au)
+                            |> Option.map Informedica.GenUnits.Lib.Units.toStringDutchShort
+                            |> Option.defaultValue ""
+                    let freqUnit =
+                            Units.units
+                            |> List.tryFind (fun (s, _, _, _) -> s = schedule.Unit)
+                            |> Option.bind (fun (_, _, _, fu) -> fu)
+                            |> Option.map Informedica.GenUnits.Lib.Units.toStringDutchShort
+                            |> Option.defaultValue ""
+
+                    let minQty, maxQty =
+                        match doseUnit |> String.notEmpty,
+                              adjustUnit |> String.notEmpty,
+                              freqUnit |> String.notEmpty with
+                        | true, false, false ->
+                            schedule.Value |> minMaxToString
+                        | _ -> "", ""
+
+                    let normQtyAdj, minQtyAdj, maxQtyAdj =
+                        match doseUnit |> String.notEmpty,
+                              adjustUnit |> String.notEmpty,
+                              freqUnit |> String.notEmpty with
+                        | true, true, false ->
+                            let minQtyAdj, maxQtyAdj = schedule.Value |> minMaxToString
+                            if minQtyAdj = maxQtyAdj then minQtyAdj, "", ""
+                            else "", minQtyAdj, maxQtyAdj
+                        | _ -> "", "", ""
+
+                    let minPerTime, maxPerTime =
+                        match doseUnit |> String.notEmpty,
+                              adjustUnit |> String.notEmpty,
+                              freqUnit |> String.notEmpty with
+                        | true, false, true ->
+                            schedule.Value |> minMaxToString
+                        | _ -> "", ""
+
+                    let normPerTimeAdj, minPerTimeAdj, maxPerTimeAdj =
+                        match doseUnit |> String.notEmpty,
+                              adjustUnit |> String.notEmpty,
+                              freqUnit |> String.notEmpty with
+                        | true, true, true ->
+                            let minPerTimeAdj, maxPerTimeAdj = schedule.Value |> minMaxToString
+                            if minPerTimeAdj = maxPerTimeAdj then minPerTimeAdj, "", ""
+                            else "", minPerTimeAdj, maxPerTimeAdj
+                        | _ -> "", "", ""
+
+                    route.Name
+                    |> Mapping.mapRoute
+                    |> Option.defaultValue route.Name
+                    |> String.toLower
+                    |> GenPresProduct.filter gn ""
+                    |> Array.filter (fun gpp ->
+                        Mapping.validShapes
+                        |> List.exists ((=) (gpp.Shape.ToLower().Trim())) &&
+                        gpp.Routes
+                        |> Array.exists (String.equalsCapInsens "toedieningsweg niet van toepassing")
+                        |> not
+                    )
+                    |> Array.toList
+                    |> List.collect (fun gpp ->
+                        gpp.GenericProducts
+                        |> Array.collect _.Substances
+                        |> Array.map _.SubstanceName
+                        |> Array.distinct
+                        |> Array.toList
+                        |> List.map (fun sn ->
+
+                            {|
+                                generic = gpp.Name.ToLower()
+                                shape = gpp.Shape.ToLower()
+                                route = route.Name.ToLower()
+                                indication = dose.Indication
+                                gender = schedule.Target |> Drug.Target.genderToString
+                                minAge =
+                                    schedule.Target
+                                    |> Drug.Target.getAgeInDays
+                                    |> function
+                                        | Some days, _ -> $"{int days}"
+                                        | _ -> ""
+                                maxAge =
+                                    schedule.Target
+                                    |> Drug.Target.getAgeInDays
+                                    |> function
+                                        | _, Some days -> $"{int days}"
+                                        | _ -> ""
+                                minWeight =
+                                    schedule.Target
+                                    |> Drug.Target.getWeightInGram
+                                    |> function
+                                        | Some weight, _ -> $"{int weight}"
+                                        | _ -> ""
+                                maxWeight =
+                                    schedule.Target
+                                    |> Drug.Target.getWeightInGram
+                                    |> function
+                                        | _, Some weight -> $"{int weight}"
+                                        | _ -> ""
+                                minBSA = ""
+                                maxBSA = ""
+                                minGestAge =
+                                    schedule.Target
+                                    |> Drug.Target.getGestAgeInDays
+                                    |> function
+                                        | Some days, _ -> $"{int days}"
+                                        | _ -> ""
+                                maxGestAge =
+                                    schedule.Target
+                                    |> Drug.Target.getGestAgeInDays
+                                    |> function
+                                        | _, Some days -> $"{int days}"
+                                        | _ -> ""
+                                minPMAge =
+                                    schedule.Target
+                                    |> Drug.Target.getPMAgeInDays
+                                    |> function
+                                        | Some days, _ -> $"{int days}"
+                                        | _ -> ""
+                                maxPMAge =
+                                    schedule.Target
+                                    |> Drug.Target.getPMAgeInDays
+                                    |> function
+                                        | _, Some days -> $"{int days}"
+                                        | _ -> ""
+                                doseType =
+                                    if schedule.Frequency |> Option.isNone then ""
+                                    else
+                                        schedule.Frequency
+                                        |> Option.map Drug.Frequency.toDoseType
+                                        |> Option.defaultValue ""
+                                substance = sn.ToLower().Trim()
+                                freqs =
+                                    schedule.Frequency
+                                    |> Option.map Drug.Frequency.getFrequency
+                                    |> Option.defaultValue ""
+                                freqText = schedule.FrequencyText
+                                doseUnit = doseUnit
+                                adjustUnit = adjustUnit
+                                freqUnit = freqUnit
+                                minQty = minQty
+                                maxQty = maxQty
+                                normQtyAdj = normQtyAdj
+                                minQtyAdj = minQtyAdj
+                                maxQtyAdj = maxQtyAdj
+                                minPerTime = minPerTime
+                                maxPerTime = maxPerTime
+                                normPerTimeAdj = normPerTimeAdj
+                                minPerTimeAdj = minPerTimeAdj
+                                maxPerTimeAdj = maxPerTimeAdj
+                            |}
+                        )
+                    )
+                    |> function
+                        | [] ->
+                            [
+                                {|
+                                    generic = gn
+                                    shape = ""
+                                    route = route.Name.ToLower()
+                                    indication = dose.Indication
+                                    gender = schedule.Target |> Drug.Target.genderToString
+                                    minAge =
+                                        schedule.Target
+                                        |> Drug.Target.getAgeInDays
+                                        |> function
+                                            | Some days, _ -> $"{int days}"
+                                            | _ -> ""
+                                    maxAge =
+                                        schedule.Target
+                                        |> Drug.Target.getAgeInDays
+                                        |> function
+                                            | _, Some days -> $"{int days}"
+                                            | _ -> ""
+                                    minWeight =
+                                        schedule.Target
+                                        |> Drug.Target.getWeightInGram
+                                        |> function
+                                            | Some weight, _ -> $"{int weight}"
+                                            | _ -> ""
+                                    maxWeight =
+                                        schedule.Target
+                                        |> Drug.Target.getWeightInGram
+                                        |> function
+                                            | _, Some weight -> $"{int weight}"
+                                            | _ -> ""
+                                    minBSA = ""
+                                    maxBSA = ""
+                                    minGestAge =
+                                        schedule.Target
+                                        |> Drug.Target.getGestAgeInDays
+                                        |> function
+                                            | Some days, _ -> $"{int days}"
+                                            | _ -> ""
+                                    maxGestAge =
+                                        schedule.Target
+                                        |> Drug.Target.getGestAgeInDays
+                                        |> function
+                                            | _, Some days -> $"{int days}"
+                                            | _ -> ""
+                                    minPMAge =
+                                        schedule.Target
+                                        |> Drug.Target.getPMAgeInDays
+                                        |> function
+                                            | Some days, _ -> $"{int days}"
+                                            | _ -> ""
+                                    maxPMAge =
+                                        schedule.Target
+                                        |> Drug.Target.getPMAgeInDays
+                                        |> function
+                                            | _, Some days -> $"{int days}"
+                                            | _ -> ""
+                                    doseType =
+                                        if schedule.Frequency |> Option.isNone then ""
+                                        else
+                                            schedule.Frequency
+                                            |> Option.map Drug.Frequency.toDoseType
+                                            |> Option.defaultValue ""
+                                    substance = ""
+                                    freqs =
+                                        schedule.Frequency
+                                        |> Option.map Drug.Frequency.getFrequency
+                                        |> Option.defaultValue ""
+                                    freqText = schedule.FrequencyText
+                                    doseUnit = doseUnit
+                                    adjustUnit = adjustUnit
+                                    freqUnit = freqUnit
+                                    minQty = minQty
+                                    maxQty = maxQty
+                                    normQtyAdj = normQtyAdj
+                                    minQtyAdj = minQtyAdj
+                                    maxQtyAdj = maxQtyAdj
+                                    minPerTime = minPerTime
+                                    maxPerTime = maxPerTime
+                                    normPerTimeAdj = normPerTimeAdj
+                                    minPerTimeAdj = minPerTimeAdj
+                                    maxPerTimeAdj = maxPerTimeAdj
+                                |}
+                            ]
+
+                        | xs -> xs
+                )
             )
         )
     )
-)
-*)
-|> Array.toList
-|> List.collect (fun d ->
-    d.Doses
-    |> List.collect (fun dd ->
-        dd.Routes
-        |> List.collect (fun dr ->
-            dr.Schedules
-            |> List.collect(fun ds ->
-                match ds.Target with
-                | Drug.Target.Unknown (s, _) -> [s.ToLower().Trim()]
-                | _ -> [ ds.TargetText  ]
-            )
-        )
+
+mapped |> List.length
+
+
+let toDataString (mapped : {| adjustUnit: string; doseType: string; doseUnit: string; freqText: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; shape: string; substance: string |} list) =
+    mapped
+    |> List.map (fun r ->
+        [
+            r.generic
+            r.shape
+            r.route
+            r.indication
+            "" // department
+            "" // diagn
+            r.gender
+            r.minAge
+            r.maxAge
+            r.minWeight
+            r.maxWeight
+            r.minBSA
+            r.maxBSA
+            r.minGestAge
+            r.maxGestAge
+            r.minPMAge
+            r.maxPMAge
+            r.doseType
+            r.substance
+            r.freqs
+            r.freqText
+            r.doseUnit |> String.removeBrackets
+            r.adjustUnit |> String.removeBrackets
+            r.freqUnit |> String.removeBrackets
+            "" // rateUnit
+            "" // MinTime
+            "" // MaxTime
+            "" // TimeUnit
+            "" // MinInt
+            "" // MaxInt
+            "" // IntUnit
+            "" // MinDur
+            "" // MaxDur
+            "" // DurUnit
+            r.minQty
+            r.maxQty
+            r.normQtyAdj // NormQtyAdj
+            r.minQtyAdj // MinQtyAdj
+            r.maxQtyAdj // MaxQtyAdj
+            r.minPerTime // MinPerTime
+            r.maxPerTime // MaxPerTime
+            r.normPerTimeAdj // NormPerTimeAdj
+            r.minPerTimeAdj // MinPerTimeAdj
+            r.maxPerTimeAdj // MaxPerTimeAdj
+            "" // MinRate
+            "" // MaxRate
+            "" // MinRateAdj
+            "" // MaxRateAdj
+        ]
+        |> String.concat "\t"
     )
-)
-|> List.distinct
-|> List.map String.toLower
-|> List.sort
-|> fun xs ->
-    xs |> List.iteri (printfn "%i\t%s")
-    xs
-|> List.map (fun s -> s |> FormularyParser.TargetParser.parse)
-|> List.filter (fun t -> match t with Drug.Target.Unknown _ -> false | _ -> true)
-|> List.distinct
-|> List.iteri (printfn "%i. %A")
 
 
-
-WebSiteParser.getFormulary()
-|> Array.mapi (fun i d ->
-    $"{i}. {d.Generic} {d.Doses |> List.length}"
-)
-|> Array.iter (printfn "%s")
-
-
-let drug =
-    (WebSiteParser._medications ())[1]
-
-
-WebSiteParser.getDoc id drug.Id drug.Generic
-
-Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-let path = $"{Environment.CurrentDirectory}/kinderformularium.txt"
-
-
-fun (s : string) ->
-    System.IO.File.AppendAllText(path, s)
-|> WebSiteParser.printFormulary
+mapped
+|> toDataString
+|> String.concat "\n"
+|> File.writeTextToFile "kinderformularium.text"
 

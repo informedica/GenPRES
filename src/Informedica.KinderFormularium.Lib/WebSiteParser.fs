@@ -250,7 +250,7 @@ module WebSiteParser =
             |> List.toArray
             |> Array.collect (fun dose ->
                 dose.Routes
-                |> List.map (fun r -> r.Name)
+                |> List.map (_.Name)
                 |> List.toArray
             )
         )
@@ -259,3 +259,24 @@ module WebSiteParser =
 
 
 
+    let getSchedules () =
+        getFormulary () //|> Array.length
+        |> Array.collect (fun d ->
+            d.Doses
+            |> List.toArray
+            |> Array.collect (fun dose ->
+                dose.Routes
+                |> List.collect _.Schedules
+                |> List.toArray
+            )
+        )
+        |> Array.distinct
+        |> Array.sort
+
+
+    let getUnits () =
+        getSchedules ()
+        |> Array.map _.Unit
+        |> Array.map (String.replace "," "")
+        |> Array.distinct
+        |> Array.sort

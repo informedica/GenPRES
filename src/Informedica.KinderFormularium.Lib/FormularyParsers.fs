@@ -21,10 +21,10 @@ module FormularyParser =
             printfn "%s[" tab
             ds//|> Seq.length
             |> Array.toList
-            |> List.collect (fun m -> m.Doses)
-            |> List.collect (fun d -> d.Routes)
-            |> List.collect (fun r -> r.Schedules)
-            |> List.map (fun s -> s.FrequencyText)
+            |> List.collect _.Doses
+            |> List.collect _.Routes
+            |> List.collect _.Schedules
+            |> List.map _.FrequencyText
             |> List.distinct
             |> List.sort //|> List.length
             |> List.iter (printfn "%s%s(\"%s\", Frequency({ Min = 0; Max = 0; Time = 0; Unit = \"\"}) |> Some)" tab tab)
@@ -177,10 +177,15 @@ module FormularyParser =
 
         let parse s =
             freqMap
-            |> List.tryFind (fun (s', _) ->
-                s = s')
-            |> (fun fr ->
-                if fr.IsSome then fr.Value |> snd else None)
+            |> List.tryFind (fun (fr, _) ->
+                if fr |> Informedica.Utils.Lib.BCL.String.isNullOrWhiteSpace then false
+                else
+                    s
+                    |> String.trim ""
+                    |> String.toLower
+                    |> Informedica.Utils.Lib.BCL.String.contains (fr.Trim().ToLower())
+            )
+            |> Option.bind snd
 
 
     module MinMaxParser =
@@ -304,8 +309,8 @@ module FormularyParser =
             match s1 |> String.split ":" with
             | [tp; s] ->
                 match tp |> String.trim with
-                | tp' when tp' = "pca"  -> (s, s2) |> parseQuantityUnit (Result.map PostConc)
-                | tp' when tp' = "preg" -> (s, s2) |> parseQuantityUnit (Result.map Pregnancy)
+                | tp' when tp' = "pca"  -> (s, s2) |> parseQuantityUnit (Result.map PostMenstrualAge)
+                | tp' when tp' = "preg" -> (s, s2) |> parseQuantityUnit (Result.map GestationalAge)
                 | _ -> s1 |> failParse
             | [_] -> (s1, s2) |> parseQuantityUnit (Result.map Age)
             | _   -> (s1, s2) |> failParse
@@ -427,6 +432,7 @@ module FormularyParser =
                 ("≥ 1,5 kg", "1,5 kg - None")
                 ("≥ 2,5 kg", "2,5 kg - None")
                 ("≥ 5 kg", "5 kg - None")
+                ("≥ 6 kg", "6 kg - None")
                 ("≥ 10 kg", "10 kg - None")
                 ("≥ 15 kg", "15 kg - None")
                 ("≥ 20 kg", "20 kg - None")
