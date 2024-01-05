@@ -114,6 +114,7 @@ module Export =
                                     shape = gpp.Shape.ToLower()
                                     route = route.Name.ToLower()
                                     indication = dose.Indication
+                                    targetText = schedule.TargetText
                                     gender = schedule.Target |> Drug.Target.genderToString
                                     minAge =
                                         schedule.Target
@@ -202,6 +203,7 @@ module Export =
                                         shape = ""
                                         route = route.Name.ToLower()
                                         indication = dose.Indication
+                                        targetText = schedule.TargetText
                                         gender = schedule.Target |> Drug.Target.genderToString
                                         minAge =
                                             schedule.Target
@@ -289,7 +291,7 @@ module Export =
         )
 
 
-    let toDataString (mapped : {| adjustUnit: string; doseText: string; doseType: string; doseUnit: string; freqText: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; shape: string; substance: string |} list) =
+    let toDataString (mapped : {| adjustUnit: string; doseText: string; doseType: string; doseUnit: string; freqText: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; shape: string; substance: string; targetText: string |} list) =
         mapped
         |> List.map (fun r ->
             [
@@ -299,6 +301,7 @@ module Export =
                 r.indication
                 "" // department
                 "" // diagn
+                r.targetText
                 r.gender
                 r.minAge
                 r.maxAge

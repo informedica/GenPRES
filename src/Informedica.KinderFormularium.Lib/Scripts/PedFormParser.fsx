@@ -12,16 +12,7 @@
 #load "../Export.fs"
 
 
-open System
-open FSharpPlus
-
-open Informedica.ZIndex.Lib
-open Informedica.Utils.Lib.BCL
 open Informedica.KinderFormularium.Lib
-
-
-WebSiteParser.getEmptyRules ()
-|> Array.length
 
 
 WebSiteParser.getFormulary ()
@@ -29,7 +20,37 @@ WebSiteParser.getFormulary ()
 |> Export.writeToFile "kinderformularium.csv"
 
 
+WebSiteParser.getEmptyRules ()
+|> Array.length
+
 
 WebSiteParser.getFormulary ()
-|> Array.filter (fun d -> d.Generic = "Abatacept")
+|> Array.filter (fun d -> d.Generic = "Paracetamol")
+
+
+WebSiteParser.getFormulary ()
+|> Array.collect (fun drug ->
+    drug.Doses
+    |> List.toArray
+    |> Array.collect (fun dose ->
+        dose.Routes
+        |> List.toArray
+        |> Array.collect (fun route ->
+            route.Schedules
+            |> List.toArray
+            |> Array.filter (fun schedule ->
+                match schedule.Target with
+                | Drug.Target.Unknown _ -> true
+                | _ -> false
+            )
+        )
+    )
+)
+
+
+WebSiteParser.getFormulary ()
+|> Array.filter (fun drug ->
+    drug.Generic = "Paracetamol"
+)
+|> Export.map
 

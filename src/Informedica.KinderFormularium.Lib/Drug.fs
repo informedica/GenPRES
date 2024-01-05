@@ -89,6 +89,12 @@ module Drug =
             | Unknown _ -> None
 
 
+        let getTargetType target =
+            match target |> getTarget with
+            | Some (tt, _, _) -> tt |> Some
+            | _ -> None
+
+
         let getGender target =
             match target |> getTarget with
             | Some (tt, _, _) -> tt |> Some
@@ -143,7 +149,7 @@ module Drug =
 
         let getGestAge target =
             match target |> getTarget with
-            | Some (_, age, _) ->
+            | Some (_ , age, _) ->
                 match age with
                 | GestationalAge (min, max) -> min, max
                 | _ -> None, None
@@ -182,7 +188,15 @@ module Drug =
                 | None, Some max ->
                     None,
                     toDays max.Quantity max.Unit
-                | None, None -> None, None
+                | None, None ->
+                    match target |> getTargetType with
+                    | Some tt ->
+                        match tt with
+                        | Premature ->  None, Some (37. * 7. - 1.)
+                        | Aterm
+                        | Neonate -> Some (37. * 7.), None
+                        | _ -> None, None
+                    | _ -> None, None
 
 
         let getPMAge target =

@@ -360,139 +360,146 @@ module FormularyParser =
 
         let replaceList =
             [
-                ("zwangerschapsduur zwangerschapsduur", "zwangerschapsduur")
-                ("post-menarche ", "#girl ; ")
-                ("kinderen inclusief a terme neonaten 0 jaar tot 1 jaar", "#neon ; < 1 jaar")
-                ("a terme neonaten en zuigelingen 0 maanden tot 5 maanden", "#neon ; < 5 maand")
-                ("kinderen inclusief a terme neonaten 0 jaar tot 18 jaar", "preg: >= 37 week")
-                ("a terme neonaten en kinderen 0 maanden tot 18 jaar", "preg: >= 37 week")
-                ("kinderen inclusief neonaten 0 jaar tot 18 jaar", "preg: >= 37 week")
-                ("kinderen, inclusief premature en a-terme neonaten 0 maanden tot 18 jaar", "")
-                ("kinderen, inclusief premature en a-terme neonaten 0 jaar tot 18 jaar", "")
-                ("vlbw premature neonaten ", "#prem ; ")
-                ("premature neonaten: zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken")
-                ("premature neonaten zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken")
-                ("prematuren, zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken")
-                ("prematuren, zwangerschapsduur < 28 weken", "#prem ; preg: < 28 weken")
-                ("zwangerschapsduur < 37 weken postnatale leeftijd ≥ 14 dagen", "#prem ; preg >= 14 dag")
-                ("(zwangerschapsduur > 35 weken) a terme neonaat", "#aterm ; preg: > 35 weken")
-                ("zwangerschapsduur < 37 weken postnatale leeftijd 0 dagen tot 14 dagen", "#prem ; preg: < 15 dag")
-                ("preterme neonaten ", "")
-                ("preterm neonate", "prem# ; ")
-                ("premature neonaten: ", "prem# ; ")
-                ("premature neonaat", "prem# ; ")
-                ("a terme neonaat tot < 1 jaar", "< 1 jaar")
-                ("a terme en premature neonaten", "#neon ; ")
-                ("a terme neonaten en prematuren", "#neon ; ")
-                ("premature en a terme neonaten", "#neon ; ")
-                ("premature neonaten", "#prem ; ")
-                ("geboortegewicht", "birthweight:")
-                ("neonaten zwangerschapsduur", "preg:")
-                ("extreem prematuren zwangerschapsduur", "preg:")
-                ("prematuren zwangerschapsduur", "preg:")
-                ("zwangerschapsduur", "preg:")
-                ("prematuren postmenstruele leeftijd", "preg:")
-                ("premature en a terme neonaten postnatale leeftijd", "")
-                ("extreem prematuren postconceptionele leeftijd", "pca:")
-                ("prematuur postconceptionele leeftijd", "pca:")
-                ("prematuren postconceptionele leeftijd", "pca:")
-                ("postnatale leeftijd", "")
-                ("postconceptionele leeftijd", "pca:")
+                "zwangerschapsduur zwangerschapsduur", "zwangerschapsduur"
+                "post-menarche ", "#girl ; "
+                "kinderen inclusief a terme neonaten 0 jaar tot 1 jaar", "#neon ; < 1 jaar"
+                "a terme neonaten en zuigelingen 0 maanden tot 5 maanden", "#neon ; < 5 maand"
+                "kinderen inclusief a terme neonaten 0 jaar tot 18 jaar", "preg: >= 37 week"
+                "a terme neonaten en kinderen 0 maanden tot 18 jaar", "preg: >= 37 week"
+                "kinderen inclusief neonaten 0 jaar tot 18 jaar", "preg: >= 37 week"
+                "kinderen, inclusief premature en a-terme neonaten 0 maanden tot 18 jaar", ""
+                "kinderen, inclusief premature en a-terme neonaten 0 jaar tot 18 jaar", ""
+                "vlbw premature neonaten ", "#prem ; "
+                "premature neonaten: zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken"
+                "premature neonaten zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken"
+                "prematuren, zwangerschapsduur < 37 weken", "#prem ; preg: < 37 weken"
+                "prematuren, zwangerschapsduur < 28 weken", "#prem ; preg: < 28 weken"
+                "zwangerschapsduur < 37 weken postnatale leeftijd ≥ 14 dagen", "#prem ; preg: >= 14 dag"
+                "zwangerschapsduur > 35 weken a terme neonaat", "#aterm ; preg: > 35 weken"
+                "zwangerschapsduur < 37 weken postnatale leeftijd 0 dagen tot 14 dagen", "#prem ; preg: < 15 dag"
+                "preterme neonaten ", ""
+                "preterm neonate", "prem# ; "
+                "premature neonaten: ", "prem# ; "
+                "premature neonaat", "prem# ; "
+                "a terme neonaat tot < 1 jaar", "< 1 jaar"
+                "a terme en premature neonaten", "#neon ; "
+                "a terme neonaten en prematuren", "#neon ; "
+                "premature en a terme neonaten", "#neon ; "
+                "premature neonaten", "#prem ; "
+                "geboortegewicht", "birthweight:"
+                "neonaten zwangerschapsduur", "preg:"
+                "extreem prematuren zwangerschapsduur", "preg:"
+                "prematuren zwangerschapsduur", "preg:"
+                "zwangerschapsduur", "preg:"
+                "prematuren postmenstruele leeftijd", "preg:"
+                "premature en a terme neonaten postnatale leeftijd", "pca:"
 
-//                ("premature neonaten zwangerschapsduur < 37 weken", "#prem ")
-//                ("prematuren, zwangerschapsduur < 37 weken", "#prem ; ")
-                ("a terme", "#aterm ; ")
-                ("a terme neonaat tot", "#aterm ; ")
-                ("a terme neonaat", "#aterm ; ")
-                ("a terme neonaten", "#aterm ; ")
-                ("neonaten", "#neon ; ")
-                ("prematuren postnatale leeftijd", "#prem ; ")
-                ("prematuren", "#prem ; ")
-                ("menstruerende meisjes/vrouwen, vanaf circa", "#girl ; ")
-                ("menstruerende meisjes/vrouwen, circa", "#girl ; ")
-                ("jongens", "#boy ; ")
-                ("meisjes", "#girl ; ")
-                (" na menarche, ", "#girl ; ")
-                ("zuigelingen en kinderen", "")
+                "extreem prematuren postconceptionele leeftijd", "pca:"
+                "prematuur postconceptionele leeftijd", "pca:"
+                "prematuren postconceptionele leeftijd", "pca:"
+                "postnatale leeftijd", ""
+                "postmenstruele leeftijd", "pca:"
+                "postconceptionele leeftijd", "pca:"
 
-                ("1e vaccinatie:", "")
-                ("2e vaccinatie:", "")
-                ("3e vaccinatie:", "")
-                ("4e vaccinatie:", "")
+                "a terme neonaat tot", "#aterm ; "
+                "a terme neonaat", "#aterm ; "
+                "a terme neonaten", "#aterm ; "
+                "a terme", "#aterm ; "
+                "neonaten", "#neon ; "
+                "prematuren postnatale leeftijd", "#prem ; "
+                "prematuren", "#prem ; "
+                "menstruerende meisjes/vrouwen, vanaf circa", "#girl ; "
+                "menstruerende meisjes/vrouwen, circa", "#girl ; "
+                "jongens", "#boy ; "
+                "bij meisjes", "#girl ; "
+                "meisjes", "#girl ; "
+                "na menarche, ", "#girl ; "
+                "zuigelingen en kinderen", ""
 
-                (" tot ", " - ")
-                (" en ", " ; ")
-                ("< ", "None -")
+                "start vaccinatieschema bij leeftijd ", ""
+                "1e vaccinatie:", ""
+                "2e vaccinatie:", ""
+                "3e vaccinatie:", ""
+                "4e vaccinatie:", ""
 
-                ("≥ 1 kg", "1 kg - None")
-                ("≥ 1,5 kg", "1,5 kg - None")
-                ("≥ 2,5 kg", "2,5 kg - None")
-                ("≥ 5 kg", "5 kg - None")
-                ("≥ 6 kg", "6 kg - None")
-                ("≥ 10 kg", "10 kg - None")
-                ("≥ 15 kg", "15 kg - None")
-                ("≥ 20 kg", "20 kg - None")
-                ("≥ 25 kg", "25 kg - None")
-                ("≥ 30 kg", "30 kg - None")
-                ("≥ 32,6 kg", "32,6 kg - None")
-                ("≥ 33 kg", "33 kg - None")
-                ("≥ 35 kg", "35 kg - None")
-                ("≥ 40 kg ", "40 kg - None")
-                ("≥ 41 kg ", "41 kg - None")
-                ("≥ 44 kg ", "44 kg - None")
-                ("≥ 45 kg ", "45 kg - None")
-                ("≥ 50 kg", "50 kg - None")
-                ("≥ 57 kg", "57 kg - None")
-                ("≥ 70 kg", "70 kg - None")
-                ("≥ 80 kg", "80 kg - None")
-                ("≥ 100 kg", "100 kg - None")
+                " tot ", " - "
+                " en ", " ; "
+                "< ", "None -"
 
-                ("≥ 1250 gr", "1250 gr - None")
-                ("≥ 1500 gr", "1500 gr - None")
-                ("≥ 2000 gr", "2000 gr - None")
+                "≥ 40 kg", "40 kg - None"
+                "≥ 45 kg", "45 kg - None"
+                "≥ 60 kg", "60 kg - None"
 
-                ("≥ 7 dagen", "7 dag - None")
-                ("≥ 14 dagen", "14 dag - None")
+                "≥ 1 kg", "1 kg - None"
+                "≥ 1,5 kg", "1,5 kg - None"
+                "≥ 2,5 kg", "2,5 kg - None"
+                "≥ 5 kg", "5 kg - None"
+                "≥ 6 kg", "6 kg - None"
+                "≥ 10 kg", "10 kg - None"
+                "≥ 15 kg", "15 kg - None"
+                "≥ 20 kg", "20 kg - None"
+                "≥ 25 kg", "25 kg - None"
+                "≥ 30 kg", "30 kg - None"
+                "≥ 32,6 kg", "32,6 kg - None"
+                "≥ 33 kg", "33 kg - None"
+                "≥ 35 kg", "35 kg - None"
+                "≥ 40 kg ", "40 kg - None"
+                "≥ 41 kg ", "41 kg - None"
+                "≥ 44 kg ", "44 kg - None"
+                "≥ 45 kg ", "45 kg - None"
+                "≥ 50 kg", "50 kg - None"
+                "≥ 57 kg", "57 kg - None"
+                "≥ 70 kg", "70 kg - None"
+                "≥ 80 kg", "80 kg - None"
+                "≥ 100 kg", "100 kg - None"
 
-                ("≥ 4 weken", "4 week - None")
-                ("≥ 30 weken", "30 week - None")
-                ("≥ 32 weken", "32 week - None")
-                ("≥ 34 weken", "34 week - None")
-                ("≥ 35 weken", "35 week - None")
-                ("≥ 36 weken", "36 week - None")
-                ("≥ 37 weken", "37 week - None")
+                "≥ 1250 gr", "1250 gr - None"
+                "≥ 1500 gr", "1500 gr - None"
+                "≥ 2000 gr", "2000 gr - None"
 
-                ("≥ 1 maand", "1 maand - None")
-                ("≥ 3 maanden", "3 maand - None")
-                ("≥ 4 maanden", "4 maand - None")
-                ("≥ 6 maanden", "6 maand - None")
-                ("≥ 8 maanden", "8 maand - None")
-                ("≥ 9 maanden", "9 maand - None")
-                ("≥ 12 maanden", "12 maand - None")
+                "≥ 2 maanden", "2 maand - None"
+                "≥ 7 dagen", "7 dag - None"
+                "≥ 14 dagen", "14 dag - None"
 
-                ("≥ 1 jaar", "1 jaar - None")
-                ("≥ 2 jaar", "2 jaar - None")
-                ("≥ 3 jaar", "3 jaar - None")
-                ("≥ 4 jaar", "4 jaar - None")
-                ("≥ 5 jaar", "5 jaar - None")
-                ("≥ 6 jaar", "6 jaar - None")
-                ("≥ 7 jaar", "7 jaar - None")
-                ("≥ 8 jaar", "8 jaar - None")
-                ("≥ 9 jaar", "9 jaar - None")
-                ("≥ 10 jaar", "10 jaar - None")
-                ("≥ 11 jaar", "11 jaar - None")
-                ("≥ 12 jaar", "12 jaar - None")
-                ("≥ 13 jaar", "13 jaar - None")
-                ("≥ 14 jaar", "14 jaar - None")
-                ("≥ 15 jaar", "15 jaar - None")
-                ("≥ 16 jaar", "16 jaar - None")
-                ("≥ 18 jaar", "18 jaar - None")
+                "≥ 4 weken", "4 week - None"
+                "≥ 30 weken", "30 week - None"
+                "≥ 32 weken", "32 week - None"
+                "≥ 34 weken", "34 week - None"
+                "≥ 35 weken", "35 week - None"
+                "≥ 36 weken", "36 week - None"
+                "≥ 37 weken", "37 week - None"
 
-                ("dagen", "day")
-                ("jaar", "year")
-                ("weken", "week")
-                ("maanden", "month")
-                ("maand", "month")
+                "≥ 1 maand", "1 maand - None"
+                "≥ 3 maanden", "3 maand - None"
+                "≥ 4 maanden", "4 maand - None"
+                "≥ 6 maanden", "6 maand - None"
+                "≥ 8 maanden", "8 maand - None"
+                "≥ 9 maanden", "9 maand - None"
+                "≥ 12 maanden", "12 maand - None"
+
+                "≥ 1 jaar", "1 jaar - None"
+                "≥ 2 jaar", "2 jaar - None"
+                "≥ 3 jaar", "3 jaar - None"
+                "≥ 4 jaar", "4 jaar - None"
+                "≥ 5 jaar", "5 jaar - None"
+                "≥ 6 jaar", "6 jaar - None"
+                "≥ 7 jaar", "7 jaar - None"
+                "≥ 8 jaar", "8 jaar - None"
+                "≥ 9 jaar", "9 jaar - None"
+                "≥ 10 jaar", "10 jaar - None"
+                "≥ 11 jaar", "11 jaar - None"
+                "≥ 12 jaar", "12 jaar - None"
+                "≥ 13 jaar", "13 jaar - None"
+                "≥ 14 jaar", "14 jaar - None"
+                "≥ 15 jaar", "15 jaar - None"
+                "≥ 16 jaar", "16 jaar - None"
+                "≥ 18 jaar", "18 jaar - None"
+
+                "dagen", "day"
+                "jaar", "year"
+                "weken", "week"
+                "maanden", "month"
+                "maand", "month"
 
             ]
 
@@ -506,15 +513,17 @@ module FormularyParser =
         let createUnknown s err = (s, err) |> Unknown
 
 
+        let replace s =
+            replaceList
+            |> List.fold (fun a (os, ns) ->
+                let os = os |> String.toLower
+                a |> String.replace os ns
+            ) (s |> String.trim |> String.toLower)
+
+
         let parse s =
             let unknown = createUnknown s
-
-            let replaced =
-                replaceList
-                |> List.fold (fun a (os, ns) ->
-                    let os = os |> String.toLower
-                    a |> String.replace os ns
-                ) (s |> String.trim |> String.toLower)
+            let replaced = s |> replace
 
             match replaced |> String.split ";" with
             | [s1;s2;s3] ->

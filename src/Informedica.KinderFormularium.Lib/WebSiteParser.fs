@@ -171,7 +171,13 @@ module WebSiteParser =
                                                                 for s in r' |> getItemTypeFromNode "http://schema.org/DoseSchedule" do
                                                                     let tp = s |> getItemPropString "targetPopulation"
                                                                     let dv = s |> getItemPropString "doseValue"
-                                                                    let du = s |> getItemPropString "doseUnit"
+                                                                    let du =
+                                                                        s
+                                                                        |> getItemPropString "doseUnit"
+                                                                        |> String.replace "," ""
+                                                                        |> String.replace "." ""
+                                                                        |> String.replace "/dosis" ""
+                                                                        |> String.trim
                                                                     let fr = s |> getItemPropString "frequency"
                                                                     yield
                                                                         {
@@ -179,9 +185,9 @@ module WebSiteParser =
                                                                             Drug.Target = tp |> TargetParser.parse
                                                                             Drug.FrequencyText = fr |> String.trim
                                                                             Drug.Frequency = fr |> FrequencyParser.parse
-                                                                            Drug.ValueText = dv |> String.trim
+                                                                            Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
                                                                             Drug.Value = dv |> MinMaxParser.parse |> snd
-                                                                            Drug.Unit = du |> String.trim
+                                                                            Drug.Unit = du
                                                                         }
                                                             ]
                                                     }
