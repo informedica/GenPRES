@@ -10,6 +10,7 @@
     <Compile Include="Drug.fs" />
     <Compile Include="FormularyParsers.fs" />
     <Compile Include="WebSiteParser.fs" />
+    <Compile Include="Export.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\PedFormParser.fsx" />
   </ItemGroup>

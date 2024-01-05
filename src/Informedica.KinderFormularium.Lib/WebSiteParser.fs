@@ -18,6 +18,14 @@ module WebSiteParser =
 
 
     let _medications () =
+        let replace =
+            [
+                "Ergocalciferol / fytomenadion / retinol / tocoferol (Vitamine A/D/E/K)",
+                "ergocalciferol-fytomenadion-retinol-tocoferol-vitamine-adek"
+
+                "Natriumdocusaat (al dan niet i.c.m. sorbitol)",
+                "natriumdocusaat-al-dan-niet-icm-sorbitol"
+            ]
         let res = JsonValue.Load(kinderFormUrl)
         [ for v in res do
             Drug.createDrug
@@ -26,7 +34,16 @@ module WebSiteParser =
                       (v?generic_name.AsString())
                       (v?branded_name.AsString())
         ]
+        |> List.map (fun m ->
+            { m with
+                Generic =
+                    match replace |> List.tryFind (fun (s, _) -> s = m.Generic) with
+                    | Some (_, s) -> s
+                    | _ -> m.Generic
+            }
+        )
         |> List.distinctBy (fun m -> m.Id, m.Generic.Trim().ToLower())
+
 
 
     let medications : unit -> Drug.Drug list = Memoization.memoizeN _medications
@@ -280,3 +297,19 @@ module WebSiteParser =
         |> Array.map (String.replace "," "")
         |> Array.distinct
         |> Array.sort
+
+
+    let getEmptyRules () =
+        getFormulary ()
+        |> Array.filter (fun d ->
+            d.Doses
+            |> List.forall (fun dose ->
+                dose.Routes
+                |> List.forall (fun route ->
+                    route.Schedules
+                    |> List.forall (fun schedule ->
+                        schedule.Value |> Option.isNone
+                    )
+                )
+            )
+        )

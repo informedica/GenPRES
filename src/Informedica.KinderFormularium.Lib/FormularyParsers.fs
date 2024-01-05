@@ -106,6 +106,7 @@ module FormularyParser =
                 (" in 10 min ", Frequency({ Min = 1; Max = 1; Time = 1; Unit = "day"}) |> Some)
                 (" in 10-15 min ", Frequency({ Min = 1; Max = 1; Time = 1; Unit = "day"}) |> Some)
                 (" in 15 minuten ", Frequency({ Min = 1; Max = 1; Time = 1; Unit = "day"}) |> Some)
+                (" in 2 doses ", Frequency({ Min = 2; Max = 2; Time = 1; Unit = "day"}) |> Some)
                 (" in 2 - 3 doses ", Frequency({ Min = 2; Max = 3; Time = 1; Unit = "day"}) |> Some)
                 (" in 2 - 4 doses ", Frequency({ Min = 2; Max = 4; Time = 1; Unit = "day"}) |> Some)
                 (" in 2 doses ", Frequency({ Min = 2; Max = 2; Time = 0; Unit = "day"}) |> Some)
@@ -190,11 +191,7 @@ module FormularyParser =
 
     module MinMaxParser =
 
-        open FSharpPlus
         open Informedica.Utils.Lib.BCL
-
-        let parseValue =
-            (String.replace "." "") >> (String.replace "," ".") >> tryParse
 
 
         let parse s =
@@ -221,13 +218,13 @@ module FormularyParser =
 
             match s' |> String.split "-" with
             | [s1] ->
-                match s1 |> parseValue with
+                match s1 |> tryParse with
                 | Some v1 ->
                     let mm = { Drug.MinMax.Min = Some v1; Drug.MinMax.Max = Some v1 }
                     (s, mm |> Some)
                 | None -> (s, None)
             |[s1;s2] ->
-                match (s1 |> parseValue, s2 |> parseValue) with
+                match (s1 |> tryParse, s2 |> tryParse) with
                 | Some v1, Some v2 ->
                     let mm = { Drug.MinMax.Min = Some v1; Drug.MinMax.Max = Some v2 }
                     (s, mm |> Some)
@@ -238,7 +235,6 @@ module FormularyParser =
     module TargetParser =
 
 
-        open FSharpPlus
         open Informedica.Utils.Lib.BCL
 
         open Drug.Target
