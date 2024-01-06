@@ -3,7 +3,6 @@ namespace Informedica.KinderFormularium.Lib
 
 module Export =
 
-
     open Informedica.ZIndex.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.KinderFormularium.Lib
@@ -24,13 +23,26 @@ module Export =
             drug.Doses
             |> List.collect (fun dose ->
                 dose.Routes
+                |> List.filter (fun route ->
+                    route.Name.Trim()
+                    |> String.equalsCapInsens "toedieningsweg niet van toepassing"
+                    |> not
+                )
                 |> List.collect (fun route ->
                     route.Schedules
                     |> List.collect (fun schedule ->
-                        let gn =
+                        let pedFormName =
                             drug.Generic
                             |> String.toLower
-                            |> String.replace " + " "/"
+                            |> String.replace "+" "/"
+                            |> String.replace " / " "/"
+                            |> String.replace "/ " "/"
+                            |> String.replace " /" "/"
+                            |> String.replace "ë" "e"
+                            |> String.replace "ï" "i"
+                            |> String.replace " (combinatiepreparaat)" ""
+                            |> String.replace " (combinatie preparaat)" ""
+                            |> String.replace " (combinatie)" ""
                             |> String.trim
 
                         let doseUnit =
@@ -88,17 +100,32 @@ module Export =
                                 else "", minPerTimeAdj, maxPerTimeAdj
                             | _ -> "", "", ""
 
-                        route.Name
-                        |> Mapping.mapRoute
-                        |> Option.defaultValue route.Name
-                        |> String.toLower
-                        |> GenPresProduct.filter gn ""
+                        let route =
+                            route.Name
+                            |> Mapping.mapRoute
+                            |> Option.defaultValue route.Name
+                            |> (fun r ->
+                                match r with
+                                | s when s = "intralesionaal" -> "intralaesionaal"
+                                | s when s = "intra_articulair" -> "intraarticulair"
+                                | _ -> r
+                            )
+                            |> String.toLower
+
+                        GenPresProduct.get []
                         |> Array.filter (fun gpp ->
+                            let gppName = gpp.Name |> String.toLower
+                            // should be a valid shape
                             Mapping.validShapes
                             |> List.exists ((=) (gpp.Shape.ToLower().Trim())) &&
+                            // check if names match
+                            (pedFormName = gppName ||
+                            (pedFormName |> String.contains gppName && pedFormName |> String.contains "/" |> not) ||
+                            ((pedFormName |> String.split "/" |> List.sort) = (gppName |> String.split "/" |> List.sort)))
+                            // should have equal route
+                            &&
                             gpp.Routes
-                            |> Array.exists (String.equalsCapInsens "toedieningsweg niet van toepassing")
-                            |> not
+                            |> Array.exists (String.equalsCapInsens route)
                         )
                         |> Array.toList
                         |> List.collect (fun gpp ->
@@ -108,11 +135,10 @@ module Export =
                             |> Array.distinct
                             |> Array.toList
                             |> List.map (fun sn ->
-
                                 {|
                                     generic = gpp.Name.ToLower()
                                     shape = gpp.Shape.ToLower()
-                                    route = route.Name.ToLower()
+                                    route = route
                                     indication = dose.Indication
                                     targetText = schedule.TargetText
                                     gender = schedule.Target |> Drug.Target.genderToString
@@ -199,9 +225,9 @@ module Export =
                             | [] ->
                                 [
                                     {|
-                                        generic = gn
+                                        generic = pedFormName
                                         shape = ""
-                                        route = route.Name.ToLower()
+                                        route = route
                                         indication = dose.Indication
                                         targetText = schedule.TargetText
                                         gender = schedule.Target |> Drug.Target.genderToString
@@ -291,6 +317,63 @@ module Export =
         )
 
 
+    let fields =
+        [
+            "Generic"
+            "Shape"
+            "Route"
+            "Indication"
+            "Dep"
+            "Diagn"
+            "TargetText"
+            "Gender"
+            "MinAge"
+            "MaxAge"
+            "MinWeight"
+            "MaxWeight"
+            "MinBSA"
+            "MaxBSA"
+            "MinGestAge"
+            "MaxGestAge"
+            "MinPMAge"
+            "MaxPMAge"
+            "DoseType"
+            "Substance"
+            "FreqText"
+            "DoseText"
+            "Freqs"
+            "DoseUnit"
+            "AdjustUnit"
+            "FreqUnit"
+            "RateUnit"
+            "MinTime"
+            "MaxTime"
+            "TimeUnit"
+            "MinInt"
+            "MaxInt"
+            "IntUnit"
+            "MinDur"
+            "MaxDur"
+            "DurUnit"
+            "MinQty"
+            "MaxQty"
+            "NormQtyAdj"
+            "MinQtyAdj"
+            "MaxQtyAdj"
+            "MinPerTime"
+            "MaxPerTime"
+            "NormPerTimeAdj"
+            "MinPerTimeAdj"
+            "MaxPerTimeAdj"
+            "MinRate"
+            "MaxRate"
+            "MinRateAdj"
+            "MaxRateAdj"
+        ]
+        |> String.concat "\t"
+        |> List.singleton
+
+
     let toDataString (mapped : {| adjustUnit: string; doseText: string; doseType: string; doseUnit: string; freqText: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; shape: string; substance: string; targetText: string |} list) =
         mapped
         |> List.map (fun r ->
@@ -353,6 +436,8 @@ module Export =
             ]
             |> String.concat "\t"
         )
+        |> List.append fields
+        |> List.distinct
 
 
     let writeToFile path mapped =
