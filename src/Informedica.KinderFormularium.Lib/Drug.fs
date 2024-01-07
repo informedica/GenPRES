@@ -144,7 +144,11 @@ module Drug =
                 | None, Some max ->
                     None,
                     toDays max.Quantity max.Unit
-                | None, None -> None, None
+                | None, None ->
+                    match target |> getTargetType with
+                    | Some Neonate
+                    | Some Aterm -> None, Some 30.
+                    | _ -> None, None
 
 
         let getGestAge target =
@@ -311,6 +315,7 @@ module Drug =
             ValueText : string
             Value : MinMax.MinMax Option
             Unit : string
+            ScheduleText : string
         }
 
 

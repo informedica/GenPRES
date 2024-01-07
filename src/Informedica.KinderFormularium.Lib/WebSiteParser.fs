@@ -179,16 +179,17 @@ module WebSiteParser =
                                                                         |> String.replace "/dosis" ""
                                                                         |> String.trim
                                                                     let fr = s |> getItemPropString "frequency"
-                                                                    yield
-                                                                        {
-                                                                            Drug.TargetText = tp |> String.trim
-                                                                            Drug.Target = tp |> TargetParser.parse
-                                                                            Drug.FrequencyText = fr |> String.trim
-                                                                            Drug.Frequency = fr |> FrequencyParser.parse
-                                                                            Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
-                                                                            Drug.Value = dv |> MinMaxParser.parse |> snd
-                                                                            Drug.Unit = du
-                                                                        }
+
+                                                                    {
+                                                                        Drug.TargetText = tp |> String.trim
+                                                                        Drug.Target = tp |> TargetParser.parse
+                                                                        Drug.FrequencyText = fr |> String.trim
+                                                                        Drug.Frequency = fr |> FrequencyParser.parse
+                                                                        Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
+                                                                        Drug.Value = dv |> MinMaxParser.parse |> snd
+                                                                        Drug.Unit = du
+                                                                        Drug.ScheduleText = s |> HtmlNode.innerText
+                                                                    }
                                                             ]
                                                     }
                                         ]

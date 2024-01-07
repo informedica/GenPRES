@@ -140,7 +140,7 @@ module Export =
                                     shape = gpp.Shape.ToLower()
                                     route = route
                                     indication = dose.Indication
-                                    targetText = schedule.TargetText
+                                    scheduleText = schedule.ScheduleText
                                     gender = schedule.Target |> Drug.Target.genderToString
                                     minAge =
                                         schedule.Target
@@ -199,8 +199,6 @@ module Export =
                                             |> Option.map Drug.Frequency.toDoseType
                                             |> Option.defaultValue ""
                                     substance = sn.ToLower().Trim()
-                                    freqText = schedule.FrequencyText
-                                    doseText = schedule.ValueText
                                     freqs =
                                         schedule.Frequency
                                         |> Option.map Drug.Frequency.getFrequency
@@ -229,7 +227,7 @@ module Export =
                                         shape = ""
                                         route = route
                                         indication = dose.Indication
-                                        targetText = schedule.TargetText
+                                        scheduleText = schedule.TargetText
                                         gender = schedule.Target |> Drug.Target.genderToString
                                         minAge =
                                             schedule.Target
@@ -288,8 +286,6 @@ module Export =
                                                 |> Option.map Drug.Frequency.toDoseType
                                                 |> Option.defaultValue ""
                                         substance = ""
-                                        freqText = schedule.FrequencyText
-                                        doseText = schedule.ValueText
                                         freqs =
                                             schedule.Frequency
                                             |> Option.map Drug.Frequency.getFrequency
@@ -317,6 +313,31 @@ module Export =
         )
 
 
+    let addMaxDoses (mapped : {| adjustUnit: string; doseType: string; doseUnit: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; scheduleText: string; shape: string; substance: string |} list) =
+        let batches =
+            mapped
+            |> List.toArray
+            |> Array.chunkBySize 10
+        let count = batches |> Array.length
+        let n = ref 0
+
+        batches
+        |> Array.collect (fun chunked ->
+            n.Value <- n.Value + 1
+            printfn $"processed {n.Value} of total {count}"
+
+            chunked
+            |> Array.map  OpenAI.mapMaxDoses
+            |> Async.Parallel
+            |> fun p ->
+                async {
+                    do! Async.Sleep(1000)
+                    return! p
+                }
+            |> Async.RunSynchronously
+        )
+
+
     let fields =
         [
             "Generic"
@@ -325,7 +346,7 @@ module Export =
             "Indication"
             "Dep"
             "Diagn"
-            "TargetText"
+            "ScheduleText"
             "Gender"
             "MinAge"
             "MaxAge"
@@ -339,8 +360,6 @@ module Export =
             "MaxPMAge"
             "DoseType"
             "Substance"
-            "FreqText"
-            "DoseText"
             "Freqs"
             "DoseUnit"
             "AdjustUnit"
@@ -374,7 +393,7 @@ module Export =
         |> List.singleton
 
 
-    let toDataString (mapped : {| adjustUnit: string; doseText: string; doseType: string; doseUnit: string; freqText: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; shape: string; substance: string; targetText: string |} list) =
+    let toDataString (mapped : {| adjustUnit: string; doseType: string; doseUnit: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; scheduleText: string; shape: string; substance: string |} list) =
         mapped
         |> List.map (fun r ->
             [
@@ -384,7 +403,13 @@ module Export =
                 r.indication
                 "" // department
                 "" // diagn
-                r.targetText
+                r.scheduleText
+                    |> String.replace "\t" " "
+                    |> String.replace "\r\n" " "
+                    |> String.replace "\n" " "
+                    |> String.replace "\r" " "
+                    |> String.removeBrackets
+                    |> String.trim
                 r.gender
                 r.minAge
                 r.maxAge
@@ -398,13 +423,6 @@ module Export =
                 r.maxPMAge
                 r.doseType
                 r.substance
-                r.freqText
-                r.doseText
-                    |> String.replace "\t" " "
-                    |> String.replace "\r\n" " "
-                    |> String.replace "\n" " "
-                    |> String.replace "\r" " "
-                    |> String.trim
                 r.freqs
                 r.doseUnit |> String.removeBrackets
                 r.adjustUnit |> String.removeBrackets

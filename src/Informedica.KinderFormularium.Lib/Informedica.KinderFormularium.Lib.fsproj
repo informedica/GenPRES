@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
+    <Compile Include="OpenAI.fs" />
     <Compile Include="Mapping.fs" />
     <Compile Include="Drug.fs" />
     <Compile Include="FormularyParsers.fs" />
