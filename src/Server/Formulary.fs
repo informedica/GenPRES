@@ -116,7 +116,7 @@ let get (form : Formulary) =
                         dsrs
                         |> DoseRule.Print.toMarkdown
                         |> fun md ->
-                            $"{md}\n\n## Dose Check\n\n{s}"
+                            $"{md}\n\n### Doseer controle volgens de G-Standaard\n\n{s}"
 
                     | _ -> ""
             }

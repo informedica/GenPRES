@@ -420,6 +420,7 @@ module Patient =
         <React.Fragment>
             <Accordion expanded={isExpanded} onChange={handleChange}>
                 <AccordionSummary
+                sx={ {| bgcolor=Mui.Colors.Grey.``100`` |} }
                 expandIcon={{ <ExpandMoreIcon /> }}
                 aria-controls="patient"
                 id="patient-details"
