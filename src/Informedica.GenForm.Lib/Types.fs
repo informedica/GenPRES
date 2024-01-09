@@ -143,7 +143,6 @@ module Types =
     /// A DoseLimit for a Shape or Substance.
     type DoseLimit =
         {
-            /// The Target for the Doselimit
             DoseLimitTarget : DoseLimitTarget
             /// The unit to dose with
             DoseUnit: Unit
@@ -247,6 +246,7 @@ module Types =
             Route : string
             /// The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
+            DoseText : string
             /// The DoseType of the DoseRule
             DoseType : DoseType
             /// The unit to adjust dosing with

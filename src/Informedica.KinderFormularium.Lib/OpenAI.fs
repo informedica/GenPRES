@@ -65,8 +65,8 @@ module OpenAI =
                     let v = v |> String.replace "." "" |> String.replace "," "."
                     let u =
                         match u |> String.split "/" with
-                        | [u] -> Some u
-                        | [u1;u2] when u2 |> String.contains "dose" -> Some u1
+                        | [u]
+                        | [u; _] -> Some u
                         | _ -> None
                     match v |> Double.tryParse |> Option.bind BigRational.fromFloat,
                           u |> Option.bind Units.fromString with
@@ -159,57 +159,26 @@ module OpenAI =
         }
 
 
-    let mapMaxDoses (mapped : {| adjustUnit: string; doseType: string; doseUnit: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; scheduleText: string; shape: string; substance: string |}) =
+    let getDoseType doseText =
         async {
-            if mapped.scheduleText |> String.contains "max" |> not ||
-               mapped.maxQty |> String.notEmpty ||
-               mapped.maxPerTime |> String.notEmpty then return mapped
-            else
-                let doseText =
-                    mapped.scheduleText
-                    |> String.split "\n"
-                    |> List.tryHead
-                    |> Option.defaultValue ""
-
-                let! maxAbsDose = getAbsMaxDose doseText
-                let! maxDose = getMaxDose doseText
-
-                let du = mapped.doseUnit |> Units.fromString
-                let tu = mapped.freqUnit |> Units.fromString
-
-                return
-                    {| mapped with
-                        maxQty =
-                            maxDose
-                            |> Option.bind (fun d ->
-                                match du with
-                                | Some u ->
-                                    d
-                                    |> ValueUnit.convertTo u
-                                    |> ValueUnit.getValue
-                                    |> Array.tryHead
-                                    |> function
-                                        | None -> None
-                                        | Some br -> br |> BigRational.toDouble |> Some
-                                    |> Option.map string
-                                | None -> None
-                            )
-                            |> Option.defaultValue ""
-                        maxPerTime =
-                            maxAbsDose
-                            |> Option.bind (fun d ->
-                                match du, tu with
-                                | Some du, Some tu ->
-                                    d
-                                    |> ValueUnit.convertTo (du |> Units.per tu)
-                                    |> ValueUnit.getValue
-                                    |> Array.tryHead
-                                    |> function
-                                        | None -> None
-                                        | Some br -> br |> BigRational.toDouble |> Some
-                                    |> Option.map string
-                                | _ -> None
-                            )
-                            |> Option.defaultValue ""
-                    |}
+            let! response = callAI $"is dit een start of een eenmalige dosering: geef alleen 'start' of 'eenmalig' als antwoord: {doseText}"
+            return
+                try
+                    response
+                    |> Informedica.ZIndex.Lib.Json.deSerialize<ChatCompletion>
+                    |> fun compl ->
+                        compl.choices
+                        |> List.tryHead
+                        |> Option.map _.message
+                        |> Option.bind (fun m ->
+                            match m.content with
+                            | s when s |> String.equalsCapInsens "start" -> "start" |> Some
+                            | s when s |> String.equalsCapInsens "eenmalig" -> "eenmalig" |> Some
+                            | _ -> None
+                        )
+                with
+                | e ->
+                    printfn $"an error occurred:\n{response}"
+                    None
         }
+

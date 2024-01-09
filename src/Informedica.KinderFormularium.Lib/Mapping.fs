@@ -164,5 +164,11 @@ module Mapping =
         |> Option.map _.Long
 
 
+    let eqsRoute r1 r2 =
+        if r1 |> Option.isNone then true
+        else
+            match r1.Value |> mapRoute, r2 |> mapRoute with
+            | Some r1, Some r2 -> r1 = r2
+            | _ -> false
 
 

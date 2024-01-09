@@ -13,38 +13,15 @@
 #load "../Export.fs"
 
 
+open Informedica.Utils.Lib.BCL
 open Informedica.KinderFormularium.Lib
 
 
-let addMaxDoses (mapped : {| adjustUnit: string; doseType: string; doseUnit: string; freqUnit: string; freqs: string; gender: string; generic: string; indication: string; maxAge: string; maxBSA: string; maxGestAge: string; maxPMAge: string; maxPerTime: string; maxPerTimeAdj: string; maxQty: string; maxQtyAdj: string; maxWeight: string; minAge: string; minBSA: string; minGestAge: string; minPMAge: string; minPerTime: string; minPerTimeAdj: string; minQty: string; minQtyAdj: string; minWeight: string; normPerTimeAdj: string; normQtyAdj: string; route: string; scheduleText: string; shape: string; substance: string |} list) =
-    let batches =
-        mapped
-        |> List.toArray
-        |> Array.chunkBySize 10
-    let count = batches |> Array.length
-    let n = ref 0
-
-    batches
-    |> Array.collect (fun chunked ->
-        n.Value <- n.Value + 1
-        printfn $"processed {n.Value} of total {count}"
-
-        chunked
-        |> Array.map  OpenAI.mapMaxDoses
-        |> Async.Parallel
-        |> fun p ->
-            async {
-                do! Async.Sleep(1000)
-                return! p
-            }
-        |> Async.RunSynchronously
-    )
-
-
 WebSiteParser.getFormulary ()
+//|> Array.filter (fun d -> d.Generic |> String.equalsCapInsens "paracetamol")
 |> Export.map
-|> addMaxDoses
-|> Array.toList
+|> Export.addMaxDoses
+|> Export.checkDoseTypes
 |> Export.writeToFile "kinderformularium.csv"
 
 
@@ -76,8 +53,6 @@ WebSiteParser.getFormulary ()
 )
 
 
-
-open Informedica.Utils.Lib.BCL
 
 
 WebSiteParser.getFormulary ()
@@ -115,3 +90,22 @@ WebSiteParser.getFormulary ()
     |}
 )
 |> Array.iter (printfn "%A")
+
+
+
+"6 maanden tot 18 jaar en ≥ 6 kg   Startdosering:Dag 1: 3  mg/kg/dosis,  éénmalig. Max: 125 mg/dag. Onderhoudsdosering:Dag 2 en 3: 2  mg/kg/dag  in 1 dosis. Max: 80 mg/dag. in de ochtend innemen."
+|> OpenAI.getAbsMaxDose
+|> Async.RunSynchronously
+
+
+"6 maanden tot 18 jaar en ≥ 6 kg   Startdosering:Dag 1: 3  mg/kg/dosis,  éénmalig. Max: 125 mg/dag. Onderhoudsdosering:Dag 2 en 3: 2  mg/kg/dag  in 1 dosis. Max: 80 mg/dag. in de ochtend innemen."
+|> fun doseText ->
+    OpenAI.callAI $"wat is de maximale dosering die per keer gegeven kan worden, geef alleen de dosering als antwoord: {doseText}"
+|> Async.RunSynchronously
+
+
+"6 maanden tot 18 jaar en ≥ 6 kg   Startdosering:Dag 1: 3  mg/kg/dosis,  éénmalig. Max: 125 mg/dag. Onderhoudsdosering:Dag 2 en 3: 2  mg/kg/dag  in 1 dosis. Max: 80 mg/dag. in de ochtend innemen."
+|> fun doseText ->
+    OpenAI.callAI $"is dit een start of een eenmalige dosering: geef alleen 'start' of 'eenmalig' als antwoord: {doseText}"
+|> Async.RunSynchronously
+

@@ -127,7 +127,7 @@ module DoseRule =
                     "max. duur "
 
 
-        let printMinMaxDose (minMax : MinMax) =
+        let printMinMaxDose perDose (minMax : MinMax) =
             if minMax = MinMax.empty then ""
             else
                 minMax
@@ -136,12 +136,14 @@ module DoseRule =
                     "min "
                     "max "
                     "max "
+                |> fun s ->
+                    $"{s}{perDose}"
 
-
-        let printNormDose vu =
+        let printNormDose perDose vu =
             match vu with
             | None    -> ""
-            | Some vu -> $"{vu |> Utils.ValueUnit.toString 3}"
+            | Some vu ->
+                $"{vu |> Utils.ValueUnit.toString 3}{perDose}"
 
 
         let printDose wrap (dr : DoseRule) =
@@ -158,23 +160,25 @@ module DoseRule =
             if useSubstDl then substDls
             else shapeDls
             |> Array.map (fun dl ->
+                let perDose = "/dosis"
+                let emptyS = ""
                 [
-                    $"{dl.Rate |> printMinMaxDose}"
-                    $"{dl.RateAdjust |> printMinMaxDose}"
+                    $"{dl.Rate |> printMinMaxDose emptyS}"
+                    $"{dl.RateAdjust |> printMinMaxDose emptyS}"
 
-                    $"{dl.NormPerTimeAdjust |> printNormDose} " +
-                    $"{dl.PerTimeAdjust |> printMinMaxDose}"
+                    $"{dl.NormPerTimeAdjust |> printNormDose emptyS} " +
+                    $"{dl.PerTimeAdjust |> printMinMaxDose emptyS}"
 
-                    $"{dl.PerTime |> printMinMaxDose}"
+                    $"{dl.PerTime |> printMinMaxDose emptyS}"
 
-                    $"{dl.NormQuantityAdjust |> printNormDose} " +
-                    $"{dl.QuantityAdjust |> printMinMaxDose}"
+                    $"{dl.NormQuantityAdjust |> printNormDose perDose} " +
+                    $"{dl.QuantityAdjust |> printMinMaxDose perDose}"
 
-                    $"{dl.Quantity |> printMinMaxDose}"
+                    $"{dl.Quantity |> printMinMaxDose perDose}"
                 ]
                 |> List.map String.trim
                 |> List.filter (String.IsNullOrEmpty >> not)
-                |> String.concat " "
+                |> String.concat ", "
                 |> fun s ->
                     $"%s{dl.DoseLimitTarget |> DoseLimit.substanceDoseLimitTargetToString} {wrap}{s}{wrap}"
             )
@@ -229,7 +233,7 @@ module DoseRule =
                     $"\n\n##### Patient: **%s{patient}**\n\n%s{diagn}"
 
             let printDoses (rules : DoseRule array) =
-                ("", rules |> Array.groupBy _.DoseType)
+                (("", ""), rules |> Array.groupBy _.DoseType)
                 ||> Array.fold (fun acc (dt, ds) ->
                     let dose =
                         if ds |> Array.isEmpty then ""
@@ -237,7 +241,7 @@ module DoseRule =
                             ds
                             |> Array.collect (printDose "")
                             |> Array.distinct
-                            |> String.concat " "
+                            |> String.concat ", "
                             |> fun s -> $"{s}\n"
 
                     let freqs =
@@ -248,6 +252,16 @@ module DoseRule =
                             |> Array.distinct
                             |> function
                             | [| s |] -> s
+                            | _ -> ""
+
+                    let pedForm =
+                        if dose = "" then ""
+                        else
+                            ds
+                            |> Array.map _.DoseText
+                            |> Array.distinct
+                            |> function
+                            | [| s |] -> $"\n\n*Kinderformularium*: {s}"
                             | _ -> ""
 
                     let intv =
@@ -280,10 +294,13 @@ module DoseRule =
                             | [| s |] -> s
                             | _ -> ""
 
-                    if dt = Contraindicated then $"{acc}\n*gecontra-indiceerd*"
+                    if dt = Contraindicated then
+                        $"{acc |> fst}\n*gecontra-indiceerd*", pedForm
                     else
-                        $"{acc}\n{dose_md dt dose freqs intv time dur}"
+                        $"{acc |> fst}\n{dose_md dt dose freqs intv time dur}", pedForm
                 )
+                |> fun (s1, s2) -> $"{s1}{s2}"
+
 
             ({| md = ""; rules = [||] |},
              rules
@@ -349,7 +366,10 @@ module DoseRule =
 
                                                     {| acc with
                                                         rules = rs
-                                                        md = acc.md + (patient_md pat diagn) + $"\n{doses}"
+                                                        md =
+                                                            acc.md +
+                                                            (patient_md pat diagn) +
+                                                            $"\n{doses}"
                                                     |}
                                                 )
                                     )
@@ -397,13 +417,14 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let mapToDoseRule (r : {| AdjustUnit: string; Department: string; Diagn: string; DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string |}) =
+    let mapToDoseRule (r : {| AdjustUnit: string; Department: string; Diagn: string; DoseText: string; DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string |}) =
         try
             {
                 Indication = r.Indication
                 Generic = r.Generic
                 Shape = r.Shape
                 Route = r.Route
+                DoseText = r.DoseText
                 PatientCategory =
                     {
                         Department =
@@ -480,6 +501,11 @@ module DoseRule =
                     Route = get "Route"
                     Department = get "Dep"
                     Diagn = get "Diagn"
+                    DoseText =
+                        try
+                            get "ScheduleText"
+                        with
+                        | _ -> ""
                     Gender = get "Gender" |> Gender.fromString
                     MinAge = get "MinAge" |> toBrOpt
                     MaxAge = get "MaxAge" |> toBrOpt

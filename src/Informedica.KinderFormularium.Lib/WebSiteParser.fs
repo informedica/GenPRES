@@ -170,27 +170,52 @@ module WebSiteParser =
                                                             [
                                                                 for s in r' |> getItemTypeFromNode "http://schema.org/DoseSchedule" do
                                                                     let tp = s |> getItemPropString "targetPopulation"
-                                                                    let dv = s |> getItemPropString "doseValue"
-                                                                    let du =
+                                                                    let dvs =
                                                                         s
-                                                                        |> getItemPropString "doseUnit"
-                                                                        |> String.replace "," ""
-                                                                        |> String.replace "." ""
-                                                                        |> String.replace "/dosis" ""
-                                                                        |> String.trim
-                                                                    let fr = s |> getItemPropString "frequency"
+                                                                        |> getItemProp "doseValue"
+                                                                        |> Seq.map HtmlNode.innerText
+                                                                        |> Seq.toList
+                                                                    let dus =
+                                                                        s
+                                                                        |> getItemProp "doseUnit"
+                                                                        |> Seq.map HtmlNode.innerText
+                                                                        |> Seq.toList
+                                                                        |> List.map (fun s ->
+                                                                            s
+                                                                            |> String.replace "," ""
+                                                                            |> String.replace "." ""
+                                                                            |> String.replace "/dosis" ""
+                                                                            |> String.trim
+                                                                        )
+                                                                    let frs =
+                                                                        s
+                                                                        |> getItemProp "frequency"
+                                                                        |> Seq.map HtmlNode.innerText
+                                                                        |> Seq.toList
 
-                                                                    {
-                                                                        Drug.TargetText = tp |> String.trim
-                                                                        Drug.Target = tp |> TargetParser.parse
-                                                                        Drug.FrequencyText = fr |> String.trim
-                                                                        Drug.Frequency = fr |> FrequencyParser.parse
-                                                                        Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
-                                                                        Drug.Value = dv |> MinMaxParser.parse |> snd
-                                                                        Drug.Unit = du
-                                                                        Drug.ScheduleText = s |> HtmlNode.innerText
-                                                                    }
-                                                            ]
+                                                                    for dv in dvs do
+                                                                        let fr =
+                                                                            frs
+                                                                            |> List.tryItem (dvs |> List.findIndex ((=) dv))
+                                                                            |> Option.defaultValue ""
+                                                                            |> String.trim
+                                                                        let du =
+                                                                            dus
+                                                                            |> List.tryItem (dvs |> List.findIndex ((=) dv))
+                                                                            |> Option.defaultValue ""
+                                                                            |> String.trim
+
+                                                                        {
+                                                                            Drug.TargetText = tp |> String.trim
+                                                                            Drug.Target = tp |> TargetParser.parse
+                                                                            Drug.FrequencyText = fr
+                                                                            Drug.Frequency = fr |> FrequencyParser.parse
+                                                                            Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
+                                                                            Drug.Value = dv |> MinMaxParser.parse |> snd
+                                                                            Drug.Unit = du
+                                                                            Drug.ScheduleText = s |> HtmlNode.innerText
+                                                                        }
+                                                                ]
                                                     }
                                         ]
                             }

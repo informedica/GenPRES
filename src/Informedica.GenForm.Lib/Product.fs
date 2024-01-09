@@ -117,7 +117,7 @@ module Product =
                 |> Option.defaultValue true
 
             [|
-                fun (r : Reconstitution) -> r.Route |> eqs filter.Route
+                fun (r : Reconstitution) -> r.Route |> Mapping.eqsRoute filter.Route
                 fun (r : Reconstitution) ->
                     if filter.Patient.VenousAccess = [AnyAccess] ||
                        filter.Patient.VenousAccess |> List.isEmpty then true
@@ -511,7 +511,7 @@ module Product =
         |> Array.filter (fun p ->
             p.Generic |> eqs filter.Generic &&
             p.Shape |> eqs filter.Shape &&
-            p.Routes |> Array.exists (eqs filter.Route)
+            p.Routes |> Array.exists (Mapping.eqsRoute filter.Route)
         )
         |> Array.map (fun p ->
             { p with

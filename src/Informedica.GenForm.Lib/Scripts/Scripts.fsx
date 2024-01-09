@@ -30,6 +30,7 @@ open Informedica.GenForm.Lib
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.CurrentDirectory
 
+let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
 
 
 { Filter.filter with
@@ -37,8 +38,8 @@ Environment.CurrentDirectory
         { Filter.filter.Patient with
 //            Department = Some "ICK"
             Age =
-                0N
-                |> ValueUnit.singleWithUnit Units.Time.day
+                1N
+                |> ValueUnit.singleWithUnit Units.Time.year
                 |> Some
             (*
             GestAge =
@@ -47,8 +48,8 @@ Environment.CurrentDirectory
                 |> Some
             *)
         }
-    Generic = (Some "adrenaline")
-    Route = Some "iv"
+    Generic = (Some "acetylsalicylzuur")
+    //Route = Some "oraal"
 }
 |> PrescriptionRule.filter
 |> Array.map _.DoseRule
@@ -112,6 +113,26 @@ DoseRule.get ()
                     |> Some
                 *)
             }
-        Generic = (Some "adrenaline")
-        Route = Some "iv"
+        Generic = (Some "paracetamol")
+        Route = Some "intraveneus"
     }
+
+
+Web.getDataFromSheet urlId "DoseRules"
+|> fun data ->
+    let getColumn =
+        data
+        |> Array.head
+        |> Csv.getStringColumn
+
+    data
+    |> Array.tail
+    |> Array.take 10
+    |> Array.map (fun r ->
+        let get = getColumn r
+        let toBrOpt = BigRational.toBrs >> Array.tryHead
+
+        printfn $"{r[22]}"
+        printfn $"""{get "Generic"}: {get "Freqs"}"""
+    )
+
