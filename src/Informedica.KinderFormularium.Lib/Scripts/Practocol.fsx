@@ -353,7 +353,7 @@ let findBrand n =
         )
     )
 
-"Immukine"
+"Dukoral"
 |> findBrand
 
 
@@ -651,3 +651,8 @@ solutions
     |> String.concat "\t"
     |> printfn "%s"
 )
+
+
+GenPresProduct.filter "trimethoprim/sulfamethoxazol" "" ""
+|> Array.map _.Shape
+|> Array.distinct
