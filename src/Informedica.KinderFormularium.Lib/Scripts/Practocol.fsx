@@ -353,7 +353,8 @@ let findBrand n =
         )
     )
 
-"Dukoral"
+
+"Actrapid"
 |> findBrand
 
 
@@ -653,6 +654,17 @@ solutions
 )
 
 
-GenPresProduct.filter "trimethoprim/sulfamethoxazol" "" ""
+GenPresProduct.filter "insuline-gewoon" "" ""
 |> Array.map _.Shape
 |> Array.distinct
+|> Array.map String.toLower
+
+
+GenPresProduct.get []
+|> Array.filter (fun gpp ->
+    gpp.Name |> String.containsCapsInsens "IJZER(III)"
+)
+|> Array.collect _.GenericProducts
+|> Array.map _.Name
+|> Array.distinct
+|> Array.iter (printfn "%s")

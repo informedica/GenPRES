@@ -138,18 +138,27 @@ module WebSiteParser =
             | None -> $"Couldn't get {med.Id} {med.Generic}" |> pf
 
 
-    let parseDocForDoses i (m: Drug.Drug) doc =
-        printfn $"{i}. parsing dose rules for: %s{m.Generic}"
+    let parseDocForDoses i (drug: Drug.Drug) doc =
+        printfn $"{i}. parsing dose rules for: %s{drug.Generic}"
         let atc =
             match doc
                 |> getItemTypeFromDoc "http://schema.org/MedicalCode" |> List.ofSeq with
             | h::_-> h |> getItemPropString "codeValue"
             | _ -> ""
 
+        let altNames =
+            doc
+            |> HtmlDocument.descendants
+                   true
+                   (fun n -> n |> HtmlNode.hasAttribute "itemprop" "alternateName")
+            |> List.ofSeq
+            |> List.map HtmlNode.innerText
+
         let getPar = getParentFromDoc doc
         try
-            { m with
+            { drug with
                 Atc = atc
+                AlternativeNames = altNames
                 Doses =
                     [
                         for i in doc |> getItemTypeFromDoc "http://schema.org/MedicalIndication" do
@@ -235,7 +244,7 @@ module WebSiteParser =
                     ]
             }
         with
-        | _ -> m
+        | _ -> drug
 
 
     let addDoses i (m: Drug.Drug) =

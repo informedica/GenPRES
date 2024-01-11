@@ -338,15 +338,18 @@ module Drug =
             Id : string
             Atc: string
             Generic : string
+            AlternativeNames : string list
             Brand : string
             Doses : Dose list
         }
+
 
     let createDrug id atc gen br =
         {
             Id = id
             Atc = atc
             Generic = gen
+            AlternativeNames = []
             Brand = br
             Doses = []
         }
