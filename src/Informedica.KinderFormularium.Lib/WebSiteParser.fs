@@ -193,28 +193,41 @@ module WebSiteParser =
                                                                         |> Seq.map HtmlNode.innerText
                                                                         |> Seq.toList
 
-                                                                    for dv in dvs do
-                                                                        let fr =
-                                                                            frs
-                                                                            |> List.tryItem (dvs |> List.findIndex ((=) dv))
-                                                                            |> Option.defaultValue ""
-                                                                            |> String.trim
-                                                                        let du =
-                                                                            dus
-                                                                            |> List.tryItem (dvs |> List.findIndex ((=) dv))
-                                                                            |> Option.defaultValue ""
-                                                                            |> String.trim
+                                                                    if dvs |> List.length = 0 then
+                                                                            {
+                                                                                Drug.TargetText = tp |> String.trim
+                                                                                Drug.Target = tp |> TargetParser.parse
+                                                                                Drug.FrequencyText = ""
+                                                                                Drug.Frequency = None
+                                                                                Drug.ValueText = ""
+                                                                                Drug.Value = None
+                                                                                Drug.Unit = ""
+                                                                                Drug.ScheduleText = s |> HtmlNode.innerText
+                                                                            }
 
-                                                                        {
-                                                                            Drug.TargetText = tp |> String.trim
-                                                                            Drug.Target = tp |> TargetParser.parse
-                                                                            Drug.FrequencyText = fr
-                                                                            Drug.Frequency = fr |> FrequencyParser.parse
-                                                                            Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
-                                                                            Drug.Value = dv |> MinMaxParser.parse |> snd
-                                                                            Drug.Unit = du
-                                                                            Drug.ScheduleText = s |> HtmlNode.innerText
-                                                                        }
+                                                                    else
+                                                                        for dv in dvs do
+                                                                            let fr =
+                                                                                frs
+                                                                                |> List.tryItem (dvs |> List.findIndex ((=) dv))
+                                                                                |> Option.defaultValue ""
+                                                                                |> String.trim
+                                                                            let du =
+                                                                                dus
+                                                                                |> List.tryItem (dvs |> List.findIndex ((=) dv))
+                                                                                |> Option.defaultValue ""
+                                                                                |> String.trim
+
+                                                                            {
+                                                                                Drug.TargetText = tp |> String.trim
+                                                                                Drug.Target = tp |> TargetParser.parse
+                                                                                Drug.FrequencyText = fr
+                                                                                Drug.Frequency = fr |> FrequencyParser.parse
+                                                                                Drug.ValueText = $"{dv |> String.trim} {du}".Trim()
+                                                                                Drug.Value = dv |> MinMaxParser.parse |> snd
+                                                                                Drug.Unit = du
+                                                                                Drug.ScheduleText = s |> HtmlNode.innerText
+                                                                            }
                                                                 ]
                                                     }
                                         ]

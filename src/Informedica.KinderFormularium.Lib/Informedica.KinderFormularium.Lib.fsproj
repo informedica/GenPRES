@@ -14,6 +14,7 @@
     <Compile Include="Export.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\PedFormParser.fsx" />
+    <None Include="Scripts\Practocol.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.ZIndex.Lib\Informedica.ZIndex.Lib.fsproj" />

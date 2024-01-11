@@ -109,3 +109,12 @@ WebSiteParser.getFormulary ()
     OpenAI.callAI $"is dit een start of een eenmalige dosering: geef alleen 'start' of 'eenmalig' als antwoord: {doseText}"
 |> Async.RunSynchronously
 
+
+WebSiteParser.getFormulary ()
+|> Array.filter (fun d ->
+    d.Generic |> String.equalsCapInsens "sulfametrol + trimethoprim"
+)
+
+
+WebSiteParser.medications ()
+|> List.filter (fun d -> d.Generic |> String.startsWith "Sulfa")

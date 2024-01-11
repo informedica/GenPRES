@@ -716,19 +716,19 @@ module DoseRule =
 
 
     /// Extract all indications from the DoseRules.
-    let indications = getMember (fun dr -> dr.Indication)
+    let indications = getMember _.Indication
 
 
     /// Extract all the generics from the DoseRules.
-    let generics = getMember (fun dr -> dr.Generic)
+    let generics = getMember _.Generic
 
 
     /// Extract all the shapes from the DoseRules.
-    let shapes = getMember (fun dr -> dr.Shape)
+    let shapes = getMember _.Shape
 
 
     /// Extract all the routes from the DoseRules.
-    let routes = getMember (fun dr -> dr.Route)
+    let routes = getMember _.Route
 
 
     /// Extract all the departments from the DoseRules.
@@ -752,7 +752,7 @@ module DoseRule =
     /// Extract all patient categories from the DoseRules as strings.
     let patients (drs : DoseRule array) =
         drs
-        |> Array.map (fun r -> r.PatientCategory)
+        |> Array.map _.PatientCategory
         |> Array.sortBy PatientCategory.sortBy
         |> Array.map PatientCategory.toString
         |> Array.distinct
