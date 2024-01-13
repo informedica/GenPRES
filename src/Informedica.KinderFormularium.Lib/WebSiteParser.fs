@@ -45,7 +45,6 @@ module WebSiteParser =
         |> List.distinctBy (fun m -> m.Id, m.Generic.Trim().ToLower())
 
 
-
     let medications : unit -> Drug.Drug list = Memoization.memoizeN _medications
 
 
@@ -175,6 +174,7 @@ module WebSiteParser =
                                                 yield
                                                     {
                                                         Name = n
+                                                        ProductRoute = ""
                                                         Schedules =
                                                             [
                                                                 for s in r' |> getItemTypeFromNode "http://schema.org/DoseSchedule" do

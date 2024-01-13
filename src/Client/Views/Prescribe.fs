@@ -258,10 +258,10 @@ module Prescribe =
                     JSX.jsx
                         $"""
                     <React.Fragment>
-                        <Typography variant="h6">
+                        <Typography variant="h6" >
                             {med}
                         </Typography>
-                        <List sx={ {| width="100%"; maxWidth= 800; bgcolor = "background.paper" |} }>
+                        <List sx={ {| width="100%"; maxWidth=800; bgcolor=Mui.Colors.Grey.``50`` |} }>
                             {
                                 [|
                                     item Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription

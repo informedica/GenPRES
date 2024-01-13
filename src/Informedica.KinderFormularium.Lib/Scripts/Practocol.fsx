@@ -338,24 +338,9 @@ medications
 )
 
 
-let findBrand n =
-    GenPresProduct.get []
-    |> Array.filter (fun gpp ->
-        gpp.GenericProducts
-        |> Array.exists(fun gp ->
-            gp.PrescriptionProducts
-            |> Array.exists(fun pp  ->
-                pp.TradeProducts
-                |> Array.exists(fun tp ->
-                    tp.Brand |> String.containsCapsInsens n
-                )
-            )
-        )
-    )
 
-
-"Actrapid"
-|> findBrand
+"Alutard SQ"
+|> GenPresProduct.findByBrand
 
 
 
@@ -668,3 +653,18 @@ GenPresProduct.get []
 |> Array.map _.Name
 |> Array.distinct
 |> Array.iter (printfn "%s")
+
+
+GenPresProduct.getRoutes ()
+|> Array.iter (printfn "%s")
+
+
+GenPresProduct.filter "" "" "INTRATHECAAL"
+|> Array.map _.Name
+|> Array.distinct
+|> Array.iter (printfn "%s")
+
+
+GenPresProduct.filter "bcg-vaccin" "" ""
+|> Array.collect _.Routes
+|> Array.distinct

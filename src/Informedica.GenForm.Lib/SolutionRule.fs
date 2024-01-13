@@ -182,7 +182,7 @@ module SolutionRule =
             fun (sr : SolutionRule) ->
                 PatientCategory.checkAgeWeightMinMax filter.Patient.Age filter.Patient.Weight sr.Age sr.Weight
             fun (sr : SolutionRule) -> sr.Shape |> eqs filter.Shape
-            fun (sr : SolutionRule) -> sr.Route |> eqs filter.Route
+            fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
             fun (sr : SolutionRule) -> sr.Department |> eqs filter.Patient.Department
             fun (sr : SolutionRule) ->
                 match filter.DoseType, sr.DoseType with

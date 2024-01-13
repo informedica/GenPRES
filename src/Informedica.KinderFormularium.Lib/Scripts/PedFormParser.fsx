@@ -13,16 +13,145 @@
 #load "../Export.fs"
 
 
+open Informedica.ZIndex.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.KinderFormularium.Lib
 
 
-WebSiteParser.getFormulary ()
-//|> Array.filter (fun d -> d.Generic |> String.equalsCapInsens "paracetamol")
+let formulary = WebSiteParser.getFormulary ()
+
+
+formulary
+|> Array.map Export.cleanGenericName
+
+|> Array.filter (fun d ->
+    d.Doses
+    |> List.exists (fun dose ->
+        dose.Routes
+        |> List.exists (fun r ->
+            Export.findGenPresProducts d.Generic r.Name
+            |> List.isEmpty
+        )
+    )
+)
+|> Array.filter (fun drug -> drug.Generic |> String.equalsCapInsens "bcg vaccin")
+
+|> Array.collect (Drug.mapDrug >> List.toArray)
+|> Export.map
+
+|> List.filter (fun export -> export.shape |> String.isNullOrWhiteSpace)
+
+|> List.map _.generic
+|> List.distinct
+|> List.sort
+|> List.iter (printfn "%s")
+
+
+
+formulary
+|> Export.map
+|> List.filter (fun d ->
+    d.shape |> String.isNullOrWhiteSpace
+)
+|> List.map _.generic
+|> List.distinct
+|> List.length
+
+
+// do the actual export
+formulary
+//|> Array.filter (fun drug -> drug.Generic |> String.containsCapsInsens "bcg")
+|> Array.map Export.cleanGenericName
+|> Array.collect (Drug.mapDrug >> List.toArray)
 |> Export.map
 |> Export.addMaxDoses
 |> Export.checkDoseTypes
 |> Export.writeToFile "kinderformularium.csv"
+
+
+open Drug
+
+let mapDrug (drug : Drug) =
+    let drug =
+        { drug with
+            Doses =
+                drug.Doses
+                |> List.map (fun dose ->
+                    { dose with
+                        Routes =
+                            dose.Routes
+                            |> List.map (fun route ->
+                                { route with
+                                    Name =
+                                        route.Name
+                                        |> Mapping.mapRoute
+                                        |> Option.defaultValue route.Name
+                                        |> String.toUpper
+                                }
+                            )
+                    }
+                )
+        }
+
+    Mapping.productMapping
+    |> Array.filter (fun pm ->
+        pm.medication |> String.equalsCapInsens drug.Generic
+    )
+    |> Array.toList
+    |> function
+        | [] -> [ drug ]
+        | pms ->
+            pms
+            |> List.map (fun pm ->
+                let drug =
+                    if pm.generic |> String.isNullOrWhiteSpace then drug
+                    else
+                        { drug with Generic = pm.generic |> String.toLower |> String.trim }
+
+                Mapping.productMapping
+                |> Array.tryFind (fun pm ->
+                    pm.generic |> String.equalsCapInsens drug.Generic &&
+                    drug.Doses
+                    |> List.exists (fun dose ->
+                        dose.Routes
+                        |> List.map _.Name
+                        |> List.exists (String.equalsCapInsens pm.route)
+                    )
+                )
+                |> function
+                    | None    -> drug
+                    | Some pm ->
+                        printfn $"found: {pm}"
+                        { drug with
+                            Shape = pm.shape
+                            Brand = pm.brand
+                            Doses =
+                                drug.Doses
+                                |> List.map (fun dose ->
+                                    { dose with
+                                        Routes =
+                                            dose.Routes
+                                            |> List.map (fun r ->
+                                                if pm.altRoute |> String.isNullOrWhiteSpace then r
+                                                else
+                                                    { r with
+                                                        ProductRoute = pm.altRoute |> String.toUpper |> String.trim
+                                                    }
+                                            )
+                                    }
+                                )
+                        }
+            )
+
+
+let drug =
+    formulary
+    |> Array.filter (fun drug -> drug.Generic |> String.containsCapsInsens "bcg")
+    |> Array.head
+
+
+"Intracutaan" |> Mapping.mapRoute
+drug |> mapDrug
 
 
 WebSiteParser.getEmptyRules ()

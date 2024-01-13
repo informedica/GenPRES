@@ -367,3 +367,19 @@ module GenPresProduct =
                 )
             )
         )
+
+
+    let findByBrand n =
+        get []
+        |> Array.filter (fun gpp ->
+            gpp.GenericProducts
+            |> Array.exists(fun gp ->
+                gp.PrescriptionProducts
+                |> Array.exists(fun pp  ->
+                    pp.TradeProducts
+                    |> Array.exists(fun tp ->
+                        tp.Brand |> String.containsCapsInsens n
+                    )
+                )
+            )
+        )

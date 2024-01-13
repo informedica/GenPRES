@@ -9,6 +9,43 @@ module Export =
     open Informedica.KinderFormularium.Lib
 
 
+    let cleanGenericName (drug : Drug.Drug) =
+        { drug with
+            Generic =
+                drug.Generic
+                |> String.toLower
+                |> String.replace "+" "/"
+                |> String.replace " / " "/"
+                |> String.replace "/ " "/"
+                |> String.replace " /" "/"
+                |> String.replace "ë" "e"
+                |> String.replace "ï" "i"
+                |> String.replace " (combinatiepreparaat)" ""
+                |> String.replace " (combinatie preparaat)" ""
+                |> String.replace " (combinatie)" ""
+                |> String.trim
+        }
+
+
+    let findGenPresProducts pedFormName route =
+            GenPresProduct.get []
+            |> Array.filter (fun gpp ->
+                let gppName = gpp.Name |> String.toLower
+                // should be a valid shape
+                Mapping.validShapes
+                |> List.exists ((=) (gpp.Shape.ToLower().Trim())) &&
+                // check if names match
+                (pedFormName = gppName ||
+                (pedFormName |> String.contains gppName && pedFormName |> String.contains "/" |> not) ||
+                ((pedFormName |> String.split "/" |> List.sort) = (gppName |> String.split "/" |> List.sort)))
+                // should have equal route
+                &&
+                gpp.Routes
+                |> Array.exists (String.equalsCapInsens route)
+            )
+            |> Array.toList
+
+
     let map (formulary : Drug.Drug array) =
         let minMaxToString (mm : Drug.MinMax.MinMax option) =
             mm
@@ -32,19 +69,7 @@ module Export =
                 |> List.collect (fun route ->
                     route.Schedules
                     |> List.collect (fun schedule ->
-                        let pedFormName =
-                            drug.Generic
-                            |> String.toLower
-                            |> String.replace "+" "/"
-                            |> String.replace " / " "/"
-                            |> String.replace "/ " "/"
-                            |> String.replace " /" "/"
-                            |> String.replace "ë" "e"
-                            |> String.replace "ï" "i"
-                            |> String.replace " (combinatiepreparaat)" ""
-                            |> String.replace " (combinatie preparaat)" ""
-                            |> String.replace " (combinatie)" ""
-                            |> String.trim
+                        let pedFormName = drug.Generic
 
                         let doseUnit =
                                 Units.units
@@ -52,12 +77,14 @@ module Export =
                                 |> Option.bind (fun (_, du, _, _) -> du)
                                 |> Option.map Informedica.GenUnits.Lib.Units.toStringDutchShort
                                 |> Option.defaultValue ""
+
                         let adjustUnit =
                                 Units.units
                                 |> List.tryFind (fun (s, _, _, _) -> s = schedule.Unit)
                                 |> Option.bind (fun (_, _, au, _) -> au)
                                 |> Option.map Informedica.GenUnits.Lib.Units.toStringDutchShort
                                 |> Option.defaultValue ""
+
                         let freqUnit =
                                 Units.units
                                 |> List.tryFind (fun (s, _, _, _) -> s = schedule.Unit)
@@ -102,33 +129,14 @@ module Export =
                             | _ -> "", "", ""
 
                         let route =
-                            route.Name
-                            |> String.toLower
-                            |> Mapping.mapRoute
-                            |> Option.defaultValue route.Name
-                            |> (fun r ->
-                                match r with
-                                | s when s = "intralesionaal" -> "intralaesionaal"
-                                | s when s = "intra_articulair" -> "intraarticulair"
-                                | _ -> r
-                            )
+                            if route.ProductRoute |> String.notEmpty then route.ProductRoute
+                            else
+                                route.Name
+                                |> String.toLower
+                                |> Mapping.mapRoute
+                                |> Option.defaultValue route.Name
 
-                        GenPresProduct.get []
-                        |> Array.filter (fun gpp ->
-                            let gppName = gpp.Name |> String.toLower
-                            // should be a valid shape
-                            Mapping.validShapes
-                            |> List.exists ((=) (gpp.Shape.ToLower().Trim())) &&
-                            // check if names match
-                            (pedFormName = gppName ||
-                            (pedFormName |> String.contains gppName && pedFormName |> String.contains "/" |> not) ||
-                            ((pedFormName |> String.split "/" |> List.sort) = (gppName |> String.split "/" |> List.sort)))
-                            // should have equal route
-                            &&
-                            gpp.Routes
-                            |> Array.exists (String.equalsCapInsens route)
-                        )
-                        |> Array.toList
+                        findGenPresProducts pedFormName route
                         |> List.collect (fun gpp ->
                             gpp.GenericProducts
                             |> Array.collect _.Substances
@@ -431,7 +439,8 @@ module Export =
             mapped
             |> List.partition (fun m ->
                 (m.doseType |> String.equalsCapInsens "onderhoud" ||
-                m.doseType |> String.equalsCapInsens "PRN") |> not
+                m.doseType |> String.equalsCapInsens "PRN" ||
+                m.generic |> String.contains "/") |> not
             )
 
         needsDoseTypeCheck
@@ -594,5 +603,14 @@ module Export =
         |> String.concat "\n"
         |> File.writeTextToFile path
 
+
+    let export path formulary =
+        formulary
+        |> Array.map cleanGenericName
+        |> Array.collect (Drug.mapDrug >> List.toArray)
+        |> map
+        |> addMaxDoses
+        |> checkDoseTypes
+        |> writeToFile path
 
 

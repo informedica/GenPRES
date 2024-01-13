@@ -111,8 +111,9 @@ module Mapping =
                 let get = getColumn r
 
                 {|
-                    Long = get "ZIndex"
-                    Short = get "ShortDutch"
+                    long = get "ZIndex"
+                    short = get "ShortDutch"
+                    kinderFormularium = get "Kinderformularium"
                 |}
             )
 
@@ -160,11 +161,11 @@ module Mapping =
     let mapRoute rte =
         routeMapping
         |> Array.tryFind (fun r ->
-            r.Long |> String.equalsCapInsens rte ||
-            r.Short |> String.equalsCapInsens rte
-
+            r.long |> String.equalsCapInsens rte ||
+            r.short |> String.equalsCapInsens rte ||
+            r.kinderFormularium |> String.equalsCapInsens rte
         )
-        |> Option.map _.Long
+        |> Option.map _.long
 
 
     let eqsRoute r1 r2 =
@@ -173,5 +174,30 @@ module Mapping =
             match r1.Value |> mapRoute, r2 |> mapRoute with
             | Some r1, Some r2 -> r1 = r2
             | _ -> false
+
+
+    let productMapping =
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        Web.getDataFromSheet dataUrlId "Kinderformularium"
+        |> fun data ->
+            let getColumn =
+                data
+                |> Array.head
+                |> Csv.getStringColumn
+
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let get = getColumn r
+
+                {|
+                    medication = get "Medication"
+                    route = get "Route"
+                    generic = get "Generic"
+                    shape = get "Shape"
+                    altRoute = get "AltRoute"
+                    brand = get "Brand"
+                |}
+            )
 
 

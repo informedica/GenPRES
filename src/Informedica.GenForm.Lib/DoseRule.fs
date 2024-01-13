@@ -402,7 +402,7 @@ module DoseRule =
         { dr with
             Products =
                 if dr.Products
-                   |> Array.exists (fun p -> p.RequiresReconstitution)
+                   |> Array.exists (_.RequiresReconstitution)
                    |> not then dr.Products
                 else
                     dr.Products
@@ -517,7 +517,7 @@ module DoseRule =
                     MaxGestAge = get "MaxGestAge" |> toBrOpt
                     MinPMAge = get "MinPMAge" |> toBrOpt
                     MaxPMAge = get "MaxPMAge" |> toBrOpt
-                    DoseType = get "DoseType" |> DoseType.fromString
+                    DoseType = get "DoseType"
                     Frequencies = get "Freqs" |> BigRational.toBrs
                     DoseUnit = get "DoseUnit"
                     AdjustUnit = get "AdjustUnit"
@@ -549,6 +549,11 @@ module DoseRule =
                     MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                 |}
             )
+            |> Array.filter (fun dr ->
+                dr.Shape |> String.notEmpty &&
+                dr.DoseType |> String.notEmpty
+            )
+            |> Array.map (fun dr -> {| dr with DoseType = dr.DoseType |> DoseType.fromString  |})
             |> Array.groupBy mapToDoseRule
             |> Array.filter (fst >> Option.isSome)
             |> Array.map (fun (dr, rs) -> dr.Value, rs)
@@ -691,7 +696,7 @@ module DoseRule =
                 fun (dr : DoseRule) -> dr.Indication |> eqs filter.Indication
                 fun (dr : DoseRule) -> dr.Generic |> eqs filter.Generic
                 fun (dr : DoseRule) -> dr.Shape |> eqs filter.Shape
-                fun (dr : DoseRule) -> dr.Route |> eqs filter.Route
+                fun (dr : DoseRule) -> filter.Route |> Option.isNone || dr.Route |> Mapping.eqsRoute filter.Route
                 // don't filter on patients if patient is not set
                 if filter.Patient = Patient.patient |> not then
                     fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter

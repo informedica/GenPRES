@@ -49,7 +49,6 @@ module Drug =
             | _ -> ""
 
 
-
     module MinMax =
 
         type MinMax = { Min : float Option; Max : float Option }
@@ -322,6 +321,7 @@ module Drug =
     type Route =
         {
             Name : string
+            ProductRoute : string
             Schedules : Schedule list
         }
 
@@ -338,6 +338,7 @@ module Drug =
             Id : string
             Atc: string
             Generic : string
+            Shape : string
             AlternativeNames : string list
             Brand : string
             Doses : Dose list
@@ -349,10 +350,83 @@ module Drug =
             Id = id
             Atc = atc
             Generic = gen
+            Shape = ""
             AlternativeNames = []
             Brand = br
             Doses = []
         }
+
+
+    let mapDrug (drug : Drug) =
+        let drug =
+            { drug with
+                Doses =
+                    drug.Doses
+                    |> List.map (fun dose ->
+                        { dose with
+                            Routes =
+                                dose.Routes
+                                |> List.map (fun route ->
+                                    { route with
+                                        Name =
+                                            route.Name
+                                            |> Mapping.mapRoute
+                                            |> Option.defaultValue route.Name
+                                            |> String.toUpper
+                                    }
+                                )
+                        }
+                    )
+            }
+
+        Mapping.productMapping
+        |> Array.filter (fun pm ->
+            pm.medication |> String.equalsCapInsens drug.Generic
+        )
+        |> Array.toList
+        |> function
+            | [] -> [ drug ]
+            | pms ->
+                pms
+                |> List.map (fun pm ->
+                    let drug =
+                        if pm.generic |> String.isNullOrWhiteSpace then drug
+                        else
+                            { drug with Generic = pm.generic |> String.toLower |> String.trim }
+
+                    Mapping.productMapping
+                    |> Array.tryFind (fun pm ->
+                        pm.generic |> String.equalsCapInsens drug.Generic &&
+                        drug.Doses
+                        |> List.exists (fun dose ->
+                            dose.Routes
+                            |> List.map _.Name
+                            |> List.exists (String.equalsCapInsens pm.route)
+                        )
+                    )
+                    |> function
+                        | None    -> drug
+                        | Some pm ->
+                            { drug with
+                                Shape = pm.shape
+                                Brand = pm.brand
+                                Doses =
+                                    drug.Doses
+                                    |> List.map (fun dose ->
+                                        { dose with
+                                            Routes =
+                                                dose.Routes
+                                                |> List.map (fun r ->
+                                                    if pm.altRoute |> String.isNullOrWhiteSpace then r
+                                                    else
+                                                        { r with
+                                                            ProductRoute = pm.altRoute |> String.toUpper |> String.trim
+                                                        }
+                                                )
+                                        }
+                                    )
+                            }
+                )
 
 
 
