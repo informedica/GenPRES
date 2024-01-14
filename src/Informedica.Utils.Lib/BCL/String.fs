@@ -244,3 +244,7 @@ module String =
         let s1 = s1 |> toLower
         let s2 = s2 |> toLower
         s1 |> contains s2
+
+
+    let removeExtraSpaces (input: string) : string =
+        Regex.Replace(input, @"\s{2,}", " ")

@@ -22,6 +22,10 @@ let formulary = WebSiteParser.getFormulary ()
 
 
 formulary
+|> Export.export "kinderformularium.csv"
+
+
+formulary
 |> Array.map Export.cleanGenericName
 
 |> Array.filter (fun d ->
@@ -247,3 +251,4 @@ WebSiteParser.getFormulary ()
 
 WebSiteParser.medications ()
 |> List.filter (fun d -> d.Generic |> String.startsWith "Sulfa")
+

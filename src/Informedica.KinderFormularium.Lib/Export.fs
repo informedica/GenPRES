@@ -481,9 +481,9 @@ module Export =
                 "Shape"
                 "Route"
                 "Indication"
+                "ScheduleText"
                 "Dep"
                 "Diagn"
-                "ScheduleText"
                 "HasMaxDose"
                 "Gender"
                 "MinAge"
@@ -538,16 +538,17 @@ module Export =
                 r.shape
                 r.route
                 r.indication
-                "" // department
-                "" // diagn
                 r.scheduleText
                     |> String.replace "\t" " "
                     |> String.replace "\r\n" " "
                     |> String.replace "\n" " "
                     |> String.replace "\r" " "
                     |> String.removeBrackets
-                    |> String.toLower
+                    |> String.removeExtraSpaces
+                    //|> String.toLower
                     |> String.trim
+                "" // department
+                "" // diagn
                 r.hasMaxDose
                 r.gender
                 r.minAge
