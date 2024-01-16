@@ -17,9 +17,13 @@ open Informedica.GenOrder.Lib
 
 module DoseLimit = DoseRule.DoseLimit
 
+
 open Informedica.ZIndex.Lib
+
+
 // load demo or product cache
 System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+System.Environment.SetEnvironmentVariable(Constants.GENPRES_URL_ID, "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks")
 
 
 
@@ -149,7 +153,6 @@ let pat =
         (Units.Time.year |> ValueUnit.singleWithValue 1N)
 
 
-PatientCategory.filter
 
 
 Informedica.GenForm.Lib.DoseRule.get ()
@@ -159,8 +162,8 @@ Informedica.GenForm.Lib.DoseRule.get ()
         Patient = pat
     }
 |> Array.filter (fun dr ->
-    dr.Generic = "benzylpenicilline" &&
-    dr.Route = "iv"
+    dr.Generic = "paracetamol" &&
+    dr.Route |> Mapping.eqsRoute (Some "intraveneus")
 )
 //|> DoseRule.Print.toMarkdown
 //|> Array.skip 2
@@ -205,7 +208,7 @@ Patient.child
 |> Units.fromString
 
 
-Patient.newBorn
+Patient.infant
 |> fun p -> { p with
                 Weight =
                   p.Weight
@@ -215,11 +218,11 @@ Patient.newBorn
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Route = "iv" &&
-    pr.DoseRule.Generic = "benzylpenicilline"
+    pr.DoseRule.Route |> Mapping.eqsRoute (Some "iv") &&
+    pr.DoseRule.Generic = "paracetamol"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder None // (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")

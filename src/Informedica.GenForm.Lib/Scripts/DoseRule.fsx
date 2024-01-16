@@ -1,4 +1,26 @@
-namespace Informedica.GenForm.Lib
+
+#load "load.fsx"
+
+#load "../Types.fs"
+#load "../Utils.fs"
+#load "../Mapping.fs"
+#load "../VenousAccess.fs"
+#load "../Patient.fs"
+#load "../DoseType.fs"
+#load "../Product.fs"
+#load "../Filter.fs"
+#load "../DoseRule.fs"
+
+#time
+
+
+open Informedica.GenForm.Lib
+
+Web.getDataUrlIdGenPres ()
+|> DoseRule.get_
+
+
+DoseRule.get () |> Array.length
 
 
 module DoseRule =
@@ -559,7 +581,7 @@ module DoseRule =
         |> Array.collect (fun ((gen, rte), rs) ->
             let shapes =
                 rs
-                |> Array.map (fun r -> r.Shape)
+                |> Array.map _.Shape
                 |> Array.filter String.notEmpty
                 |> Array.distinct
 
@@ -602,10 +624,12 @@ module DoseRule =
                     )
             )
         )
+        |> fun xs -> printfn $"found: {xs |> Array.length}"; xs
         |> Array.filter (fun dr ->
             dr.Shape |> String.notEmpty &&
             dr.DoseType |> String.notEmpty
         )
+        |> fun xs -> printfn $"filtered: {xs |> Array.length}"; xs
         |> Array.map (fun dr -> {| dr with DoseType = dr.DoseType |> DoseType.fromString  |})
         |> Array.groupBy mapToDoseRule
         |> Array.filter (fst >> Option.isSome)
@@ -721,8 +745,7 @@ module DoseRule =
     let get : unit -> DoseRule [] =
         fun () ->
             Web.getDataUrlIdGenPres ()
-            |> get_
-        |> Memoization.memoize
+            |> Memoization.memoize get_
 
 
     /// <summary>
@@ -823,3 +846,70 @@ module DoseRule =
         |> Array.exists DoseLimit.useAdjust
 
 
+
+open System
+open MathNet.Numerics
+open Informedica.Utils.Lib
+open Informedica.Utils.Lib.BCL
+open Informedica.GenCore.Lib.Ranges
+open Utils
+
+open DoseRule
+
+
+let dataUrlId = "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
+let data = getData dataUrlId
+
+
+module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
+
+
+let rules =
+    data
+    |> Array.groupBy (fun d -> d.Generic, d.Route)
+    |> Array.collect (fun ((gen, rte), rs) ->
+        let shapes =
+            rs
+            |> Array.map _.Shape
+            |> Array.filter String.notEmpty
+            |> Array.distinct
+
+        rs
+        |> Array.collect (fun r ->
+            if r.Shape |> String.notEmpty then
+                {| r with
+                    Products =
+                        GenPresProduct.filter gen r.Shape rte
+                        |> Array.collect _.GenericProducts
+                |}
+                |> Array.singleton
+            else
+                GenPresProduct.filter gen "" rte
+                |> Array.filter (fun gpp ->
+                    shapes |> Array.isEmpty ||
+                    shapes
+                    |> Array.exists ((String.equalsCapInsens gpp.Shape) >> not)
+                )
+                |> Array.map (fun gpp ->
+                    {| r with
+                        Shape = gpp.Shape |> String.toLower
+                        Products = gpp.GenericProducts
+                    |}
+                )
+        )
+    )
+
+
+rules |> Array.length
+
+
+rules |> Array.iteri (fun i r ->
+    printfn $"{i + 1}. {r.Generic} {r.Shape} {r.Route} {r.DoseText}"
+)
+
+
+dataUrlId
+|> DoseRule.get_
+|> Array.iteri (fun i r ->
+    printfn $"{i + 1}. {r.Generic} {r.Shape} {r.Route} {r.DoseText}"
+)

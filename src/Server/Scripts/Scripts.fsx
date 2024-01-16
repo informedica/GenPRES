@@ -4,7 +4,7 @@
 open System
 
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1S4hXyqksDMYD0veSvUjwWTRb8Imm8nSa_yeYauqSbh0")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks")
 
 let logger = Informedica.GenOrder.Lib.OrderLogger.logger
 
@@ -16,10 +16,10 @@ logger.Start (Some path) Informedica.GenOrder.Lib.OrderLogger.Level.Informative
 Shared.ScenarioResult.empty
 |> fun sc ->
     { sc with
-        AgeInDays =  Some (18. * 365.)
-        WeightInKg =  Some 70.
-        HeightInCm =  Some 180.
-        Medication = Some "benzylpenicilline"
+        AgeInDays =  Some (1. * 365.)
+        WeightInKg =  Some 10.
+        HeightInCm =  Some 80.
+        Medication = Some "paracetamol"
         Route = Some "iv"
     }
 |> serverApi.getScenarioResult
@@ -88,6 +88,7 @@ Shared.ScenarioResult.empty
 
 )
 |> ignore
+
 
 logger.Stop ()
 

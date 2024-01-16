@@ -27,13 +27,14 @@ module Export =
         }
 
 
-    let findGenPresProducts pedFormName route =
+    let findGenPresProducts pedFormName shape route =
             GenPresProduct.get []
             |> Array.filter (fun gpp ->
                 let gppName = gpp.Name |> String.toLower
                 // should be a valid shape
                 Mapping.validShapes
                 |> List.exists ((=) (gpp.Shape.ToLower().Trim())) &&
+                (shape |> String.equalsCapInsens gpp.Shape || shape |> String.isNullOrWhiteSpace) &&
                 // check if names match
                 (pedFormName = gppName ||
                 (pedFormName |> String.contains gppName && pedFormName |> String.contains "/" |> not) ||
@@ -136,7 +137,7 @@ module Export =
                                 |> Mapping.mapRoute
                                 |> Option.defaultValue route.Name
 
-                        findGenPresProducts pedFormName route
+                        findGenPresProducts pedFormName drug.Shape route
                         |> List.collect (fun gpp ->
                             gpp.GenericProducts
                             |> Array.collect _.Substances
@@ -146,7 +147,7 @@ module Export =
                             |> List.map (fun sn ->
                                 {|
                                     generic = gpp.Name.ToLower()
-                                    shape = gpp.Shape.ToLower()
+                                    shape = drug.Shape
                                     route = route
                                     indication = dose.Indication
                                     scheduleText = schedule.ScheduleText
@@ -233,7 +234,7 @@ module Export =
                                 [
                                     {|
                                         generic = pedFormName
-                                        shape = ""
+                                        shape = drug.Shape |> String.toLower
                                         route = route
                                         indication = dose.Indication
                                         scheduleText = schedule.ScheduleText
@@ -319,6 +320,7 @@ module Export =
                     )
                 )
             )
+            |> List.distinct
         )
         |> List.mapi (fun i x -> {| x with sortNo = i |})
 

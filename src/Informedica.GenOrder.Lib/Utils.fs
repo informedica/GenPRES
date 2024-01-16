@@ -100,3 +100,8 @@ module Utils =
                 $"%s{min_ |> Limit.getValueUnit |> vuToVal} - %s{max_ |> Limit.getValueUnit |> vuToStr}"
             | Some min_, None -> min_ |> minToString
             | None, Some max_ -> max_ |> maxToString
+
+
+    module Constants =
+
+        let [<Literal>] GENPRES_URL_ID = "GENPRES_URL_ID"
