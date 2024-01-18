@@ -16,7 +16,8 @@ logger.Start (Some path) Informedica.GenOrder.Lib.OrderLogger.Level.Informative
 Shared.ScenarioResult.empty
 |> fun sc ->
     { sc with
-        AgeInDays =  Some (1. * 365.)
+        AgeInDays =  Some (1.)
+        GestAgeInDays = Some 210
         WeightInKg =  Some 10.
         HeightInCm =  Some 80.
         Medication = Some "paracetamol"

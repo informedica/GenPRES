@@ -54,6 +54,7 @@ module OrderLogger =
         let mapping =
             match o.Prescription with
             | Continuous -> Order.Mapping.continuous
+            | Once -> Order.Mapping.once
             | Discontinuous _ -> Order.Mapping.discontinuous
             | Timed _ -> Order.Mapping.timed
             |> Order.Mapping.getEquations

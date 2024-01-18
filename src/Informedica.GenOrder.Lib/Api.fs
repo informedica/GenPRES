@@ -4,6 +4,7 @@ namespace Informedica.GenOrder.Lib
 module Api =
 
 
+    open Informedica.ZIndex.Lib
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -227,7 +228,9 @@ module Api =
     /// </summary>
     let filter (sc : ScenarioResult) =
 
-        if Env.getItem "GENPRES_PROD" |> Option.isNone then
+        if Env.getItem FilePath.GENPRES_PROD |> Option.isNone ||
+           Env.getItem FilePath.GENPRES_PROD |> Option.map ((<>) "1") |> Option.defaultValue false
+            then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 

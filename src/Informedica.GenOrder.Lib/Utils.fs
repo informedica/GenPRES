@@ -10,6 +10,9 @@ module Utils =
 
     module Web =
 
+        open System
+        open Informedica.Utils.Lib
+        open Informedica.ZIndex.Lib
 
 
         //https://docs.google.com/spreadsheets/d/1nny8rn9zWtP8TMawB3WeNWhl5d4ofbWKbGzGqKTd49g/edit?usp=sharing
@@ -34,7 +37,10 @@ module Utils =
         /// </summary>
         /// <param name="sheet">The sheet to get</param>
         /// <returns>A array table of string arrays</returns>
-        let getDataFromGenPres sheet = GoogleSheets.getDataFromSheet genpres sheet
+        let getDataFromGenPres =
+            Env.getItem "GENPRES_URL_ID"
+            |> Option.defaultValue genpres
+            |> GoogleSheets.getDataFromSheet
 
 
 

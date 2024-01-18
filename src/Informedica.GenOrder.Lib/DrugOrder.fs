@@ -270,6 +270,8 @@ module DrugOrder =
             OrderType =
                 match pr.DoseRule.DoseType with
                 | Continuous -> ContinuousOrder
+                | Start
+                | Once -> OnceOrder
                 | _ when pr.DoseRule.AdministrationTime = MinMax.empty -> DiscontinuousOrder
                 | _ -> TimedOrder
             Dose = dose
@@ -383,7 +385,7 @@ module DrugOrder =
             orbDto.Dose.RateAdjust.Constraints.MinIncl <- dl.RateAdjust.Max.IsSome
             orbDto.Dose.RateAdjust.Constraints.MinOpt <- dl.RateAdjust.Max |> limToDto
 
-        let setOrbDoseQty (dl : DoseLimit) =
+        let setOrbDoseQty isOnce (dl : DoseLimit) =
             orbDto.Dose.Quantity.Constraints.MinIncl <- dl.Quantity.Min.IsSome
             orbDto.Dose.Quantity.Constraints.MinOpt <- dl.Quantity.Min |> limToDto
             orbDto.Dose.Quantity.Constraints.MaxIncl <- dl.Quantity.Max.IsSome
@@ -394,15 +396,16 @@ module DrugOrder =
             orbDto.Dose.QuantityAdjust.Constraints.MaxIncl <- dl.QuantityAdjust.Max.IsSome
             orbDto.Dose.QuantityAdjust.Constraints.MaxOpt <- dl.QuantityAdjust.Max |> limToDto
 
-            orbDto.Dose.PerTime.Constraints.MinIncl <- dl.PerTime.Min.IsSome
-            orbDto.Dose.PerTime.Constraints.MinOpt <- dl.PerTime.Min |> limToDto
-            orbDto.Dose.PerTime.Constraints.MaxIncl <- dl.PerTime.Max.IsSome
-            orbDto.Dose.PerTime.Constraints.MaxOpt <- dl.PerTime.Max |> limToDto
+            if not isOnce then
+                orbDto.Dose.PerTime.Constraints.MinIncl <- dl.PerTime.Min.IsSome
+                orbDto.Dose.PerTime.Constraints.MinOpt <- dl.PerTime.Min |> limToDto
+                orbDto.Dose.PerTime.Constraints.MaxIncl <- dl.PerTime.Max.IsSome
+                orbDto.Dose.PerTime.Constraints.MaxOpt <- dl.PerTime.Max |> limToDto
 
-            orbDto.Dose.PerTimeAdjust.Constraints.MinIncl <- dl.PerTimeAdjust.Min.IsSome
-            orbDto.Dose.PerTimeAdjust.Constraints.MinOpt <- dl.PerTimeAdjust.Min |> limToDto
-            orbDto.Dose.PerTimeAdjust.Constraints.MaxIncl <- dl.PerTimeAdjust.Max.IsSome
-            orbDto.Dose.PerTimeAdjust.Constraints.MaxOpt <- dl.PerTimeAdjust.Max |> limToDto
+                orbDto.Dose.PerTimeAdjust.Constraints.MinIncl <- dl.PerTimeAdjust.Min.IsSome
+                orbDto.Dose.PerTimeAdjust.Constraints.MinOpt <- dl.PerTimeAdjust.Min |> limToDto
+                orbDto.Dose.PerTimeAdjust.Constraints.MaxIncl <- dl.PerTimeAdjust.Max.IsSome
+                orbDto.Dose.PerTimeAdjust.Constraints.MaxOpt <- dl.PerTimeAdjust.Max |> limToDto
 
         match d.OrderType with
         | AnyOrder
@@ -415,10 +418,15 @@ module DrugOrder =
             | Some dl -> dl |> setOrbDoseRate
             | None -> ()
 
+        | OnceOrder ->
+            match d.Dose with
+            | Some dl ->
+                dl |> setOrbDoseQty true
+            | None -> ()
         | DiscontinuousOrder ->
             match d.Dose with
             | Some dl ->
-                dl |> setOrbDoseQty
+                dl |> setOrbDoseQty false
             | None -> ()
 
         | TimedOrder ->
@@ -427,12 +435,12 @@ module DrugOrder =
             match d.Dose with
             | Some dl ->
                 dl |> setOrbDoseRate
-                dl |> setOrbDoseQty
+                dl |> setOrbDoseQty false
                 // assume timed order always solution
                 orbDto.Dose.Quantity.Constraints.IncrOpt <-
                     1N/10N
                     |> createSingleValueUnitDto
-                        (Units.Volume.milliLiter)
+                        Units.Volume.milliLiter
             | None -> ()
 
         orbDto.Components <-
@@ -529,6 +537,7 @@ module DrugOrder =
                                 | None    -> ()
                                 | Some dl -> dl |> setDoseRate
 
+                            | OnceOrder
                             | DiscontinuousOrder ->
                                 match s.Dose with
                                 | None -> ()
@@ -554,6 +563,7 @@ module DrugOrder =
             | ProcessOrder ->
                 "the order type cannot by 'Any'"
                 |> failwith
+            | OnceOrder -> Order.Dto.once d.Id d.Name d.Route []
             | ContinuousOrder ->
                 Order.Dto.continuous d.Id d.Name d.Route []
             | DiscontinuousOrder ->
