@@ -6,23 +6,18 @@ open Informedica.GenForm.Lib
 
 type Parenteralia = Shared.Types.Parenteralia
 
+module Api = Informedica.GenOrder.Lib.Api
+
 
 let get (par : Parenteralia) : Result<Parenteralia, string> =
     ConsoleWriter.writeInfoMessage $"getting parenteralia for {par.Generic}" true false
 
     let srs =
-        SolutionRule.get ()
-        |> Array.filter (fun sr ->
+        Api.getSolutionRules
             par.Generic
-            |> Option.map ((=) sr.Generic)
-            |> Option.defaultValue true &&
             par.Shape
-            |> Option.map ((=) sr.Shape)
-            |> Option.defaultValue true &&
             par.Route
-            |> Option.map ((=) sr.Route)
-            |> Option.defaultValue true
-        )
+
 
     { par with
         Generics = srs |> SolutionRule.generics

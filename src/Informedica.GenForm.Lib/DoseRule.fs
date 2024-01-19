@@ -308,7 +308,9 @@ module DoseRule =
             )
             ||> Array.fold (fun acc (generic, rs) ->
                 {| acc with
-                    md = generic_md generic
+                    md =
+
+                        generic_md generic
                     rules = rs
                 |}
                 |> fun r ->
@@ -568,6 +570,7 @@ module DoseRule =
                 // rules with an explicit shape
                 if r.Shape |> String.notEmpty then
                     {| r with
+                        Generic = $"{r.Generic} {r.Shape}"
                         Products =
                             Product.get ()
                             |> Product.filter

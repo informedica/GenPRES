@@ -235,7 +235,10 @@ module Prescribe =
             else
                 let med =
                     med |> Option.defaultValue ""
-                    |> fun s -> $"{s} {sc.Shape} {sc.DoseType}"
+                    |> fun s -> 
+                        if s.Contains(sc.Shape) then $"{s} {sc.DoseType}"
+                        else
+                            $"{s} {sc.Shape} {sc.DoseType}"
 
                 let ord =
                     sc.Order

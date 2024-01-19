@@ -12,6 +12,14 @@ module Api =
     open Informedica.GenOrder.Lib
 
 
+    let replace s =
+        s
+        |> String.replace "[" ""
+        |> String.replace "]" ""
+        |> String.replace "<" ""
+        |> String.replace ">" ""
+
+
     /// <summary>
     /// Get all possible indications for a Patient
     /// </summary>
@@ -215,14 +223,6 @@ module Api =
         }
 
 
-    let replace s =
-        s
-        |> String.replace "[" ""
-        |> String.replace "]" ""
-        |> String.replace "<" ""
-        |> String.replace ">" ""
-
-
     /// <summary>
     /// Use a Filter and a ScenarioResult to create a new ScenarioResult.
     /// </summary>
@@ -353,3 +353,202 @@ module Api =
                 Shapes = [||]
                 Scenarios = [||]
             }
+
+
+    let calc (dto : Order.Dto.Dto) =
+        try
+            dto
+            |> Order.Dto.fromDto
+            |> fun ord ->
+                if ord |> Order.isSolved then
+                    let dto =
+                        ord
+                        |> Order.Dto.toDto
+                    dto |> Order.Dto.cleanDose
+
+                    dto
+                    |> Order.Dto.fromDto
+                    |> Order.applyConstraints
+                    |> Order.solveMinMax false OrderLogger.logger.Logger
+                    |> function
+                    | Ok ord ->
+                        ord
+                        |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+
+                    | Error msgs ->
+                        ConsoleWriter.writeErrorMessage $"{msgs}" true false
+                        ord
+                else
+                    ord
+                    |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+            |> Order.Dto.toDto
+            |> Ok
+        with
+        | e ->
+            printfn $"error calculating values from min incr max {e}"
+            "error calculating values from min incr max"
+            |> Error
+
+
+    let solve (dto : Order.Dto.Dto) =
+        dto
+        |> Order.Dto.fromDto
+        |> Order.solveOrder false OrderLogger.logger.Logger
+        |> Result.map (fun o ->
+            o
+            |> Order.toString
+            |> String.concat "\n"
+            |> sprintf "solved order:\n%s"
+            |> fun s -> ConsoleWriter.writeInfoMessage s true false
+
+            o
+        )
+        |> Result.map Order.Dto.toDto
+
+
+    let getDoseRules filter =
+        DoseRule.get ()
+        |> DoseRule.filter filter
+
+
+    let getSolutionRules generic shape route =
+        SolutionRule.get ()
+        |> Array.filter (fun sr ->
+            generic
+            |> Option.map ((=) sr.Generic)
+            |> Option.defaultValue true &&
+            shape
+            |> Option.map ((=) sr.Shape)
+            |> Option.defaultValue true &&
+            route
+            |> Option.map ((=) sr.Route)
+            |> Option.defaultValue true
+        )
+
+
+    type OrderAgent =
+        {
+            Start : unit -> unit
+            Restart : unit -> unit
+            Create : Patient -> ScenarioResult
+            Filter : ScenarioResult -> ScenarioResult
+            CalcOrder : Order.Dto.Dto -> Result<Order.Dto.Dto,string>
+            SolveOrder : Order.Dto.Dto -> Result<Order.Dto.Dto, Order * Informedica.GenSolver.Lib.Types.Exceptions.Message list>
+            DoseRules : Filter -> DoseRule array
+            SolutionRules : string option -> string option -> string option -> SolutionRule array
+        }
+
+
+    /// The message typ for the OrderAgent.
+    /// The order agent will be implement using the MailboxProcessor.
+    type OrderAgentMessage =
+        | Start of AsyncReplyChannel<unit>
+        | Stop of AsyncReplyChannel<unit>
+        | Create of Patient * AsyncReplyChannel<ScenarioResult>
+        | Filter of ScenarioResult * AsyncReplyChannel<ScenarioResult>
+        | Calc of Order.Dto.Dto * AsyncReplyChannel<Result<Order.Dto.Dto, string>>
+        | Solve of Order.Dto.Dto * AsyncReplyChannel<Result<Order.Dto.Dto, Order * Informedica.GenSolver.Lib.Types.Exceptions.Message list>>
+        | GetDoseRules of Filter * AsyncReplyChannel<DoseRule[]>
+        | GetSolutionRules of (string option * string option * string option) * AsyncReplyChannel<SolutionRule[]>
+
+
+    let private createAgent () = MailboxProcessor.Start(fun inbox ->
+
+        let rec messageLoop() = async {
+            let! msg = inbox.Receive()
+            match msg with
+            | Start reply ->
+                // Implement Start logic
+                reply.Reply() // Send back the result
+                return! messageLoop()
+
+            | Stop reply ->
+                // Implement Stop logic
+                reply.Reply()
+                return ()
+
+            | Create (patient, reply) ->
+                // Implement Create logic
+                let result = patient |> scenarioResult
+                reply.Reply(result)
+                return! messageLoop()
+
+            | Filter (scenario, reply) ->
+                // Implement Filter logic
+                let result = scenario |> filter
+                reply.Reply(result)
+                return! messageLoop()
+
+            | Calc (orderDto, reply) ->
+                // Implement Calc logic
+                let result = orderDto |> calc
+                reply.Reply(result)
+                return! messageLoop()
+
+            | Solve (orderDto, reply) ->
+                // Implement Solve logic
+                let result = orderDto |> solve
+                reply.Reply(result)
+                return! messageLoop()
+
+            | GetDoseRules (filter, reply) ->
+                // Implement GetDoseRules logic
+                let result = filter |> getDoseRules
+                reply.Reply(result)
+                return! messageLoop()
+
+            | GetSolutionRules (opts, reply) ->
+                // Implement GetSolutionRules logic
+                let result =
+                    let generic, shape, route = opts
+                    getSolutionRules generic shape route
+                reply.Reply(result)
+                return! messageLoop()
+        }
+
+        messageLoop()
+    )
+
+    let mutable private agent = createAgent ()
+
+
+    /// implementation of the OrderAgent
+    /// using the MailboxProcessor 'agent'
+    let orderAgent : OrderAgent =
+        {
+            Start =
+                fun () ->
+                    agent <- createAgent ()
+                    agent.PostAndAsyncReply(Start)
+                    |> Async.RunSynchronously
+            Restart =
+                fun () ->
+                    agent.PostAndAsyncReply(Stop)
+                    |> Async.RunSynchronously
+                    agent <- createAgent ()
+            Create =
+                fun patient ->
+                    agent.PostAndAsyncReply(fun reply -> Create (patient, reply))
+                    |> Async.RunSynchronously
+            Filter =
+                fun scenario ->
+                    agent.PostAndAsyncReply(fun reply -> Filter (scenario, reply))
+                    |> Async.RunSynchronously
+            CalcOrder =
+                fun orderDto ->
+                    agent.PostAndAsyncReply(fun reply -> Calc (orderDto, reply))
+                    |> Async.RunSynchronously
+            SolveOrder =
+                fun orderDto ->
+                    agent.PostAndAsyncReply(fun reply -> Solve (orderDto, reply))
+                    |> Async.RunSynchronously
+            DoseRules =
+                fun filter ->
+                    agent.PostAndAsyncReply(fun reply -> GetDoseRules (filter, reply))
+                    |> Async.RunSynchronously
+            SolutionRules =
+                fun generic shape route ->
+                    agent.PostAndAsyncReply(fun reply -> GetSolutionRules ((generic, shape, route), reply))
+                    |> Async.RunSynchronously
+        }
+

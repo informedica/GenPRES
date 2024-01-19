@@ -18,6 +18,7 @@
     <Compile Include="Server.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Scripts.fsx" />
+    <None Include="Scripts\MemoryStream.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenOrder.Lib\Informedica.GenOrder.Lib.fsproj" />

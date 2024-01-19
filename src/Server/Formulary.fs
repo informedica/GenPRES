@@ -74,9 +74,7 @@ let get (form : Formulary) =
     let filter = form |> mapFormularyToFilter
     //ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true false
 
-    let dsrs =
-        DoseRule.get ()
-        |> DoseRule.filter filter
+    let dsrs = Api.getDoseRules filter
 
     printfn $"found: {dsrs |> Array.length} dose rules"
     let form =

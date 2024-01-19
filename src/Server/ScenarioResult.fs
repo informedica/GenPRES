@@ -373,32 +373,8 @@ let calcMinIncrMaxToValues (ord : Order) =
     try
         ord
         |> mapFromOrder
-        |> Order.Dto.fromDto
-        |> fun ord ->
-            if ord |> Order.isSolved then
-                let dto =
-                    ord
-                    |> Order.Dto.toDto
-                dto |> Order.Dto.cleanDose
-
-                dto
-                |> Order.Dto.fromDto
-                |> Order.applyConstraints
-                |> Order.solveMinMax false OrderLogger.logger.Logger
-                |> function
-                | Ok ord ->
-                    ord
-                    |> Order.minIncrMaxToValues OrderLogger.logger.Logger
-
-                | Error msgs ->
-                    ConsoleWriter.writeErrorMessage $"{msgs}" true false
-                    ord
-            else
-                ord
-                |> Order.minIncrMaxToValues OrderLogger.logger.Logger
-        |> Order.Dto.toDto
-        |> mapToOrder
-        |> Ok
+        |> Api.calc
+        |> Result.map mapToOrder
     with
     | e ->
         printfn $"error calculating values from min incr max {e}"
@@ -469,18 +445,8 @@ let solveOrder (ord : Order) =
     try
         ord
         |> mapFromOrder
-        |> Order.Dto.fromDto
-        |> Order.solveOrder false OrderLogger.logger.Logger
-        |> Result.map (fun o ->
-            o
-            |> Order.toString
-            |> String.concat "\n"
-            |> sprintf "solved order:\n%s"
-            |> fun s -> ConsoleWriter.writeInfoMessage s true false
-
-            o
-        )
-        |> Result.map (Order.Dto.toDto >> mapToOrder)
+        |> Api.solve
+        |> Result.map mapToOrder
         |> Result.mapError (fun (_, errs) ->
             let s =
                 errs

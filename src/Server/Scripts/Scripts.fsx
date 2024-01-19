@@ -113,3 +113,28 @@ Shared.Formulary.empty
     }
 |> serverApi.getFormulary
 |> Async.RunSynchronously
+
+
+#time
+
+module Api = Informedica.GenOrder.Lib.Api
+module Patient = Informedica.GenOrder.Lib.Patient
+
+// load demo or product cache
+Environment.SetEnvironmentVariable(Informedica.ZIndex.Lib.FilePath.GENPRES_PROD, "1")
+Environment.SetEnvironmentVariable(Informedica.GenOrder.Lib.Utils.Constants.GENPRES_URL_ID, "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks")
+
+
+Api.orderAgent.Start ()
+
+
+Patient.patient
+|> Api.orderAgent.Create
+
+
+Api.orderAgent.Restart ()
+
+
+Patient.patient
+|> Api.orderAgent.Create
+

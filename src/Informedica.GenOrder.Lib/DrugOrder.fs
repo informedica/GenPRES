@@ -252,7 +252,7 @@ module DrugOrder =
 
         { drugOrder with
             Id = Guid.NewGuid().ToString()
-            Name = pr.DoseRule.Generic
+            Name = pr.DoseRule.Generic |> String.toLower
             Products =
                 pr.DoseRule.Products
                 |> createProductComponent noSubst substLimits
