@@ -374,7 +374,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "doxorubicine" "" ""
+GenPresProduct.filter "" "drank" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     gp.Id, gp.Shape,
@@ -385,3 +385,25 @@ GenPresProduct.filter "doxorubicine" "" ""
     printfn $"{id}\t{lbl}\t{sn}\t{sq}"
 )
 
+
+GenPresProduct.filter "" "drank" ""
+|> Array.filter (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.PrescriptionProducts
+        |> Array.exists (fun pp ->
+            pp.TradeProducts
+            |> Array.exists (fun tp -> tp.Name |> String.containsCapsInsens "fna")
+        )
+    )
+)
+|> Array.map (fun gp ->
+    gp.Name, gp.Shape
+)
+|> Array.distinct
+|> Array.sortBy (fun (lbl, shp) -> lbl)
+|> Array.iter (fun (lbl, shp) ->
+    printfn $"{lbl}\t{shp}"
+)
+
+GenPresProduct.findByBrand "Sialanar"

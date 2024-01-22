@@ -242,6 +242,8 @@ module Types =
             Generic : string
             /// The pharmacological Shape of the DoseRule
             Shape : string
+            /// The brand of the doserule
+            Brand : string
             /// The Route of administration of the DoseRule
             Route : string
             /// The PatientCategory of the DoseRule

@@ -199,3 +199,16 @@ module GenericProduct =
         |> Array.map (fun (gpk, bc) ->
             gpk, bc |> Array.map snd
         )
+
+
+    let findByBrand brand =
+        get []
+        |> Array.filter (fun gp ->
+            gp.PrescriptionProducts
+            |> Array.exists (fun pp ->
+                pp.TradeProducts
+                |> Array.exists (fun tp->
+                    tp.Brand |> String.equalsCapInsens brand
+                )
+            )
+        )

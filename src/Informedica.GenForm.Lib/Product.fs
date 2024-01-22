@@ -245,6 +245,131 @@ module Product =
     open Informedica.GenUnits.Lib
 
 
+    let map
+        name
+        synonyms
+        shapeQuantities
+        (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
+        =
+
+        // TODO make this a configuration
+        let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
+            if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||
+               subst.SubstanceName |> String.startsWithCapsInsens "COFFEINE" then
+                subst.GenericName
+                |> String.replace "0-WATER" "BASE"
+            else defN
+            |> String.toLower
+
+        let atc =
+            gp.ATC
+            |> ATCGroup.findByATC5
+
+        let shpUnit =
+            gp.Substances[0].ShapeUnit
+            |> Mapping.mapUnit
+            |> Option.defaultValue NoUnit
+
+        let reqReconst = Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
+
+        let shpUnit =
+            if not reqReconst then shpUnit
+            else
+                Units.Volume.milliLiter
+
+        {
+            GPK =  $"{gp.Id}"
+            ATC = gp.ATC |> String.trim
+            MainGroup =
+                atc
+                |> Array.map _.AnatomicalGroup
+                |> Array.tryHead
+                |> Option.defaultValue ""
+            SubGroup =
+                atc
+                |> Array.map _.TherapeuticSubGroup
+                |> Array.tryHead
+                |> Option.defaultValue ""
+            Generic = name
+            TallMan = ""
+            Synonyms = synonyms
+            Product =
+                gp.PrescriptionProducts
+                |> Array.collect (fun pp ->
+                    pp.TradeProducts
+                    |> Array.map _.Label
+                )
+                |> Array.distinct
+                |> function
+                | [| p |] -> p
+                | _ -> ""
+            Label = gp.Label
+            Shape = gp.Shape |> String.toLower
+            Routes = gp.Route |> Array.choose Mapping.mapRoute
+            ShapeQuantities =
+                shapeQuantities
+                |> ValueUnit.withUnit shpUnit
+            ShapeUnit = shpUnit
+            RequiresReconstitution = reqReconst
+            Reconstitution =
+                if not reqReconst then [||]
+                else
+                    Reconstitution.get ()
+                    |> Array.filter (fun r ->
+                        r.GPK = $"{gp.Id}" &&
+                        r.DiluentVol |> Option.isSome
+                    )
+                    |> Array.map (fun r ->
+                        {
+                            Route = r.Route
+                            DoseType = r.DoseType
+                            Department = r.Dep
+                            Location = r.Location
+                            DiluentVolume =
+                                r.DiluentVol.Value
+                                |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            ExpansionVolume =
+                                r.ExpansionVol
+                                |> Option.map (fun v ->
+                                    v
+                                    |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                                )
+                            Diluents =
+                                r.Diluents
+                                |> String.splitAt ';'
+                                |> Array.map String.trim
+                        }
+                    )
+            Divisible =
+                let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) NoUnit
+                if rs |> Array.length = 0 then None
+                else
+                    rs[0].Divisibility
+            Substances =
+                gp.Substances
+                |> Array.map (fun s ->
+                    let su =
+                        s.SubstanceUnit
+                        |> Mapping.mapUnit
+                        |> Option.map (fun u ->
+                            u |> ValueUnit.per shpUnit
+                        )
+                        |> Option.defaultValue NoUnit
+                    {
+                        Name = rename s s.SubstanceName
+                        Concentration =
+                            s.SubstanceQuantity
+                            |> BigRational.fromFloat
+                            |> Option.map (fun q ->
+                                q
+                                |> ValueUnit.singleWithUnit su
+                            )
+                        MultipleQuantity = None
+                    }
+                )
+        }
+
+
     let private get_ () =
         // TODO make this a configuration
         let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
@@ -296,133 +421,41 @@ module Product =
                 )
                 // create the Product records
                 |> Array.map (fun (gpp, gp) ->
-                    let atc =
-                        gp.ATC
-                        |> ATCGroup.findByATC5
+                    let name = rename gp.Substances[0] gpp.Name
 
-                    let shpUnit =
-                        gp.Substances[0].ShapeUnit
-                        |> Mapping.mapUnit
-                        |> Option.defaultValue NoUnit
+                    let synonyms =
+                        gpp.GenericProducts
+                        |> Array.collect (fun gp ->
+                            gp.PrescriptionProducts
+                            |> Array.collect (fun pp ->
+                                pp.TradeProducts
+                                |> Array.map (_.Brand)
+                            )
+                        )
+                        |> Array.distinct
+                        |> Array.filter String.notEmpty
 
-                    let reqReconst = Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
-                    let shpUnit =
-                        if not reqReconst then shpUnit
-                        else
-                            Units.Volume.milliLiter
-                    {
-                        GPK =  $"{gp.Id}"
-                        ATC = gp.ATC |> String.trim
-                        MainGroup =
-                            atc
-                            |> Array.map _.AnatomicalGroup
-                            |> Array.tryHead
-                            |> Option.defaultValue ""
-                        SubGroup =
-                            atc
-                            |> Array.map _.TherapeuticSubGroup
-                            |> Array.tryHead
-                            |> Option.defaultValue ""
-                        Generic =
-                            rename gp.Substances[0] gpp.Name
+                    let shapeQuantities =
+                        gpp.GenericProducts
+                        |> Array.collect (fun gp ->
+                            gp.PrescriptionProducts
+                            |> Array.map _.Quantity
+                            |> Array.choose BigRational.fromFloat
+                        )
+                        |> Array.filter (fun br -> br > 0N)
+                        |> Array.distinct
+                        |> fun xs ->
+                            if xs |> Array.isEmpty then [| 1N |] else xs
+
+                    let product =
+                        gp
+                        |> map name synonyms shapeQuantities
+
+                    { product with
                         TallMan =
                             match formulary |> Array.tryFind(fun f -> f.GPKODE = gp.Id) with
                             | Some p when p.tallMan |> String.notEmpty -> p.tallMan
                             | _ -> ""
-                        Synonyms =
-                            gpp.GenericProducts
-                            |> Array.collect (fun gp ->
-                                gp.PrescriptionProducts
-                                |> Array.collect (fun pp ->
-                                    pp.TradeProducts
-                                    |> Array.map (_.Brand)
-                                )
-                            )
-                            |> Array.distinct
-                            |> Array.filter String.notEmpty
-                        Product =
-                            gp.PrescriptionProducts
-                            |> Array.collect (fun pp ->
-                                pp.TradeProducts
-                                |> Array.map _.Label
-                            )
-                            |> Array.distinct
-                            |> function
-                            | [| p |] -> p
-                            | _ -> ""
-                        Label = gp.Label
-                        Shape = gp.Shape |> String.toLower
-                        Routes = gp.Route |> Array.choose Mapping.mapRoute
-                        ShapeQuantities =
-                            gpp.GenericProducts
-                            |> Array.collect (fun gp ->
-                                gp.PrescriptionProducts
-                                |> Array.map _.Quantity
-                                |> Array.choose BigRational.fromFloat
-                            )
-                            |> Array.filter (fun br -> br > 0N)
-                            |> Array.distinct
-                            |> fun xs ->
-                                if xs |> Array.isEmpty then [| 1N |] else xs
-                                |> ValueUnit.withUnit shpUnit
-                        ShapeUnit = shpUnit
-                        RequiresReconstitution = reqReconst
-                        Reconstitution =
-                            if not reqReconst then [||]
-                            else
-                                Reconstitution.get ()
-                                |> Array.filter (fun r ->
-                                    r.GPK = $"{gp.Id}" &&
-                                    r.DiluentVol |> Option.isSome
-                                )
-                                |> Array.map (fun r ->
-                                    {
-                                        Route = r.Route
-                                        DoseType = r.DoseType
-                                        Department = r.Dep
-                                        Location = r.Location
-                                        DiluentVolume =
-                                            r.DiluentVol.Value
-                                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                                        ExpansionVolume =
-                                            r.ExpansionVol
-                                            |> Option.map (fun v ->
-                                                v
-                                                |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                                            )
-                                        Diluents =
-                                            r.Diluents
-                                            |> String.splitAt ';'
-                                            |> Array.map String.trim
-                                    }
-                                )
-                        Divisible =
-                            let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) NoUnit
-                            if rs |> Array.length = 0 then None
-                            else
-                                rs[0].Divisibility
-                        Substances =
-                            gp.Substances
-                            |> Array.map (fun s ->
-                                let su =
-                                    s.SubstanceUnit
-                                    |> Mapping.mapUnit
-                                    |> Option.map (fun u ->
-                                        u |> ValueUnit.per shpUnit
-                                    )
-                                    |> Option.defaultValue NoUnit
-                                {
-                                    Name = rename s s.SubstanceName
-                                    Concentration =
-                                        s.SubstanceQuantity
-                                        |> BigRational.fromFloat
-                                        |> Option.map (fun q ->
-                                            q
-                                            |> ValueUnit.singleWithUnit su
-                                        )
-                                    MultipleQuantity = None
-                                }
-                            )
                     }
                 )
         |> StopWatch.clockFunc "created products"
