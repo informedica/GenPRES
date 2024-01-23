@@ -67,7 +67,7 @@ module Csv =
     /// Example: getColumn StringData [| "a"; "b" |] [| "1"; "2" |] "a" will return "1".
     let inline getColumn<'T> dataType columns row name =
         columns
-        |> Array.tryFindIndex ((=) name)
+        |> Array.tryFindIndex (String.equalsCapInsens name)
         |> function
             | None ->
                 $"""cannot find column {name} in {columns |> String.concat ", "}"""

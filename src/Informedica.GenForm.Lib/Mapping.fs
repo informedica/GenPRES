@@ -77,7 +77,7 @@ module Mapping =
             r.Short |> String.equalsCapInsens rte
 
         )
-        |> Option.map _.Short
+        |> Option.map _.Long
 
 
     let eqsRoute r1 r2 =

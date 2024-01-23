@@ -1,5 +1,14 @@
 
+
 #load "load.fsx"
+
+open System
+
+let dataUrlId = "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
+
+
 
 #load "../Types.fs"
 #load "../Utils.fs"
@@ -17,19 +26,21 @@
 open Informedica.GenForm.Lib
 
 
-
-open System
 open MathNet.Numerics
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.GenCore.Lib.Ranges
 open Utils
 
+
 open DoseRule
 
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-let dataUrlId = "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
+
+Product.get () |> fun xs -> printfn $"{xs |> Array.length}"; xs
+|> Array.filter (fun p -> p.Generic |> String.startsWithCapsInsens "glyco")
+
+
 let data = getData dataUrlId
 
 

@@ -245,21 +245,19 @@ module Product =
     open Informedica.GenUnits.Lib
 
 
+    let rename defN useGenName (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) =
+        if useGenName then subst.GenericName
+        else defN
+        |> String.toLower
+
+
     let map
         name
+        useGenName
         synonyms
         shapeQuantities
         (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
         =
-
-        // TODO make this a configuration
-        let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
-            if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||
-               subst.SubstanceName |> String.startsWithCapsInsens "COFFEINE" then
-                subst.GenericName
-                |> String.replace "0-WATER" "BASE"
-            else defN
-            |> String.toLower
 
         let atc =
             gp.ATC
@@ -356,7 +354,7 @@ module Product =
                         )
                         |> Option.defaultValue NoUnit
                     {
-                        Name = rename s s.SubstanceName
+                        Name = s |> rename s.SubstanceName useGenName
                         Concentration =
                             s.SubstanceQuantity
                             |> BigRational.fromFloat
@@ -371,15 +369,6 @@ module Product =
 
 
     let private get_ () =
-        // TODO make this a configuration
-        let rename (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) defN =
-            if subst.SubstanceName |> String.startsWithCapsInsens "AMFOTERICINE B" ||
-               subst.SubstanceName |> String.startsWithCapsInsens "COFFEINE" then
-                subst.GenericName
-                |> String.replace "0-WATER" "BASE"
-            else defN
-            |> String.toLower
-
         fun () ->
             // first get the products from the GenPres Formulary, i.e.
             // the assortment
@@ -404,6 +393,7 @@ module Product =
                             NEO = get "NEO"
                             ICK = get "ICK"
                             HCK = get "HCK"
+                            useGenName = get "UseGenName"
                             tallMan = get "TallMan"
                         |}
                     )
@@ -413,24 +403,23 @@ module Product =
                 |> Array.collect (fun r ->
                     r.GPKODE
                     |> GenPresProduct.findByGPK
+                    |> Array.map (fun gpp -> (r, gpp))
                 )
                 // collect the GenericProducts
-                |> Array.collect (fun gpp ->
+                |> Array.collect (fun (r, gpp) ->
                     gpp.GenericProducts
-                    |> Array.map (fun gp -> gpp, gp)
+                    |> Array.map (fun gp -> r, gpp, gp)
                 )
                 // create the Product records
-                |> Array.map (fun (gpp, gp) ->
-                    let name = rename gp.Substances[0] gpp.Name
+                |> Array.map (fun (r, gpp, gp) ->
+                    let useGenName = r.useGenName = "x"
+                    let name = gp.Substances[0] |> rename gpp.Name useGenName
 
                     let synonyms =
-                        gpp.GenericProducts
-                        |> Array.collect (fun gp ->
-                            gp.PrescriptionProducts
-                            |> Array.collect (fun pp ->
-                                pp.TradeProducts
-                                |> Array.map (_.Brand)
-                            )
+                        gp.PrescriptionProducts
+                        |> Array.collect (fun pp ->
+                            pp.TradeProducts
+                            |> Array.map (_.Brand)
                         )
                         |> Array.distinct
                         |> Array.filter String.notEmpty
@@ -449,7 +438,7 @@ module Product =
 
                     let product =
                         gp
-                        |> map name synonyms shapeQuantities
+                        |> map name useGenName synonyms shapeQuantities
 
                     { product with
                         TallMan =

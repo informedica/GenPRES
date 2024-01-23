@@ -423,7 +423,7 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Department: string; Diagn: string; DoseText: string; DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string |}) =
+    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Department: string; Diagn: string; DoseText: string; DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string; UseGenericName : string |}) =
         try
             {
                 Indication = r.Indication
@@ -540,6 +540,7 @@ module DoseRule =
                     MaxDur = get "MaxDur" |> toBrOpt
                     DurUnit = get "DurUnit"
                     Substance = get "Substance"
+                    UseGenericName = get "UseGenericName"
                     MinQty = get "MinQty" |> toBrOpt
                     MaxQty = get "MaxQty" |> toBrOpt
                     NormQtyAdj = get "NormQtyAdj" |> toBrOpt
@@ -619,7 +620,7 @@ module DoseRule =
                             |> Array.map (fun gp ->
                                 let shpQty =
                                     gp.PrescriptionProducts
-                                    |> Array.map _.Quantity
+                                    |> Array.map (fun pp -> pp.Quantity)
                                     |> Array.choose BigRational.fromFloat
                                     |> Array.filter (fun br -> br > 0N)
                                     |> Array.distinct
@@ -629,6 +630,7 @@ module DoseRule =
                                 gp
                                 |> Product.map
                                     r.Generic
+                                    false
                                     [| brd |]
                                     shpQty
                             )
