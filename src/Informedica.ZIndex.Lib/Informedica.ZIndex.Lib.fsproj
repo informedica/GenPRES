@@ -29,6 +29,7 @@
     <None Include="Scripts\loadGenCode.fsx" />
     <None Include="Scripts/GenCode.fsx" />
     <None Include="Scripts/Script.fsx" />
+    <None Include="Scripts\Formulary.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenCore.Lib\Informedica.GenCore.Lib.fsproj" />

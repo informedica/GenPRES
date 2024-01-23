@@ -19,6 +19,7 @@ module DoseRule =
         let limit =
             {
                 DoseLimitTarget = NoDoseLimitTarget
+                AdjustUnit = None
                 DoseUnit = NoUnit
                 Quantity = MinMax.empty
                 NormQuantityAdjust = None
@@ -564,119 +565,27 @@ module DoseRule =
         |> getData
         |> Array.groupBy (fun d -> d.Generic, d.Route)
         |> Array.collect (fun ((gen, rte), rs) ->
-            let shapes =
-                rs
-                |> Array.map (fun r -> r.Shape)
-                |> Array.filter String.notEmpty
-                |> Array.distinct
-
-            let brands =
-                rs
-                |> Array.map (fun r -> r.Brand)
-                |> Array.filter String.notEmpty
-                |> Array.distinct
-
             rs
             |> Array.collect (fun r ->
-                match r.Shape, r.Brand with
-                | shp, _ when shp |> String.notEmpty ->
-                    // rule with an explicit shape
+                Product.get ()
+                |> Product.filter
+                    { Filter.filter with
+                        Generic = gen |> Some
+                        Route = rte |> Some
+                    }
+                |> Array.map (fun gpp ->
                     {| r with
-                        Generic = $"{r.Generic} {r.Shape}"
+                        Shape = gpp.Shape |> String.toLower
                         Products =
                             Product.get ()
                             |> Product.filter
                              { Filter.filter with
                                  Generic = gen |> Some
-                                 Shape = r.Shape |> Some
+                                 Shape = gpp.Shape |> Some
                                  Route = rte |> Some
                              }
                     |}
-                    |> Array.singleton
-                | _, brd when brd |> String.notEmpty ->
-                    printfn $"getting brand: {brd}"
-                    let shp =
-                        GenPresProduct.findByBrand brd
-                        |> Array.tryHead
-                        |> Option.map (fun gpp -> gpp.Shape)
-                    // rule with an explicit brand
-                    {| r with
-                        Generic = $"{r.Generic} {r.Brand}"
-                        Shape = shp |> Option.defaultValue r.Shape
-                        Products =
-                            GenPresProduct.findByBrand brd
-                            |> Array.collect (fun gp ->
-                                gp.GenericProducts
-                                |> Array.filter (fun gp ->
-                                    gp.PrescriptionProducts
-                                    |> Array.exists (fun pp ->
-                                        pp.TradeProducts
-                                        |> Array.exists (fun tp ->
-                                            tp.Brand |> String.equalsCapInsens brd
-                                        )
-                                    )
-                                )
-                            )
-                            |> Array.map (fun gp ->
-                                let shpQty =
-                                    gp.PrescriptionProducts
-                                    |> Array.map (fun pp -> pp.Quantity)
-                                    |> Array.choose BigRational.fromFloat
-                                    |> Array.filter (fun br -> br > 0N)
-                                    |> Array.distinct
-                                    |> fun xs ->
-                                        if xs |> Array.isEmpty then [| 1N |] else xs
-
-                                gp
-                                |> Product.map
-                                    r.Generic
-                                    false
-                                    [| brd |]
-                                    shpQty
-                            )
-                    |}
-                    |> Array.singleton
-                | _ ->
-                    // rules without an explicit shape
-                    GenPresProduct.filter gen "" rte
-                    // filter out all the shapes that have an explicit rule
-                    |> Array.filter (fun gpp ->
-                        shapes |> Array.isEmpty ||
-                        shapes
-                        |> Array.exists ((String.equalsCapInsens gpp.Shape) >> not)
-                    )
-                    // filter out all the brands that have an explicit rule
-                    |> Array.filter (fun gpp ->
-                        brands |> Array.isEmpty ||
-                        // TODO need to check this part
-                        brands
-                        |> Array.forall (fun brd ->
-                            gpp.GenericProducts
-                            |> Array.forall (fun gp ->
-                                gp.PrescriptionProducts
-                                |> Array.forall (fun pp ->
-                                    pp.TradeProducts
-                                    |> Array.forall (fun tp ->
-                                        tp.Brand |> String.equalsCapInsens brd
-                                    )
-                                )
-                            )
-                            |> not
-                        )
-                    )
-                    |> Array.map (fun gpp ->
-                        {| r with
-                            Shape = gpp.Shape |> String.toLower
-                            Products =
-                                Product.get ()
-                                |> Product.filter
-                                 { Filter.filter with
-                                     Generic = gen |> Some
-                                     Shape = gpp.Shape |> Some
-                                     Route = rte |> Some
-                                 }
-                        |}
-                    )
+                )
             )
         )
         |> Array.filter (fun dr ->
@@ -757,6 +666,7 @@ module DoseRule =
 
                         {
                             DoseLimitTarget = r.Substance |> SubstanceDoseLimitTarget
+                            AdjustUnit = adj
                             DoseUnit = du |> Option.defaultValue NoUnit
                             Quantity =
                                 (r.MinQty, r.MaxQty)

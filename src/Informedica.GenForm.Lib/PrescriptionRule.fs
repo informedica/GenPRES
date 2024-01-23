@@ -6,6 +6,9 @@ module PrescriptionRule =
     open MathNet.Numerics
     open Informedica.GenUnits.Lib
 
+    module Limit = Informedica.GenCore.Lib.Ranges.Limit
+    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+
 
     /// Use a Filter to get matching PrescriptionRules.
     let filter (filter : Filter) =
@@ -32,6 +35,103 @@ module PrescriptionRule =
         |> Array.filter (fun pr ->
             pr.DoseRule.Products |> Array.isEmpty |> not  &&
             pr.DoseRule.DoseType <> DoseType.Contraindicated
+        )
+        // recalculate adjusted dose limits
+        |> Array.map (fun pr ->
+            if filter.Patient.Weight |> Option.isNone ||
+               filter.Patient.Height |> Option.isNone then pr
+            else
+                { pr with
+                    DoseRule =
+                        { pr.DoseRule with
+                            DoseLimits =
+                                pr.DoseRule.DoseLimits
+                                |> Array.map (fun dl ->
+                                    if dl.AdjustUnit |> Option.isNone then dl
+                                    else
+                                        let adj =
+                                            if dl.AdjustUnit.Value |> Units.eqsUnit Units.Weight.kiloGram then
+                                                filter.Patient.Weight
+                                            else
+                                                filter.Patient |> Patient.calcBSA
+                                            |> Option.get
+                                        // recalculate the max dose per administration
+                                        match dl.Quantity.Max |> Option.map Limit.getValueUnit,
+                                              dl.NormQuantityAdjust,
+                                              dl.QuantityAdjust.Min |> Option.map Limit.getValueUnit with
+                                        | Some max, Some norm, _ ->
+                                            let norm = norm * adj
+                                            if norm <? max then dl
+                                            else
+                                                { dl with
+                                                    NormQuantityAdjust = None
+                                                    Quantity =
+                                                        { dl.Quantity with
+                                                            Min = dl.Quantity.Max
+                                                        }
+                                                }
+                                        | Some max, _, Some min ->
+                                            let min = min * adj
+                                            if min < max then dl
+                                            else
+                                                { dl with
+                                                    QuantityAdjust = MinMax.empty
+                                                    Quantity =
+                                                        { dl.Quantity with
+                                                            Min = dl.Quantity.Max
+                                                        }
+                                                }
+                                        | _ -> dl
+                                        // recalculate the max dose per time
+                                        |> fun dl ->
+
+                                            match dl.PerTime.Max |> Option.map Limit.getValueUnit,
+                                                  dl.NormPerTimeAdjust,
+                                                  dl.PerTimeAdjust.Min |> Option.map Limit.getValueUnit with
+                                            | Some max, Some norm, _ ->
+                                                let norm = norm * adj
+                                                if norm <? max then dl
+                                                else
+                                                    { dl with
+                                                        NormPerTimeAdjust = None
+                                                        PerTime =
+                                                            { dl.PerTime with
+                                                                Min = dl.PerTime.Max
+                                                            }
+                                                    }
+                                            | Some max, _, Some min ->
+                                                let min = min * adj
+                                                if min < max then dl
+                                                else
+                                                    { dl with
+                                                        PerTimeAdjust = MinMax.empty
+                                                        PerTime =
+                                                            { dl.PerTime with
+                                                                Min = dl.PerTime.Max
+                                                            }
+                                                    }
+                                            | _ -> dl
+                                        // recalculate the max dose rate
+                                        |> fun dl ->
+                                            match dl.Rate.Max |> Option.map Limit.getValueUnit,
+                                                  dl.RateAdjust.Min |> Option.map Limit.getValueUnit with
+                                            | Some max, Some min ->
+                                                let min = min * adj
+                                                if min < max then dl
+                                                else
+                                                    { dl with
+                                                        RateAdjust = MinMax.empty
+                                                        Rate =
+                                                            { dl.Rate with
+                                                                Min = dl.Rate.Max
+                                                            }
+                                                    }
+                                            | _ -> dl
+
+                                )
+
+                    }
+                }
         )
 
 

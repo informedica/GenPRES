@@ -13,7 +13,8 @@ RUN set -uex; \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" \
      > /etc/apt/sources.list.d/nodesource.list; \
     apt-get -qy update; \
-    apt-get -qy install nodejs;
+    apt-get -qy install nodejs; \
+    apt-get -qy install npm;
 
 
 WORKDIR /workspace

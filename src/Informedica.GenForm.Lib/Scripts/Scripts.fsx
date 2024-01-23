@@ -4,6 +4,11 @@
 
 #load "load.fsx"
 
+open System
+let dataUrlId = "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
+
 
 #load "../Types.fs"
 #load "../Utils.fs"
@@ -17,8 +22,6 @@
 #load "../SolutionRule.fs"
 #load "../PrescriptionRule.fs"
 
-
-open System
 
 
 open MathNet.Numerics
@@ -48,7 +51,7 @@ let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
                 |> Some
             *)
         }
-    Generic = (Some "acetylsalicylzuur")
+    Generic = (Some "morfine")
     //Route = Some "oraal"
 }
 |> PrescriptionRule.filter

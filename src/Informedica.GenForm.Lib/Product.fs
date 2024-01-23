@@ -191,6 +191,9 @@ module Product =
                         MainGroup = ""
                         SubGroup = ""
                         Generic = r.Name
+                        UseGenericName = false
+                        UseShape = false
+                        UseBrand = false
                         TallMan = "" //r.TallMan
                         Synonyms = [||]
                         Product = r.Name
@@ -254,6 +257,8 @@ module Product =
     let map
         name
         useGenName
+        useShape
+        useBrand
         synonyms
         shapeQuantities
         (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
@@ -289,6 +294,9 @@ module Product =
                 |> Array.tryHead
                 |> Option.defaultValue ""
             Generic = name
+            UseGenericName = useGenName
+            UseShape = useShape
+            UseBrand = useBrand
             TallMan = ""
             Synonyms = synonyms
             Product =
@@ -393,7 +401,10 @@ module Product =
                             NEO = get "NEO"
                             ICK = get "ICK"
                             HCK = get "HCK"
-                            useGenName = get "UseGenName"
+                            Generic = get "Generic"
+                            useGenName = get "UseGenName" = "x"
+                            useShape = get "UseShape" = "x"
+                            useBrand = get "UseBrand" = "x"
                             tallMan = get "TallMan"
                         |}
                     )
@@ -408,12 +419,12 @@ module Product =
                 // collect the GenericProducts
                 |> Array.collect (fun (r, gpp) ->
                     gpp.GenericProducts
-                    |> Array.map (fun gp -> r, gpp, gp)
+                    |> Array.filter (fun gp -> gp.Id = r.GPKODE)
+                    |> Array.map (fun gp -> r, gp)
                 )
                 // create the Product records
-                |> Array.map (fun (r, gpp, gp) ->
-                    let useGenName = r.useGenName = "x"
-                    let name = gp.Substances[0] |> rename gpp.Name useGenName
+                |> Array.map (fun (r, gp) ->
+                    let name = r.Generic |> String.toLower
 
                     let synonyms =
                         gp.PrescriptionProducts
@@ -425,27 +436,21 @@ module Product =
                         |> Array.filter String.notEmpty
 
                     let shapeQuantities =
-                        gpp.GenericProducts
-                        |> Array.collect (fun gp ->
-                            gp.PrescriptionProducts
-                            |> Array.map _.Quantity
-                            |> Array.choose BigRational.fromFloat
-                        )
+                        gp.PrescriptionProducts
+                        |> Array.map _.Quantity
+                        |> Array.choose BigRational.fromFloat
                         |> Array.filter (fun br -> br > 0N)
                         |> Array.distinct
                         |> fun xs ->
                             if xs |> Array.isEmpty then [| 1N |] else xs
 
-                    let product =
-                        gp
-                        |> map name useGenName synonyms shapeQuantities
-
-                    { product with
-                        TallMan =
-                            match formulary |> Array.tryFind(fun f -> f.GPKODE = gp.Id) with
-                            | Some p when p.tallMan |> String.notEmpty -> p.tallMan
-                            | _ -> ""
-                    }
+                    gp
+                    |> map name
+                           r.useGenName
+                           r.useShape
+                           r.useBrand
+                           synonyms
+                           shapeQuantities
                 )
         |> StopWatch.clockFunc "created products"
 

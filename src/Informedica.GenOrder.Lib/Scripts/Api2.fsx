@@ -6,6 +6,10 @@
 #time
 
 
+// load demo or product cache
+System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks")
+
 
 open MathNet.Numerics
 open Informedica.Utils.Lib
@@ -20,10 +24,6 @@ module DoseLimit = DoseRule.DoseLimit
 
 open Informedica.ZIndex.Lib
 
-
-// load demo or product cache
-System.Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
-System.Environment.SetEnvironmentVariable(Constants.GENPRES_URL_ID, "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks")
 
 
 
@@ -163,9 +163,9 @@ Informedica.GenForm.Lib.DoseRule.get ()
     }
 |> Array.filter (fun dr ->
     dr.Generic = "paracetamol" &&
-    dr.Route |> Mapping.eqsRoute (Some "intraveneus")
+    dr.Route |> Mapping.eqsRoute (Some "rectaal")
 )
-//|> DoseRule.Print.toMarkdown
+|> DoseRule.Print.toMarkdown
 //|> Array.skip 2
 //|> Array.take 1
 |> Array.length

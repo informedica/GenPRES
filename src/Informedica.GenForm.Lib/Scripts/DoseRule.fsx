@@ -38,7 +38,7 @@ open DoseRule
 
 
 Product.get () |> fun xs -> printfn $"{xs |> Array.length}"; xs
-|> Array.filter (fun p -> p.Generic |> String.startsWithCapsInsens "glyco")
+|> Array.filter (fun p -> p.Generic |> String.startsWithCapsInsens "morfine")
 
 
 let data = getData dataUrlId

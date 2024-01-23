@@ -96,6 +96,12 @@ module Types =
             SubGroup : string
             /// The Generic name of the Product
             Generic : string
+            /// Use Generic Substance Name
+            UseGenericName : bool
+            /// Use Shape
+            UseShape : bool
+            /// Use Brand
+            UseBrand : bool
             /// A tall-man representation of the Generic name of the Product
             TallMan : string
             /// Synonyms for the Product
@@ -144,6 +150,8 @@ module Types =
     type DoseLimit =
         {
             DoseLimitTarget : DoseLimitTarget
+            /// The unit to adjust dosing with
+            AdjustUnit : Unit option
             /// The unit to dose with
             DoseUnit: Unit
             /// A MinMax Dose Quantity for the DoseLimit

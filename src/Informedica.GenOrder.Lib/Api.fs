@@ -509,18 +509,22 @@ module Api =
         messageLoop()
     )
 
-    let mutable private agent = createAgent ()
+    let mutable private agent : MailboxProcessor<OrderAgentMessage> option = None
 
 
+(*
     /// implementation of the OrderAgent
     /// using the MailboxProcessor 'agent'
     let orderAgent : OrderAgent =
         {
             Start =
                 fun () ->
-                    agent <- createAgent ()
-                    agent.PostAndAsyncReply(Start)
-                    |> Async.RunSynchronously
+                    agent <- createAgent () |> Some
+                    match agent with
+                    | Some agent ->
+                        agent.PostAndAsyncReply(Start)
+                        |> Async.RunSynchronously
+
             Restart =
                 fun () ->
                     agent.PostAndAsyncReply(Stop)
@@ -552,3 +556,4 @@ module Api =
                     |> Async.RunSynchronously
         }
 
+*)
