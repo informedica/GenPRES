@@ -271,6 +271,7 @@ module DrugOrder =
                 match pr.DoseRule.DoseType with
                 | Continuous -> ContinuousOrder
                 | Start
+                | Once when pr.DoseRule.AdministrationTime <> MinMax.empty -> OnceTimedOrder
                 | Once -> OnceOrder
                 | _ when pr.DoseRule.AdministrationTime = MinMax.empty -> DiscontinuousOrder
                 | _ -> TimedOrder
@@ -423,6 +424,21 @@ module DrugOrder =
             | Some dl ->
                 dl |> setOrbDoseQty true
             | None -> ()
+
+        | OnceTimedOrder ->
+            orbDto |> standDoseRate oru
+
+            match d.Dose with
+            | Some dl ->
+                dl |> setOrbDoseRate
+                dl |> setOrbDoseQty true
+                // assume timed order always solution
+                orbDto.Dose.Quantity.Constraints.IncrOpt <-
+                    1N/10N
+                    |> createSingleValueUnitDto
+                        Units.Volume.milliLiter
+            | None -> ()
+
         | DiscontinuousOrder ->
             match d.Dose with
             | Some dl ->
@@ -543,6 +559,7 @@ module DrugOrder =
                                 | None -> ()
                                 | Some dl -> dl |> setDoseQty
 
+                            | OnceTimedOrder
                             | TimedOrder ->
                                 match s.Dose with
                                 | None -> ()
@@ -563,7 +580,10 @@ module DrugOrder =
             | ProcessOrder ->
                 "the order type cannot by 'Any'"
                 |> failwith
-            | OnceOrder -> Order.Dto.once d.Id d.Name d.Route []
+            | OnceOrder ->
+                Order.Dto.once d.Id d.Name d.Route []
+            | OnceTimedOrder ->
+                Order.Dto.onceTimed d.Id d.Name d.Route []
             | ContinuousOrder ->
                 Order.Dto.continuous d.Id d.Name d.Route []
             | DiscontinuousOrder ->

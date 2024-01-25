@@ -48,6 +48,7 @@ module Order =
         let [<Literal>] continuous = 4
         let [<Literal>] timed = 5
         let [<Literal>] once = 6
+        let [<Literal>] onceTimed = 7
 
 
         let private getEquations_ indx =
@@ -1268,6 +1269,11 @@ module Order =
             let _, _ = n |> freqTime tu1 tu2 in Once
 
 
+        /// Create a OnceTimed `Prescription`
+        let onceTimed tu1 tu2 n =
+            let _, tme = n |> freqTime tu1 tu2 in tme |> OnceTimed
+
+
         /// Create a Continuous `Prescription`
         let continuous tu1 tu2 n =
             let _, _ = n |> freqTime tu1 tu2 in Continuous
@@ -1300,6 +1306,8 @@ module Order =
             match prs with
             | Once
             | Continuous -> None, None
+            | OnceTimed tme ->
+                None, tme |> Time.toOrdVar |> Some
             | Discontinuous frq ->
                 frq |> Frequency.toOrdVar |> Some, None
             | Timed(frq, tme)     ->
@@ -1316,6 +1324,8 @@ module Order =
             match prs with
             | Once
             | Continuous -> prs
+            | OnceTimed tme ->
+                tme |> Time.fromOrdVar ovars |> OnceTimed
             | Discontinuous frq ->
                 frq |> Frequency.fromOrdVar ovars |> Discontinuous
             | Timed(frq, tme)     ->
@@ -1331,6 +1341,8 @@ module Order =
             match prs with
             | Once
             | Continuous -> prs
+            | OnceTimed tme ->
+                tme |> Time.applyConstraints |> OnceTimed
             | Discontinuous frq ->
                 frq |> Frequency.applyConstraints |> Discontinuous
             | Timed(frq, tme)     ->
@@ -1353,6 +1365,7 @@ module Order =
                 match prs with
                 | Once -> ["eenmalig"]
                 | Continuous -> ["Continuous"]
+                | OnceTimed tme -> [tme |> Time.toString]
                 | Discontinuous frq -> [frq |> Frequency.toString]
                 | Timed(frq, tme)     -> [frq |> Frequency.toString; tme |> Time.toString]
 
@@ -1369,6 +1382,7 @@ module Order =
 
             type Dto () =
                 member val IsOnce = false with get, set
+                member val IsOnceTimed = false with get, set
                 member val IsContinuous = false with get, set
                 member val IsDiscontinuous = false with get, set
                 member val IsTimed = false with get, set
@@ -1377,18 +1391,24 @@ module Order =
 
 
             let fromDto (dto : Dto) =
-                match dto.IsContinuous,
+                match dto.IsOnce,
+                      dto.IsOnceTimed,
+                      dto.IsContinuous,
                       dto.IsDiscontinuous,
                       dto.IsTimed with
-                | true,  false, false -> Continuous
-                | false, true,  false ->
+                | false, false, true,  false, false -> Continuous
+                | false, false, false, true,  false ->
                     dto.Frequency
                     |> Frequency.fromDto
                     |> Discontinuous
-                | false, false, true  ->
+                | false, false, false, false, true  ->
                     (dto.Frequency |> Frequency.fromDto, dto.Time |> Time.fromDto)
                     |> Timed
-                | false, false, false -> Once
+                | true,  false, false, false, false -> Once
+                | false, true,  false, false, false ->
+                    dto.Time
+                    |> Time.fromDto
+                    |> OnceTimed
                 | _ -> exn "dto is neither or both process, continuous, discontinuous or timed"
                        |> raise
 
@@ -1399,11 +1419,14 @@ module Order =
                 match pres with
                 | Once -> dto.IsOnce <- true
                 | Continuous -> dto.IsContinuous <- true
+                | OnceTimed time ->
+                    dto.IsOnceTimed <- true
+                    dto.Time <- time |> Time.toDto
                 | Discontinuous freq ->
                     dto.IsDiscontinuous <- true
                     dto.Frequency <- freq |> Frequency.toDto
                 | Timed (freq, time) ->
-                    dto.IsTimed <- true
+                    dto.IsTimed   <- true
                     dto.Frequency <- freq |> Frequency.toDto
                     dto.Time      <- time |> Time.toDto
 
@@ -1430,16 +1453,44 @@ module Order =
 
                 dto
 
+
+            /// Make the Prescription Dto Once
+            let setToOnce (dto : Dto) =
+                dto.IsOnce <- true
+                dto.IsOnceTimed <- false
+                dto.IsContinuous <- false
+                dto.IsDiscontinuous <- false
+                dto.IsTimed <- false
+
+                dto
+
+
+            /// Make the Prescription Dto OnceTimed
+            let setToOnceTimed (dto : Dto) =
+                dto.IsOnce <- false
+                dto.IsOnceTimed <- true
+                dto.IsContinuous <- false
+                dto.IsDiscontinuous <- false
+                dto.IsTimed <- false
+
+                dto
+
+
             /// Make the Prescription Dto Continuous
             let setToContinuous (dto : Dto) =
+                dto.IsOnce <- false
+                dto.IsOnceTimed <- false
                 dto.IsContinuous <- true
                 dto.IsDiscontinuous <- false
                 dto.IsTimed <- false
 
                 dto
 
+
             /// Make the Prescription Dto Discontinuous
             let setToDiscontinuous (dto : Dto) =
+                dto.IsOnce <- false
+                dto.IsOnceTimed <- false
                 dto.IsContinuous <- false
                 dto.IsDiscontinuous <- true
                 dto.IsTimed <- false
@@ -1449,6 +1500,8 @@ module Order =
 
             /// Make the Prescription Dto Timed
             let setToTimed (dto : Dto) =
+                dto.IsOnce <- false
+                dto.IsOnceTimed <- false
                 dto.IsContinuous <- false
                 dto.IsDiscontinuous <- false
                 dto.IsTimed <- true
@@ -1483,15 +1536,16 @@ module Order =
         let toString = function
             | AnyOrder -> $"{AnyOrder}"
             | OnceOrder -> $"{OnceOrder}"
+            | OnceTimedOrder -> $"{OnceTimedOrder}"
             | ProcessOrder -> $"{ProcessOrder}"
             | ContinuousOrder -> $"{ContinuousOrder}"
             | DiscontinuousOrder -> $"{DiscontinuousOrder}"
             | TimedOrder -> $"{TimedOrder}"
 
-
         let map s =
             match s with
             | _ when s = "eenmalig" -> OnceOrder
+            | _ when s = "eenmalig inlooptijd" -> OnceTimedOrder
             | _ when s = "discontinu" -> DiscontinuousOrder
             | _ when s = "continu" -> ContinuousOrder
             | _ when s = "inlooptijd" -> TimedOrder
@@ -1777,6 +1831,7 @@ module Order =
             match ord.Prescription with
             | Once -> Mapping.once
             | Continuous -> Mapping.continuous
+            | OnceTimed _ -> Mapping.onceTimed
             | Discontinuous _ -> Mapping.discontinuous
             | Timed _ -> Mapping.timed
             |> Mapping.getEquations
@@ -1853,6 +1908,7 @@ module Order =
                             flag <- true
                             let n =
                                 match ord.Prescription with
+                                | OnceTimed _ -> 5
                                 | Once -> 50
                                 | Continuous -> 100
                                 | Discontinuous _ -> 50
@@ -1984,7 +2040,7 @@ module Order =
                             if s |> String.isNullOrWhiteSpace then ""
                             else
                                 $" ({s})"
-                    $"{q} {c.Name |> Name.toString}{s}"
+                    $"{q} {c.Shape} {s}"
             )
             |> String.concat " + "
 
@@ -2156,8 +2212,8 @@ module Order =
                 let dqa = printDqAdjust ()
 
                 let pres = $"{dq} {dqa}"
-                let prep = $"{ord |> compQtyToStr}"
-                let adm = $"{ord |> orbDoseQtyToStr}"
+                let prep = ord |> compQtyToStr
+                let adm = ord |> orbDoseQtyToStr
 
                 pres |> String.replace "()" "",
                 prep,
@@ -2170,7 +2226,7 @@ module Order =
                 let dt = printDt ord
 
                 let pres = $"{fr} {dq} {dt}"
-                let prep = $"{ord |> compQtyToStr}"
+                let prep = ord |> compQtyToStr
                 let adm = $"{fr} {ord |> orbDoseQtyToStr}"
 
                 pres |> String.replace "()" "",
@@ -2226,7 +2282,6 @@ module Order =
                 pres, prep, adm
 
             | Timed (fr, tme) ->
-
                 // frequencies
                 let fr = fr |> printFr
                 let dq = printDq ()
@@ -2248,6 +2303,32 @@ module Order =
                 let pres = $"{fr} {dq} {dt}"
                 let prep = ord |> compQtyToStr
                 let adm = $"{fr} {ord |> orbDoseQtyToStr} in {tme} = {rt}"
+
+                pres |> String.replace "()" "",
+                prep,
+                adm
+
+
+            | OnceTimed tme ->
+                let dq = printDq ()
+                let dqa = printDqAdjust ()
+
+                let tme =
+                    let vuToStr =
+                        if printMd then Time.toValueUnitMarkdown 2
+                        else Time.toValueUnitString 2
+
+                    tme
+                    |> vuToStr
+
+                // infusion rate
+                let rt =
+                    ord.Orderable.Dose.Rate
+                    |> doseRateToStr
+
+                let pres = $"{dq} {dqa}"
+                let prep = ord |> compQtyToStr
+                let adm = $"{ord |> orbDoseQtyToStr} in {tme} = {rt}"
 
                 pres |> String.replace "()" "",
                 prep,
@@ -2400,6 +2481,18 @@ module Order =
 
 
         /// <summary>
+        /// Create a new Order Dto with a OnceTimed Prescription
+        /// </summary>
+        /// <param name="id">The id of the Order</param>
+        /// <param name="orbN">The name of the Orderable</param>
+        /// <param name="rte">The Route of the Order</param>
+        /// <param name="cmps">The Components of the Orderable</param>
+        let onceTimed id orbN rte cmps =
+            Prescription.onceTimed Unit.NoUnit Unit.NoUnit
+            |> dto id orbN rte cmps
+
+
+        /// <summary>
         /// Create a new Order Dto with a Discontinuous Prescription
         /// </summary>
         /// <param name="id">The id of the Order</param>
@@ -2421,6 +2514,20 @@ module Order =
         let timed id orbN rte cmps=
             Prescription.timed Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
+
+
+        let setToOnce (dto : Dto) =
+            dto.Prescription <-
+                dto.Prescription
+                |> Prescription.Dto.setToOnce
+            dto
+
+
+        let setToOnceTimed (dto : Dto) =
+            dto.Prescription <-
+                dto.Prescription
+                |> Prescription.Dto.setToOnceTimed
+            dto
 
 
         let setToContinuous (dto : Dto) =

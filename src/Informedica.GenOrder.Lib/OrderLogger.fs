@@ -55,6 +55,7 @@ module OrderLogger =
             match o.Prescription with
             | Continuous -> Order.Mapping.continuous
             | Once -> Order.Mapping.once
+            | OnceTimed _ -> Order.Mapping.onceTimed
             | Discontinuous _ -> Order.Mapping.discontinuous
             | Timed _ -> Order.Mapping.timed
             |> Order.Mapping.getEquations

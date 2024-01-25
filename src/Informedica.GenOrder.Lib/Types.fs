@@ -207,6 +207,7 @@ module Types =
         /// Type that represents a prescription
         and Prescription =
             | Once
+            | OnceTimed of Time
             | Continuous
             /// A discontinuous prescription with a frequency
             | Discontinuous of Frequency
@@ -225,6 +226,7 @@ module Types =
             | AnyOrder
             | ProcessOrder
             | OnceOrder
+            | OnceTimedOrder
             | ContinuousOrder
             | DiscontinuousOrder
             | TimedOrder

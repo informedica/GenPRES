@@ -534,10 +534,10 @@ module Check =
                             |> Option.defaultValue ""
                         if not b then
                             b,
-                            $"{m.doseRule.Generic}\t{r}\t{p}\tfreqenties {s1} niet gelijk aan {s2}"
+                            $"{m.doseRule.Generic}\t{r}\t{p}\tfrequenties {s1} niet gelijk aan {s2}"
                         else
                             b,
-                            $"{m.doseRule.Generic}\t{r}\t{p}\tfreqenties {s1} is subset van {s2}"
+                            $"{m.doseRule.Generic}\t{r}\t{p}\tfrequenties {s1} is subset van {s2}"
 
                     dl.genForm.Quantity
                     |> inRangeOf "keer dosering" gstand.quantityNorm

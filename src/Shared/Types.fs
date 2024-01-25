@@ -114,6 +114,8 @@ module Types =
 
     type Prescription =
         {
+            IsOnce : bool
+            IsOnceTimed : bool
             IsContinuous : bool
             IsDiscontinuous : bool
             IsTimed : bool

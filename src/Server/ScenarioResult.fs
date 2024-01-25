@@ -201,6 +201,8 @@ let mapFromOrderable id n (orderable : Orderable) : Order.Orderable.Dto.Dto =
 
 let mapToPrescription (dto : Order.Prescription.Dto.Dto) : Prescription =
     Shared.Order.Prescription.create
+        dto.IsOnce
+        dto.IsOnceTimed
         dto.IsContinuous
         dto.IsDiscontinuous
         dto.IsTimed
@@ -210,6 +212,8 @@ let mapToPrescription (dto : Order.Prescription.Dto.Dto) : Prescription =
 
 let mapFromPrescription (prescription : Prescription) : Order.Prescription.Dto.Dto =
     let dto = Order.Prescription.Dto.Dto ()
+    dto.IsOnce <- prescription.IsOnce
+    dto.IsOnceTimed <- prescription.IsOnceTimed
     dto.IsDiscontinuous <- prescription.IsDiscontinuous
     dto.IsContinuous <- prescription.IsContinuous
     dto.IsTimed <- prescription.IsTimed

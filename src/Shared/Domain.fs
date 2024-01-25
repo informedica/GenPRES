@@ -272,7 +272,7 @@ module Patient =
             if n >= min && n <= max then
                 Result.Ok n
             else
-                sprintf "%s: %i not >= %i and <= %i" lbl n min max
+                $"%s{lbl}: %i{n} not >= %i{min} and <= %i{max}"
                 |> Result.Error
 
 
@@ -915,17 +915,13 @@ module EmergencyTreatment =
                     match (bolus.MinDose = 0., bolus.MaxDose = 0.) with
                     | true, true -> ""
                     | true, false ->
-                        sprintf "(max %A %s)" bolus.MaxDose bolus.Unit
+                        $"(max %A{bolus.MaxDose} %s{bolus.Unit})"
                     | false, true ->
-                        sprintf "(min %A %s)" bolus.MinDose bolus.Unit
+                        $"(min %A{bolus.MinDose} %s{bolus.Unit})"
                     | false, false ->
-                        sprintf
-                            "(%A - %A %s)"
-                            bolus.MinDose
-                            bolus.MaxDose
-                            bolus.Unit
+                        $"(%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
 
-                sprintf "%A %s/kg %s" bolus.NormDose bolus.Unit minmax
+                $"%A{bolus.NormDose} %s{bolus.Unit}/kg %s{minmax}"
 
         { Intervention.emptyIntervention with
             Hospital = bolus.Hospital
@@ -1218,7 +1214,7 @@ module ContinuousMedication =
             d, doseU
 
 
-        let printAdv min max unit = sprintf "%A - %A %s" min max unit
+        let printAdv min max unit = $"%A{min} - %A{max} %s{unit}"
 
         contMeds
         |> List.filter (fun m ->
@@ -1350,8 +1346,10 @@ module Order =
 
     module Prescription =
 
-        let create isC isD isT f t =
+        let create isOnce isOnceTimed isC isD isT f t =
             {
+                IsOnce = isOnce
+                IsOnceTimed = isOnceTimed
                 IsContinuous = isC
                 IsDiscontinuous = isD
                 IsTimed = isT
