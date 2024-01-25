@@ -464,9 +464,11 @@ module DoseRule =
                     match r.FreqUnit |> Units.freqUnit with
                     | None -> None
                     | Some u ->
-                        r.Frequencies
-                        |> ValueUnit.withUnit u
-                        |> Some
+                        if r.Frequencies |> Array.isEmpty then None
+                        else
+                            r.Frequencies
+                            |> ValueUnit.withUnit u
+                            |> Some
                 AdministrationTime =
                     (r.MinTime, r.MaxTime)
                     |> fromTupleInclIncl (r.TimeUnit |> Utils.Units.timeUnit)
@@ -563,7 +565,14 @@ module DoseRule =
     let get_ dataUrl =
         dataUrl
         |> getData
-        |> Array.groupBy (fun d -> d.Generic, d.Route)
+        |> Array.groupBy (fun d ->
+            match d.Shape, d.Brand with
+            | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
+            | _, s when s |> String.notEmpty -> $"{d.Generic} ({d.Brand |> String.toLower |> String.capitalize})"
+            | _ -> d.Generic
+            ,
+            d.Route
+        )
         |> Array.collect (fun ((gen, rte), rs) ->
             rs
             |> Array.collect (fun r ->
@@ -573,15 +582,20 @@ module DoseRule =
                         Generic = gen |> Some
                         Route = rte |> Some
                     }
-                |> Array.map (fun gpp ->
+                |> fun xs ->
+                    if xs |> Array.length = 0 then
+                        printfn $"no products for {gen} {rte}"
+                    xs
+                |> Array.map (fun product ->
                     {| r with
-                        Shape = gpp.Shape |> String.toLower
+                        Generic = gen
+                        Shape = product.Shape |> String.toLower
                         Products =
                             Product.get ()
                             |> Product.filter
                              { Filter.filter with
                                  Generic = gen |> Some
-                                 Shape = gpp.Shape |> Some
+                                 Shape = product.Shape |> Some
                                  Route = rte |> Some
                              }
                     |}

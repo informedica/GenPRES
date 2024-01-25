@@ -41,6 +41,15 @@ module PrescriptionRule =
             if filter.Patient.Weight |> Option.isNone ||
                filter.Patient.Height |> Option.isNone then pr
             else
+                let freq =
+                    pr.DoseRule.Frequencies
+                    |> Option.map (fun vu ->
+                        let u = vu |> ValueUnit.getUnit
+                        vu
+                        |> ValueUnit.getValue
+                        |> Array.min
+                        |> ValueUnit.singleWithUnit u
+                    )
                 { pr with
                     DoseRule =
                         { pr.DoseRule with
@@ -82,6 +91,23 @@ module PrescriptionRule =
                                                         }
                                                 }
                                         | _ -> dl
+                                        // recalculate the max dose per administration with the freq
+                                        |> fun dl ->
+                                            match dl.Quantity.Max |> Option.map Limit.getValueUnit,
+                                                  freq,
+                                                  dl.NormPerTimeAdjust with
+                                            | Some max, Some freq, Some norm ->
+                                                let norm = adj * norm / freq
+                                                if norm <? max then dl
+                                                else
+                                                    { dl with
+                                                        NormPerTimeAdjust = None
+                                                        Quantity =
+                                                            { dl.Quantity with
+                                                                Min = dl.Quantity.Max
+                                                            }
+                                                    }
+                                            | _ -> dl
                                         // recalculate the max dose per time
                                         |> fun dl ->
 

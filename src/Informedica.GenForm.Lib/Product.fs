@@ -525,6 +525,9 @@ module Product =
             s
             |> String.replace "/" ""
             |> String.replace "+" ""
+            |> String.replace "(" ""
+            |> String.replace ")" ""
+            |> String.trim
 
         let eqs s1 s2 =
             match s1, s2 with
