@@ -1,9 +1,12 @@
 namespace Informedica.GenForm.Lib
 
+open Informedica.GenForm.Lib.DoseRule
+
 
 module PrescriptionRule =
 
     open MathNet.Numerics
+    open Informedica.Utils.Lib
     open Informedica.GenUnits.Lib
 
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
@@ -55,7 +58,8 @@ module PrescriptionRule =
                         { pr.DoseRule with
                             DoseLimits =
                                 pr.DoseRule.DoseLimits
-                                |> Array.map (fun dl ->
+                                |> Array.filter (DoseLimit.isSubstanceLimit)
+                                |> Array.map(fun dl ->
                                     if dl.AdjustUnit |> Option.isNone then dl
                                     else
                                         let adj =
@@ -81,7 +85,7 @@ module PrescriptionRule =
                                                 }
                                         | Some max, _, Some min ->
                                             let min = min * adj
-                                            if min < max then dl
+                                            if min <? max then dl
                                             else
                                                 { dl with
                                                     QuantityAdjust = MinMax.empty
@@ -127,7 +131,7 @@ module PrescriptionRule =
                                                     }
                                             | Some max, _, Some min ->
                                                 let min = min * adj
-                                                if min < max then dl
+                                                if min <? max then dl
                                                 else
                                                     { dl with
                                                         PerTimeAdjust = MinMax.empty
@@ -143,7 +147,7 @@ module PrescriptionRule =
                                                   dl.RateAdjust.Min |> Option.map Limit.getValueUnit with
                                             | Some max, Some min ->
                                                 let min = min * adj
-                                                if min < max then dl
+                                                if min <? max then dl
                                                 else
                                                     { dl with
                                                         RateAdjust = MinMax.empty
@@ -155,7 +159,9 @@ module PrescriptionRule =
                                             | _ -> dl
 
                                 )
-
+                                |> Array.prepend
+                                    (pr.DoseRule.DoseLimits
+                                    |> Array.filter DoseLimit.isShapeLimit)
                     }
                 }
         )
