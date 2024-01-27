@@ -314,10 +314,16 @@ module OrderVariable =
         |> get
         |> getVar
         |> Variable.getValueRange
-        |> ValueRange.toMarkdown prec
-        |> String.replace "x" "keer"
-        // fix for example mg/kg*day to mg/kg/dag, which is mathematically the same
-        |> String.replace "*" "/"
+        |> function
+            | vr when vr |> ValueRange.isMinMax ||
+                      vr |> ValueRange.isIncrMax ||
+                      vr |> ValueRange.isValueSet ->
+                vr
+                |> ValueRange.toMarkdown prec
+                |> String.replace "x" "keer"
+                // fix for example mg/kg*day to mg/kg/dag, which is mathematically the same
+                |> String.replace "*" "/"
+            | _ -> ""
 
 
     /// <summary>

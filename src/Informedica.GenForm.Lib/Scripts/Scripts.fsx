@@ -5,7 +5,7 @@
 #load "load.fsx"
 
 open System
-let dataUrlId = "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
+let dataUrlId = "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 
@@ -41,7 +41,7 @@ let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
         { Filter.filter.Patient with
 //            Department = Some "ICK"
             Age =
-                1N
+                16N
                 |> ValueUnit.singleWithUnit Units.Time.year
                 |> Some
             (*
@@ -51,7 +51,7 @@ let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
                 |> Some
             *)
         }
-    Generic = (Some "morfine")
+    //Generic = (Some "morfine")
     //Route = Some "oraal"
 }
 |> PrescriptionRule.filter

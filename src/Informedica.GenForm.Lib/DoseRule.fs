@@ -563,8 +563,11 @@ module DoseRule =
 
 
     let get_ dataUrl =
+        let prods = Product.get ()
+
         dataUrl
         |> getData
+        |> Array.filter (fun dr -> dr.DoseType |> String.notEmpty)
         |> Array.groupBy (fun d ->
             match d.Shape, d.Brand with
             | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
@@ -576,12 +579,15 @@ module DoseRule =
         |> Array.collect (fun ((gen, rte), rs) ->
             rs
             |> Array.collect (fun r ->
-                Product.get ()
-                |> Product.filter
-                    { Filter.filter with
-                        Generic = gen |> Some
-                        Route = rte |> Some
-                    }
+                let filtered =
+                    prods
+                    |> Product.filter
+                        { Filter.filter with
+                            Generic = gen |> Some
+                            Route = rte |> Some
+                        }
+
+                filtered
                 |> fun xs ->
                     if xs |> Array.length = 0 then
                         printfn $"no products for {gen} {rte}"
@@ -591,7 +597,7 @@ module DoseRule =
                         Generic = gen
                         Shape = product.Shape |> String.toLower
                         Products =
-                            Product.get ()
+                            filtered
                             |> Product.filter
                              { Filter.filter with
                                  Generic = gen |> Some
@@ -602,10 +608,7 @@ module DoseRule =
                 )
             )
         )
-        |> Array.filter (fun dr ->
-            dr.Shape |> String.notEmpty &&
-            dr.DoseType |> String.notEmpty
-        )
+        |> Array.filter (fun dr -> dr.Shape |> String.notEmpty)
         |> Array.map (fun dr -> {| dr with DoseType = dr.DoseType |> DoseType.fromString  |})
         |> Array.groupBy mapToDoseRule
         |> Array.filter (fst >> Option.isSome)

@@ -1,6 +1,5 @@
 namespace Informedica.GenForm.Lib
 
-open Informedica.GenForm.Lib.DoseRule
 
 
 module PrescriptionRule =
@@ -58,7 +57,7 @@ module PrescriptionRule =
                         { pr.DoseRule with
                             DoseLimits =
                                 pr.DoseRule.DoseLimits
-                                |> Array.filter (DoseLimit.isSubstanceLimit)
+                                |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                                 |> Array.map(fun dl ->
                                     if dl.AdjustUnit |> Option.isNone then dl
                                     else
@@ -161,7 +160,7 @@ module PrescriptionRule =
                                 )
                                 |> Array.prepend
                                     (pr.DoseRule.DoseLimits
-                                    |> Array.filter DoseLimit.isShapeLimit)
+                                    |> Array.filter DoseRule.DoseLimit.isShapeLimit)
                     }
                 }
         )
