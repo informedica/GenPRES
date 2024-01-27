@@ -35,7 +35,6 @@ module Utils =
         /// <summary>
         /// Get data from a google sheet containing data for GenPres
         /// </summary>
-        /// <param name="sheet">The sheet to get</param>
         /// <returns>A array table of string arrays</returns>
         let getDataFromGenPres =
             Env.getItem "GENPRES_URL_ID"
