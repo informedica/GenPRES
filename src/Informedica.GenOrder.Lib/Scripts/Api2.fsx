@@ -1,4 +1,8 @@
 
+// load demo or product cache
+System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA")
+
 
 #load "load.fsx"
 
@@ -6,9 +10,6 @@
 #time
 
 
-// load demo or product cache
-System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks")
 
 
 open MathNet.Numerics
@@ -18,6 +19,7 @@ open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
+
 
 module DoseLimit = DoseRule.DoseLimit
 
@@ -208,7 +210,7 @@ Patient.child
 |> Units.fromString
 
 
-Patient.infant
+Patient.child
 |> fun p -> { p with
                 Weight =
                   p.Weight
@@ -218,8 +220,8 @@ Patient.infant
 |> PrescriptionRule.get
 //|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Route |> Mapping.eqsRoute (Some "iv") &&
-    pr.DoseRule.Generic = "paracetamol"
+    pr.DoseRule.Route |> Mapping.eqsRoute (Some "INTRAVESICAAL") &&
+    pr.DoseRule.Generic = "acetylcysteine"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> DrugOrder.createDrugOrder None // (pr.SolutionRules[0] |> Some)  //|> printfn "%A"

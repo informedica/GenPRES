@@ -682,7 +682,11 @@ module DoseRule =
                             | _ -> None
 
                         {
-                            DoseLimitTarget = r.Substance |> SubstanceDoseLimitTarget
+                            DoseLimitTarget =
+                                if r.Substance |> String.isNullOrWhiteSpace then
+                                    dr.Shape |> ShapeDoseLimitTarget
+                                else
+                                    r.Substance |> SubstanceDoseLimitTarget
                             AdjustUnit = adj
                             DoseUnit = du |> Option.defaultValue NoUnit
                             Quantity =
@@ -711,7 +715,16 @@ module DoseRule =
                                 |> fromTupleInclIncl duAdjRate
                         }
                     )
-                    |> Array.append shapeLimits
+                    // check if there is only one dose limit and its
+                    // a shape dose limit, then only use that shape
+                    // dose limit
+                    |> function
+                        | [| dl  |] ->
+                            if dl |> DoseLimit.isSubstanceLimit then
+                                [| dl |]
+                                |> Array.append shapeLimits
+                            else [| dl |]
+                        | dls -> dls |> Array.append shapeLimits
             }
         )
 
