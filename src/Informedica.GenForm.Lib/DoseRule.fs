@@ -499,6 +499,7 @@ module DoseRule =
 
             data
             |> Array.tail
+            |> Array.distinctBy (fun row -> row |> Array.tail)
             |> Array.map (fun r ->
                 let get = getColumn r
                 let toBrOpt = BigRational.toBrs >> Array.tryHead

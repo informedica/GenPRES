@@ -43,4 +43,44 @@ Product.get () |> fun xs -> printfn $"{xs |> Array.length}"; xs
 
 let data = getData dataUrlId
 
+data
+|> Array.distinctBy (fun r ->
+    r.Brand,
+    r.Department,
+    r.Diagn,
+    r.Gender,
+    r.Generic,
+    r.Indication,
+    r.Route,
+    r.Shape,
+    r.Substance,
+    r.AdjustUnit,
+    r.DoseType,
+    r.DoseUnit,
+    r.Frequencies,
+    r.FreqUnit,
+    r.DurUnit,
+    r.IntervalUnit,
+    r.MaxAge,
+    r.MaxDur,
+    r.MaxInterval,
+    r.MaxQty,
+    r
+)
 
+
+Web.getDataFromSheet dataUrlId "DoseRules"
+|> fun data ->
+    let getColumn =
+        data
+        |> Array.head
+        |> Csv.getStringColumn
+
+    data
+    |> Array.skip 1
+    |> fun xs -> printfn $"{xs |> Array.length}"; xs
+    |> Array.distinctBy (fun row ->
+        row |> Array.tail
+    )
+
+|> Array.length
