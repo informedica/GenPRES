@@ -261,6 +261,7 @@ module Product =
         useBrand
         synonyms
         shapeQuantities
+        divisible
         (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
         =
 
@@ -347,10 +348,13 @@ module Product =
                         }
                     )
             Divisible =
-                let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) NoUnit
-                if rs |> Array.length = 0 then None
-                else
-                    rs[0].Divisibility
+                match divisible with
+                | Some d -> d |> BigRational.fromInt |> Some
+                | None ->
+                    let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) NoUnit
+                    if rs |> Array.length = 0 then None
+                    else
+                        rs[0].Divisibility
             Substances =
                 gp.Substances
                 |> Array.map (fun s ->
@@ -406,6 +410,7 @@ module Product =
                             useShape = get "UseShape" = "x"
                             useBrand = get "UseBrand" = "x"
                             tallMan = get "TallMan"
+                            divisible = get "Divisible" |> Int32.tryParse
                         |}
                     )
 
@@ -451,6 +456,7 @@ module Product =
                            r.useBrand
                            synonyms
                            shapeQuantities
+                           r.divisible
                 )
         |> StopWatch.clockFunc "created products"
 

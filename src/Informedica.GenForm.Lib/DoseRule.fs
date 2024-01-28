@@ -570,8 +570,8 @@ module DoseRule =
         |> getData
         |> Array.filter (fun dr ->
             dr.DoseType |> String.notEmpty &&
-            dr.DoseUnit |> String.notEmpty &&
-            (dr.MaxQty |> Option.isSome ||
+            ((dr.Frequencies |> Array.length > 0 && dr.FreqUnit |> String.notEmpty) ||
+             dr.MaxQty |> Option.isSome ||
              dr.NormQtyAdj |> Option.isSome ||
              dr.MaxQtyAdj |> Option.isSome ||
              dr.MaxPerTime |> Option.isSome ||
