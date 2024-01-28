@@ -41,7 +41,7 @@ let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
         { Filter.filter.Patient with
 //            Department = Some "ICK"
             Age =
-                16N
+                1N
                 |> ValueUnit.singleWithUnit Units.Time.year
                 |> Some
             (*

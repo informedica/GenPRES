@@ -568,7 +568,18 @@ module DoseRule =
 
         dataUrl
         |> getData
-        |> Array.filter (fun dr -> dr.DoseType |> String.notEmpty)
+        |> Array.filter (fun dr ->
+            dr.DoseType |> String.notEmpty &&
+            dr.DoseUnit |> String.notEmpty &&
+            (dr.MaxQty |> Option.isSome ||
+             dr.NormQtyAdj |> Option.isSome ||
+             dr.MaxQtyAdj |> Option.isSome ||
+             dr.MaxPerTime |> Option.isSome ||
+             dr.NormPerTimeAdj |> Option.isSome ||
+             dr.MaxPerTime |> Option.isSome ||
+             dr.MaxRate |> Option.isSome ||
+             dr.MaxRateAdj |> Option.isSome)
+        )
         |> Array.groupBy (fun d ->
             match d.Shape, d.Brand with
             | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"

@@ -2189,7 +2189,9 @@ module Order =
                                 if s |> String.isNullOrWhiteSpace then s
                                 else
                                     $" ({s})"
-                        $"= {s |> String.trim}{nv}"
+                        if s |> String.isNullOrWhiteSpace then s
+                        else
+                            $"= {s |> String.trim}{nv}"
                     else
                         $"({s |> String.trim})"
 

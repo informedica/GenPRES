@@ -606,10 +606,20 @@ module private Elmish =
             let state =
                 { state with
                     Formulary = Resolved form
+                    Scenarios =
+                        state.Scenarios
+                        |> Deferred.map (fun scr ->
+                            { scr with
+                                Indication = form.Indication
+                                Medication = form.Generic
+                                Route = form.Route
+                            }
+                        )
                 }
             state,
             Cmd.batch [
                 Cmd.ofMsg (LoadFormulary Started)
+                Cmd.ofMsg (LoadScenarios Started)
             ]
 
         | LoadParenteralia Started ->
