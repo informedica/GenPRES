@@ -816,27 +816,27 @@ module Tests =
 
 
                 let scenarioToString op opStr i (min1, max1, min2, max2) =
-                        let printLeft left = if left |> snd then "[" else "<"
-                        let printRight right = if right |> snd then "]" else ">"
-                        let printVal v = v |> fst |> Option.map string |> Option.defaultValue ""
+                    let printLeft left = if left |> snd then "[" else "<"
+                    let printRight right = if right |> snd then "]" else ">"
+                    let printVal v = v |> fst |> Option.map string |> Option.defaultValue ""
 
-                        let result =
-                            try
-                                op
-                                    (min1 |> createVuOpt)
-                                    (max1 |> createVuOpt)
-                                    (min2 |> createVuOpt)
-                                    (max2 |> createVuOpt)
-                                |> fun (min, max) -> Variable.ValueRange.create min None max None
-                                |> toString true
-                                |> String.replace "x" ""
-                                |> String.replace "<" "< "
-                                |> String.replace ">" " >"
-                            with
-                            | _ -> "failed"
+                    let result =
+                        try
+                            op
+                                (min1 |> createVuOpt)
+                                (max1 |> createVuOpt)
+                                (min2 |> createVuOpt)
+                                (max2 |> createVuOpt)
+                            |> fun (min, max) -> Variable.ValueRange.create min None max None
+                            |> toString true
+                            |> String.replace "x" ""
+                            |> String.replace "<" "< "
+                            |> String.replace ">" " >"
+                        with
+                        | _ -> "failed"
 
-                        $"%i{i + 1}, {min1 |> printLeft} {min1 |> printVal} .. {max1 |> printVal} {max1 |> printRight}, {opStr}, {min2 |> printLeft} {min2 |> printVal} .. {max2 |> printVal} {max2 |> printRight},  =, {result}"
-                        |> String.replace "  " " "
+                    $"%i{i + 1}, {min1 |> printLeft} {min1 |> printVal} .. {max1 |> printVal} {max1 |> printRight}, {opStr}, {min2 |> printLeft} {min2 |> printVal} .. {max2 |> printVal} {max2 |> printRight},  =, {result}"
+                    |> String.replace "  " " "
 
 
                 let printTests op opStr =

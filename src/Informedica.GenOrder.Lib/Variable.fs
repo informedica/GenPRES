@@ -14,7 +14,10 @@ module Variable =
                 match aOption with
                 | Some m -> vr |> set m
                 | None   -> vr
-            with | _ -> vr // TODO: ugly fix need to refactor
+            with
+            | e ->
+                printfn $"couldn't set {aOption} to {vr}"
+                vr // TODO: ugly fix need to refactor
 
 
         /// <summary>

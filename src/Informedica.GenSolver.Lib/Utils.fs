@@ -112,9 +112,15 @@ module Utils =
                 |> function
                 | [u1;u2;u3] when u3 |> String.startsWith "kg" -> [u1;u3;u2]
                 | xs -> xs
-                |> String.concat "/"
-                |> Units.fromString
-                |> Option.defaultValue (vu |> getUnit)
+                |> List.choose Units.fromString
+                |> function
+                    | [] -> vu |> getUnit
+                    | [ u ] -> u
+                    | u::rest ->
+                        rest
+                        |> List.fold (fun acc u ->
+                            CombiUnit(acc, OpPer, u)
+                        ) u
 
             vu
             |> getValue

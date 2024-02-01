@@ -321,7 +321,9 @@ module Variable =
             /// Convert the unit of a `Minimum` to **u**.
             /// </summary>
             /// <param name="u">The unit to set</param>
-            let setUnit u = map (ValueUnit.convertTo u)
+            let setUnit u =
+                map (ValueUnit.convertTo u)
+                    (ValueUnit.convertTo u)
 
 
             /// <summary>
@@ -665,7 +667,9 @@ module Variable =
             /// Convert the unit of a `Maximum` to **u**.
             /// </summary>
             /// <param name="u">The unit to set</param>
-            let setUnit u = map (ValueUnit.convertTo u)
+            let setUnit u =
+                map (ValueUnit.convertTo u)
+                    (ValueUnit.convertTo u)
 
 
             /// <summary>
@@ -1302,6 +1306,41 @@ module Variable =
                 (ValueSet.map f)
 
 
+        let checkEqualUnitGroup vr =
+            let fMinMax (min, max) =
+                min
+                |> Minimum.toValueUnit
+                |> ValueUnit.eqsGroup (max |> Maximum.toValueUnit)
+            let fMinIncr (min, incr) =
+                min
+                |> Minimum.toValueUnit
+                |> ValueUnit.eqsGroup (incr |> Increment.toValueUnit)
+            let fIncrMax (incr, max) =
+                incr
+                |> Increment.toValueUnit
+                |> ValueUnit.eqsGroup (max |> Maximum.toValueUnit)
+            let fMinIncrMax (min, incr, max) =
+                min
+                |> Minimum.toValueUnit
+                |> ValueUnit.eqsGroup (incr |> Increment.toValueUnit) &&
+                incr
+                |> Increment.toValueUnit
+                |> ValueUnit.eqsGroup (max |> Maximum.toValueUnit)
+
+            vr
+            |> apply
+                true
+                true
+                (fun _ -> true)
+                (fun _ -> true)
+                fMinMax
+                (fun _ -> true)
+                fMinIncr
+                fIncrMax
+                fMinIncrMax
+                (fun _ -> true)
+
+
         /// <summary>
         /// Map a function to the ValueUnit of a `ValueRange`.
         /// </summary>
@@ -1330,7 +1369,11 @@ module Variable =
         let convertToUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
-        let getUnit = applyValueUnit (ValueUnit.getUnit >> Some)
+        let getUnit vr =
+            if vr |> checkEqualUnitGroup then
+                vr
+                |> applyValueUnit (ValueUnit.getUnit >> Some)
+            else None
 
 
         /// <summary>
@@ -1692,7 +1735,12 @@ module Variable =
         /// Note that the resulting min is always inclusive and greater than
         /// or equal to the original min.
         /// </remarks>
-        let minMultipleOf incr min = min |> Minimum.multipleOf incr
+        let minMultipleOf incr min =
+            if (min,  incr) |> MinIncr |> checkEqualUnitGroup |> not then
+                $"{min}, {incr} don't have the same unit group"
+                |> failwith
+
+            min |> Minimum.multipleOf incr
 
 
         /// <summary>
@@ -1711,7 +1759,11 @@ module Variable =
         /// Note that the resulting max is always inclusive and smaller than
         /// or equal to the original max.
         /// </remarks>
-        let maxMultipleOf incr max = max |> Maximum.multipleOf incr
+        let maxMultipleOf incr max =
+            if (incr, max) |> IncrMax |> checkEqualUnitGroup |> not then
+                $"{incr}, {max} don't have the same unit group"
+                |> failwith
+            max |> Maximum.multipleOf incr
 
 
         /// An `Unrestricted` `ValueRange`.
@@ -1732,6 +1784,22 @@ module Variable =
         /// <returns>A `MinMax` `ValueRange`</returns>
         /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
         let minMaxToValueRange min max =
+            let minUnit, maxUnit =
+                min |> Minimum.toValueUnit |> ValueUnit.getUnit,
+                max |> Maximum.toValueUnit |> ValueUnit.getUnit
+
+            let min, max =
+                match minUnit, maxUnit with
+                | ZeroUnit, _ when maxUnit <> NoUnit && maxUnit <> ZeroUnit ->
+                    min |> Minimum.setUnit maxUnit, max
+                | _, ZeroUnit when minUnit <> NoUnit && minUnit <> ZeroUnit ->
+                    min, max |> Maximum.setUnit minUnit
+                | _ -> min, max
+
+            if (min, max) |> MinMax |> checkEqualUnitGroup |> not then
+                $"{min}, {max} don't have the same unit group"
+                |> failwith
+
             if min |> minGTmax max then
                 // printfn $"min:\n{min}\nmax:\n{max}"
                 (min, max)
@@ -1767,6 +1835,21 @@ module Variable =
         /// or equal to the original min and is a multiple of **incr**.
         /// </remarks>
         let minIncrToValueRange min incr =
+            // note that incr cannot have a ZeroUnit or NoUnit!
+            let minUnit, incrUnit =
+                min |> Minimum.toValueUnit |> ValueUnit.getUnit,
+                incr |> Increment.toValueUnit |> ValueUnit.getUnit
+
+            let min =
+                match minUnit with
+                | ZeroUnit when incrUnit <> ZeroUnit && incrUnit <> NoUnit ->
+                    min |> Minimum.setUnit incrUnit
+                | _ -> min
+
+            if (min,  incr) |> MinIncr |> checkEqualUnitGroup |> not then
+                $"{min}, {incr} don't have the same unit group"
+                |> failwith
+
             if min |> Minimum.hasZeroUnit |> not then
                 (min |> minMultipleOf incr, incr)
                 |> MinIncr
@@ -1797,6 +1880,21 @@ module Variable =
         /// or equal to the original max and is a multiple of **incr**.
         /// </remarks>
         let incrMaxToValueRange incr max =
+            // note that incr cannot have a ZeroUnit or NoUnit!
+            let maxUnit, incrUnit =
+                max |> Maximum.toValueUnit |> ValueUnit.getUnit,
+                incr |> Increment.toValueUnit |> ValueUnit.getUnit
+
+            let max =
+                match maxUnit with
+                | ZeroUnit when incrUnit <> ZeroUnit && incrUnit <> NoUnit ->
+                    max |> Maximum.setUnit incrUnit
+                | _ -> max
+
+            if (incr, max) |> IncrMax |> checkEqualUnitGroup |> not then
+                $"{incr}, {max} don't have the same unit group"
+                |> failwith
+
             (incr, max |> maxMultipleOf incr) |> IncrMax
 
 
@@ -1808,6 +1906,25 @@ module Variable =
         /// <param name="max">The maximum</param>
         /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
         let minIncrMaxToValueRange min incr max =
+            // note that incr cannot have a ZeroUnit or NoUnit!
+            let minUnit, incrUnit, maxUnit =
+                min |> Minimum.toValueUnit |> ValueUnit.getUnit,
+                incr |> Increment.toValueUnit |> ValueUnit.getUnit,
+                max |> Maximum.toValueUnit |> ValueUnit.getUnit
+
+            let min =
+                if minUnit <> ZeroUnit then min
+                else
+                    min |> Minimum.setUnit incrUnit
+
+            let max =
+                if maxUnit <> ZeroUnit then max
+                else
+                    max |> Maximum.setUnit incrUnit
+
+            if (min, incr, max) |> MinIncrMax |> checkEqualUnitGroup |> not then
+                $"{min}, {incr}, {max} don't have the same unit group"
+                |> failwith
             let min = min |> minMultipleOf incr
             let max = max |> maxMultipleOf incr
 
@@ -2430,7 +2547,7 @@ module Variable =
 
                 else
                     let printRange min max =
-                        let minToStr withUnit = Minimum. toMarkdown withUnit prec
+                        let minToStr withUnit = Minimum.toMarkdown withUnit prec
                         let maxToStr = Maximum.toMarkdown prec
 
                         match min, max with
@@ -2480,7 +2597,9 @@ module Variable =
         /// <1N..3N] * <4N..5N> = <4N..15N>
         module MinMaxCalculator =
 
+            open MathNet.Numerics.LinearAlgebra
             open Utils.ValueUnit.Operators
+
 
             /// Calculate **x1** and **x2** with operator **op**
             /// and use **incl1** and **inc2** to determine whether
@@ -2493,12 +2612,23 @@ module Variable =
                     match incl1, incl2 with
                     | true, true -> true
                     | _ -> false
-
-                let createZero incl =
-                    0N
-                    |> ValueUnit.singleWithUnit ZeroUnit
+                // create a zero with unit by multiplication or division
+                let createZero incl u1 u2 =
+                    match u1, u2 with
+                    | NoUnit, _
+                    | ZeroUnit, _
+                    | _, NoUnit
+                    | _, ZeroUnit -> ValueUnit.zero ZeroUnit
+                    | _ ->
+                        // multiplication or division with first value = zero
+                        // always results in zero
+                        (ValueUnit.zero u1) |> op <| (ValueUnit.one u2)
                     |> c incl
                     |> Some
+
+                let u1, u2 =
+                    vu1Opt |> Option.map ValueUnit.getUnit |> Option.defaultValue NoUnit,
+                    vu2Opt |> Option.map ValueUnit.getUnit |> Option.defaultValue NoUnit
 
                 let vu1IsZero, vu2IsZero =
                     vu1Opt |> Option.map ValueUnit.isZero |> Option.defaultValue false,
@@ -2514,11 +2644,11 @@ module Variable =
                 // when any of the two values is zero incl, the result
                 // of multiplication will always be zero incl
                 | _, true, _, _, true, _, Mult
-                | _, _, _, true, _, true, Mult -> createZero true
+                | _, _, _, true, _, true, Mult -> createZero true u1 u2
                 // when any of the two values is zero excl, the result
                 // of multiplication will always be zero excl
                 | _, false, _, _, true, _, Mult
-                | _, _, _, false, _, true, Mult -> createZero false
+                | _, _, _, false, _, true, Mult -> createZero false u1 u2
                 // multiplication by Some non zero by a None will result in a None
                 | None, _, Some _, _, false, false, Mult
                 | Some _, _, None, _, false, false, Mult -> None
@@ -2530,13 +2660,13 @@ module Variable =
                 // division by zero excl is possible, but the result is None
                 | _, _, _, false, _, true, Div -> None
                 // a zero value that divided by another value will always result in zero
-                | _, _, _, _, true, _, Div -> createZero incl1
+                | _, _, _, _, true, _, Div -> createZero incl1 u1 u2
                 // a None divided by any nonzero Some value will be None
                 | None, _, Some _, _, false, false, Div -> None
                 // any value that is divided by an unlimited value will
                 // result in zero value that is exclusive, i.e. will
                 // approach zero but never reach it
-                | Some _, _, None, _, false, false, Div -> createZero false
+                | Some _, _, None, _, false, false, Div -> createZero false u1 ZeroUnit
 
                 // ADDITION
                 // adding a None to another value always results in a None
@@ -3118,7 +3248,7 @@ module Variable =
             |> Exceptions.VariableCannotSetValueRange
             |> raiseExc errs
         | e ->
-            printfn $"couldn't catch exception:{e}"
+            printfn $"{var.Name |> Name.toString}: couldn't catch exception:{e}"
             raise e
 
 

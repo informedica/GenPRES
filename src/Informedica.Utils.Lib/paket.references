@@ -1,3 +1,4 @@
 MathNet.Numerics.FSharp
 Unquote
 FSharp.Core
+Newtonsoft.Json

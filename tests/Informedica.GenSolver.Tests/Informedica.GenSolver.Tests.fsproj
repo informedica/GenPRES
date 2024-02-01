@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
+    <None Include="Scripts\Tests.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.GenSolver.Lib\Informedica.GenSolver.Lib.fsproj" />

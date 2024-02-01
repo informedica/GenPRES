@@ -91,6 +91,7 @@ module Utils =
             brs2 |> Array.tryHead
 
 
+
     module Calculations =
 
         open MathNet.Numerics
@@ -121,6 +122,7 @@ module Utils =
             |> decimal
             |> BigRational.fromDecimal
             |> ValueUnit.singleWithUnit Units.BSA.m2
+
 
 
     module Units =

@@ -243,14 +243,16 @@ module OrderVariable =
         let u =
             ovar.Variable |> Variable.getUnit
             |> Option.map (fun u1 ->
-                match u1 |> ValueUnit.getUnits with
-                | _ :: rest ->
-                    rest
-                    |> List.fold (fun acc x ->
-                        acc
-                        |> Units.per x
-                    ) u
-                | _ -> u
+                if u1 = ZeroUnit || u1 = NoUnit then u1
+                else
+                    match u1 |> ValueUnit.getUnits with
+                    | _ :: rest ->
+                        rest
+                        |> List.fold (fun acc x ->
+                            acc
+                            |> Units.per x
+                        ) u
+                    | _ -> u
             )
             |> Option.defaultValue u
 

@@ -1308,13 +1308,14 @@ module Order =
     module ValueUnit =
 
         // create Shared.Types.ValueUnit
-        let create v u g s l =
+        let create v u g s l j =
             {
                 Value = v
                 Unit = u
                 Group = g
                 Short = s
                 Language = l
+                Json = j
             }
 
 

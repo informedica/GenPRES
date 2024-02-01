@@ -362,7 +362,7 @@ module Product =
                         s.SubstanceUnit
                         |> Mapping.mapUnit
                         |> Option.map (fun u ->
-                            u |> ValueUnit.per shpUnit
+                            CombiUnit(u, OpPer, shpUnit)
                         )
                         |> Option.defaultValue NoUnit
                     {

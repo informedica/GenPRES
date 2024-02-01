@@ -21,6 +21,7 @@ let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
         dto.Group
         dto.Short
         dto.Language
+        dto.Json
 
 
 let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
@@ -30,8 +31,10 @@ let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
     dto.Group <- vu.Group
     dto.Language <- vu.Language
     dto.Short <- vu.Short
+    dto.Json <- vu.Json
 
     dto
+
 
 let mapToVariable (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) : Variable =
     Shared.Order.Variable.create dto.Name dto.IsNonZeroNegative
@@ -370,7 +373,7 @@ Scenarios: {sc.Scenarios |> Array.length}
 
 
 let calcMinIncrMaxToValues (ord : Order) =
-    if Env.getItem "GENPRES_PROD" |> Option.isNone then
+    if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
         let path = $"{__SOURCE_DIRECTORY__}/log.txt"
         OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
@@ -434,7 +437,7 @@ let print (sc: ScenarioResult) =
 
 
 let solveOrder (ord : Order) =
-    if Env.getItem "GENPRES_PROD" |> Option.isNone then
+    if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
         let path = $"{__SOURCE_DIRECTORY__}/log.txt"
         OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 

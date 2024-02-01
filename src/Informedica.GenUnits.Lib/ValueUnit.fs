@@ -125,6 +125,7 @@ module Group =
 
     type Group =
         | NoGroup
+        | ZeroGroup
         | GeneralGroup of string
         | CountGroup
         | MassGroup
@@ -1872,6 +1873,7 @@ module ValueUnit =
 
     module Group =
 
+
         /// Get the corresponding group for a unit
         /// Example: unitToGroup (Mass (KiloGram 1N)) = MassGroup
         let unitToGroup u =
@@ -1909,6 +1911,7 @@ module ValueUnit =
                 match g with
                 | Group.GeneralGroup _
                 | Group.NoGroup
+                | Group.ZeroGroup
                 | Group.CountGroup
                 | Group.MassGroup
                 | Group.DistanceGroup
@@ -1974,9 +1977,11 @@ module ValueUnit =
         /// eqsGroup un1 un2 = true
         /// </example>
         let eqsGroup u1 u2 =
-            if u1 = u2 then
-                true
-            else
+            match u1, u2 with
+            | ZeroUnit, NoUnit
+            | NoUnit, ZeroUnit
+            | _, _ when u1 = u2 -> true
+            | _ ->
                 let g1Num, g1Den=
                     u1 |> unitToGroup |> numDenom true
                 let g2Num, g2Den =
@@ -1991,6 +1996,7 @@ module ValueUnit =
             let rec str g s =
                 match g with
                 | Group.NoGroup -> ""
+                | Group.ZeroGroup -> "Zero"
                 | Group.GeneralGroup _ -> "General"
                 | Group.CountGroup -> "Count"
                 | Group.MassGroup -> "Mass"
@@ -2016,6 +2022,7 @@ module ValueUnit =
         let getGroupUnits =
             function
             | Group.NoGroup -> [ NoUnit ]
+            | Group.ZeroGroup -> [ ZeroUnit ]
             | Group.GeneralGroup n -> [ (n, 1N) |> General ]
             | Group.CountGroup -> [ 1N |> Times |> Count ]
             | Group.MassGroup ->
@@ -2243,8 +2250,12 @@ module ValueUnit =
     /// create (Mass (KiloGram 1N)) [| 1N; 2N; 3N |] = ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))
     /// </example>
     let create u v =
-        (v |> Array.distinct |> Array.sort, u)
-        |> ValueUnit
+        match u with
+        | NoUnit when v = [| 0N |] -> ([| 0N |], ZeroUnit) |> ValueUnit
+        | ZeroUnit -> ([| 0N |], ZeroUnit) |> ValueUnit
+        | _ ->
+            (v |> Array.distinct |> Array.sort, u)
+            |> ValueUnit
 
 
     /// An empty ValueUnit that has no value
@@ -2354,7 +2365,8 @@ module ValueUnit =
             match op with
             | OpPer ->
                 match u1, u2 with
-                | _ when u1 |> Group.eqsGroup ZeroUnit -> u2
+                | _ when u1 |> Group.eqsGroup ZeroUnit ||
+                         u2 |> Group.eqsGroup ZeroUnit -> ZeroUnit
                 // this is not enough when u2 is combiunit but
                 // contains u1!
                 | _ when u1 |> Group.eqsGroup u2 ->
@@ -2374,8 +2386,8 @@ module ValueUnit =
                 | _ -> (u1, OpPer, u2) |> CombiUnit
             | OpTimes ->
                 match u1, u2 with
-                | _ when u1 |> Group.eqsGroup ZeroUnit -> u2
-                | _ when u2 |> Group.eqsGroup ZeroUnit -> u1
+                | _ when u1 |> Group.eqsGroup ZeroUnit -> ZeroUnit
+                | _ when u2 |> Group.eqsGroup ZeroUnit -> ZeroUnit
                 | _ when
                     u1 |> Group.eqsGroup count
                     && u2 |> Group.eqsGroup count
@@ -3560,7 +3572,6 @@ module ValueUnit =
 
     module Dto =
 
-
         module Group = ValueUnit.Group
 
 
@@ -3570,6 +3581,7 @@ module ValueUnit =
             member val Group = "" with get, set
             member val Short = true with get, set
             member val Language = "" with get, set
+            member val Json = "" with get, set
 
 
         [<Literal>]
@@ -3623,31 +3635,52 @@ module ValueUnit =
                 dto.Group <- g
                 dto.Language <- lang
                 dto.Short <- short
+                dto.Json <- vu |> ValueUnit.getUnit |> Json.serialize
 
                 dto |> Some
+
 
         let toDtoDutchShort vu = vu |> toDto true dutch |> Option.get
         let toDtoDutchLong vu = vu |> toDto false dutch |> Option.get
         let toDtoEnglishShort vu = vu |> toDto true english |> Option.get
         let toDtoEnglishLong vu = vu |> toDto false english |> Option.get
 
+
         let fromDto (dto: Dto ) =
             let v =
                 dto.Value |> Array.map (fst >> BigRational.parse)
 
-            if dto.Group |> String.isNullOrWhiteSpace then
-                dto.Unit
+            if dto.Json |> String.notEmpty then dto.Json |> Json.deSerialize<Unit> |> Some
             else
-                // TODO only works for "per" combiunits
-                let us = dto.Unit |> String.split "/"
-                let gs = dto.Group |> String.split "/"
-                List.zip us gs
-                |> List.map (fun (u, g) ->
-                    $"{u}[{g}]"
-                )
-                |> String.concat "/"
+                if dto.Group |> String.isNullOrWhiteSpace then
+                    dto.Unit
+                    |> Units.fromString
+                else
+                    // TODO only works for "per" combiunits
+                    let us = dto.Unit |> String.split "/"
+                    let gs = dto.Group |> String.split "/"
 
-            |> Units.fromString
+                    if us |> List.length <> (gs |> List.length) then
+                        printfn $"warning: {us} not the same length as {gs}!"
+                        printfn $"unit: {dto.Unit} group {dto.Group}!"
+
+                        $"{dto.Unit}[{dto.Group}]"
+                        |> Units.fromString
+                    else
+                        List.zip us gs
+                        |> List.choose (fun (u, g) ->
+                            $"{u}[{g}]"
+                            |> Units.fromString
+                        )
+                        |> function
+                            | [] -> None
+                            | [u] -> u |> Some
+                            | u::rest ->
+                                rest
+                                |> List.fold(fun acc u ->
+                                    CombiUnit (acc, OpPer, u)
+                                ) u
+                                |> Some
             |> function
             | None -> None
             | Some u ->

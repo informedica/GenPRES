@@ -41,7 +41,7 @@ let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
         { Filter.filter.Patient with
 //            Department = Some "ICK"
             Age =
-                1N
+                16N
                 |> ValueUnit.singleWithUnit Units.Time.year
                 |> Some
             (*
@@ -88,7 +88,7 @@ SolutionRule.get ()
 { Patient.patient with
     Age =
         Units.Time.year
-        |> ValueUnit.singleWithValue 1N
+        |> ValueUnit.singleWithValue 16N
         |> Some
 }
 |> PrescriptionRule.get

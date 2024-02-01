@@ -195,9 +195,12 @@ module OrderLogger =
                         let! msg = inbox.Receive ()
 
                         match msg with
-                        | Stop -> return ()
+                        | Stop ->
+                            return ()
                         | Start (path, level) ->
-                            if path.IsSome then System.IO.File.WriteAllText(path.Value, "")
+                            if path.IsSome then
+                                $"Start logging {level}: {DateTime.Now}\n\n"
+                                |> File.writeTextToFile path.Value
 
                             let timer = Stopwatch.StartNew()
                             return!

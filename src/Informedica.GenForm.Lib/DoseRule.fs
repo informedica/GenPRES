@@ -727,6 +727,7 @@ module DoseRule =
                                 |> fromTupleInclIncl duAdjRate
                         }
                     )
+                    |> Array.distinct
                     // check if there is only one dose limit and its
                     // a shape dose limit, then only use that shape
                     // dose limit

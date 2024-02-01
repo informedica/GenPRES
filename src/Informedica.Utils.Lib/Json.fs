@@ -1,45 +1,11 @@
-
-//#I "C:\Development\Informedica\libs\GenUnits\src\Informedica.GenUnits.Lib\scripts"
-//#I __SOURCE_DIRECTORY__
-
-
-#load "load.fsx"
-
-open MathNet.Numerics
-
-open Informedica.GenUnits.Lib
-open Informedica.Utils.Lib.BCL
-
-open Swensen.Unquote
-
-open FParsec
-
-
-"piece[General]"
-|> run Parser.parseUnit
-
-"day[General]"
-|> Units.fromString
-
-open Informedica.Utils.Lib
-
-let isGeneral s =
-    let xs = (String.regex "[^\[\]]+(?=\])").Matches(s)
-    xs
-    |> Seq.map _.Value
-    |> Seq.forall (String.equalsCapInsens "general")
-
-
-"piece"
-|> isGeneral
-
-
-open Informedica.Utils.Lib
+namespace Informedica.Utils.Lib
 
 
 module Json =
 
     open System
+    open MathNet.Numerics
+    open Informedica.Utils.Lib.BCL
     open Newtonsoft.Json
     open Newtonsoft.Json.Linq
 
@@ -101,22 +67,3 @@ module Json =
             printfn $"cannot deserialize {s}:\n{e.ToString()}"
             raise e
 
-
-open MathNet.Numerics
-
-let value = (1N/3N)
-
-value
-|> Json.serialize
-|> Json.deSerialize<BigRational>
-
-
-Units.Mass.milliGram
-|> Units.per Units.Weight.kiloGram
-|> Units.per Units.Time.hour
-|> Json.serialize
-|> Json.deSerialize<Unit>
-
-Units.General.general "test"
-|> Json.serialize
-|> Json.deSerialize<Unit>

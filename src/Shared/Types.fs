@@ -87,6 +87,7 @@ module Types =
             Group : string
             Short : bool
             Language : string
+            Json : string
         }
 
 

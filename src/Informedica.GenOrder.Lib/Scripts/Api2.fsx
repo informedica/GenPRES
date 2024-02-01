@@ -141,8 +141,6 @@ let createScenarios () =
         |> run n
     )
 
-startLogger ()
-stopLogger ()
 
 
 let setAge a (pat : Patient) =
@@ -152,81 +150,30 @@ let setAge a (pat : Patient) =
 let pat =
     Patient.infant
     |> setAge
-        (Units.Time.year |> ValueUnit.singleWithValue 1N)
+        (Units.Time.year |> ValueUnit.singleWithValue 16N)
 
 
 
 
-Informedica.GenForm.Lib.DoseRule.get ()
-|> DoseRule.filter
-//    Filter.filter
-    { Filter.filter with
-        Patient = pat
-    }
-|> Array.filter (fun dr ->
-    dr.Generic = "paracetamol" &&
-    dr.Route |> Mapping.eqsRoute (Some "rectaal")
-)
-|> DoseRule.Print.toMarkdown
-//|> Array.skip 2
-//|> Array.take 1
-|> Array.length
-
-
-Mapping.mappingShapeRoute
-|> Array.map _.DoseUnit
-|> Array.distinct
-|> Array.iter (printfn "%A")
-
-Mapping.mapUnit ""
-
-Units.fromString "E[InternationalUnit]"
-
-
-Informedica.GenForm.Lib.DoseRule.get ()
-|> Array.item 2
-|> fun dr ->
-    dr.PatientCategory
-    |> PatientCategory.filter { Filter.filter with Patient = Patient.child }
-
-
-{ Department = Some "ICK"
-  Diagnoses = [||]
-  Gender = AnyGender
-  Age = Some (ValueUnit ([|0N|], Units.Time.day))
-  Weight = Some (ValueUnit ([|757N/200N|], Weight (WeightKiloGram 1N)))
-  Height = Some (ValueUnit ([|1059N/20N|], Height (HeightCentiMeter 1N)))
-  GestAge = None
-  PMAge = None
-  VenousAccess = []
-}
-|> Api.scenarioResult
-|> Api.filter
-
-Patient.child
-|> Patient.toString
-
-"1000 kg[Weight]"
-|> Units.fromString
-
-
-Patient.child
+Patient.infant
 |> fun p -> { p with
                 Weight =
-                  p.Weight
-                  |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+                  Units.Weight.kiloGram
+                  |> ValueUnit.singleWithValue (98N/10N)
+                  |> Some
+
 }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
-//|> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
 |> Array.filter (fun pr ->
-    pr.DoseRule.Route |> Mapping.eqsRoute (Some "INTRAVESICAAL") &&
-    pr.DoseRule.Generic = "acetylcysteine"
+    pr.DoseRule.Shape = "drank"
 )
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 |> fun pr -> pr |> DrugOrder.createDrugOrder None // (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
+|> Order.Dto.toDto
+|> Order.Dto.fromDto
 |> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
 |> fun ord ->
     printfn "constraints applied"
@@ -262,9 +209,9 @@ Patient.child
     ord
     //|> Order.Markdown.printPrescription [|"insuline aspart"|]
     //|> fun (prs, prep, adm) -> printfn $"{prs}"
-    |> Order.toString
-    |> String.concat "\n"
-    |> printfn "%s"
+    //|> Order.toString
+    //|> String.concat "\n"
+    //|> printfn "%s"
 
     ord
     |> Order.solveOrder true OrderLogger.noLogger
@@ -277,15 +224,60 @@ Patient.child
             // |> String.concat "\n"
             // |> printfn "%s"
         | Ok ord  ->
+            //|> Order.Print.printOrderToMd true [||]
+            //|> fun (prs, prep, adm) ->
+            //    printfn $"preparation:\n{pres}"
             ord
-            |> Order.Print.printOrderToString true [|"benzylpenicilline"|]
-            |> fun (prs, prep, adm) -> printfn $"{prs}"
-            // ord
-            // |> Order.toString
-            // |> String.concat "\n"
-            // |> printfn "%s"
+            |> Order.toString
+            |> String.concat "\n"
+            |> printfn "%s"
 
+            ord
+            |> Order.solveMinMax false OrderLogger.logger.Logger
+            |> function
+            | Error (_, msgs) ->
+                printfn "oeps error"
+                printfn $"{msgs |> List.map string}"
+                // ord
+                // |> Order.toString
+                // |> String.concat "\n"
+                // |> printfn "%s"
+            | Ok ord  ->
+                //|> Order.Print.printOrderToMd true [||]
+                //|> fun (prs, prep, adm) ->
+                //    printfn $"preparation:\n{pres}"
+                ord
+                |> Order.toString
+                |> String.concat "\n"
+                |> printfn "%s"
 
+                ord
+                |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+                |> fun ord ->
+                    ord
+                    |> Order.toString
+                    |> String.concat "\n"
+                    |> printfn "%s"
+                ord
+                |> Order.Dto.toDto
+                |> Order.Dto.fromDto
+                |> Order.solveMinMax false OrderLogger.logger.Logger
+                |> function
+                | Error (_, msgs) ->
+                    printfn "oeps error"
+                    printfn $"{msgs |> List.map string}"
+                    // ord
+                    // |> Order.toString
+                    // |> String.concat "\n"
+                    // |> printfn "%s"
+                | Ok ord  ->
+                    //|> Order.Print.printOrderToMd true [||]
+                    //|> fun (prs, prep, adm) ->
+                    //    printfn $"preparation:\n{pres}"
+                    ord
+                    |> Order.toString
+                    |> String.concat "\n"
+                    |> printfn "%s"
 
 
 
@@ -396,7 +388,14 @@ Patient.child
     dr.DoseRule.Route = "iv"
 )
 
-let add a b = a + b
-let addOne = add 1
 
-addOne 4
+let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
+let dto =
+    Some
+       (ValueUnit
+          ([|1N|],
+           CombiUnit (Mass (MilliGram 1N), OpPer, Mass (Gram 1N))))
+    |> vuToDto
+
+dto.Value
+|> ValueUnit.Dto.fromDto

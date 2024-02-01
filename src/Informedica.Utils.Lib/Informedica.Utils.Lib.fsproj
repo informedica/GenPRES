@@ -22,6 +22,7 @@
     <Compile Include="BCL\DateTime.fs" />
     <Compile Include="BCL\Decimal.fs" />
     <Compile Include="BCL\Tuple.fs" />
+    <Compile Include="Json.fs" />
     <Compile Include="Option.fs" />
     <Compile Include="StringBuilder.fs" />
     <Compile Include="Result.fs" />

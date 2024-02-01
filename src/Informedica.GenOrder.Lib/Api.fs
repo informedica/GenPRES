@@ -228,9 +228,7 @@ module Api =
     /// </summary>
     let filter (sc : ScenarioResult) =
 
-        if Env.getItem FilePath.GENPRES_PROD |> Option.isNone ||
-           Env.getItem FilePath.GENPRES_PROD |> Option.map ((<>) "1") |> Option.defaultValue false
-            then
+        if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
@@ -305,6 +303,11 @@ module Api =
                             |> Array.mapi (fun i r -> (i, r))
                             |> Array.choose (function
                                 | i, Ok (ord, pr) ->
+                                    printfn "the order after evaluation:\n"
+                                    ord
+                                    |> Order.toString
+                                    |> List.iter (printfn "%s")
+
                                     let ns =
                                         pr.DoseRule.DoseLimits
                                         |> Array.choose (fun dl ->
