@@ -30,18 +30,13 @@ open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-Environment.CurrentDirectory
-
-let urlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID")
-
 
 { Filter.filter with
     Patient =
         { Filter.filter.Patient with
 //            Department = Some "ICK"
             Age =
-                16N
+                0N
                 |> ValueUnit.singleWithUnit Units.Time.year
                 |> Some
             (*

@@ -120,3 +120,25 @@ Units.Mass.milliGram
 Units.General.general "test"
 |> Json.serialize
 |> Json.deSerialize<Unit>
+
+
+let droplets =
+    Units.Volume.dropletWithDropsPerMl 36N
+    |> ValueUnit.singleWithValue 1N
+
+droplets |> ValueUnit.toStringDecimalDutchShort
+
+Units.Volume.dropletWithDropsPerMl 36N |> Units.eqsUnit Units.Volume.droplet
+
+
+Units.Volume.milliLiter
+|> ValueUnit.singleWithValue 1N
+|> fun vu ->
+    printfn $"vu eqsgroup : {vu |> ValueUnit.eqsGroup droplets}"
+    printfn $"vu / droplets: {vu / droplets}"
+
+Units.Volume.dropletWithDropsPerMl 36N
+|> Units.toString Units.Dutch Units.Short
+
+Units.Volume.dropletWithDropsPerMl 36N
+|> Units.tryFind

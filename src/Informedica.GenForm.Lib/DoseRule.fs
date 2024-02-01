@@ -629,6 +629,24 @@ module DoseRule =
             { dr with
                 DoseLimits =
                     let shapeLimits =
+                         let droplets =
+                             dr.Products
+                             |> Array.filter (fun p ->
+                                 p.Shape |> String.containsCapsInsens "druppel"
+                             )
+                             |> Array.choose _.Divisible
+                             |> Array.distinct
+                             |> Array.tryExactlyOne
+
+                         let setDroplet vu =
+                             let v, u = vu |> ValueUnit.get
+                             match droplets with
+                             | None -> vu
+                             | Some m ->
+                                 u
+                                 |> Units.Volume.dropletSetDropsPerMl m
+                                 |> ValueUnit.withValue v
+
                          Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
                          |> Array.map (fun rsu ->
                             { DoseLimit.limit with
@@ -639,6 +657,33 @@ module DoseRule =
                                         Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
                                     }
                             }
+                            |> fun dl ->
+                                if droplets |> Option.isNone then dl
+                                else
+                                    { dl with
+                                        DoseUnit =
+                                            droplets
+                                            |> Option.map Units.Volume.dropletWithDropsPerMl
+                                            |> Option.defaultValue rsu.DoseUnit
+                                        Quantity =
+                                            {
+                                                Min =
+                                                    dl.Quantity.Min
+                                                    |> Option.map (
+                                                        Limit.apply
+                                                            setDroplet
+                                                            setDroplet
+                                                    )
+                                                Max =
+                                                    dl.Quantity.Max
+                                                    |> Option.map (
+                                                        Limit.apply
+                                                            setDroplet
+                                                            setDroplet
+                                                    )
+                                            }
+
+                                    }
                          )
                          |> Array.distinct
 

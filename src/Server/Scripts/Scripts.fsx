@@ -26,7 +26,7 @@ Shared.ScenarioResult.empty
         Route = Some "oraal"
     }
 |> serverApi.getScenarioResult
-|> Async.RunSynchronously |> ignore
+|> Async.RunSynchronously //|> ignore
 |> Result.bind (fun sc ->
     { sc with Indication = sc.Indications[0] |> Some }
     |> serverApi.getScenarioResult

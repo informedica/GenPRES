@@ -78,6 +78,7 @@ and VolumeUnit =
     | DeciLiter of BigRational
     | MilliLiter of BigRational
     | MicroLiter of BigRational
+    // droplet has multiplier * droplets per mL
     | Droplet of BigRational * BigRational
 
 and TimeUnit =
@@ -1411,7 +1412,7 @@ module Units =
     /// for unit u
     /// Example: tryFind (Mass.kiloGram) = Some { ... }
     let tryFind u =
-        match UnitDetails.units |> List.tryFind (fun udt -> udt.Unit = u) with
+        match UnitDetails.units |> List.tryFind (fun udt -> udt.Unit |> eqsUnit u) with
         | Some udt -> Some udt
         | None -> None
 
@@ -1508,7 +1509,8 @@ module Units =
 
         let rec str u =
             match u with
-            | NoUnit -> ""
+            | NoUnit
+            | ZeroUnit -> ""
 
             | CombiUnit (ul, op, ur) ->
                 let uls = str ul
@@ -1704,7 +1706,7 @@ module Units =
                 | DeciLiter n -> n |> Some
                 | MilliLiter n -> n |> Some
                 | MicroLiter n -> n |> Some
-                | Droplet (n, m) -> n / m |> Some
+                | Droplet (n, _) -> n |> Some
             | Time g ->
                 match g with
                 | Year n -> n |> Some
@@ -1840,6 +1842,7 @@ module Units =
         | _, BSA _ -> false
         | CombiUnit (ul1, op1, ur1), CombiUnit (ul2, op2, ur2) ->
             op1 = op2 && eqsUnit ul1 ul2 && eqsUnit ur1 ur2
+
 
 
 module ValueUnit =
