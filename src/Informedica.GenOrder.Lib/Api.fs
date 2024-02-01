@@ -303,11 +303,6 @@ module Api =
                             |> Array.mapi (fun i r -> (i, r))
                             |> Array.choose (function
                                 | i, Ok (ord, pr) ->
-                                    printfn "the order after evaluation:\n"
-                                    ord
-                                    |> Order.toString
-                                    |> List.iter (printfn "%s")
-
                                     let ns =
                                         pr.DoseRule.DoseLimits
                                         |> Array.choose (fun dl ->

@@ -304,7 +304,6 @@ Scenarios: {sc.Scenarios |> Array.length}
 
     try
         let newSc =
-            printfn $"{pat}"
             let r = Api.scenarioResult pat
             { Api.scenarioResult pat with
                 Indications =
@@ -384,7 +383,7 @@ let calcMinIncrMaxToValues (ord : Order) =
         |> Result.map mapToOrder
     with
     | e ->
-        printfn $"error calculating values from min incr max {e}"
+        ConsoleWriter.writeErrorMessage $"error calculating values from min incr max {e}" true true
         "error calculating values from min incr max"
         |> Error
 
