@@ -2116,15 +2116,25 @@ module Order =
                            (_.Dose.Quantity)
                            vuToStr
 
-            let printDqAdjust () =
-                let vuToStr =
-                    if printMd then QuantityAdjust.toValueUnitMarkdown 3
-                    else QuantityAdjust.toValueUnitString 3
-                ord
-                |> printItem
-                       sn
-                       (_.Dose.QuantityAdjust)
-                       vuToStr
+            let printDqAdjust isOnce =
+                if isOnce then
+                    let vuToStr =
+                        if printMd then QuantityAdjust.toValueUnitMarkdown 3
+                        else QuantityAdjust.toValueUnitString 3
+                    ord
+                    |> printItem
+                           sn
+                           (_.Dose.QuantityAdjust)
+                           vuToStr
+                else
+                    let vuToStr =
+                        if printMd then QuantityAdjust.toValueUnitMarkdown 3
+                        else QuantityAdjust.toValueUnitString 3
+                    ord
+                    |> printItem
+                           sn
+                           (_.Dose.QuantityAdjust)
+                           vuToStr
                 // add dose limits to string
                 |> fun s ->
                     if ord.Orderable.Components[0].Dose.Quantity |> Quantity.isSolved then
@@ -2211,7 +2221,7 @@ module Order =
             match ord.Prescription with
             | Once ->
                 let dq = printDq ()
-                let dqa = printDqAdjust ()
+                let dqa = printDqAdjust true
 
                 let pres = $"{dq} {dqa}"
                 let prep = ord |> compQtyToStr
@@ -2313,7 +2323,7 @@ module Order =
 
             | OnceTimed tme ->
                 let dq = printDq ()
-                let dqa = printDqAdjust ()
+                let dqa = printDqAdjust true
 
                 let tme =
                     let vuToStr =

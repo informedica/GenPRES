@@ -318,7 +318,7 @@ module OrderVariable =
         |> Variable.getValueRange
         |> function
             | vr when vr |> ValueRange.isMinMax ||
-                      vr |> ValueRange.isIncrMax ||
+                      vr |> ValueRange.isMinIncrMax ||
                       vr |> ValueRange.isValueSet ->
                 vr
                 |> ValueRange.toMarkdown prec

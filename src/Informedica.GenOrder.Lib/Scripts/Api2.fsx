@@ -186,9 +186,14 @@ Patient.infant
     ord
     |> Order.toString
     |> String.concat "\n"
-    |> printfn "%s"
+    |> printfn "%A"
+
     ord
-)
+    |> Order.Print.printOrderToMd true [| "paracetamol" |]
+    //|> String.concat "\n"
+    |> printfn "%A"
+    ord
+) |> ignore
 |> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
@@ -307,6 +312,8 @@ try
         | Continuous -> Order.Mapping.continuous
         | Discontinuous _ -> Order.Mapping.discontinuous
         | Timed _ -> Order.Mapping.timed
+        | Once -> failwith "todo"
+        | OnceTimed time -> failwith "todo"
         |> Order.Mapping.getEquations
         |> Order.Mapping.getEqsMapping ord
 

@@ -374,7 +374,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "amfotericine b" "" ""
+GenPresProduct.filter "colecalciferol" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     gp.Id, gp.Shape,
@@ -406,4 +406,4 @@ GenPresProduct.filter "" "drank" ""
     printfn $"{lbl}\t{shp}"
 )
 
-GenPresProduct.findByBrand "Abelccet"
+GenPresProduct.findByBrand "Abelcet"
