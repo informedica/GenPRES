@@ -1049,7 +1049,7 @@ module Variable =
             /// <summary>
             /// Check if the first `ValueSet` is a subset of the second `ValueSet`.
             /// </summary>
-            let isSubsetOf vs1 vs2 =
+            let isSubset vs1 vs2 =
                 let ValueSet vu1, ValueSet vu2 = vs1, vs2
                 ValueUnit.isSubset vu1 vu2
 
@@ -3034,7 +3034,7 @@ module Variable =
         /// </example>
         let isSubSetOf vr2 vr1 =
             match vr1, vr2 with
-            | ValSet s1, ValSet s2 -> s2 |> ValueSet.isSubsetOf s1
+            | ValSet s1, ValSet s2 -> ValueSet.isSubset s1 s2
             | _ -> false
 
 

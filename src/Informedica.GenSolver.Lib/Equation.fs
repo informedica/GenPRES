@@ -287,6 +287,7 @@ module Equation =
             match xs with
             | [] -> true
             | _  ->
+                let toStr = ValueRange.toString true
                 if y.Values |> ValueRange.isValueSet &&
                    xs |> List.map Variable.getValueRange
                       |> List.forall ValueRange.isValueSet then
@@ -295,11 +296,12 @@ module Equation =
                         y.Values
                         |> ValueRange.isSubSetOf (xs |> List.reduce op).Values
                     if not b then
-                        printfn $"not a subset: {y.Values} {(xs |> List.reduce op).Values}"
+                        $"not a subset: {y.Values |> toStr} {(xs |> List.reduce op).Values |> toStr}"
+                        |> printfn "%s"
                     b
                 else true
 
-        if eq |> isSolvable then
+        if eq |> isSolvable || eq |> isSolved then
             match eq with
             | ProductEquation (y, xs) -> xs |> isSub (^*) y
             | SumEquation (y, xs) -> xs |> isSub (^+) y

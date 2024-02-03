@@ -6,6 +6,8 @@ namespace Informedica.GenSolver.Lib
 /// equations
 module Solver =
 
+    open System.Runtime.CompilerServices
+
     module EQD = Equation.Dto
     module Name = Variable.Name
 
@@ -91,6 +93,16 @@ module Solver =
             |> List.sortBy (Equation.count onlyMinMax) //Equation.countProduct
 
 
+    let check eqs =
+        if eqs |> List.forall (fun eq ->
+            eq |> Equation.isSolvable |> not ||
+            eq |> Equation.isSolved
+        ) then
+            eqs
+            |> List.forall Equation.check
+        else true
+
+
     /// <summary>
     /// Solve a set of equations.
     /// </summary>
@@ -108,7 +120,7 @@ module Solver =
             | Exceptions.SolverException errs ->
                 (n, errs, eqs)
                 |> Exceptions.SolverErrored
-                |> Exceptions.raiseExc None errs
+                |> Exceptions.raiseExc (Some log) errs
             | e ->
                 let msg = $"didn't catch {e}"
                 printfn $"{msg}"
@@ -123,7 +135,7 @@ module Solver =
                     printfn $"too many loops: {n}"
                     (n, que @ acc)
                     |> Exceptions.SolverTooManyLoops
-                    |> Exceptions.raiseExc None []
+                    |> Exceptions.raiseExc (Some log) []
 
                 let que = que |> sortQue onlyMinIncrMax
 
@@ -139,7 +151,7 @@ module Solver =
                         printfn "invalid equations"
                         invalid
                         |> Exceptions.SolverInvalidEquations
-                        |> Exceptions.raiseExc None []
+                        |> Exceptions.raiseExc (Some log) []
 
                 | eq::tail ->
                     // need to calculate result first to enable tail call optimization
