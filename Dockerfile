@@ -52,7 +52,7 @@ COPY --from=server-build /workspace/deploy /app
 COPY --from=client-build /workspace/deploy /app/public
 COPY src/Server/data /app/data
 
-# setting this env variable disables file logging
+ENV GENPRES_LOG="0"
 ENV GENPRES_PROD="1"
 ENV GENPRES_URL_ID="1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
 WORKDIR /app
