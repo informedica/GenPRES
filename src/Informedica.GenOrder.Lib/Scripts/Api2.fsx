@@ -155,11 +155,11 @@ let pat =
 
 
 
-Patient.infant
+Patient.newBorn
 |> fun p -> { p with
                 Weight =
                   Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (98N/10N)
+                  |> ValueUnit.singleWithValue (35N/10N)
                   |> Some
 
 }

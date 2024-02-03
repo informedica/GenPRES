@@ -479,9 +479,9 @@ module DrugOrder =
                         cdto.OrderableConcentration.Constraints.ValsOpt <-
                             1N
                             |> createSingleValueUnitDto Units.Count.times
-
-                        orbDto.Dose.Quantity.Constraints.IncrOpt <- div
                         cdto.Dose.Quantity.Constraints.IncrOpt <- div
+
+                    orbDto.Dose.Quantity.Constraints.IncrOpt <- div
 
                     cdto.Items <- [
                         for s in p.Substances do

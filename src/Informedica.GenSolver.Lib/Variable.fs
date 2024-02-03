@@ -1660,7 +1660,11 @@ module Variable =
                 |> ValueSet.create
             with
             | e ->
-                printfn $"filter with {minOpt}, {incrOpt}, {maxOpt} and {vs} gives empty set"
+                let min = minOpt |> Option.map (Minimum.toString false) |> Option.defaultValue ""
+                let incr = incrOpt |> Option.map (Increment.toString false) |> Option.defaultValue ""
+                let max = maxOpt |> Option.map (Maximum.toString false) |> Option.defaultValue ""
+                let vs = vs |> ValueUnit.toStringDutchShort
+                printfn $"filter with %s{min}, %s{incr}, %s{max} and %s{vs} gives empty set"
                 raise e
 
 
