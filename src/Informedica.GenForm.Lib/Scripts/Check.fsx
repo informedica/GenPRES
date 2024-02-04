@@ -1,4 +1,9 @@
 
+#time
+
+open System
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA")
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
 #load "load.fsx"
 #load "../Types.fs"
@@ -15,11 +20,9 @@
 #load "../PrescriptionRule.fs"
 
 
-open System
 open Informedica.GenForm.Lib
 
 
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
 
 let checked =
@@ -35,3 +38,19 @@ let checked =
 checked
 |> Array.iter (printfn "%s")
 
+DoseRule.get ()
+|> Array.item 2
+|> Check.matchWithZIndex Patient.patient |> ignore
+|> fun r ->
+    r.zindex.
+    Array.length
+
+
+DoseRule.get ()
+|> Array.distinct
+|> Array.length
+
+
+DoseRule.get ()
+|> DoseRule.Print.toMarkdown
+|> printfn "%s"

@@ -48,6 +48,7 @@ let selectIfOne sel xs =
 let checkDoseRules pat (dsrs : DoseRule []) =
     let empt, rs =
         dsrs
+        |> Array.distinctBy (fun dr -> dr.Generic, dr.Shape, dr.Route)
         |> Array.map (Check.checkDoseRule pat)
         |> Array.partition (fun c ->
             c.didPass |> Array.isEmpty &&
@@ -96,6 +97,7 @@ let get (form : Formulary) =
                 Markdown =
                     match form.Generic, form.Indication, form.Route with
                     | Some _, Some _, Some _ ->
+                        ConsoleWriter.writeInfoMessage $"start checking {dsrs |> Array.length} rules" true true
                         let s =
                             dsrs
                             |> checkDoseRules filter.Patient
@@ -110,6 +112,8 @@ let get (form : Formulary) =
                             |> Array.map (fun s -> $"* {s}")
                             |> String.concat "\n"
                             |> fun s -> if s |> String.isNullOrWhiteSpace then "Ok!" else s
+
+                        ConsoleWriter.writeInfoMessage $"finished checking {dsrs |> Array.length} rules" true true
 
                         dsrs
                         |> DoseRule.Print.toMarkdown
