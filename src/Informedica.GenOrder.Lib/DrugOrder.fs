@@ -376,47 +376,34 @@ module DrugOrder =
         orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
 
         let setOrbDoseRate (dl : DoseLimit) =
-            orbDto.Dose.Rate.Constraints.MinIncl <- dl.Rate.Min.IsSome
-            orbDto.Dose.Rate.Constraints.MinOpt <- dl.Rate.Min |> limToDto
-            orbDto.Dose.Rate.Constraints.MinIncl <- dl.Rate.Max.IsSome
-            orbDto.Dose.Rate.Constraints.MinOpt <- dl.Rate.Max |> limToDto
 
-            orbDto.Dose.RateAdjust.Constraints.MinIncl <- dl.RateAdjust.Min.IsSome
-            orbDto.Dose.RateAdjust.Constraints.MinOpt <- dl.RateAdjust.Min |> limToDto
-            orbDto.Dose.RateAdjust.Constraints.MinIncl <- dl.RateAdjust.Max.IsSome
-            orbDto.Dose.RateAdjust.Constraints.MinOpt <- dl.RateAdjust.Max |> limToDto
+            orbDto.Dose.Rate.Constraints
+            |> MinMax.setConstraints
+                None
+                dl.Rate
+
+            orbDto.Dose.RateAdjust.Constraints
+            |> MinMax.setConstraints
+                None
+                dl.RateAdjust
 
         let setOrbDoseQty isOnce (dl : DoseLimit) =
-            //orbDto.Dose.Quantity.Constraints <-
             orbDto.Dose.Quantity.Constraints
             |> MinMax.setConstraints
                 None
                 dl.Quantity
 
-            orbDto.Dose.Quantity.Constraints.MinIncl <- dl.Quantity.Min.IsSome
-            orbDto.Dose.Quantity.Constraints.MinOpt <- dl.Quantity.Min |> limToDto
-            orbDto.Dose.Quantity.Constraints.MaxIncl <- dl.Quantity.Max.IsSome
-            orbDto.Dose.Quantity.Constraints.MaxOpt <- dl.Quantity.Max |> limToDto
-
-            orbDto.Dose.QuantityAdjust.Constraints.MinIncl <- dl.QuantityAdjust.Min.IsSome
-            orbDto.Dose.QuantityAdjust.Constraints.MinOpt <- dl.QuantityAdjust.Min |> limToDto
-            orbDto.Dose.QuantityAdjust.Constraints.MaxIncl <- dl.QuantityAdjust.Max.IsSome
-            orbDto.Dose.QuantityAdjust.Constraints.MaxOpt <- dl.QuantityAdjust.Max |> limToDto
+            orbDto.Dose.QuantityAdjust.Constraints
+            |> MinMax.setConstraints
+                dl.NormQuantityAdjust
+                dl.QuantityAdjust
 
             if not isOnce then
-                //orbDto.Dose.PerTime.Constraints <-
                 orbDto.Dose.PerTime.Constraints
                 |> MinMax.setConstraints
                     None
                     dl.PerTime
-                (*
-                orbDto.Dose.PerTime.Constraints.MinIncl <- dl.PerTime.Min.IsSome
-                orbDto.Dose.PerTime.Constraints.MinOpt <- dl.PerTime.Min |> limToDto
-                orbDto.Dose.PerTime.Constraints.MaxIncl <- dl.PerTime.Max.IsSome
-                orbDto.Dose.PerTime.Constraints.MaxOpt <- dl.PerTime.Max |> limToDto
-                *)
 
-                // orbDto.Dose.PerTimeAdjust.Constraints <-
                 orbDto.Dose.PerTimeAdjust.Constraints
                 |> MinMax.setConstraints
                     dl.NormPerTimeAdjust
@@ -509,6 +496,16 @@ module DrugOrder =
 
                             match s.Solution with
                             | Some sl ->
+                                itmDto.OrderableQuantity.Constraints
+                                |> MinMax.setConstraints
+                                    sl.Quantities
+                                    sl.Quantity
+
+                                itmDto.OrderableConcentration.Constraints
+                                |> MinMax.setConstraints
+                                    None
+                                    sl.Concentration
+                                (*
                                 itmDto.OrderableQuantity.Constraints.MinIncl <- sl.Quantity.Min.IsSome
                                 itmDto.OrderableQuantity.Constraints.MinOpt <- sl.Quantity.Min |> limToDto
                                 itmDto.OrderableQuantity.Constraints.MaxIncl <- sl.Quantity.Max.IsSome
@@ -517,42 +514,38 @@ module DrugOrder =
                                 itmDto.OrderableConcentration.Constraints.MinOpt <- sl.Concentration.Min |> limToDto
                                 itmDto.OrderableConcentration.Constraints.MaxIncl <- sl.Concentration.Max.IsSome
                                 itmDto.OrderableConcentration.Constraints.MaxOpt <- sl.Concentration.Max |> limToDto
+                                *)
+
                             | None -> ()
 
                             let setDoseRate (dl : DoseLimit) =
 
-                                //itmDto.Dose.Rate.Constraints <-
                                 itmDto.Dose.Rate.Constraints
                                 |> MinMax.setConstraints
                                        None
                                        dl.Rate
 
-                                //itmDto.Dose.RateAdjust.Constraints <-
                                 itmDto.Dose.RateAdjust.Constraints
                                 |> MinMax.setConstraints
                                        None
                                        dl.RateAdjust
 
                             let setDoseQty (dl : DoseLimit) =
-                                    //itmDto.Dose.Quantity.Constraints <-
                                     itmDto.Dose.Quantity.Constraints
                                     |> MinMax.setConstraints
                                            None
                                            dl.Quantity
 
-                                    //itmDto.Dose.QuantityAdjust.Constraints <-
                                     itmDto.Dose.QuantityAdjust.Constraints
                                     |> MinMax.setConstraints
                                            dl.NormQuantityAdjust
                                            dl.QuantityAdjust
 
-                                    //itmDto.Dose.PerTime.Constraints <-
                                     itmDto.Dose.PerTime.Constraints
                                     |> MinMax.setConstraints
                                            None
                                            dl.PerTime
 
-                                    //itmDto.Dose.PerTimeAdjust.Constraints <-
                                     itmDto.Dose.PerTimeAdjust.Constraints
                                     |> MinMax.setConstraints
                                            dl.NormPerTimeAdjust
