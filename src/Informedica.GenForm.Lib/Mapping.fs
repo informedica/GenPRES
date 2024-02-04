@@ -187,3 +187,26 @@ module Mapping =
     let requiresReconstitution =
         Memoization.memoize requires_
 
+
+    /// Mapping of long Z-index unit names to short names
+    let validShapes_ () =
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        Web.getDataFromSheet dataUrlId "ValidShapes"
+        |> fun data ->
+            let getColumn =
+                data
+                |> Array.head
+                |> Csv.getStringColumn
+
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let get = getColumn r
+
+                get "Shape"
+            )
+            |> Array.distinct
+
+
+    let validShapes =
+        Memoization.memoize validShapes_

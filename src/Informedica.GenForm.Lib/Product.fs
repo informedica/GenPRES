@@ -422,9 +422,19 @@ module Product =
                     |> Array.map (fun gpp -> (r, gpp))
                 )
                 // collect the GenericProducts
+                // filtered by "valid shape" and
+                // substance quantity > 0
                 |> Array.collect (fun (r, gpp) ->
                     gpp.GenericProducts
-                    |> Array.filter (fun gp -> gp.Id = r.GPKODE)
+                    |> Array.filter (fun gp ->
+                        gp.Id = r.GPKODE &&
+                        Mapping.validShapes ()
+                        |> Array.exists (String.equalsCapInsens gp.Shape) &&
+                        gp.Substances
+                        |> Array.forall (fun s ->
+                            s.SubstanceQuantity > 0.
+                        )
+                    )
                     |> Array.map (fun gp -> r, gp)
                 )
                 // create the Product records

@@ -374,7 +374,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "colecalciferol" "" ""
+GenPresProduct.filter "macrogol/natriumsulfaat/natriumwaterstofcarbonaat/natriumchloride/kaliumchloride" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     gp.Id, gp.Shape,
@@ -406,4 +406,14 @@ GenPresProduct.filter "" "drank" ""
     printfn $"{lbl}\t{shp}"
 )
 
-GenPresProduct.findByBrand "Abelcet"
+GenPresProduct.findByBrand "Klean prep"
+|> Array.map (fun gpp -> gpp.Name |> String.toLower)
+
+
+GenPresProduct.get []
+|> Array.filter (fun gpp ->
+    gpp.DisplayName |> String.notEmpty &&
+    gpp.Name |> String.equalsCapInsens gpp.DisplayName |> not
+)
+|> Array.map (fun gpp -> gpp.Name, gpp.DisplayName)
+|> Array.length

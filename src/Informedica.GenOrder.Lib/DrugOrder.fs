@@ -93,7 +93,7 @@ module DrugOrder =
                 dto.MaxIncl <- true
                 dto.MaxOpt <- max
 
-            dto
+            //dto
 
 
     /// An empty DrugOrder record.
@@ -387,6 +387,12 @@ module DrugOrder =
             orbDto.Dose.RateAdjust.Constraints.MinOpt <- dl.RateAdjust.Max |> limToDto
 
         let setOrbDoseQty isOnce (dl : DoseLimit) =
+            //orbDto.Dose.Quantity.Constraints <-
+            orbDto.Dose.Quantity.Constraints
+            |> MinMax.setConstraints
+                None
+                dl.Quantity
+
             orbDto.Dose.Quantity.Constraints.MinIncl <- dl.Quantity.Min.IsSome
             orbDto.Dose.Quantity.Constraints.MinOpt <- dl.Quantity.Min |> limToDto
             orbDto.Dose.Quantity.Constraints.MaxIncl <- dl.Quantity.Max.IsSome
@@ -398,15 +404,23 @@ module DrugOrder =
             orbDto.Dose.QuantityAdjust.Constraints.MaxOpt <- dl.QuantityAdjust.Max |> limToDto
 
             if not isOnce then
+                //orbDto.Dose.PerTime.Constraints <-
+                orbDto.Dose.PerTime.Constraints
+                |> MinMax.setConstraints
+                    None
+                    dl.PerTime
+                (*
                 orbDto.Dose.PerTime.Constraints.MinIncl <- dl.PerTime.Min.IsSome
                 orbDto.Dose.PerTime.Constraints.MinOpt <- dl.PerTime.Min |> limToDto
                 orbDto.Dose.PerTime.Constraints.MaxIncl <- dl.PerTime.Max.IsSome
                 orbDto.Dose.PerTime.Constraints.MaxOpt <- dl.PerTime.Max |> limToDto
+                *)
 
-                orbDto.Dose.PerTimeAdjust.Constraints.MinIncl <- dl.PerTimeAdjust.Min.IsSome
-                orbDto.Dose.PerTimeAdjust.Constraints.MinOpt <- dl.PerTimeAdjust.Min |> limToDto
-                orbDto.Dose.PerTimeAdjust.Constraints.MaxIncl <- dl.PerTimeAdjust.Max.IsSome
-                orbDto.Dose.PerTimeAdjust.Constraints.MaxOpt <- dl.PerTimeAdjust.Max |> limToDto
+                // orbDto.Dose.PerTimeAdjust.Constraints <-
+                orbDto.Dose.PerTimeAdjust.Constraints
+                |> MinMax.setConstraints
+                    dl.NormPerTimeAdjust
+                    dl.PerTimeAdjust
 
         match d.OrderType with
         | AnyOrder
@@ -507,42 +521,42 @@ module DrugOrder =
 
                             let setDoseRate (dl : DoseLimit) =
 
-                                itmDto.Dose.Rate.Constraints <-
-                                    itmDto.Dose.Rate.Constraints
-                                    |> MinMax.setConstraints
-                                           None
-                                           dl.Rate
+                                //itmDto.Dose.Rate.Constraints <-
+                                itmDto.Dose.Rate.Constraints
+                                |> MinMax.setConstraints
+                                       None
+                                       dl.Rate
 
-                                itmDto.Dose.RateAdjust.Constraints <-
-                                    itmDto.Dose.RateAdjust.Constraints
-                                    |> MinMax.setConstraints
-                                           None
-                                           dl.RateAdjust
+                                //itmDto.Dose.RateAdjust.Constraints <-
+                                itmDto.Dose.RateAdjust.Constraints
+                                |> MinMax.setConstraints
+                                       None
+                                       dl.RateAdjust
 
                             let setDoseQty (dl : DoseLimit) =
-                                    itmDto.Dose.Quantity.Constraints <-
-                                        itmDto.Dose.Quantity.Constraints
-                                        |> MinMax.setConstraints
-                                               None
-                                               dl.Quantity
+                                    //itmDto.Dose.Quantity.Constraints <-
+                                    itmDto.Dose.Quantity.Constraints
+                                    |> MinMax.setConstraints
+                                           None
+                                           dl.Quantity
 
-                                    itmDto.Dose.QuantityAdjust.Constraints <-
-                                        itmDto.Dose.QuantityAdjust.Constraints
-                                        |> MinMax.setConstraints
-                                               dl.NormQuantityAdjust
-                                               dl.QuantityAdjust
+                                    //itmDto.Dose.QuantityAdjust.Constraints <-
+                                    itmDto.Dose.QuantityAdjust.Constraints
+                                    |> MinMax.setConstraints
+                                           dl.NormQuantityAdjust
+                                           dl.QuantityAdjust
 
-                                    itmDto.Dose.PerTime.Constraints <-
-                                        itmDto.Dose.PerTime.Constraints
-                                        |> MinMax.setConstraints
-                                               None
-                                               dl.PerTime
+                                    //itmDto.Dose.PerTime.Constraints <-
+                                    itmDto.Dose.PerTime.Constraints
+                                    |> MinMax.setConstraints
+                                           None
+                                           dl.PerTime
 
-                                    itmDto.Dose.PerTimeAdjust.Constraints <-
-                                        itmDto.Dose.PerTimeAdjust.Constraints
-                                        |> MinMax.setConstraints
-                                               dl.NormPerTimeAdjust
-                                               dl.PerTimeAdjust
+                                    //itmDto.Dose.PerTimeAdjust.Constraints <-
+                                    itmDto.Dose.PerTimeAdjust.Constraints
+                                    |> MinMax.setConstraints
+                                           dl.NormPerTimeAdjust
+                                           dl.PerTimeAdjust
 
 
                             match d.OrderType with
