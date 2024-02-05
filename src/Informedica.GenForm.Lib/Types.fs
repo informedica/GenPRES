@@ -146,10 +146,16 @@ module Types =
         }
 
 
+    type LimitTarget =
+        | NoLimitTarget
+        | SubstanceLimitTarget of string
+        | ShapeLimitTarget of string
+
+
     /// A DoseLimit for a Shape or Substance.
     type DoseLimit =
         {
-            DoseLimitTarget : DoseLimitTarget
+            DoseLimitTarget : LimitTarget
             /// The unit to adjust dosing with
             AdjustUnit : Unit option
             /// The unit to dose with
@@ -175,12 +181,6 @@ module Types =
             /// A MinMax Rate Adjust for the DoseLimit
             RateAdjust : MinMax
         }
-    and DoseLimitTarget =
-        | NoDoseLimitTarget
-        | SubstanceDoseLimitTarget of string
-        | ShapeDoseLimitTarget of string
-
-
     /// A PatientCategory to which a DoseRule applies.
     type PatientCategory =
         {
@@ -281,7 +281,7 @@ module Types =
     type SolutionLimit =
         {
             /// The Substance for the SolutionLimit
-            Substance : string
+            SolutionLimitTarget : LimitTarget
             /// The MinMax Quantity of the Substance for the SolutionLimit
             Quantity : MinMax
             /// A list of possible Quantities of the Substance for the SolutionLimit

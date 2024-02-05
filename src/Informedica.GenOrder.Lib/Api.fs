@@ -307,7 +307,7 @@ module Api =
                                         pr.DoseRule.DoseLimits
                                         |> Array.choose (fun dl ->
                                             match dl.DoseLimitTarget with
-                                            | SubstanceDoseLimitTarget s -> Some s
+                                            | SubstanceLimitTarget s -> Some s
                                             | _ -> None
                                         )
                                         |> Array.distinct

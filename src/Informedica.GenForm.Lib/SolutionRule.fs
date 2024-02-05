@@ -15,7 +15,7 @@ module SolutionRule =
         /// An empty SolutionLimit.
         let limit =
             {
-                Substance = ""
+                SolutionLimitTarget = NoLimitTarget
                 Quantity = MinMax.empty
                 Quantities = None
                 Concentration = MinMax.empty
@@ -123,7 +123,9 @@ module SolutionRule =
                         |> Array.map (fun l ->
                             let u = l.Unit |> Units.fromString
                             {
-                                Substance = l.Substance
+                                SolutionLimitTarget =
+                                    if l.Substance |> String.isNullOrWhiteSpace then l.Shape|> ShapeLimitTarget
+                                    else l.Substance |> SubstanceLimitTarget
                                 Quantity =
                                     (l.MinQty, l.MaxQty)
                                     |> fromTupleInclIncl u
@@ -298,7 +300,7 @@ module SolutionRule =
                 else
                     $"* geef %s{p}%% van de bereiding"
 
-            $"\n{loc}{limit.Substance}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
+            $"\n{loc}{limit.SolutionLimitTarget}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
 
 
         /// Get the markdown representation of the given SolutionRules.

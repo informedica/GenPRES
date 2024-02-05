@@ -151,7 +151,10 @@ module DrugOrder =
     /// <param name="noSubst">Whether or not to add the substances to the ProductComponent</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     /// <param name="ps">The Products to create the ProductComponent from</param>
-    let createProductComponent noSubst (doseLimits : DoseLimit []) (ps : Product []) =
+    let createProductComponent
+        noSubst
+        (doseLimits : DoseLimit [])
+        (ps : Product []) =
         {
             Name =
                 ps
@@ -191,7 +194,7 @@ module DrugOrder =
                                 doseLimits
                                 |> Array.tryFind (fun l ->
                                     match l.DoseLimitTarget with
-                                    | SubstanceDoseLimitTarget s ->
+                                    | SubstanceLimitTarget s ->
                                         s |> String.equalsCapInsens n
                                     | _ -> false
                                 )
@@ -210,7 +213,11 @@ module DrugOrder =
     let setSolutionLimit (sls : SolutionLimit[]) (items : SubstanceItem list) =
         items
         |> List.map (fun item ->
-            match sls |> Array.tryFind (fun sl -> sl.Substance |> String.equalsCapInsens item.Name) with
+            match sls |> Array.tryFind (fun sl ->
+                match sl.SolutionLimitTarget with
+                | SubstanceLimitTarget s -> s |> String.equalsCapInsens item.Name
+                | _ -> false
+            ) with
             | None -> item
             | Some sl ->
                 { item with
@@ -505,16 +512,6 @@ module DrugOrder =
                                 |> MinMax.setConstraints
                                     None
                                     sl.Concentration
-                                (*
-                                itmDto.OrderableQuantity.Constraints.MinIncl <- sl.Quantity.Min.IsSome
-                                itmDto.OrderableQuantity.Constraints.MinOpt <- sl.Quantity.Min |> limToDto
-                                itmDto.OrderableQuantity.Constraints.MaxIncl <- sl.Quantity.Max.IsSome
-                                itmDto.OrderableQuantity.Constraints.MaxOpt <- sl.Quantity.Max |> limToDto
-                                itmDto.OrderableConcentration.Constraints.MinIncl <- sl.Concentration.Min.IsSome
-                                itmDto.OrderableConcentration.Constraints.MinOpt <- sl.Concentration.Min |> limToDto
-                                itmDto.OrderableConcentration.Constraints.MaxIncl <- sl.Concentration.Max.IsSome
-                                itmDto.OrderableConcentration.Constraints.MaxOpt <- sl.Concentration.Max |> limToDto
-                                *)
 
                             | None -> ()
 

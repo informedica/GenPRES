@@ -322,11 +322,8 @@ module Equation =
         $"""{y |> varToStr} = {x1 |> varToStr}{op2 |> opToStr}{xs |> List.map varToStr |> String.concat (op1 |> opToStr)} (cost: {cost})"""
 
 
-    // The actual solving function
-    let private solve_ onlyMinIncrMax log eq =
-        // orders a list of vars such that most expensive calculations
-        // will be performed last (i.e. possibly prevented)
-        let reorder = List.reorder >> List.mapi (fun i x -> (i, x))
+    // perform the calculations on the vars
+    let private calcVars log op1 op2 vars =
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list
         // i.e. a = b + c + d -> b = a - (c + d)
@@ -338,7 +335,111 @@ module Equation =
             | y::xs ->
                 y |> op2 <| (xs |> List.reduce op1)
                 |> Some
+
+        vars
+        |> List.fold (fun acc vars ->
+            if acc |> Option.isSome then acc
+            else
+                match vars with
+                | _, []
+                | _, [ _ ]   -> acc
+                | i, y::xs ->
+                    let op2 = if i = 0 then op1 else op2
+                    // log starting the calculation
+                    (op1, op2, y, xs)
+                    |> Events.EquationStartCalculation
+                    |> Logging.logInfo log
+
+                    xs
+                    |> calc op1 op2
+                    |> function
+                        | None ->
+                            // log finishing the calculation
+                            (y::xs, false)
+                            |> Events.EquationFinishedCalculation
+                            |> Logging.logInfo log
+
+                            None
+                        | Some var ->
+                            let yNew = y @<- var
+
+                            if yNew <> y then
+                                // log finishing the calculation
+                                ([yNew], true)
+                                |> Events.EquationFinishedCalculation
+                                |> Logging.logInfo log
+
+                                Some yNew
+                            else
+                                // log finishing the calculation
+                                ([], false)
+                                |> Events.EquationFinishedCalculation
+                                |> Logging.logInfo log
+
+                                None
+        ) None
+
+
+    // loop until no changes are detected, i.e.
+    // calcVars returns None
+    [<TailCall>]
+    let rec private loop log onlyMinIncrMax op1 op2 acc vars =
+        let vars =
+            if onlyMinIncrMax then vars
+            else
+                vars
+                |> List.sortBy(fun (_, xs) ->
+                    xs
+                    |> List.tail
+                    |> List.sumBy Variable.count
+                )
+
+        match calcVars log op1 op2 vars with
+        | None -> acc, vars
+        | Some var ->
+            let vars =
+                vars
+                |> List.map (fun (i, xs) ->
+                    i,
+                    xs |> List.replace (Variable.eqName var) var
+                )
+                |> fun vars ->
+                    if onlyMinIncrMax then vars
+                    else
+                        vars
+                        |> List.sortBy(fun (_, xs) ->
+                            xs
+                            |> List.tail
+                            |> List.map Variable.count
+                            |> List.reduce (*)
+                        )
+            let acc =
+                acc
+                |> List.replaceOrAdd (Variable.eqName var) var
+
+            loop log onlyMinIncrMax op1 op2 acc vars
+
+
+    // The actual solving function
+    let private solve_ onlyMinIncrMax log eq =
+        // orders a list of vars such that most expensive calculations
+        // will be performed last (i.e. possibly prevented)
+        let reorder = List.reorder >> List.mapi (fun i x -> (i, x))
+        // perform a calculation with op1 for list reduction and
+        // op1 for the first var and the reduced list
+        // i.e. a = b + c + d -> b = a - (c + d)
+        // op1 = (+) and op2 = (-)
+        (*
+        let calc op1 op2 xs =
+            match xs with
+            | []    -> None
+            | [ x ] -> Some x
+            | y::xs ->
+                y |> op2 <| (xs |> List.reduce op1)
+                |> Some
+        *)
         // perform the calculations on the vars
+        (*
         let calcVars op1 op2 vars =
             vars
             |> List.fold (fun acc vars ->
@@ -382,6 +483,7 @@ module Equation =
 
                                     None
             ) None
+        *)
 
         if eq |> isSolved then eq, Unchanged
         else
@@ -409,6 +511,7 @@ module Equation =
             let vars = vars |> reorder
             // loop until no changes are detected, i.e.
             // calcVars returns None
+            (*
             let rec loop acc vars =
                 let vars =
                     if onlyMinIncrMax then vars
@@ -420,7 +523,7 @@ module Equation =
                             |> List.sumBy Variable.count
                         )
 
-                match calcVars op1 op2 vars with
+                match calcVars log op1 op2 vars with
                 | None -> acc, vars
                 | Some var ->
                     vars
@@ -439,9 +542,10 @@ module Equation =
                                 |> List.reduce (*)
                             )
                     |> loop (acc |> List.replaceOrAdd (Variable.eqName var) var)
+            *)
 
             vars
-            |> loop []
+            |> loop log onlyMinIncrMax op1 op2 []
             |> fun (changed, vars) ->
                 if changed |> List.isEmpty then eq, Unchanged
                 else

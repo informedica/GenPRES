@@ -18,7 +18,7 @@ module DoseRule =
         /// An empty DoseLimit.
         let limit =
             {
-                DoseLimitTarget = NoDoseLimitTarget
+                DoseLimitTarget = NoLimitTarget
                 AdjustUnit = None
                 DoseUnit = NoUnit
                 Quantity = MinMax.empty
@@ -54,14 +54,14 @@ module DoseRule =
 
         /// Get the DoseLimitTarget as a string.
         let doseLimitTargetToString = function
-            | NoDoseLimitTarget -> ""
-            | ShapeDoseLimitTarget s
-            | SubstanceDoseLimitTarget s -> s
+            | NoLimitTarget -> ""
+            | ShapeLimitTarget s
+            | SubstanceLimitTarget s -> s
 
 
         /// Get the substance from the SubstanceDoseLimitTarget.
         let substanceDoseLimitTargetToString = function
-            | SubstanceDoseLimitTarget s -> s
+            | SubstanceLimitTarget s -> s
             | _ -> ""
 
 
@@ -69,7 +69,7 @@ module DoseRule =
         let isSubstanceLimit (dl : DoseLimit) =
             dl.DoseLimitTarget
             |> function
-            | SubstanceDoseLimitTarget _ -> true
+            | SubstanceLimitTarget _ -> true
             | _ -> false
 
 
@@ -77,7 +77,7 @@ module DoseRule =
         let isShapeLimit (dl : DoseLimit) =
             dl.DoseLimitTarget
             |> function
-            | ShapeDoseLimitTarget _ -> true
+            | ShapeLimitTarget _ -> true
             | _ -> false
 
 
@@ -479,7 +479,47 @@ module DoseRule =
                     (r.MinDur, r.MaxDur)
                     |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
                 DoseLimits = [||]
-                Products = r.Products
+                Products =
+                    match r.DoseUnit |> Units.fromString with
+                    | None -> r.Products
+                    | Some du ->
+                        let subst =
+                            Informedica.ZIndex.Lib.Substance.get ()
+                            |> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens r.Substance)
+                        if du |> ValueUnit.Group.eqsGroup Units.Molar.milliMole |> not ||
+                           subst |> Option.isNone then r.Products
+                        else
+                            r.Products
+                            |> Array.map (fun product ->
+                                { product with
+                                    Substances =
+                                        product.Substances
+                                        |> Array.map (fun s ->
+                                            if s.Name |> String.equalsCapInsens r.Substance |> not then s
+                                            else
+                                                { s with
+                                                    Concentration =
+                                                        s.Concentration
+                                                        |> Option.map (fun vu ->
+                                                            let k =
+                                                                subst.Value.Mole
+                                                                |> ((*) 2.)
+                                                                |> decimal
+                                                                |> BigRational.fromDecimal
+                                                                |> ValueUnit.singleWithUnit Units.Count.times
+
+                                                            let v, u = vu / k |> ValueUnit.get
+
+                                                            match u |> ValueUnit.getUnits with
+                                                            | [_; u2] ->
+                                                                du |> Units.per u2
+                                                                |> ValueUnit.withValue v
+                                                            | _ -> vu
+                                                        )
+                                                }
+                                        )
+                                }
+                        )
             }
             |> Some
         with
@@ -650,7 +690,7 @@ module DoseRule =
                          Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
                          |> Array.map (fun rsu ->
                             { DoseLimit.limit with
-                                DoseLimitTarget = dr.Shape |> ShapeDoseLimitTarget
+                                DoseLimitTarget = dr.Shape |> ShapeLimitTarget
                                 Quantity =
                                     {
                                         Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
@@ -741,9 +781,9 @@ module DoseRule =
                         {
                             DoseLimitTarget =
                                 if r.Substance |> String.isNullOrWhiteSpace then
-                                    dr.Shape |> ShapeDoseLimitTarget
+                                    dr.Shape |> ShapeLimitTarget
                                 else
-                                    r.Substance |> SubstanceDoseLimitTarget
+                                    r.Substance |> SubstanceLimitTarget
                             AdjustUnit = adj
                             DoseUnit = du |> Option.defaultValue NoUnit
                             Quantity =

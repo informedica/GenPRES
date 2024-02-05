@@ -432,7 +432,7 @@ module Order =
                         match props.order with
                         | Resolved (Some o) when o.Orderable.Components[0].Items |> Array.length > 0->
                             o.Orderable.Components[0].Items[0].Dose.Quantity.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Continuous Medication Dose`` |> getTerm "Keer Dosis") None (ChangeSubstanceDoseQuantity >> dispatch)
                         | _ ->
@@ -467,7 +467,7 @@ module Order =
                         match props.order with
                         | Resolved (Some o) ->
                             o.Orderable.Dose.Quantity.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None (ChangeOrderableDoseQuantity >> dispatch)
                         | _ ->
@@ -478,7 +478,7 @@ module Order =
                         match props.order with
                         | Resolved (Some o) when o.Orderable.Components[0].Items |> Array.length > 0 ->
                             o.Orderable.Components[0].Items[0].ComponentConcentration.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Concentration`` |> getTerm "Sterkte") None (ChangeSubstanceComponentConcentration >> dispatch)
                         | _ ->

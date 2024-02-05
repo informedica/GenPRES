@@ -374,7 +374,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "macrogol/natriumsulfaat/natriumwaterstofcarbonaat/natriumchloride/kaliumchloride" "" ""
+GenPresProduct.filter "kaliumchloride" "" "oraal"
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     gp.Id, gp.Shape,
@@ -417,3 +417,9 @@ GenPresProduct.get []
 )
 |> Array.map (fun gpp -> gpp.Name, gpp.DisplayName)
 |> Array.length
+
+
+Substance.get ()
+|> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens "kaliumchloride")
+
+600. / 74.55
