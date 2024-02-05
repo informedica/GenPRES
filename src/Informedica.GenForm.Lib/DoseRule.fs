@@ -490,8 +490,10 @@ module DoseRule =
                 DoseLimits = [||]
                 Products =
                     let products =
-                        r.Products
-                        |> Array.filter (fun p -> gpks |> Array.exists (String.equalsCapInsens p.GPK))
+                        if gpks |> Array.isEmpty then r.Products
+                        else
+                            r.Products
+                            |> Array.filter (fun p -> gpks |> Array.exists (String.equalsCapInsens p.GPK))
                     match r.DoseUnit |> Units.fromString with
                     | None -> products
                     | Some du ->
