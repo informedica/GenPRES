@@ -122,6 +122,7 @@ module DrugOrder =
             Shape = ""
             Quantities = None
             Divisible = None
+            Solution = None
             Substances = []
         }
 
@@ -149,12 +150,22 @@ module DrugOrder =
     /// The freqUnit is used to set the TimeUnit for the Frequencies.
     /// </summary>
     /// <param name="noSubst">Whether or not to add the substances to the ProductComponent</param>
+    /// <param name="solutionRule">The SolutionRule for the ProductComponent</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     /// <param name="ps">The Products to create the ProductComponent from</param>
     let createProductComponent
         noSubst
+        (solutionRule: SolutionRule option)
         (doseLimits : DoseLimit [])
         (ps : Product []) =
+
+        let shape =
+            ps
+            |> tryHead _.Shape
+            |> fun s ->
+                if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
+                else s
+
         {
             Name =
                 ps
@@ -162,12 +173,7 @@ module DrugOrder =
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else s
-            Shape =
-                ps
-                |> tryHead _.Shape
-                |> fun s ->
-                    if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
-                    else s
+            Shape = shape
             Quantities =
                 ps
                 |> Array.map _.ShapeQuantities
@@ -176,6 +182,16 @@ module DrugOrder =
                 ps
                 |> Array.choose _.Divisible
                 |> Array.tryHead
+            Solution =
+                match solutionRule with
+                | None -> None
+                | Some r ->
+                    r.SolutionLimits
+                    |> Array.tryFind (fun sl ->
+                        match sl.SolutionLimitTarget with
+                        | ShapeLimitTarget s -> s |> String.equalsCapInsens shape
+                        | _ -> false
+                    )
             Substances =
                 if noSubst then []
                 else
@@ -262,7 +278,7 @@ module DrugOrder =
             Name = pr.DoseRule.Generic |> String.toLower
             Products =
                 pr.DoseRule.Products
-                |> createProductComponent noSubst substLimits
+                |> createProductComponent noSubst sr substLimits
                 |> List.singleton
             Quantities = None
             Frequencies = pr.DoseRule.Frequencies
@@ -335,7 +351,7 @@ module DrugOrder =
                             |> function
                             | Some p ->
                                 [|p|]
-                                |> createProductComponent true  [||]
+                                |> createProductComponent true None [||]
                                 |> List.singleton
                                 |> List.append ps
                             | None ->
@@ -491,6 +507,19 @@ module DrugOrder =
 
                     orbDto.Dose.Quantity.Constraints.IncrOpt <- div
 
+                    match p.Solution with
+                    | Some sl ->
+                        cdto.OrderableQuantity.Constraints
+                        |> MinMax.setConstraints
+                            sl.Quantities
+                            sl.Quantity
+
+                        cdto.OrderableConcentration.Constraints
+                        |> MinMax.setConstraints
+                            None
+                            sl.Concentration
+                    | None -> ()
+
                     cdto.Items <- [
                         for s in p.Substances do
                             let itmDto =
@@ -512,7 +541,6 @@ module DrugOrder =
                                 |> MinMax.setConstraints
                                     None
                                     sl.Concentration
-
                             | None -> ()
 
                             let setDoseRate (dl : DoseLimit) =

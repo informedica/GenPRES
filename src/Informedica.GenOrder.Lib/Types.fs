@@ -287,6 +287,8 @@ module Types =
                 Quantities : ValueUnit option
                 /// The "divisibility" of the products
                 Divisible : BigRational option
+                /// The solution limits for a product
+                Solution : SolutionLimit option
                 /// The list of substances contained in the product
                 Substances: SubstanceItem list
             }
