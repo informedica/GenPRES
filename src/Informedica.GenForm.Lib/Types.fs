@@ -252,6 +252,8 @@ module Types =
             Shape : string
             /// The brand of the doserule
             Brand : string
+            /// Specific GPKs
+            GPKs : string array
             /// The Route of administration of the DoseRule
             Route : string
             /// The PatientCategory of the DoseRule
