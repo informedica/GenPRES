@@ -374,15 +374,16 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "kaliumchloride" "" "oraal"
+GenPresProduct.filter "chloorhexidine" "" "oromucosaal"
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
-    gp.Id, gp.Shape,
+    gp.Id, gp.Shape, gp.Route,
     gp.Substances[0].SubstanceName,
     gp.Substances[0].SubstanceQuantity
 )
-|> Array.iter (fun (id, lbl, sn, sq) ->
-    printfn $"{id}\t{lbl}\t{sn}\t{sq}"
+|> Array.iter (fun (id, lbl, rte, sn, sq) ->
+    let rte = rte |> String.concat ", "
+    printfn $"{id}\t{lbl}\t{rte}\t{sn}\t{sq}"
 )
 
 
