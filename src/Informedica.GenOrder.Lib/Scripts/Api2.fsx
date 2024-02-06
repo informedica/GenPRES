@@ -155,23 +155,23 @@ let pat =
 
 
 
-Patient.teenager
+Patient.infant
 |> fun p ->
     { p with
         Age =
-            Units.Time.day
+            Units.Time.month
             |> ValueUnit.singleWithValue 8N
             |> Some
         Weight =
           Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (35N)
+          |> ValueUnit.singleWithValue (10N)
           |> Some
 
     }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+ |> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
 //|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
@@ -195,11 +195,11 @@ Patient.teenager
     |> printfn "%A"
 
     ord
-    |> Order.Print.printOrderToMd true [| "esomeprazol" |]
+    |> Order.Print.printOrderToMd true [| "lorazapam" |]
     //|> String.concat "\n"
     |> printfn "%A"
     ord
-) |> ignore
+) //|> ignore
 |> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
@@ -217,9 +217,9 @@ Patient.teenager
     ord
     //|> Order.Markdown.printPrescription [|"insuline aspart"|]
     //|> fun (prs, prep, adm) -> printfn $"{prs}"
-    //|> Order.toString
-    //|> String.concat "\n"
-    //|> printfn "%s"
+    |> Order.toString
+    |> String.concat "\n"
+    |> printfn "%s"
 
     ord
     |> Order.solveOrder true OrderLogger.noLogger

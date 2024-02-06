@@ -1097,7 +1097,7 @@ module Order =
                     orb.OrderableQuantity
                     yield!
                         orb.Components
-                        |> List.map (fun c -> c.OrderableQuantity)
+                        |> List.map _.OrderableQuantity
                 ]
                 |> List.forall Quantity.hasIncrement
                 |> not
