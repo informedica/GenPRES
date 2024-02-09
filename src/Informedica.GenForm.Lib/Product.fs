@@ -357,6 +357,7 @@ module Product =
                         rs[0].Divisibility
             Substances =
                 gp.Substances
+                |> Array.distinctBy _.SubstanceId
                 |> Array.map (fun s ->
                     let su =
                         s.SubstanceUnit

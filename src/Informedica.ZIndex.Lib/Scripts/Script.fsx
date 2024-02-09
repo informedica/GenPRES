@@ -374,12 +374,13 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "chloorhexidine" "" "oromucosaal"
+GenPresProduct.filter "filgrastim" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
+    let subst = gp.Substances |> Array.distinctBy _.SubstanceId
     gp.Id, gp.Shape, gp.Route,
-    gp.Substances[0].SubstanceName,
-    gp.Substances[0].SubstanceQuantity
+    subst[0].SubstanceName,
+    $"{subst[0].SubstanceQuantity} {subst[0].SubstanceUnit}"
 )
 |> Array.iter (fun (id, lbl, rte, sn, sq) ->
     let rte = rte |> String.concat ", "

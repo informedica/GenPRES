@@ -170,7 +170,7 @@ Patient.infant
     }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
-|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
  |> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
 //|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
@@ -195,11 +195,11 @@ Patient.infant
     |> printfn "%A"
 
     ord
-    |> Order.Print.printOrderToMd true [| "lorazapam" |]
+    |> Order.Print.printOrderToMd true [| "filgrastim" |]
     //|> String.concat "\n"
     |> printfn "%A"
     ord
-) //|> ignore
+) |> ignore
 |> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
