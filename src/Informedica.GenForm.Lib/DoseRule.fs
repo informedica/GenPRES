@@ -235,73 +235,37 @@ module DoseRule =
                     $"\n\n##### Patient: **%s{patient}**\n\n%s{diagn}"
 
             let printDoses (rules : DoseRule array) =
-                (("", ""), rules |> Array.groupBy _.DoseType)
+                ("", rules |> Array.groupBy _.DoseType)
                 ||> Array.fold (fun acc (dt, ds) ->
-                    let dose =
-                        if ds |> Array.isEmpty then ""
-                        else
-                            ds
-                            |> Array.collect (printDose "")
+                    let pedForm =
+                        ds
+                        |> Array.map _.DoseText
+                        |> Array.distinct
+                        |> function
+                        | [| s |] -> $"\n\n*Kinderformularium*: {s}"
+                        | _ -> ""
+
+
+                    ds
+                    |> Array.fold (fun acc r ->
+                        let dose =
+                            r
+                            |> printDose ""
                             |> Array.distinct
                             |> String.concat ", "
-                            |> fun s -> $"{s}\n"
 
-                    let freqs =
-                        if dose = "" then ""
+                        let freqs = r |> printFreqs
+                        let intv = r |> printInterval
+                        let time = r |> printTime
+                        let dur = r |> printDuration
+
+                        if dt = Contraindicated then
+                            $"{acc}\n*gecontra-indiceerd*{pedForm}"
                         else
-                            ds
-                            |> Array.map printFreqs
-                            |> Array.distinct
-                            |> function
-                            | [| s |] -> s
-                            | _ -> ""
+                            $"{acc}\n{dose_md dt dose freqs intv time dur}{pedForm}"
 
-                    let pedForm =
-                        if dose = "" then ""
-                        else
-                            ds
-                            |> Array.map _.DoseText
-                            |> Array.distinct
-                            |> function
-                            | [| s |] -> $"\n\n*Kinderformularium*: {s}"
-                            | _ -> ""
-
-                    let intv =
-                        if dose = "" then ""
-                        else
-                            ds
-                            |> Array.map printInterval
-                            |> Array.distinct
-                            |> function
-                            | [| s |] -> s
-                            | _ -> ""
-
-                    let time =
-                        if dose = "" then ""
-                        else
-                            ds
-                            |> Array.map printTime
-                            |> Array.distinct
-                            |> function
-                            | [| s |] -> s
-                            | _ -> ""
-
-                    let dur =
-                        if dose = "" then ""
-                        else
-                            ds
-                            |> Array.map printDuration
-                            |> Array.distinct
-                            |> function
-                            | [| s |] -> s
-                            | _ -> ""
-
-                    if dt = Contraindicated then
-                        $"{acc |> fst}\n*gecontra-indiceerd*", pedForm
-                    else
-                        $"{acc |> fst}\n{dose_md dt dose freqs intv time dur}", pedForm
+                    ) ""
                 )
-                |> fun (s1, s2) -> $"{s1}{s2}"
 
 
             ({| md = ""; rules = [||] |},
