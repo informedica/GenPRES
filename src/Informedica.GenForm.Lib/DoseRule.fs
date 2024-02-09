@@ -267,7 +267,6 @@ module DoseRule =
                     ) ""
                 )
 
-
             ({| md = ""; rules = [||] |},
              rules
              |> Array.groupBy _.Generic

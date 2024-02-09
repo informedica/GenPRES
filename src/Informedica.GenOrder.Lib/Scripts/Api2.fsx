@@ -159,8 +159,8 @@ Patient.infant
 |> fun p ->
     { p with
         Age =
-            Units.Time.month
-            |> ValueUnit.singleWithValue 8N
+            Units.Time.year
+            |> ValueUnit.singleWithValue 1N
             |> Some
         Weight =
           Units.Weight.kiloGram

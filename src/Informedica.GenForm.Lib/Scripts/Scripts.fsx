@@ -15,6 +15,7 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 #load "../Mapping.fs"
 #load "../VenousAccess.fs"
 #load "../Patient.fs"
+#load "../LimitTarget.fs"
 #load "../DoseType.fs"
 #load "../Product.fs"
 #load "../Filter.fs"
@@ -34,9 +35,9 @@ open Informedica.GenForm.Lib
 { Filter.filter with
     Patient =
         { Filter.filter.Patient with
-//            Department = Some "ICK"
+            Department = Some "ICK"
             Age =
-                0N
+                1N
                 |> ValueUnit.singleWithUnit Units.Time.year
                 |> Some
             (*

@@ -502,7 +502,7 @@ module Product =
             |> Array.filter (fun r ->
                 (rte |> String.isNullOrWhiteSpace || r.Route |> Mapping.eqsRoute (Some rte)) &&
                 (r.DoseType = AnyDoseType || r.DoseType = dtp) &&
-                (dep |> Option.map (fun dep -> r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true) &&
+                (dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true) &&
                 (loc |> List.isEmpty || loc |> List.exists ((=) r.Location) || r.Location = AnyAccess)
             )
             |> Array.map (fun r ->
