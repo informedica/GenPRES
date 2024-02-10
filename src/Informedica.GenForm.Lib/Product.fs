@@ -89,7 +89,7 @@ module Product =
                             | s1, _ when s1 |> String.isNullOrWhiteSpace |> not -> CVL
                             | _, s2 when s2 |> String.isNullOrWhiteSpace |> not -> PVL
                             | _ -> AnyAccess
-                        DoseType = get "DoseType" |> DoseType.fromString
+                        DoseType = DoseType.fromString (get "DoseType") ""
                         Dep = get "Dep"
                         DiluentVol = get "DiluentVol" |> toBrOpt
                         ExpansionVol = get "ExpansionVol" |> toBrOpt
@@ -124,7 +124,7 @@ module Product =
                     else
                         match filter.DoseType with
                         | AnyDoseType -> true
-                        | _ -> filter.DoseType = r.DoseType
+                        | _ -> filter.DoseType |> DoseType.eqs r.DoseType
                 fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
                 fun (r : Reconstitution) ->
                     match r.Location, filter.Patient.VenousAccess with

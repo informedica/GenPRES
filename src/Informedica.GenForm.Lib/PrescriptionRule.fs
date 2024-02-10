@@ -36,7 +36,7 @@ module PrescriptionRule =
         )
         |> Array.filter (fun pr ->
             pr.DoseRule.Products |> Array.isEmpty |> not  &&
-            pr.DoseRule.DoseType <> DoseType.Contraindicated
+            pr.DoseRule.DoseType <> DoseType.AnyDoseType
         )
         // recalculate adjusted dose limits
         |> Array.map (fun pr ->
@@ -251,10 +251,6 @@ module PrescriptionRule =
 
     /// Get all departments of an array of PrescriptionRules.
     let departments = getDoseRules >> DoseRule.departments
-
-
-    /// Get all diagnoses of an array of PrescriptionRules.
-    let diagnoses= getDoseRules >> DoseRule.diagnoses
 
 
     /// Get all genders of an array of PrescriptionRules.

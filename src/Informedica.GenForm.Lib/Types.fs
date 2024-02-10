@@ -52,23 +52,16 @@ module Types =
 
     /// Possible Dose Types.
     type DoseType =
-        /// A Start Dose
-        | Start
         /// A Once only Dose
-        | Once
-        /// A PRN Dose
-        | PRN
+        | Once of string
         /// A Maintenance Dose
-        | Maintenance
+        | Discontinuous of string
         /// A Continuous Dose
-        | Continuous
-        /// A Step Down Dose in a number of steps.
-        | StepDown of int
-        /// A Step Up Dose in a number of steps.
-        | StepUp of int
-
-        | Contraindicated
-        /// Any Dosetype
+        | Continuous of string
+        /// A discontinuous per time
+        | Timed of string
+        /// A once per time
+        | OnceTimed of string
         | AnyDoseType
 
 
@@ -185,7 +178,6 @@ module Types =
     type PatientCategory =
         {
             Department : string option
-            Diagnoses : string []
             Gender : Gender
             Age : MinMax
             Weight : MinMax
@@ -258,7 +250,7 @@ module Types =
             Route : string
             /// The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
-            DoseText : string
+            ScheduleText : string
             /// The DoseType of the DoseRule
             DoseType : DoseType
             /// The unit to adjust dosing with

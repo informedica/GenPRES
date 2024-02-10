@@ -98,7 +98,7 @@ module SolutionRule =
                     Dose =
                         (r.MinDose, r.MaxDose)
                         |> fromTupleInclIncl du
-                    DoseType = r.DoseType |> DoseType.fromString
+                    DoseType = DoseType.fromString r.DoseType ""
                     Solutions = r.Solutions |> List.toArray
                     Volumes =
                         if r.Volumes |> Array.isEmpty then None
@@ -190,7 +190,7 @@ module SolutionRule =
                 match filter.DoseType, sr.DoseType with
                 | AnyDoseType, _
                 | _, AnyDoseType -> true
-                | _ -> filter.DoseType = sr.DoseType
+                | _ -> filter.DoseType |> DoseType.eqs sr.DoseType
             fun (sr : SolutionRule) -> filter.Patient.Weight |> Utils.MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with

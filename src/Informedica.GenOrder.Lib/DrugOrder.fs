@@ -292,12 +292,12 @@ module DrugOrder =
                     |> Some
             OrderType =
                 match pr.DoseRule.DoseType with
-                | Continuous -> ContinuousOrder
-                | Start
-                | Once when pr.DoseRule.AdministrationTime <> MinMax.empty -> OnceTimedOrder
-                | Once -> OnceOrder
-                | _ when pr.DoseRule.AdministrationTime = MinMax.empty -> DiscontinuousOrder
-                | _ -> TimedOrder
+                | Continuous _ -> ContinuousOrder
+                | OnceTimed _ -> OnceTimedOrder
+                | Once _ -> OnceOrder
+                | Discontinuous _ -> DiscontinuousOrder
+                | Timed _ -> TimedOrder
+                | AnyDoseType -> AnyOrder
             Dose = dose
             Adjust =
                 if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then

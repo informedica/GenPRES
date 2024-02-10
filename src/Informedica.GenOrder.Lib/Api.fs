@@ -45,12 +45,6 @@ module Api =
 
 
     /// <summary>
-    /// Get all possible diagnoses for a Patient
-    /// </summary>
-    let getDiagnoses = PrescriptionRule.get >> PrescriptionRule.diagnoses
-
-
-    /// <summary>
     /// Get all possible frequencies for a Patient
     /// </summary>
     let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.frequencies
@@ -78,12 +72,6 @@ module Api =
     /// Filter the shapes using a Informedica.GenForm.Lib.Filter
     /// </summary>
     let filterShapes = PrescriptionRule.filter >> PrescriptionRule.shapes
-
-
-    /// <summary>
-    /// Filter the diagnoses using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterDiagnoses = PrescriptionRule.filter >> PrescriptionRule.diagnoses
 
 
     /// <summary>

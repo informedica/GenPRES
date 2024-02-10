@@ -9,69 +9,55 @@ module DoseType =
 
     /// Get a sort order for a dose type.
     let sortBy = function
-        | Start -> 0
-        | Once -> 1
-        | PRN -> 2
-        | Maintenance -> 3
-        | Continuous -> 4
-        | StepUp n -> 50 + n
-        | StepDown n -> 100 + n
-        | AnyDoseType -> 200
-        | Contraindicated -> -1
+        | OnceTimed _
+        | Once _ -> 0
+        | Timed _
+        | Discontinuous _ -> 3
+        | Continuous _ -> 4
+        | AnyDoseType -> 100
+
+
+    let eqs doseType1 doseType2 =
+        match doseType1, doseType2 with
+        | Once _, Once _
+        | OnceTimed _, OnceTimed _
+        | Timed _, Timed _
+        | Discontinuous _, Discontinuous _
+        | Continuous _, Continuous _
+        | AnyDoseType, AnyDoseType -> true
+        | _ -> false
 
 
     /// Get a dose type from a string.
-    let fromString s =
-        let s = s |> String.toLower |> String.trim
+    let fromString doseType doseText =
+        let doseType = doseType |> String.toLower |> String.trim
+        let withText c = doseText |> c
 
-        match s with
-        | "start" -> Start
-        | "eenmalig" -> Once
-        | "prn" -> PRN
-        | "onderhoud" -> Maintenance
-        | "continu" -> Continuous
-        | "contra" -> Contraindicated
-
-        | _ when s |> String.startsWith "afbouw" ->
-            match s |> String.split(" ") with
-            | [_;i] ->
-                match i |> Int32.tryParse with
-                | Some i -> StepDown i
-                | None ->
-                    printfn $"DoseType.fromString couldn't match {s}"
-                    AnyDoseType
-            | _ ->
-                printfn $"DoseType.fromString couldn't match {s}"
-                AnyDoseType
-
-        | _ when s |> String.startsWith "opbouw" ->
-            match s |> String.split(" ") with
-            | [_;i] ->
-                match i |> Int32.tryParse with
-                | Some i -> StepUp i
-                | None ->
-                    printfn $"DoseType.fromString couldn't match {s}"
-                    AnyDoseType
-            | _ ->
-                printfn $"DoseType.fromString couldn't match {s}"
-                AnyDoseType
-
-        | _ when s |> String.isNullOrWhiteSpace -> AnyDoseType
-
-        | _ ->
-            printfn $"DoseType.fromString couldn't match {s}"
-            AnyDoseType
+        match doseType with
+        | "once" -> Once |> withText
+        | "oncetimed" -> OnceTimed |> withText
+        | "timed" -> Timed |> withText
+        | "discontinuous" -> Discontinuous |> withText
+        | "continuous" -> Continuous |> withText
+        | _ -> AnyDoseType
 
 
     /// Get a string representation of a dose type.
-    let toString = function
-        | Start -> "start"
-        | Once -> "eenmalig"
-        | PRN -> "prn"
-        | Maintenance -> "onderhoud"
-        | Continuous -> "continu"
-        | StepDown i -> $"afbouw {i}"
-        | StepUp i -> $"opbouw {i}"
-        | Contraindicated -> "contra"
+    let toString doseType =
+        match doseType with
+        | OnceTimed s
+        | Once s
+        | Timed s
+        | Discontinuous s
+        | Continuous s ->
+            if s |> String.notEmpty then s
+            else
+                match doseType with
+                | OnceTimed _
+                | Once _ -> "eenmalig"
+                | Timed _ 
+                | Discontinuous _ -> "onderhoud"
+                | Continuous _ -> "continu"
+                | AnyDoseType -> ""
         | AnyDoseType -> ""
 

@@ -47,7 +47,6 @@ module PatientCategory =
     let patientCategory : PatientCategory =
         {
               Department = None
-              Diagnoses = [||]
               Gender = AnyGender
               Age = MinMax.empty
               Weight = MinMax.empty
@@ -107,16 +106,7 @@ module PatientCategory =
             | _, None -> true
             | Some a, Some b -> a = b
 
-        ([| patCat |]
-        |> Array.filter (fun p ->
-            if filter.Patient.Diagnoses |> Array.isEmpty then true
-            else
-                p.Diagnoses
-                |> Array.exists (fun d ->
-                    filter.Patient.Diagnoses
-                    |> Array.exists (String.equalsCapInsens d)
-                )
-        ),
+        ([| patCat |],
         [|
             fun (p: PatientCategory) -> filter.Patient.Department |> eqs p.Department
             fun (p: PatientCategory) -> filter.Patient.Age |> Utils.MinMax.inRange p.Age
