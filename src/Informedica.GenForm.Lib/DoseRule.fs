@@ -264,7 +264,7 @@ module DoseRule =
                         else
                             $"{acc}\n{dose_md dt dose freqs intv time dur}{pedForm}"
 
-                    ) ""
+                    ) acc
                 )
 
             ({| md = ""; rules = [||] |},
