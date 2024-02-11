@@ -218,7 +218,7 @@ Patient.infant
     }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
-|> Array.item 1 //|> Api.evaluate (OrderLogger.logger.Logger)
+|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
  |> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
 //|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto

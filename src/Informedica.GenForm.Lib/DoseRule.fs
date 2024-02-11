@@ -376,22 +376,14 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Department: string; ScheduleText: string; DoseText: string;  DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; GPKs : string; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string; UseGenericName : string |}) =
+    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Department: string; ScheduleText: string; DoseText: string;  DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; GPKs : string []; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string; UseGenericName : string |}) =
         try
-            let gpks =
-                if r.GPKs |> String.isNullOrWhiteSpace then [||]
-                else
-                    r.GPKs
-                    |> String.splitAt ';'
-                    |> Array.map String.trim
-                    |> Array.distinct
-
             {
                 Indication = r.Indication
                 Generic = r.Generic
                 Shape = r.Shape
                 Brand = r.Brand
-                GPKs = gpks
+                GPKs = r.GPKs
                 Route = r.Route
                 ScheduleText = r.ScheduleText
                 PatientCategory =
@@ -440,21 +432,16 @@ module DoseRule =
                     |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
                 DoseLimits = [||]
                 Products =
-                    let products =
-                        if gpks |> Array.isEmpty then r.Products
-                        else
-                            r.Products
-                            |> Array.filter (fun p -> gpks |> Array.exists (String.equalsCapInsens p.GPK))
                     match r.DoseUnit |> Units.fromString with
-                    | None -> products
+                    | None -> r.Products
                     | Some du ->
                         let subst =
                             Informedica.ZIndex.Lib.Substance.get ()
                             |> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens r.Substance)
                         if du |> ValueUnit.Group.eqsGroup Units.Molar.milliMole |> not ||
-                           subst |> Option.isNone then products
+                           subst |> Option.isNone then r.Products
                         else
-                            products
+                            r.Products
                             |> Array.map (fun product ->
                                 { product with
                                     Substances =
@@ -514,7 +501,11 @@ module DoseRule =
                     Generic = get "Generic"
                     Shape = get "Shape"
                     Brand = get "Brand"
-                    GPKs = get "GPKs"
+                    GPKs =
+                        get "GPKs"
+                        |> String.splitAt ';'
+                        |> Array.map String.trim
+                        |> Array.distinct
                     Route = get "Route"
                     Department = get "Dep"
                     ScheduleText =
@@ -598,13 +589,16 @@ module DoseRule =
             rs
             |> Array.collect (fun r ->
                 let filtered =
-                    prods
-                    |> Product.filter
-                        { Filter.filter with
-                            Generic = gen |> Some
-                            Route = rte |> Some
-                        }
-
+                    if r.GPKs |> Array.isEmpty then
+                        prods
+                        |> Product.filter
+                            { Filter.filter with
+                                Generic = gen |> Some
+                                Route = rte |> Some
+                            }
+                    else
+                        prods
+                        |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
                 filtered
                 |> fun xs ->
                     if xs |> Array.length = 0 then
@@ -615,13 +609,15 @@ module DoseRule =
                         Generic = gen
                         Shape = product.Shape |> String.toLower
                         Products =
-                            filtered
-                            |> Product.filter
-                             { Filter.filter with
-                                 Generic = gen |> Some
-                                 Shape = product.Shape |> Some
-                                 Route = rte |> Some
-                             }
+                            if r.GPKs |> Array.length > 0 then filtered
+                            else
+                                filtered
+                                |> Product.filter
+                                 { Filter.filter with
+                                     Generic = gen |> Some
+                                     Shape = product.Shape |> Some
+                                     Route = rte |> Some
+                                 }
                     |}
                 )
             )

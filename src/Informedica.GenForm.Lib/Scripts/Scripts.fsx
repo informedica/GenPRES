@@ -102,8 +102,8 @@ DoseRule.get ()
             { Filter.filter.Patient with
     //            Department = Some "ICK"
                 Age =
-                    0N
-                    |> ValueUnit.singleWithUnit Units.Time.day
+                    1N
+                    |> ValueUnit.singleWithUnit Units.Time.year
                     |> Some
                 (*
                 GestAge =
@@ -112,8 +112,6 @@ DoseRule.get ()
                     |> Some
                 *)
             }
-        Generic = (Some "paracetamol")
-        Route = Some "intraveneus"
     }
 
 

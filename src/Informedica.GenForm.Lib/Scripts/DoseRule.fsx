@@ -48,7 +48,6 @@ data
 |> Array.distinctBy (fun r ->
     r.Brand,
     r.Department,
-    r.Diagn,
     r.Gender,
     r.Generic,
     r.Indication,
