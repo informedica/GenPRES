@@ -505,6 +505,7 @@ module DoseRule =
                         get "GPKs"
                         |> String.splitAt ';'
                         |> Array.map String.trim
+                        |> Array.filter String.notEmpty
                         |> Array.distinct
                     Route = get "Route"
                     Department = get "Dep"
