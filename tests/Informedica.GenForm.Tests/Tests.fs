@@ -22,7 +22,6 @@ module Tests =
             let patCat =
                 {
                     Department = None
-                    Diagnoses = [||]
                     Gender = AnyGender
                     Age = MinMax.empty
                     Weight = MinMax.empty
