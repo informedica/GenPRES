@@ -55,7 +55,7 @@ module DoseType =
                 match doseType with
                 | OnceTimed _
                 | Once _ -> "eenmalig"
-                | Timed _ 
+                | Timed _
                 | Discontinuous _ -> "onderhoud"
                 | Continuous _ -> "continu"
                 | AnyDoseType -> ""

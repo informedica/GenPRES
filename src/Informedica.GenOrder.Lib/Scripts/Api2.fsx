@@ -27,6 +27,54 @@ module DoseLimit = DoseRule.DoseLimit
 open Informedica.ZIndex.Lib
 
 
+let calcTotal () =
+    Patient.patient
+    |> PrescriptionRule.get
+    |> Array.collect (fun pr ->
+        pr.DoseRule.Products
+        |> Array.collect (fun p ->
+            pr.DoseRule.Frequencies
+            |> Option.map (ValueUnit.get >> fst)
+            |> Option.defaultValue [| 1N |]
+            |> Array.collect (fun _ ->
+                if pr.SolutionRules |> Array.isEmpty then [| 1N |]
+                else
+                    pr.SolutionRules
+                    |> Array.map (fun _ -> 1N)
+
+            )
+        )
+    )
+    |> Array.length
+
+
+let calcTotal2 () =
+    let dsrs =
+        Informedica.GenForm.Lib.DoseRule.get ()
+        |> Array.filter (fun dr -> dr.Products |> Array.length >  0)
+    let total1 =
+        dsrs
+        |> Array.collect (fun dr ->
+            dr.Products
+            |> Array.collect (fun _ ->
+                dr.Frequencies
+                |> Option.map ValueUnit.getValue
+                |> Option.defaultValue [| 1N |]
+            )
+        )
+        |> Array.length
+    dsrs
+    |> Array.map (fun dr ->
+        { dr with
+            Shape = ""
+            Products = [||]
+            DoseLimits = [||]
+        }
+    )
+    |> Array.distinct
+    |> Array.length
+    |> fun total2 ->
+        printfn $"{total2} -> {total1}"
 
 
 let path = Some $"{__SOURCE_DIRECTORY__}/log.txt"
