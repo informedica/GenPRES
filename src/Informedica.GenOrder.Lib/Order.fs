@@ -2263,25 +2263,44 @@ module Order =
                         orbQtyToStr
 
                 let dr =
-                    let vuToStr =
-                        if printMd then RateAdjust.toValueUnitMarkdown 3
-                        else RateAdjust.toValueUnitString 3
+                    let printItem =
+                        if useAdj then
+                            printItem
+                                sn
+                                (_.Dose.RateAdjust)
+                                (
+                                    if printMd then RateAdjust.toValueUnitMarkdown 3
+                                    else RateAdjust.toValueUnitString 3
+                                )
+                        else
+                            printItem
+                                sn
+                                (_.Dose.Rate)
+                                (
+                                    if printMd then Rate.toValueUnitMarkdown 3
+                                    else Rate.toValueUnitString 3
+                                )
+
                     ord
                     |> printItem
-                        sn
-                        (_.Dose.RateAdjust)
-                        vuToStr
                     |> fun s ->
                         if ord.Orderable.Dose.Rate |> Rate.isSolved |> not then s
                         else
                             let nv =
                                 ord.Orderable.Components[0].Items
                                 |> List.map (fun i ->
-                                    i.Dose.RateAdjust
-                                    |> RateAdjust.toOrdVar
-                                    |> fun ovar ->
-                                        ovar.Constraints
-                                        |> OrderVariable.Constraints.toMinMaxString 3
+                                    if useAdj then
+                                        i.Dose.RateAdjust
+                                        |> RateAdjust.toOrdVar
+                                        |> fun ovar ->
+                                            ovar.Constraints
+                                            |> OrderVariable.Constraints.toMinMaxString 3
+                                    else
+                                        i.Dose.Rate
+                                        |> Rate.toOrdVar
+                                        |> fun ovar ->
+                                            ovar.Constraints
+                                            |> OrderVariable.Constraints.toMinMaxString 3
                                 )
                                 |> List.filter (String.isNullOrWhiteSpace >> not)
                                 |> String.concat " + "

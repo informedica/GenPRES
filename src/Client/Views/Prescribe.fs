@@ -142,7 +142,7 @@ module Prescribe =
             scenarios: Deferred<Types.ScenarioResult>
             updateScenario: Types.ScenarioResult -> unit
             selectOrder : (Types.Scenario * Shared.Types.Order option) -> unit
-            order : Deferred<Types.Order option>
+            order : Deferred<(bool * Types.Order) option>
             loadOrder : Types.Order -> unit
             updateScenarioOrder : unit -> unit
             localizationTerms : Deferred<string [] []>

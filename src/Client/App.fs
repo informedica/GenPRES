@@ -27,7 +27,7 @@ module private Elmish =
             Products: Deferred<Product list>
             Scenarios: Deferred<ScenarioResult>
             SelectedScenarioOrder : (Scenario * Order) option
-            CalculatedOrder : Deferred<Order option>
+            CalculatedOrder : Deferred<(bool * Order) option>
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
@@ -508,7 +508,12 @@ module private Elmish =
                     if o |> Option.isNone then state.SelectedScenarioOrder
                     else
                         (sc, o |> Option.get) |> Some
-                CalculatedOrder = o |> Resolved
+                CalculatedOrder = 
+                    o
+                    |> Option.map (fun o ->
+                        sc.UseAdjust, o
+                    ) 
+                    |> Resolved
             },
             Cmd.ofMsg (CalculateOrder Started)
 
@@ -526,7 +531,7 @@ module private Elmish =
             | Resolved (Some order) ->
                 let load =
                     async {
-                        let! order = order |> serverApi.calcMinIncrMax
+                        let! order = order |> snd |> serverApi.calcMinIncrMax
                         return Finished order |> CalculateOrder
                     }
                 { state with CalculatedOrder = InProgress }, Cmd.fromAsync load
@@ -540,7 +545,15 @@ module private Elmish =
                     SelectedScenarioOrder =
                         state.SelectedScenarioOrder
                         |> Option.map (fun (sc, _) -> sc, o)
-                    CalculatedOrder = o |> Some |> Resolved
+                    CalculatedOrder = 
+                        o 
+                        |> Some 
+                        |> Option.map (fun o ->
+                            match state.SelectedScenarioOrder with
+                            | None -> false, o
+                            | Some (sc, _) -> sc.UseAdjust, o
+                        )
+                        |> Resolved
                     // show only the calculated order scenario
                     Scenarios = 
                         state.Scenarios

@@ -121,7 +121,7 @@ module GenPres =
             scenarioResult: Deferred<ScenarioResult>
             updateScenario : ScenarioResult -> unit
             selectOrder : (Scenario * Order option) -> unit
-            order : Deferred<Order option>
+            order : Deferred<(bool * Order) option>
             loadOrder : Order -> unit
             updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
