@@ -203,24 +203,26 @@ let pat =
 
 
 
-Patient.infant
+Patient.premature
 |> fun p ->
     { p with
+        VenousAccess = [VenousAccess.CVL]
+        Department = Some "ICK"
         Age =
             Units.Time.year
-            |> ValueUnit.singleWithValue 1N
+            |> ValueUnit.singleWithValue 0N
             |> Some
         Weight =
-          Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (10N)
+          Units.Weight.gram
+          |> ValueUnit.singleWithValue (1200N)
           |> Some
 
     }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
- |> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
-//|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+// |> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.Dto.toDto
@@ -243,7 +245,7 @@ Patient.infant
     |> printfn "%A"
 
     ord
-    |> Order.Print.printOrderToMd true [| "filgrastim" |]
+    |> Order.Print.printOrderToMd true [| "adrenaline" |]
     //|> String.concat "\n"
     |> printfn "%A"
     ord
@@ -457,3 +459,30 @@ let dto =
 
 dto.Value
 |> ValueUnit.Dto.fromDto
+
+
+Patient.premature
+|> fun p ->
+    { p with
+        VenousAccess = [VenousAccess.CVL]
+        Department = Some "ICK"
+        Age =
+            Units.Time.year
+            |> ValueUnit.singleWithValue 0N
+            |> Some
+        Weight =
+          Units.Weight.gram
+          |> ValueUnit.singleWithValue (1200N)
+          |> Some
+
+    }
+|> fun p ->
+    let filter =
+        { Filter.filter with
+            Patient = p
+            Generic = Some "adrenaline"
+            Shape = Some ""
+        }
+
+    SolutionRule.get ()
+    |> SolutionRule.filter filter

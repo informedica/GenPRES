@@ -1,9 +1,12 @@
 
+open System
+
+Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+
 #load "load.fsx"
 
 #time
 
-open System
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
@@ -18,7 +21,6 @@ File.exists <| FilePath.GStandPath + "BST000T"
 FilePath.productCache false
 |> File.exists
 
-Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
 FilePath.useDemo()
 
 // Clear the cache
@@ -374,7 +376,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "filgrastim" "" ""
+GenPresProduct.filter "Mycofenolzuur" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
@@ -408,7 +410,7 @@ GenPresProduct.filter "" "drank" ""
     printfn $"{lbl}\t{shp}"
 )
 
-GenPresProduct.findByBrand "Klean prep"
+GenPresProduct.findByBrand "Mycofenolaat mofetil"
 |> Array.map (fun gpp -> gpp.Name |> String.toLower)
 
 

@@ -72,6 +72,8 @@ module SolutionRule =
                     Quantities = get "Quantities" |> BigRational.toBrs
                     MinQty = get "MinQty" |> toBrOpt
                     MaxQty = get "MaxQty" |> toBrOpt
+                    MinDrip = get "MinDrip" |> toBrOpt
+                    MaxDrip = get "MaxDrip" |> toBrOpt
                     MinConc = get "MinConc" |> toBrOpt
                     MaxConc = get "MaxConc" |> toBrOpt
                 |}
@@ -109,6 +111,9 @@ module SolutionRule =
                     Volume =
                         (r.MinVol, r.MaxVol)
                         |> fromTupleInclIncl (Some Units.mL)
+                    DripRate =
+                        (r.MinDrip, r.MaxDrip)
+                        |> fromTupleInclIncl (Some (Units.Volume.milliLiter |> Units.per Units.Time.hour))
                     DosePerc =
                         (r.MinPerc, r.MaxPerc)
                         |> fromTupleInclIncl (Some Units.Count.times)

@@ -315,6 +315,7 @@ module Types =
             Volumes : ValueUnit option
             /// A MinMax Volume range to use
             Volume : MinMax
+            DripRate : MinMax
             /// The percentage to be use as a DoseQuantity
             DosePerc : MinMax
             /// The SolutionLimits for the SolutionRule

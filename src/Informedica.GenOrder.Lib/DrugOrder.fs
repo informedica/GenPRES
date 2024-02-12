@@ -313,6 +313,7 @@ module DrugOrder =
                     { dro with
                         Dose =
                             { DoseRule.DoseLimit.limit with
+                                Rate = sr.DripRate
                                 Quantity  = sr.Volume
                                 DoseUnit = Units.Volume.milliLiter
                             } |> Some
