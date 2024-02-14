@@ -35,7 +35,7 @@ module PrescriptionRule =
             }
         )
         |> Array.filter (fun pr ->
-            pr.DoseRule.Products |> Array.isEmpty |> not  &&
+//            pr.DoseRule.Products |> Array.isEmpty |> not  &&
             pr.DoseRule.DoseType <> DoseType.AnyDoseType
         )
         // recalculate adjusted dose limits

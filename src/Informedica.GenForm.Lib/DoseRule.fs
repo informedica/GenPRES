@@ -604,7 +604,15 @@ module DoseRule =
                 if filtered |> Array.length = 0 then
                     printfn $"no products for {gen} {rte}"
                     [|
-                        {| r with Products = [||] |}
+                        {| r with
+                            Products =
+                                [|
+                                    rs
+                                    |> Array.map _.Substance
+                                    |> Array.distinct
+                                    |> Product.create gen rte
+                                |]
+                        |}
                     |]
                 else
                     filtered

@@ -248,6 +248,39 @@ module Product =
     open Informedica.GenUnits.Lib
 
 
+    let create gen rte substs =
+        {
+            GPK = ""
+            ATC = ""
+            MainGroup = ""
+            SubGroup = ""
+            Generic = gen
+            UseGenericName = false
+            UseShape = false
+            UseBrand = false
+            TallMan = gen
+            Synonyms = [||]
+            Product = gen
+            Label = gen
+            Shape = gen
+            Routes = [| rte  |]
+            ShapeQuantities = ValueUnit.empty
+            ShapeUnit = NoUnit
+            RequiresReconstitution = false
+            Reconstitution = [||]
+            Divisible = None
+            Substances =
+                substs
+                |> Array.map (fun s ->
+                    {
+                        Name = s
+                        Concentration = None
+                        MultipleQuantity = None
+                    }
+                )
+        }
+
+
     let rename defN useGenName (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) =
         if useGenName then subst.GenericName
         else defN

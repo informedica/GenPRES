@@ -382,7 +382,8 @@ module DrugOrder =
                 |> Option.map (fun q -> q |> ValueUnit.getUnit)
             )
             |> List.choose id
-            |> List.head
+            |> List.tryHead
+            |> Option.defaultValue NoUnit
 
         let standDoseRate un (orbDto : Order.Orderable.Dto.Dto) =
             orbDto.Dose.Rate.Constraints.IncrOpt <- 1N/10N |> createSingleValueUnitDto un

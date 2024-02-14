@@ -203,18 +203,18 @@ let pat =
 
 
 
-Patient.adult
+Patient.newBorn
 |> fun p ->
     { p with
         VenousAccess = [VenousAccess.CVL]
         Department = Some "ICK"
         Age =
             Units.Time.year
-            |> ValueUnit.singleWithValue 17N
+            |> ValueUnit.singleWithValue 0N
             |> Some
         Weight =
           Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (40N)
+          |> ValueUnit.singleWithValue (2N)
           |> Some
 
     }
