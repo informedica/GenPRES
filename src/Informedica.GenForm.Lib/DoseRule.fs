@@ -600,30 +600,32 @@ module DoseRule =
                     else
                         prods
                         |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
-                filtered
-                |> fun xs ->
-                    if xs |> Array.length = 0 then
-                        printfn $"no products for {gen} {rte}"
-                    xs
-                |> Array.map (fun product ->
-                    {| r with
-                        Generic = gen
-                        Shape = product.Shape |> String.toLower
-                        Products =
-                            if r.GPKs |> Array.length > 0 then filtered
-                            else
-                                filtered
-                                |> Product.filter
-                                 { Filter.filter with
-                                     Generic = gen |> Some
-                                     Shape = product.Shape |> Some
-                                     Route = rte |> Some
-                                 }
-                    |}
-                )
+
+                if filtered |> Array.length = 0 then
+                    printfn $"no products for {gen} {rte}"
+                    [|
+                        {| r with Products = [||] |}
+                    |]
+                else
+                    filtered
+                    |> Array.map (fun product ->
+                        {| r with
+                            Generic = gen
+                            Shape = product.Shape |> String.toLower
+                            Products =
+                                if r.GPKs |> Array.length > 0 then filtered
+                                else
+                                    filtered
+                                    |> Product.filter
+                                     { Filter.filter with
+                                         Generic = gen |> Some
+                                         Shape = product.Shape |> Some
+                                         Route = rte |> Some
+                                     }
+                        |}
+                    )
             )
         )
-        |> Array.filter (fun dr -> dr.Shape |> String.notEmpty)
         |> Array.map (fun dr -> {| dr with DoseType = dr.DoseText |> DoseType.fromString dr.DoseType |})
         |> Array.groupBy mapToDoseRule
         |> Array.filter (fst >> Option.isSome)

@@ -27,6 +27,7 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 
 open MathNet.Numerics
 open Informedica.Utils.Lib
+open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
@@ -98,20 +99,7 @@ SolutionRule.get ()
 DoseRule.get ()
 |> DoseRule.filter
     { Filter.filter with
-        Patient =
-            { Filter.filter.Patient with
-    //            Department = Some "ICK"
-                Age =
-                    1N
-                    |> ValueUnit.singleWithUnit Units.Time.year
-                    |> Some
-                (*
-                GestAge =
-                    28N
-                    |> ValueUnit.singleWithUnit Units.Time.week
-                    |> Some
-                *)
-            }
+        Route = Some "oraal"
     }
 
 
@@ -133,3 +121,8 @@ Web.getDataFromSheet urlId "DoseRules"
         printfn $"""{get "Generic"}: {get "Freqs"}"""
     )
 
+
+DoseRule.get ()
+|> Array.filter (fun dr ->
+    dr.Route |> String.equalsCapInsens "rectaal"
+)

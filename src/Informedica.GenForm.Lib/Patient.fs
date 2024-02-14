@@ -76,7 +76,7 @@ module PatientCategory =
     /// The first will receive the highest weight and the last the lowest.
     /// </remarks>
     let sortBy (pat : PatientCategory) =
-        let toInt = function
+        let toInt def = function
             | Some x ->
                 x
                 |> Limit.getValueUnit
@@ -85,12 +85,12 @@ module PatientCategory =
                 |> function
                     | None -> 0
                     | Some x -> x |> BigRational.ToInt32
-            | None -> 0
+            | None -> def
 
-        (pat.Age.Min |> toInt |> fun i -> if i > 0 then i + 300 else i) +
-        (pat.GestAge.Min |> toInt) +
-        (pat.PMAge.Min |> toInt) +
-        (pat.Weight.Min |> toInt |> fun w -> w / 1000)
+        (pat.Age.Min |> toInt 0 |> fun i -> if i > 0 then i + 300 else i) +
+        (pat.GestAge.Min |> toInt (7 * 39)) +
+        (pat.PMAge.Min |> toInt (7 * 39)) +
+        (pat.Weight.Min |> toInt 0 |> fun w -> w / 1000)
 
 
     /// <summary>
