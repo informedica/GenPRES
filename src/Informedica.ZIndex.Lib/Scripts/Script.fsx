@@ -1,7 +1,6 @@
 
 open System
 
-Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
 
 #load "load.fsx"
 
@@ -12,6 +11,7 @@ open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.ZIndex.Lib
 
+Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
 Environment.CurrentDirectory
 
 // File
@@ -376,17 +376,17 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "Mycofenolzuur" "" ""
+GenPresProduct.filter "calciumgluconaat" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
-    gp.Id, gp.Shape, gp.Route,
+    gp.Id, gp.Name, gp.Shape, gp.Route,
     subst[0].SubstanceName,
     $"{subst[0].SubstanceQuantity} {subst[0].SubstanceUnit}"
 )
-|> Array.iter (fun (id, lbl, rte, sn, sq) ->
+|> Array.iter (fun (id, lbl, shp, rte, sn, sq) ->
     let rte = rte |> String.concat ", "
-    printfn $"{id}\t{lbl}\t{rte}\t{sn}\t{sq}"
+    printfn $"{id}\t{lbl}\t{shp}\t{rte}\t{sn}\t{sq}"
 )
 
 
@@ -424,6 +424,6 @@ GenPresProduct.get []
 
 
 Substance.get ()
-|> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens "kaliumchloride")
+|> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens "calciumchloride")
 
 600. / 74.55

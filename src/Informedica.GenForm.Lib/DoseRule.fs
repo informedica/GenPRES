@@ -435,11 +435,7 @@ module DoseRule =
                     match r.DoseUnit |> Units.fromString with
                     | None -> r.Products
                     | Some du ->
-                        let subst =
-                            Informedica.ZIndex.Lib.Substance.get ()
-                            |> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens r.Substance)
-                        if du |> ValueUnit.Group.eqsGroup Units.Molar.milliMole |> not ||
-                           subst |> Option.isNone then r.Products
+                        if du |> ValueUnit.Group.eqsGroup Units.Molar.milliMole |> not then r.Products
                         else
                             r.Products
                             |> Array.map (fun product ->
@@ -450,24 +446,7 @@ module DoseRule =
                                             if s.Name |> String.equalsCapInsens r.Substance |> not then s
                                             else
                                                 { s with
-                                                    Concentration =
-                                                        s.Concentration
-                                                        |> Option.map (fun vu ->
-                                                            let k =
-                                                                subst.Value.Mole
-                                                                |> ((*) 2.)
-                                                                |> decimal
-                                                                |> BigRational.fromDecimal
-                                                                |> ValueUnit.singleWithUnit Units.Count.times
-
-                                                            let v, u = vu / k |> ValueUnit.get
-
-                                                            match u |> ValueUnit.getUnits with
-                                                            | [_; u2] ->
-                                                                du |> Units.per u2
-                                                                |> ValueUnit.withValue v
-                                                            | _ -> vu
-                                                        )
+                                                    Concentration = s.MolarConcentration
                                                 }
                                         )
                                 }
@@ -608,7 +587,7 @@ module DoseRule =
                             Products =
                                 [|
                                     rs
-                                    |> Array.map _.Substance
+                                    |> Array.map (fun p -> p.Substance)
                                     |> Array.distinct
                                     |> Product.create gen rte
                                 |]

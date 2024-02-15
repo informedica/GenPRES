@@ -73,7 +73,7 @@ module Types =
             /// The Quantity of the Substance
             Concentration : ValueUnit option
             /// The indivisible Quantity of the Substance
-            MultipleQuantity : ValueUnit option
+            MolarConcentration : ValueUnit option
         }
 
     /// A Product type.

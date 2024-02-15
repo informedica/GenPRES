@@ -182,6 +182,8 @@ module Product =
                             |]
                         Oplosmiddel = get "volume mL"
                         Verdunner = get "volume mL"
+                        IsOplosmiddel = get "Oplosmiddel" = "TRUE"
+                        IsVerdunner = get "Verdunner" = "TRUE"
                     |}
                 )
                 |> Array.map (fun r ->
@@ -198,8 +200,8 @@ module Product =
                         Synonyms = [||]
                         Product = r.Name
                         Label = r.Name
-                        Shape = ""
-                        Routes = [||]
+                        Shape = "vloeistof"
+                        Routes = [| "INTRAVENEUS"; "ORAAL" |]
                         ShapeQuantities =
                             Units.Volume.milliLiter
                             |> ValueUnit.singleWithValue 1N
@@ -210,6 +212,12 @@ module Product =
                         Divisible = Some 10N
                         Substances =
                             r.Substances
+                            |> Array.filter (fun (n, q) ->
+                                n |> String.equalsCapInsens "volume" |> not &&
+                                q
+                                |> Option.map (fun br -> br > 0N)
+                                |> Option.defaultValue false
+                            )
                             |> Array.map (fun (s, q) ->
                                 let n, u =
                                     match s |> String.split " " with
@@ -223,7 +231,9 @@ module Product =
                                             u
                                             |> Mapping.mapUnit
                                             |> function
-                                                | None -> None
+                                                | None ->
+                                                    printfn $"cannot map unit: {u}"
+                                                    None
                                                 | Some u ->
                                                     let u =
                                                         u
@@ -232,8 +242,13 @@ module Product =
                                                     |> ValueUnit.singleWithUnit u
                                                     |> Some
                                         )
-                                    MultipleQuantity = None
+                                    MolarConcentration = None
                                 }
+                            )
+                            |> Array.filter (fun s ->
+                                s.Name |> String.notEmpty &&
+                                (s.Concentration |> Option.isSome ||
+                                s.MolarConcentration |> Option.isSome)
                             )
                     }
                 )
@@ -275,7 +290,7 @@ module Product =
                     {
                         Name = s
                         Concentration = None
-                        MultipleQuantity = None
+                        MolarConcentration = None
                     }
                 )
         }
@@ -295,6 +310,7 @@ module Product =
         synonyms
         shapeQuantities
         divisible
+        mmol
         (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
         =
 
@@ -393,22 +409,25 @@ module Product =
                 |> Array.distinctBy _.SubstanceId
                 |> Array.map (fun s ->
                     let su =
-                        s.SubstanceUnit
-                        |> Mapping.mapUnit
-                        |> Option.map (fun u ->
-                            CombiUnit(u, OpPer, shpUnit)
-                        )
-                        |> Option.defaultValue NoUnit
+                            s.SubstanceUnit
+                            |> Mapping.mapUnit
+                            |> Option.map (fun u ->
+                                CombiUnit(u, OpPer, shpUnit)
+                            )
+                            |> Option.defaultValue NoUnit
                     {
                         Name = s |> rename s.SubstanceName useGenName
                         Concentration =
                             s.SubstanceQuantity
                             |> BigRational.fromFloat
-                            |> Option.map (fun q ->
-                                q
-                                |> ValueUnit.singleWithUnit su
-                            )
-                        MultipleQuantity = None
+                            |> Option.map (ValueUnit.singleWithUnit su)
+                        MolarConcentration =
+                            if mmol |> Option.isNone then None
+                            else
+                                let u = Units.Molar.milliMole |> Units.per shpUnit
+                                mmol.Value
+                                |> BigRational.fromFloat
+                                |> Option.map (ValueUnit.singleWithUnit u)
                     }
                 )
         }
@@ -444,6 +463,7 @@ module Product =
                             useShape = get "UseShape" = "x"
                             useBrand = get "UseBrand" = "x"
                             tallMan = get "TallMan"
+                            mmol = get "Mmol" |> Double.tryParse
                             divisible = get "Divisible" |> Int32.tryParse
                         |}
                     )
@@ -501,7 +521,10 @@ module Product =
                            synonyms
                            shapeQuantities
                            r.divisible
+                           r.mmol
                 )
+                |> Array.append (Parenteral.get ())
+
         |> StopWatch.clockFunc "created products"
 
 
