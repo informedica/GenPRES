@@ -376,7 +376,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "calciumgluconaat" "" ""
+GenPresProduct.filter "magnesiumchloride" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
@@ -413,6 +413,8 @@ GenPresProduct.filter "" "drank" ""
 GenPresProduct.findByBrand "Mycofenolaat mofetil"
 |> Array.map (fun gpp -> gpp.Name |> String.toLower)
 
+
+GenPresProduct.findByGPK 9962
 
 GenPresProduct.get []
 |> Array.filter (fun gpp ->

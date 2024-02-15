@@ -192,10 +192,19 @@ module DoseRule =
             let generic_md generic =
                 $"\n\n# {generic}\n\n---\n"
 
-            let route_md route products =
-                $"\n\n### Route: {route}\n\n#### Producten\n%s{products}\n"
+            let route_md route products synonyms =
+                if synonyms |> String.isNullOrWhiteSpace then
+                    $"\n\n### Route: {route}\n\n#### Producten\n%s{products}\n"
+                else
+                    $"\n\n### Route: {route}\n\n#### Producten\n%s{products}\n\n#### Synoniemen\n%s{synonyms}\n"
 
             let product_md product =  $"* {product}"
+
+            let synonyms_md names =
+                if names |> Seq.isEmpty then ""
+                else
+                    let names = names |> String.concat ", "
+                    $"* {names}"
 
             let indication_md indication = $"\n\n## Indicatie: %s{indication}\n\n---\n"
 
@@ -302,8 +311,15 @@ module DoseRule =
                                             |> Array.distinct
                                             |> String.concat "\n"
 
+                                        let synonyms =
+                                            rs
+                                            |> Array.collect _.Products
+                                            |> Array.collect _.Synonyms
+                                            |> Array.distinct
+                                            |> synonyms_md
+
                                         {| acc with
-                                            md = acc.md + (route_md route prods)
+                                            md = acc.md + (route_md route prods synonyms)
                                                         + doseCapt_md
                                             rules = rs
                                         |}
