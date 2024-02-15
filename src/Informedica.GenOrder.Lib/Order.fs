@@ -2032,17 +2032,19 @@ module Order =
                 c.OrderableQuantity
                 |> toStr
                 |> fun q ->
-                    if q |> String.isNullOrWhiteSpace then ""
-                    else
-                        let s =
-                            c
-                            |> itemConcTo
-                            |> String.trim
-                            |> fun s ->
-                                if s |> String.isNullOrWhiteSpace then ""
-                                else
-                                    $" ({s})"
-                        $"{q} {c.Shape} {s}"
+                    let s =
+                        c
+                        |> itemConcTo
+                        |> String.trim
+                        |> fun s ->
+                            if s |> String.isNullOrWhiteSpace then ""
+                            else
+                                $" ({s})"
+                    match q, s with
+                    | _ when q |> String.notEmpty && s |> String.notEmpty
+                        -> $"{q} {c.Shape} {s}"
+                    | _ when s |> String.notEmpty -> $"{c.Shape} {s}"
+                    | _ -> ""
             )
             |> Seq.filter String.notEmpty
             |> String.concat " + "
