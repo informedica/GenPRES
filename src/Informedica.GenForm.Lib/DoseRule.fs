@@ -604,6 +604,7 @@ module DoseRule =
                                 [|
                                     rs
                                     |> Array.map (fun p -> p.Substance)
+                                    |> Array.filter String.notEmpty
                                     |> Array.distinct
                                     |> Product.create gen rte
                                 |]
