@@ -656,45 +656,47 @@ module DoseRule =
                                  |> Units.Volume.dropletSetDropsPerMl m
                                  |> ValueUnit.withValue v
 
-                         Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
-                         |> Array.map (fun rsu ->
-                            { DoseLimit.limit with
-                                DoseLimitTarget = dr.Shape |> ShapeLimitTarget
-                                Quantity =
-                                    {
-                                        Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
-                                        Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
-                                    }
-                            }
-                            |> fun dl ->
-                                if droplets |> Option.isNone then dl
-                                else
-                                    { dl with
-                                        DoseUnit =
-                                            droplets
-                                            |> Option.map Units.Volume.dropletWithDropsPerMl
-                                            |> Option.defaultValue rsu.DoseUnit
-                                        Quantity =
-                                            {
-                                                Min =
-                                                    dl.Quantity.Min
-                                                    |> Option.map (
-                                                        Limit.apply
-                                                            setDroplet
-                                                            setDroplet
-                                                    )
-                                                Max =
-                                                    dl.Quantity.Max
-                                                    |> Option.map (
-                                                        Limit.apply
-                                                            setDroplet
-                                                            setDroplet
-                                                    )
-                                            }
+                         if dr.Shape |> String.isNullOrWhiteSpace then [||]
+                         else
+                             Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
+                             |> Array.map (fun rsu ->
+                                { DoseLimit.limit with
+                                    DoseLimitTarget = dr.Shape |> ShapeLimitTarget
+                                    Quantity =
+                                        {
+                                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
+                                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
+                                        }
+                                }
+                                |> fun dl ->
+                                    if droplets |> Option.isNone then dl
+                                    else
+                                        { dl with
+                                            DoseUnit =
+                                                droplets
+                                                |> Option.map Units.Volume.dropletWithDropsPerMl
+                                                |> Option.defaultValue rsu.DoseUnit
+                                            Quantity =
+                                                {
+                                                    Min =
+                                                        dl.Quantity.Min
+                                                        |> Option.map (
+                                                            Limit.apply
+                                                                setDroplet
+                                                                setDroplet
+                                                        )
+                                                    Max =
+                                                        dl.Quantity.Max
+                                                        |> Option.map (
+                                                            Limit.apply
+                                                                setDroplet
+                                                                setDroplet
+                                                        )
+                                                }
 
-                                    }
-                         )
-                         |> Array.distinct
+                                        }
+                             )
+                             |> Array.distinct
 
                     rs
                     |> Array.map (fun r ->
