@@ -213,7 +213,7 @@ module Product =
                         Substances =
                             r.Substances
                             |> Array.filter (fun (n, q) ->
-                                n |> String.equalsCapInsens "volume" |> not &&
+                                n |> String.equalsCapInsens "volume mL" |> not &&
                                 q
                                 |> Option.map (fun br -> br > 0N)
                                 |> Option.defaultValue false
