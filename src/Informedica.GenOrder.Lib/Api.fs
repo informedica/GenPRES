@@ -3,8 +3,6 @@ namespace Informedica.GenOrder.Lib
 
 module Api =
 
-
-    open Informedica.ZIndex.Lib
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -100,7 +98,7 @@ module Api =
     /// An array of Results, containing the Order and the PrescriptionRule.
     /// </returns>
     let evaluate logger (rule : PrescriptionRule) =
-        let rec solve sr pr =
+        let rec solve tryAgain sr pr =
             pr
             |> DrugOrder.createDrugOrder sr
             |> DrugOrder.toOrderDto
@@ -184,12 +182,35 @@ module Api =
                         sbsts
 
                 Ok (ord, pr)
-            | Error (ord, m) -> Error (ord, pr, m)
+            | Error _ when tryAgain ->
+                { pr with
+                    DoseRule =
+                        { pr.DoseRule with
+                            Shape = pr.DoseRule.Generic
+                            Products =
+                                [|
+                                    pr.DoseRule.DoseLimits
+                                    |> Array.map _.DoseLimitTarget
+                                    |> Array.map DoseRule.DoseLimit.substanceDoseLimitTargetToString
+                                    |> Array.filter String.notEmpty
+                                    |> Array.distinct
+                                    |> Product.create
+                                        pr.DoseRule.Generic
+                                        pr.DoseRule.Route
+                                |]
+                            DoseLimits =
+                                pr.DoseRule .DoseLimits
+                                |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                        }
+                }
+                |> solve false None
+            | Error (ord, m) ->
+                Error (ord, pr, m)
 
-        if rule.SolutionRules |> Array.isEmpty then [| solve None rule |]
+        if rule.SolutionRules |> Array.isEmpty then [| solve true None rule |]
         else
             rule.SolutionRules
-            |> Array.map (fun sr -> solve (Some sr) rule)
+            |> Array.map (fun sr -> solve true (Some sr) rule)
 
 
     /// <summary>
@@ -328,6 +349,11 @@ module Api =
                                     |> printfn "%s"
                                     None
                             )
+                        )
+                        |> Array.distinctBy (fun pr ->
+                            pr.Preparation,
+                            pr.Prescription,
+                            pr.Administration
                         )
 
                     | _ -> [||]
