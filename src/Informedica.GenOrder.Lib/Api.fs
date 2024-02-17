@@ -351,11 +351,29 @@ module Api =
                             )
                         )
                         |> Array.distinctBy (fun pr ->
+                            pr.DoseType,
                             pr.Preparation,
                             pr.Prescription,
                             pr.Administration
                         )
+                        // filter out prescriptions without preparation when not needed
+                        |> function
+                            | prs when prs |> Array.length <= 1 -> prs
+                            | prs ->
+                                let grouped = prs |> Array.groupBy _.DoseType
+                                [|
+                                    for _, prs in grouped do
+                                        if prs |> Array.length <= 1 then prs
+                                        else
+                                            if prs
+                                               |> Array.filter (fun pr -> pr.Preparation |> String.notEmpty)
+                                               |> Array.length = 0 then prs
+                                            else
+                                                prs
+                                                |> Array.filter (fun pr -> pr.Preparation |> String.notEmpty)
 
+                                |]
+                                |> Array.collect id
                     | _ -> [||]
             }
         | _ ->
