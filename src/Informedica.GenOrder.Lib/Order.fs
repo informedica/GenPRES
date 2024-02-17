@@ -2046,6 +2046,7 @@ module Order =
                     | _ when q |> String.notEmpty && s |> String.notEmpty
                         -> $"{q} {c.Shape} {s}"
                     | _ when s |> String.notEmpty -> $"{c.Shape} {s}"
+                    | _ when q |> String.notEmpty -> $"{q} {c.Shape}"
                     | _ -> ""
             )
             |> Seq.filter String.notEmpty
