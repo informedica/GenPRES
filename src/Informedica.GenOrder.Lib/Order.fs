@@ -2013,7 +2013,9 @@ module Order =
                 i.ComponentConcentration
                 |> toStr
                 |> fun s ->
-                    $"%s{s} {i.Name |> Name.toString}"
+                    if s |> String.isNullOrWhiteSpace then ""
+                    else
+                        $"%s{s} {i.Name |> Name.toString}"
             )
             |> String.concat " + "
 
