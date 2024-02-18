@@ -10,6 +10,9 @@ module Api =
     open Informedica.GenOrder.Lib
 
 
+    module Prescription = Order.Prescription
+
+
     let replace s =
         s
         |> String.replace "[" ""
@@ -182,7 +185,9 @@ module Api =
                         sbsts
 
                 Ok (ord, pr)
-            | Error _ when tryAgain ->
+            | Error (ord, _) when tryAgain &&
+                                  ord.Prescription |> Prescription.isContinuous |> not
+                            ->
                 { pr with
                     DoseRule =
                         { pr.DoseRule with
