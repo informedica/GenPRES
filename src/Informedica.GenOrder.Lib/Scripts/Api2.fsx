@@ -209,6 +209,7 @@ Product.get ()
     }
 |> Array.filter (fun p -> p.Generic |> String.equalsCapInsens "nicu mix")
 
+
 Patient.newBorn
 |> fun p ->
     { p with
@@ -220,14 +221,14 @@ Patient.newBorn
             |> Some
         Weight =
           Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (2N)
+          |> ValueUnit.singleWithValue (3N)
           |> Some
     }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
-//|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+//|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.Dto.toDto
@@ -250,7 +251,7 @@ Patient.newBorn
     |> printfn "%A"
 
     ord
-    |> Order.Print.printOrderToMd true [| "adrenaline" |]
+    |> Order.Print.printOrderToMd true [| "epoprostenol" |]
     //|> String.concat "\n"
     |> printfn "%A"
     ord

@@ -179,9 +179,12 @@ module SolutionRule =
     /// <param name="solutionRules">The SolutionRules</param>
     /// <returns>The matching SolutionRules</returns>
     let filter (filter : Filter) (solutionRules : SolutionRule []) =
-        let eqs a b =
+        let eqs a (b : string) =
             a
-            |> Option.map (fun x -> x = b)
+            |> Option.map (fun x ->
+                b |> String.isNullOrWhiteSpace ||
+                x = b
+            )
             |> Option.defaultValue true
 
         [|
