@@ -376,7 +376,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "magnesiumsulfaat" "" ""
+GenPresProduct.filter "bictegravir/emtricitabine/tenofovir alafenamide" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
@@ -410,8 +410,19 @@ GenPresProduct.filter "" "drank" ""
     printfn $"{lbl}\t{shp}"
 )
 
-GenPresProduct.findByBrand "Mycofenolaat mofetil"
-|> Array.map (fun gpp -> gpp.Name |> String.toLower)
+
+GenPresProduct.findByBrand "Qvar"
+|> Array.collect (_.GenericProducts)
+|> Array.map (fun gp ->
+    let subst = gp.Substances |> Array.distinctBy _.SubstanceId
+    gp.Id, gp.Name, gp.Shape, gp.Route,
+    subst[0].SubstanceName,
+    $"{subst[0].SubstanceQuantity} {subst[0].SubstanceUnit}"
+)
+|> Array.iter (fun (id, lbl, shp, rte, sn, sq) ->
+    let rte = rte |> String.concat ", "
+    printfn $"{id}\t{lbl}\t{shp}\t{rte}\t{sn}\t{sq}"
+)
 
 
 GenPresProduct.findByGPK 9962

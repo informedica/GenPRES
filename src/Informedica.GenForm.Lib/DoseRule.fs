@@ -398,7 +398,9 @@ module DoseRule =
                 Indication = r.Indication
                 Generic = r.Generic
                 Shape = r.Shape
-                Brand = r.Brand
+                Brand =
+                    if r.Brand |> String.isNullOrWhiteSpace then None
+                    else r.Brand |> Some
                 GPKs = r.GPKs
                 Route = r.Route
                 ScheduleText = r.ScheduleText

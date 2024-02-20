@@ -243,7 +243,7 @@ module Types =
             /// The pharmacological Shape of the DoseRule
             Shape : string
             /// The brand of the doserule
-            Brand : string
+            Brand : string option
             /// Specific GPKs
             GPKs : string array
             /// The Route of administration of the DoseRule
@@ -292,13 +292,13 @@ module Types =
             /// The Generic of the SolutionRule
             Generic : string
             /// The Shape of the SolutionRule
-            Shape : string
+            Shape : string option
             /// The Route of the SolutionRule
             Route : string
             /// The DoseType of the SolutionRule
             DoseType : DoseType
             /// The Department of the SolutionRule
-            Department : string
+            Department : string option
             /// The Venous Access Location of the SolutionRule
             Location : VenousAccess
             /// The MinMax Age range of the SolutionRule

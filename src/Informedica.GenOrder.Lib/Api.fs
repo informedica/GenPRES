@@ -453,9 +453,7 @@ module Api =
             generic
             |> Option.map ((=) sr.Generic)
             |> Option.defaultValue true &&
-            shape
-            |> Option.map ((=) sr.Shape)
-            |> Option.defaultValue true &&
+            shape = sr.Shape &&
             route
             |> Option.map ((=) sr.Route)
             |> Option.defaultValue true

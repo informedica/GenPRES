@@ -210,18 +210,18 @@ Product.get ()
 |> Array.filter (fun p -> p.Generic |> String.equalsCapInsens "nicu mix")
 
 
-Patient.newBorn
+Patient.child
 |> fun p ->
     { p with
         VenousAccess = [VenousAccess.CVL]
         Department = Some "ICK"
         Age =
             Units.Time.year
-            |> ValueUnit.singleWithValue 0N
+            |> ValueUnit.singleWithValue 8N
             |> Some
         Weight =
           Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (3N)
+          |> ValueUnit.singleWithValue (30N)
           |> Some
     }
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }

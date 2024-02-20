@@ -82,9 +82,13 @@ module SolutionRule =
                 let du = r.Unit |> Units.fromString
                 {
                     Generic = r.Generic
-                    Shape = r.Shape
+                    Shape =
+                        if r.Shape |> String.isNullOrWhiteSpace then None
+                        else r.Shape |> Some
                     Route = r.Route
-                    Department = r.Department
+                    Department =
+                        if r.Department |> String.isNullOrWhiteSpace then None
+                        else r.Department |> Some
                     Location =
                         if r.CVL = "x" then CVL
                         else
@@ -155,7 +159,11 @@ module SolutionRule =
                         Product.get ()
                         |> Array.filter (fun p ->
                             p.Generic = sr.Generic &&
-                            p.Shape = sr.Shape
+                            sr.Shape
+                            |> Option.map (fun s ->
+                                s |> String.equalsCapInsens p.Shape
+                            )
+                            |> Option.defaultValue true
                         )
 
                 }
@@ -182,8 +190,7 @@ module SolutionRule =
         let eqs a (b : string) =
             a
             |> Option.map (fun x ->
-                b |> String.isNullOrWhiteSpace ||
-                x = b
+                x |> String.equalsCapInsens b
             )
             |> Option.defaultValue true
 
@@ -191,9 +198,9 @@ module SolutionRule =
             fun (sr : SolutionRule) -> sr.Generic |> eqs filter.Generic
             fun (sr : SolutionRule) ->
                 PatientCategory.checkAgeWeightMinMax filter.Patient.Age filter.Patient.Weight sr.Age sr.Weight
-            fun (sr : SolutionRule) -> sr.Shape |> eqs filter.Shape
+            fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
-            fun (sr : SolutionRule) -> sr.Department |> eqs filter.Patient.Department
+            fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Patient.Department) |> Option.defaultValue true
             fun (sr : SolutionRule) ->
                 match filter.DoseType, sr.DoseType with
                 | AnyDoseType, _
@@ -222,8 +229,11 @@ module SolutionRule =
     /// Get all the distinct Generics from the given SolutionRules.
     let generics = getMember _.Generic
 
-    let shapes = getMember _.Shape
+    let shapes =
+        getMember _.Shape
+        >> Array.choose id
 
+    
     let routes = getMember _.Route
 
 
@@ -371,6 +381,7 @@ module SolutionRule =
                     else
                         (r, r.rules |> Array.groupBy _.Department)
                         ||> Array.fold (fun acc (dep, rs) ->
+                            let dep = dep |> Option.defaultValue ""
                             {| acc with
                                 md = acc.md + (department_md dep)
                                 rules = rs
