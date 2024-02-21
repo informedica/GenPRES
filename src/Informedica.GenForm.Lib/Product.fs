@@ -573,11 +573,15 @@ module Product =
                                 Concentration =
                                     s.Concentration
                                     |> Option.map (fun q ->
+                                        let v =
+                                            r.ExpansionVolume
+                                            |> Option.map (fun v -> v + r.DiluentVolume)
+                                            |> Option.defaultValue r.DiluentVolume
                                         // replace the old shapeunit with the new one
                                         let one =
                                             Units.Volume.milliLiter
                                             |> ValueUnit.singleWithValue 1N
-                                        (one * q) / r.DiluentVolume
+                                        (one * q) / v
                                     )
                             }
                         )

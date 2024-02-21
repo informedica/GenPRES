@@ -233,7 +233,7 @@ module SolutionRule =
         getMember _.Shape
         >> Array.choose id
 
-    
+
     let routes = getMember _.Route
 
 
