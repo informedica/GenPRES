@@ -181,13 +181,31 @@ module Prescribe =
             |})
 
         let autoComplete isLoading lbl selected dispatch xs =
-            Components.Autocomplete.View({|
-                updateSelected = dispatch
-                label = lbl
-                selected = selected
-                values = xs
-                isLoading = isLoading
-            |})
+            match lbl with
+            | _ when lbl = "ind" ->
+                Components.Autocomplete.Indications({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
+            | _ when lbl = "med" ->
+                Components.Autocomplete.Medication({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
+            | _ -> 
+                Components.Autocomplete.Routes({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
 
         let progress =
             match props.scenarios with
@@ -348,7 +366,7 @@ module Prescribe =
                                 |> select isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
                             else
                                 items
-                                |> autoComplete isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
+                                |> autoComplete isLoading "ind" sel (IndicationChange >> dispatch)
                     }
                     <Stack direction={stackDirection} spacing={3} >
                         {
@@ -362,7 +380,7 @@ module Prescribe =
                                     |> select isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
                                 else
                                     items
-                                    |> autoComplete isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
+                                    |> autoComplete isLoading "med" sel (MedicationChange >> dispatch)
 
                         }
                         {
@@ -376,7 +394,7 @@ module Prescribe =
                                     |> select isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
                                 else
                                     items
-                                    |> autoComplete isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                                    |> autoComplete isLoading "rts" sel (RouteChange >> dispatch)
                                 
                         }
 
