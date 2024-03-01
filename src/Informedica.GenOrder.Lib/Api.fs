@@ -451,9 +451,15 @@ module Api =
         SolutionRule.get ()
         |> Array.filter (fun sr ->
             generic
-            |> Option.map ((=) sr.Generic)
+            |> Option.map (String.equalsCapInsens sr.Generic)
             |> Option.defaultValue true &&
-            shape = sr.Shape &&
+            sr.Shape
+            |> Option.map (fun s ->
+                if shape |> Option.isNone then true
+                else
+                    shape.Value
+                    |> String.equalsCapInsens s
+            ) |> Option.defaultValue true &&
             route
             |> Option.map ((=) sr.Route)
             |> Option.defaultValue true

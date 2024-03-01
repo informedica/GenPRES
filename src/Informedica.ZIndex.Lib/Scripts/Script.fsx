@@ -376,7 +376,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "bictegravir/emtricitabine/tenofovir alafenamide" "" ""
+GenPresProduct.filter "zinkacetaat" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
@@ -411,13 +411,13 @@ GenPresProduct.filter "" "drank" ""
 )
 
 
-GenPresProduct.findByBrand "Qvar"
+GenPresProduct.findByBrand "Wilzin"
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
     gp.Id, gp.Name, gp.Shape, gp.Route,
     subst[0].SubstanceName,
-    $"{subst[0].SubstanceQuantity} {subst[0].SubstanceUnit}"
+    $"{subst[0].GenericQuantity} {subst[0].GenericUnit}"
 )
 |> Array.iter (fun (id, lbl, shp, rte, sn, sq) ->
     let rte = rte |> String.concat ", "

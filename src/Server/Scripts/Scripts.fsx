@@ -20,10 +20,10 @@ Shared.ScenarioResult.empty
         AgeInDays =  Some (365.)
         WeightInKg =  Some 10.
         HeightInCm =  Some 80.
-        Indication = Some "Pijn, acuut/post-operatief"
-        Medication = Some "paracetamol"
-        Shape = Some "drank"
-        Route = Some "oraal"
+//        Indication = Some "Pijn, acuut/post-operatief"
+//        Medication = Some "paracetamol"
+//        Shape = Some "drank"
+//        Route = Some "oraal"
     }
 |> serverApi.getScenarioResult
 |> Async.RunSynchronously //|> ignore

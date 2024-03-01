@@ -204,31 +204,32 @@ let pat =
 Product.get ()
 |> Product.filter
     { Filter.filter with
-        Generic = Some "NICU mix"
+        Generic = Some "factor VIII"
         Route = Some "iv"
     }
 |> Array.filter (fun p -> p.Generic |> String.equalsCapInsens "nicu mix")
 
 
-Patient.child
+Patient.teenager
 |> fun p ->
     { p with
         VenousAccess = [VenousAccess.CVL]
         Department = Some "ICK"
         Age =
             Units.Time.year
-            |> ValueUnit.singleWithValue 8N
+            |> ValueUnit.singleWithValue 12N
             |> Some
         Weight =
           Units.Weight.kiloGram
           |> ValueUnit.singleWithValue (30N)
           |> Some
     }
+|> Api.scenarioResult |> Api.filter
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-//|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
-|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+//|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.Dto.toDto
@@ -251,7 +252,7 @@ Patient.child
     |> printfn "%A"
 
     ord
-    |> Order.Print.printOrderToMd true [| "epoprostenol" |]
+    |> Order.Print.printOrderToMd true [| |]
     //|> String.concat "\n"
     |> printfn "%A"
     ord
