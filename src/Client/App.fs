@@ -674,9 +674,9 @@ module private Elmish =
                 xs |> calc a w |> Resolved
         )
 
+
 open Elmish
 open Shared
-
 
 
 [<Literal>]

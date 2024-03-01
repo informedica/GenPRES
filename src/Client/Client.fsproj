@@ -18,6 +18,7 @@
     <Compile Include="./Components/Router.fs" />
     <Compile Include="./Components/Context.fs" />
     <Compile Include="./Components/Localization.fs" />
+    <Compile Include="./Components/Autocomplete.fs" />
     <Compile Include="./Components/ElmishSelect.fs" />
     <Compile Include="./Components/StateSelect.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />

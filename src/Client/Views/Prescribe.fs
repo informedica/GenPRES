@@ -81,7 +81,7 @@ module Prescribe =
             | CloseDialog -> { state with Dialog = [] }, Cmd.none
 
             | IndicationChange s ->
-                printfn $"indication change {s}"
+                printfn $"indication change {s}, is none: {s.IsNone}"
                 match scenarios with
                 | Resolved sc ->
                     if s |> Option.isNone then
@@ -150,6 +150,7 @@ module Prescribe =
 
         let context = React.useContext(Global.context)
         let lang = context.Localization
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
         let getTerm defVal term =
             props.localizationTerms
@@ -172,6 +173,15 @@ module Prescribe =
 
         let select isLoading lbl selected dispatch xs =
             Components.SimpleSelect.View({|
+                updateSelected = dispatch
+                label = lbl
+                selected = selected
+                values = xs
+                isLoading = isLoading
+            |})
+
+        let autoComplete isLoading lbl selected dispatch xs =
+            Components.Autocomplete.View({|
                 updateSelected = dispatch
                 label = lbl
                 selected = selected
@@ -323,51 +333,73 @@ module Prescribe =
             import Stack from '@mui/material/Stack';
 
             <React.Fragment>
-                <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                    {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
-                </Typography>
-                <Stack direction={stackDirection} spacing={3} >
-
+                <Stack direction="column" spacing={3}>
+                    <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
+                        {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
+                    </Typography>
                     {
                         match props.scenarios with
                         | Resolved scrs -> false, scrs.Indication, scrs.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
+                            if isMobile then
+                                items
+                                |> Array.map (fun s -> s, s)
+                                |> select isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
+                            else
+                                items
+                                |> autoComplete isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
                     }
-                    {
-                        match props.scenarios with
-                        | Resolved scrs -> false, scrs.Medication, scrs.Medications
-                        | _ -> true, None, [||]
-                        |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
-                    }
-                    {
-                        match props.scenarios with
-                        | Resolved scrs -> false, scrs.Route, scrs.Routes
-                        | _ -> true, None, [||]
-                        |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
-                    }
-                </Stack>
-                <Stack direction="column" sx={ {| mt = 1 |} } >
-                    {
-                        match props.scenarios with
-                        | Resolved sc ->
-                            sc.Medication,
-                            sc.Scenarios
-                        | _ -> None, [||]
-                        |> fun (med, scs) ->
-                            scs
-                            |> Array.map (displayScenario med)
-                        |> unbox |> React.fragment
-                    }
+                    <Stack direction={stackDirection} spacing={3} >
+                        {
+                            match props.scenarios with
+                            | Resolved scrs -> false, scrs.Medication, scrs.Medications
+                            | _ -> true, None, [||]
+                            |> fun (isLoading, sel, items) ->
+                                if isMobile then
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
+                                else
+                                    items
+                                    |> autoComplete isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
+
+                        }
+                        {
+                            match props.scenarios with
+                            | Resolved scrs -> false, scrs.Route, scrs.Routes
+                            | _ -> true, None, [||]
+                            |> fun (isLoading, sel, items) ->
+                                if isMobile then
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                                else
+                                    items
+                                    |> autoComplete isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                                
+                        }
+
+                        <Box sx={ {| mt=2 |} }>
+                            <Button variant="text" onClick={fun _ -> None |> RouteChange |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
+                                {Terms.Delete |> getTerm "Verwijder"}
+                            </Button>
+                        </Box>
+
+                    </Stack>
+                    <Stack direction="column" >
+                        {
+                            match props.scenarios with
+                            | Resolved sc ->
+                                sc.Medication,
+                                sc.Scenarios
+                            | _ -> None, [||]
+                            |> fun (med, scs) ->
+                                scs
+                                |> Array.map (displayScenario med)
+                            |> unbox |> React.fragment
+                        }
+                    </Stack>
                 </Stack>
             </React.Fragment>
             """

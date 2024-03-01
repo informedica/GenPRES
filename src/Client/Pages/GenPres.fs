@@ -156,6 +156,7 @@ module GenPres =
                 </Typography>
             </React.Fragment>
             """
+
         let modalStyle =
             {|
                 position="absolute"
