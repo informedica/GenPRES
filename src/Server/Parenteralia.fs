@@ -18,11 +18,27 @@ let get (par : Parenteralia) : Result<Parenteralia, string> =
             par.Shape
             par.Route
 
+    let gens = srs |> SolutionRule.generics
+    let shps = srs |> SolutionRule.shapes
+    let rtes = srs |> SolutionRule.routes
 
     { par with
-        Generics = srs |> SolutionRule.generics
-        Shapes = srs |> SolutionRule.shapes
-        Routes = srs |> SolutionRule.routes
+        Generics = gens
+        Shapes = shps
+        Routes = rtes
+        Generic =
+            if gens |> Array.length = 1 then Some gens[0]
+            else
+                par.Generic
+        Shape =
+            if shps |> Array.length = 1 then Some shps[0]
+            else
+                par.Shape
+        Route =
+            if rtes |> Array.length = 1 then Some rtes[0]
+            else
+                par.Route
+
         Markdown =
             if par.Generic |> Option.isNone then ""
             else

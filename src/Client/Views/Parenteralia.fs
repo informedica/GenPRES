@@ -179,7 +179,7 @@ module Parenteralia =
                 <Stack direction={stackDirection} spacing={3} >
                     {
                         match props.parenteralia with
-                        | Resolved form -> false, form.Generic, form.Generics
+                        | Resolved par -> false, par.Generic, par.Generics
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
                             items
