@@ -202,10 +202,13 @@ module SolutionRule =
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
             fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Patient.Department) |> Option.defaultValue true
             fun (sr : SolutionRule) ->
-                match filter.DoseType, sr.DoseType with
-                | AnyDoseType, _
-                | _, AnyDoseType -> true
-                | _ -> filter.DoseType |> DoseType.eqs sr.DoseType
+                    match filter.DoseType, sr.DoseType with
+                    | None, _
+                    | _, AnyDoseType -> true
+                    | _ ->
+                        sr.DoseType
+                        |> DoseType.toString
+                        |> eqs filter.DoseType
             fun (sr : SolutionRule) -> filter.Patient.Weight |> Utils.MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with

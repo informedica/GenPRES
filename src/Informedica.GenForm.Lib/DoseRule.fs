@@ -837,9 +837,12 @@ module DoseRule =
                     fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
                 fun (dr : DoseRule) ->
                     match filter.DoseType, dr.DoseType with
-                    | AnyDoseType, _
+                    | None, _
                     | _, AnyDoseType -> true
-                    | _ -> filter.DoseType |> DoseType.eqs dr.DoseType
+                    | _ ->
+                        dr.DoseType
+                        |> DoseType.toString
+                        |> eqs filter.DoseType
             |]
             |> Array.fold (fun (acc : DoseRule[]) pred ->
                 acc |> Array.filter pred
@@ -869,6 +872,13 @@ module DoseRule =
 
     /// Extract all the routes from the DoseRules.
     let routes = getMember _.Route
+
+
+    let doseTypes =
+        getMember (fun dr ->
+            dr.DoseType
+            |> DoseType.toString
+        )
 
 
     /// Extract all the departments from the DoseRules.

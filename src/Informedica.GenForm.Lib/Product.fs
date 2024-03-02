@@ -84,12 +84,6 @@ module Product =
                     {|
                         GPK = get "GPK"
                         Route = get "Route"
-                        Location =
-                            match get "CVL", get "PVL" with
-                            | s1, _ when s1 |> String.isNullOrWhiteSpace |> not -> CVL
-                            | _, s2 when s2 |> String.isNullOrWhiteSpace |> not -> PVL
-                            | _ -> AnyAccess
-                        DoseType = DoseType.fromString (get "DoseType") ""
                         Dep = get "Dep"
                         DiluentVol = get "DiluentVol" |> toBrOpt
                         ExpansionVol = get "ExpansionVol" |> toBrOpt
@@ -118,22 +112,7 @@ module Product =
 
             [|
                 fun (r : Reconstitution) -> r.Route |> Mapping.eqsRoute filter.Route
-                fun (r : Reconstitution) ->
-                    if filter.Patient.VenousAccess = [AnyAccess] ||
-                       filter.Patient.VenousAccess |> List.isEmpty then true
-                    else
-                        match filter.DoseType with
-                        | AnyDoseType -> true
-                        | _ -> filter.DoseType |> DoseType.eqs r.DoseType
                 fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
-                fun (r : Reconstitution) ->
-                    match r.Location, filter.Patient.VenousAccess with
-                    | AnyAccess, _
-                    | _, []
-                    | _, [ AnyAccess ] -> true
-                    | _ ->
-                        filter.Patient.VenousAccess
-                        |> List.exists ((=) r.Location)
             |]
             |> Array.fold (fun (acc : Reconstitution[]) pred ->
                 acc |> Array.filter pred
@@ -378,9 +357,7 @@ module Product =
                     |> Array.map (fun r ->
                         {
                             Route = r.Route
-                            DoseType = r.DoseType
                             Department = r.Dep
-                            Location = r.Location
                             DiluentVolume =
                                 r.DiluentVol.Value
                                 |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -557,9 +534,7 @@ module Product =
             prod.Reconstitution
             |> Array.filter (fun r ->
                 (rte |> String.isNullOrWhiteSpace || r.Route |> Mapping.eqsRoute (Some rte)) &&
-                (r.DoseType = AnyDoseType || r.DoseType = dtp) &&
-                (dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true) &&
-                (loc |> List.isEmpty || loc |> List.exists ((=) r.Location) || r.Location = AnyAccess)
+                (dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true)
             )
             |> Array.map (fun r ->
                 { prod with

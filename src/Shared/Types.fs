@@ -321,15 +321,18 @@ module Types =
             Indications: string []
             Medications: string []
             Routes: string []
+            DoseTypes : string []
             Scenarios: Scenario []
             Indication: string option
             Medication: string option
             Shape : string option
             Route: string option
+            DoseType : string option
             AgeInDays : float option
             GestAgeInDays : int option
             WeightInKg: float option
             HeightInCm: float option
+            Gender : string option
             CVL : bool
             Department : string option
             DemoVersion : bool

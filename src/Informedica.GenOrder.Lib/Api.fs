@@ -75,6 +75,9 @@ module Api =
     let filterShapes = PrescriptionRule.filter >> PrescriptionRule.shapes
 
 
+    let filterDoseTypes = PrescriptionRule.filter >> PrescriptionRule.doseTypes
+
+
     /// <summary>
     /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
     /// </summary>
@@ -228,10 +231,12 @@ module Api =
             Generics = rules |> PrescriptionRule.generics
             Routes = rules |> PrescriptionRule.routes
             Shapes= rules |> PrescriptionRule.shapes
+            DoseTypes = rules |> PrescriptionRule.doseTypes
             Indication = None
             Generic = None
             Route = None
             Shape = None
+            DoseType = None
             Patient = pat
             Scenarios = [||]
         }
@@ -261,13 +266,17 @@ module Api =
             let shp =
                 if sc.Shape.IsSome then sc.Shape
                 else sc.Shapes |> Array.someIfOne
+            let dst =
+                if sc.DoseType.IsSome then sc.DoseType
+                else sc.DoseTypes |> Array.someIfOne
 
             let filter =
-                { Filter.filter with
+                {
                     Indication = ind
                     Generic = gen
                     Route = rte
                     Shape = shp
+                    DoseType = dst
                     Patient = {
                         Department = d
                         Age = sc.Patient.Age
@@ -285,30 +294,35 @@ module Api =
             let gens = filter |> filterGenerics
             let rtes = filter |> filterRoutes
             let shps = filter |> filterShapes
+            let dsts = filter |> filterDoseTypes
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
             let rte = rtes |> Array.someIfOne
             let shp = shps |> Array.someIfOne
+            let dst = dsts |> Array.someIfOne
 
             { sc with
                 Indications = inds
                 Generics = gens
                 Routes = rtes
                 Shapes = shps
+                DoseTypes = dsts
                 Indication = ind
                 Generic = gen
                 Route = rte
                 Shape = shp
+                DoseType = dst
                 Scenarios =
-                    match ind, gen, rte, shp with
-                    | Some _, Some _,    Some _, _
-                    | Some _, Some _, _, Some _ ->
+                    match ind, gen, rte, shp, dst with
+                    | Some _, Some _,    Some _, _, Some _
+                    | Some _, Some _, _, Some _, Some _ ->
                         { filter with
                             Indication = ind
                             Generic = gen
                             Route = rte
                             Shape = shp
+                            DoseType = dst
                         }
                         |> PrescriptionRule.filter
                         |> Array.collect (fun pr ->
@@ -387,6 +401,7 @@ module Api =
                 Generics = [||]
                 Routes = [||]
                 Shapes = [||]
+                DoseTypes = [||]
                 Scenarios = [||]
             }
 

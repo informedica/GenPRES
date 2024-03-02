@@ -124,12 +124,8 @@ module Types =
         {
             /// The route for the reconstitution
             Route : string
-            /// The DoseType for the reconstitution
-            DoseType: DoseType
             /// The department for the reconstitution
             Department : string
-            /// The location for the reconstitution
-            Location : VenousAccess
             /// The volume of the reconstitution
             DiluentVolume : ValueUnit
             /// An optional expansion volume of the reconstitution
@@ -335,7 +331,7 @@ module Types =
             /// The Route to filter on
             Route : string option
             /// The DoseType to filter on
-            DoseType : DoseType
+            DoseType : string option
             /// The patient to filter on
             Patient : Patient
         }

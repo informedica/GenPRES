@@ -298,6 +298,11 @@ Scenarios: {sc.Scenarios |> Array.length}
                 sc.HeightInCm
                 |> Option.bind BigRational.fromFloat
                 |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+            Gender =
+                match sc.Gender with
+                | Some s when s |> String.equalsCapInsens "man" -> Male
+                | Some s when s |> String.equalsCapInsens "vrouw" -> Female
+                | _ -> AnyGender
             VenousAccess = if sc.CVL then [VenousAccess.CVL] else []
         }
         |> Patient.calcPMAge
@@ -326,10 +331,16 @@ Scenarios: {sc.Scenarios |> Array.length}
                         [| sc.Route |> Option.defaultValue "" |]
                     else
                         r.Routes
+                DoseTypes =
+                    if sc.DoseType |> Option.isSome then
+                        [| sc.DoseType |> Option.defaultValue "" |]
+                    else
+                        r.DoseTypes
                 Indication = sc.Indication
                 Generic = sc.Medication
                 Shape = sc.Shape
                 Route = sc.Route
+                DoseType = sc.DoseType
             }
             |> Api.filter
 
@@ -338,10 +349,12 @@ Scenarios: {sc.Scenarios |> Array.length}
                 Indications = newSc.Indications
                 Medications = newSc.Generics
                 Routes = newSc.Routes
+                DoseTypes = newSc.DoseTypes
                 Indication = newSc.Indication
                 Medication = newSc.Generic
                 Shape = newSc.Shape
                 Route = newSc.Route
+                DoseType = newSc.DoseType
                 Scenarios =
                     newSc.Scenarios
                     |> Array.map (fun sc ->

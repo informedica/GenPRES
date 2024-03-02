@@ -59,5 +59,6 @@ module DoseType =
                 | Discontinuous _ -> "onderhoud"
                 | Continuous _ -> "continu"
                 | AnyDoseType -> ""
+
         | AnyDoseType -> ""
 

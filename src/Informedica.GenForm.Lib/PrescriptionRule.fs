@@ -30,12 +30,11 @@ module PrescriptionRule =
                             Generic = dr.Generic |> Some
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
-                            DoseType = dr.DoseType
+                            DoseType = dr.DoseType |> DoseType.toString |> Some
                         }
             }
         )
         |> Array.filter (fun pr ->
-//            pr.DoseRule.Products |> Array.isEmpty |> not  &&
             pr.DoseRule.DoseType <> DoseType.AnyDoseType
         )
         // recalculate adjusted dose limits
@@ -248,6 +247,7 @@ module PrescriptionRule =
     /// Get all routes of an array of PrescriptionRules.
     let routes = getDoseRules >> DoseRule.routes
 
+    let doseTypes = getDoseRules >> DoseRule.doseTypes
 
     /// Get all departments of an array of PrescriptionRules.
     let departments = getDoseRules >> DoseRule.departments

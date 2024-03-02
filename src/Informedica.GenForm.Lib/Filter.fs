@@ -12,7 +12,7 @@ module Filter =
             Generic = None
             Shape = None
             Route = None
-            DoseType = AnyDoseType
+            DoseType = None
             Patient = Patient.patient
         }
 

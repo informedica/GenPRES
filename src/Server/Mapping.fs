@@ -35,6 +35,12 @@ let mapPatient
             sc.HeightInCm
             |> Option.bind BigRational.fromFloat
             |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+        Gender =
+            match sc.Gender with
+            | Some s when s |> String.equalsCapInsens "man" -> Male
+            | Some s when s |> String.equalsCapInsens "vrouw" -> Female
+            | _ -> AnyGender
+
         VenousAccess = if sc.CVL then [VenousAccess.CVL] else []
     }
     |> Patient.calcPMAge

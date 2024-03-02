@@ -358,6 +358,7 @@ module Types =
                 Routes: string []
                 /// the list of shapes to select from
                 Shapes: string []
+                DoseTypes : string []
                 /// the selected indication
                 Indication: string option
                 /// the selected generic
@@ -367,6 +368,7 @@ module Types =
                 /// the selected shape
                 Shape: string option
                 /// the patient
+                DoseType : string option
                 Patient: Patient
                 /// the list of scenarios
                 Scenarios: Scenario []

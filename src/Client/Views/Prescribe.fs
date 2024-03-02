@@ -26,6 +26,7 @@ module Prescribe =
                 Indication: string option
                 Medication: string option
                 Route: string option
+                DoseType : string option
             }
 
 
@@ -35,6 +36,8 @@ module Prescribe =
             | IndicationChange of string option
             | MedicationChange of string option
             | RouteChange of string option
+            | DoseTypeChange of string option
+            | Clear
 
 
         let empty =
@@ -43,6 +46,7 @@ module Prescribe =
                 Indication = None
                 Medication = None
                 Route = None
+                DoseType = None
             }
 
 
@@ -55,6 +59,7 @@ module Prescribe =
                         Indication = sc.Indication
                         Medication = sc.Medication
                         Route = sc.Route
+                        DoseType = sc.DoseType
                     }
                 | _ -> empty
             state, Cmd.none
@@ -75,13 +80,11 @@ module Prescribe =
 
             match msg with
             | RowClick (i, xs) ->
-                Logging.log "rowclick:" i
                 { state with Dialog = xs }, Cmd.none
 
             | CloseDialog -> { state with Dialog = [] }, Cmd.none
 
             | IndicationChange s ->
-                printfn $"indication change {s}, is none: {s.IsNone}"
                 match scenarios with
                 | Resolved sc ->
                     if s |> Option.isNone then
@@ -103,13 +106,9 @@ module Prescribe =
                 | Resolved sc ->
                     if s |> Option.isNone then
                         { sc with
-                            Indications = 
-                                ScenarioResult.empty.Indications
-                            Indication = None
                             Medications =
                                 ScenarioResult.empty.Medications
                             Medication = None
-                            Shape = None                
                             Scenarios = [||]
                         }
                         
@@ -123,13 +122,51 @@ module Prescribe =
             | RouteChange s ->
                 match scenarios with
                 | Resolved sc ->
-                    if s |> Option.isNone then ScenarioResult.empty
+                    if s |> Option.isNone then 
+                        { sc with
+                            Routes =
+                                ScenarioResult.empty.Routes
+                            Route = None
+                            Scenarios = [||]
+                        }
                     else
                         { sc with Route = s }
                     |> updateScenario
                 | _ -> ()
 
                 { state with Route = s }, Cmd.none
+
+            | DoseTypeChange s ->
+                match scenarios with
+                | Resolved sc ->
+                    if s |> Option.isNone then 
+                        { sc with
+                            DoseTypes =
+                                ScenarioResult.empty.DoseTypes
+                            DoseType = None
+                            Scenarios = [||]
+                        }
+                    else
+                        { sc with DoseType = s }
+                    |> updateScenario
+                | _ -> ()
+
+                { state with DoseType = s }, Cmd.none
+
+            | Clear ->
+                match scenarios with
+                | Resolved _ ->
+                    ScenarioResult.empty |> updateScenario
+                | _ -> ()
+
+                { state with 
+                    Indication = None
+                    Medication = None
+                    Route = None
+                    DoseType =  None
+
+                }, Cmd.none
+
 
 
     open Elmish
@@ -198,7 +235,7 @@ module Prescribe =
                     values = xs
                     isLoading = isLoading
                 |})
-            | _ -> 
+            | _ when lbl = "rts" -> 
                 Components.Autocomplete.Routes({|
                     updateSelected = dispatch
                     label = lbl
@@ -206,6 +243,17 @@ module Prescribe =
                     values = xs
                     isLoading = isLoading
                 |})
+            | _ when lbl = "dts" -> 
+                Components.Autocomplete.DoseTypes({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
+            | _ -> 
+                $"cannot create autocomplete from {lbl}"
+                |> failwith 
 
         let progress =
             match props.scenarios with
@@ -397,9 +445,26 @@ module Prescribe =
                                     |> autoComplete isLoading "rts" sel (RouteChange >> dispatch)
                                 
                         }
+                        {
+                            match props.scenarios with
+                            | Resolved scrs when scrs.Indication.IsSome &&
+                                                 scrs.Medication.IsSome &&
+                                                 scrs.Route.IsSome &&
+                                                 scrs.DoseTypes |> Array.length > 1 -> 
+                                (false, scrs.DoseType, scrs.DoseTypes)
+                                |> fun (isLoading, sel, items) ->
+                                    if isMobile then
+                                        items
+                                        |> Array.map (fun s -> s, s)
+                                        |> select isLoading "Doseer types" sel (DoseTypeChange >> dispatch)
+                                    else
+                                        items
+                                        |> autoComplete isLoading "dts" sel (DoseTypeChange >> dispatch)                                
+                            | _ -> JSX.jsx $"<></>"
+                        }
 
                         <Box sx={ {| mt=2 |} }>
-                            <Button variant="text" onClick={fun _ -> None |> RouteChange |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
+                            <Button variant="text" onClick={fun _ -> Clear |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
                                 {Terms.Delete |> getTerm "Verwijder"}
                             </Button>
                         </Box>
