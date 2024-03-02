@@ -132,6 +132,7 @@ module Formulary =
 
         let context = React.useContext(Global.context)
         let lang = context.Localization
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
         let getTerm defVal term = 
             props.localizationTerms
@@ -158,6 +159,35 @@ module Formulary =
                 values = xs
                 isLoading = isLoading
             |})
+
+
+        let autoComplete isLoading lbl selected dispatch xs =
+            match lbl with
+            | _ when lbl = "ind" ->
+                Components.Autocomplete.Indications({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
+            | _ when lbl = "med" ->
+                Components.Autocomplete.Medication({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
+            | _ -> 
+                Components.Autocomplete.Routes({|
+                    updateSelected = dispatch
+                    label = lbl
+                    selected = selected
+                    values = xs
+                    isLoading = isLoading
+                |})
+
 
         let progress =
             match props.formulary with
@@ -193,27 +223,40 @@ module Formulary =
                         | Resolved form -> false, form.Indication, form.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Indicaties") state.Indication (IndicationChange >> dispatch)
+                            if isMobile then
+                                items
+                                |> Array.map (fun s -> s, s)
+                                |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Indicaties") state.Indication (IndicationChange >> dispatch)
+                            else
+                                items
+                                |> autoComplete isLoading "ind" sel (IndicationChange >> dispatch)
+                            
                     }
                     {
                         match props.formulary with
                         | Resolved form -> false, form.Generic, form.Generics
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
+                            if isMobile then
+                                items
+                                |> Array.map (fun s -> s, s)
+                                |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
+                            else
+                                items
+                                |> autoComplete isLoading "med" sel (GenericChange >> dispatch)
                     }
                     {
                         match props.formulary with
                         | Resolved form -> false, form.Route, form.Routes
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                            if isMobile then
+                                items
+                                |> Array.map (fun s -> s, s)
+                                |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                            else
+                                items
+                                |> autoComplete isLoading "rts" sel (RouteChange >> dispatch)
                     }
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
