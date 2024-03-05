@@ -32,6 +32,18 @@ module PrescriptionRule =
                             Route = dr.Route |> Some
                             DoseType = dr.DoseType |> DoseType.toString |> Some
                         }
+                    |> Array.map (fun sr ->
+                        { sr with
+                            Products =
+                                sr.Products
+                                |> Array.filter (fun sr_p ->
+                                    dr.Products
+                                    |> Array.exists (fun dr_p ->
+                                        sr_p.GPK = dr_p.GPK
+                                    )
+                                )
+                        }
+                    )
             }
         )
         |> Array.filter (fun pr ->

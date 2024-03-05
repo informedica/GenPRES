@@ -209,6 +209,25 @@ Product.get ()
     }
 |> Array.filter (fun p -> p.Generic |> String.equalsCapInsens "nicu mix")
 
+let pr =
+    Patient.teenager
+    |> fun p ->
+        { p with
+            VenousAccess = [VenousAccess.CVL]
+            Department = Some "ICK"
+            Age =
+                Units.Time.year
+                |> ValueUnit.singleWithValue 12N
+                |> Some
+            Weight =
+              Units.Weight.kiloGram
+              |> ValueUnit.singleWithValue (30N)
+              |> Some
+        }
+    //|> Api.scenarioResult |> Api.filter
+    //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
+    |> PrescriptionRule.get
+    |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 
 Patient.teenager
 |> fun p ->
