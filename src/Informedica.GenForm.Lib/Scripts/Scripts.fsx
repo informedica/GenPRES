@@ -36,6 +36,7 @@ open Informedica.GenForm.Lib
 { Filter.filter with
     Patient =
         { Filter.filter.Patient with
+            VenousAccess = [VenousAccess.CVL]
             Department = Some "ICK"
             Age =
                 1N
@@ -52,9 +53,9 @@ open Informedica.GenForm.Lib
     //Route = Some "oraal"
 }
 |> PrescriptionRule.filter
-|> Array.map _.DoseRule
-|> Array.take 1
-|> DoseRule.Print.toMarkdown
+|> Array.collect _.SolutionRules
+//|> Array.take 1
+|> SolutionRule.Print.toMarkdown ""
 
 
 let printAllDoseRules () =

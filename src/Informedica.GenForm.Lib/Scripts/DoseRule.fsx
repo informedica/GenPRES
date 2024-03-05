@@ -36,17 +36,6 @@ open Informedica.GenCore.Lib.Ranges
 open Utils
 
 
-open DoseRule
-
-
-
-Product.get ()
-|> fun xs -> printfn $"{xs |> Array.length}"; xs
-|> Array.filter (fun p -> p.Generic |> String.startsWithCapsInsens "chloorhexidine")
-
-
-let data = getData dataUrlId
-
 
 open Informedica.GenUnits.Lib
 

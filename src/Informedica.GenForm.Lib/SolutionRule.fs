@@ -163,7 +163,9 @@ module SolutionRule =
                             |> Option.map (fun s ->
                                 s |> String.equalsCapInsens p.Shape
                             )
-                            |> Option.defaultValue true
+                            |> Option.defaultValue true &&
+                            p.Routes
+                            |> Array.exists (Mapping.eqsRoute (Some sr.Route))
                         )
 
                 }
