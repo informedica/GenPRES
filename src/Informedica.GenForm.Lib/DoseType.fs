@@ -14,7 +14,7 @@ module DoseType =
         | Timed _
         | Discontinuous _ -> 3
         | Continuous _ -> 4
-        | AnyDoseType -> 100
+        | NoDoseType -> 100
 
 
     let eqs doseType1 doseType2 =
@@ -24,7 +24,7 @@ module DoseType =
         | Timed _, Timed _
         | Discontinuous _, Discontinuous _
         | Continuous _, Continuous _
-        | AnyDoseType, AnyDoseType -> true
+        | NoDoseType, NoDoseType -> true
         | _ -> false
 
 
@@ -39,7 +39,7 @@ module DoseType =
         | "timed" -> Timed |> withText
         | "discontinuous" -> Discontinuous |> withText
         | "continuous" -> Continuous |> withText
-        | _ -> AnyDoseType
+        | _ -> NoDoseType
 
 
     /// Get a string representation of a dose type.
@@ -58,7 +58,7 @@ module DoseType =
                 | Timed _
                 | Discontinuous _ -> "onderhoud"
                 | Continuous _ -> "continu"
-                | AnyDoseType -> ""
+                | NoDoseType -> ""
 
-        | AnyDoseType -> ""
+        | NoDoseType -> ""
 

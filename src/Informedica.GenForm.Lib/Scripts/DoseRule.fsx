@@ -14,11 +14,14 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 #load "../Utils.fs"
 #load "../Mapping.fs"
 #load "../VenousAccess.fs"
+#load "../Mapping.fs"
 #load "../Patient.fs"
+#load "../LimitTarget.fs"
 #load "../DoseType.fs"
 #load "../Product.fs"
 #load "../Filter.fs"
 #load "../DoseRule.fs"
+#load "../SolutionRule.fs"
 
 #time
 
@@ -44,43 +47,55 @@ Product.get ()
 
 let data = getData dataUrlId
 
-data
-|> Array.distinctBy (fun r ->
-    r.Brand,
-    r.Department,
-    r.Gender,
-    r.Generic,
-    r.Indication,
-    r.Route,
-    r.Shape,
-    r.Substance,
-    r.AdjustUnit,
-    r.DoseType,
-    r.DoseUnit,
-    r.Frequencies,
-    r.FreqUnit,
-    r.DurUnit,
-    r.IntervalUnit,
-    r.MaxAge,
-    r.MaxDur,
-    r.MaxInterval,
-    r.MaxQty,
-    r
+
+open Informedica.GenUnits.Lib
+
+let filter =
+    { Filter.filter with
+        Patient =
+            { Patient.patient with
+                VenousAccess = [VenousAccess.CVL]
+                Department = Some "ICK"
+                Age =
+                    Units.Time.year
+                    |> ValueUnit.singleWithValue 12N
+                    |> Some
+                Weight =
+                  Units.Weight.kiloGram
+                  |> ValueUnit.singleWithValue (30N)
+                  |> Some
+            }
+    }
+
+
+DoseRule.get ()
+|> Array.take 1
+|> DoseRule.filter filter
+|> Array.item 0
+|> fun dr ->
+    SolutionRule.get ()
+    |> SolutionRule.filter
+        { filter with
+            Generic = dr.Generic |> Some
+            Shape = dr.Shape |> Some
+            Route = dr.Route |> Some
+            DoseType = dr.DoseType |> DoseType.toString |> Some
+        }
+
+
+"kCal"
+|> Mapping.mapUnit
+
+Mapping.unitMapping
+
+let s = "IE" |> String.toLower |> String.trim
+Mapping.unitMapping
+|> Array.tryFind (fun r ->
+    r.Long |> String.equalsCapInsens s ||
+    r.Short |> String.equalsCapInsens s ||
+    r.MV |> String.equalsCapInsens s
 )
+|> function
+    | Some r -> $"{r.Short}[{r.Group}]" |> Units.fromString
+    | None -> None
 
-
-Web.getDataFromSheet dataUrlId "DoseRules"
-|> fun data ->
-    let getColumn =
-        data
-        |> Array.head
-        |> Csv.getStringColumn
-
-    data
-    |> Array.skip 1
-    |> fun xs -> printfn $"{xs |> Array.length}"; xs
-    |> Array.distinctBy (fun row ->
-        row |> Array.tail
-    )
-
-|> Array.length

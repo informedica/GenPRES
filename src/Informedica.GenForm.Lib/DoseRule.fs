@@ -838,7 +838,7 @@ module DoseRule =
                 fun (dr : DoseRule) ->
                     match filter.DoseType, dr.DoseType with
                     | None, _
-                    | _, AnyDoseType -> true
+                    | _, NoDoseType -> true
                     | _ ->
                         dr.DoseType
                         |> DoseType.toString

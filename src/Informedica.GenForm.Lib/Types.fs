@@ -62,7 +62,7 @@ module Types =
         | Timed of string
         /// A once per time
         | OnceTimed of string
-        | AnyDoseType
+        | NoDoseType
 
 
     /// A Substance type.

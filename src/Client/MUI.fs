@@ -272,6 +272,12 @@ module Icons =
         <LocalHospital />
     """
 
+    let PsychologyIcon = JSX.jsx $"""
+        import PsychologyIcon from '@mui/icons-material/Psychology';
+        <PsychologyIcon />
+    """
+
+
 
 type Color = {|
     ``50`` : string;

@@ -57,12 +57,12 @@ module Mapping =
     let mapUnit s =
         if s |> String.isNullOrWhiteSpace then None
         else
-            let s = s |> String.toLower |> String.trim
+            let s = s |> String.trim
             unitMapping
             |> Array.tryFind (fun r ->
-                r.Long = s ||
-                r.Short = s ||
-                r.MV = s
+                r.Long |> String.equalsCapInsens s ||
+                r.Short |> String.equalsCapInsens s ||
+                r.MV |> String.equalsCapInsens s
             )
             |> function
                 | Some r -> $"{r.Short}[{r.Group}]" |> Units.fromString

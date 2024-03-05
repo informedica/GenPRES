@@ -297,7 +297,7 @@ module DrugOrder =
                 | Once _ -> OnceOrder
                 | Discontinuous _ -> DiscontinuousOrder
                 | Timed _ -> TimedOrder
-                | AnyDoseType -> AnyOrder
+                | NoDoseType -> AnyOrder
             Dose = dose
             Adjust =
                 if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then

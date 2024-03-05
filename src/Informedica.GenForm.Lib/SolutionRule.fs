@@ -204,7 +204,7 @@ module SolutionRule =
             fun (sr : SolutionRule) ->
                     match filter.DoseType, sr.DoseType with
                     | None, _
-                    | _, AnyDoseType -> true
+                    | _, NoDoseType -> true
                     | _ ->
                         sr.DoseType
                         |> DoseType.toString

@@ -59,6 +59,7 @@ type Unit =
     | Weight of WeightUnit
     | Height of HeightUnit
     | BSA of BSAUnit
+    | Energy of EnergyUnit
 and CountUnit = Times of BigRational
 
 and MassUnit =
@@ -110,6 +111,10 @@ and HeightUnit =
 
 and BSAUnit = M2 of BigRational
 
+and EnergyUnit =
+    | Calorie of BigRational
+    | KiloCalorie of BigRational
+
 and Operator =
     | OpTimes
     | OpPer
@@ -138,6 +143,7 @@ module Group =
         | WeightGroup
         | HeightGroup
         | BSAGroup
+        | EnergyGroup
         | CombiGroup of (Group * Operator * Group)
 
 
@@ -1102,6 +1108,45 @@ module Units =
                     Synonyms = [ "m^2" ]
                 }
 
+                {
+                    Unit = Energy.calorie
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "cal"
+                            Dut = "cal"
+                            EngPlural = "calories"
+                            DutchPlural = "calorieen"
+                        }
+                    Name =
+                        {
+                            Eng = "calorie"
+                            Dut = "calorie"
+                            EngPlural = "calories"
+                            DutchPlural = "calorieen"
+                        }
+                    Synonyms = [ ]
+                }
+
+                {
+                    Unit = Energy.kiloCalorie
+                    Group = Group.NoGroup
+                    Abbreviation =
+                        {
+                            Eng = "kCal"
+                            Dut = "kCal"
+                            EngPlural = "kilocalories"
+                            DutchPlural = "kilocalorieen"
+                        }
+                    Name =
+                        {
+                            Eng = "kilocalorie"
+                            Dut = "kilocalorie"
+                            EngPlural = "kilocalories"
+                            DutchPlural = "kilocalorieen"
+                        }
+                    Synonyms = [ ]
+                }
             ]
             |> List.map (fun ud ->
                 { ud with
@@ -1337,6 +1382,21 @@ module Units =
         let m2 = 1N |> nM2
 
 
+    module Energy =
+
+        let toEnergy = Energy
+
+
+        let nCalorie n = n |> Calorie |> toEnergy
+
+        let calorie = 1N |> nCalorie
+
+        let nKiloCalorie n = n |> KiloCalorie |> toEnergy
+
+        let kiloCalorie = 1N |> nKiloCalorie
+
+
+
     /// <summary>
     /// Map a unit to a unit value and a unit
     /// </summary>
@@ -1403,6 +1463,10 @@ module Units =
         | BSA g ->
             match g with
             | M2 n -> (n, BSA.m2)
+        | Energy e ->
+            match e with
+            | Calorie n -> (n, Energy.calorie)
+            | KiloCalorie n -> (n, Energy.kiloCalorie)
         | CombiUnit (u1, op, u2) ->
             failwith
             <| $"Cannot map combined unit %A{(u1, op, u2) |> CombiUnit}"
@@ -1659,6 +1723,11 @@ module Units =
             | BSA g ->
                 match g with
                 | M2 n -> n |> f |> M2 |> BSA
+            | Energy e ->
+                match e with
+                | Calorie n -> n |> f |> Calorie
+                | KiloCalorie n -> n |> f |> KiloCalorie
+                |> Energy
             | CombiUnit (u1, op, u2) -> (app u1, op, app u2) |> CombiUnit
 
         app u
@@ -1737,6 +1806,10 @@ module Units =
             | BSA g ->
                 match g with
                 | M2 n -> n |> Some
+            | Energy e ->
+                match e with
+                | Calorie n -> n |> Some
+                | KiloCalorie n -> n |> Some
             | CombiUnit _ -> None
 
         app u
@@ -1840,6 +1913,13 @@ module Units =
             | M2 _, M2 _ -> true
         | BSA _, _
         | _, BSA _ -> false
+        | Energy e1, Energy e2 ->
+            match e1, e2 with
+            | Calorie _, Calorie _
+            | KiloCalorie _, KiloCalorie _ -> true
+            | _ -> false
+        | Energy _, _
+        | _, Energy _ -> false
         | CombiUnit (ul1, op1, ur1), CombiUnit (ul2, op2, ur2) ->
             op1 = op2 && eqsUnit ul1 ul2 && eqsUnit ur1 ur2
 
@@ -1895,6 +1975,7 @@ module ValueUnit =
                 | Weight _ -> Group.WeightGroup
                 | Height _ -> Group.HeightGroup
                 | BSA _ -> Group.BSAGroup
+                | Energy _ -> Group.EnergyGroup
                 | CombiUnit (ul, op, ur) -> (get ul, op, get ur) |> Group.CombiGroup
 
             get u
@@ -1924,6 +2005,7 @@ module ValueUnit =
                 | Group.InterNatUnitGroup
                 | Group.WeightGroup
                 | Group.HeightGroup
+                | Group.EnergyGroup
                 | Group.BSAGroup -> g = g2
                 | Group.CombiGroup (gl, _, gr) -> cont gl || cont gr
 
@@ -2011,6 +2093,7 @@ module ValueUnit =
                 | Group.WeightGroup -> "Weight"
                 | Group.HeightGroup -> "Height"
                 | Group.BSAGroup -> "BSA"
+                | Group.EnergyGroup -> "Energy"
                 | Group.CombiGroup (gl, op, gr) ->
                     let gls = str gl s
                     let grs = str gr s
@@ -2080,6 +2163,11 @@ module ValueUnit =
                     1N |> HeightCentiMeter |> Height
                 ]
             | Group.BSAGroup -> [ 1N |> M2 |> BSA ]
+            | Group.EnergyGroup ->
+                [
+                    1N |> Calorie |> Energy
+                    1N |> KiloCalorie |> Energy
+                ]
             | Group.CombiGroup _ -> []
 
 
@@ -2226,6 +2314,10 @@ module ValueUnit =
                 | BSA g ->
                     match g with
                     | M2 n -> n * one
+                | Energy e ->
+                    match e with
+                    | Calorie n -> n * one
+                    | KiloCalorie n -> n * kilo
                 | CombiUnit (u1, op, u2) ->
                     let m1 = get u1 m
                     let m2 = get u2 m

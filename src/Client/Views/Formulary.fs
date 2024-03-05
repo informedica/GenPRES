@@ -259,6 +259,13 @@ module Formulary =
                                 |> autoComplete isLoading "rts" sel (RouteChange >> dispatch)
                     }
                 </Stack>
+
+                <Box sx={ {| mt=2 |} }>
+                    <Button variant="text" onClick={fun _ -> ignore } fullWidth startIcon={Mui.Icons.PsychologyIcon} >
+                        AI
+                    </Button>
+                </Box>
+
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {
                         match props.formulary with
@@ -273,6 +280,7 @@ module Formulary =
 
                     }
                 </Box>
+
             </CardContent>
             """
 
