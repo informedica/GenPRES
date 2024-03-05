@@ -201,14 +201,6 @@ let pat =
         (Units.Time.year |> ValueUnit.singleWithValue 16N)
 
 
-Product.get ()
-|> Product.filter
-    { Filter.filter with
-        Generic = Some "factor VIII"
-        Route = Some "iv"
-    }
-|> Array.filter (fun p -> p.Generic |> String.equalsCapInsens "nicu mix")
-
 let pr =
     Patient.teenager
     |> fun p ->
@@ -232,7 +224,7 @@ let pr =
 Patient.teenager
 |> fun p ->
     { p with
-        VenousAccess = [VenousAccess.CVL]
+        VenousAccess = []
         Department = Some "ICK"
         Age =
             Units.Time.year

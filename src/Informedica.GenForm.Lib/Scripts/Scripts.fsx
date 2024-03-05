@@ -36,7 +36,7 @@ open Informedica.GenForm.Lib
 { Filter.filter with
     Patient =
         { Filter.filter.Patient with
-            VenousAccess = [VenousAccess.CVL]
+            VenousAccess = []
             Department = Some "ICK"
             Age =
                 1N

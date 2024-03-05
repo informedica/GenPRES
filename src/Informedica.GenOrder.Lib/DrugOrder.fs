@@ -169,7 +169,7 @@ module DrugOrder =
         {
             Name =
                 ps
-                |> tryHead _.Shape
+                |> tryHead _.Generic
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else s
@@ -343,7 +343,7 @@ module DrugOrder =
                                 sr.Solutions
                                 |> Array.tryHead
                                 |> Option.defaultValue "x"
-
+                            printfn $"try find {s}"
                             parenteral
                             |> Array.tryFind (fun p ->
                                     s |> String.notEmpty &&
@@ -351,6 +351,8 @@ module DrugOrder =
                                 )
                             |> function
                             | Some p ->
+                                printfn $"found {p}"
+
                                 [|p|]
                                 |> createProductComponent true None [||]
                                 |> List.singleton

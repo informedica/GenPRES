@@ -43,7 +43,7 @@ let filter =
     { Filter.filter with
         Patient =
             { Patient.patient with
-                VenousAccess = [VenousAccess.CVL]
+                VenousAccess = []
                 Department = Some "ICK"
                 Age =
                     Units.Time.year
@@ -71,20 +71,4 @@ DoseRule.get ()
             DoseType = dr.DoseType |> DoseType.toString |> Some
         }
 
-
-"kCal"
-|> Mapping.mapUnit
-
-Mapping.unitMapping
-
-let s = "IE" |> String.toLower |> String.trim
-Mapping.unitMapping
-|> Array.tryFind (fun r ->
-    r.Long |> String.equalsCapInsens s ||
-    r.Short |> String.equalsCapInsens s ||
-    r.MV |> String.equalsCapInsens s
-)
-|> function
-    | Some r -> $"{r.Short}[{r.Group}]" |> Units.fromString
-    | None -> None
 
