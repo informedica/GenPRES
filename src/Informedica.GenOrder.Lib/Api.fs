@@ -365,7 +365,7 @@ module Api =
                                     errs
                                     |> List.map string
                                     |> String.concat "\n"
-                                    |> printfn "%s"
+                                    |> fun s -> ConsoleWriter.writeErrorMessage s true false
                                     None
                             )
                         )
@@ -436,7 +436,8 @@ module Api =
             |> Ok
         with
         | e ->
-            printfn $"error calculating values from min incr max {e}"
+            ConsoleWriter.writeErrorMessage $"error calculating values from min incr max {e}"
+                true false
             "error calculating values from min incr max"
             |> Error
 

@@ -5,6 +5,7 @@ namespace Informedica.GenOrder.Lib
 module DrugOrder =
 
     open System
+    open Informedica.Utils.Lib
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
@@ -343,7 +344,7 @@ module DrugOrder =
                                 sr.Solutions
                                 |> Array.tryHead
                                 |> Option.defaultValue "x"
-                            printfn $"try find {s}"
+
                             parenteral
                             |> Array.tryFind (fun p ->
                                     s |> String.notEmpty &&
@@ -351,14 +352,15 @@ module DrugOrder =
                                 )
                             |> function
                             | Some p ->
-                                printfn $"found {p}"
 
                                 [|p|]
                                 |> createProductComponent true None [||]
                                 |> List.singleton
                                 |> List.append ps
                             | None ->
-                                printfn $"couldn't find {s} in parenterals"
+                                ConsoleWriter.writeInfoMessage
+                                    $"couldn't find {s} in parenterals"
+                                    true false
                                 ps
                     }
 

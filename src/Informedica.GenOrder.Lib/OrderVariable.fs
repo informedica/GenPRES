@@ -386,6 +386,8 @@ module OrderVariable =
 
     module Dto =
 
+        open Newtonsoft.Json
+
 
         /// The `Dto` data transfer type for an OrderVariable
         type Dto () =
@@ -465,7 +467,9 @@ module OrderVariable =
                 create n min incr max vals cs
             with
             | e ->
-                printfn $"cannot fromDto: {dto.Name}"
+                ConsoleWriter.writeErrorMessage
+                    $"cannot create OrderVariable fromDto: {dto.Name |> JsonConvert.DeserializeObject}"
+                    true false
                 e |> raise
 
 

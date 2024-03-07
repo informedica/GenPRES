@@ -211,7 +211,9 @@ module Product =
                                             |> Mapping.mapUnit
                                             |> function
                                                 | None ->
-                                                    printfn $"cannot map unit: {u}"
+                                                    ConsoleWriter.writeErrorMessage
+                                                        $"cannot map unit: {u}"
+                                                        true false
                                                     None
                                                 | Some u ->
                                                     let u =

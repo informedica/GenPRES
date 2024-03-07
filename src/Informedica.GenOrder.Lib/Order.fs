@@ -175,7 +175,9 @@ module Order =
                             |> String.concat " + "
                             |> fun s -> $"{lv} = {s}"
                         | _ ->
-                            printfn $"could not match {e}"
+                            ConsoleWriter.writeErrorMessage
+                                $"could not match {e}"
+                                true false
                             ""
                     )
                     |> List.filter (String.isNullOrWhiteSpace >> not)
@@ -1128,7 +1130,6 @@ module Order =
                         | incrs ->
                             if incrs |> List.length <> ((orb.Components |> List.length) + 1) then orb
                             else
-                                printfn $"increments: {incrs}"
                                 let incr =
                                     incrs
                                     |> List.minBy (fun i ->
@@ -1706,7 +1707,9 @@ module Order =
         with
         | _ ->
             let s = ord |> toString |> String.concat "\n"
-            printfn $"couldn't apply constraints:\n{s}"
+            ConsoleWriter.writeErrorMessage
+                $"couldn't apply constraints:\n{s}"
+                true false
             reraise()
 
 

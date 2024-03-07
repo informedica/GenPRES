@@ -77,7 +77,7 @@ module OrderLogger =
 
         with
         | e ->
-            printfn $"error printing: {e.ToString()}"
+            ConsoleWriter.writeErrorMessage $"error printing: {e.ToString()}" true false
             ""
 
 
@@ -98,8 +98,12 @@ module OrderLogger =
             | _ -> ""
 
         | Logging.OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
-            printfn $"printing error for order {o.Orderable.Name}"
-            printfn $"messages: {msgs.Value.Count}"
+            ConsoleWriter.writeErrorMessage $"""
+printing error for order {o.Orderable.Name}
+messages: {msgs.Value.Count}
+"""
+                true false
+
             let eqs =
                 match msgs with
                 | Some msgs ->
@@ -140,7 +144,7 @@ module OrderLogger =
         | :? SolverMessage as m -> m |> SolverLogging.printMsg
         | :? OrderMessage  as m -> m |> printOrderMsg msgs
         | _ ->
-            printfn $"printMsg cannot handle {msg}"
+            ConsoleWriter.writeErrorMessage $"printMsg cannot handle {msg}" true false
             ""
 
     // A message to send to the order logger agent

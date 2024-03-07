@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module Check =
 
 
+    open Informedica.Utils.Lib
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
@@ -130,9 +131,6 @@ module Check =
 
 
     let checkInRangeOf sn (refRange : MinMax) (testRange : MinMax) =
-        //let toStr = MinMax.toString "min incl " "min excl " "max incl " "max excl "
-        //printfn $"refRange : {refRange |> toStr} testRange : {testRange |> toStr}"
-
         let getTimeUnit mm =
             match mm.Min |> Option.map Limit.getValueUnit,
                   mm.Max |> Option.map Limit.getValueUnit with
@@ -290,7 +288,7 @@ module Check =
         let weight =
             pat.Weight = MinMax.empty && pdsg.Patient.Weight = MinMax.empty ||
             (pdsg.Patient.Weight |> MinMax.intersect pat.Weight = MinMax.empty |> not)
-        //printfn $"{pat |> PatientCategory.toString} intersects with {pdsg.Patient |> Informedica.ZForm.Lib.PatientCategory.toString}: {age && weight}"
+
         age && weight
 
 
@@ -498,7 +496,10 @@ module Check =
                             testRange
                     with
                     | e ->
-                        printfn $"{e}"
+                        ConsoleWriter.writeErrorMessage
+                            $"{e}"
+                            true
+                            false
                         true, $"{gstand.doseLimitTarget}\t{r}\t{p}\t{m}: kan niet worden gechecked vanwege foutmelding"
 
                 let toMinMax vuOpt =
@@ -624,7 +625,9 @@ module Check =
     let checkAll (pat : Patient) (drs : DoseRule[]) =
         drs
         |> Array.mapi (fun i dr ->
-            printfn $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
+            ConsoleWriter.writeInfoMessage
+                $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
+                true false
             checkDoseRule pat dr
         )
         |> Array.filter (fun c ->

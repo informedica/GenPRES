@@ -3,49 +3,6 @@
 #r "nuget: Newtonsoft.Json"
 
 
-module Texts =
-
-
-    let systemDoseQuantityExpert = """
-You are an expert on medication prescribing, preparation and administration.
-You have to answer questions about texts that describing a drug dose.
-You are asked to extract structured information from that text.
-
-The information will one of the following:
-- a quantity with a number and a unit, example: 40 mg/day
-- or a single unit, example: day
-- or a list of numbers, example: 1;2;3
-
-An adjust unit (AdjustUnit) can only be 'kg' body weight or 'mˆ2' body surface area.
-A substance unit is a unit that belongs to either a mass unit group, molar unit group
-or is an international unit of measurement.
-
-You answer all questions with ONLY the shortest possible answer to the question.
-    """
-
-
-    let testTexts = [
-        """
-alprazolam
-6 jaar tot 18 jaar Startdosering: 0,125 mg/dag, éénmalig. Onderhoudsdosering: Op geleide van klinisch beeld verhogen met stappen van 0,125-0,25 mg/dosis tot max 0,05 mg/kg/dag in 3 doses. Max: 3 mg/dag. Advies inname/toediening: De dagdosis indien mogelijk verdelen over 3 doses.Bij plotselinge extreme slapeloosheid: alleen voor de nacht innemen; dosering op geleide van effect ophogen tot max 0,05 mg/kg, maar niet hoger dan 3 mg/dag.De effectiviteit bij de behandeling van acute angst is discutabel.
-"""
-        """
-acetylsalicylzuur
-1 maand tot 18 jaar Startdosering:Acetylsalicylzuur: 30 - 50 mg/kg/dag in 3 - 4 doses. Max: 3.000 mg/dag.
-"""
-        """
-paracetamol
-Oraal: Bij milde tot matige pijn en/of koorts: volgens het Kinderformularium van het NKFK bij een leeftijd van 1 maand–18 jaar: 10–15 mg/kg lichaamsgewicht per keer, zo nodig 4×/dag, max. 60 mg/kg/dag en max. 4 g/dag.
-"""
-        """
-amitriptyline
-6 jaar tot 18 jaar Startdosering: voor de nacht: 10 mg/dag in 1 dosisOnderhoudsdosering: langzaam ophogen met 10 mg/dag per 4-6 weken naar 10 - 30 mg/dag in 1 dosis. Max: 30 mg/dag. Behandeling met amitriptyline mag niet plotseling worden gestaakt vanwege het optreden van ontwenningsverschijnselen; de dosering moet geleidelijk worden verminderd.Uit de studie van Powers (2017) blijkt dat de werkzaamheid van amitriptyline bij migraine profylaxe niet effectiever is t.o.v. placebo. Desondanks menen experts dat in individuele gevallen behandeling met amitriptyline overwogen kan worden.
-"""
-    ]
-
-
-
-
 /// Utility methods to use ollama
 /// https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
 module Ollama =
@@ -54,6 +11,51 @@ module Ollama =
     open System.Net.Http
     open System.Text
     open Newtonsoft.Json
+
+
+    type Configuration() =
+        member val num_keep: Nullable<int> = Nullable() with get, set
+        member val seed: Nullable<int> = Nullable() with get, set
+        member val num_predict: Nullable<int> = Nullable() with get, set
+        member val top_k: Nullable<int> = Nullable() with get, set
+        member val top_p: Nullable<float> = Nullable() with get, set
+        member val tfs_z: Nullable<float> = Nullable() with get, set
+        member val typical_p: Nullable<float> = Nullable() with get, set
+        member val repeat_last_n: Nullable<int> = Nullable() with get, set
+        member val temperature: Nullable<float> = Nullable() with get, set
+        member val repeat_penalty: Nullable<float> = Nullable() with get, set
+        member val presence_penalty: Nullable<float> = Nullable() with get, set
+        member val frequency_penalty: Nullable<float> = Nullable() with get, set
+        member val mirostat: Nullable<int> = Nullable() with get, set
+        member val mirostat_tau: Nullable<float> = Nullable() with get, set
+        member val mirostat_eta: Nullable<float> = Nullable() with get, set
+        member val penalize_newline: Nullable<bool> = Nullable() with get, set
+        member val stop: string[] = [||] with get, set
+        member val numa: Nullable<bool> = Nullable() with get, set
+        member val num_ctx: Nullable<int> = Nullable() with get, set
+        member val num_batch: Nullable<int> = Nullable() with get, set
+        member val num_gqa: Nullable<int> = Nullable() with get, set
+        member val num_gpu: Nullable<int> = Nullable() with get, set
+        member val main_gpu: Nullable<int> = Nullable() with get, set
+        member val low_vram: Nullable<bool> = Nullable() with get, set
+        member val f16_kv: Nullable<bool> = Nullable() with get, set
+        member val vocab_only: Nullable<bool> = Nullable() with get, set
+        member val use_mmap: Nullable<bool> = Nullable() with get, set
+        member val use_mlock: Nullable<bool> = Nullable() with get, set
+        member val rope_frequency_base: Nullable<float> = Nullable() with get, set
+        member val rope_frequency_scale: Nullable<float> = Nullable() with get, set
+        member val num_thread: Nullable<int> = Nullable() with get, set
+
+
+    let options =
+        let opts = Configuration()
+        opts.seed <- 101
+        opts.temperature <- 0.
+        opts.repeat_last_n <- 64
+        opts.num_ctx <- 2048
+        opts.mirostat <- 0
+
+        opts
 
 
     module Roles =
@@ -65,23 +67,50 @@ module Ollama =
 
     type Message =
         {
-            role : string
-            content : string
+            Role : string
+            Content : string
+            Validator : string -> Result<string, string>
         }
+
+
+    type Conversation =
+        {
+            Model : string
+            Messages : QuestionAnswer list
+        }
+    and QuestionAnswer =
+        {
+            Question : Message
+            Answer : Message
+        }
+
+
+    module Conversation =
+
+        let print (conversation : Conversation) =
+            for qAndA in conversation.Messages do
+                printfn $"""
+## Question:
+{qAndA.Question.Content.Trim()}
+
+## Answer:
+{qAndA.Answer.Content.Trim()}
+
+"""
 
 
     module Message =
 
-        let create role content =
+        let create validator role content =
             {
-                role = role
-                content = content
+                Role = role
+                Content = content
+                Validator = validator
             }
 
-        let user = create Roles.user
+        let user = create Result.Ok Roles.user
 
-        let system = create Roles.system
-
+        let system = create Result.Ok Roles.system
 
 
     type Response =
@@ -168,7 +197,6 @@ module Ollama =
     // Create an HTTP client
     let client = new HttpClient()
 
-
     let pullModel name =
 
         let pars =
@@ -193,11 +221,13 @@ module Ollama =
             {|
                 model = model
                 prompt = prompt
-                options =
+                options = options
+                    (*
                     {|
                         seed = 101
                         temperature = 0.
                     |}
+                    *)
                 stream = false
             |}
             |> JsonConvert.SerializeObject
@@ -221,18 +251,19 @@ module Ollama =
 
 
     let chat model messages (message : Message) =
+        let map msg =
+            {|
+                role = msg.Role
+                content = msg.Content
+            |}
 
         let messages =
             {|
                 model = model
                 messages =
-                    [ message ]
-                    |> List.append messages
-                options =
-                    {|
-                        seed = 101
-                        temperature = 0.
-                    |}
+                    [ message |> map ]
+                    |> List.append (messages |> List.map map)
+                options = options
                 stream = false
             |}
             |> JsonConvert.SerializeObject
@@ -272,6 +303,8 @@ module Ollama =
 
             return models
         }
+        |> Async.RunSynchronously
+
 
     let showModel model =
         let prompt =
@@ -323,9 +356,9 @@ module Ollama =
 
 
 
-    let run llm messages message =
+    let run (model : string) messages message =
         message
-        |> chat llm messages
+        |> chat model messages
         |> Async.RunSynchronously
         |> function
             | Success response ->
@@ -336,80 +369,133 @@ module Ollama =
                 messages
 
 
-    let runGemma_7b_instruct = run "gemma:7b-instruct"
+    module Models =
 
+        let llama2 = "llama2"
+
+        let ``llama2:13b-chat`` = "llama2:13b-chat"
+
+        let gemma = "gemma"
+
+        let ``gemma:7b-instruct`` = "gemma:7b-instruct"
+
+        let mistral = "mistral"
+
+        let ``mistral:7b-instruct`` =  "mistral:7b-instruct"
+
+        let ``openchat:7b`` = "openchat:7b"
+
+
+
+    let runLlama2  = run Models.llama2
+
+
+    let runLlama2_13b_chat  = run Models.``llama2:13b-chat``
+
+
+    let runGemma  = run Models.gemma
+
+
+    let runGemma_7b_instruct = run Models.``gemma:7b-instruct``
+
+
+    let runMistral  = run Models.mistral
+
+
+    let runMistral_7b_instruct  = run Models.``mistral:7b-instruct``
 
 
     module Operators =
 
+        open Newtonsoft.Json
 
-        let mutable runModel = runGemma_7b_instruct
 
+        let init model msg =
+            printfn $"""Starting conversation with {model}
 
-        let (>>?) msgs msg  =
-            printfn $"## ME:\n{msg}"
+Options:
+{options |> JsonConvert.SerializeObject}
+"""
+
+            let msg = msg |> Message.system
 
             msg
-            |> Message.user
-            |> runModel msgs
+            |> run model []
             |> fun msgs ->
-                    printfn $"## GEMMA:\n{(msgs |> List.last).content}\n"
-                    msgs
+                    printfn $"Got an answer"
 
+                    {
+
+                        Model = model
+                        Messages =
+                        [{
+                            Question = msg
+                            Answer = msgs |> List.last
+                        }]
+                    }
+
+
+        let (>>?) (conversation : Conversation) msg  =
+
+            let rec loop tryAgain conversation msg =
+                let msg = msg |> Message.user
+
+                msg
+                |> run conversation.Model (conversation.Messages |> List.map (_.Question))
+                |> fun msgs ->
+                        let answer = msgs |> List.last
+
+                        match answer.Content |> msg.Validator with
+                        | Ok _ ->
+                            { conversation with
+                                Messages =
+                                    [{
+                                        Question = msg
+                                        Answer = answer
+                                    }]
+                                    |> List.append conversation.Messages
+                            }
+                        | Result.Error err ->
+                            if not tryAgain then
+                                { conversation with
+                                    Messages =
+                                        [{
+                                            Question = msg
+                                            Answer = answer
+                                        }]
+                                        |> List.append conversation.Messages
+                                }
+
+                            else
+                                $"""
+It seems the answer was not correct because: {err}
+Can you try again answering?
+{msg.Content}
+"""
+                                |> loop false conversation
+
+            loop true conversation msg
 
 
 open Ollama.Operators
 
 
+Ollama.options.temperature <- 0.5
+Ollama.options.seed <- 101
+Ollama.options.penalize_newline <- false
+Ollama.options.top_k <- 50
+Ollama.options.top_p <- 0.5
 
-for text in Texts.testTexts do
 
-    Texts.systemDoseQuantityExpert
-    |> Ollama.Message.system
-    |> runModel []
-    >>? $"""
-The text between the ''' describes dose quantities for a
-substance:
-
-'''{text}'''
-
-For which substance?
-Give the answer as Substance : ?
 """
-    >>? """
-What is the unit used for the substance, the substance unit?
-Give the answer as SubstanceUnit : ?
+You are an empathic medical professional and translate medical topics to parents
+that have a child admitted to a pediatric critical care unit.
 """
-    >>? """
-What is the unit to adjust the dose for?
-Give the answer as AdjustUnit : ?
+|> init Ollama.Models.``openchat:7b``
+>>? """
+Explain to the parents that there child as to be put on a ventilator and has to
+be intubated.
 """
-    >>? """
-What is the time unit for the dose frequency?
-Give the answer as TimeUnit : ?
-"""
-    >>? """
-What is the maximum dose per time in SubstanceUnit/TimeUnit?
-Give the answer as MaximumDosePerTime: ?
-"""
-    >>? """
-What is the dose, adjusted for weight in SubstanceUnit/AdjustUnit/TimeUnit?
-Give the answer as AdjustedDosePerTime: ?
-"""
-    >>? """
-What is the number of doses per TimeUnit?
-Give the answer as Frequency: ?
-"""
-    >>? """
-Summarize the previous answers:
-Substance: ?
-SubstanceUnit: ?
-AdjustUnit: ?
-TimeUnit: ?
-MaximumDosePerTime: ?
-AdjustedDosePerTime: ?
-Frequency: ?
-"""
-    |> ignore
-
+//>>? "translate the previous message to Dutch"
+|> Ollama.Conversation.print
 

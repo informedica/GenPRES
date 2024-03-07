@@ -473,8 +473,11 @@ module DoseRule =
             |> Some
         with
         | e ->
-            printfn $"{e}"
-            printfn $"cannot map {r}"
+            ConsoleWriter.writeErrorMessage $"""
+{e}
+cannot map {r}
+"""
+                true false
             None
 
 
@@ -599,7 +602,9 @@ module DoseRule =
                         |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
 
                 if filtered |> Array.length = 0 then
-                    printfn $"no products for {gen} {rte}"
+                    ConsoleWriter.writeWarningMessage
+                        $"no products for {gen} {rte}"
+                        true false
                     [|
                         {| r with
                             Products =
