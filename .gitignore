@@ -143,6 +143,10 @@
 !/src/Informedica.Utils.Lib/BCL/
 !/src/Informedica.Utils.Lib/Scripts/
 !/src/Informedica.Utils.Lib/Notebooks/
+# Informedica.Ollama.Lib
+!/src/Informedica.Ollama.Lib/
+!/src/Informedica.Ollama.Lib/Scripts/
+!/src/Informedica.Ollama.Lib/Notebooks/
 # Informedica.GenCore.Lib
 !/src/Informedica.GenCore.Lib/
 !/src/Informedica.GenCore.Lib/Scripts/

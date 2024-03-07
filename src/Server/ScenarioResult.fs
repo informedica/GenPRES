@@ -405,7 +405,7 @@ let print (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
         let s =
             sc.Scenarios
-            |> Array.collect (fun sc -> sc.Prescription)
+            |> Array.collect _.Prescription
         $"""
 {stage}: {s}
 """

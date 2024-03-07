@@ -188,7 +188,7 @@ NUGET
     FSharp.Control.Websockets (0.2.3)
       FSharp.Core (>= 6.0)
       Microsoft.IO.RecyclableMemoryStream (>= 2.2.1)
-    FSharp.Core (8.0.101)
+    FSharp.Core (8.0.200)
     FSharp.Data (6.3)
       FSharp.Core (>= 5.0.1)
       FSharp.Data.Csv.Core (>= 6.3)
