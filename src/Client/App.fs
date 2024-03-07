@@ -28,6 +28,7 @@ module private Elmish =
             Scenarios: Deferred<ScenarioResult>
             SelectedScenarioOrder : (Scenario * Order) option
             CalculatedOrder : Deferred<(bool * Order) option>
+            SelectedSubstance : string option
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
@@ -52,7 +53,7 @@ module private Elmish =
         | UpdateScenarios of ScenarioResult
         | SelectOrder of (Scenario * Order option)
         | UpdateScenarioOrder
-        | LoadOrder of Order
+        | LoadOrder of string option * Order
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
@@ -195,6 +196,7 @@ module private Elmish =
             Products = HasNotStartedYet
             Scenarios = HasNotStartedYet
             CalculatedOrder = HasNotStartedYet
+            SelectedSubstance = None
             SelectedScenarioOrder = None
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
@@ -517,21 +519,24 @@ module private Elmish =
             },
             Cmd.ofMsg (CalculateOrder Started)
 
-        | LoadOrder o ->
+        | LoadOrder (s, o) ->
             let load =
                 async {
                     let! order = o |> serverApi.solveOrder
                     return Finished order |> CalculateOrder
                 }
 
-            { state with CalculatedOrder = InProgress }, Cmd.fromAsync load
+            { state with SelectedSubstance = s; CalculatedOrder = InProgress }, Cmd.fromAsync load
 
         | CalculateOrder Started ->
             match state.CalculatedOrder with
             | Resolved (Some order) ->
                 let load =
                     async {
-                        let! order = order |> snd |> serverApi.calcMinIncrMax
+                        let! order = 
+                            order 
+                            |> snd
+                            |> serverApi.calcMinIncrMax
                         return Finished order |> CalculateOrder
                     }
                 { state with CalculatedOrder = InProgress }, Cmd.fromAsync load
@@ -551,7 +556,9 @@ module private Elmish =
                         |> Option.map (fun o ->
                             match state.SelectedScenarioOrder with
                             | None -> false, o
-                            | Some (sc, _) -> sc.UseAdjust, o
+                            | Some (sc, _) -> 
+
+                                sc.UseAdjust, o
                         )
                         |> Resolved
                     // show only the calculated order scenario
@@ -745,7 +752,7 @@ let View () =
                         parenteralia = state.Parenteralia
                         updateParenteralia = UpdateParenteralia >> dispatch
                         selectOrder = SelectOrder >> dispatch
-                        order = state.CalculatedOrder
+                        order = state.CalculatedOrder |> Deferred.map (Option.map (fun (b, o) -> b, state.SelectedSubstance, o))
                         loadOrder = LoadOrder >> dispatch
                         updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
                         page = state.Page

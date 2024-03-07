@@ -76,6 +76,7 @@ module Prescribe =
                     Indication = None
                     Medication = None
                     Route = None
+                    DoseType = None
                 }
 
             match msg with
@@ -89,9 +90,10 @@ module Prescribe =
                 | Resolved sc ->
                     if s |> Option.isNone then
                         { sc with
-                            Indications = 
-                                ScenarioResult.empty.Indications
+                            Indications = [||]
                             Indication = None
+                            DoseTypes = [||]
+                            DoseType = None
                             Scenarios = [||]
                         } 
                     else
@@ -106,9 +108,10 @@ module Prescribe =
                 | Resolved sc ->
                     if s |> Option.isNone then
                         { sc with
-                            Medications =
-                                ScenarioResult.empty.Medications
+                            Medications = [||]
                             Medication = None
+                            DoseTypes = [||]
+                            DoseType = None
                             Scenarios = [||]
                         }
                         
@@ -124,9 +127,10 @@ module Prescribe =
                 | Resolved sc ->
                     if s |> Option.isNone then 
                         { sc with
-                            Routes =
-                                ScenarioResult.empty.Routes
+                            Routes = [||]
                             Route = None
+                            DoseTypes = [||]
+                            DoseType = None
                             Scenarios = [||]
                         }
                     else
@@ -141,8 +145,7 @@ module Prescribe =
                 | Resolved sc ->
                     if s |> Option.isNone then 
                         { sc with
-                            DoseTypes =
-                                ScenarioResult.empty.DoseTypes
+                            DoseTypes = [||]
                             DoseType = None
                             Scenarios = [||]
                         }
@@ -179,8 +182,8 @@ module Prescribe =
             scenarios: Deferred<Types.ScenarioResult>
             updateScenario: Types.ScenarioResult -> unit
             selectOrder : (Types.Scenario * Shared.Types.Order option) -> unit
-            order : Deferred<(bool * Types.Order) option>
-            loadOrder : Types.Order -> unit
+            order: Deferred<(bool * string option * Order) option>
+            loadOrder: (string option * Order) -> unit
             updateScenarioOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
