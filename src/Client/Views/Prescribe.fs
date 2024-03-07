@@ -449,8 +449,7 @@ module Prescribe =
                             match props.scenarios with
                             | Resolved scrs when scrs.Indication.IsSome &&
                                                  scrs.Medication.IsSome &&
-                                                 scrs.Route.IsSome &&
-                                                 scrs.DoseTypes |> Array.length > 1 -> 
+                                                 scrs.Route.IsSome -> 
                                 (false, scrs.DoseType, scrs.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
                                     if isMobile then

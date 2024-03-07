@@ -1711,9 +1711,15 @@ module Order =
 
 
     let isSolved (ord: Order) =
-        ord.Orderable.Dose
-        |> Dose.toOrdVars
-        |> List.forall OrderVariable.isSolved
+        let qty =
+              ord.Orderable.Dose.Quantity
+              |> Quantity.toOrdVar
+              |> OrderVariable.isSolved
+        let rte =
+              ord.Orderable.Dose.Rate
+              |> Rate.toOrdVar
+              |> OrderVariable.isSolved
+        qty || rte
 
 
     /// <summary>
@@ -2316,7 +2322,7 @@ module Order =
 
                 let pres = $"""{sn |> String.concat " + "} {dr}"""
                 let prep = ord |> compQtyToStr
-                let adm = $"""{sn |> String.concat " + "} {it} in {oq}, {rt}"""
+                let adm = $"""{sn |> String.concat " + "} {it} in {oq} stand {rt}"""
 
                 pres, prep, adm
 
@@ -2341,7 +2347,7 @@ module Order =
 
                 let pres = $"{fr} {dq} {dt}"
                 let prep = ord |> compQtyToStr
-                let adm = $"{fr} {ord |> orbDoseQtyToStr} in {tme} = {rt}"
+                let adm = $"{fr} {ord |> orbDoseQtyToStr} in {tme} stand {rt}"
 
                 pres |> String.replace "()" "",
                 prep,
@@ -2367,7 +2373,7 @@ module Order =
 
                 let pres = $"{dq} {dqa}"
                 let prep = ord |> compQtyToStr
-                let adm = $"{ord |> orbDoseQtyToStr} in {tme} = {rt}"
+                let adm = $"{ord |> orbDoseQtyToStr} in {tme} stand {rt}"
 
                 pres |> String.replace "()" "",
                 prep,

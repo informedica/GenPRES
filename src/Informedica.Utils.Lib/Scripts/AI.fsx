@@ -303,23 +303,50 @@ module Ollama =
 
     type Message =
         {
-            role : string
-            content : string
+            Role : string
+            Content : string
+            Validator : string -> Result<string, string>
         }
+
+
+    type Conversation =
+        {
+            Model : string
+            Messages : QuestionAnswer list
+        }
+    and QuestionAnswer =
+        {
+            Question : Message
+            Answer : Message
+        }
+
+
+    module Conversation =
+
+        let print (conversation : Conversation) =
+            for qAndA in conversation.Messages do
+                printfn $"""
+## Question:
+{qAndA.Question.Content.Trim()}
+
+## Answer:
+{qAndA.Answer.Content.Trim()}
+
+"""
 
 
     module Message =
 
-        let create role content =
+        let create validator role content =
             {
-                role = role
-                content = content
+                Role = role
+                Content = content
+                Validator = validator
             }
 
-        let user = create Roles.user
+        let user = create Result.Ok Roles.user
 
-        let system = create Roles.system
-
+        let system = create Result.Ok Roles.system
 
 
     type Response =
@@ -460,13 +487,18 @@ module Ollama =
 
 
     let chat model messages (message : Message) =
+        let map msg =
+            {|
+                role = msg.Role
+                content = msg.Content
+            |}
 
         let messages =
             {|
                 model = model
                 messages =
-                    [ message ]
-                    |> List.append messages
+                    [ message |> map ]
+                    |> List.append (messages |> List.map map)
                 options = options
                 stream = false
             |}
@@ -507,6 +539,8 @@ module Ollama =
 
             return models
         }
+        |> Async.RunSynchronously
+
 
     let showModel model =
         let prompt =
@@ -558,9 +592,9 @@ module Ollama =
 
 
 
-    let run llm messages message =
+    let run (model : string) messages message =
         message
-        |> chat llm messages
+        |> chat model messages
         |> Async.RunSynchronously
         |> function
             | Success response ->
@@ -585,6 +619,8 @@ module Ollama =
 
         let ``mistral:7b-instruct`` =  "mistral:7b-instruct"
 
+        let ``openchat:7b`` = "openchat:7b"
+
 
 
     let runLlama2  = run Models.llama2
@@ -605,46 +641,84 @@ module Ollama =
     let runMistral_7b_instruct  = run Models.``mistral:7b-instruct``
 
 
-
     module Operators =
 
+        open Newtonsoft.Json
 
-        let mutable runModel = runLlama2
 
+        let init model msg =
+            printfn $"""Starting conversation with {model}
 
-        let (>>?) msgs msg  =
-            printfn $"### PROMPT:{msg}"
+Options:
+{options |> JsonConvert.SerializeObject}
+"""
+
+            let msg = msg |> Message.system
 
             msg
-            |> Message.user
-            |> runModel msgs
+            |> run model []
             |> fun msgs ->
-                    let answer =
-                        (msgs |> List.last).content.Trim()
+                    printfn $"Got an answer"
 
-                    printfn $"### ANSWER:\n{answer}\n"
-                    msgs
+                    {
 
+                        Model = model
+                        Messages =
+                        [{
+                            Question = msg
+                            Answer = msgs |> List.last
+                        }]
+                    }
+
+
+        let (>>?) (conversation : Conversation) msg  =
+
+            let rec loop tryAgain conversation msg =
+                let msg = msg |> Message.user
+
+                msg
+                |> run conversation.Model (conversation.Messages |> List.map (_.Question))
+                |> fun msgs ->
+                        let answer = msgs |> List.last
+
+                        match answer.Content |> msg.Validator with
+                        | Ok _ ->
+                            { conversation with
+                                Messages =
+                                    [{
+                                        Question = msg
+                                        Answer = answer
+                                    }]
+                                    |> List.append conversation.Messages
+                            }
+                        | Result.Error err ->
+                            if not tryAgain then
+                                { conversation with
+                                    Messages =
+                                        [{
+                                            Question = msg
+                                            Answer = answer
+                                        }]
+                                        |> List.append conversation.Messages
+                                }
+
+                            else
+                                $"""
+It seems the answer was not correct because: {err}
+Can you try again answering?
+{msg.Content}
+"""
+                                |> loop false conversation
+
+            loop true conversation msg
 
 
 open Ollama.Operators
 
 
-
-let testModel name modelToRun =
-
-
-    printfn $"\n\n# Running: {name}\n\n"
-
-
-    runModel <- modelToRun
-
-
-    for text in Texts.testTexts do
-
+let extractDoseQuantities model text =
         Texts.systemDoseQuantityExpert
-        |> Ollama.Message.system
-        |> runModel []
+        |> init model
         >>? $"""
 The text between the ''' describes dose quantities for a
 substance:
@@ -690,20 +764,27 @@ Summarize the previous answers as:
 - Frequency: ?
 
 """
-        |> ignore
+
+
+let testModel model =
+
+    printfn $"\n\n# Running: {model}\n\n"
+    for text in Texts.testTexts do
+        extractDoseQuantities model text
+        |> Ollama.Conversation.print
 
 
 let testAll () =
 
     [
-        Ollama.Models.gemma, Ollama.runGemma
-        Ollama.Models.``gemma:7b-instruct``,  Ollama.runGemma_7b_instruct
-        Ollama.Models.llama2, Ollama.runLlama2
-        Ollama.Models.``llama2:13b-chat``, Ollama.runLlama2_13b_chat
-        Ollama.Models.mistral, Ollama.runMistral
-        Ollama.Models.``mistral:7b-instruct``, Ollama.runMistral_7b_instruct
+        Ollama.Models.gemma
+        Ollama.Models.``gemma:7b-instruct``
+        Ollama.Models.llama2
+        Ollama.Models.``llama2:13b-chat``
+        Ollama.Models.mistral
+        Ollama.Models.``mistral:7b-instruct``
     ]
-    |> List.iter (fun (n, m) -> testModel n m)
+    |> List.iter testModel
 
 
 
@@ -712,6 +793,84 @@ Ollama.options.top_k <- 10
 Ollama.options.top_p <- 0.95
 
 
-// The winner is:
-Ollama.runMistral_7b_instruct
-|> testModel Ollama.Models.``mistral:7b-instruct``
+Ollama.Models.``openchat:7b``
+|> testModel
+
+
+module BNFC =
+
+    let paracetamolPO =
+        [
+            """
+paracetamol
+Neonate 28 weeks to 32 weeks corrected gestational age
+20 mg/ kg for 1 dose, then 10–15 mg/kg every 8–12 hours as required, maximum daily dose to be given in divided doses; maximum 30 mg/kg per day.
+"""
+            """
+Child 1–2 months
+30–60 mg every 8 hours as required, maximum daily dose to be given in divided doses; maximum 60 mg/kg per day.
+"""
+            """
+paracetamol
+Child 3–5 months
+60 mg every 4–6 hours; maximum 4 doses per day.
+"""
+            """
+paracetamol
+Child 6–23 months
+120 mg every 4–6 hours; maximum 4 doses per day.
+"""
+        ]
+
+
+
+"You are a helpful assistant"
+|> init Ollama.Models.``openchat:7b``
+>>? "Why is the sky blue?"
+|> Ollama.Conversation.print
+
+
+Ollama.options.temperature <- 0
+Ollama.options.seed <- 101
+Ollama.options.penalize_newline <- true
+Ollama.options.top_k <- 10
+Ollama.options.top_p <- 0.95
+
+
+BNFC.paracetamolPO[0]
+|> extractDoseQuantities Ollama.Models.``openchat:7b``
+|> Ollama.Conversation.print
+
+
+Ollama.options.temperature <- 0.5
+Ollama.options.seed <- 101
+Ollama.options.penalize_newline <- false
+Ollama.options.top_k <- 50
+Ollama.options.top_p <- 0.5
+
+
+"""
+You are an empathic medical professional and translate medical topics to parents
+that have a child admitted to a pediatric critical care unit.
+"""
+|> init Ollama.Models.``openchat:7b``
+>>? """
+Explain to the parents that there child as to be put on a ventilator and has to
+be intubated.
+"""
+>>? "translate the previous message to Dutch"
+|> Ollama.Conversation.print
+
+
+"""
+Je bent een empathische zorgverlener die ouders uitleg moet geven over hun kind
+dat op de kinder IC ligt.
+
+Je geeft alle uitleg en antwoorden in het Nederlands.
+"""
+|> init Ollama.Models.``openchat:7b``
+>>? """
+Leg aan ouders uit dat hun kind aan de beademing moet worden gelegd en daarvoor
+geintubeerd moet worden.
+"""
+|> Ollama.Conversation.print
