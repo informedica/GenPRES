@@ -2479,12 +2479,14 @@ module Order =
 
         let cleanDose (dto : Dto) =
             dto.Duration |> OrderVariable.Dto.clean
+
             if dto.Prescription.IsDiscontinuous || dto.Prescription.IsTimed then
                 dto.Prescription.Frequency |> OrderVariable.Dto.clean
             if dto.Prescription.IsTimed then
                 dto.Prescription.Time |> OrderVariable.Dto.clean
             if not dto.Prescription.IsContinuous then
                 dto.Orderable.OrderableQuantity |> OrderVariable.Dto.clean
+
             dto.Orderable.Dose |> Dose.Dto.clean
 
             dto.Orderable.Components
@@ -2495,8 +2497,6 @@ module Order =
                     c.Dose |> Dose.Dto.clean
                     c.Items
                     |> List.iter (fun i ->
-                        i.ComponentConcentration |> OrderVariable.Dto.clean
-                        i.ComponentQuantity |> OrderVariable.Dto.clean
                         i.OrderableQuantity |> OrderVariable.Dto.clean
                         i.OrderableConcentration |> OrderVariable.Dto.clean
                         i.Dose |> Dose.Dto.clean

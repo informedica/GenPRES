@@ -420,6 +420,10 @@ module Api =
                     dto
                     |> Order.Dto.fromDto
                     |> Order.applyConstraints
+                    |> fun o ->
+                        printfn "== constraints reapplied"
+                        o |> Order.toString |> List.iter (printfn "%s")
+                        o
                     |> Order.solveMinMax false OrderLogger.logger.Logger
                     |> function
                     | Ok ord ->
