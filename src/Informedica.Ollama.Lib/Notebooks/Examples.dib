@@ -2,6 +2,24 @@
 
 {"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
 
+#!markdown
+
+# Ollama Lib Examples
+
 #!fsharp
 
 #load "load.fsx"
+
+open Informedica.Ollama.Lib
+open Ollama.Operators
+
+#!markdown
+
+## Ask the hello world question
+
+#!fsharp
+
+"You are a helpful assistant"
+|> init Ollama.Models.``openchat:7b``
+>>? "Why is the sky blue?"
+|> Ollama.Conversation.print
