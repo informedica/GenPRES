@@ -92,6 +92,7 @@
 
 # Add notebook files
 !*.dib
+!*.ipynb
 
 # Add documentation tools
 !/docsTool/
