@@ -109,6 +109,8 @@ module Ollama =
         let user = create Result.Ok Roles.user
 
         let system = create Result.Ok Roles.system
+        
+        let userWithValidator validator = create validator Roles.user
 
 
     type Response =
@@ -433,18 +435,24 @@ Options:
                     }
 
 
-        let (>>?) (conversation : Conversation) msg  =
+        let rec private loop tryAgain conversation msg =
+            msg
+            |> run conversation.Model (conversation.Messages |> List.map (_.Question))
+            |> fun msgs ->
+                    let answer = msgs |> List.last
 
-            let rec loop tryAgain conversation msg =
-                let msg = msg |> Message.user
-
-                msg
-                |> run conversation.Model (conversation.Messages |> List.map (_.Question))
-                |> fun msgs ->
-                        let answer = msgs |> List.last
-
-                        match answer.Content |> msg.Validator with
-                        | Ok _ ->
+                    match answer.Content |> msg.Validator with
+                    | Ok _ ->
+                        { conversation with
+                            Messages =
+                                [{
+                                    Question = msg
+                                    Answer = answer
+                                }]
+                                |> List.append conversation.Messages
+                        }
+                    | Result.Error err ->
+                        if not tryAgain then
                             { conversation with
                                 Messages =
                                     [{
@@ -453,24 +461,20 @@ Options:
                                     }]
                                     |> List.append conversation.Messages
                             }
-                        | Result.Error err ->
-                            if not tryAgain then
-                                { conversation with
-                                    Messages =
-                                        [{
-                                            Question = msg
-                                            Answer = answer
-                                        }]
-                                        |> List.append conversation.Messages
-                                }
 
-                            else
-                                $"""
+                        else
+                            $"""
 It seems the answer was not correct because: {err}
 Can you try again answering?
 {msg.Content}
 """
-                                |> loop false conversation
+                            |> Message.user
+                            |> loop false conversation
 
+
+        let (>>?) conversation msg  =
+            let msg = msg |> Message.user
             loop true conversation msg
 
+
+        let (>>!) conversation msg = loop true conversation msg
