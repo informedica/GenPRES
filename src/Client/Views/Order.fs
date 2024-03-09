@@ -47,15 +47,17 @@ module Order =
                 SelectedSubstance = 
                     match ord with
                     | Resolved (Some (_, subst, ord)) ->
-                        if subst |> Option.isSome then subst
-                        else
-                            ord.Orderable.Components
-                            |> Array.tryHead
-                            |> Option.bind (fun c ->
+                        ord.Orderable.Components
+                        |> Array.tryHead
+                        |> Option.bind (fun c ->
+                            if c.Items |> Array.isEmpty then None
+                            else
                                 c.Items
-                                |> Array.tryHead
+                                |> Array.tryFind (fun i -> i.Name |> Some = subst)
                                 |> Option.map _.Name
-                            )
+                                |> Option.defaultValue (c.Items[0].Name)
+                                |> Some
+                        )
                     | _ -> None
                 Order = 
                 ord
@@ -489,12 +491,17 @@ module Order =
                 ord.Orderable.Components
                 |> Array.tryHead
                 |> Option.bind (fun c ->
-                    c.Items
-                    |> Array.tryFindIndex (fun i ->
-                        state.SelectedSubstance
-                        |> Option.map ((=) i.Name)
-                        |> Option.defaultValue false
-                    )
+                    if c.Items |> Array.isEmpty then None
+                    else
+                        c.Items
+                        |> Array.tryFindIndex (fun i ->
+                            state.SelectedSubstance
+                            |> Option.map ((=) i.Name)
+                            |> Option.defaultValue false
+                        )
+                        |> function 
+                        | None -> Some 0
+                        | Some i -> Some i
                 )
             | _ -> None
 
