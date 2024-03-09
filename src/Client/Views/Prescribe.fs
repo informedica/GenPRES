@@ -221,42 +221,13 @@ module Prescribe =
             |})
 
         let autoComplete isLoading lbl selected dispatch xs =
-            match lbl with
-            | _ when lbl = "ind" ->
-                Components.Autocomplete.Indications({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
-            | _ when lbl = "med" ->
-                Components.Autocomplete.Medication({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
-            | _ when lbl = "rts" -> 
-                Components.Autocomplete.Routes({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
-            | _ when lbl = "dts" -> 
-                Components.Autocomplete.DoseTypes({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
-            | _ -> 
-                $"cannot create autocomplete from {lbl}"
-                |> failwith 
+            Components.Autocomplete.View({|
+                updateSelected = dispatch
+                label = lbl
+                selected = selected
+                values = xs
+                isLoading = isLoading
+            |})
 
         let progress =
             match props.scenarios with
@@ -411,13 +382,14 @@ module Prescribe =
                         | Resolved scrs -> false, scrs.Indication, scrs.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
+                            let lbl = (Terms.``Prescribe Indications`` |> getTerm "Indicaties") 
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
-                                |> select isLoading (Terms.``Prescribe Indications`` |> getTerm "Indicaties") sel (IndicationChange >> dispatch)
+                                |> select isLoading lbl sel (IndicationChange >> dispatch)
                             else
                                 items
-                                |> autoComplete isLoading "ind" sel (IndicationChange >> dispatch)
+                                |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
                     }
                     <Stack direction={stackDirection} spacing={3} >
                         {
@@ -425,13 +397,14 @@ module Prescribe =
                             | Resolved scrs -> false, scrs.Medication, scrs.Medications
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
+                                let lbl = (Terms.``Prescribe Medications`` |> getTerm "Medicatie")
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading (Terms.``Prescribe Medications`` |> getTerm "Medicatie") sel (MedicationChange >> dispatch)
+                                    |> select isLoading lbl sel (MedicationChange >> dispatch)
                                 else
                                     items
-                                    |> autoComplete isLoading "med" sel (MedicationChange >> dispatch)
+                                    |> autoComplete isLoading lbl sel (MedicationChange >> dispatch)
 
                         }
                         {
@@ -439,13 +412,14 @@ module Prescribe =
                             | Resolved scrs -> false, scrs.Route, scrs.Routes
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
+                                let lbl = (Terms.``Prescribe Routes`` |> getTerm "Routes")
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading (Terms.``Prescribe Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
+                                    |> select isLoading lbl sel (RouteChange >> dispatch)
                                 else
                                     items
-                                    |> autoComplete isLoading "rts" sel (RouteChange >> dispatch)
+                                    |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
                                 
                         }
                         {
@@ -455,13 +429,14 @@ module Prescribe =
                                                  scrs.Route.IsSome -> 
                                 (false, scrs.DoseType, scrs.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
+                                    let lbl = "Doseer types"
                                     if isMobile then
                                         items
                                         |> Array.map (fun s -> s, s)
-                                        |> select isLoading "Doseer types" sel (DoseTypeChange >> dispatch)
+                                        |> select isLoading lbl sel (DoseTypeChange >> dispatch)
                                     else
                                         items
-                                        |> autoComplete isLoading "dts" sel (DoseTypeChange >> dispatch)                                
+                                        |> autoComplete isLoading lbl sel (DoseTypeChange >> dispatch)                                
                             | _ -> JSX.jsx $"<></>"
                         }
 

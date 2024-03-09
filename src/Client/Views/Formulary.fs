@@ -162,31 +162,13 @@ module Formulary =
 
 
         let autoComplete isLoading lbl selected dispatch xs =
-            match lbl with
-            | _ when lbl = "ind" ->
-                Components.Autocomplete.Indications({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
-            | _ when lbl = "med" ->
-                Components.Autocomplete.Medication({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
-            | _ -> 
-                Components.Autocomplete.Routes({|
-                    updateSelected = dispatch
-                    label = lbl
-                    selected = selected
-                    values = xs
-                    isLoading = isLoading
-                |})
+            Components.Autocomplete.View({|
+                updateSelected = dispatch
+                label = lbl
+                selected = selected
+                values = xs
+                isLoading = isLoading
+            |})
 
 
         let progress =
@@ -223,13 +205,14 @@ module Formulary =
                         | Resolved form -> false, form.Indication, form.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
+                            let lbl = (Terms.``Formulary Indications`` |> getTerm "Indicaties") 
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
-                                |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Indicaties") state.Indication (IndicationChange >> dispatch)
+                                |> select isLoading lbl state.Indication (IndicationChange >> dispatch)
                             else
                                 items
-                                |> autoComplete isLoading "ind" sel (IndicationChange >> dispatch)
+                                |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
                             
                     }
                     {
@@ -237,26 +220,28 @@ module Formulary =
                         | Resolved form -> false, form.Generic, form.Generics
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
+                            let lbl = (Terms.``Formulary Medications`` |> getTerm "Medicatie") 
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
-                                |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
+                                |> select isLoading lbl state.Generic (GenericChange >> dispatch)
                             else
                                 items
-                                |> autoComplete isLoading "med" sel (GenericChange >> dispatch)
+                                |> autoComplete isLoading lbl sel (GenericChange >> dispatch)
                     }
                     {
                         match props.formulary with
                         | Resolved form -> false, form.Route, form.Routes
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
+                            let lbl = (Terms.``Formulary Routes`` |> getTerm "Routes")
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
-                                |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                                |> select isLoading lbl state.Route (RouteChange >> dispatch)
                             else
                                 items
-                                |> autoComplete isLoading "rts" sel (RouteChange >> dispatch)
+                                |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
                     }
                 </Stack>
 
