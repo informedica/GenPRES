@@ -97,6 +97,41 @@ module Ollama =
 """
 
 
+    type Tool =
+        {
+            ``type`` : string
+            ``function`` : Function
+        }
+    and Function = {
+        name : string
+        description : string
+        parameters : Parameters
+    }
+    and Parameters  = {
+        ``type`` : string
+        properties : obj
+        required : string list
+    }
+
+
+    module Tool =
+
+
+        let create name descr req props =
+            {
+                ``type`` = "function"
+                ``function`` = {
+                    name = name
+                    description = descr
+                    parameters = {
+                        ``type`` = "object"
+                        properties = props
+                        required = req
+                    }
+                }
+            }
+
+
     module Message =
 
         let create validator role content =
@@ -309,6 +344,54 @@ module Ollama =
         }
 
 
+
+    let extract tools model messages (message : Message) =
+        let map msg =
+            {|
+                role = msg.Role
+                content = msg.Content
+            |}
+
+        let messages =
+            {|
+                tools = tools
+                model = model
+                messages =
+                    [ message |> map ]
+                    |> List.append (messages |> List.map map)
+                options = options
+                stream = false
+            |}
+            |> JsonConvert.SerializeObject
+
+        let content = new StringContent(messages, Encoding.UTF8, "application/json")
+
+        // Asynchronous API call
+        async {
+            let! response = client.PostAsync(EndPoints.chat, content) |> Async.AwaitTask
+            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
+
+            let modelResponse =
+                try
+                    let resp =
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+
+                    match resp.error with
+                    | s when s |> String.IsNullOrEmpty ->
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+                        |> Success
+                    | s ->
+                        s |> Error
+                with
+                | e ->
+                    e.ToString() |> Error
+
+            return modelResponse
+        }
+
+
     let listModels () =
 
         // Asynchronous API call
@@ -383,7 +466,7 @@ module Ollama =
         |> Async.RunSynchronously
         |> function
             | Success response ->
-                
+
                 [ message; Message.okMessage response.message.role response.message.content ]
                 |> List.append messages
             | Error s ->
@@ -408,8 +491,10 @@ module Ollama =
         let ``mistral:7b-instruct`` =  "mistral:7b-instruct"
 
         let ``openchat:7b`` = "openchat:7b"
-        
+
         let meditron = "meditron"
+
+        let ``joefamous/firefunction-v1:q3_k`` = "joefamous/firefunction-v1:q3_k"
 
 
 

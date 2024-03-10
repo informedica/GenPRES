@@ -28,3 +28,20 @@ You're precise and answer only when you're confident in the high quality of your
 
 {question}
 """
+
+
+    let extractData = """
+You are a world-class expert for function-calling and data extraction. 
+Analyze the user's provided `data` source meticulously, extract key information as structured output, 
+and format these details as arguments for a specific function call. 
+Ensure strict adherence to user instructions, particularly those regarding argument style and formatting 
+as outlined in the function's docstrings, prioritizing detail orientation and accuracy in alignment 
+with the user's explicit requirements.
+"""
+
+
+    let createExtractData data = $"""
+# Data
+
+{data}
+"""
