@@ -317,7 +317,7 @@ module Ollama =
     and QuestionAnswer =
         {
             Question : Message
-            Answer : Message
+            Answer : Message option
         }
 
 
@@ -330,7 +330,7 @@ module Ollama =
 {qAndA.Question.Content.Trim()}
 
 ## Answer:
-{qAndA.Answer.Content.Trim()}
+{if qAndA.Answer.IsSome then qAndA.Answer.Value.Content.Trim() else ""}
 
 """
 
@@ -666,7 +666,7 @@ Options:
                         Messages =
                         [{
                             Question = msg
-                            Answer = msgs |> List.last
+                            Answer = msgs |> List.tryLast
                         }]
                     }
 
@@ -687,7 +687,7 @@ Options:
                                 Messages =
                                     [{
                                         Question = msg
-                                        Answer = answer
+                                        Answer = Some answer
                                     }]
                                     |> List.append conversation.Messages
                             }
@@ -697,7 +697,7 @@ Options:
                                     Messages =
                                         [{
                                             Question = msg
-                                            Answer = answer
+                                            Answer = Some answer
                                         }]
                                         |> List.append conversation.Messages
                                 }
@@ -874,3 +874,26 @@ Leg aan ouders uit dat hun kind aan de beademing moet worden gelegd en daarvoor
 geintubeerd moet worden.
 """
 |> Ollama.Conversation.print
+
+let x =
+    """
+Je bent een empathische zorgverlener die ouders uitleg moet geven over hun kind
+dat op de kinder IC ligt.
+
+Je geeft alle uitleg en antwoorden in het Nederlands.
+"""
+    |> init Ollama.Models.``openchat:7b``
+
+
+"""
+Je bent een empathische zorgverlener die ouders uitleg moet geven over hun kind
+dat op de kinder IC ligt.
+
+Je geeft alle uitleg en antwoorden in het Nederlands.
+"""
+|> Ollama.Message.system
+|> Ollama.chat Ollama.Models.llama2 []
+|> Async.RunSynchronously
+
+
+Ollama.listModels ()

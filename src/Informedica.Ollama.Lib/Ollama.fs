@@ -109,7 +109,9 @@ module Ollama =
         let user = create Result.Ok Roles.user
 
         let system = create Result.Ok Roles.system
-        
+
+        let okMessage = create Ok
+
         let userWithValidator validator = create validator Roles.user
 
 
@@ -117,10 +119,11 @@ module Ollama =
         | Success of ModelResponse
         | Error of string
     and ModelResponse = {
+        error: string
         model: string
         created_at: string
         response: string
-        message: Message
+        message: {| role : string; content : string |}
         ``done``: bool
         context: int list
         total_duration: int64
@@ -241,11 +244,21 @@ module Ollama =
 
             let modelResponse =
                 try
-                    responseBody
-                    |> JsonConvert.DeserializeObject<ModelResponse>
-                    |> Success
+                    let resp =
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+
+                    match resp.error with
+                    | s when s |> String.IsNullOrEmpty ->
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+                        |> Success
+                    | s ->
+                        s |> Error
                 with
-                | e -> e.ToString() |> Error
+                | e ->
+                    e.ToString() |> Error
+
             return modelResponse
         }
 
@@ -277,9 +290,17 @@ module Ollama =
 
             let modelResponse =
                 try
-                    responseBody
-                    |> JsonConvert.DeserializeObject<ModelResponse>
-                    |> Success
+                    let resp =
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+
+                    match resp.error with
+                    | s when s |> String.IsNullOrEmpty ->
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+                        |> Success
+                    | s ->
+                        s |> Error
                 with
                 | e ->
                     e.ToString() |> Error
@@ -362,7 +383,8 @@ module Ollama =
         |> Async.RunSynchronously
         |> function
             | Success response ->
-                [message; response.message]
+                
+                [ message; Message.okMessage response.message.role response.message.content ]
                 |> List.append messages
             | Error s ->
                 printfn $"oops: {s}"
@@ -441,8 +463,7 @@ Options:
             |> fun msgs ->
                     let answer = msgs |> List.last
 
-                    match answer.Content |> msg.Validator with
-                    | Ok _ ->
+                    let newConv =
                         { conversation with
                             Messages =
                                 [{
@@ -451,17 +472,12 @@ Options:
                                 }]
                                 |> List.append conversation.Messages
                         }
-                    | Result.Error err ->
-                        if not tryAgain then
-                            { conversation with
-                                Messages =
-                                    [{
-                                        Question = msg
-                                        Answer = answer
-                                    }]
-                                    |> List.append conversation.Messages
-                            }
 
+
+                    match answer.Content |> msg.Validator with
+                    | Ok _ -> newConv
+                    | Result.Error err ->
+                        if not tryAgain then newConv
                         else
                             $"""
 It seems the answer was not correct because: {err}
@@ -469,7 +485,7 @@ Can you try again answering?
 {msg.Content}
 """
                             |> Message.user
-                            |> loop false conversation
+                            |> loop false newConv
 
 
         let (>>?) conversation msg  =
