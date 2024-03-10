@@ -5,6 +5,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Prompts.fs" />
     <Compile Include="Ollama.fs" />
     <None Include="Scripts\AI.fsx" />
     <Content Include="Notebooks\Examples.dib" />

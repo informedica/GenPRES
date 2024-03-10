@@ -395,6 +395,8 @@ module Ollama =
 
         let llama2 = "llama2"
 
+        let medllama2 = "medllama2"
+
         let ``llama2:13b-chat`` = "llama2:13b-chat"
 
         let gemma = "gemma"
@@ -406,6 +408,8 @@ module Ollama =
         let ``mistral:7b-instruct`` =  "mistral:7b-instruct"
 
         let ``openchat:7b`` = "openchat:7b"
+        
+        let meditron = "meditron"
 
 
 
