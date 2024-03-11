@@ -12,7 +12,7 @@
     <Compile Include="OpenAI.fs" />
     <Compile Include="Ollama.fs" />
     <None Include="Scripts\AI.fsx" />
-    <Content Include="Notebooks\Examples.dib" />
+    <Folder Include="Notebooks\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
