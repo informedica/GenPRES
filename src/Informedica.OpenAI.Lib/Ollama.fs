@@ -1,4 +1,4 @@
-﻿namespace Informedica.Ollama.Lib
+﻿namespace Informedica.OpenAI.Lib
 
 
 /// Utility methods to use ollama
@@ -8,6 +8,7 @@ module Ollama =
     open System
     open System.Net.Http
     open System.Text
+    open NJsonSchema
     open Newtonsoft.Json
 
 
@@ -230,6 +231,9 @@ module Ollama =
         [<Literal>]
         let show = "http://localhost:11434/api/show"
 
+        [<Literal>]
+        let openAI = "http://localhost:11434/v1/chat/completions"
+
 
 
     // Create an HTTP client
@@ -322,6 +326,59 @@ module Ollama =
         async {
             let! response = client.PostAsync(EndPoints.chat, content) |> Async.AwaitTask
             let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
+
+            let modelResponse =
+                try
+                    let resp =
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+
+                    match resp.error with
+                    | s when s |> String.IsNullOrEmpty ->
+                        responseBody
+                        |> JsonConvert.DeserializeObject<ModelResponse>
+                        |> Success
+                    | s ->
+                        s |> Error
+                with
+                | e ->
+                    e.ToString() |> Error
+
+            return modelResponse
+        }
+
+
+    let json<'ReturnType> model messages (message : Message) =
+        let map msg =
+            {|
+                role = msg.Role
+                content = msg.Content
+            |}
+
+        let schema = JsonSchema.FromType<'ReturnType>()
+        let content =
+            {|
+                model = model
+                format = "json"
+                response_format = {|
+                    ``type`` = "json_object"
+                    schema = schema
+                |}
+                messages =
+                    [ message |> map ]
+                    |> List.append (messages |> List.map map)
+                options = options
+                stream = false
+            |}
+            |> JsonConvert.SerializeObject
+
+        let content = new StringContent(content, Encoding.UTF8, "application/json")
+        // Asynchronous API call
+        async {
+            let! response = client.PostAsync(EndPoints.chat, content) |> Async.AwaitTask
+            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
+
+            printfn $"responseBody: {responseBody}"
 
             let modelResponse =
                 try

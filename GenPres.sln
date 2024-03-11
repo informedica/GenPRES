@@ -55,7 +55,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.KinderFormulari
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenForm.Tests", "tests\Informedica.GenForm.Tests\Informedica.GenForm.Tests.fsproj", "{73C084AF-54F4-4B39-A7F9-F0A2A3AB9DD5}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Ollama.Lib", "src\Informedica.Ollama.Lib\Informedica.Ollama.Lib.fsproj", "{5B13678B-1260-4B21-B5FF-7F8C8A9B1BD2}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.OpenAI.Lib", "src\Informedica.OpenAI.Lib\Informedica.OpenAI.Lib.fsproj", "{5B13678B-1260-4B21-B5FF-7F8C8A9B1BD2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

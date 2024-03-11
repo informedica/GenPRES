@@ -22,6 +22,7 @@ nuget Feliz.UseElmish
 nuget Feliz ~> 2
 nuget Feliz.Markdown
 nuget Feliz.Router
+nuget NJsonSchema
 
 nuget Saturn ~> 0
 
@@ -47,4 +48,3 @@ nuget Expecto.Hopac
 
 # have to add because of issue: https://github.com/fsprojects/Paket/issues/4197
 nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 8
-
