@@ -6,8 +6,6 @@
 module Ollama =
 
     open System
-    open System.Net.Http
-    open System.Text
     open NJsonSchema
     open Newtonsoft.Json
 
@@ -151,10 +149,7 @@ module Ollama =
         let userWithValidator validator = create validator Roles.user
 
 
-    type Response =
-        | Success of ModelResponse
-        | Error of string
-    and ModelResponse = {
+    type OllamaResponse = {
         error: string
         model: string
         created_at: string
@@ -168,7 +163,6 @@ module Ollama =
         eval_count: int
         eval_duration: int64
     }
-
 
     type ModelDetails = {
         format: string
@@ -211,6 +205,7 @@ module Ollama =
         details: Details
     }
 
+
     module EndPoints =
 
         [<Literal>]
@@ -235,71 +230,21 @@ module Ollama =
         let openAI = "http://localhost:11434/v1/chat/completions"
 
 
-
-    // Create an HTTP client
-    let client = new HttpClient()
-
     let pullModel name =
-
-        let pars =
-            {|
-                name = name
-            |}
-            |> JsonConvert.SerializeObject
-
-        let content = new StringContent(pars, Encoding.UTF8, "application/json")
-
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.pull, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-            return responseBody
-        }
+        {|
+            name = name
+        |}
+        |> Utils.post<string> EndPoints.pull None
 
 
     let generate model prompt =
-
-        let pars =
-            {|
-                model = model
-                prompt = prompt
-                options = options
-                    (*
-                    {|
-                        seed = 101
-                        temperature = 0.
-                    |}
-                    *)
-                stream = false
-            |}
-            |> JsonConvert.SerializeObject
-
-        let content = new StringContent(pars, Encoding.UTF8, "application/json")
-
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.generate, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-
-            let modelResponse =
-                try
-                    let resp =
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-
-                    match resp.error with
-                    | s when s |> String.IsNullOrEmpty ->
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-                        |> Success
-                    | s ->
-                        s |> Error
-                with
-                | e ->
-                    e.ToString() |> Error
-
-            return modelResponse
-        }
+        {|
+            model = model
+            prompt = prompt
+            options = options
+            stream = false
+        |}
+        |> Utils.post<OllamaResponse> EndPoints.generate None
 
 
     let chat model messages (message : Message) =
@@ -308,44 +253,34 @@ module Ollama =
                 role = msg.Role
                 content = msg.Content
             |}
+        {|
+            model = model
+            messages =
+                [ message |> map ]
+                |> List.append (messages |> List.map map)
+            options = options
+            stream = false
+        |}
+        |> Utils.post<OllamaResponse> EndPoints.chat None
 
-        let messages =
+
+    let openAIchat model messages (message : Message) =
+        let map msg =
             {|
-                model = model
-                messages =
-                    [ message |> map ]
-                    |> List.append (messages |> List.map map)
-                options = options
-                stream = false
+                role = msg.Role
+                content = msg.Content
             |}
-            |> JsonConvert.SerializeObject
 
-        let content = new StringContent(messages, Encoding.UTF8, "application/json")
-
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.chat, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-
-            let modelResponse =
-                try
-                    let resp =
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-
-                    match resp.error with
-                    | s when s |> String.IsNullOrEmpty ->
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-                        |> Success
-                    | s ->
-                        s |> Error
-                with
-                | e ->
-                    e.ToString() |> Error
-
-            return modelResponse
-        }
+        {|
+            model = model
+            messages =
+                [ message |> map ]
+                |> List.append (messages |> List.map map)
+            temperature = options.temperature
+            seed = options.seed
+            stream = false
+        |}
+        |> Utils.post<OpenAI.ChatCompletion> EndPoints.openAI (Some "ollama")
 
 
     let json<'ReturnType> model messages (message : Message) =
@@ -356,50 +291,20 @@ module Ollama =
             |}
 
         let schema = JsonSchema.FromType<'ReturnType>()
-        let content =
-            {|
-                model = model
-                format = "json"
-                response_format = {|
-                    ``type`` = "json_object"
-                    schema = schema
-                |}
-                messages =
-                    [ message |> map ]
-                    |> List.append (messages |> List.map map)
-                options = options
-                stream = false
+        {|
+            model = model
+            format = "json"
+            response_format = {|
+                ``type`` = "json_object"
+                schema = schema
             |}
-            |> JsonConvert.SerializeObject
-
-        let content = new StringContent(content, Encoding.UTF8, "application/json")
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.chat, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-
-            printfn $"responseBody: {responseBody}"
-
-            let modelResponse =
-                try
-                    let resp =
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-
-                    match resp.error with
-                    | s when s |> String.IsNullOrEmpty ->
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-                        |> Success
-                    | s ->
-                        s |> Error
-                with
-                | e ->
-                    e.ToString() |> Error
-
-            return modelResponse
-        }
-
+            messages =
+                [ message |> map ]
+                |> List.append (messages |> List.map map)
+            options = options
+            stream = false
+        |}
+        |> Utils.post<OllamaResponse> EndPoints.chat None
 
 
     let extract tools model messages (message : Message) =
@@ -409,112 +314,38 @@ module Ollama =
                 content = msg.Content
             |}
 
-        let messages =
-            {|
-                tools = tools
-                model = model
-                messages =
-                    [ message |> map ]
-                    |> List.append (messages |> List.map map)
-                options = options
-                stream = false
-            |}
-            |> JsonConvert.SerializeObject
-
-        let content = new StringContent(messages, Encoding.UTF8, "application/json")
-
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.chat, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-
-            let modelResponse =
-                try
-                    let resp =
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-
-                    match resp.error with
-                    | s when s |> String.IsNullOrEmpty ->
-                        responseBody
-                        |> JsonConvert.DeserializeObject<ModelResponse>
-                        |> Success
-                    | s ->
-                        s |> Error
-                with
-                | e ->
-                    e.ToString() |> Error
-
-            return modelResponse
-        }
+        {|
+            tools = tools
+            model = model
+            messages =
+                [ message |> map ]
+                |> List.append (messages |> List.map map)
+            options = options
+            stream = false
+        |}
+        |> Utils.post<OllamaResponse> EndPoints.chat None
 
 
-    let listModels () =
+    let listModels () = Utils.get<Models> EndPoints.tags
 
-        // Asynchronous API call
-        async {
-            let! response = client.GetAsync(EndPoints.tags) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-            let models =
-                try
-                    responseBody
-                    |> JsonConvert.DeserializeObject<Models>
-                with
-                | e -> e.ToString() |> failwith
-
-            return models
-        }
-        |> Async.RunSynchronously
 
 
     let showModel model =
-        let prompt =
-            {|
-                name = model
-            |}
-            |> JsonConvert.SerializeObject
+        {|
+            name = model
+        |}
+        |> JsonConvert.SerializeObject
+        |> Utils.post<ModelConfig> EndPoints.show None
 
-        let content = new StringContent(prompt, Encoding.UTF8, "application/json")
-
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.show, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-
-            let modelConfig =
-                try
-                    responseBody
-                    |> JsonConvert.DeserializeObject<ModelConfig>
-                with
-                | e -> e.ToString() |> failwith
-            return modelConfig
-        }
 
 
     let embeddings model prompt =
-        let prompt =
-            {|
-                model = model
-                prompt = prompt
-            |}
-            |> JsonConvert.SerializeObject
-
-        let content = new StringContent(prompt, Encoding.UTF8, "application/json")
-
-        // Asynchronous API call
-        async {
-            let! response = client.PostAsync(EndPoints.embeddings, content) |> Async.AwaitTask
-            let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
-            let models =
-                try
-                    responseBody
-                    |> JsonConvert.DeserializeObject<Embedding>
-                with
-                | e -> e.ToString() |> failwith
-
-            return models
-        }
-
+        {|
+            model = model
+            prompt = prompt
+        |}
+        |> JsonConvert.SerializeObject
+        |> Utils.post<Embedding> EndPoints.show None
 
 
     let run (model : string) messages message =
@@ -522,7 +353,7 @@ module Ollama =
         |> chat model messages
         |> Async.RunSynchronously
         |> function
-            | Success response ->
+            | Ok response ->
 
                 [ message; Message.okMessage response.message.role response.message.content ]
                 |> List.append messages
@@ -574,8 +405,6 @@ module Ollama =
 
 
     module Operators =
-
-        open Newtonsoft.Json
 
 
         let init model msg =

@@ -3,15 +3,15 @@
 #r "nuget: Newtonsoft.Json"
 #r "nuget: NJsonSchema"
 
+#load "../Utils.fs"
+#load "../OpenAI.fs"
 #load "../Texts.fs"
 #load "../Prompts.fs"
 #load "../Ollama.fs"
 
 
-open Newtonsoft.Json
 open Informedica.OpenAI.Lib
 open Ollama.Operators
-
 
 
 let tools =
@@ -39,7 +39,7 @@ let tools =
     []
 |> Async.RunSynchronously
 |> function
-    | Ollama.Response.Success resp ->
+    | Ok resp ->
         resp.message.content
         |> printfn "%s"
     | _ -> ()
@@ -112,11 +112,12 @@ let testAll () =
         Ollama.Models.``llama2:13b-chat``
         Ollama.Models.mistral
         Ollama.Models.``mistral:7b-instruct``
+        Ollama.Models.``openchat:7b``
     ]
     |> List.iter testModel
 
 
-
+Ollama.options.temperature <- 0.
 Ollama.options.penalize_newline <- true
 Ollama.options.top_k <- 10
 Ollama.options.top_p <- 0.95
@@ -226,7 +227,7 @@ Je geeft alle uitleg en antwoorden in het Nederlands.
 
 
 Ollama.listModels ()
-
+|> Async.RunSynchronously
 
 """"
 What is the minimal age for a neonate 28 weeks to 32 weeks corrected gestational age
@@ -234,6 +235,16 @@ Reply just in one JSON.
 """
 |> Ollama.Message.user
 |> Ollama.json<{| number: int; unit: string |}>
+    Ollama.Models.llama2
+    []
+|> Async.RunSynchronously
+
+
+"""
+Wy is the sky blue?
+"""
+|> Ollama.Message.user
+|> Ollama.openAIchat
     Ollama.Models.llama2
     []
 |> Async.RunSynchronously

@@ -9,6 +9,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Texts.fs" />
     <Compile Include="Prompts.fs" />
+    <Compile Include="OpenAI.fs" />
     <Compile Include="Ollama.fs" />
     <None Include="Scripts\AI.fsx" />
     <Content Include="Notebooks\Examples.dib" />
