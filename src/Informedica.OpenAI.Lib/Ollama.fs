@@ -238,23 +238,41 @@ module Ollama =
                 content = msg.Content
 
             |}
-
-        {|
-            model = model
-            format = "json"
-            response_format = {|
-                ``type`` = "json_object"
-                schema = "[schema]"
+        let payload =
+            {|
+                model = model
+                format = "json"
+                response_format = {|
+                    ``type`` = "json_object"
+                    schema = "[schema]"
+                |}
+                messages =
+                    [ message |> map ]
+                    |> List.append (messages |> List.map map)
+                options = options
+                stream = false
             |}
-            messages =
-                [ message |> map ]
-                |> List.append (messages |> List.map map)
-            options = options
-            stream = false
-        |}
-        |> JsonConvert.SerializeObject
-        |> String.replace "\"[schema]\"" schema
-        |> Utils.post<OllamaResponse> EndPoints.chat None
+            |> JsonConvert.SerializeObject
+            |> String.replace "\"[schema]\"" schema
+
+        async {
+            let! resp =
+                payload
+                |> Utils.post<OllamaResponse> EndPoints.chat None
+
+            let resp =
+                resp
+                |> Result.bind (fun resp ->
+                    try
+                        resp.Response.message.content
+                        |> JsonConvert.DeserializeObject<'ReturnType>
+                        |> Ok
+                    with
+                    | e -> e.ToString() |> Error
+                )
+
+            return resp
+        }
 
 
     let extract tools model messages (message : Message) =

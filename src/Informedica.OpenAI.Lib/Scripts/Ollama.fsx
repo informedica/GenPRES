@@ -238,13 +238,34 @@ Ollama.listModels ()
 
 """
 Use schema: { number: int; unit: string }
-What is the minimal age for a neonate 28 weeks to 32 weeks corrected gestational age.
+What is the minimal corrected gestational age mentioned in the text between '''
+
+'''A neonate 28 weeks to 32 weeks corrected gestational age.'''
+
 Reply just in one JSON."""
 |> Message.user
 |> Ollama.json<{| number: int; unit: string |}>
     Ollama.Models.llama2
     []
 |> Async.RunSynchronously
+|> function
+    | Ok x -> printfn $"{x}"
+    | Error e -> printfn $"oops: {e}"
+
+
+
+"""
+Use schema: { number: int; unit: string }
+Foo bar. Only give an anwer when possible.
+Reply just in one JSON."""
+|> Message.user
+|> Ollama.json<{| number: int; unit: string |}>
+    Ollama.Models.llama2
+    []
+|> Async.RunSynchronously
+|> function
+    | Ok x -> printfn $"{x}"
+    | Error e -> printfn $"oops: {e}"
 
 
 """
