@@ -23,7 +23,7 @@ module Types =
     and QuestionAnswer =
         {
             Question : Message
-            Answer : Message
+            Answer : Message option
         }
 
 

@@ -386,25 +386,27 @@ Options:
 
             let msg = msg |> Message.system
 
-            msg
-            |> run model []
-            |> fun msgs ->
-                    printfn $"Got an answer"
-
-                    {
-
-                        Model = model
-                        Messages =
-                        [{
-                            Question = msg
-                            Answer = msgs |> List.last
-                        }]
-                    }
+            {
+                Model = model
+                Messages =
+                [{
+                    Question = msg
+                    Answer = None
+                }]
+            }
 
 
         let rec private loop tryAgain conversation msg =
+            let msgs =
+                conversation.Messages
+                |> List.collect (fun m ->
+                    match m.Answer with
+                    | Some answer -> [m.Question; answer ]
+                    | None -> [ m.Question ]
+                )
+
             msg
-            |> run conversation.Model (conversation.Messages |> List.map (_.Question))
+            |> run conversation.Model msgs
             |> fun msgs ->
                     let answer = msgs |> List.last
 
@@ -413,7 +415,7 @@ Options:
                             Messages =
                                 [{
                                     Question = msg
-                                    Answer = answer
+                                    Answer = Some answer
                                 }]
                                 |> List.append conversation.Messages
                         }
@@ -438,4 +440,5 @@ Can you try again answering?
             loop true conversation msg
 
 
-        let (>>!) conversation msg = loop true conversation msg
+        let (>>!) conversation msg =
+            loop true conversation msg

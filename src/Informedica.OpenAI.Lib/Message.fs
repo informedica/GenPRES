@@ -15,13 +15,19 @@ module Conversation =
 
     let print (conversation : Conversation) =
         for qAndA in conversation.Messages do
-            printfn $"""
+            match qAndA.Answer with
+            | Some answer ->
+                printfn $"""
 ## Question:
 {qAndA.Question.Content.Trim()}
 
 ## Answer:
-{qAndA.Answer.Content.Trim()}
-
+{answer.Content.Trim()}
+"""
+            | _ ->
+                printfn $"""
+## System:
+{qAndA.Question.Content.Trim()}
 """
 
 
