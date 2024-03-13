@@ -8,9 +8,10 @@ module Ollama =
     open System
     open NJsonSchema
     open Newtonsoft.Json
+    open Informedica.Utils.Lib.BCL
 
 
-    type Configuration() =
+    type Options() =
         member val num_keep: Nullable<int> = Nullable() with get, set
         member val seed: Nullable<int> = Nullable() with get, set
         member val num_predict: Nullable<int> = Nullable() with get, set
@@ -45,7 +46,7 @@ module Ollama =
 
 
     let options =
-        let opts = Configuration()
+        let opts = Options()
         opts.seed <- 101
         opts.temperature <- 0.
         opts.repeat_last_n <- 64
@@ -53,47 +54,6 @@ module Ollama =
         opts.mirostat <- 0
 
         opts
-
-
-    module Roles =
-
-        let user = "user"
-        let system = "system"
-        let assistent = "assistent"
-
-
-    type Message =
-        {
-            Role : string
-            Content : string
-            Validator : string -> Result<string, string>
-        }
-
-
-    type Conversation =
-        {
-            Model : string
-            Messages : QuestionAnswer list
-        }
-    and QuestionAnswer =
-        {
-            Question : Message
-            Answer : Message
-        }
-
-
-    module Conversation =
-
-        let print (conversation : Conversation) =
-            for qAndA in conversation.Messages do
-                printfn $"""
-## Question:
-{qAndA.Question.Content.Trim()}
-
-## Answer:
-{qAndA.Answer.Content.Trim()}
-
-"""
 
 
     type Tool =
@@ -129,24 +89,6 @@ module Ollama =
                     }
                 }
             }
-
-
-    module Message =
-
-        let create validator role content =
-            {
-                Role = role
-                Content = content
-                Validator = validator
-            }
-
-        let user = create Result.Ok Roles.user
-
-        let system = create Result.Ok Roles.system
-
-        let okMessage = create Ok
-
-        let userWithValidator validator = create validator Roles.user
 
 
     type OllamaResponse = {
@@ -234,6 +176,7 @@ module Ollama =
         {|
             name = name
         |}
+        |> JsonConvert.SerializeObject
         |> Utils.post<string> EndPoints.pull None
 
 
@@ -244,6 +187,7 @@ module Ollama =
             options = options
             stream = false
         |}
+        |> JsonConvert.SerializeObject
         |> Utils.post<OllamaResponse> EndPoints.generate None
 
 
@@ -261,6 +205,7 @@ module Ollama =
             options = options
             stream = false
         |}
+        |> JsonConvert.SerializeObject
         |> Utils.post<OllamaResponse> EndPoints.chat None
 
 
@@ -280,23 +225,26 @@ module Ollama =
             seed = options.seed
             stream = false
         |}
-        |> Utils.post<OpenAI.ChatCompletion> EndPoints.openAI (Some "ollama")
+        |> JsonConvert.SerializeObject
+        |> Utils.post<OpenAI.Chat.ChatResponse> EndPoints.openAI (Some "ollama")
 
 
     let json<'ReturnType> model messages (message : Message) =
+        let schema = JsonSchema.FromType<'ReturnType>().ToJson()
+
         let map msg =
             {|
                 role = msg.Role
                 content = msg.Content
+
             |}
 
-        let schema = JsonSchema.FromType<'ReturnType>()
         {|
             model = model
             format = "json"
             response_format = {|
                 ``type`` = "json_object"
-                schema = schema
+                schema = "[schema]"
             |}
             messages =
                 [ message |> map ]
@@ -304,6 +252,8 @@ module Ollama =
             options = options
             stream = false
         |}
+        |> JsonConvert.SerializeObject
+        |> String.replace "\"[schema]\"" schema
         |> Utils.post<OllamaResponse> EndPoints.chat None
 
 
@@ -323,6 +273,7 @@ module Ollama =
             options = options
             stream = false
         |}
+        |> JsonConvert.SerializeObject
         |> Utils.post<OllamaResponse> EndPoints.chat None
 
 
@@ -354,6 +305,7 @@ module Ollama =
         |> Async.RunSynchronously
         |> function
             | Ok response ->
+                let response = response.Response
 
                 [ message; Message.okMessage response.message.role response.message.content ]
                 |> List.append messages

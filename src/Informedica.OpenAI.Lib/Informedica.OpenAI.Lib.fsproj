@@ -6,12 +6,16 @@
     <RootNamespace>Informedica.Ollama.Lib</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Types.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Texts.fs" />
     <Compile Include="Prompts.fs" />
+    <Compile Include="Message.fs" />
     <Compile Include="OpenAI.fs" />
+    <Compile Include="Fireworks.fs" />
     <Compile Include="Ollama.fs" />
-    <None Include="Scripts\AI.fsx" />
+    <None Include="Scripts\Ollama.fsx" />
+    <None Include="Scripts\Fireworks.fsx" />
     <Folder Include="Notebooks\" />
   </ItemGroup>
   <ItemGroup>

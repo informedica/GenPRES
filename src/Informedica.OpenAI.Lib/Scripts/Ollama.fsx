@@ -3,13 +3,19 @@
 #r "nuget: Newtonsoft.Json"
 #r "nuget: NJsonSchema"
 
+#r "../../Informedica.Utils.Lib/bin/Debug/net8.0/Informedica.Utils.Lib.dll"
+
+#load "../Types.fs"
 #load "../Utils.fs"
-#load "../OpenAI.fs"
 #load "../Texts.fs"
 #load "../Prompts.fs"
+#load "../Message.fs"
+#load "../OpenAI.fs"
+#load "../Fireworks.fs"
 #load "../Ollama.fs"
 
 
+open System
 open Informedica.OpenAI.Lib
 open Ollama.Operators
 
@@ -32,7 +38,7 @@ let tools =
     |> List.singleton
 
 "What is the weather in Seattle?"
-|> Ollama.Message.user
+|> Message.user
 |> Ollama.extract
     tools
     "joefamous/firefunction-v1:q3_k"
@@ -40,7 +46,7 @@ let tools =
 |> Async.RunSynchronously
 |> function
     | Ok resp ->
-        resp.message.content
+        resp.Response.message.content
         |> printfn "%s"
     | _ -> ()
 
@@ -100,7 +106,7 @@ let testModel model =
     printfn $"\n\n# Running: {model}\n\n"
     for text in Texts.testTexts do
         extractDoseQuantities model text
-        |> Ollama.Conversation.print
+        |> Conversation.print
 
 
 let testAll () =
@@ -157,7 +163,7 @@ Child 6–23 months
 "You are a helpful assistant"
 |> init Ollama.Models.``openchat:7b``
 >>? "Why is the sky blue?"
-|> Ollama.Conversation.print
+|> Conversation.print
 
 
 Ollama.options.temperature <- 0
@@ -169,7 +175,7 @@ Ollama.options.top_p <- 0.95
 
 BNFC.paracetamolPO[0]
 |> extractDoseQuantities Ollama.Models.``openchat:7b``
-|> Ollama.Conversation.print
+|> Conversation.print
 
 
 Ollama.options.temperature <- 0.5
@@ -189,7 +195,7 @@ Explain to the parents that there child as to be put on a ventilator and has to
 be intubated.
 """
 //>>? "translate the previous message to Dutch"
-|> Ollama.Conversation.print
+|> Conversation.print
 
 
 """
@@ -203,7 +209,7 @@ Je geeft alle uitleg en antwoorden in het Nederlands.
 Leg aan ouders uit dat hun kind aan de beademing moet worden gelegd en daarvoor
 geintubeerd moet worden.
 """
-|> Ollama.Conversation.print
+|> Conversation.print
 
 let x =
     """
@@ -221,7 +227,7 @@ dat op de kinder IC ligt.
 
 Je geeft alle uitleg en antwoorden in het Nederlands.
 """
-|> Ollama.Message.system
+|> Message.system
 |> Ollama.chat Ollama.Models.llama2 []
 |> Async.RunSynchronously
 
@@ -229,11 +235,12 @@ Je geeft alle uitleg en antwoorden in het Nederlands.
 Ollama.listModels ()
 |> Async.RunSynchronously
 
-""""
-What is the minimal age for a neonate 28 weeks to 32 weeks corrected gestational age
-Reply just in one JSON.
+
 """
-|> Ollama.Message.user
+Use schema: { number: int; unit: string }
+What is the minimal age for a neonate 28 weeks to 32 weeks corrected gestational age.
+Reply just in one JSON."""
+|> Message.user
 |> Ollama.json<{| number: int; unit: string |}>
     Ollama.Models.llama2
     []
@@ -243,8 +250,22 @@ Reply just in one JSON.
 """
 Wy is the sky blue?
 """
-|> Ollama.Message.user
+|> Message.user
 |> Ollama.openAIchat
     Ollama.Models.llama2
     []
 |> Async.RunSynchronously
+
+
+
+"""
+You are an empathic medical professional and translate medical topics to parents
+that have a child admitted to a pediatric critical care unit.
+"""
+|> init Ollama.Models.``openchat:7b``
+>>? """
+Explain to the parents that there child as to be put on a ventilator and has to
+be intubated.
+"""
+//>>? "translate the previous message to Dutch"
+|> Conversation.print
