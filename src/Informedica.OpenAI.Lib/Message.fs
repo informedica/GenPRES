@@ -2,12 +2,17 @@ namespace Informedica.OpenAI.Lib
 
 
 
-
 module Roles =
 
+
+    [<Literal>]
     let user = "user"
+
+    [<Literal>]
     let system = "system"
-    let assistent = "assistent"
+
+    [<Literal>]
+    let assistant = "assistant"
 
 
 
@@ -40,6 +45,8 @@ module Message =
             Validator = validator
         }
 
+    let assistant = create Result.Ok Roles.assistant
+
     let user = create Result.Ok Roles.user
 
     let system = create Result.Ok Roles.system
@@ -47,4 +54,28 @@ module Message =
     let okMessage = create Ok
 
     let userWithValidator validator = create validator Roles.user
+
+
+    let print (msg : Message) =
+        match msg.Role with
+        | Roles.user ->
+            printfn $"""
+## Question:
+{msg.Content.Trim()}
+"""
+        | Roles.assistant ->
+            printfn $"""
+## Answer:
+{msg.Content.Trim()}
+"""
+        | Roles.system ->
+            printfn $"""
+## System:
+{msg.Content.Trim()}
+"""
+        | _ ->
+            printfn $"""
+## Unknown role:
+{msg.Content.Trim()}
+"""
 

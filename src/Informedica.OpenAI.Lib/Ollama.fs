@@ -230,7 +230,7 @@ module Ollama =
 
 
     let json<'ReturnType> model messages (message : Message) =
-        let schema = JsonSchema.FromType<'ReturnType>().ToJson()
+        //let schema = JsonSchema.FromType<'ReturnType>().ToJson()
 
         let map msg =
             {|
@@ -238,13 +238,15 @@ module Ollama =
                 content = msg.Content
 
             |}
+
         let payload =
             {|
                 model = model
                 format = "json"
                 response_format = {|
                     ``type`` = "json_object"
-                    schema = "[schema]"
+                    schema = null // schema is not well supported add
+                                  // schema to the prompt manually
                 |}
                 messages =
                     [ message |> map ]
@@ -253,7 +255,6 @@ module Ollama =
                 stream = false
             |}
             |> JsonConvert.SerializeObject
-            |> String.replace "\"[schema]\"" schema
 
         async {
             let! resp =
@@ -272,6 +273,53 @@ module Ollama =
                 )
 
             return resp
+        }
+
+
+    let validate<'ReturnType> model messages (message: Message) =
+        let original = message
+
+        async {
+            let rec validateLoop reTry messages (attemptMessage: Message) =
+                async {
+                    let! resp = json<'ReturnType> model messages attemptMessage
+
+                    match resp with
+                    | Ok result ->
+                        let answer = result |> JsonConvert.SerializeObject
+                        let messages =
+                            [attemptMessage; answer |> Message.assistant]
+                            |> List.append messages
+
+                        match answer |> attemptMessage.Validator with
+                        | Ok res ->
+                            let validationResult = res |> JsonConvert.DeserializeObject<'ReturnType>
+
+                            messages |> List.iter Message.print
+                            return Ok validationResult
+                        | Error err ->
+                            if not reTry then
+                                messages |> List.iter Message.print
+                                return err |> Error
+                            else
+                                let updatedMessage =
+                                    { attemptMessage with
+                                        Content = $"The answer: {answer} was not correct because of %s{err}. Please try again answering:\n\n%s{original.Content}"
+                                    }
+                                return! validateLoop false messages updatedMessage
+                    | Error err ->
+                        if not reTry then
+                            messages @ [attemptMessage]  |> List.iter Message.print
+                            return err |> Error
+                        else
+                            let updatedMessage =
+                                { attemptMessage with
+                                    Content = $"The answer was not correct because of %s{err}. Please try again answering:\n\n%s{original.Content}"
+                                }
+                            let messages = [attemptMessage] |> List.append messages
+                            return! validateLoop false messages updatedMessage
+                }
+            return! validateLoop true messages message
         }
 
 
@@ -389,10 +437,10 @@ Options:
             {
                 Model = model
                 Messages =
-                [{
-                    Question = msg
-                    Answer = None
-                }]
+                    [{
+                        Question = msg
+                        Answer = None
+                    }]
             }
 
 

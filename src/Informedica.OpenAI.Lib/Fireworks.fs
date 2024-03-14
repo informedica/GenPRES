@@ -1,5 +1,7 @@
 namespace Informedica.OpenAI.Lib
 
+open Informedica.OpenAI.Lib.OpenAI.Chat
+
 
 module Fireworks =
 
@@ -117,6 +119,33 @@ module Fireworks =
         }
 
 
+        let print (chat : ChatInput) =
+            chat.messages
+            |> List.iter (fun m ->
+                match m.role with
+                | Roles.user ->
+                    printfn $"""
+## Question:
+{m.content.Trim()}
+"""
+                | Roles.assistant ->
+                    printfn $"""
+## Answer:
+{m.content.Trim()}
+"""
+                | Roles.system ->
+                    printfn $"""
+## System:
+{m.content.Trim()}
+"""
+                | _ ->
+                    printfn $"""
+## Unknown role:
+{m.content.Trim()}
+"""
+            )
+
+
     module Completions =
 
 
@@ -229,21 +258,82 @@ module Fireworks =
 
 
     let chatJson<'Schema> (input : Chat.ChatInput) =
-        let schema = JsonSchema.FromType<'Schema>().ToJson()
+        // doesn't work well
+        //let schema = JsonSchema.FromType<'Schema>().ToJson()
 
         { input with
             response_format =
                 {
                     ``type`` = "json_object"
-                    schema = "[schema]"
+                    schema = null // this is not well supported
+                                  // put the schema in the prompt
                 }
         }
         |> JsonConvert.SerializeObject
-        |> String.replace "\"[schema]\"" schema
+//        |> String.replace "\"[schema]\"" schema
         |> Utils.post<Chat.ChatResponse>
             EndPoints.chat
             apiKey
 
+
+    let validate<'ReturnType> (validator : string -> Result<string, string>) (input : Chat.ChatInput) =
+        let original = input.messages |> List.last
+
+        async {
+            let rec validateLoop reTry (input: Chat.ChatInput) =
+                async {
+                    let! resp = chatJson<'ReturnType> (input : Chat.ChatInput)
+                    match resp with
+                    | Ok result ->
+                        let answer =
+                            result.Response.choices
+                            |> List.last
+
+                        match answer.message.content |> validator with
+                        | Ok _ ->
+                            let validationResult =
+                                answer.message.content
+                                |> JsonConvert.DeserializeObject<'ReturnType>
+
+                            input |> Chat.print
+                            return Ok validationResult
+                        | Error err ->
+                            if not reTry then
+                                input |> Chat.print
+                                return Error err
+                            else
+
+                                let updatedInput =
+                                    { input with
+                                        messages =
+                                            [{|
+                                                role = "user"
+                                                content = $"The answer: {answer.message.content} was not correct because of %s{err}. Please try again answering:\n\n%s{original.content}"
+                                            |}]
+                                            |> List.append input.messages
+                                    }
+                                return! validateLoop false updatedInput
+                    | Error err ->
+                        if not reTry then
+                            input |> Chat.print
+                            return err |> Error
+                        else
+                            let msg =
+                                input.messages
+                                |> List.last
+                            let updatedInput =
+                                { input with
+                                    messages =
+                                        [{|
+                                            role = "user"
+                                            content = $"There was an error: %s{err}. Please try again answering:\n\n%s{original.content}"
+                                        |}]
+                                        |> List.append input.messages
+                                }
+                            return! validateLoop false updatedInput
+                }
+            return! validateLoop true (input : Chat.ChatInput)
+        }
 
 
     let run (model : string) messages message =
