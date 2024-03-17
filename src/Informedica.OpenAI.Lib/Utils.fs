@@ -6,7 +6,14 @@ module Utils =
     open System.Net.Http
     open System.Net.Http.Headers
     open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.BCL
     open Newtonsoft.Json
+
+
+    let anonymousTypeStringToJson s =
+        s
+        |> String.replace "|" ""
+        |> String.replace ";" ""
 
 
     // Create an HTTP client

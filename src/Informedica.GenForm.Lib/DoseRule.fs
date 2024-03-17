@@ -307,7 +307,11 @@ module DoseRule =
                                                     |> Option.defaultValue 0N
                                                 )
                                             )
-                                            |> Array.map (fun p -> product_md p.Label)
+                                            |> Array.map (fun p ->
+                                                if p.GPK |> String.IsNullOrWhiteSpace then p.Label
+                                                else $"{p.GPK} - {p.Label}"
+                                                |> product_md
+                                            )
                                             |> Array.distinct
                                             |> String.concat "\n"
 

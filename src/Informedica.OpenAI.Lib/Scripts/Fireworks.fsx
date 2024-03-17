@@ -222,3 +222,12 @@ Reply just in one JSON.
 |> fun msg -> Fireworks.Chat.defaultChatInput model msg []
 |> Fireworks.chatJson<{| number: int; unit: string |}>
 |> Async.RunSynchronously
+
+
+let test = {| name = "test" |}
+
+open Informedica.Utils.Lib.BCL
+
+"{| name: string |}"
+|> String.replace "|" ""
+|> String.replace ";" ","
