@@ -76,6 +76,7 @@ module private Elmish =
 
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
     // * pg : el (emergency list) cm (continuous medication) pr (prescribe)
+    // * ad: age in days
     // * by: birth year
     // * bm: birth month
     // * bd: birth day
@@ -99,8 +100,8 @@ module private Elmish =
             let paramsMap = Map.ofList queryParams
 
             let pat =
-                match Map.tryFind "by" paramsMap with
-                | Some (Route.Int year) ->
+                match Map.tryFind "by" paramsMap, Map.tryFind "ad" paramsMap with
+                | Some (Route.Int year), _ ->
                     // birthday year is required
                     let month =
                         match Map.tryFind "bm" paramsMap with
@@ -156,6 +157,52 @@ module private Elmish =
 
                     Logging.log "parsed: " patient
                     patient
+                | _, Some (Route.Int days) ->
+                    let weight =
+                        match Map.tryFind "wt" paramsMap with
+                        | Some (Route.Number weight) -> Some (weight / 1000.)
+                        | _ -> None
+
+                    let height =
+                        match Map.tryFind "ht" paramsMap with
+                        | Some (Route.Number weight) -> Some weight
+                        | _ -> None
+
+                    let gaWeeks =
+                        match Map.tryFind "gw" paramsMap with
+                        | Some (Route.Number weeks) -> weeks |> int |> Some
+                        | _ -> None
+
+                    let gaDays =
+                        match Map.tryFind "gd" paramsMap with
+                        | Some (Route.Number days) -> days |> int |> Some
+                        | _ -> None
+
+                    let cvl =
+                        match Map.tryFind "cv" paramsMap with
+                        | Some s when s = "y" -> true
+                        | _ -> false
+
+                    let dep =  Map.tryFind "dp"paramsMap 
+
+                    let age = Patient.Age.fromDays days
+
+                    let patient =
+                        Patient.create
+                            (Some age.Years)
+                            (Some age.Months)
+                            (Some age.Weeks)
+                            (Some age.Days)
+                            weight
+                            height
+                            gaWeeks 
+                            gaDays
+                            cvl
+                            dep
+
+                    Logging.log "parsed: " patient
+                    patient
+
                 | _ ->
                     Logging.warning "could not parse url to patient" sl
                     None

@@ -215,6 +215,22 @@ module Patient =
             }
 
 
+        let fromDays days = 
+            let yrs = days / 365
+            let mos = (days - yrs * 365) / 30 
+            let wks = (days - yrs * 365 - mos * 30) / 7
+            let dys = 
+                if days - yrs * 365 - mos * 30 - wks * 7 > 0 then
+                    days - yrs * 365 - mos * 30 - wks * 7
+                else
+                    0
+            create 
+                yrs 
+                (if mos > 0 then Some mos else None) 
+                (if wks > 0 then Some wks else None) 
+                (if dys > 0 then Some dys else None)
+
+
         let fromBirthDate (now: DateTime) (bdt: DateTime) =
             if bdt > now then
                 failwith $"birthdate: {bdt} cannot be after current date: {now}"
