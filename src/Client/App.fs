@@ -31,6 +31,7 @@ module private Elmish =
             SelectedSubstance : string option
             InitialMedication : string option
             InitialRoute : string option
+            InitialDoseType : string option
             InitialIndication : string option
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
@@ -89,6 +90,7 @@ module private Elmish =
     // * md: medication
     // * rt: route
     // * in: indication
+    // * dt: dosetype
     let parseUrl sl =
         printfn $"parsing url with {sl}"
         match sl with
@@ -188,6 +190,7 @@ module private Elmish =
                     medication = paramsMap |> Map.tryFind "md"
                     route = paramsMap |> Map.tryFind "rt"
                     indication = paramsMap |> Map.tryFind "in"
+                    dosetype = paramsMap |> Map.tryFind "dt"
                 |}
                 |> Some
 
@@ -201,7 +204,7 @@ module private Elmish =
             None, None, None, true, None
 
 
-    let initialState pat page lang discl (med : {| medication: string option; route: string option; indication: string option |} option) =
+    let initialState pat page lang discl (med : {| medication: string option; route: string option; indication: string option; dosetype: string option |} option) =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue Global.LifeSupport
@@ -221,6 +224,9 @@ module private Elmish =
             InitialIndication =
                 med
                 |> Option.bind _.indication
+            InitialDoseType =
+                med
+                |> Option.bind _.dosetype
             SelectedScenarioOrder = None
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
@@ -406,6 +412,7 @@ module private Elmish =
                         Medication = state.InitialMedication
                         Route = state.InitialRoute
                         Indication = state.InitialIndication
+                        DoseType = state.InitialDoseType
                     }
                 |> fun sc ->
                     { sc with
@@ -441,7 +448,8 @@ module private Elmish =
                 Scenarios = InProgress
                 InitialMedication = None
                 InitialRoute = None
-                InitialIndication = None 
+                InitialIndication = None
+                InitialDoseType = None
             }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
