@@ -29,6 +29,8 @@ module private Elmish =
             SelectedScenarioOrder : (Scenario * Order) option
             CalculatedOrder : Deferred<(bool * Order) option>
             SelectedSubstance : string option
+            InitialMedication : string option
+            InitialRoute : string option
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
@@ -83,53 +85,55 @@ module private Elmish =
     // * dc: show disclaimer (n;_)
     // * cv: central venous line (y;_)
     // * dp: department
+    // * md: medication
+    // * rt: route
     let parseUrl sl =
         printfn $"parsing url with {sl}"
         match sl with
-        | [] -> None, None, None, true
+        | [] -> None, None, None, true, None
         | [ "patient"; Route.Query queryParams ] ->
-            let queryParamsMap = Map.ofList queryParams
+            let paramsMap = Map.ofList queryParams
 
             let pat =
-                match Map.tryFind "by" queryParamsMap with
+                match Map.tryFind "by" paramsMap with
                 | Some (Route.Int year) ->
                     // birthday year is required
                     let month =
-                        match Map.tryFind "bm" queryParamsMap with
+                        match Map.tryFind "bm" paramsMap with
                         | Some (Route.Int months) -> months
                         | _ -> 1 // january is the default
 
                     let day =
-                        match Map.tryFind "bd" queryParamsMap with
+                        match Map.tryFind "bd" paramsMap with
                         | Some (Route.Int days) -> days
                         | _ -> 1 // first day of the month is the default
 
                     let weight =
-                        match Map.tryFind "wt" queryParamsMap with
+                        match Map.tryFind "wt" paramsMap with
                         | Some (Route.Number weight) -> Some (weight / 1000.)
                         | _ -> None
 
                     let height =
-                        match Map.tryFind "ht" queryParamsMap with
+                        match Map.tryFind "ht" paramsMap with
                         | Some (Route.Number weight) -> Some weight
                         | _ -> None
 
                     let gaWeeks =
-                        match Map.tryFind "gw" queryParamsMap with
+                        match Map.tryFind "gw" paramsMap with
                         | Some (Route.Number weeks) -> weeks |> int |> Some
                         | _ -> None
 
                     let gaDays =
-                        match Map.tryFind "gd" queryParamsMap with
+                        match Map.tryFind "gd" paramsMap with
                         | Some (Route.Number days) -> days |> int |> Some
                         | _ -> None
 
                     let cvl =
-                        match Map.tryFind "cv" queryParamsMap with
+                        match Map.tryFind "cv" paramsMap with
                         | Some s when s = "y" -> true
                         | _ -> false
 
-                    let dep =  Map.tryFind "dp"queryParamsMap 
+                    let dep =  Map.tryFind "dp"paramsMap 
 
                     let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
@@ -153,7 +157,7 @@ module private Elmish =
                     None
 
             let page =
-                match queryParamsMap |> Map.tryFind "pg" with
+                match paramsMap |> Map.tryFind "pg" with
                 | Some s when s = "el" -> Some Global.LifeSupport
                 | Some s when s = "cm" -> Some Global.ContinuousMeds
                 | Some s when s = "pr" -> Some Global.Prescribe
@@ -162,7 +166,7 @@ module private Elmish =
                 | _ -> None
 
             let lang = 
-                match queryParamsMap |> Map.tryFind "la" with
+                match paramsMap |> Map.tryFind "la" with
                 | Some s when s = "en" -> Some Localization.English
                 | Some s when s = "du" -> Some Localization.Dutch
                 | Some s when s = "fr" -> Some Localization.French
@@ -173,20 +177,28 @@ module private Elmish =
                 | _ -> None
 
             let discl =
-                match queryParamsMap |> Map.tryFind "dc" with
+                match paramsMap |> Map.tryFind "dc" with
                 | Some s when s = "n" -> false
                 | _ -> true
 
-            pat, page, lang, discl
+            let med = 
+                {| 
+                    medication = paramsMap |> Map.tryFind "md"
+                    route = paramsMap |> Map.tryFind "rt"
+                |}
+                |> Some
+
+            pat, page, lang, discl, med
 
         | _ ->
             sl
             |> String.concat ""
             |> Logging.warning "could not parse url"
 
-            None, None, None, true
+            None, None, None, true, None
 
-    let initialState pat page lang discl =
+
+    let initialState pat page lang discl (med : {| medication: string option; route: string option |} option) =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue Global.LifeSupport
@@ -197,6 +209,12 @@ module private Elmish =
             Scenarios = HasNotStartedYet
             CalculatedOrder = HasNotStartedYet
             SelectedSubstance = None
+            InitialMedication =
+                med
+                |> Option.bind _.medication
+            InitialRoute = 
+                med
+                |> Option.bind _.route
             SelectedScenarioOrder = None
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
@@ -211,7 +229,7 @@ module private Elmish =
         }
 
     let init () : Model * Cmd<Msg> =
-        let pat, page, lang, discl = Router.currentUrl () |> parseUrl
+        let pat, page, lang, discl, med = Router.currentUrl () |> parseUrl
 
         let cmds =
             Cmd.batch [
@@ -224,7 +242,7 @@ module private Elmish =
                 Cmd.ofMsg (LoadParenteralia Started)
             ]
 
-        initialState pat page lang discl
+        initialState pat page lang discl med
         , cmds
 
 
@@ -260,14 +278,14 @@ module private Elmish =
 
         | UrlChanged sl ->
             printfn "url changed"
-            let pat, page, lang, discl = sl |> parseUrl
+            let pat, page, lang, discl, med = sl |> parseUrl
 
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
                 Context =  
-                    {state.Context with 
+                    { state.Context with 
                         Localization =
                             lang |> Option.defaultValue Localization.English 
                     } 
@@ -377,7 +395,11 @@ module private Elmish =
             let scenarios =
                 match state.Scenarios, state.Patient with
                 | Resolved sc, Some _ -> sc
-                | _ -> ScenarioResult.empty
+                | _ -> 
+                    { ScenarioResult.empty with
+                        Medication = state.InitialMedication
+                        Route = state.InitialRoute
+                    }
                 |> fun sc ->
                     { sc with
                         AgeInDays =
@@ -402,12 +424,13 @@ module private Elmish =
                     }
 
             let load =
+                printfn $"loading scenarios: {scenarios}"
                 async {
                     let! result = serverApi.getScenarioResult scenarios
                     return Finished result |> LoadScenarios
                 }
 
-            { state with Scenarios = InProgress }, Cmd.fromAsync load
+            { state with Scenarios = InProgress; InitialMedication = None; InitialRoute = None }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
             { state with
@@ -571,7 +594,7 @@ module private Elmish =
                                     |> Array.filter (fun sc ->
                                         sc.Order
                                         |> Option.map (fun so ->
-                                            printfn $"comparing {so.Orderable} = {o.Orderable}"
+                                            printfn $"comparing {so.Id} = {o.Id}"
                                             so.Id = o.Id
                                         )
                                         |> Option.defaultValue true

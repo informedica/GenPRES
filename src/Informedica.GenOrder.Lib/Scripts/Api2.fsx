@@ -221,10 +221,11 @@ let pr =
     |> PrescriptionRule.get
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 
+
 Patient.teenager
 |> fun p ->
     { p with
-        VenousAccess = []
+        VenousAccess = [VenousAccess.CVL]
         Department = Some "ICK"
         Age =
             Units.Time.year

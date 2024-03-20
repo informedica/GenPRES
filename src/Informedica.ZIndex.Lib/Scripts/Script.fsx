@@ -411,7 +411,7 @@ GenPresProduct.filter "" "drank" ""
 )
 
 
-GenPresProduct.findByBrand "Wilzin"
+GenPresProduct.findByBrand "Grazax"
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
