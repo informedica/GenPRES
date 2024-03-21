@@ -325,50 +325,56 @@ module Api =
                             DoseType = dst
                         }
                         |> PrescriptionRule.filter
-                        |> Array.collect (fun pr ->
-                            pr
-                            |> evaluate OrderLogger.logger.Logger
-                            |> Array.mapi (fun i r -> (i, r))
-                            |> Array.choose (function
-                                | i, Ok (ord, pr) ->
-                                    let ns =
-                                        pr.DoseRule.DoseLimits
-                                        |> Array.choose (fun dl ->
-                                            match dl.DoseLimitTarget with
-                                            | SubstanceLimitTarget s -> Some s
-                                            | _ -> None
-                                        )
-                                        |> Array.distinct
+                        |> Array.map (fun pr ->
+                            async {
+                                return
+                                    pr
+                                    |> evaluate OrderLogger.logger.Logger
+                                    |> Array.mapi (fun i r -> (i, r))
+                                    |> Array.choose (function
+                                        | i, Ok (ord, pr) ->
+                                            let ns =
+                                                pr.DoseRule.DoseLimits
+                                                |> Array.choose (fun dl ->
+                                                    match dl.DoseLimitTarget with
+                                                    | SubstanceLimitTarget s -> Some s
+                                                    | _ -> None
+                                                )
+                                                |> Array.distinct
 
-                                    let useAdjust = pr.DoseRule |> DoseRule.useAdjust
+                                            let useAdjust = pr.DoseRule |> DoseRule.useAdjust
 
-                                    let prs, prp, adm =
-                                        ord
-                                        |> Order.Print.printOrderToMd useAdjust ns
+                                            let prs, prp, adm =
+                                                ord
+                                                |> Order.Print.printOrderToMd useAdjust ns
 
-                                    {
-                                        No = i
-                                        Indication = pr.DoseRule.Indication
-                                        DoseType = pr.DoseRule.DoseType |> DoseType.toString
-                                        Name = pr.DoseRule.Generic
-                                        Shape = pr.DoseRule.Shape
-                                        Route = pr.DoseRule.Route
-                                        Prescription = prs |> replace
-                                        Preparation =prp |> replace
-                                        Administration = adm |> replace
-                                        Order = Some ord
-                                        UseAdjust = useAdjust
-                                    }
-                                    |> Some
+                                            {
+                                                No = i
+                                                Indication = pr.DoseRule.Indication
+                                                DoseType = pr.DoseRule.DoseType |> DoseType.toString
+                                                Name = pr.DoseRule.Generic
+                                                Shape = pr.DoseRule.Shape
+                                                Route = pr.DoseRule.Route
+                                                Prescription = prs |> replace
+                                                Preparation =prp |> replace
+                                                Administration = adm |> replace
+                                                Order = Some ord
+                                                UseAdjust = useAdjust
+                                            }
+                                            |> Some
 
-                                | _, Error (_, _, errs) ->
-                                    errs
-                                    |> List.map string
-                                    |> String.concat "\n"
-                                    |> fun s -> ConsoleWriter.writeErrorMessage s true false
-                                    None
-                            )
+                                        | _, Error (_, _, errs) ->
+                                            errs
+                                            |> List.map string
+                                            |> String.concat "\n"
+                                            |> fun s -> ConsoleWriter.writeErrorMessage s true false
+                                            None
+                                    )
+                            }
                         )
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> Array.collect id
                         |> Array.distinctBy (fun pr ->
                             pr.DoseType,
                             pr.Preparation,
