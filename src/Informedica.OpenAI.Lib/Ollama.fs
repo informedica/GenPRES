@@ -323,6 +323,51 @@ module Ollama =
         }
 
 
+    let validate2<'ReturnType> (model : string) messages (message: Message) =
+        let original = message
+
+        async {
+            let rec validateLoop reTry messages (attemptMessage: Message) =
+                async {
+                    let! resp = json<'ReturnType> model messages attemptMessage
+                    let messages = [ attemptMessage ] |> List.append messages
+
+                    match resp with
+                    | Ok result ->
+                        let answer = result |> JsonConvert.SerializeObject
+                        let messages =
+                            [ answer |> Message.assistant]
+                            |> List.append messages
+
+                        match answer |> attemptMessage.Validator with
+                        | Ok res ->
+                            let validationResult = res |> JsonConvert.DeserializeObject<'ReturnType>
+
+                            return Ok (validationResult, messages)
+                        | Error err ->
+                            if not reTry then
+                                return Error (err, messages)
+                            else
+                                let updatedMessage =
+                                    { attemptMessage with
+                                        Content = $"The answer: {answer} was not correct because of %s{err}. Please try again answering:\n\n%s{original.Content}"
+                                    }
+                                return! validateLoop false messages updatedMessage
+                    | Error err ->
+                        if not reTry then
+                            return Error (err,  messages)
+                        else
+                            let updatedMessage =
+                                { attemptMessage with
+                                    Content = $"The answer was not correct because of %s{err}. Please try again answering:\n\n%s{original.Content}"
+                                }
+
+                            return! validateLoop false messages updatedMessage
+                }
+            return! validateLoop true messages message
+        }
+
+
     let extract tools model messages (message : Message) =
         let map msg =
             {|
@@ -346,14 +391,12 @@ module Ollama =
     let listModels () = Utils.get<Models> EndPoints.tags
 
 
-
     let showModel model =
         {|
             name = model
         |}
         |> JsonConvert.SerializeObject
         |> Utils.post<ModelConfig> EndPoints.show None
-
 
 
     let embeddings model prompt =
@@ -401,6 +444,10 @@ module Ollama =
         let meditron = "meditron"
 
         let ``joefamous/firefunction-v1:q3_k`` = "joefamous/firefunction-v1:q3_k"
+
+        let ``llama-pro`` = "llama-pro"
+
+        let openhermes = "openhermes"
 
 
 
@@ -483,8 +530,8 @@ Can you try again answering?
                             |> loop false newConv
 
 
-        let (>>?) conversation msg  =
-            let msg = msg |> Message.user
+        let (>>?) conversation text  =
+            let msg = text |> Message.user
             loop true conversation msg
 
 

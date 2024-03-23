@@ -16,56 +16,35 @@
 
 
 open System
+open Informedica.Utils.Lib.BCL
 open Informedica.OpenAI.Lib
 open Ollama.Operators
 
 
-let tools =
-    {|
-      city =  {|
-        ``type`` =  "string"
-        description = "The city to get the weather for"
-      |}
-      state = {|
-        ``type`` =  "string"
-        description = "The state to get the weather for"
-      |}
-    |}
-    |> Ollama.Tool.create
-        "get_weather"
-        "Get the weather."
-        ["city"; "state"]
-    |> List.singleton
-
-"What is the weather in Seattle?"
-|> Message.user
-|> Ollama.extract
-    tools
-    "joefamous/firefunction-v1:q3_k"
-    []
-|> Async.RunSynchronously
-|> function
-    | Ok resp ->
-        resp.Response.message.content
-        |> printfn "%s"
-    | _ -> ()
+Ollama.options.temperature <- 0.
+Ollama.options.penalize_newline <- true
+Ollama.options.top_k <- 10
+Ollama.options.top_p <- 0.95
 
 
 let extractDoseQuantities model text =
         Texts.systemDoseQuantityExpert
         |> init model
         >>? $"""
+Use Schema: {{ name: string }}
 The text between the ''' describes dose quantities for a
 substance:
 
 '''{text}'''
 
 For which substance?
-Give the answer as Substance : ?
+Reply in JSON.
 """
         >>? """
+Use Schema: {{ substanceUnit: string }}
 What is the unit used for the substance, the substance unit?
-Give the answer as SubstanceUnit : ?
+
+Reply in JSON.
 """
         >>? """
 What is the unit to adjust the dose for?
@@ -88,6 +67,7 @@ What is the number of doses per TimeUnit?
 Give the answer as Frequency: ?
 """
         >>? """
+Schema
 Summarize the previous answers as:
 
 - Substance: ?
@@ -123,170 +103,219 @@ let testAll () =
     |> List.iter testModel
 
 
-Ollama.options.temperature <- 0.
-Ollama.options.penalize_newline <- true
-Ollama.options.top_k <- 10
-Ollama.options.top_p <- 0.95
+
+open Newtonsoft.Json
 
 
-Ollama.Models.``openchat:7b``
-|> testModel
+type ProcessMessage<'ReturnType> =
+    ProcessMessage of (Message list -> 'ReturnType * Message list)
 
 
-module BNFC =
 
-    let paracetamolPO =
-        [
-            """
-paracetamol
-Neonate 28 weeks to 32 weeks corrected gestational age
-20 mg/ kg for 1 dose, then 10–15 mg/kg every 8–12 hours as required, maximum daily dose to be given in divided doses; maximum 30 mg/kg per day.
+module ProcessMessage =
+
+
+    let run (ProcessMessage f) msgs = msgs |> f
+
+
+    let map f procMsg =
+        fun msgs ->
+            let res1, msgs = run procMsg msgs
+            f res1, msgs
+        |> ProcessMessage
+
+
+    let map2 f procMsg1 procMsg2 =
+        fun msgs ->
+            let res1, msgs = run procMsg1 msgs
+            let res2, msgs = run procMsg2 msgs
+            f res1 res2, msgs
+        |> ProcessMessage
+
+
+    let bind f procMsg =
+        fun msgs ->
+            let res1, msgs = run procMsg msgs
+            run (f res1) msgs
+        |> ProcessMessage
+
+
+    let apply f procMsg =
+        fun msgs ->
+            let f, msgs = run f msgs
+            let x, msgs = run procMsg msgs
+            let y = f x
+            y, msgs
+        |> ProcessMessage
+
+
+    let returnPM a =
+        fun msgs ->
+            a, msgs
+        |> ProcessMessage
+
+
+    module Operators =
+
+
+        let (<*>) = apply
+
+        let (<!>) = map
+
+        let (>!) procMsg msgs = run procMsg msgs
+
+
+let msgs = [ Texts.systemDoseQuantityExpert |> Message.system ]
+
+
+let createProcessSubstanceUnitMsg model msg : ProcessMessage<{| substanceUnit: string |}> =
+    fun msgs ->
+        msg
+        |> Ollama.validate2<{| substanceUnit : string |}>
+            model
+            msgs
+        |> Async.RunSynchronously
+        |> function
+            | Ok (result, msgs) -> result, msgs
+            | Error _ -> {| substanceUnit = "" |}, msgs
+
+    |> ProcessMessage
+
+
+let substanceUnitMsg =
+    let validator =
+        fun s ->
+            try
+                let un = JsonConvert.DeserializeObject<{| substanceUnit: string |}>(s)
+                match un.substanceUnit |> String.split "/" with
+                | [_] -> Ok s
+                | _ -> s |> Error
+            with
+            | e ->
+                e.ToString()
+                |> Error
+    $"""
+Use Schema {"{| substanceUnit: string |}" |> Utils.anonymousTypeStringToJson}
+What is the substance unit in the text between '''
+
+'''{Texts.testTexts[0]}'''
+Respond in JSON
 """
-            """
-Child 1–2 months
-30–60 mg every 8 hours as required, maximum daily dose to be given in divided doses; maximum 60 mg/kg per day.
+    |>
+    Message.userWithValidator validator
+
+
+
+let procMsgSubstUnit model =
+    createProcessSubstanceUnitMsg
+        model
+        substanceUnitMsg
+
+
+let createProcessAdjustUnitMsg model msg : ProcessMessage<{| adjustUnit: string |}> =
+    fun msgs ->
+        msg
+        |> Ollama.validate2<{| adjustUnit: string |}>
+            model
+            msgs
+        |> Async.RunSynchronously
+        |> function
+            | Ok (result, msgs) -> result, msgs
+            | Error _ -> {| adjustUnit = "" |}, msgs
+
+    |> ProcessMessage
+
+
+let adjustUnitMsg =
+    let validator =
+        fun s ->
+            try
+                let un = JsonConvert.DeserializeObject<{| adjustUnit: string |}>(s)
+                match un.adjustUnit |> String.split "/" with
+                | [_] -> Ok s
+                | _ -> s |> Error
+            with
+            | e ->
+                e.ToString()
+                |> Error
+    $"""
+Use Schema {"{| adjustUnit: string |}" |> Utils.anonymousTypeStringToJson}
+What is the adjust unit in the text between '''
+
+'''{Texts.testTexts[0]}'''
+Respond in JSON
 """
-            """
-paracetamol
-Child 3–5 months
-60 mg every 4–6 hours; maximum 4 doses per day.
+    |>
+    Message.userWithValidator validator
+
+
+let procMsgAdjustUnit model =
+    createProcessAdjustUnitMsg
+        model
+        adjustUnitMsg
+
+
+let createProcessTimeUnitMsg model msg : ProcessMessage<{| timeUnit: string |}> =
+    fun msgs ->
+        msg
+        |> Ollama.validate2<{| timeUnit : string |}>
+            model
+            msgs
+        |> Async.RunSynchronously
+        |> function
+            | Ok (result, msgs) -> result, msgs
+            | Error _ -> {| timeUnit = "" |}, msgs
+
+    |> ProcessMessage
+
+
+let timeUnitMsg =
+    let validator =
+        fun s ->
+            try
+                let un = JsonConvert.DeserializeObject<{| timeUnit: string |}>(s)
+                match un.timeUnit |> String.split "/" with
+                | [_] -> Ok s
+                | _ -> s |> Error
+            with
+            | e ->
+                e.ToString()
+                |> Error
+    $"""
+Use Schema {"{| timeUnit: string |}" |> Utils.anonymousTypeStringToJson}
+What is the time unit in the text between '''
+
+'''{Texts.testTexts[0]}'''
+Respond in JSON
 """
-            """
-paracetamol
-Child 6–23 months
-120 mg every 4–6 hours; maximum 4 doses per day.
-"""
-        ]
+    |>
+    Message.userWithValidator validator
 
 
 
-"You are a helpful assistant"
-|> init Ollama.Models.``openchat:7b``
->>? "Why is the sky blue?"
-|> Conversation.print
+let procMsgTimeUnit model =
+    createProcessTimeUnitMsg
+        model
+        timeUnitMsg
 
 
-Ollama.options.temperature <- 0
-Ollama.options.seed <- 101
-Ollama.options.penalize_newline <- true
-Ollama.options.top_k <- 10
-Ollama.options.top_p <- 0.95
-
-
-BNFC.paracetamolPO[0]
-|> extractDoseQuantities Ollama.Models.``openchat:7b``
-|> Conversation.print
-
-
-Ollama.options.temperature <- 0.5
-Ollama.options.seed <- 101
-Ollama.options.penalize_newline <- false
-Ollama.options.top_k <- 50
-Ollama.options.top_p <- 0.5
-
-
-"""
-You are an empathic medical professional and translate medical topics to parents
-that have a child admitted to a pediatric critical care unit.
-"""
-|> init Ollama.Models.``openchat:7b``
->>? """
-Explain to the parents that there child as to be put on a ventilator and has to
-be intubated.
-"""
-//>>? "translate the previous message to Dutch"
-|> Conversation.print
-
-
-"""
-Je bent een empathische zorgverlener die ouders uitleg moet geven over hun kind
-dat op de kinder IC ligt.
-
-Je geeft alle uitleg en antwoorden in het Nederlands.
-"""
-|> init Ollama.Models.``openchat:7b``
->>? """
-Leg aan ouders uit dat hun kind aan de beademing moet worden gelegd en daarvoor
-geintubeerd moet worden.
-"""
-|> Conversation.print
-
-let x =
-    """
-Je bent een empathische zorgverlener die ouders uitleg moet geven over hun kind
-dat op de kinder IC ligt.
-
-Je geeft alle uitleg en antwoorden in het Nederlands.
-"""
-    |> init Ollama.Models.``openchat:7b``
-
-
-"""
-Je bent een empathische zorgverlener die ouders uitleg moet geven over hun kind
-dat op de kinder IC ligt.
-
-Je geeft alle uitleg en antwoorden in het Nederlands.
-"""
-|> Message.system
-|> Ollama.chat Ollama.Models.llama2 []
-|> Async.RunSynchronously
-
-
-Ollama.listModels ()
-|> Async.RunSynchronously
-
-
-"""
-Use schema: { number: int; unit: string }
-What is the minimal corrected gestational age mentioned in the text between '''
-
-'''A neonate 28 weeks to 32 weeks corrected gestational age.'''
-
-Reply just in one JSON."""
-|> Message.user
-|> Ollama.json<{| number: int; unit: string |}>
-    Ollama.Models.llama2
-    []
-|> Async.RunSynchronously
-|> function
-    | Ok x -> printfn $"{x}"
-    | Error e -> printfn $"oops: {e}"
+let createUnit
+    (substUnit: {| substanceUnit : string |})
+    (adjustUnit: {| adjustUnit : string |})
+    (timeUnit: {| timeUnit : string |})  =
+        {|
+            substUnit = substUnit.substanceUnit
+            adjustUnit = adjustUnit.adjustUnit
+            timeUnit = timeUnit.timeUnit
+        |}
 
 
 
-"""
-Use schema: { number: int; unit: string }
-Foo bar. Only give an anwer when possible.
-Reply just in one JSON."""
-|> Message.user
-|> Ollama.json<{| number: int; unit: string |}>
-    Ollama.Models.llama2
-    []
-|> Async.RunSynchronously
-|> function
-    | Ok x -> printfn $"{x}"
-    | Error e -> printfn $"oops: {e}"
+open ProcessMessage.Operators
 
 
-"""
-Wy is the sky blue?
-"""
-|> Message.user
-|> Ollama.openAIchat
-    Ollama.Models.llama2
-    []
-|> Async.RunSynchronously
-
-
-
-"""
-You are an empathic medical professional and translate medical topics to parents
-that have a child admitted to a pediatric critical care unit.
-"""
-|> init Ollama.Models.``openchat:7b``
->>? """
-Explain to the parents that there child as to be put on a ventilator and has to
-be intubated.
-"""
-//>>? "translate the previous message to Dutch"
-|> Conversation.print
+createUnit
+<!> procMsgSubstUnit Ollama.Models.llama2
+<*> procMsgAdjustUnit Ollama.Models.llama2
+<*> procMsgTimeUnit Ollama.Models.llama2
+>! [ Texts.systemDoseQuantityExpert |> Message.system ]

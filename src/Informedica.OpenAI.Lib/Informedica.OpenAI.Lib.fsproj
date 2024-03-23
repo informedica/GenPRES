@@ -17,6 +17,7 @@
     <None Include="Scripts\Ollama.fsx" />
     <None Include="Scripts\Fireworks.fsx" />
     <None Include="Scripts\JsonSchema.fsx" />
+    <None Include="Scripts\State.fsx" />
     <Folder Include="Notebooks\" />
   </ItemGroup>
   <ItemGroup>

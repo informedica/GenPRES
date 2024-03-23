@@ -40,13 +40,6 @@ Error:
 
 
     let post<'Response> (endPoint : string) apiKey payload =
-        ConsoleWriter.writeInfoMessage $"""
-EndPoint: {endPoint}
-Payload:
-{payload}
-"""
-            true false
-
         // Set up the request headers
         match apiKey with
         | None -> ()
@@ -68,11 +61,6 @@ Payload:
 
 
     let get<'Response> (endPoint : string) =
-        ConsoleWriter.writeInfoMessage $"""
-EndPoint: {endPoint}
-"""
-            true false
-
         // Asynchronous API call
         async {
             let! response = client.GetAsync(endPoint) |> Async.AwaitTask

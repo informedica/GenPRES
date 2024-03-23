@@ -23,6 +23,47 @@ amitriptyline
     ]
 
 
+    let testUnitTexts =
+        [
+            """
+alprazolam
+6 jaar tot 18 jaar Startdosering: 0,125 mg/dag, éénmalig. Onderhoudsdosering: Op geleide van klinisch beeld verhogen met stappen van 0,125-0,25 mg/dosis tot max 0,05 mg/kg/dag in 3 doses. Max: 3 mg/dag. Advies inname/toediening: De dagdosis indien mogelijk verdelen over 3 doses.Bij plotselinge extreme slapeloosheid: alleen voor de nacht innemen; dosering op geleide van effect ophogen tot max 0,05 mg/kg, maar niet hoger dan 3 mg/dag.De effectiviteit bij de behandeling van acute angst is discutabel.
+"""
+            , "mg", "", "dag"
+
+            """
+acetylsalicylzuur
+1 maand tot 18 jaar Startdosering:Acetylsalicylzuur: 30 - 50 mg/kg/dag in 3 - 4 doses. Max: 3.000 mg/dag.
+"""
+            , "mg", "kg", "dag"
+
+            """
+paracetamol
+Oraal: Bij milde tot matige pijn en/of koorts: volgens het Kinderformularium van het NKFK bij een leeftijd van 1 maand–18 jaar: 10–15 mg/kg lichaamsgewicht per keer, zo nodig 4×/dag, max. 60 mg/kg/dag en max. 4 g/dag.
+"""
+            , "mg", "kg", "dag"
+
+            """
+amitriptyline
+6 jaar tot 18 jaar Startdosering: voor de nacht: 10 mg/dag in 1 dosisOnderhoudsdosering: langzaam ophogen met 10 mg/dag per 4-6 weken naar 10 - 30 mg/dag in 1 dosis. Max: 30 mg/dag. Behandeling met amitriptyline mag niet plotseling worden gestaakt vanwege het optreden van ontwenningsverschijnselen; de dosering moet geleidelijk worden verminderd.Uit de studie van Powers (2017) blijkt dat de werkzaamheid van amitriptyline bij migraine profylaxe niet effectiever is t.o.v. placebo. Desondanks menen experts dat in individuele gevallen behandeling met amitriptyline overwogen kan worden.
+"""
+            , "mg", "", "dag"
+
+            """
+aciclovir
+3 maanden tot 18 jaar 1.500 mg/m2/dag in 3 doses.Behandelduur: Herpes encefalitis: 14-21 dagen Varicella zoster: 7 dagen
+"""
+            , "mg", "m2", "dag"
+
+            """
+aprepitant
+3 jaar tot 18 jaar en < 40 kg 2 maal per week 40 mg/dosis verdeeld over de week.
+"""
+            , "mg", "", "week"
+
+        ]
+        |> List.map (fun (text, su, au, tu) -> text, {| substanceUnit = su; adjustUnit = au; timeUnit = tu |})
+
 
     let systemDoseIndicationExpert = """
 You are an expert on medication prescribing, preparation and administration.
@@ -60,22 +101,26 @@ You answer all questions with ONLY the shortest possible answer to the question.
     """
 
 
-    let systemDoseQuantityExpert = """
+    let systemDoseQuantityExpert = $"""
 You are an expert on medication prescribing, preparation and administration.
-You have to answer questions about texts that describing a drug dose.
+You have to answer questions about a free text between ''' that describes the dosing of a medication.
 You are asked to extract structured information from that text.
+"""
 
-The information will one of the following:
-- a quantity with a number and a unit, example: 40 mg/day
-- or a single unit, example: day
-- or a list of numbers, example: 1;2;3
 
-An adjust unit (AdjustUnit) can only be 'kg' body weight or 'mˆ2' body surface area.
-A substance unit is a unit that belongs to either a mass unit group, molar unit group
-or is an IU/IE (international unit of measurement).
+    let systemDoseQuantityExpert2 text = $"""
+You are an expert on medication prescribing, preparation and administration. You will give
+exact answers. If there is no possible answer return an empty string.
+You have to answer questions about a free text between ''' that describes the dosing of a medication.
+You will be asked to extract structured information from the following text:
 
-You answer all questions with ONLY the shortest possible answer to the question.
-    """
+'''{text}'''
+
+ONLY respond if the response is present in the text. If the response cannot be extracted
+respond with an empty string.
+Respond in JSON
+"""
+
 
     let doseRuleStructure = """
     {
