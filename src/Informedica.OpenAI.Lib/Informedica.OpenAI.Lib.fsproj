@@ -11,6 +11,7 @@
     <Compile Include="Texts.fs" />
     <Compile Include="Prompts.fs" />
     <Compile Include="Message.fs" />
+    <Compile Include="Extraction.fs" />
     <Compile Include="OpenAI.fs" />
     <Compile Include="Fireworks.fs" />
     <Compile Include="Ollama.fs" />

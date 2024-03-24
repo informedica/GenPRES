@@ -506,3 +506,31 @@ Can you try again answering?
                 // return the structured extraction
                 return res
             }
+
+
+    module Extract =
+
+        let doseUnits model text =
+            let getJson =
+                fun model zero (msg : Message) (input : Chat.ChatInput) ->
+                    { input with
+                        model = model
+                        messages =
+                            [{|
+                                role = msg.Role
+                                content = msg.Content
+                            |}]
+                            |> List.append input.messages
+                    }
+                    |> validate2
+                        msg.Validator
+                    |> Async.RunSynchronously
+                    |> function
+                        | Ok (result, input) -> input, result
+                        | Error (_, input)   -> input, zero
+
+            Extraction.createDoseUnits
+                getJson
+                getJson
+                getJson
+                model text

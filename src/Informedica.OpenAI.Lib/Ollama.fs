@@ -565,3 +565,24 @@ Can you try again answering?
                 // return the structured extraction
                 return res
             }
+
+
+    module Extract =
+
+        let doseUnits model text =
+            let getJson =
+                fun model zero (msg : Message) (msgs : Message list) ->
+                    msg
+                    |> validate2
+                        model
+                        msgs
+                    |> Async.RunSynchronously
+                    |> function
+                        | Ok (result, msgs) -> msgs, result
+                        | Error (_, msgs)   -> msgs, zero
+
+            Extraction.createDoseUnits
+                getJson
+                getJson
+                getJson
+                model text

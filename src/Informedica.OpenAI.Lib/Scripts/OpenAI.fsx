@@ -158,3 +158,29 @@ printfn "## The full conversation"
 input
 |> OpenAI.Chat.print
 
+
+let test model =
+    [
+        for (text, exp) in Texts.testUnitTexts do
+            let un, _ =
+                State.run
+                    (createDoseUnits model text)
+                    (systemMsg model text)
+            if un = exp then 1 else 0
+    ]
+    |> List.sum
+
+
+[
+    OpenAI.Models.``gpt-3.5-turbo``
+    OpenAI.Models.``gpt-4-turbo-preview``
+]
+|> List.map (fun model ->
+    printf $"- Testing: {model}: "
+    let s = model |> test
+    printfn $"score: {s}"
+    model, s
+)
+|> List.maxBy snd
+|> fun (m, s) -> printfn $"\n\n## And the winner is: {m} with a high score: {s} from {Texts.testUnitTexts |> List.length}"
+
