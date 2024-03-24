@@ -60,7 +60,13 @@ Error:
         }
 
 
-    let get<'Response> (endPoint : string) =
+    let get<'Response> (endPoint : string) apiKey =
+        match apiKey with
+        | None -> ()
+        | Some apiKey ->
+            client.DefaultRequestHeaders.Authorization <-
+                AuthenticationHeaderValue("Bearer", apiKey)
+
         // Asynchronous API call
         async {
             let! response = client.GetAsync(endPoint) |> Async.AwaitTask

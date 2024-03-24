@@ -43,7 +43,8 @@ Fireworks.Chat.defaultChatInput
         |> _.message
         |> _.content
         |> printfn "%s"
-    | Error err -> ()
+    | Error err -> printfn $"{err}"
+
 
 Fireworks.Chat.defaultChatInput
     model

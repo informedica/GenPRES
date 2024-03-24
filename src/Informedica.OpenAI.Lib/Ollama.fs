@@ -388,7 +388,7 @@ module Ollama =
         |> Utils.post<OllamaResponse> EndPoints.chat None
 
 
-    let listModels () = Utils.get<Models> EndPoints.tags
+    let listModels () = Utils.get<Models> EndPoints.tags None
 
 
     let showModel model =

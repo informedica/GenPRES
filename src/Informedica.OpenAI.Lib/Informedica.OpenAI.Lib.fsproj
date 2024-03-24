@@ -18,6 +18,7 @@
     <None Include="Scripts\Fireworks.fsx" />
     <None Include="Scripts\JsonSchema.fsx" />
     <None Include="Scripts\State.fsx" />
+    <None Include="Scripts\OpenAI.fsx" />
     <Folder Include="Notebooks\" />
   </ItemGroup>
   <ItemGroup>
