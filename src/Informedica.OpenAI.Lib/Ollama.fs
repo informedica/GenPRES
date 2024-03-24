@@ -537,3 +537,31 @@ Can you try again answering?
 
         let (>>!) conversation msg =
             loop true conversation msg
+
+
+    module WithState =
+
+        open FSharpPlus
+        open FSharpPlus.Data
+
+
+        let inline extract (model: string) zero msg =
+            monad {
+                // get the current list of messages
+                let! msgs = State.get
+                // get the structured extraction allong with
+                // the updated list of messages
+                let msgs, res =
+                    msg
+                    |> validate2
+                        model
+                        msgs
+                    |> Async.RunSynchronously
+                    |> function
+                        | Ok (result, msgs) -> msgs, result
+                        | Error (_, msgs)   -> msgs, zero
+                // refresh the state with the updated list of messages
+                do! State.put msgs
+                // return the structured extraction
+                return res
+            }

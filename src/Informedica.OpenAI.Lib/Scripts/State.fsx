@@ -24,7 +24,7 @@ open Informedica.Utils.Lib.BCL
 open Informedica.OpenAI.Lib
 
 
-let systemMsg = [ Texts.systemDoseQuantityExpert |> Message.system ]
+//let systemMsg = [ Texts.systemDoseQuantityExpert |> Message.system ]
 
 
 let inline extract (model: string) zero msg =

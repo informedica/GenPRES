@@ -32,6 +32,12 @@ module OpenAI =
         }
 
 
+    module Models =
+
+        let ``gpt-3.5-turbo`` = "gpt-3.5-turbo"
+
+        let ``gpt-4-turbo-preview`` = "gpt-4-turbo-preview"
+
 
     type ResponseFormat = {
         ``type``: string
@@ -265,18 +271,24 @@ module OpenAI =
                         let answer =
                             result.Response.choices
                             |> List.last
+                        let input =
+                            { input with
+                                messages =
+                                    [{|
+                                       role = answer.message.role
+                                       content = answer.message.content
+                                    |}]
+                                    |> List.append input.messages
+                            }
 
                         match answer.message.content |> validator with
                         | Ok _ ->
                             let validationResult =
                                 answer.message.content
                                 |> JsonConvert.DeserializeObject<'ReturnType>
-
-                            input |> Chat.print
                             return Ok validationResult
                         | Error err ->
                             if not reTry then
-                                input |> Chat.print
                                 return Error err
                             else
 
@@ -292,12 +304,69 @@ module OpenAI =
                                 return! validateLoop false updatedInput
                     | Error err ->
                         if not reTry then
-                            input |> Chat.print
                             return err |> Error
                         else
-                            let msg =
-                                input.messages
-                                |> List.last
+                            let updatedInput =
+                                { input with
+                                    messages =
+                                        [{|
+                                            role = "user"
+                                            content = $"There was an error: %s{err}. Please try again answering:\n\n%s{original.content}"
+                                        |}]
+                                        |> List.append input.messages
+                                }
+                            return! validateLoop false updatedInput
+                }
+            return! validateLoop true (input : Chat.ChatInput)
+        }
+
+
+    let validate2<'ReturnType> (validator : string -> Result<string, string>) (input : Chat.ChatInput) =
+        let original = input.messages |> List.last
+
+        async {
+            let rec validateLoop reTry (input: Chat.ChatInput) =
+                async {
+                    let! resp = chatJson<'ReturnType> (input : Chat.ChatInput)
+                    match resp with
+                    | Ok result ->
+                        let answer =
+                            result.Response.choices
+                            |> List.last
+                        let input =
+                            { input with
+                                messages =
+                                    [{|
+                                       role = answer.message.role
+                                       content = answer.message.content
+                                    |}]
+                                    |> List.append input.messages
+                            }
+
+                        match answer.message.content |> validator with
+                        | Ok _ ->
+                            let validationResult =
+                                answer.message.content
+                                |> JsonConvert.DeserializeObject<'ReturnType>
+                            return Ok (validationResult, input)
+                        | Error err ->
+                            if not reTry then
+                                return Error (err, input)
+                            else
+                                let updatedInput =
+                                    { input with
+                                        messages =
+                                            [{|
+                                                role = "user"
+                                                content = $"The answer: {answer.message.content} was not correct because of %s{err}. Please try again answering:\n\n%s{original.content}"
+                                            |}]
+                                            |> List.append input.messages
+                                    }
+                                return! validateLoop false updatedInput
+                    | Error err ->
+                        if not reTry then
+                            return Error (err, input)
+                        else
                             let updatedInput =
                                 { input with
                                     messages =
@@ -401,3 +470,39 @@ Can you try again answering?
 
         let (>>!) conversation msg =
             loop true conversation msg
+
+
+
+    module WithState =
+
+        open FSharpPlus
+        open FSharpPlus.Data
+
+
+        let inline extract model zero (msg : Message) =
+            monad {
+                // get the current input
+                let! (input : Chat.ChatInput) = State.get
+                // get the structured extraction along with
+                // the updated input
+                let input, res =
+                    { input with
+                        model = model
+                        messages =
+                            [{|
+                                role = msg.Role
+                                content = msg.Content
+                            |}]
+                            |> List.append input.messages
+                    }
+                    |> validate2
+                        msg.Validator
+                    |> Async.RunSynchronously
+                    |> function
+                        | Ok (result, input) -> input, result
+                        | Error (_, input)   -> input, zero
+                // refresh the state with the updated list of messages
+                do! State.put input
+                // return the structured extraction
+                return res
+            }

@@ -1,5 +1,5 @@
 
-
+#r "nuget: FSharpPlus"
 #r "nuget: Newtonsoft.Json"
 #r "nuget: NJsonSchema"
 
@@ -14,39 +14,147 @@
 
 
 open System
+open FSharpPlus
+open FSharpPlus.Data
+open Newtonsoft.Json
+open Informedica.Utils.Lib.BCL
 open Informedica.OpenAI.Lib
+open OpenAI.WithState
 
 
-OpenAI.list()
-|> List.iter (printfn "%s")
+let systemMsg model text =
+        let msg =
+            text
+            |> Texts.systemDoseQuantityExpert2 |> Message.system
+        OpenAI.Chat.defaultChatInput model msg []
 
-let model = "gpt-4"
+
+let unitValidator<'Unit> text get validUnits s =
+    let isValidUnit s =
+        if validUnits |> List.isEmpty then true
+        else
+            validUnits
+            |> List.exists (String.equalsCapInsens s)
+    try
+        let un = JsonConvert.DeserializeObject<'Unit>(s)
+        match un |> get |> String.split "/" with
+        | [u] when u |> isValidUnit ->
+            if text |> String.containsCapsInsens u then Ok s
+            else
+                $"{u} is not mentioned in the text"
+                |> Error
+        | _ ->
+            if validUnits |> List.isEmpty then $"{s} is not a valid unit, the unit should not contain '/'"
+            else
+                $"""
+{s} is not a valid unit, the unit should not contain '/' and the unit should be one of the following:
+{validUnits |> String.concat ", "}
+"""
+            |> Error
+    with
+    | e ->
+        e.ToString()
+        |> Error
 
 
-OpenAI.Chat.defaultChatInput
-    model
-    {
-        Role = "user"
-        Content = "Why is the sky blue?"
-        Validator = Ok
+let extractSubstanceUnit model text =
+    let zero = {| substanceUnit = "" |}
+    let validator = unitValidator text (fun (u: {| substanceUnit: string |}) -> u.substanceUnit)  []
+
+    """
+Use the provided schema to extract the unit of measurement (substance unit) from the medication dosage information contained in the text.
+Your answer should return a JSON string representing the extracted unit.
+
+Use schema: { substanceUnit: string }
+
+Examples of usage and expected output:
+ - For "mg/kg/dag", return: "{ "substanceUnit": "mg" }"
+ - For "g/m2/dag", return: "{ "substanceUnit": "g" }"
+ - For "IE/m2", return: "{ "substanceUnit": "IE" }"
+
+Respond in JSON
+"""
+    |> Message.userWithValidator validator
+    |> extract model zero
+
+
+let extractAdjustUnit model text =
+    let zero = {| adjustUnit = "" |}
+    let validator =
+        ["kg"; "m2"; "mˆ2"]
+        |> unitValidator text (fun (u: {| adjustUnit: string |}) -> u.adjustUnit)
+
+    """
+Use the provided schema to extract the unit by which a medication dose is adjusted, such as patient weight or body surface area, from the medication dosage information contained in the text.
+Your answer should return a JSON string representing the extracted adjustment unit.
+
+Use schema : { adjustUnit: string }
+
+Examples of usage and expected output:
+- For "mg/kg/dag", return: "{ "adjustUnit": "kg" }"
+- For "mg/kg", return: "{ "adjustUnit": "kg" }"
+- For "mg/m2/dag", return: "{ "adjustUnit": "m2" }"
+- For "mg/m2", return: "{ "adjustUnit": "m2" }"
+
+Respond in JSON
+"""
+    |> Message.userWithValidator validator
+    |> extract model zero
+
+
+let extractTimeUnit model text =
+    let zero = {| timeUnit = "" |}
+    let validator =
+        [
+            "dag"
+            "week"
+            "maand"
+        ]
+        |> unitValidator text (fun (u: {| timeUnit: string |}) -> u.timeUnit)
+
+    """
+Use the provided schema to extract the time unit from the medication dosage information contained in the text.
+Your answer should return a JSON string representing the extracted time unit.
+
+Use schema : { timeUnit: string }
+
+Examples of usage and expected output:
+- For "mg/kg/dag", return: "{ "timeUnit": "dag" }"
+- For "mg/kg", return: "{ "timeUnit": "" }"
+- For "mg/m2/week", return: "{ "timeUnit": "week" }"
+- For "mg/2 dagen", return: "{ "timeUnit": "2 dagen" }"
+
+Respond in JSON
+"""
+    |> Message.userWithValidator validator
+    |> extract model zero
+
+
+let createDoseUnits model text =
+    monad {
+        let! substanceUnit = extractSubstanceUnit model text
+        let! adjustUnit = extractAdjustUnit model text
+        let! timeUnit = extractTimeUnit model text
+
+        return
+            {|
+                substanceUnit = substanceUnit.substanceUnit
+                adjustUnit = adjustUnit.adjustUnit
+                timeUnit = timeUnit.timeUnit
+            |}
     }
-    []
-|> OpenAI.chat
-|> Async.RunSynchronously
-|> function
-    | Ok resp ->
-        printfn $"{resp}"
-    | Error err -> printfn $"{err}"
 
 
+let un, input =
+    let text = Texts.testTexts[3]
+    let model = OpenAI.Models.``gpt-4-turbo-preview``
+    State.run
+        (createDoseUnits model text)
+        (systemMsg model text)
 
-OpenAI.Chat.defaultChatInput
-    "gpt-3.5-turbo"
-    {
-        Role = "user"
-        Content = "Why is the sky blue? Return one JSON"
-        Validator = Ok
-    }
-    []
-|> OpenAI.chatJson<{| answer: string |}>
-|> Async.RunSynchronously
+printfn $"## The final extracted structure:\n{un}\n\n"
+
+printfn "## The full conversation"
+input
+|> OpenAI.Chat.print
+
