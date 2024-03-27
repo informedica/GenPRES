@@ -130,7 +130,7 @@ module Extraction =
         jsonAdjustUnit
         jsonTimeUnit
         model text =
-            
+
         monad {
             let! (substanceUnit : {| substanceUnit: string |})  = extractSubstanceUnit jsonSubstUnit model text
             let! (adjustUnit : {| adjustUnit : string |}) = extractAdjustUnit jsonAdjustUnit model text

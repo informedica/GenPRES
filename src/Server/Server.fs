@@ -50,5 +50,12 @@ let application = application {
     //host_config Env.configureHost
 }
 
+$"""
+Environmental variables
+GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID"}
+GENPRES_LOG={tryGetEnv "GENPRES_LOG"}
+GENPRES_PROD={tryGetEnv "GENPRES_PROD"}
+"""
+|> printfn "%s"
 
 run application
