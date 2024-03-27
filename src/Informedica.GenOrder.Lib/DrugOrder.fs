@@ -176,9 +176,12 @@ module DrugOrder =
                     else s
             Shape = shape
             Quantities =
-                ps
-                |> Array.map _.ShapeQuantities
-                |> ValueUnit.collect
+                // hack to prevent too many quantities
+                if solutionRule |> Option.isSome then None
+                else
+                    ps
+                    |> Array.map _.ShapeQuantities
+                    |> ValueUnit.collect
             Divisible =
                 ps
                 |> Array.choose _.Divisible

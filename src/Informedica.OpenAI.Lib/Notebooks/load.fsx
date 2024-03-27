@@ -1,3 +1,4 @@
+#r "nuget: FSharpPlus"
 #r "nuget: Newtonsoft.Json"
 #r "nuget: NJsonSchema"
 
@@ -8,6 +9,7 @@
 #load "../Texts.fs"
 #load "../Prompts.fs"
 #load "../Message.fs"
+#load "../Extraction.fs"
 #load "../OpenAI.fs"
 #load "../Fireworks.fs"
 #load "../Ollama.fs"
