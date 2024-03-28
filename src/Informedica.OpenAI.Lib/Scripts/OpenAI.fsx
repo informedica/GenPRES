@@ -10,6 +10,7 @@
 #load "../Texts.fs"
 #load "../Prompts.fs"
 #load "../Message.fs"
+#load "../Extraction.fs"
 #load "../OpenAI.fs"
 
 
@@ -20,6 +21,7 @@ open Newtonsoft.Json
 open Informedica.Utils.Lib.BCL
 open Informedica.OpenAI.Lib
 open OpenAI.WithState
+
 
 
 let systemMsg model text =

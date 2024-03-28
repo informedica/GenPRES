@@ -376,7 +376,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "midazolam" "" "intraveneus"
+GenPresProduct.filter "natriumchloride" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
@@ -390,7 +390,7 @@ GenPresProduct.filter "midazolam" "" "intraveneus"
 )
 
 
-GenPresProduct.filter "" "drank" ""
+GenPresProduct.filter "natriumchloride" "" ""
 |> Array.filter (fun gpp ->
     gpp.GenericProducts
     |> Array.exists (fun gp ->
@@ -411,7 +411,7 @@ GenPresProduct.filter "" "drank" ""
 )
 
 
-GenPresProduct.findByBrand "Typhim"
+GenPresProduct.findByBrand "Picoprep"
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId

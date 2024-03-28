@@ -2,7 +2,6 @@ namespace Informedica.GenOrder.Lib
 
 
 
-
 /// Types and functions that deal with an order.
 /// An `Order` models the `Prescription` of an
 /// `Orderable` with a `StartStop` start date and
