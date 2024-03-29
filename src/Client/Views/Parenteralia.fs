@@ -84,7 +84,6 @@ module Parenteralia =
                 { state with Generic = s }, Cmd.none
 
             | ShapeChange s ->
-                printfn $"indication change {s}"
                 match parentaralia with
                 | Resolved par ->
                     if s |> Option.isNone then Parenteralia.empty

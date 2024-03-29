@@ -73,7 +73,6 @@ module Formulary =
 
             match msg with                
             | IndicationChange s ->
-                printfn $"indication change {s}"
                 match formulary with
                 | Resolved form ->
                     if s |> Option.isNone then 

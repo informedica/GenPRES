@@ -141,23 +141,21 @@ module Prescribe =
                 { state with Route = s }, Cmd.none
 
             | DoseTypeChange s ->
-                printfn $"dose type change: {s}"
+                let dt = s |> Option.map ScenarioResult.doseTypeFromString
                 match scenarios with
                 | Resolved sc ->
-                    if s |> Option.isNone then 
+                    if dt |> Option.isNone then 
                         { sc with
                             DoseTypes = [||]
                             DoseType = None
                             Scenarios = [||]
                         }
                     else
-                        let dt = s |> Option.map ScenarioResult.doseTypeFromString
-                        printfn $"mapped: {s} to {dt}"
                         { sc with DoseType = dt }
                     |> updateScenario
                 | _ -> ()
 
-                { state with DoseType = s |> Option.map ScenarioResult.doseTypeFromString }, Cmd.none
+                { state with DoseType = dt }, Cmd.none
 
             | Clear ->
                 match scenarios with

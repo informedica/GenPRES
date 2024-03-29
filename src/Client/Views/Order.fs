@@ -80,7 +80,7 @@ module Order =
                             vu.Value
                             |> Array.tryFind (fun (v, _) ->
                                 let b = v = (s |> Option.defaultValue "")
-                                if b then printfn $"found {s}" else printfn $"couldn't find {s}"
+                                if not b then Logging.warning "couldn't find" s
                                 b
                             )
                             |> Option.map Array.singleton
@@ -104,7 +104,6 @@ module Order =
                 | Some _ -> { state with SelectedSubstance = s }, Cmd.none
 
             | ChangeFrequency s ->
-                printfn $"changing frequency to {s}"
                 match state.Order with
                 | Resolved (Some ord) ->
                     let msg =
@@ -125,7 +124,6 @@ module Order =
                 | _ -> state, Cmd.none
 
             | ChangeTime s ->
-                printfn $"changing time to {s}"
                 match state.Order with
                 | Resolved (Some ord) ->
                     let msg =

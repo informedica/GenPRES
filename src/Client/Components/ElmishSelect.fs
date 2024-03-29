@@ -28,7 +28,6 @@ module ElmishSelect =
 
 
         let update updateSelected (msg : Msg) _ : State * Cmd<Msg> =
-            printfn "handle change is called"
             match msg with
             | Clear    -> None, Cmd.none
             | Select s -> Some s, Cmd.none

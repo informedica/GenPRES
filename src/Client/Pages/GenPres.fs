@@ -92,10 +92,8 @@ module GenPres =
                         state.SideMenuItems
                         |> Array.map (fun (icon, item, _) ->
                             if item = s then
-                                printfn $"{s} true"
                                 (icon, item, true)
                             else
-                                printfn $"{s} false"
                                 (icon, item, false)
                         )
                 },

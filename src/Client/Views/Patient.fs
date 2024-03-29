@@ -212,7 +212,6 @@ module Patient =
 
 
         let update dispatch msg (state : State) : State * Cmd<Msg> =
-            printfn "update was called"
             match msg with
             | Clear          -> None, Cmd.none
             | UpdateYear s   -> state |> setYear s, Cmd.none

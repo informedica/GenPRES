@@ -93,7 +93,7 @@ module private Elmish =
     // * in: indication
     // * dt: dosetype
     let parseUrl sl =
-        printfn $"parsing url with {sl}"
+        Logging.log $"parsing url" sl
         match sl with
         | [] -> None, None, None, true, None
         | [ "patient"; Route.Query queryParams ] ->
@@ -317,21 +317,18 @@ module private Elmish =
             Cmd.none
 
         | UpdateLanguage lang ->
-            printfn $"update language to: {lang}"
             { state with 
                 ShowDisclaimer = true
                 Context =  { state.Context with Localization = lang } 
             }, Cmd.none
 
         | UpdateHospital hosp ->
-            printfn $"update hospital to: {hosp}"
             { state with 
                 ShowDisclaimer = true
                 Context =  { state.Context with Hospital = hosp } 
             }, Cmd.none
 
         | UpdatePatient p ->
-            printfn $"load patient: {p}"
             { state with Patient = p },
             Cmd.batch [
                 Cmd.ofMsg (LoadScenarios Started)
@@ -339,7 +336,6 @@ module private Elmish =
             ]
 
         | UrlChanged sl ->
-            printfn "url changed"
             let pat, page, lang, discl, med = sl |> parseUrl
 
             { state with
@@ -355,20 +351,17 @@ module private Elmish =
             Cmd.ofMsg (pat |> UpdatePatient)
 
         | UpdatePage page ->
-            printfn $"update page: {page}"
             let cmd =
                 match page with
                 | p when p = Prescribe ->
                     match state.Scenarios with
                     | Resolved _ -> Cmd.none
                     | _ ->
-                        printfn "load scenarios started"
                         LoadScenarios Started |> Cmd.ofMsg
                 | p when p = Formulary ->
                     match state.Formulary with
                     | Resolved _ -> Cmd.none
                     | _ ->
-                        printfn "load formulary started"
                         LoadFormulary Started |> Cmd.ofMsg
 
                 | _ -> Cmd.none
@@ -488,7 +481,6 @@ module private Elmish =
                     }
 
             let load =
-                printfn $"loading scenarios: {scenarios}"
                 async {
                     let! result = serverApi.getScenarioResult scenarios
                     return Finished result |> LoadScenarios
@@ -586,7 +578,6 @@ module private Elmish =
                                     |> Array.map (fun scr ->
                                         if scr <> sc then scr
                                         else
-                                            printfn "found scenario and update order"
                                             { scr with
                                                 Order = Some o
                                             }
@@ -638,7 +629,6 @@ module private Elmish =
         | CalculateOrder (Finished r) ->
             match r with
             | Ok o ->
-                printfn "success calculating order"
                 { state with
                     SelectedScenarioOrder =
                         state.SelectedScenarioOrder
@@ -664,7 +654,6 @@ module private Elmish =
                                     |> Array.filter (fun sc ->
                                         sc.Order
                                         |> Option.map (fun so ->
-                                            printfn $"comparing {so.Id} = {o.Id}"
                                             so.Id = o.Id
                                         )
                                         |> Option.defaultValue true
@@ -673,7 +662,7 @@ module private Elmish =
                         )
                 }, Cmd.none
             | Error s ->
-                printfn "eror calculating order"
+                Logging.error "eror calculating order" s
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
 
         | LoadFormulary Started ->
@@ -711,7 +700,7 @@ module private Elmish =
             Cmd.none
 
         | LoadFormulary (Finished(Error err)) ->
-            printfn $"LoadFormulary error: {err}"
+            Logging.error "LoadFormulary error:" err
             state,
             Cmd.none
 
@@ -752,7 +741,7 @@ module private Elmish =
             { state with Parenteralia = Resolved par }, Cmd.none
 
         | LoadParenteralia (Finished (Error err)) ->
-            printfn $"LoadParenteralia finished with error: {err}"
+            Logging.error "LoadParenteralia finished with error:" err
             state, Cmd.none
 
         | UpdateParenteralia par ->
