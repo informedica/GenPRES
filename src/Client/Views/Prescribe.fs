@@ -26,7 +26,7 @@ module Prescribe =
                 Indication: string option
                 Medication: string option
                 Route: string option
-                DoseType : string option
+                DoseType : DoseType option
             }
 
 
@@ -141,6 +141,7 @@ module Prescribe =
                 { state with Route = s }, Cmd.none
 
             | DoseTypeChange s ->
+                printfn $"dose type change: {s}"
                 match scenarios with
                 | Resolved sc ->
                     if s |> Option.isNone then 
@@ -150,11 +151,13 @@ module Prescribe =
                             Scenarios = [||]
                         }
                     else
-                        { sc with DoseType = s }
+                        let dt = s |> Option.map ScenarioResult.doseTypeFromString
+                        printfn $"mapped: {s} to {dt}"
+                        { sc with DoseType = dt }
                     |> updateScenario
                 | _ -> ()
 
-                { state with DoseType = s }, Cmd.none
+                { state with DoseType = s |> Option.map ScenarioResult.doseTypeFromString }, Cmd.none
 
             | Clear ->
                 match scenarios with
@@ -285,10 +288,11 @@ module Prescribe =
             else
                 let med =
                     med |> Option.defaultValue ""
-                    |> fun s -> 
-                        if s.Contains(sc.Shape) then $"{s} {sc.DoseType}"
+                    |> fun s ->
+                        let dt = sc.DoseType |> ScenarioResult.doseTypeToDescription
+                        if s.Contains(sc.Shape) then $"{s} {dt}"
                         else
-                            $"{s} {sc.Shape} {sc.DoseType}"
+                            $"{s} {sc.Shape} {dt}"
 
                 let ord =
                     sc.Order
@@ -430,13 +434,22 @@ module Prescribe =
                                 (false, scrs.DoseType, scrs.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
                                     let lbl = "Doseer types"
+                                    let sel = sel |> Option.map ScenarioResult.doseTypeToString
+
+                                    items
+                                    |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
+                                    |> select isLoading lbl sel (DoseTypeChange >> dispatch)
+
+                                    (*
                                     if isMobile then
                                         items
-                                        |> Array.map (fun s -> s, s)
+                                        |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
                                         |> select isLoading lbl sel (DoseTypeChange >> dispatch)
                                     else
                                         items
+                                        |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
                                         |> autoComplete isLoading lbl sel (DoseTypeChange >> dispatch)                                
+                                    *)
                             | _ -> JSX.jsx $"<></>"
                         }
 

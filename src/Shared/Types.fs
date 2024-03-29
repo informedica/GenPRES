@@ -304,10 +304,25 @@ module Types =
         }
 
 
+    /// Possible Dose Types.
+    type DoseType =
+        /// A Once only Dose
+        | Once of string
+        /// A Maintenance Dose
+        | Discontinuous of string
+        /// A Continuous Dose
+        | Continuous of string
+        /// A discontinuous per time
+        | Timed of string
+        /// A once per time
+        | OnceTimed of string
+        | NoDoseType
+
+
     type Scenario =
         {
             Shape : string
-            DoseType : string
+            DoseType : DoseType
             Prescription : TextItem[]
             Preparation : TextItem[]
             Administration : TextItem[]
@@ -321,13 +336,13 @@ module Types =
             Indications: string []
             Medications: string []
             Routes: string []
-            DoseTypes : string []
+            DoseTypes : DoseType []
             Scenarios: Scenario []
             Indication: string option
             Medication: string option
             Shape : string option
             Route: string option
-            DoseType : string option
+            DoseType : DoseType option
             AgeInDays : float option
             GestAgeInDays : int option
             WeightInKg: float option

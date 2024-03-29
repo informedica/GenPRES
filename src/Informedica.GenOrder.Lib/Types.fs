@@ -5,11 +5,13 @@ namespace Informedica.GenOrder.Lib
 [<AutoOpen>]
 module Types =
 
+
         open System
         open MathNet.Numerics
 
         open Informedica.GenUnits.Lib
         open Informedica.GenSolver.Lib.Types
+
 
         type Gender = Informedica.GenForm.Lib.Types.Gender
         type Patient = Informedica.GenForm.Lib.Types.Patient
@@ -307,6 +309,9 @@ module Types =
             }
 
 
+        type DoseType = Informedica.GenForm.Lib.Types.DoseType
+
+
         /// <summary>
         /// The representation of an order with a
         /// <list type="bullet">
@@ -323,7 +328,7 @@ module Types =
                 /// the indication for the the order
                 Indication : string
                 /// the dose type of the order
-                DoseType : string
+                DoseType : DoseType
                 /// the name of the order
                 Name : string
                 /// the shape of the order
@@ -358,7 +363,7 @@ module Types =
                 Routes: string []
                 /// the list of shapes to select from
                 Shapes: string []
-                DoseTypes : string []
+                DoseTypes : DoseType []
                 /// the selected indication
                 Indication: string option
                 /// the selected generic
@@ -368,7 +373,7 @@ module Types =
                 /// the selected shape
                 Shape: string option
                 /// the patient
-                DoseType : string option
+                DoseType : DoseType option
                 Patient: Patient
                 /// the list of scenarios
                 Scenarios: Scenario []

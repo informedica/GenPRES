@@ -211,7 +211,7 @@ module DoseRule =
             let doseCapt_md = "\n\n#### Doseringen\n\n"
 
             let dose_md dt dose freqs intv time dur =
-                let dt = dt |> DoseType.toString
+                let dt = dt |> DoseType.toDescription
                 let freqs =
                     if freqs |> String.isNullOrWhiteSpace then ""
                     else
@@ -845,13 +845,9 @@ cannot map {r}
                 if filter.Patient = Patient.patient |> not then
                     fun (dr : DoseRule) -> dr.PatientCategory |> PatientCategory.filter filter
                 fun (dr : DoseRule) ->
-                    match filter.DoseType, dr.DoseType with
-                    | None, _
-                    | _, NoDoseType -> true
-                    | _ ->
-                        dr.DoseType
-                        |> DoseType.toString
-                        |> eqs filter.DoseType
+                    filter.DoseType
+                    |> Option.map ((=) dr.DoseType)
+                    |> Option.defaultValue true
             |]
             |> Array.fold (fun (acc : DoseRule[]) pred ->
                 acc |> Array.filter pred
@@ -883,11 +879,10 @@ cannot map {r}
     let routes = getMember _.Route
 
 
-    let doseTypes =
-        getMember (fun dr ->
-            dr.DoseType
-            |> DoseType.toString
-        )
+    let doseTypes (dsrs : DoseRule []) =
+        dsrs
+        |> Array.map _.DoseType
+        |> Array.distinct
 
 
     /// Extract all the departments from the DoseRules.

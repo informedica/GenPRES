@@ -204,13 +204,9 @@ module SolutionRule =
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
             fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Patient.Department) |> Option.defaultValue true
             fun (sr : SolutionRule) ->
-                    match filter.DoseType, sr.DoseType with
-                    | None, _
-                    | _, NoDoseType -> true
-                    | _ ->
-                        sr.DoseType
-                        |> DoseType.toString
-                        |> eqs filter.DoseType
+                filter.DoseType
+                |> Option.map (DoseType.eqsType sr.DoseType)
+                |> Option.defaultValue true
             fun (sr : SolutionRule) -> filter.Patient.Weight |> Utils.MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
@@ -453,7 +449,7 @@ module SolutionRule =
                                                     "tot "
 
                                         let dt =
-                                            let s = sel.DoseType |> DoseType.toString
+                                            let s = sel.DoseType |> DoseType.toDescription
                                             if s |> String.isNullOrWhiteSpace then ""
                                             else
                                                 $"{s}"

@@ -259,6 +259,28 @@ let mapFromOrder (order : Shared.Types.Order) : Order.Dto.Dto =
     dto
 
 
+let mapFromSharedDoseType (dt: Shared.Types.DoseType) : Informedica.GenForm.Lib.Types.DoseType =
+        match dt with
+        | OnceTimed s -> s |> Informedica.GenForm.Lib.Types.OnceTimed
+        | Once s -> s |> Informedica.GenForm.Lib.Types.Once
+        | Timed s -> s |> Informedica.GenForm.Lib.Types.Timed
+        | Discontinuous s -> s |> Informedica.GenForm.Lib.Types.Discontinuous
+        | Continuous s -> s |> Informedica.GenForm.Lib.Types.Continuous
+        | NoDoseType -> Informedica.GenForm.Lib.Types.NoDoseType
+
+
+
+let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Shared.Types.DoseType =
+        match dt with
+        | Informedica.GenForm.Lib.Types.OnceTimed s -> s |> OnceTimed
+        | Informedica.GenForm.Lib.Types.Once s -> s |> Once
+        | Informedica.GenForm.Lib.Types.Timed s -> s |> Timed
+        | Informedica.GenForm.Lib.Types.Discontinuous s -> s |> Discontinuous
+        | Informedica.GenForm.Lib.Types.Continuous s -> s |> Continuous
+        | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
+
+
+
 let get (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
         $"""
@@ -271,6 +293,7 @@ Routes: {sc.Routes |> Array.length}
 Indication: {sc.Indication |> Option.defaultValue ""}
 Medication: {sc.Medication |> Option.defaultValue ""}
 Route: {sc.Route |> Option.defaultValue ""}
+DoseType: {sc.DoseType}
 Scenarios: {sc.Scenarios |> Array.length}
 """
 
@@ -333,14 +356,15 @@ Scenarios: {sc.Scenarios |> Array.length}
                         r.Routes
                 DoseTypes =
                     if sc.DoseType |> Option.isSome then
-                        [| sc.DoseType |> Option.defaultValue "" |]
+                        [| sc.DoseType |> Option.defaultValue NoDoseType |]
+                        |> Array.map mapFromSharedDoseType
                     else
                         r.DoseTypes
                 Indication = sc.Indication
                 Generic = sc.Medication
                 Shape = sc.Shape
                 Route = sc.Route
-                DoseType = sc.DoseType
+                DoseType = sc.DoseType |> Option.map mapFromSharedDoseType
             }
             |> Api.filter
 
@@ -349,18 +373,18 @@ Scenarios: {sc.Scenarios |> Array.length}
                 Indications = newSc.Indications
                 Medications = newSc.Generics
                 Routes = newSc.Routes
-                DoseTypes = newSc.DoseTypes
+                DoseTypes = newSc.DoseTypes |> Array.map mapToSharedDoseType
                 Indication = newSc.Indication
                 Medication = newSc.Generic
                 Shape = newSc.Shape
                 Route = newSc.Route
-                DoseType = newSc.DoseType
+                DoseType = newSc.DoseType |> Option.map mapToSharedDoseType
                 Scenarios =
                     newSc.Scenarios
                     |> Array.map (fun sc ->
                         Shared.ScenarioResult.createScenario
                             sc.Shape
-                            sc.DoseType
+                            (sc.DoseType |> mapToSharedDoseType)
                             sc.Prescription
                             sc.Preparation
                             sc.Administration

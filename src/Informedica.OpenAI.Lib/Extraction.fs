@@ -24,7 +24,7 @@ module Extraction =
         }
 
 
-    let unitValidator<'Unit> text get validUnits s =
+    let inline unitValidator<'Unit> text zero get validUnits s =
         let isValidUnit s =
             if validUnits |> List.isEmpty then true
             else
@@ -32,20 +32,23 @@ module Extraction =
                 |> List.exists (String.equalsCapInsens s)
         try
             let un = JsonConvert.DeserializeObject<'Unit>(s)
-            match un |> get |> String.split "/" with
-            | [u] when u |> isValidUnit ->
-                if text |> String.containsCapsInsens u then Ok s
-                else
-                    $"{u} is not mentioned in the text"
+            // check the 'zero' case
+            if zero |> JsonConvert.SerializeObject = (un |> JsonConvert.SerializeObject) then Ok s
+            else
+                match un |> get |> String.split "/" with
+                | [u] when u |> isValidUnit ->
+                    if text |> String.containsCapsInsens u then Ok s
+                    else
+                        $"{u} is not mentioned in the text"
+                        |> Error
+                | _ ->
+                    if validUnits |> List.isEmpty then $"{s} is not a valid unit, the unit should not contain '/'"
+                    else
+                        $"""
+{s} is not a valid unit, the unit should not contain '/' and the unit should be one of the following:
+{validUnits |> String.concat ", "}
+"""
                     |> Error
-            | _ ->
-                if validUnits |> List.isEmpty then $"{s} is not a valid unit, the unit should not contain '/'"
-                else
-                    $"""
-    {s} is not a valid unit, the unit should not contain '/' and the unit should be one of the following:
-    {validUnits |> String.concat ", "}
-    """
-                |> Error
         with
         | e ->
             e.ToString()
@@ -54,21 +57,13 @@ module Extraction =
 
     let extractSubstanceUnit jsonSubstUnit model text =
         let zero = {| substanceUnit = "" |}
-        let validator = unitValidator text (fun (u: {| substanceUnit: string |}) -> u.substanceUnit)  []
+        let validator =
+            []
+            |> unitValidator
+                text (zero |> box)
+                (fun (u: {| substanceUnit: string |}) -> u.substanceUnit)
 
-        """
-    Use the provided schema to extract the unit of measurement (substance unit) from the medication dosage information contained in the text.
-    Your answer should return a JSON string representing the extracted unit.
-
-    Use schema: { substanceUnit: string }
-
-    Examples of usage and expected output:
-     - For "mg/kg/dag", return: "{ "substanceUnit": "mg" }"
-     - For "g/m2/dag", return: "{ "substanceUnit": "g" }"
-     - For "IE/m2", return: "{ "substanceUnit": "IE" }"
-
-    Respond in JSON
-    """
+        Prompts.User.substanceUnitText
         |> Message.userWithValidator validator
         |> extract jsonSubstUnit model zero
 
@@ -77,22 +72,12 @@ module Extraction =
         let zero = {| adjustUnit = "" |}
         let validator =
             ["kg"; "m2"; "mˆ2"]
-            |> unitValidator text (fun (u: {| adjustUnit: string |}) -> u.adjustUnit)
+            |> unitValidator
+                text (zero |> box)
+                (fun (u: {| adjustUnit: string |}) -> u.adjustUnit)
 
-        """
-    Use the provided schema to extract the unit by which a medication dose is adjusted, such as patient weight or body surface area, from the medication dosage information contained in the text.
-    Your answer should return a JSON string representing the extracted adjustment unit.
 
-    Use schema : { adjustUnit: string }
-
-    Examples of usage and expected output:
-    - For "mg/kg/dag", return: "{ "adjustUnit": "kg" }"
-    - For "mg/kg", return: "{ "adjustUnit": "kg" }"
-    - For "mg/m2/dag", return: "{ "adjustUnit": "m2" }"
-    - For "mg/m2", return: "{ "adjustUnit": "m2" }"
-
-    Respond in JSON
-    """
+        Prompts.User.adjustUnitText zero
         |> Message.userWithValidator validator
         |> extract jsonAdjustUnit model zero
 
@@ -105,22 +90,11 @@ module Extraction =
                 "week"
                 "maand"
             ]
-            |> unitValidator text (fun (u: {| timeUnit: string |}) -> u.timeUnit)
+            |> unitValidator
+                   text (zero |> box)
+                   (fun (u: {| timeUnit: string |}) -> u.timeUnit)
 
-        """
-    Use the provided schema to extract the time unit from the medication dosage information contained in the text.
-    Your answer should return a JSON string representing the extracted time unit.
-
-    Use schema : { timeUnit: string }
-
-    Examples of usage and expected output:
-    - For "mg/kg/dag", return: "{ "timeUnit": "dag" }"
-    - For "mg/kg", return: "{ "timeUnit": "" }"
-    - For "mg/m2/week", return: "{ "timeUnit": "week" }"
-    - For "mg/2 dagen", return: "{ "timeUnit": "2 dagen" }"
-
-    Respond in JSON
-    """
+        Prompts.User.timeUnitText zero
         |> Message.userWithValidator validator
         |> extract jsonTimeUnit model zero
 
@@ -145,3 +119,21 @@ module Extraction =
         }
 
 
+    let extractFrequency jsonFreq model timeUnit =
+        let zero = {| frequencies = List.empty<int>; timeUnit = timeUnit |}
+        // just return zero if there is no time unit
+        let jsonFreq =
+            if timeUnit |> String.isNullOrWhiteSpace |> not then jsonFreq
+            else
+                fun _ _ _ state -> state, zero
+        let validator =
+            fun s ->
+                try
+                    let _ = JsonConvert.DeserializeObject<{| frequencies : int list; timeUnit : string |}>(s)
+                    s |> Ok
+                with
+                | e -> e.ToString() |> Error
+
+        Prompts.User.frequencyText timeUnit zero
+        |> Message.userWithValidator validator
+        |> extract jsonFreq model zero

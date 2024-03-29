@@ -31,7 +31,7 @@ module private Elmish =
             SelectedSubstance : string option
             InitialMedication : string option
             InitialRoute : string option
-            InitialDoseType : string option
+            InitialDoseType : DoseType option
             InitialIndication : string option
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
@@ -237,7 +237,10 @@ module private Elmish =
                     medication = paramsMap |> Map.tryFind "md"
                     route = paramsMap |> Map.tryFind "rt"
                     indication = paramsMap |> Map.tryFind "in"
-                    dosetype = paramsMap |> Map.tryFind "dt"
+                    dosetype = 
+                        paramsMap 
+                        |> Map.tryFind "dt"
+                        |> Option.map ScenarioResult.doseTypeFromString
                 |}
                 |> Some
 
@@ -251,7 +254,7 @@ module private Elmish =
             None, None, None, true, None
 
 
-    let initialState pat page lang discl (med : {| medication: string option; route: string option; indication: string option; dosetype: string option |} option) =
+    let initialState pat page lang discl (med : {| medication: string option; route: string option; indication: string option; dosetype: DoseType option |} option) =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue Global.LifeSupport

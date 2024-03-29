@@ -215,19 +215,19 @@ module Patient =
             }
 
 
-        let fromDays days = 
+        let fromDays days =
             let yrs = days / 365
-            let mos = (days - yrs * 365) / 30 
+            let mos = (days - yrs * 365) / 30
             let wks = (days - yrs * 365 - mos * 30) / 7
-            let dys = 
+            let dys =
                 if days - yrs * 365 - mos * 30 - wks * 7 > 0 then
                     days - yrs * 365 - mos * 30 - wks * 7
                 else
                     0
-            create 
-                yrs 
-                (if mos > 0 then Some mos else None) 
-                (if wks > 0 then Some wks else None) 
+            create
+                yrs
+                (if mos > 0 then Some mos else None)
+                (if wks > 0 then Some wks else None)
                 (if dys > 0 then Some dys else None)
 
 
@@ -1453,6 +1453,62 @@ module Order =
 
 
 module ScenarioResult =
+
+
+    let doseTypeToDescription doseType =
+        match doseType with
+        | OnceTimed s
+        | Once s
+        | Timed s
+        | Discontinuous s
+        | Continuous s ->
+            if String.isNullOrWhiteSpace(s) |> not then s
+            else
+                match doseType with
+                | OnceTimed _
+                | Once _ -> "eenmalig"
+                | Timed _
+                | Discontinuous _ -> "onderhoud"
+                | Continuous _ -> "continu"
+                | NoDoseType -> ""
+
+        | NoDoseType -> ""
+
+
+    let doseTypeToString doseType =
+        match doseType with
+        | OnceTimed s -> "onceTimed", s
+        | Once s -> "once", s
+        | Timed s -> "timed", s
+        | Discontinuous s -> "discontinuous", s
+        | Continuous s -> "continuous", s
+        | NoDoseType -> "", ""
+        |> fun (s1, s2) ->
+            if String.isNullOrWhiteSpace(s2) then s1
+            else $"{s1} {s2}"
+
+
+    let doseTypeFromString s =
+        let matchDoseType (dt: string) dd =
+            let dt = dt.ToLower().Trim()
+            let withText c = dd |> c
+
+            match dt with
+            | "once" -> Once |> withText
+            | "onceTimed" -> OnceTimed |> withText
+            | "timed" -> Timed |> withText
+            | "discontinuous" -> Discontinuous |> withText
+            | "continuous" -> Continuous |> withText
+            | _ -> NoDoseType
+
+        match s |> String.split " " |> Array.toList with
+        | [dt] -> matchDoseType dt ""
+        | dt::rest ->
+            rest
+            |> String.concat " "
+            |> matchDoseType dt
+        | _ -> NoDoseType
+
 
     let parseTextItem (s: string) =
         s

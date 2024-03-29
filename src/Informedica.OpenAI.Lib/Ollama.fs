@@ -449,6 +449,8 @@ module Ollama =
 
         let openhermes = "openhermes"
 
+        let ``dolphin-mixtral:8x7b-v2.6`` = "dolphin-mixtral:8x7b-v2.6"
+
 
 
     let runLlama2  = run Models.llama2
@@ -569,20 +571,39 @@ Can you try again answering?
 
     module Extract =
 
+        open FSharpPlus
+
+
+        let inline private getJson model zero (msg : Message) (msgs : Message list)  =
+            msg
+            |> validate2
+                model
+                msgs
+            |> Async.RunSynchronously
+            |> function
+                | Ok (result, msgs) -> msgs, result
+                | Error (_, msgs)   -> msgs, zero
+
+
         let doseUnits model text =
-            let getJson =
-                fun model zero (msg : Message) (msgs : Message list) ->
-                    msg
-                    |> validate2
-                        model
-                        msgs
-                    |> Async.RunSynchronously
-                    |> function
-                        | Ok (result, msgs) -> msgs, result
-                        | Error (_, msgs)   -> msgs, zero
 
             Extraction.createDoseUnits
                 getJson
                 getJson
                 getJson
                 model text
+
+
+        let frequencies model text =
+            monad {
+                let! doseUnits = doseUnits model text
+                let! freqs =
+                    Extraction.extractFrequency
+                        getJson
+                        model doseUnits.timeUnit
+                return
+                    {|
+                        doseUnits = doseUnits
+                        freqs = freqs
+                    |}
+            }

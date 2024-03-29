@@ -351,7 +351,7 @@ module Api =
                                             {
                                                 No = i
                                                 Indication = pr.DoseRule.Indication
-                                                DoseType = pr.DoseRule.DoseType |> DoseType.toString
+                                                DoseType = pr.DoseRule.DoseType
                                                 Name = pr.DoseRule.Generic
                                                 Shape = pr.DoseRule.Shape
                                                 Route = pr.DoseRule.Route

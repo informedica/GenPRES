@@ -105,7 +105,7 @@ let test pat n =
                 ord
                 |> Order.Print.printOrderToString true ns
             let p =
-                $"{pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toString} {pr.DoseRule.Indication}"
+                $"{pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.DoseType |> DoseType.toDescription} {pr.DoseRule.Indication}"
             Ok (pat, p, o)
         | Error (ord, pr, m) ->
             let o =
@@ -202,18 +202,18 @@ let pat =
 
 
 let pr =
-    Patient.teenager
+    Patient.newBorn
     |> fun p ->
         { p with
             VenousAccess = [VenousAccess.CVL]
             Department = Some "ICK"
             Age =
-                Units.Time.year
-                |> ValueUnit.singleWithValue 12N
+                Units.Time.day
+                |> ValueUnit.singleWithValue 2N
                 |> Some
             Weight =
               Units.Weight.kiloGram
-              |> ValueUnit.singleWithValue (30N)
+              |> ValueUnit.singleWithValue (3N)
               |> Some
         }
     //|> Api.scenarioResult |> Api.filter
@@ -222,26 +222,26 @@ let pr =
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 
 
-Patient.teenager
+Patient.newBorn
 |> fun p ->
     { p with
-        VenousAccess = [VenousAccess.CVL]
+        VenousAccess = []
         Department = Some "ICK"
         Age =
-            Units.Time.year
-            |> ValueUnit.singleWithValue 12N
+            Units.Time.day
+            |> ValueUnit.singleWithValue 2N
             |> Some
         Weight =
           Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (30N)
+          |> ValueUnit.singleWithValue (3N)
           |> Some
     }
 //|> Api.scenarioResult |> Api.filter
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
-//|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+//|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.Dto.toDto

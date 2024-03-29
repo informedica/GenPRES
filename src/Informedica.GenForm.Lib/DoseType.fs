@@ -17,7 +17,7 @@ module DoseType =
         | NoDoseType -> 100
 
 
-    let eqs doseType1 doseType2 =
+    let eqsType doseType1 doseType2 =
         match doseType1, doseType2 with
         | Once _, Once _
         | OnceTimed _, OnceTimed _
@@ -35,15 +35,28 @@ module DoseType =
 
         match doseType with
         | "once" -> Once |> withText
-        | "oncetimed" -> OnceTimed |> withText
+        | "onceTimed" -> OnceTimed |> withText
         | "timed" -> Timed |> withText
         | "discontinuous" -> Discontinuous |> withText
         | "continuous" -> Continuous |> withText
         | _ -> NoDoseType
 
 
-    /// Get a string representation of a dose type.
     let toString doseType =
+        match doseType with
+        | OnceTimed s -> "onceTimed", s
+        | Once s -> "once", s
+        | Timed s -> "timed", s
+        | Discontinuous s -> "discontinuous", s
+        | Continuous s -> "continuous", s
+        | NoDoseType -> "", ""
+        |> fun (s1, s2) ->
+            if String.isNullOrWhiteSpace(s2) then s1
+            else $"{s1} {s2}"
+
+
+    /// Get a string representation of a dose type.
+    let toDescription doseType =
         match doseType with
         | OnceTimed s
         | Once s

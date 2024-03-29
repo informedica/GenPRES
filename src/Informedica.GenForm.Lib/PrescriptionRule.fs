@@ -30,7 +30,7 @@ module PrescriptionRule =
                             Generic = dr.Generic |> Some
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
-                            DoseType = dr.DoseType |> DoseType.toString |> Some
+                            DoseType = dr.DoseType |> Some
                         }
                     |> Array.map (fun sr ->
                         { sr with

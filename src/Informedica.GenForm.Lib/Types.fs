@@ -331,7 +331,7 @@ module Types =
             /// The Route to filter on
             Route : string option
             /// The DoseType to filter on
-            DoseType : string option
+            DoseType : DoseType option
             /// The patient to filter on
             Patient : Patient
         }

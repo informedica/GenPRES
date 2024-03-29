@@ -46,29 +46,35 @@ let filter =
                 VenousAccess = []
                 Department = Some "ICK"
                 Age =
-                    Units.Time.year
-                    |> ValueUnit.singleWithValue 12N
+                    Units.Time.day
+                    |> ValueUnit.singleWithValue 2N
                     |> Some
                 Weight =
                   Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (30N)
+                  |> ValueUnit.singleWithValue (3N)
                   |> Some
             }
     }
 
 
-DoseRule.get ()
-|> Array.take 1
-|> DoseRule.filter filter
-|> Array.item 0
+let dr =
+    DoseRule.get ()
+    |> Array.take 1
+    |> DoseRule.filter filter
+    |> Array.item 0
+
+
+dr
 |> fun dr ->
     SolutionRule.get ()
     |> SolutionRule.filter
         { filter with
             Generic = dr.Generic |> Some
-            Shape = dr.Shape |> Some
-            Route = dr.Route |> Some
+            //Shape = dr.Shape |> Some
+            //Route = dr.Route |> Some
             DoseType = dr.DoseType |> DoseType.toString |> Some
         }
 
 
+SolutionRule.get ()
+|> Array.filter(fun sr -> sr.Generic = "alprostadil")

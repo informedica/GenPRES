@@ -510,27 +510,46 @@ Can you try again answering?
 
     module Extract =
 
+        open FSharpPlus
+
+
+        let inline private getJson model zero (msg : Message) (input : Chat.ChatInput) =
+            { input with
+                model = model
+                messages =
+                    [{|
+                        role = msg.Role
+                        content = msg.Content
+                    |}]
+                    |> List.append input.messages
+            }
+            |> validate2
+                msg.Validator
+            |> Async.RunSynchronously
+            |> function
+                | Ok (result, input) -> input, result
+                | Error (_, input)   -> input, zero
+
+
         let doseUnits model text =
-            let getJson =
-                fun model zero (msg : Message) (input : Chat.ChatInput) ->
-                    { input with
-                        model = model
-                        messages =
-                            [{|
-                                role = msg.Role
-                                content = msg.Content
-                            |}]
-                            |> List.append input.messages
-                    }
-                    |> validate2
-                        msg.Validator
-                    |> Async.RunSynchronously
-                    |> function
-                        | Ok (result, input) -> input, result
-                        | Error (_, input)   -> input, zero
 
             Extraction.createDoseUnits
                 getJson
                 getJson
                 getJson
                 model text
+
+
+        let frequencies model text =
+            monad {
+                let! doseUnits = doseUnits model text
+                let! freqs =
+                    Extraction.extractFrequency
+                        getJson
+                        model doseUnits.timeUnit
+                return
+                    {|
+                        doseUnits = doseUnits
+                        freqs = freqs
+                    |}
+            }
