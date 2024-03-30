@@ -427,7 +427,7 @@ module Api =
                     |> Order.Dto.fromDto
                     |> Order.applyConstraints
                     |> fun o ->
-                        printfn "== constraints reapplied"
+                        ConsoleWriter.writeInfoMessage "== constraints reapplied" true false
                         o |> Order.toString |> List.iter (printfn "%s")
                         o
                     |> Order.solveMinMax false OrderLogger.logger.Logger

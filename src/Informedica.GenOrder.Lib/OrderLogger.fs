@@ -32,6 +32,10 @@ module OrderLogger =
     module Name = Variable.Name
 
 
+    let writeInfo txt = ConsoleWriter.writeInfoMessage txt true false
+
+    let writeError txt = ConsoleWriter.writeErrorMessage txt true false
+
     let printOrderEqs (o : Order) eqs =
         let toEqString op vs =
             vs
@@ -77,7 +81,7 @@ module OrderLogger =
 
         with
         | e ->
-            ConsoleWriter.writeErrorMessage $"error printing: {e.ToString()}" true false
+            writeError $"error printing: {e.ToString()}"
             ""
 
 
@@ -98,11 +102,10 @@ module OrderLogger =
             | _ -> ""
 
         | Logging.OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
-            ConsoleWriter.writeErrorMessage $"""
+            writeError $"""
 printing error for order {o.Orderable.Name}
 messages: {msgs.Value.Count}
 """
-                true false
 
             let eqs =
                 match msgs with
@@ -122,17 +125,17 @@ messages: {msgs.Value.Count}
                         | _ -> None
                     )
                     |> fun xs ->
-                        printfn $"found {xs |> Array.length}"; xs
+                        writeInfo $"found {xs |> Array.length}"; xs
                     |> Array.tryHead
                 | None -> None
             match eqs with
             | Some eqs ->
                 let s = $"Terminated with {s}:\n{printOrderEqs o eqs}"
-                printfn $"%s{s}"
+                writeInfo $"%s{s}"
                 s
             | None ->
                 let s = $"Terminated with {s}"
-                printfn $"%s{s}"
+                writeInfo $"%s{s}"
                 s
 
 
@@ -144,7 +147,7 @@ messages: {msgs.Value.Count}
         | :? SolverMessage as m -> m |> SolverLogging.printMsg
         | :? OrderMessage  as m -> m |> printOrderMsg msgs
         | _ ->
-            ConsoleWriter.writeErrorMessage $"printMsg cannot handle {msg}" true false
+            writeError $"printMsg cannot handle {msg}"
             ""
 
     // A message to send to the order logger agent
@@ -229,10 +232,11 @@ messages: {msgs.Value.Count}
                             return! loop timer path level msgs
 
                         | Report ->
-                            printfn "=== Start Report ===\n"
+                            writeInfo "=== Start Report ===\n"
                             msgs
                             |> Seq.length
-                            |> printfn "Total messages received: %i\n"
+                            |> sprintf "Total messages received: %i\n"
+                            |> writeInfo
 
                             msgs
                             |> Seq.iteri (fun i (t, m) ->
@@ -240,7 +244,7 @@ messages: {msgs.Value.Count}
                                 |> printMsg (Some msgs)
                                 |> function
                                 | s when s |> String.IsNullOrEmpty -> ()
-                                | s -> printfn $"\n%i{i}. %f{t}: %A{m.Level}\n%s{s}"
+                                | s -> writeInfo $"\n%i{i}. %f{t}: %A{m.Level}\n%s{s}"
                             )
                             printfn "\n"
 
@@ -259,11 +263,8 @@ messages: {msgs.Value.Count}
         {
             Start =
                 fun path level ->
-                    ConsoleWriter.writeInfoMessage
-                        $"start logging at level {level}" true false
-                    if path.IsSome then
-                        ConsoleWriter.writeInfoMessage
-                            $"file logging to {path}" true false
+                    writeInfo $"start logging at level {level}"
+                    if path.IsSome then writeInfo $"file logging to {path}"
 
                     (path, level)
                     |> Start
@@ -303,21 +304,21 @@ messages: {msgs.Value.Count}
                 |> Option.defaultValue ""
             | _ -> ""
 
-        printfn $"\n\n=== SCENARIOS for Weight: %s{w} ==="
+        writeInfo $"\n\n=== SCENARIOS for Weight: %s{w} ==="
         orders
         |> List.iteri (fun i o ->
             o
             |> Order.Print.printOrderToString true ns
             |> fun (p, a, d) ->
-                printfn $"%i{i + 1}\tprescription:\t%s{p}"
-                printfn $"  \tdispensing:\t%s{a}"
-                printfn $"  \tpreparation:\t%s{d}"
+                writeInfo $"%i{i + 1}\tprescription:\t%s{p}"
+                writeInfo $"  \tdispensing:\t%s{a}"
+                writeInfo $"  \tpreparation:\t%s{d}"
 
             if verbose then
                 o
                 |> Order.toString
-                |> List.iteri (fun i s -> printfn $"%i{i + 1}\t%s{s}")
+                |> List.iteri (fun i s -> writeInfo $"%i{i + 1}\t%s{s}")
 
-                printfn "\n"
+                writeInfo "\n"
         )
 

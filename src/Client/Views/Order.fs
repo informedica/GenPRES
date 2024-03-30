@@ -592,7 +592,11 @@ module Order =
                         match substIndx, props.order with
                         | Some i, Resolved (Some (_, _, o)) when o.Orderable.Components[0].Items |> Array.length > 0->
                             o.Orderable.Components[0].Items[i].Dose.Quantity.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                            |> Option.map (fun v -> 
+                                v.Value 
+                                |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
+                                |> Array.distinctBy snd
+                            )
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Continuous Medication Dose`` |> getTerm "Keer Dosis") None (ChangeSubstanceDoseQuantity >> dispatch)
                         | _ ->
@@ -608,7 +612,11 @@ module Order =
                                 o.Orderable.Components[0].Items[i].Dose.PerTimeAdjust.Variable.Vals
                             else 
                                 o.Orderable.Components[0].Items[i].Dose.PerTime.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                            |> Option.map (fun v -> 
+                                v.Value 
+                                |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
+                                |> Array.distinctBy snd
+                            )
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Adjusted dose`` |> getTerm "Dosering") None dispatch
                         | _ ->
@@ -624,7 +632,11 @@ module Order =
                                 o.Orderable.Components[0].Items[i].Dose.RateAdjust.Variable.Vals
                             else
                                 o.Orderable.Components[0].Items[i].Dose.Rate.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                            |> Option.map (fun v -> 
+                                v.Value 
+                                |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
+                                |> Array.distinctBy snd
+                            )
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Adjusted dose`` |> getTerm "Dosering") None dispatch
                         | _ ->
