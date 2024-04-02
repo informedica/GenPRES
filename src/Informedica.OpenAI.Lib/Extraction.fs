@@ -25,34 +25,51 @@ module Extraction =
 
 
     let inline unitValidator<'Unit> text zero get validUnits s =
-        let isValidUnit s =
-            if validUnits |> List.isEmpty then true
-            else
-                validUnits
-                |> List.exists (String.equalsCapInsens s)
-        try
-            let un = JsonConvert.DeserializeObject<'Unit>(s)
-            // check the 'zero' case
-            if zero |> JsonConvert.SerializeObject = (un |> JsonConvert.SerializeObject) then Ok s
-            else
-                match un |> get |> String.split "/" with
-                | [u] when u |> isValidUnit ->
-                    if text |> String.containsCapsInsens u then Ok s
-                    else
-                        $"{u} is not mentioned in the text"
-                        |> Error
-                | _ ->
-                    if validUnits |> List.isEmpty then $"{s} is not a valid unit, the unit should not contain '/'"
-                    else
-                        $"""
-{s} is not a valid unit, the unit should not contain '/' and the unit should be one of the following:
+        if s |> String.isNullOrWhiteSpace then s |> Ok
+        else
+            let isValidUnit s =
+                if validUnits |> List.isEmpty then true
+                else
+                    s |> String.isNullOrWhiteSpace ||
+                    validUnits
+                    |> List.exists (String.equalsCapInsens s)
+            try
+                let unitRecord = JsonConvert.DeserializeObject<'Unit>(s)
+
+                // check the 'zero' case
+                if zero |> JsonConvert.SerializeObject = (unitRecord |> JsonConvert.SerializeObject) then Ok s
+                else
+                    let unitField =
+                        unitRecord |> get
+                        |> fun s -> if s |> String.empty then "" else s
+
+                    match unitField |> String.split "/" with
+                    | [u] when u |> isValidUnit ->
+                        if text |> String.containsCapsInsens u then Ok s
+                        else
+                            $"{u} is not mentioned in the text"
+                            |> Error
+                    | xs ->
+                        let multUnits =
+                            if xs |> List.length = 1 then ""
+                            else
+                                $", this is not one unit but {xs |> length} units, just one unit should be extracted, so, the extracted unit should not contain '/'"
+                        if validUnits |> List.isEmpty then
+                            $"{unitField } is not a valid unit{multUnits}"
+                        else
+                            let multUnits=
+                                if multUnits |> String.isNullOrWhiteSpace then multUnits
+                                else
+                                    $"{multUnits}  and"
+                            $"""
+{unitField} is not a valid unit{multUnits}the unit should be one of the following:
 {validUnits |> String.concat ", "}
 """
-                    |> Error
-        with
-        | e ->
-            e.ToString()
-            |> Error
+                        |> Error
+            with
+            | e ->
+                e.ToString()
+                |> Error
 
 
     let extractSubstanceUnit jsonSubstUnit model text =
@@ -132,7 +149,7 @@ module Extraction =
                     let _ = JsonConvert.DeserializeObject<{| frequencies : int list; timeUnit : string |}>(s)
                     s |> Ok
                 with
-                | e -> e.ToString() |> Error
+                | e -> $"The answer: {s} was not correct because:\n{e.ToString()}" |> Error
 
         Prompts.User.frequencyText timeUnit zero
         |> Message.userWithValidator validator

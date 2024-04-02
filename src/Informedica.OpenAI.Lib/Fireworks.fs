@@ -257,7 +257,7 @@ module Fireworks =
             apiKey
 
 
-    let chatJson<'Schema> (input : Chat.ChatInput) =
+    let chatJson (input : Chat.ChatInput) =
         // doesn't work well
         //let schema = JsonSchema.FromType<'Schema>().ToJson()
 
@@ -282,7 +282,7 @@ module Fireworks =
         async {
             let rec validateLoop reTry (input: Chat.ChatInput) =
                 async {
-                    let! resp = chatJson<'ReturnType> (input : Chat.ChatInput)
+                    let! resp = chatJson (input : Chat.ChatInput)
                     match resp with
                     | Ok result ->
                         let answer =
@@ -318,9 +318,6 @@ module Fireworks =
                             input |> Chat.print
                             return err |> Error
                         else
-                            let msg =
-                                input.messages
-                                |> List.last
                             let updatedInput =
                                 { input with
                                     messages =
@@ -342,7 +339,7 @@ module Fireworks =
         async {
             let rec validateLoop reTry (input: Chat.ChatInput) =
                 async {
-                    let! resp = chatJson<'ReturnType> (input : Chat.ChatInput)
+                    let! resp = chatJson (input : Chat.ChatInput)
                     match resp with
                     | Ok result ->
                         let answer =

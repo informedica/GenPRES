@@ -55,7 +55,9 @@ Error:
             let! response = client.PostAsync(endPoint, content) |> Async.AwaitTask
             let! responseBody = response.Content.ReadAsStringAsync() |> Async.AwaitTask
 
-            let modelResponse = responseBody |> createResponse<'Response>
+            let modelResponse =
+                responseBody
+                |> createResponse<'Response>
             return modelResponse
         }
 

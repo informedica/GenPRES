@@ -204,6 +204,7 @@ module SolutionRule =
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
             fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Patient.Department) |> Option.defaultValue true
             fun (sr : SolutionRule) ->
+                sr.DoseType = NoDoseType ||
                 filter.DoseType
                 |> Option.map (DoseType.eqsType sr.DoseType)
                 |> Option.defaultValue true

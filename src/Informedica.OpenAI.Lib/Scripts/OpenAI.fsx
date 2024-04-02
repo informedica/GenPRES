@@ -23,6 +23,7 @@ open Informedica.OpenAI.Lib
 open OpenAI.WithState
 
 
+"mg/m2\"" |> String.split "/"
 
 let systemMsg model text =
         let msg =

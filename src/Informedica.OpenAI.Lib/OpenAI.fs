@@ -246,7 +246,7 @@ module OpenAI =
             apiKey
 
 
-    let chatJson<'Schema> (input : Chat.ChatInput) =
+    let chatJson (input : Chat.ChatInput) =
         { input with
             response_format =
                 {
@@ -265,7 +265,7 @@ module OpenAI =
         async {
             let rec validateLoop reTry (input: Chat.ChatInput) =
                 async {
-                    let! resp = chatJson<'ReturnType> (input : Chat.ChatInput)
+                    let! resp = chatJson (input : Chat.ChatInput)
                     match resp with
                     | Ok result ->
                         let answer =
@@ -321,13 +321,13 @@ module OpenAI =
         }
 
 
-    let validate2<'ReturnType> (validator : string -> Result<string, string>) (input : Chat.ChatInput) =
+    let validateJson<'ReturnType> (validator : string -> Result<string, string>) (input : Chat.ChatInput) =
         let original = input.messages |> List.last
 
         async {
             let rec validateLoop reTry (input: Chat.ChatInput) =
                 async {
-                    let! resp = chatJson<'ReturnType> (input : Chat.ChatInput)
+                    let! resp = chatJson (input : Chat.ChatInput)
                     match resp with
                     | Ok result ->
                         let answer =
@@ -495,7 +495,7 @@ Can you try again answering?
                             |}]
                             |> List.append input.messages
                     }
-                    |> validate2
+                    |> validateJson
                         msg.Validator
                     |> Async.RunSynchronously
                     |> function
@@ -523,7 +523,7 @@ Can you try again answering?
                     |}]
                     |> List.append input.messages
             }
-            |> validate2
+            |> validateJson
                 msg.Validator
             |> Async.RunSynchronously
             |> function
@@ -532,7 +532,6 @@ Can you try again answering?
 
 
         let doseUnits model text =
-
             Extraction.createDoseUnits
                 getJson
                 getJson

@@ -3,6 +3,8 @@ namespace Informedica.OpenAI.Lib
 
 module Prompts =
 
+    open Newtonsoft.Json
+
     let tasks = """
 You are a world-class prompt engineering assistant. Generate a clear, effective prompt
 that accurately interprets and structures the user's task, ensuring it is comprehensive,
@@ -69,7 +71,11 @@ Respond in JSON
         let respondInJson txt = $"{txt}\nRespond in JSON"
 
 
-        let addZeroCase zero s = $"{s}\nIf extraction is not possible return: {zero}"
+        let addZeroCase zero s =
+            let zero =
+                $"{zero |> JsonConvert.SerializeObject}"
+            $"{s}\nIf extraction is not possible return: \"{zero}\""
+            |> respondInJson
 
 
         let substanceUnitText = """
@@ -78,7 +84,7 @@ from the medication dosage information contained in the text.
 
 Use schema: { substanceUnit: string }
 
-Examples of usage and expected output:
+Here are some examples and expected output:
  - For "mg/kg/dag", return: "{ "substanceUnit": "mg" }"
  - For "g/m2/dag", return: "{ "substanceUnit": "g" }"
  - For "IE/m2", return: "{ "substanceUnit": "IE" }"
@@ -92,7 +98,7 @@ such as patient weight or body surface area, from the medication dosage informat
 
 Use schema : { adjustUnit: string }
 
-Examples of usage and expected output:
+Here are some examples and expected output:
 - For "mg/kg/dag", return: "{ "adjustUnit": "kg" }"
 - For "mg/kg", return: "{ "adjustUnit": "kg" }"
 - For "mg/m2/dag", return: "{ "adjustUnit": "m2" }"
@@ -103,14 +109,17 @@ Examples of usage and expected output:
         let timeUnitText zero =
             let s = """
 Use the provided schema to extract the time unit from the medication dosage information contained in the text.
+The timeunit is the unit by which the frequency of administration is measured.
 
 Use schema : { timeUnit: string }
 
-Examples of usage and expected output:
+Here are some examples and expected output:
 - For "mg/kg/dag", return: "{ "timeUnit": "dag" }"
 - For "mg/kg", return: "{ "timeUnit": "" }"
 - For "mg/m2/week", return: "{ "timeUnit": "week" }"
 - For "mg/2 dagen", return: "{ "timeUnit": "2 dagen" }"
+- For "per week", return "{ "timeUnit": "week" }"
+- For "per dag", return "{ "timeUnit": "week" }"
 """
             s |> addZeroCase zero
 
