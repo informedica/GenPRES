@@ -785,6 +785,7 @@ let private theme : obj = jsNative
 [<JSX.Component>]
 let View () =
     let state, dispatch = React.useElmish (init, update, [||])
+    let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
     let bm =
         calculatInterventions
@@ -801,6 +802,12 @@ let View () =
 
         calculatInterventions calc state.ContinuousMedication state.Patient
 
+    let sx = 
+        if isMobile 
+        then 
+            {| height= "100vh"; overflowY = "hidden"; mb=5 |}
+        else 
+            {| height= "100vh"; overflowY = "hidden"; mb=0 |}
     JSX.jsx
         $"""
     import {{ ThemeProvider }} from '@mui/material/styles';
@@ -811,7 +818,7 @@ let View () =
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
-            <Box sx={ {| height= "100vh"; overflowY = "hidden" |} }>
+            <Box sx={ sx }>
                 <CssBaseline />
                 {
                     Components.Router.View {| onUrlChanged = UrlChanged >> dispatch |}
