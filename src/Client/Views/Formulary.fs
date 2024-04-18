@@ -33,6 +33,7 @@ module Formulary =
             | GenericChange of string option
             | IndicationChange of string option
             | RouteChange of string option
+            | Clear
 
 
         let empty =
@@ -71,7 +72,20 @@ module Formulary =
                     Patient = None
                 }
 
-            match msg with                
+            match msg with
+            | Clear ->
+                match formulary with
+                | Resolved form ->
+                    form
+                    |> clear
+                    |> updateFormulary
+                | _ -> ()
+                { state with
+                    Indication = None
+                    Generic = None
+                    Route = None
+                }, Cmd.none
+
             | IndicationChange s ->
                 match formulary with
                 | Resolved form ->
@@ -107,9 +121,9 @@ module Formulary =
             | RouteChange s ->
                 match formulary with
                 | Resolved form ->
-                    if s |> Option.isNone then Formulary.empty
-                    else
-                        { form with Route = s }
+                    { form with 
+                        Route = s 
+                    }
                     |> updateFormulary
                 | _ -> ()
 
@@ -195,10 +209,11 @@ module Formulary =
             import Paper from '@mui/material/Paper';
 
             <CardContent>
-                <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                    {Terms.Formulary |> getTerm "Formularium"}
-                </Typography>
-                <Stack direction={stackDirection} spacing={3} >
+                <Stack direction="column" spacing={3}>
+
+                    <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
+                        {Terms.Formulary |> getTerm "Formularium"}
+                    </Typography>
                     {
                         match props.formulary with
                         | Resolved form -> false, form.Indication, form.Indications
@@ -214,41 +229,49 @@ module Formulary =
                                 |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
                             
                     }
-                    {
-                        match props.formulary with
-                        | Resolved form -> false, form.Generic, form.Generics
-                        | _ -> true, None, [||]
-                        |> fun (isLoading, sel, items) ->
-                            let lbl = (Terms.``Formulary Medications`` |> getTerm "Medicatie") 
-                            if isMobile then
-                                items
-                                |> Array.map (fun s -> s, s)
-                                |> select isLoading lbl state.Generic (GenericChange >> dispatch)
-                            else
-                                items
-                                |> autoComplete isLoading lbl sel (GenericChange >> dispatch)
-                    }
-                    {
-                        match props.formulary with
-                        | Resolved form -> false, form.Route, form.Routes
-                        | _ -> true, None, [||]
-                        |> fun (isLoading, sel, items) ->
-                            let lbl = (Terms.``Formulary Routes`` |> getTerm "Routes")
-                            if isMobile then
-                                items
-                                |> Array.map (fun s -> s, s)
-                                |> select isLoading lbl state.Route (RouteChange >> dispatch)
-                            else
-                                items
-                                |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
-                    }
-                </Stack>
+                    <Stack direction={stackDirection} spacing={3} >
+                        {
+                            match props.formulary with
+                            | Resolved form -> false, form.Generic, form.Generics
+                            | _ -> true, None, [||]
+                            |> fun (isLoading, sel, items) ->
+                                let lbl = (Terms.``Formulary Medications`` |> getTerm "Medicatie") 
+                                if isMobile then
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading lbl state.Generic (GenericChange >> dispatch)
+                                else
+                                    items
+                                    |> autoComplete isLoading lbl sel (GenericChange >> dispatch)
+                        }
+                        {
+                            match props.formulary with
+                            | Resolved form -> false, form.Route, form.Routes
+                            | _ -> true, None, [||]
+                            |> fun (isLoading, sel, items) ->
+                                let lbl = (Terms.``Formulary Routes`` |> getTerm "Routes")
+                                if isMobile then
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading lbl state.Route (RouteChange >> dispatch)
+                                else
+                                    items
+                                    |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
+                        }
 
-                <Box sx={ {| mt=2 |} }>
-                    <Button variant="text" onClick={fun _ -> ignore } fullWidth startIcon={Mui.Icons.PsychologyIcon} >
-                        AI
-                    </Button>
-                </Box>
+                        <Box sx={ {| mt=2 |} }>
+                            <Button variant="text" onClick={fun _ -> Clear |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
+                                {Terms.Delete |> getTerm "Verwijder"}
+                            </Button>
+                        </Box>
+
+                        <Box sx={ {| mt=2 |} }>
+                            <Button variant="text" onClick={fun _ -> ignore } fullWidth startIcon={Mui.Icons.PsychologyIcon} >
+                                AI
+                            </Button>
+                        </Box>
+                    </Stack>
+                </Stack>
 
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {
