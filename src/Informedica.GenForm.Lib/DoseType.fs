@@ -35,7 +35,7 @@ module DoseType =
 
         match doseType with
         | "once" -> Once |> withText
-        | "onceTimed" -> OnceTimed |> withText
+        | "oncetimed" -> OnceTimed |> withText
         | "timed" -> Timed |> withText
         | "discontinuous" -> Discontinuous |> withText
         | "continuous" -> Continuous |> withText
