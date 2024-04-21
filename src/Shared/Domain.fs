@@ -1477,7 +1477,7 @@ module ScenarioResult =
 
     let doseTypeToString doseType =
         match doseType with
-        | OnceTimed s -> "onceTimed", s
+        | OnceTimed s -> "oncetimed", s
         | Once s -> "once", s
         | Timed s -> "timed", s
         | Discontinuous s -> "discontinuous", s
@@ -1495,7 +1495,7 @@ module ScenarioResult =
 
             match dt with
             | "once" -> Once |> withText
-            | "onceTimed" -> OnceTimed |> withText
+            | "oncetimed" -> OnceTimed |> withText
             | "timed" -> Timed |> withText
             | "discontinuous" -> Discontinuous |> withText
             | "continuous" -> Continuous |> withText

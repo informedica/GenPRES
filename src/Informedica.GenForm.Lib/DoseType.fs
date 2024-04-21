@@ -44,7 +44,7 @@ module DoseType =
 
     let toString doseType =
         match doseType with
-        | OnceTimed s -> "onceTimed", s
+        | OnceTimed s -> "oncetimed", s
         | Once s -> "once", s
         | Timed s -> "timed", s
         | Discontinuous s -> "discontinuous", s
