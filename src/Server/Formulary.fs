@@ -48,7 +48,7 @@ let selectIfOne sel xs =
 let checkDoseRules pat (dsrs : DoseRule []) =
     let empt, rs =
         dsrs
-        |> Array.distinctBy (fun dr -> dr.Generic, dr.Shape, dr.Route)
+        |> Array.distinctBy (fun dr -> dr.Generic, dr.Shape, dr.Route, dr.DoseType)
         |> Array.map (Check.checkDoseRule pat)
         |> Array.partition (fun c ->
             c.didPass |> Array.isEmpty &&
