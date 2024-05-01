@@ -1364,7 +1364,7 @@ module Order =
         let toString (prs: Prescription) =
                 match prs with
                 | Once -> ["eenmalig"]
-                | Continuous -> ["Continuous"]
+                | Continuous -> ["continu"]
                 | OnceTimed tme -> [tme |> Time.toString]
                 | Discontinuous frq -> [frq |> Frequency.toString]
                 | Timed(frq, tme)     -> [frq |> Frequency.toString; tme |> Time.toString]

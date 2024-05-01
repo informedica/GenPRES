@@ -376,13 +376,13 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "natriumchloride" "" ""
+GenPresProduct.filter "somapacitan" "" ""
 |> Array.collect (_.GenericProducts)
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
     gp.Id, gp.Name, gp.Shape, gp.Route,
-    subst[0].SubstanceName,
-    $"{subst[0].SubstanceQuantity} {subst[0].SubstanceUnit}"
+    subst[0].GenericName,
+    $"{subst[0].SubstanceQuantity} {subst[0].GenericUnit}"
 )
 |> Array.iter (fun (id, lbl, shp, rte, sn, sq) ->
     let rte = rte |> String.concat ", "
@@ -439,4 +439,57 @@ GenPresProduct.get []
 Substance.get ()
 |> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens "calciumchloride")
 
-600. / 74.55
+
+GenPresProduct.get []
+|> Array.filter (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.PrescriptionProducts
+        |> Array.exists (fun pp ->
+            pp.TradeProducts
+            |> Array.exists (fun tp ->
+                [
+                    2892057
+                    //2600919
+                ]
+                |> List.exists (fun id ->
+                    if tp.Id = id then
+                        printfn $"{tp.Name}"
+                    id = tp.Id
+                )
+            )
+        )
+    )
+)
+|> Array.collect (_.GenericProducts)
+|> Array.collect (fun gp ->
+    gp.Substances
+    |> Array.distinctBy _.SubstanceId
+    |> Array.map (fun subst ->
+        gp.Id, gp.Name, gp.Shape, gp.Route,
+        subst.SubstanceName,
+        $"{subst.SubstanceQuantity} {subst.SubstanceUnit}"
+    )
+)
+|> Array.distinct
+|> Array.iter (fun (id, lbl, shp, rte, sn, sq) ->
+    let rte = rte |> String.concat ", "
+    printfn $"{id}\t{lbl}\t{shp}\t{rte}\t{sn}\t{sq}"
+)
+
+
+GenPresProduct.get []
+|> Array.filter (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.Substances
+        |> Array.exists (fun gs ->
+            gs.GenericName <> gs.SubstanceName &&
+            gs.GenericQuantity <> gs.SubstanceQuantity
+        )
+    )
+)
+|> Array.map _.Name
+|> Array.distinct
+|> Array.length
+

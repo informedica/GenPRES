@@ -294,7 +294,6 @@ module Types =
         | Italic of string
 
 
-
     type Product =
         {
             Indication: string

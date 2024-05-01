@@ -11,6 +11,7 @@ Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 #load "../Mapping.fs"
 #load "../VenousAccess.fs"
 #load "../Patient.fs"
+#load "../LimitTarget.fs"
 #load "../DoseType.fs"
 #load "../Product.fs"
 #load "../Filter.fs"
@@ -23,9 +24,7 @@ Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 open Informedica.GenForm.Lib
 
 
-
-
-let checked =
+let ``checked`` =
     DoseRule.get ()
     |> Array.filter (fun dr -> true
     //    dr.Generic = "abatacept" &&
@@ -35,7 +34,7 @@ let checked =
     |> Check.checkAll Patient.patient
 
 
-checked
+``checked``
 |> Array.iter (printfn "%s")
 
 DoseRule.get ()

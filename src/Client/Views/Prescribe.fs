@@ -298,14 +298,30 @@ module Prescribe =
                 let item icon prim sec =
                     JSX.jsx
                         $"""
+                    import Table from '@mui/material/Table';
+                    import TableBody from '@mui/material/TableBody';
+                    import TableCell from '@mui/material/TableCell';
+                    import TableContainer from '@mui/material/TableContainer';
+                    import TableRow from '@mui/material/TableRow';
+
                     <ListItem>
                         <ListItemIcon>
                             {icon}
                         </ListItemIcon>
-                        <Box sx={ {| display="flex"; flexDirection="column" |} }>
-                            {prim}
-                            {sec |> typoGraphy}
-                        </Box>
+                        <Table padding="none" >
+                            <TableBody>
+                                <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} }>
+                                    <TableCell >
+                                        {prim}
+                                    </TableCell>                                        
+                                </TableRow>
+                                <TableRow sx={ {| border=0 |} }>
+                                    <TableCell sx = { {| pt=2 |} }>
+                                        {sec |> typoGraphy}
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody> 
+                        </Table>
                     </ListItem>
                     """
 

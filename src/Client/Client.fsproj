@@ -25,6 +25,7 @@
     <Compile Include="./Components/SelectableList.fs" />
     <Compile Include="./Components/TitleBar.fs" />
     <Compile Include="./Components/SideMenu.fs" />
+    <Compile Include="./Components/BasicTable.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
     <Compile Include="./Views/Disclaimer.fs" />
     <Compile Include="./Views/Patient.fs" />
