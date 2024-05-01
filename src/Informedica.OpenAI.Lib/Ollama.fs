@@ -269,7 +269,9 @@ module Ollama =
                         |> JsonConvert.DeserializeObject<'ReturnType>
                         |> Ok
                     with
-                    | e -> e.ToString() |> Error
+                    | e ->
+                        $"{resp.Response.message.content.Trim()}\ncannot be serialized because:\n{e.ToString()}"
+                        |> Error
                 )
 
             return resp
@@ -350,7 +352,7 @@ module Ollama =
                             else
                                 let updatedMessage =
                                     { attemptMessage with
-                                        Content = $"The answer: {answer} was not correct because of %s{err}. Please try again answering:\n\n%s{original.Content}"
+                                        Content = $"The answer: |{answer}| was not correct because of %s{err}. Please try again answering:\n\n%s{original.Content}"
                                     }
                                 return! validateLoop false messages updatedMessage
                     | Error err ->
@@ -451,6 +453,7 @@ module Ollama =
 
         let ``dolphin-mixtral:8x7b-v2.6`` = "dolphin-mixtral:8x7b-v2.6"
 
+        let llama3 = "llama3"
 
 
     let runLlama2  = run Models.llama2
@@ -572,6 +575,7 @@ Can you try again answering?
     module Extract =
 
         open FSharpPlus
+        open FSharpPlus.Control
 
 
         let inline private getJson model zero (msg : Message) (msgs : Message list)  =
@@ -586,12 +590,22 @@ Can you try again answering?
 
 
         let doseUnits model text =
-
-            Extraction.createDoseUnits
-                getJson
-                getJson
-                getJson
-                model text
+            let parseEmpty s = if s |> String.isNullOrWhiteSpace then "" else s
+            monad {
+                let! doseUnits =
+                    Extraction.createDoseUnits
+                        getJson
+                        getJson
+                        getJson
+                        model text
+                let doseUnits =
+                    {|
+                        substanceUnit = doseUnits.substanceUnit |> parseEmpty
+                        adjustUnit = doseUnits.adjustUnit |> parseEmpty
+                        timeUnit = doseUnits.timeUnit |> parseEmpty
+                    |}
+                return doseUnits
+            }
 
 
         let frequencies model text =
@@ -605,5 +619,23 @@ Can you try again answering?
                     {|
                         doseUnits = doseUnits
                         freqs = freqs
+                    |}
+            }
+
+
+        let minMaxDose model text =
+            monad {
+                let! freqs = frequencies model text
+                let su, au, tu =
+                    freqs.doseUnits.substanceUnit
+                    , if freqs.doseUnits.adjustUnit |> String.IsNullOrEmpty then None else freqs.doseUnits.adjustUnit |> Some
+                    , if freqs.doseUnits.timeUnit |> String.IsNullOrEmpty then None else freqs.doseUnits.timeUnit |> Some
+                let! minMaxDose =
+                    Extraction.extractDoseQuantities
+                        getJson
+                        model su au tu
+                return
+                    {| freqs with
+                        doseQuantities = minMaxDose.quantities
                     |}
             }

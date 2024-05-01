@@ -291,7 +291,6 @@ module OpenAI =
                             if not reTry then
                                 return Error err
                             else
-
                                 let updatedInput =
                                     { input with
                                         messages =
@@ -550,5 +549,23 @@ Can you try again answering?
                     {|
                         doseUnits = doseUnits
                         freqs = freqs
+                    |}
+            }
+
+
+        let minMaxDose model text =
+            monad {
+                let! freqs = frequencies model text
+                let su, au, tu =
+                    freqs.doseUnits.substanceUnit
+                    , if freqs.doseUnits.adjustUnit |> String.IsNullOrEmpty then None else freqs.doseUnits.adjustUnit |> Some
+                    , if freqs.doseUnits.timeUnit |> String.IsNullOrEmpty then None else freqs.doseUnits.timeUnit |> Some
+                let! minMaxDose =
+                    Extraction.extractDoseQuantities
+                        getJson
+                        model su au tu
+                return
+                    {| freqs with
+                        doseQuantities = minMaxDose.quantities
                     |}
             }

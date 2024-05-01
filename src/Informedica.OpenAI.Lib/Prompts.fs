@@ -133,3 +133,58 @@ Use schema : { frequencies: []; timeUnit: string }
 """
             $"{s}\nNote that the frequencies should be possible times of administrations per {timeUnit}"
             |> addZeroCase zero
+
+
+        let minMaxDoseText (substanceUnit: string) (adjustUnit: string option) (timeUnit: string option) =
+            let regex =
+                let secUnit, thirdUnit =
+                    match adjustUnit, timeUnit with
+                    | None, None -> "keer|dosis", "keer|dosis"
+                    | Some au, Some tu ->
+                        $"{au}|{tu}|keer|dosis",
+                        $"{au}|{tu}|keer|dosis"
+                    | None, Some tu ->
+                        $"{tu}|keer|dosis",
+                        $"{tu}"
+                    | Some au, None ->
+                        $"{au}|keer|dosis",
+                        $"{au}|keer|dosis"
+
+                $"(\d+(\.\d+)?\s?({substanceUnit})(\/({secUnit}))?(\s?\/\s?({thirdUnit}))?\s)"
+
+            """
+Use the provided schema to extract all mentioned dose quantities.
+A quantity should match the regular expresion between the ticks '[REGEX]'
+
+Return dose quantities as a list of JSON
+Use schema :
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "quantities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "minQty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxQty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "enum": ["mg", "mg/kg"]
+          }
+        },
+        "required": ["minQty", "maxQty", "unit"]
+      }
+    }
+  },
+  "required": ["quantities"]
+}
+
+Respond in JSON""".Replace("[REGEX]", regex)

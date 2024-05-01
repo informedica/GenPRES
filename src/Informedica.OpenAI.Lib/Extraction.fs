@@ -149,8 +149,27 @@ module Extraction =
                     let _ = JsonConvert.DeserializeObject<{| frequencies : int list; timeUnit : string |}>(s)
                     s |> Ok
                 with
-                | e -> $"The answer: {s} was not correct because:\n{e.ToString()}" |> Error
+                | e -> $"The answer: |{s}| was not correct because:\n{e.ToString()}" |> Error
 
         Prompts.User.frequencyText timeUnit zero
         |> Message.userWithValidator validator
         |> extract jsonFreq model zero
+
+
+    let extractDoseQuantities json model substanceUnit adjustUnit timeUnit =
+        let zero = {| quantities = [||]|}
+        let validator =
+            fun s ->
+                try
+                    let _ = JsonConvert.DeserializeObject<{| quantities : {| minQty : float; maxQty : float; unit : string |}[]|}>(s)
+                    s |> Ok
+                with
+                | e ->
+                    let msg = $"The answer: {s} was not correct because:\n{e.ToString()}"
+                    printfn $"{msg}"
+                    msg
+                    |> Error
+
+        Prompts.User.minMaxDoseText substanceUnit adjustUnit timeUnit
+        |> Message.userWithValidator validator
+        |> extract json model zero
