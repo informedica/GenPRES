@@ -322,9 +322,9 @@ module Types =
         {
             Shape : string
             DoseType : DoseType
-            Prescription : TextItem[]
-            Preparation : TextItem[]
-            Administration : TextItem[]
+            Prescription : TextItem[][][]
+            Preparation : TextItem[][][]
+            Administration : TextItem[][][]
             Order : Order option
             UseAdjust : bool
         }

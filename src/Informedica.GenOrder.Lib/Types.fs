@@ -336,11 +336,11 @@ module Types =
                 /// the route of the order
                 Route : string
                 /// the prescription of the order
-                Prescription : string
+                Prescription : string[][]
                 /// the preparation of the order
-                Preparation : string
+                Preparation : string[][]
                 /// the administration of the order
-                Administration : string
+                Administration : string[][]
                 /// the order itself
                 Order : Order option
                 /// Whether or not to us adjust

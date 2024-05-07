@@ -222,19 +222,11 @@ let pr =
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 
 
-Patient.newBorn
+Patient.teenager
 |> fun p ->
     { p with
         VenousAccess = []
         Department = Some "ICK"
-        Age =
-            Units.Time.day
-            |> ValueUnit.singleWithValue 2N
-            |> Some
-        Weight =
-          Units.Weight.kiloGram
-          |> ValueUnit.singleWithValue (3N)
-          |> Some
     }
 //|> Api.scenarioResult |> Api.filter
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
@@ -505,3 +497,62 @@ Patient.premature
 
     SolutionRule.get ()
     |> SolutionRule.filter filter
+
+
+let gen = "acetylcysteine"
+Patient.teenager
+|> fun p ->
+    { p with
+        VenousAccess = []
+        Department = Some "ICK"
+        (*
+        Weight =
+          Units.Weight.gram
+          |> ValueUnit.singleWithValue (40000N)
+          |> Some
+        *)
+    }
+//|> Api.scenarioResult |> Api.filter
+//|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
+|> PrescriptionRule.get
+|> Array.filter (fun pr -> pr.DoseRule.Generic = gen)
+|> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
+//|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> DrugOrder.toOrderDto
+|> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
+|> Order.Dto.toDto
+|> Order.Dto.fromDto
+|> Order.applyConstraints //|> Order.toString |> List.iter (printfn "%s")
+|> fun ord ->
+    printfn $"constraints applied to: {ord.Orderable.Name |> Name.toString}"
+
+    ord
+    |> Order.toString
+    |> String.concat "\n"
+    |> printfn "%A"
+
+    ord
+    |> Order.Print.printOrderToTableFormat true true (gen |> String.splitAt '/')
+    |> printfn "%A"
+    ord
+
+|> Order.solveMinMax true OrderLogger.logger.Logger
+|> Result.map (fun ord ->
+    printfn "solve min max"
+    ord
+    |> Order.toString
+    |> String.concat "\n"
+    |> printfn "%A"
+
+    ord
+    |> Order.Print.printOrderToTableFormat true true (gen |> String.splitAt '/')
+    |> printfn "%A"
+
+    ord
+    |> Order.Print.printOrderToMd true (gen |> String.splitAt '/')
+    //|> String.concat "\n"
+    |> printfn "%A"
+    ord
+) |> ignore
+

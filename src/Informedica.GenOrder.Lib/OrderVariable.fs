@@ -1140,6 +1140,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
 
+        /// Check whether a QuantityAdjust is solved
+        let isSolved = toOrdVar >> isSolved
+
 
     /// Type and functions that represent a adjusted total,
     /// and a adjusted total is a quantity per time
@@ -1358,4 +1361,7 @@ module OrderVariable =
         /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
 
+
+        /// Check whether a TotalAdjust is solved
+        let isSolved = toOrdVar >> isSolved
 

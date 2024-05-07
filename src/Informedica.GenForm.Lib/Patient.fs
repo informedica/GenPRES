@@ -329,6 +329,14 @@ module Patient =
         }
 
 
+    let correctAdjustUnit (pat : Patient) =
+        { pat with
+            Weight =
+                pat.Weight
+                |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+        }
+
+
     let calcPMAge (pat: Patient) =
         { pat with
             PMAge =

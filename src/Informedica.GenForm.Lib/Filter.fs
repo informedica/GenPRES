@@ -26,6 +26,7 @@ module Filter =
     let setPatient (pat : Patient) (filter : Filter) =
         let pat =
             pat
+            |> Patient.correctAdjustUnit
             |> Patient.calcPMAge
 
         { filter with

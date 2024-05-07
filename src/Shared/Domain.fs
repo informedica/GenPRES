@@ -1545,9 +1545,9 @@ module ScenarioResult =
         {
             Shape = shp
             DoseType = dst
-            Prescription = prs |> parseTextItem
-            Preparation = prep |> parseTextItem
-            Administration = adm |> parseTextItem
+            Prescription = prs |> Array.map (Array.map parseTextItem)
+            Preparation = prep |> Array.map (Array.map parseTextItem)
+            Administration = adm |> Array.map (Array.map parseTextItem)
             Order = o
             UseAdjust = adj
         }

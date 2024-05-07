@@ -601,10 +601,10 @@ module Variable =
             /// <param name="prec">The precision</param>
             /// <param name="min">The minimum</param>
             let toMarkdown withUnit prec min =
-                let b, vu = min |> toBoolValueUnit
+                let _, vu = min |> toBoolValueUnit
 
                 let s =
-                    $"""{if b then "[" else "<"}{vu |> ValueUnit.toDelimitedString prec}"""
+                    $"""{vu |> ValueUnit.toDelimitedString prec}"""
 
                 if withUnit then s
                 else
@@ -927,9 +927,9 @@ module Variable =
             /// <param name="prec">The precision</param>
             /// <param name="max">The maximum</param>
             let toMarkdown prec max =
-                let b, vu = max |> toBoolValueUnit
+                let _, vu = max |> toBoolValueUnit
 
-                $"""{vu |> ValueUnit.toDelimitedString prec}{if b then "]" else ">"}"""
+                $"""{vu |> ValueUnit.toDelimitedString prec}"""
 
 
 
@@ -1155,11 +1155,11 @@ module Variable =
                     ValueUnit.getValue >> Array.length
 
                 if vu |> count <= 10 then
-                    $"""[{vu |> ValueUnit.toDelimitedString prec}]"""
+                    $"""{vu |> ValueUnit.toDelimitedString prec}"""
                 else
                     let first3 = vu |> ValueUnit.takeFirst 3
                     let last3 = vu |> ValueUnit.takeLast 3
-                    $"[{first3 |> ValueUnit.toDelimitedString prec} .. {last3 |> ValueUnit.toDelimitedString prec}]"
+                    $"{first3 |> ValueUnit.toDelimitedString prec} .. {last3 |> ValueUnit.toDelimitedString prec}"
 
 
 

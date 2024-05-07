@@ -182,7 +182,7 @@ module Prescribe =
         {|
             scenarios: Deferred<Types.ScenarioResult>
             updateScenario: Types.ScenarioResult -> unit
-            selectOrder : (Types.Scenario * Shared.Types.Order option) -> unit
+            selectOrder : (Types.Scenario * Types.Order option) -> unit
             order: Deferred<(bool * string option * Order) option>
             loadOrder: (string option * Order) -> unit
             updateScenarioOrder : unit -> unit
@@ -292,10 +292,29 @@ module Prescribe =
                         else
                             $"{s} {sc.Shape} {dt}"
 
-                let ord =
-                    sc.Order
+                let ord = sc.Order
 
                 let item icon prim sec =
+                    let rows =
+                        let cells row =
+                            row
+                            |> Array.map (fun cell ->
+                                    JSX.jsx $"""
+                                    <TableCell sx = { {| pt=1 |} }>
+                                        {cell |> typoGraphy}
+                                    </TableCell>
+                                    """
+                            )
+
+                        sec
+                        |> Array.map (fun row ->
+                            JSX.jsx $"""
+                                <TableRow sx={ {| border=0 |} }>
+                                    {cells row}
+                                </TableRow>                            
+                            """
+                        )
+
                     JSX.jsx
                         $"""
                     import Table from '@mui/material/Table';
@@ -308,20 +327,18 @@ module Prescribe =
                         <ListItemIcon>
                             {icon}
                         </ListItemIcon>
-                        <Table padding="none" >
-                            <TableBody>
-                                <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} }>
-                                    <TableCell >
-                                        {prim}
-                                    </TableCell>                                        
-                                </TableRow>
-                                <TableRow sx={ {| border=0 |} }>
-                                    <TableCell sx = { {| pt=2 |} }>
-                                        {sec |> typoGraphy}
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody> 
-                        </Table>
+                        <TableContainer sx={ {| width="max-content" |} } >
+                            <Table size="small" sx={ {| tableLayout="auto" |} } >
+                                <TableBody>
+                                    <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} }>
+                                        <TableCell >
+                                            {prim}
+                                        </TableCell>                                        
+                                    </TableRow>
+                                    {rows}
+                                </TableBody> 
+                            </Table>
+                        </TableContainer>
                     </ListItem>
                     """
 
@@ -332,7 +349,7 @@ module Prescribe =
                         <Typography variant="h6" >
                             {med}
                         </Typography>
-                        <List sx={ {| width="100%"; maxWidth=800; bgcolor=Mui.Colors.Grey.``50`` |} }>
+                        <List sx={ {| width="100%"; maxWidth=1200; bgcolor=Mui.Colors.Grey.``50`` |} }>
                             {
                                 [|
                                     item Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription
@@ -392,7 +409,7 @@ module Prescribe =
 
             <React.Fragment>
                 <Stack direction="column" spacing={3}>
-                    <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
+                    <Typography sx={ {| fontSize=14 |} } color="text.secondary" >
                         {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
                     </Typography>
                     {

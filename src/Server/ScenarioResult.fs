@@ -452,12 +452,11 @@ let print (sc: ScenarioResult) =
                             ord
                             |> mapFromOrder
                             |> Order.Dto.fromDto
-                            |> Order.Print.printOrderToMd sc.UseAdjust sn
+                            |> Order.Print.printOrderToTableFormat sc.UseAdjust true sn
                             |> fun (prs, prp, adm) ->
-                                prs |> Api.replace |> Shared.ScenarioResult.parseTextItem,
-                                prp |> Api.replace |> Shared.ScenarioResult.parseTextItem,
-                                adm |> Api.replace |> Shared.ScenarioResult.parseTextItem
-
+                                prs |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
+                                prp |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
+                                adm |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem))
                         )
                         |> Option.defaultValue (sc.Prescription, sc.Preparation, sc.Administration)
                     { sc with

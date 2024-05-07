@@ -190,7 +190,7 @@ module Api =
                 Ok (ord, pr)
             | Error (ord, _) when tryAgain &&
                                   ord.Prescription |> Prescription.isContinuous |> not
-                            ->
+                ->
                 { pr with
                     DoseRule =
                         { pr.DoseRule with
@@ -346,7 +346,7 @@ module Api =
 
                                             let prs, prp, adm =
                                                 ord
-                                                |> Order.Print.printOrderToMd useAdjust ns
+                                                |> Order.Print.printOrderToTableFormat useAdjust true ns
 
                                             {
                                                 No = i
@@ -355,9 +355,9 @@ module Api =
                                                 Name = pr.DoseRule.Generic
                                                 Shape = pr.DoseRule.Shape
                                                 Route = pr.DoseRule.Route
-                                                Prescription = prs |> replace
-                                                Preparation =prp |> replace
-                                                Administration = adm |> replace
+                                                Prescription = prs |> Array.map (Array.map replace)
+                                                Preparation = prp |> Array.map (Array.map replace)
+                                                Administration = adm |> Array.map (Array.map replace)
                                                 Order = Some ord
                                                 UseAdjust = useAdjust
                                             }
@@ -391,11 +391,16 @@ module Api =
                                         if prs |> Array.length <= 1 then prs
                                         else
                                             if prs
-                                               |> Array.filter (fun pr -> pr.Preparation |> String.notEmpty)
+                                               |> Array.filter (fun pr ->
+                                                   pr.Preparation
+                                                   |> Array.exists (Array.exists String.notEmpty))
                                                |> Array.length = 0 then prs
                                             else
                                                 prs
-                                                |> Array.filter (fun pr -> pr.Preparation |> String.notEmpty)
+                                                |> Array.filter (fun pr ->
+                                                   pr.Preparation
+                                                   |> Array.exists (Array.exists String.notEmpty)
+                                                )
 
                                 |]
                                 |> Array.collect id

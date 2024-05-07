@@ -25,6 +25,7 @@
     <None Include="Scripts\Api2.fsx" />
     <None Include="Scripts\OrderVariable.fsx" />
     <None Include="Scripts\Agent.fsx" />
+    <None Include="Scripts\Order.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenCore.Lib\Informedica.GenCore.Lib.fsproj" />
