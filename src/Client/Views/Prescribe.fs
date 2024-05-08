@@ -300,7 +300,7 @@ module Prescribe =
                             row
                             |> Array.map (fun cell ->
                                     JSX.jsx $"""
-                                    <TableCell sx = { {| pt=1 |} }>
+                                    <TableCell sx = { {| pt=1; pr=2 |} }>
                                         {cell |> typoGraphy}
                                     </TableCell>
                                     """
@@ -328,7 +328,7 @@ module Prescribe =
                             {icon}
                         </ListItemIcon>
                         <TableContainer sx={ {| width="max-content" |} } >
-                            <Table size="small" sx={ {| tableLayout="auto" |} } >
+                            <Table padding="none" size="small" >
                                 <TableBody>
                                     <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} }>
                                         <TableCell >

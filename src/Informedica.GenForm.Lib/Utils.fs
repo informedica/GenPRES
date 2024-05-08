@@ -143,7 +143,7 @@ module Utils =
             if s |> String.isNullOrWhiteSpace then None
             else
                 // TODO need better fix than this
-                if s = "keer" then
+                if s = "keer" || s = "x" then
                     $"times[Count]"
                 else
                     $"{s}[Time]"

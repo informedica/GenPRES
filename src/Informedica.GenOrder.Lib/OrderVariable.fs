@@ -85,7 +85,9 @@ module OrderVariable =
             match cs.Min |> Option.map Minimum.toValueUnit,
                   cs.Max |> Option.map Maximum.toValueUnit with
             | Some min, Some max ->
-                $"{min |> toVal} - {max |> toStr}"
+                if min |> ValueUnit.eqs max then $"{min |> toStr}"
+                else
+                    $"{min |> toVal} - {max |> toStr}"
             | _ -> ""
 
 
@@ -322,7 +324,6 @@ module OrderVariable =
                       vr |> ValueRange.isValueSet ->
                 vr
                 |> ValueRange.toMarkdown prec
-                |> String.replace "x" "keer"
                 // fix for example mg/kg*day to mg/kg/dag, which is mathematically the same
                 |> String.replace "*" "/"
             | _ -> ""

@@ -1866,6 +1866,7 @@ module Order =
 
                 let frequencyTo toStr (p : Prescription) =
                     match p with
+                    | Timed (frq, _)
                     | Discontinuous frq -> frq |> toStr
                     | _ -> ""
 
@@ -2940,7 +2941,14 @@ module Order =
                     |> Array.filter String.notEmpty
                     |> Array.choose findItem
 
-                let withBrackets s = $"({s})"
+                let withBrackets s =
+                    if s |> String.isNullOrWhiteSpace then s
+                    else
+                        $"({s})"
+
+                let freq =
+                    ord.Prescription
+                    |> Prescription.Print.frequencyToMd
 
                 let pres =
                     match ord.Prescription with
@@ -2968,14 +2976,14 @@ module Order =
                                         |> Orderable.Item.Print.itemDoseRateAdjustToMd
 
                                         if itm.Dose.RateAdjust |> RateAdjust.isSolved then
-                                            itm.Dose |> Dose.Print.doseRateAdjustConstraints -3
+                                            itm.Dose |> Dose.Print.doseRateAdjustConstraints 3
                                             |> withBrackets
                                     else
                                         itm
                                         |> Orderable.Item.Print.itemDoseRateToMd
 
                                         if itm.Dose.Rate |> Rate.isSolved then
-                                            itm.Dose |> Dose.Print.doseRateConstraints -3
+                                            itm.Dose |> Dose.Print.doseRateConstraints 3
                                             |> withBrackets
                                     |]
                             )
@@ -2986,20 +2994,22 @@ module Order =
                             [|
                                 [|
                                     // the frequency
-                                    ord.Prescription |> Prescription.Print.frequencyToMd
+                                    freq
                                     // the orderable dose quantity
                                     ord.Orderable
                                     |>
                                     Orderable.Print.doseQuantityToMd
                                     // the orderable dose adjust quantity
-                                    "="
-                                    if useAdj then
-                                        ord.Orderable
-                                        |> Orderable.Print.dosePerTimeAdjustToMd -1
-                                    else
-                                        ord.Orderable
-                                        |> Orderable.Print.dosePerTimeToMd -1
-
+                                    let s =
+                                        if useAdj then
+                                            ord.Orderable
+                                            |> Orderable.Print.dosePerTimeAdjustToMd -1
+                                        else
+                                            ord.Orderable
+                                            |> Orderable.Print.dosePerTimeToMd -1
+                                    if s |> String.notEmpty then
+                                        "="
+                                        s
                                 |]
                             |]
                         else
@@ -3007,30 +3017,47 @@ module Order =
                             |> Array.mapi (fun i itm ->
                                 [|
                                     // the frequency
-                                    if i = 0 then
-                                        ord.Prescription |> Prescription.Print.frequencyToMd
-                                    else ""
+                                    if i = 0 then freq else ""
                                     // the name of the item
                                     itm.Name |> Name.toString
                                     // the item dose quantity
                                     itm
                                     |> Orderable.Item.Print.itemDoseQuantityToMd
 
-                                    "="
                                     if useAdj then
-                                        itm
-                                        |> Orderable.Item.Print.itemDosePerTimeAdjustToMd
+                                        let s =
+                                            itm
+                                            |> Orderable.Item.Print.itemDosePerTimeAdjustToMd
+                                        if s |> String.notEmpty then
+                                            "="
+                                            s
 
                                         if itm.Dose.PerTimeAdjust |> PerTimeAdjust.isSolved then
-                                            itm.Dose |> Dose.Print.dosePerTimeAdjustConstraints -3
-                                            |> withBrackets
+                                            [
+                                                itm.Dose |> Dose.Print.dosePerTimeAdjustConstraints 3
+                                                |> withBrackets
+                                                itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
+                                                |> withBrackets
+                                            ]
+                                            |> List.tryFind String.notEmpty
+                                            |> Option.defaultValue ""
                                     else
-                                        itm
-                                        |> Orderable.Item.Print.itemDosePerTimeToMd
+                                        let s =
+                                            itm
+                                            |> Orderable.Item.Print.itemDosePerTimeToMd
+                                        if s |> String.notEmpty then
+                                            "="
+                                            s
 
                                         if itm.Dose.PerTime |> PerTime.isSolved then
-                                            itm.Dose |> Dose.Print.dosePerTimeConstraints -3
-                                            |> withBrackets
+                                            [
+                                                itm.Dose |> Dose.Print.dosePerTimeConstraints 3
+                                                |> withBrackets
+                                                itm.Dose |> Dose.Print.doseQuantityConstraints 3
+                                                |> withBrackets
+                                            ]
+                                            |> List.tryFind String.notEmpty
+                                            |> Option.defaultValue ""
                                 |]
                             )
 
@@ -3041,10 +3068,7 @@ module Order =
                                 [|
                                     // the orderable dose quantity
                                     ord.Orderable
-                                    |> (if printMd then
-                                            Orderable.Print.doseQuantityToMd
-                                        else
-                                            Orderable.Print.doseQuantityToString)
+                                    |> Orderable.Print.doseQuantityToMd
                                     // the orderable dose adjust quantity
                                     if useAdj then
                                         "="
@@ -3069,12 +3093,12 @@ module Order =
                                         |> Orderable.Item.Print.itemDoseQuantityAdjustToMd
 
                                         if itm.Dose.QuantityAdjust |> QuantityAdjust.isSolved then
-                                            itm.Dose |> Dose.Print.doseQuantityAdjustConstraints -3
+                                            itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
                                             |> withBrackets
 
                                     else
                                         if itm.Dose.Quantity |> Quantity.isSolved then
-                                            itm.Dose |> Dose.Print.doseQuantityConstraints -3
+                                            itm.Dose |> Dose.Print.doseQuantityConstraints 3
                                             |> withBrackets
 
                                 |]
@@ -3084,14 +3108,16 @@ module Order =
                     ord.Orderable.Components
                     |> List.toArray
                     |> Array.mapi (fun i1 c ->
+                        let cmpQty = c |> Orderable.Component.Print.componentOrderableQuantityToMd
                         [|
                             if c.Items |> List.isEmpty then
                                 [|
                                     [|
-                                        c.Shape
-                                        c |> Orderable.Component.Print.componentOrderableQuantityToMd
-                                        ""
-                                        ""
+                                        if cmpQty |> String.notEmpty then
+                                            c.Shape
+                                            cmpQty
+                                            ""
+                                            ""
                                     |]
                                 |]
                             else
@@ -3099,15 +3125,18 @@ module Order =
                                 |> List.toArray
                                 |> Array.mapi (fun i2 itm ->
                                     [|
-                                        if i1 = 0 && i2 = 0 then
-                                            c.Shape
-                                            c |> Orderable.Component.Print.componentOrderableQuantityToMd
-                                        else
-                                            ""
-                                            ""
+                                        if cmpQty |> String.notEmpty then
+                                            if i1 = 0 && i2 = 0 then
+                                                c.Shape
+                                                c |> Orderable.Component.Print.componentOrderableQuantityToMd
+                                            else
+                                                ""
+                                                ""
 
-                                        itm.Name |> Name.toString
-                                        itm |> Orderable.Item.Print.itemComponentConcentrationToMd
+                                            let itmQty = itm |> Orderable.Item.Print.itemComponentConcentrationToMd
+                                            if itmQty |> String.notEmpty then
+                                                itm.Name |> Name.toString
+                                                itmQty
                                     |]
                                 )
 
@@ -3122,18 +3151,22 @@ module Order =
                     | OnceTimed _
                     | Discontinuous _
                     | Timed _ ->
+                        let tme =
+                            ord.Prescription
+                            |> Prescription.Print.timeToString -1
+
                         if itms |> Array.isEmpty then
                             [|
                                 [|
                                     // the frequency
-                                    if ord.Prescription |> Prescription.hasFrequency then ord.Prescription |> Prescription.Print.frequencyToMd
+                                    if ord.Prescription |> Prescription.hasFrequency then freq
 
                                     ord.Orderable
                                     |> Orderable.Print.doseQuantityToMd
                                     // if timed add rate and time
                                     if ord.Prescription |> Prescription.hasTime then
                                         ord.Orderable |> Orderable.Print.doseRateToMd
-                                        ord.Prescription |> Prescription.Print.timeToMd -1
+                                        tme //ord.Prescription |> Prescription.Print.timeToMd -1
                                 |]
                             |]
                         else
@@ -3142,26 +3175,27 @@ module Order =
                                 [|
                                     // the frequency
                                     if ord.Prescription |> Prescription.hasFrequency then
-                                       if i = 0 then
-                                            ord.Prescription |> Prescription.Print.frequencyToMd
-                                        else ""
+                                       if i = 0 then freq else ""
 
-                                    itm.Name |> Name.toString
-                                    itm |> Orderable.Item.Print.itemOrderableQuantityToMd
+                                    let itmQty = itm |> Orderable.Item.Print.itemOrderableQuantityToMd
+                                    if itmQty |> String.notEmpty then
+                                        itm.Name |> Name.toString
+                                        itm |> Orderable.Item.Print.itemOrderableQuantityToMd
 
-                                    if i = 0 then
-                                        "in"
-                                        ord.Orderable |> Orderable.Print.orderableQuantityToMd
-                                    else
-                                        ""
-                                        ""
+                                        if i = 0 then
+                                            "in"
+                                            ord.Orderable |> Orderable.Print.orderableQuantityToMd
+                                        else
+                                            ""
+                                            ""
 
                                     // if timed then add rate and time
-                                    if ord.Prescription |> Prescription.hasTime then
+                                    if ord.Prescription |> Prescription.hasTime &&
+                                       itmQty |> String.notEmpty then
                                         if i = 0 then
                                             "="
                                             ord.Orderable |> Orderable.Print.doseRateToMd
-                                            ord.Prescription |> Prescription.Print.timeToMd -1
+                                            tme //ord.Prescription |> Prescription.Print.timeToMd -1
                                             |> withBrackets
                                         else
                                             ""
@@ -3170,10 +3204,11 @@ module Order =
                                 |]
                             )
                     | Continuous ->
+                        let orbQty = ord.Orderable |> Orderable.Print.orderableQuantityToMd
                         if itms |> Array.isEmpty then
                             [|
                                 [|
-                                    ord.Orderable |> Orderable.Print.orderableQuantityToMd
+                                    orbQty
                                     ord.Orderable |> Orderable.Print.doseRateToMd
                                 |]
                             |]
@@ -3185,14 +3220,16 @@ module Order =
                                     itm |> Orderable.Item.Print.itemOrderableQuantityToMd
 
                                     if i = 0 then
-                                        "in"
-                                        ord.Orderable |> Orderable.Print.orderableQuantityToMd
-                                        "="
+                                        if orbQty |> String.notEmpty then
+                                            "in"
+                                            ord.Orderable |> Orderable.Print.orderableQuantityToMd
+                                            "="
                                         ord.Orderable |> Orderable.Print.doseRateToMd
                                     else
-                                        ""
-                                        ""
-                                        ""
+                                        if orbQty |> String.notEmpty then
+                                            ""
+                                            ""
+                                            ""
                                         ""
                                 |]
                             )
