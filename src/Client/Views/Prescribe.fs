@@ -191,7 +191,7 @@ module Prescribe =
 
         let context = React.useContext(Global.context)
         let lang = context.Localization
-        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:900px)"
 
         let getTerm defVal term =
             props.localizationTerms
@@ -294,24 +294,35 @@ module Prescribe =
 
                 let ord = sc.Order
 
-                let item icon prim sec =
+                let item key icon prim sec =
                     let rows =
                         let cells row =
                             row
-                            |> Array.map (fun cell ->
+                            |> Array.mapi (fun i cell ->
                                     JSX.jsx $"""
-                                    <TableCell sx = { {| pt=1; pr=2 |} }>
+                                    <TableCell key={i} sx = { {| pt=1; pr=2 |} }>
                                         {cell |> typoGraphy}
                                     </TableCell>
                                     """
                             )
 
+                        let sec =
+                             if not isMobile then sec 
+                             else
+                                [|
+                                    [|
+                                        sec
+                                        |> Array.collect id
+                                        |> Array.collect id
+                                    |]
+                                |]
+
                         sec
-                        |> Array.map (fun row ->
+                        |> Array.mapi (fun i row ->
                             JSX.jsx $"""
-                                <TableRow sx={ {| border=0 |} }>
+                                <TableRow key={i} sx={ {| border=0 |} }>
                                     {cells row}
-                                </TableRow>                            
+                                </TableRow>              
                             """
                         )
 
@@ -323,7 +334,7 @@ module Prescribe =
                     import TableContainer from '@mui/material/TableContainer';
                     import TableRow from '@mui/material/TableRow';
 
-                    <ListItem>
+                    <ListItem key={key} >
                         <ListItemIcon>
                             {icon}
                         </ListItemIcon>
@@ -333,8 +344,8 @@ module Prescribe =
                                     <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} }>
                                         <TableCell >
                                             {prim}
-                                        </TableCell>                                        
-                                    </TableRow>
+                                        </TableCell>                     
+                                    </TableRow >
                                     {rows}
                                 </TableBody> 
                             </Table>
@@ -352,10 +363,10 @@ module Prescribe =
                         <List sx={ {| width="100%"; maxWidth=1200; bgcolor=Mui.Colors.Grey.``50`` |} }>
                             {
                                 [|
-                                    item Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription
+                                    item "prescription" Mui.Icons.Notes (Terms.``Prescribe Prescription`` |> getTerm "Voorschrift") sc.Prescription
                                     if sc.Preparation |> Array.length > 0 then
-                                        item Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Bereiding") sc.Preparation
-                                    item Mui.Icons.MedicationLiquid (Terms.``Prescribe Administration`` |> getTerm "Toediening") sc.Administration
+                                        item "preparation" Mui.Icons.Vaccines (Terms.``Prescribe Preparation`` |> getTerm "Bereiding") sc.Preparation
+                                    item "administration" Mui.Icons.MedicationLiquid (Terms.``Prescribe Administration`` |> getTerm "Toediening") sc.Administration
                                 |]
                                 |> unbox
                                 |> React.fragment
@@ -398,7 +409,7 @@ module Prescribe =
                 """
 
         let stackDirection =
-            if  Mui.Hooks.useMediaQuery "(max-width:900px)" then "column" else "row"
+            if isMobile then "column" else "row"
 
         let cards =
             JSX.jsx
@@ -471,16 +482,6 @@ module Prescribe =
                                     |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
                                     |> select isLoading lbl sel (DoseTypeChange >> dispatch)
 
-                                    (*
-                                    if isMobile then
-                                        items
-                                        |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
-                                        |> select isLoading lbl sel (DoseTypeChange >> dispatch)
-                                    else
-                                        items
-                                        |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
-                                        |> autoComplete isLoading lbl sel (DoseTypeChange >> dispatch)                                
-                                    *)
                             | _ -> JSX.jsx $"<></>"
                         }
 
