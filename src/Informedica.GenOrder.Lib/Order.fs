@@ -3037,6 +3037,7 @@ module Order =
                                                 itm.Dose |> Dose.Print.dosePerTimeAdjustConstraints 3
                                                 |> withBrackets
                                                 itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
+                                                |> sprintf "%s/dosis"
                                                 |> withBrackets
                                             ]
                                             |> List.tryFind String.notEmpty
@@ -3054,6 +3055,7 @@ module Order =
                                                 itm.Dose |> Dose.Print.dosePerTimeConstraints 3
                                                 |> withBrackets
                                                 itm.Dose |> Dose.Print.doseQuantityConstraints 3
+                                                |> sprintf "%s/dosis"
                                                 |> withBrackets
                                             ]
                                             |> List.tryFind String.notEmpty
@@ -3114,7 +3116,9 @@ module Order =
                                 [|
                                     [|
                                         if cmpQty |> String.notEmpty then
-                                            c.Shape
+                                            if i1 = 0 then c.Shape
+                                            else
+                                                $"{c.Shape} ({c.Name |> Name.toString})"
                                             cmpQty
                                             ""
                                             ""
