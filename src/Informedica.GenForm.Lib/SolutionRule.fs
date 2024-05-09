@@ -44,7 +44,8 @@ module SolutionRule =
             data
             |> Array.tail
             |> Array.map (fun r ->
-                let get = getColumn r
+                let get =
+                    getColumn r >> String.trim >> String.toLower
                 let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                 {|

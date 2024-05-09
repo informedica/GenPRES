@@ -30,6 +30,7 @@ module Parenteralia =
 
 
         type Msg =
+            | Clear
             | GenericChange of string option
             | ShapeChange of string option
             | RouteChange of string option
@@ -63,15 +64,17 @@ module Parenteralia =
             (msg: Msg)
             (state : State) : State * Cmd<Msg>
             =
-            let clear (par : Parenteralia) =
-                { par with
-                    Shape = None
-                    Generic = None
-                    Route = None
-                    Patient = None
-                }
 
-            match msg with  
+            match msg with
+            | Clear -> 
+                match parentaralia with
+                | Resolved par ->
+                    Parenteralia.empty
+                    |> updateParenteralia
+                | _ -> ()
+
+                empty, Cmd.none
+
             | GenericChange s ->
                 match parentaralia with
                 | Resolved par ->
@@ -119,6 +122,7 @@ module Parenteralia =
 
         let context = React.useContext(Global.context)
         let lang = context.Localization
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:900px)"
 
         let getTerm defVal term = 
             //props.localizationTerms
@@ -147,6 +151,15 @@ module Parenteralia =
                 isLoading = isLoading
             |})
 
+        let autoComplete isLoading lbl selected dispatch xs =
+            Components.Autocomplete.View({|
+                updateSelected = dispatch
+                label = lbl
+                selected = selected
+                values = xs
+                isLoading = isLoading
+            |})
+
         let progress =
             match props.parenteralia with
             | Resolved _ -> JSX.jsx $"<></>"
@@ -161,7 +174,7 @@ module Parenteralia =
                 """
 
         let stackDirection =
-            if  Mui.Hooks.useMediaQuery "(max-width:900px)" then "column" else "row"
+            if isMobile then "column" else "row"
 
         let content =
             JSX.jsx
@@ -172,8 +185,8 @@ module Parenteralia =
             import Paper from '@mui/material/Paper';
 
             <CardContent>
-                <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                    {Terms.Formulary |> getTerm "Formularium"}
+                <Typography sx={ {| fontSize=14; pb=2 |} } color="text.secondary" gutterBottom>
+                    {Terms.Formulary |> getTerm "Parenteralia"}
                 </Typography>
                 <Stack direction={stackDirection} spacing={3} >
                     {
@@ -181,28 +194,51 @@ module Parenteralia =
                         | Resolved par -> false, par.Generic, par.Generics
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
+                            if isMobile then
+                                items
+                                |> Array.map (fun s -> s, s)
+                                |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
+                            else
+                                items
+                                |> autoComplete isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") state.Generic (GenericChange >> dispatch)
+
                     }
                     {
                         match props.parenteralia with
                         | Resolved par -> false, par.Shape, par.Shapes
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Shapes") state.Shape (ShapeChange >> dispatch)
+                            if items |> Array.isEmpty then JSX.jsx "<></>"
+                            else
+                                if isMobile then
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Shapes") state.Shape (ShapeChange >> dispatch)
+                                else
+                                    items
+                                    |> autoComplete isLoading (Terms.``Formulary Indications`` |> getTerm "Shapes") state.Shape (ShapeChange >> dispatch)
                     }
                     {
                         match props.parenteralia with
                         | Resolved par -> false, par.Route, par.Routes
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            items
-                            |> Array.map (fun s -> s, s)
-                            |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                            if isMobile then
+                                items
+                                |> Array.map (fun s -> s, s)
+                                |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                            else
+                                items
+                                |> autoComplete isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+
                     }
+
+                    <Box sx={ {| mt=2 |} }>
+                        <Button variant="text" onClick={fun _ -> Clear |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
+                            {Terms.Delete |> getTerm "Verwijder"}
+                        </Button>
+                        </Box>
+
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {
