@@ -2946,6 +2946,11 @@ module Order =
                     else
                         $"({s})"
 
+                let addPerDosis s =
+                    if s |> String.isNullOrWhiteSpace then s
+                    else
+                        $"{s}/dosis"
+
                 let freq =
                     ord.Prescription
                     |> Prescription.Print.frequencyToMd
@@ -3037,7 +3042,7 @@ module Order =
                                                 itm.Dose |> Dose.Print.dosePerTimeAdjustConstraints 3
                                                 |> withBrackets
                                                 itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
-                                                |> sprintf "%s/dosis"
+                                                |> addPerDosis
                                                 |> withBrackets
                                             ]
                                             |> List.tryFind String.notEmpty
@@ -3055,7 +3060,7 @@ module Order =
                                                 itm.Dose |> Dose.Print.dosePerTimeConstraints 3
                                                 |> withBrackets
                                                 itm.Dose |> Dose.Print.doseQuantityConstraints 3
-                                                |> sprintf "%s/dosis"
+                                                |> addPerDosis
                                                 |> withBrackets
                                             ]
                                             |> List.tryFind String.notEmpty
@@ -3096,11 +3101,13 @@ module Order =
 
                                         if itm.Dose.QuantityAdjust |> QuantityAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
+                                            |> addPerDosis
                                             |> withBrackets
 
                                     else
                                         if itm.Dose.Quantity |> Quantity.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityConstraints 3
+                                            |> addPerDosis
                                             |> withBrackets
 
                                 |]
