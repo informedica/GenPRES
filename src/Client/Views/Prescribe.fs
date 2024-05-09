@@ -309,11 +309,22 @@ module Prescribe =
                         let sec =
                              if not isMobile then sec 
                              else
+                                let add xs = 
+                                    let plus = [| [| "+ " |> Normal |] |] 
+                                    xs
+                                    |> Array.fold (fun acc x ->
+                                        if acc |> Array.isEmpty then x
+                                        else
+                                            x
+                                            |> Array.append plus
+                                            |> Array.append acc
+                                    ) [||]
                                 [|
                                     [|
                                         sec
+                                        |> add
                                         |> Array.collect id
-                                        |> Array.collect id
+                                        //|> Array.collect id
                                     |]
                                 |]
 
@@ -428,7 +439,8 @@ module Prescribe =
                         | Resolved scrs -> false, scrs.Indication, scrs.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            let lbl = (Terms.``Prescribe Indications`` |> getTerm "Indicaties") 
+                            let lbl = (Terms.``Prescribe Indications`` |> getTerm "Indicaties")
+
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
@@ -444,6 +456,7 @@ module Prescribe =
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
                                 let lbl = (Terms.``Prescribe Medications`` |> getTerm "Medicatie")
+
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
@@ -459,6 +472,7 @@ module Prescribe =
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
                                 let lbl = (Terms.``Prescribe Routes`` |> getTerm "Routes")
+                                
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
