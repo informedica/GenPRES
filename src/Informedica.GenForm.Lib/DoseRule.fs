@@ -5,6 +5,10 @@ module DoseRule =
 
     open System
     open MathNet.Numerics
+
+    open FSharp.Data
+    open FSharp.Data.JsonExtensions
+
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
@@ -186,6 +190,39 @@ module DoseRule =
             )
 
 
+        // get all medications from Kinderformularium
+        let kinderFormUrl = "https://www.kinderformularium.nl/geneesmiddelen.json"
+
+        let private _medications () =
+            let replace =
+                [
+                    "Ergocalciferol / fytomenadion / retinol / tocoferol (Vitamine A/D/E/K)",
+                    "ergocalciferol-fytomenadion-retinol-tocoferol-vitamine-adek"
+
+                    "Natriumdocusaat (al dan niet i.c.m. sorbitol)",
+                    "natriumdocusaat-al-dan-niet-icm-sorbitol"
+                ]
+            let res = JsonValue.Load(kinderFormUrl)
+            [ for v in res do
+                {|
+                    id = (v?id.AsString())
+                    generic = (v?generic_name.AsString()).Trim().ToLower()
+                |}
+            ]
+            |> List.distinct
+
+
+        let getKFMedications = Memoization.memoize _medications
+
+
+        let getLink gen =
+            getKFMedications ()
+            |> List.tryFind (fun m -> m.generic = gen)
+            |> Option.map (fun m ->
+                $"[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/{m.id}/{m.generic})"
+            )
+
+
         /// See for use of anonymous record in
         /// fold: https://github.com/dotnet/fsharp/issues/6699
         let toMarkdown (rules : DoseRule array) =
@@ -244,11 +281,19 @@ module DoseRule =
                 ("", rules |> Array.groupBy _.DoseType)
                 ||> Array.fold (fun acc (dt, ds) ->
                     let pedForm =
+                        let link =
+                            ds
+                            |> Array.tryHead
+                            |> Option.bind (fun dr ->
+                                dr.Generic |> getLink
+                            )
+                            |> Option.defaultValue "*Kinderformularium*"
+
                         ds
                         |> Array.map _.ScheduleText
                         |> Array.distinct
                         |> function
-                        | [| s |] -> $"\n\n*Kinderformularium*: {s}"
+                        | [| s |] -> $"\n\n{link}: {s}"
                         | _ -> ""
 
                     ds

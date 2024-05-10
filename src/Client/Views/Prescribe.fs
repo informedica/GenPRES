@@ -413,6 +413,7 @@ module Prescribe =
                             <Button
                                 size="small"
                                 onClick={fun () -> setModalOpen true; (sc, ord) |> props.selectOrder}
+                                startIcon={Mui.Icons.CalculateIcon}
                             >{Terms.Edit |> getTerm "bewerken"}</Button>
                         </CardActions>
                     </Card>

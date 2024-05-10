@@ -277,6 +277,11 @@ module Icons =
         <PsychologyIcon />
     """
 
+    let CalculateIcon = JSX.jsx """
+        import CalculateIcon from '@mui/icons-material/Calculate';
+        <CalculateIcon/>
+    """
+
 
 
 type Color = {|
