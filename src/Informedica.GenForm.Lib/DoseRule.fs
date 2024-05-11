@@ -217,9 +217,16 @@ module DoseRule =
 
         let getLink gen =
             getKFMedications ()
-            |> List.tryFind (fun m -> m.generic = gen)
+            |> List.tryFind (fun m ->
+                m.generic
+                |> String.split "+"
+                |> List.map String.trim
+                |> String.concat "/"
+                |> String.equalsCapInsens gen
+            )
             |> Option.map (fun m ->
-                $"[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/{m.id}/{m.generic})"
+                let gen = gen |> String.replace "/" "-"
+                $"[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/{m.id}/{gen})"
             )
 
 
