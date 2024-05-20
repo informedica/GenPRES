@@ -53,7 +53,8 @@ module OrderLogger =
             |> String.concat "\n"
 
         let (Id s) = o.Id
-        let s = s + "."
+
+        let s = $"{s}."
 
         let mapping =
             match o.Prescription with

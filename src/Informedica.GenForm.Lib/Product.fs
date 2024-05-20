@@ -539,10 +539,15 @@ module Product =
                 (dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true)
             )
             |> Array.map (fun r ->
+                let v =
+                    r.ExpansionVolume
+                    |> Option.map (fun v -> v + r.DiluentVolume)
+                    |> Option.defaultValue r.DiluentVolume
+
                 { prod with
                     ShapeUnit =
                         Units.Volume.milliLiter
-                    ShapeQuantities = r.DiluentVolume
+                    ShapeQuantities = v
                     Substances =
                         prod.Substances
                         |> Array.map (fun s ->
@@ -550,10 +555,6 @@ module Product =
                                 Concentration =
                                     s.Concentration
                                     |> Option.map (fun q ->
-                                        let v =
-                                            r.ExpansionVolume
-                                            |> Option.map (fun v -> v + r.DiluentVolume)
-                                            |> Option.defaultValue r.DiluentVolume
                                         // replace the old shapeunit with the new one
                                         let one =
                                             Units.Volume.milliLiter
