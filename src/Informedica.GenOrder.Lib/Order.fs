@@ -2975,6 +2975,7 @@ module Order =
                             itms
                             |> Array.map (fun itm ->
                                 [|
+                                    itm.Name |> Name.toString
                                     // item dose per rate
                                     if useAdj then
                                         itm
