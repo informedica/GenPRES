@@ -394,81 +394,92 @@ module Order =
 
             module Print =
 
-                let quantityTo toStr (d : Dose) =
-                    d.Quantity
-                    |> toStr
+
+                let doseTo get toStr (d: Dose) = d |> get |> toStr
 
 
-                let doseQuantityToString prec =
-                    quantityTo (Quantity.toValueUnitString prec)
+                let doseQuantityTo md prec =
+                    let toStr =
+                        if md then Quantity.toValueUnitMarkdown prec
+                        else Quantity.toValueUnitString prec
+
+                    doseTo (_.Quantity) toStr
 
 
-                let doseQuantityToMd prec =
-                    quantityTo (Quantity.toValueUnitMarkdown prec)
+                let doseQuantityToString = doseQuantityTo false
 
 
-                let quantityAdjustTo toStr (d : Dose) =
-                    d.QuantityAdjust
-                    |> toStr
-
-                let doseQuantityAdjustToString prec =
-                    quantityAdjustTo (QuantityAdjust.toValueUnitString prec)
+                let doseQuantityToMd = doseQuantityTo true
 
 
-                let doseQuantityAdjustToMd prec =
-                    quantityAdjustTo (QuantityAdjust.toValueUnitMarkdown prec)
+                let doseQuantityAdjustTo md prec =
+                    let toStr =
+                        if md then QuantityAdjust.toValueUnitMarkdown prec
+                        else QuantityAdjust.toValueUnitString prec
+
+                    doseTo (_.QuantityAdjust) toStr
 
 
-                let perTimeTo toStr (d : Dose) =
-                    d.PerTime
-                    |> toStr
+                let doseQuantityAdjustToString = doseQuantityAdjustTo false
 
 
-                let dosePerTimeToString prec =
-                    perTimeTo (PerTime.toValueUnitString prec)
+                let doseQuantityAdjustToMd = doseQuantityAdjustTo false
 
 
-                let dosePerTimeToMd prec =
-                    perTimeTo (PerTime.toValueUnitMarkdown prec)
+                let dosePerTimeTo md prec =
+                    let toStr =
+                        if md then PerTime.toValueUnitMarkdown prec
+                        else PerTime.toValueUnitString prec
+
+                    doseTo (_.PerTime) toStr
 
 
-                let perTimeAdjustTo toStr (d : Dose) =
-                    d.PerTimeAdjust
-                    |> toStr
+                let dosePerTimeToString = dosePerTimeTo false
 
 
-                let dosePerTimeAdjustToString prec =
-                    perTimeAdjustTo (PerTimeAdjust.toValueUnitString prec)
+                let dosePerTimeToMd = dosePerTimeTo true
 
 
-                let dosePerTimeAdjustToMd prec =
-                    perTimeAdjustTo (PerTimeAdjust.toValueUnitMarkdown prec)
+                let dosePerTimeAdjustTo md prec =
+                    let toStr =
+                        if md then PerTimeAdjust.toValueUnitMarkdown prec
+                        else PerTimeAdjust.toValueUnitString prec
+
+                    doseTo (_.PerTimeAdjust) toStr
 
 
-                let rateTo toStr (d : Dose) =
-                    d.Rate
-                    |> toStr
+                let dosePerTimeAdjustToString = doseQuantityAdjustTo false
 
 
-                let doseRateToString prec =
-                    rateTo (Rate.toValueUnitString prec)
+                let dosePerTimeAdjustToMd = dosePerTimeAdjustTo true
 
 
-                let doseRateToMd prec =
-                    rateTo (Rate.toValueUnitMarkdown prec)
+                let doseRateTo md prec =
+                    let toStr =
+                        if md then Rate.toValueUnitMarkdown prec
+                        else Rate.toValueUnitString prec
+
+                    doseTo (_.Rate) toStr
 
 
-                let rateAdjustTo toStr (d : Dose) =
-                    d.RateAdjust
-                    |> toStr
+                let doseRateToString = doseRateTo false
 
 
-                let doseRateAdjustToString prec =
-                    rateAdjustTo (RateAdjust.toValueUnitString prec)
+                let doseRateToMd = doseRateTo true
 
 
-                let doseRateAdjustToMd prec =
-                    rateAdjustTo (RateAdjust.toValueUnitMarkdown prec)
+                let doseRateAdjustTo md prec =
+                    let toStr =
+                        if md then RateAdjust.toValueUnitMarkdown prec
+                        else RateAdjust.toValueUnitString prec
+
+                    doseTo (_.RateAdjust) toStr
+
+
+                let doseRateAdjustToString = doseRateAdjustTo false
+
+
+                let doseRateAdjustToMd = doseRateAdjustTo true
 
 
                 let doseConstraints get prec (d: Dose) =
@@ -583,8 +594,8 @@ module Order =
         [<RequireQualifiedAccess>]
         module Item =
 
-            module Quantity = OrderVariable.Quantity
             module Concentration = OrderVariable.Concentration
+            module Quantity = OrderVariable.Quantity
             module Total = OrderVariable.Total
             module Rate = OrderVariable.Rate
 
@@ -722,100 +733,126 @@ module Order =
             module Print =
 
 
-                let private getToStr get toStr (i : Item) =
-                    i
+                let private getToStr get toStr (itm : Item) =
+                    itm
                     |> get
                     |> toStr
 
 
-                let itemComponentConcentrationToString =
-                    getToStr
-                        (_.ComponentConcentration)
-                        (Concentration.toValueUnitString -1)
+                let concentrationTo get md prec =
+                    let toStr =
+                        if md then Concentration.toValueUnitMarkdown prec
+                        else Concentration.toValueUnitString prec
+
+                    getToStr get toStr
 
 
-                let itemComponentConcentrationToMd =
-                    getToStr
-                        (_.ComponentConcentration)
-                        (Concentration.toValueUnitMarkdown -1)
+                let itemComponentConcentrationTo =
+                    concentrationTo (_.ComponentConcentration)
 
 
-                let itemOrderableConcentrationToString =
-                    getToStr
-                        (_.OrderableConcentration)
-                        (Concentration.toValueUnitString -1)
+                let itemComponentConcentrationToString = itemComponentConcentrationTo false
 
 
-                let itemOrderableConcentrationToMd =
-                    getToStr
-                        (_.OrderableConcentration)
-                        (Concentration.toValueUnitMarkdown -1)
+                let itemComponentConcentrationToMd = itemComponentConcentrationTo true
 
 
-
-                let itemOrderableQuantityToString =
-                    getToStr
-                        (_.OrderableQuantity)
-                        (Quantity.toValueUnitString -1)
+                let itemOrderableConcentrationTo =
+                    concentrationTo (_.OrderableConcentration)
 
 
-                let itemOrderableQuantityToMd =
-                    getToStr
-                        (_.OrderableQuantity)
-                        (Quantity.toValueUnitMarkdown -1)
+                let itemOrderableConcentrationToString = itemOrderableConcentrationTo false
 
 
-                let doseTo toStr (i : Item) =
-                    i.Dose
-                    |> toStr
+                let itemOrderableConcentrationToMd = itemOrderableConcentrationTo true
 
 
-                let itemDoseQuantityToString =
-                    doseTo (Dose.Print.doseQuantityToString 3)
+                let quantityTo get md prec =
+                    let toStr =
+                        if md then Quantity.toValueUnitMarkdown prec
+                        else Quantity.toValueUnitString prec
+
+                    getToStr get toStr
 
 
-                let itemDoseQuantityToMd =
-                    doseTo (Dose.Print.doseQuantityToMd 3)
+                let componentQuantityTo =
+                    quantityTo (_.ComponentQuantity)
 
 
-                let itemDoseQuantityAdjustToString =
-                    doseTo (Dose.Print.doseQuantityAdjustToString 3)
+                let itemComponentQuantityToString = componentQuantityTo false
 
 
-                let itemDoseQuantityAdjustToMd =
-                    doseTo (Dose.Print.doseQuantityAdjustToMd 3)
+                let itemComponentQuantityToMd = componentQuantityTo true
 
 
-                let itemDosePerTimeToString =
-                    doseTo (Dose.Print.dosePerTimeToString 3)
+                let orderableQuantityTo =
+                    quantityTo (_.OrderableQuantity)
 
 
-                let itemDosePerTimeToMd =
-                    doseTo (Dose.Print.dosePerTimeToMd 3)
+                let itemOrderableQuantityToString = orderableQuantityTo false
 
 
-                let itemDosePerTimeAdjustToString =
-                    doseTo (Dose.Print.dosePerTimeAdjustToString 3)
+                let itemOrderableQuantityToMd = itemOrderableConcentrationTo true
 
 
-                let itemDosePerTimeAdjustToMd =
-                    doseTo (Dose.Print.dosePerTimeAdjustToMd 3)
+                let itemDoseQuantityTo md prec (itm: Item) =
+                    itm.Dose |> Dose.Print.doseQuantityTo md prec
 
 
-                let itemDoseRateToString =
-                    doseTo (Dose.Print.doseRateToString 3)
+                let itemDoseQuantityToString = itemDoseQuantityTo false 3
 
 
-                let itemDoseRateToMd =
-                    doseTo (Dose.Print.doseRateToMd 3)
+                let itemDoseQuantityToMd = itemDoseQuantityTo true 3
 
 
-                let itemDoseRateAdjustToString =
-                    doseTo (Dose.Print.doseRateAdjustToString 3)
+                let itemDoseQuantityAdjustTo md prec (itm: Item) =
+                    itm.Dose |> Dose.Print.doseQuantityAdjustTo md prec
 
 
-                let itemDoseRateAdjustToMd =
-                    doseTo (Dose.Print.doseRateAdjustToMd 3)
+                let itemDoseQuantityAdjustToString = itemDoseQuantityAdjustTo false 3
+
+
+                let itemDoseQuantityAdjustToMd = itemDoseQuantityAdjustTo true 3
+
+
+                let itemDosePerTimeTo md prec (itm: Item) =
+                    itm.Dose |> Dose.Print.dosePerTimeTo md prec
+
+
+                let itemDosePerTimeToString = itemDosePerTimeTo false 3
+
+
+                let itemDosePerTimeToMd = itemDosePerTimeTo true 3
+
+
+                let itemDosePerTimeAdjustTo md prec (itm: Item) =
+                    itm.Dose |> Dose.Print.dosePerTimeAdjustTo md prec
+
+
+                let itemDosePerTimeToAdjustString = itemDosePerTimeAdjustTo false 3
+
+
+                let itemDosePerTimeAdjustToMd = itemDosePerTimeAdjustTo true 3
+
+
+                let itemDoseRateTo md prec (itm: Item) =
+                    itm.Dose |> Dose.Print.doseRateTo md prec
+
+
+                let itemDoseRateToString = itemDoseRateTo false 3
+
+
+                let itemDoseRateToMd = itemDoseRateTo true 3
+
+
+                let itemDoseRateAdjustTo md prec (itm: Item) =
+                    itm.Dose |> Dose.Print.doseRateAdjustTo md prec
+
+
+                let itemDoseRateAdjustToString = itemDoseRateAdjustTo false 3
+
+
+                let itemDoseRateAdjustToMd = itemDoseRateAdjustTo true 3
 
 
 
@@ -1082,142 +1119,155 @@ module Order =
             module Print =
 
 
-                let quantityTo get toStr (c : Component) =
+                let private getToStr get toStr (c : Component) =
                     c
                     |> get
                     |> toStr
 
 
-                let componentQuantityToString =
-                    quantityTo
-                        (_.ComponentQuantity)
-                        (Quantity.toValueUnitString -1)
+                let quantityTo get md prec =
+                    let toStr =
+                        if md then Quantity.toValueUnitMarkdown prec
+                        else Quantity.toValueUnitString prec
+
+                    getToStr get toStr
 
 
-                let componentQuantityToMd =
-                    quantityTo
-                        (_.ComponentQuantity)
-                        (Quantity.toValueUnitMarkdown -1)
+                let componentQuantityTo =
+                    quantityTo (_.ComponentQuantity)
 
 
-                let componentOrderableQuantityToString =
-                    quantityTo
-                        (_.OrderableQuantity)
-                        (Quantity.toValueUnitString -1)
+                let componentQuantityToString = componentQuantityTo false
 
 
-                let componentOrderableQuantityToMd =
-                    quantityTo
-                        (_.OrderableQuantity)
-                        (Quantity.toValueUnitMarkdown -1)
+                let componentQuantityToMd = componentQuantityTo true
 
 
-                let componentOrderQuantityToString prec =
-                    quantityTo
-                        (_.OrderQuantity)
-                        (Quantity.toValueUnitString prec)
+                let componentOrderableQuantityTo =
+                    quantityTo (_.OrderableQuantity)
 
 
-                let componentOrderQuantityToMd prec =
-                    quantityTo
-                        (_.OrderQuantity)
-                        (Quantity.toValueUnitMarkdown prec)
+                let componentOrderableQuantityToString = componentOrderableQuantityTo false
 
 
-                let countTo get toStr (c : Component) =
-                    c
-                    |> get
-                    |> toStr
+                let componentOrderableQuantityToMd = componentOrderableQuantityTo true
 
 
-                let componentOrderableCountToString prec =
-                    countTo
-                        (_.OrderableCount)
-                        (Count.toValueUnitString prec)
+                let componentOrderQuantityTo =
+                    quantityTo (_.OrderQuantity)
+
+                let componentOrderQuantityToString = componentOrderQuantityTo false
 
 
-                let componentOrderableCountToMd prec =
-                    countTo
-                        (_.OrderableCount)
-                        (Count.toValueUnitMarkdown prec)
+                let componentOrderQuantityToMd = componentOrderQuantityTo true
 
 
-                let componentOrderCountToString prec =
-                    countTo
-                        (_.OrderCount)
-                        (Count.toValueUnitString prec)
+                let countTo get md =
+                    let toStr =
+                        if md then Count.toValueUnitMarkdown -1
+                        else Count.toValueUnitString -1
+
+                    getToStr get toStr
 
 
-                let componentOrderCountToMd prec =
-                    countTo
-                        (_.OrderCount)
-                        (Count.toValueUnitMarkdown prec)
+                let componentOrderableCountTo =
+                    countTo (_.OrderableCount)
 
 
-                let componentOrderableConcentrationTo toStr (c : Component) =
-                    c.OrderableConcentration
-                    |> toStr
+                let componentOrderableCountToString = componentOrderableCountTo false
+
+
+                let componentOrderableCountToMd = componentOrderableCountTo true
+
+
+                let componentOrderCountTo =
+                    countTo (_.OrderCount)
+
+
+                let componentOrderCountToString = componentOrderCountTo false
+
+
+                let componentOrderCountToMd = componentOrderCountTo true
+
+
+                let concentrationTo get md =
+                    let toStr =
+                        if md then Concentration.toValueUnitMarkdown -1
+                        else Concentration.toValueUnitString -1
+
+                    getToStr get toStr
+
+
+                let componentOrderableConcentrationTo =
+                    concentrationTo (_.OrderableConcentration)
 
 
                 let componentOrderableConcentrationToString prec =
-                    componentOrderableConcentrationTo (Concentration.toValueUnitString prec)
+                    componentOrderableConcentrationTo false prec
 
 
                 let componentOrderableConcentrationToMd prec =
-                    componentOrderableConcentrationTo (Concentration.toValueUnitMarkdown prec)
+                    componentOrderableConcentrationTo true prec
 
 
-                let doseTo toStr (c : Component) =
-                    c.Dose
-                    |> toStr
+                let componentDoseQuantityTo md (cmp: Component) =
+                    cmp.Dose |> Dose.Print.doseQuantityTo md -1
 
 
-                let componentDoseQuantityToString =
-                    doseTo (Dose.Print.doseQuantityToString -1)
+                let componentDoseQuantityToString = componentDoseQuantityTo false
 
 
-                let componentDoseQuantityToMd =
-                    doseTo (Dose.Print.doseQuantityToMd -1)
+                let componentDoseQuantityToMd = componentDoseQuantityTo true
 
 
-                let componentDoseQuantityAdjustToString prec =
-                    doseTo (Dose.Print.doseQuantityAdjustToString prec)
+                let componentDoseQuantityAdjustTo md prec (cmp: Component) =
+                    cmp.Dose |> Dose.Print.doseQuantityTo md prec
 
 
-                let componentDoseQuantityAdjustToMd prec =
-                    doseTo (Dose.Print.doseQuantityAdjustToMd prec)
+                let componentDoseQuantityAdjustToString = componentDoseQuantityAdjustTo false
 
 
-                let componentDosePerTimeToString prec =
-                    doseTo (Dose.Print.dosePerTimeToString prec)
+                let componentDoseQuantityAdjustToMd = componentDoseQuantityAdjustTo true
 
 
-                let componentDosePerTimeToMd prec =
-                    doseTo (Dose.Print.dosePerTimeToMd prec)
+                let componentDosePerTimeTo md prec (cmp: Component) =
+                    cmp.Dose |> Dose.Print.dosePerTimeTo md prec
 
 
-                let componentDosePerTimeAdjustToString prec =
-                    doseTo (Dose.Print.dosePerTimeAdjustToString prec)
+                let componentDosePerTimeToString = componentDosePerTimeTo false
 
 
-                let componentDosePerTimeAdjustToMd prec =
-                    doseTo (Dose.Print.dosePerTimeAdjustToMd prec)
+                let componentDosePerTimeToMd = componentDosePerTimeTo true
 
 
-                let componentDoseRateToString prec =
-                    doseTo (Dose.Print.doseRateToString prec)
+                let componentDosePerTimeAdjustTo md prec (cmp: Component) =
+                    cmp.Dose |> Dose.Print.dosePerTimeAdjustTo md prec
 
 
-                let componentDoseRateToMd prec =
-                    doseTo (Dose.Print.doseRateToMd prec)
+                let componentDosePerTimeAdjustToString = componentDosePerTimeAdjustTo false
 
 
-                let componentDoseRateAdjustToString prec =
-                    doseTo (Dose.Print.doseRateAdjustToString prec)
+                let componentDosePerTimeAdjustToMd = componentDosePerTimeAdjustTo true
 
 
-                let componentDoseRateAdjustToMd prec =
-                    doseTo (Dose.Print.doseRateAdjustToMd prec)
+                let componentDoseRateTo md prec (cmp: Component) =
+                    cmp.Dose |> Dose.Print.doseRateTo md prec
+
+
+                let componentDoseRateToString =componentDoseRateTo false
+
+
+                let componentDoseRateToMd = componentDoseRateTo true
+
+
+                let componentDoseRateAdjustTo md prec (cmp : Component) =
+                    cmp.Dose |> Dose.Print.doseRateAdjustTo md prec
+
+
+                let componentDoseRateAdjustToString = componentDoseRateAdjustTo false
+
+
+                let componentDoseRateAdjustToMd = componentDoseRateAdjustTo true
 
 
 
@@ -1541,105 +1591,110 @@ module Order =
         module Print =
 
 
-            let quantityTo get toStr (o : Orderable) =
-                o
+            let getToStr get toStr (orb : Orderable) =
+                orb
                 |> get
                 |> toStr
 
 
-            let orderableQuantityToString =
-                quantityTo
-                    (_.OrderableQuantity)
-                    (Quantity.toValueUnitString -1)
+            let quantityTo get md prec =
+                let toStr =
+                    if md then Quantity.toValueUnitMarkdown prec
+                    else Quantity.toValueUnitString prec
+
+                getToStr get toStr
 
 
-            let orderableQuantityToMd =
-                quantityTo
-                    (_.OrderableQuantity)
-                    (Quantity.toValueUnitMarkdown -1)
+            let orderableQuantityTo =
+                quantityTo (_.OrderableQuantity)
+
+            let orderableQuantityToString = orderableQuantityTo false
 
 
-            let orderQuantityToString prec =
-                quantityTo
-                    (_.OrderQuantity)
-                    (Quantity.toValueUnitString prec)
+            let orderableQuantityToMd = orderableQuantityTo true
 
 
-            let orderQuantityToMd prec =
-                quantityTo
-                    (_.OrderQuantity)
-                    (Quantity.toValueUnitMarkdown prec)
+            let orderQuantityTo =
+                quantityTo (_.OrderQuantity)
 
 
-            let countTo get toStr (o : Orderable) =
-                o
-                |> get
-                |> toStr
+            let orderQuantityToString = orderQuantityTo false
 
 
-            let orderCountToString prec =
-                countTo
-                    (_.OrderCount)
-                    (Count.toValueUnitString prec)
+            let orderQuantityToMd = orderQuantityTo true
 
 
-            let orderCountToMd prec =
-                countTo
-                    (_.OrderCount)
-                    (Count.toValueUnitMarkdown prec)
+            let countTo get md =
+                let toStr =
+                    if md then Count.toValueUnitMarkdown -1
+                    else Count.toValueUnitString -1
+
+                getToStr get toStr
 
 
-            let doseTo toStr (o : Orderable) =
-                o.Dose
-                |> toStr
+            let orderCountTo =
+                countTo (_.OrderCount)
 
 
-            let doseQuantityToString =
-                doseTo (Dose.Print.doseQuantityToString -1)
+            let orderCountToString = orderCountTo false
 
 
-            let doseQuantityToMd =
-                doseTo (Dose.Print.doseQuantityToMd -1)
+            let orderCountToMd = orderCountTo true
 
 
-            let doseQuantityAdjustToString prec =
-                doseTo (Dose.Print.doseQuantityAdjustToString prec)
+            let doseQuantityTo md prec (orb: Orderable) =
+                orb.Dose |> Dose.Print.doseQuantityTo md prec
+
+            let doseQuantityToString = doseQuantityTo false -1
 
 
-            let doseQuantityAdjustToMd prec =
-                doseTo (Dose.Print.doseQuantityAdjustToMd prec)
+            let doseQuantityToMd = doseQuantityTo true -1
+
+            let doseQuantityAdjustTo md prec (orb: Orderable) =
+                orb.Dose |> Dose.Print.doseQuantityAdjustTo md prec
 
 
-            let dosePerTimeToString prec =
-                doseTo (Dose.Print.dosePerTimeToString prec)
+            let doseQuantityAdjustToString = doseQuantityAdjustTo false
 
 
-            let dosePerTimeToMd prec =
-                doseTo (Dose.Print.dosePerTimeToMd prec)
+            let doseQuantityAdjustToMd = doseQuantityAdjustTo true
 
 
-            let dosePerTimeAdjustToString prec =
-                doseTo (Dose.Print.dosePerTimeAdjustToString prec)
+            let dosePerTimeTo md prec (orb: Orderable) =
+                orb.Dose |> Dose.Print.dosePerTimeTo md prec
+
+            let dosePerTimeToString = dosePerTimeTo false -1
 
 
-            let dosePerTimeAdjustToMd prec =
-                doseTo (Dose.Print.dosePerTimeAdjustToMd prec)
+            let dosePerTimeToMd = dosePerTimeTo true -1
 
 
-            let doseRateToString =
-                doseTo (Dose.Print.doseRateToString -1)
+            let dosePerTimeAdjustTo md prec (orb: Orderable) =
+                orb.Dose |> Dose.Print.dosePerTimeAdjustTo md prec
+
+            let dosePerTimeAdjustToString = dosePerTimeAdjustTo false
 
 
-            let doseRateToMd =
-                doseTo (Dose.Print.doseRateToMd -1)
+            let dosePerTimeAdjustToMd = dosePerTimeAdjustTo true
 
 
-            let doseRateAdjustToString prec =
-                doseTo (Dose.Print.doseRateAdjustToString prec)
+            let doseRateTo md prec (orb: Orderable) =
+                orb.Dose |> Dose.Print.doseRateTo md prec
+
+            let doseRateToString = doseRateTo false -1
 
 
-            let doseRateAdjustToMd prec =
-                doseTo (Dose.Print.doseRateAdjustToMd prec)
+            let doseRateToMd = doseRateTo true -1
+
+
+            let doseRateAdjustTo md prec (orb: Orderable) =
+                orb.Dose |> Dose.Print.doseRateAdjustTo md prec
+
+
+            let doseRateAdjustToString = doseRateAdjustTo false -1
+
+
+            let doseRateAdjustToMd = doseRateAdjustTo true -1
 
 
 
@@ -1864,52 +1919,51 @@ module Order =
         module Print =
 
 
-                let frequencyTo toStr (p : Prescription) =
+                let frequencyTo md (p : Prescription) =
+                    let toStr =
+                        if md then Frequency.toValueUnitMarkdown -1
+                        else Frequency.toValueUnitString -1
                     match p with
                     | Timed (frq, _)
                     | Discontinuous frq -> frq |> toStr
                     | _ -> ""
 
 
-                let frequencyToString =
-                    frequencyTo (Frequency.toValueUnitString -1)
+                let frequencyToString = frequencyTo false
 
 
-                let frequencyToMd =
-                    frequencyTo (Frequency.toValueUnitMarkdown -1)
+                let frequencyToMd = frequencyTo true
 
 
-                let timeTo toStr (p : Prescription) =
+                let timeTo md prec (p : Prescription) =
+                    let toStr =
+                        if md then Time.toValueUnitMarkdown prec
+                        else Time.toValueUnitMarkdown prec
                     match p with
                     | OnceTimed tme -> tme |> toStr
                     | Timed (_, tme) -> tme |> toStr
                     | _ -> ""
 
 
-                let timeToString prec =
-                    timeTo (Time.toValueUnitString prec)
+                let timeToString = timeTo false
 
 
-                let timeToMd prec =
-                    timeTo (Time.toValueUnitMarkdown prec)
+                let timeToMd = timeTo true
 
 
-                let prescriptionToString (p : Prescription) =
+                let prescriptionTo md (p : Prescription) =
                     match p with
                     | Once -> "eenmalig"
                     | Continuous -> "continu"
-                    | OnceTimed _ -> p |> timeToMd -1
+                    | OnceTimed _ -> p |> timeTo md -1
                     | Discontinuous _ -> p |> frequencyToString
-                    | Timed _     -> $"{p |> frequencyToString} {p |> timeToString -1}"
+                    | Timed _     -> $"{p |> frequencyToString} {p |> timeTo md -1}"
 
 
-                let prescriptionToMd (p : Prescription) =
-                    match p with
-                    | Once -> "eenmalig"
-                    | Continuous -> "continu"
-                    | OnceTimed _ -> p |> timeToMd -1
-                    | Discontinuous _ -> p |> frequencyToMd
-                    | Timed _     -> $"{p |> frequencyToMd} {p |> timeToMd -1}"
+                let prescriptionToString = prescriptionTo false
+
+
+                let prescriptionToMd = prescriptionTo true
 
 
 
@@ -2953,7 +3007,7 @@ module Order =
 
                 let freq =
                     ord.Prescription
-                    |> Prescription.Print.frequencyToMd
+                    |> Prescription.Print.frequencyTo printMd
 
                 let pres =
                     match ord.Prescription with
@@ -2963,11 +3017,11 @@ module Order =
                                 [|
                                     // the orderable dose quantity
                                     ord.Orderable
-                                    |> Orderable.Print.doseQuantityToMd
+                                    |> Orderable.Print.doseQuantityTo printMd -1
                                     // the orderable dose adjust quantity
                                     if useAdj then
                                         ord.Orderable
-                                        |> Orderable.Print.doseQuantityAdjustToMd -1
+                                        |> Orderable.Print.doseQuantityAdjustTo printMd 2
 
                                 |]
                             |]
@@ -2979,14 +3033,14 @@ module Order =
                                     // item dose per rate
                                     if useAdj then
                                         itm
-                                        |> Orderable.Item.Print.itemDoseRateAdjustToMd
+                                        |> Orderable.Item.Print.itemDoseRateAdjustTo printMd 3
 
                                         if itm.Dose.RateAdjust |> RateAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseRateAdjustConstraints 3
                                             |> withBrackets
                                     else
                                         itm
-                                        |> Orderable.Item.Print.itemDoseRateToMd
+                                        |> Orderable.Item.Print.itemDoseRateTo printMd 3
 
                                         if itm.Dose.Rate |> Rate.isSolved then
                                             itm.Dose |> Dose.Print.doseRateConstraints 3
@@ -3004,15 +3058,15 @@ module Order =
                                     // the orderable dose quantity
                                     ord.Orderable
                                     |>
-                                    Orderable.Print.doseQuantityToMd
+                                    Orderable.Print.doseQuantityTo printMd -1
                                     // the orderable dose adjust quantity
                                     let s =
                                         if useAdj then
                                             ord.Orderable
-                                            |> Orderable.Print.dosePerTimeAdjustToMd -1
+                                            |> Orderable.Print.dosePerTimeAdjustTo printMd 2
                                         else
                                             ord.Orderable
-                                            |> Orderable.Print.dosePerTimeToMd -1
+                                            |> Orderable.Print.dosePerTimeTo printMd -1
                                     if s |> String.notEmpty then
                                         "="
                                         s
@@ -3028,12 +3082,12 @@ module Order =
                                     itm.Name |> Name.toString
                                     // the item dose quantity
                                     itm
-                                    |> Orderable.Item.Print.itemDoseQuantityToMd
+                                    |> Orderable.Item.Print.itemDoseQuantityTo printMd 3
 
                                     if useAdj then
                                         let s =
                                             itm
-                                            |> Orderable.Item.Print.itemDosePerTimeAdjustToMd
+                                            |> Orderable.Item.Print.itemDosePerTimeAdjustTo printMd 3
                                         if s |> String.notEmpty then
                                             "="
                                             s
@@ -3051,7 +3105,7 @@ module Order =
                                     else
                                         let s =
                                             itm
-                                            |> Orderable.Item.Print.itemDosePerTimeToMd
+                                            |> Orderable.Item.Print.itemDosePerTimeTo printMd 3
                                         if s |> String.notEmpty then
                                             "="
                                             s
@@ -3076,12 +3130,12 @@ module Order =
                                 [|
                                     // the orderable dose quantity
                                     ord.Orderable
-                                    |> Orderable.Print.doseQuantityToMd
+                                    |> Orderable.Print.doseQuantityTo printMd -1
                                     // the orderable dose adjust quantity
                                     if useAdj then
                                         "="
                                         ord.Orderable
-                                        |> Orderable.Print.doseQuantityAdjustToMd -1
+                                        |> Orderable.Print.doseQuantityAdjustTo printMd -1
 
                                 |]
                             |]
@@ -3092,13 +3146,13 @@ module Order =
                                     itm.Name |> Name.toString
                                     // the item dose quantity
                                     itm
-                                    |> Orderable.Item.Print.itemDoseQuantityToMd
+                                    |> Orderable.Item.Print.itemDoseQuantityTo printMd 3
 
                                     // the item dose adjust quantity
                                     if useAdj then
                                         "="
                                         itm
-                                        |> Orderable.Item.Print.itemDoseQuantityAdjustToMd
+                                        |> Orderable.Item.Print.itemDoseQuantityAdjustTo printMd 3
 
                                         if itm.Dose.QuantityAdjust |> QuantityAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
@@ -3118,7 +3172,7 @@ module Order =
                     ord.Orderable.Components
                     |> List.toArray
                     |> Array.mapi (fun i1 c ->
-                        let cmpQty = c |> Orderable.Component.Print.componentOrderableQuantityToMd
+                        let cmpQty = c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
                         [|
                             if c.Items |> List.isEmpty then
                                 [|
@@ -3140,12 +3194,12 @@ module Order =
                                         if cmpQty |> String.notEmpty then
                                             if i1 = 0 && i2 = 0 then
                                                 c.Shape
-                                                c |> Orderable.Component.Print.componentOrderableQuantityToMd
+                                                c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
                                             else
                                                 ""
                                                 ""
 
-                                            let itmQty = itm |> Orderable.Item.Print.itemComponentConcentrationToMd
+                                            let itmQty = itm |> Orderable.Item.Print.itemComponentConcentrationTo printMd -1
                                             if itmQty |> String.notEmpty then
                                                 itm.Name |> Name.toString
                                                 itmQty
@@ -3165,7 +3219,7 @@ module Order =
                     | Timed _ ->
                         let tme =
                             ord.Prescription
-                            |> Prescription.Print.timeToString -1
+                            |> Prescription.Print.timeToString 2
 
                         if itms |> Array.isEmpty then
                             [|
@@ -3174,10 +3228,10 @@ module Order =
                                     if ord.Prescription |> Prescription.hasFrequency then freq
 
                                     ord.Orderable
-                                    |> Orderable.Print.doseQuantityToMd
+                                    |> Orderable.Print.doseQuantityTo printMd -1
                                     // if timed add rate and time
                                     if ord.Prescription |> Prescription.hasTime then
-                                        ord.Orderable |> Orderable.Print.doseRateToMd
+                                        ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                         tme //ord.Prescription |> Prescription.Print.timeToMd -1
                                 |]
                             |]
@@ -3189,14 +3243,14 @@ module Order =
                                     if ord.Prescription |> Prescription.hasFrequency then
                                        if i = 0 then freq else ""
 
-                                    let itmQty = itm |> Orderable.Item.Print.itemOrderableQuantityToMd
+                                    let itmQty = itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
                                     if itmQty |> String.notEmpty then
                                         itm.Name |> Name.toString
-                                        itm |> Orderable.Item.Print.itemOrderableQuantityToMd
+                                        itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
 
                                         if i = 0 then
                                             "in"
-                                            ord.Orderable |> Orderable.Print.orderableQuantityToMd
+                                            ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
                                         else
                                             ""
                                             ""
@@ -3206,7 +3260,7 @@ module Order =
                                        itmQty |> String.notEmpty then
                                         if i = 0 then
                                             "="
-                                            ord.Orderable |> Orderable.Print.doseRateToMd
+                                            ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                             tme //ord.Prescription |> Prescription.Print.timeToMd -1
                                             |> withBrackets
                                         else
@@ -3216,12 +3270,12 @@ module Order =
                                 |]
                             )
                     | Continuous ->
-                        let orbQty = ord.Orderable |> Orderable.Print.orderableQuantityToMd
+                        let orbQty = ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
                         if itms |> Array.isEmpty then
                             [|
                                 [|
                                     orbQty
-                                    ord.Orderable |> Orderable.Print.doseRateToMd
+                                    ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                 |]
                             |]
                         else
@@ -3229,14 +3283,14 @@ module Order =
                             |> Array.mapi (fun i itm ->
                                 [|
                                     itm.Name |> Name.toString
-                                    itm |> Orderable.Item.Print.itemOrderableQuantityToMd
+                                    itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
 
                                     if i = 0 then
                                         if orbQty |> String.notEmpty then
                                             "in"
-                                            ord.Orderable |> Orderable.Print.orderableQuantityToMd
+                                            ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
                                             "="
-                                        ord.Orderable |> Orderable.Print.doseRateToMd
+                                        ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                     else
                                         if orbQty |> String.notEmpty then
                                             ""
