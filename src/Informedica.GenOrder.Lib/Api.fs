@@ -94,6 +94,9 @@ module Api =
     let increaseIncrements logger ord = Order.increaseIncrements logger 10N 50N ord
 
 
+    let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
+
+
     /// <summary>
     /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
     /// multiple Orders, depending on the SolutionRules.
@@ -111,6 +114,14 @@ module Api =
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
             |> Result.bind (increaseIncrements logger)
+            |> Result.bind (fun ord ->
+                match pr.DoseRule |> DoseRule.getNormDose with
+                | Some nd ->
+                    ord
+                    |> Order.minIncrMaxToValues logger
+                    |> setNormDose logger nd
+                | None -> Ok ord
+            )
             |> function
             | Ok ord ->
                 let ord =

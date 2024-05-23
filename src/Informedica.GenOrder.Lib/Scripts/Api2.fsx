@@ -32,6 +32,7 @@ let calcTotal () =
     |> PrescriptionRule.get
     |> Array.collect (fun pr ->
         pr.DoseRule.Products
+        |> Array.filter (fun p -> p.Generic |> String.contains "/")
         |> Array.collect (fun p ->
             pr.DoseRule.Frequencies
             |> Option.map (ValueUnit.get >> fst)
@@ -51,7 +52,12 @@ let calcTotal () =
 let calcTotal2 () =
     let dsrs =
         Informedica.GenForm.Lib.DoseRule.get ()
-        |> Array.filter (fun dr -> dr.Products |> Array.length >  0)
+        |> Array.filter (fun dr ->
+            dr.Products |> Array.length >  0 &&
+            dr.DoseType <> NoDoseType
+        )
+//        |> Array.filter (fun p -> p.Generic |> String.contains "/")
+
     let total1 =
         dsrs
         |> Array.collect (fun dr ->
@@ -63,6 +69,7 @@ let calcTotal2 () =
             )
         )
         |> Array.length
+
     dsrs
     |> Array.map (fun dr ->
         { dr with
@@ -162,6 +169,7 @@ let run n pat =
         |>  File.appendTextToFile path.Value
 
 
+
 let getRule i pat =
     pat
     |> PrescriptionRule.get
@@ -202,18 +210,18 @@ let pat =
 
 
 let pr =
-    Patient.newBorn
+    Patient.infant
     |> fun p ->
         { p with
             VenousAccess = [VenousAccess.CVL]
             Department = Some "ICK"
             Age =
-                Units.Time.day
-                |> ValueUnit.singleWithValue 2N
+                Units.Time.year
+                |> ValueUnit.singleWithValue 1N
                 |> Some
             Weight =
               Units.Weight.kiloGram
-              |> ValueUnit.singleWithValue (3N)
+              |> ValueUnit.singleWithValue (10N)
               |> Some
         }
     //|> Api.scenarioResult |> Api.filter
@@ -222,7 +230,7 @@ let pr =
     |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
 
 
-Patient.teenager
+Patient.infant
 |> fun p ->
     { p with
         VenousAccess = []
@@ -232,8 +240,8 @@ Patient.teenager
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-//|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
-|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+//|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.Dto.toDto

@@ -967,3 +967,20 @@ cannot map {r}
         |> Array.exists DoseLimit.useAdjust
 
 
+    let getNormDose (dr : DoseRule) =
+        dr.DoseLimits
+        |> Array.filter DoseLimit.isSubstanceLimit
+        |> Array.collect (fun dl ->
+            [|
+                if dl.NormPerTimeAdjust |> Option.isSome then
+                    (dl.DoseLimitTarget, dl.NormPerTimeAdjust.Value)
+                    |> NormPerTimeAdjust
+                    |> Some
+                if dl.NormQuantityAdjust |> Option.isSome then
+                    (dl.DoseLimitTarget, dl.NormQuantityAdjust.Value)
+                    |> NormQuantityAdjust
+                    |> Some
+            |]
+        )
+        |> Array.choose id
+        |> Array.tryHead

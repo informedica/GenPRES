@@ -372,15 +372,37 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            let setNormDose nd (dos: Dose) =
+                let qty_adj, ptm_adj =
+                    match nd with
+                    | Informedica.GenForm.Lib.Types.NormQuantityAdjust (_, vu) ->
+                        dos.QuantityAdjust |> QuantityAdjust.setNearestValue vu,
+                        dos.PerTimeAdjust
+                    | Informedica.GenForm.Lib.Types.NormPerTimeAdjust (_, vu) ->
+                        dos.QuantityAdjust,
+                        dos.PerTimeAdjust |> PerTimeAdjust.setNearestValue vu
+                    | _ -> dos.QuantityAdjust, dos.PerTimeAdjust
+
+                let qty = dos.Quantity
+                let ptm = dos.PerTime
+                let rte = dos.Rate
+                let tot = dos.Total
+                let rte_adj = dos.RateAdjust
+                let tot_adj = dos.TotalAdjust
+
+                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+
+
+
             let setDoseUnit du (dos : Dose) =
-                let qty = dos.Quantity |> Quantity.setDoseUnit du
-                let ptm = dos.PerTime |> PerTime.setDoseUnit du
-                let rte = dos.Rate |> Rate.setDoseUnit du
-                let tot = dos.Total |> Total.setDoseUnit du
-                let qty_adj = dos.QuantityAdjust |> QuantityAdjust.setDoseUnit du
-                let ptm_adj = dos.PerTimeAdjust |> PerTimeAdjust.setDoseUnit du
-                let rte_adj = dos.RateAdjust |> RateAdjust.setDoseUnit du
-                let tot_adj = dos.TotalAdjust |> TotalAdjust.setDoseUnit du
+                let qty = dos.Quantity |> Quantity.setFirstUnit du
+                let ptm = dos.PerTime |> PerTime.setFirstUnit du
+                let rte = dos.Rate |> Rate.setFirstUnit du
+                let tot = dos.Total |> Total.setFirstUnit du
+                let qty_adj = dos.QuantityAdjust |> QuantityAdjust.setFirstUnit du
+                let ptm_adj = dos.PerTimeAdjust |> PerTimeAdjust.setFirstUnit du
+                let rte_adj = dos.RateAdjust |> RateAdjust.setFirstUnit du
+                let tot_adj = dos.TotalAdjust |> TotalAdjust.setFirstUnit du
 
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
@@ -721,6 +743,16 @@ module Order =
                    |> not then itm
                 else
                     { itm with Dose = itm.Dose |> Dose.setDoseUnit du }
+
+
+            let setNormDose sn nd itm =
+                if itm
+                   |> getName
+                   |> Name.toStringList
+                   |> List.exists ((=) sn)
+                   |> not then itm
+                else
+                    { itm with Dose = itm.Dose |> Dose.setNormDose nd }
 
 
             /// <summary>
@@ -1105,6 +1137,12 @@ module Order =
             let setDoseUnit sn du cmp =
                 { cmp with
                     Items = cmp.Items |> List.map (Item.setDoseUnit sn du)
+                }
+
+
+            let setNormDose sn nd cmp =
+                { cmp with
+                    Items = cmp.Items |> List.map (Item.setNormDose sn nd)
                 }
 
 
@@ -1585,6 +1623,12 @@ module Order =
         let setDoseUnit sn du orb =
             { orb with
                 Components = orb.Components |> List.map (Component.setDoseUnit sn du)
+            }
+
+
+        let setNormDose sn nd orb =
+            { orb with
+                Components = orb.Components |> List.map (Component.setNormDose sn nd)
             }
 
 
@@ -2352,6 +2396,12 @@ module Order =
         }
 
 
+    let setNormDose sn nd ord =
+        { ord with
+            Orderable = ord.Orderable |> Orderable.setNormDose sn nd
+        }
+
+
     /// <summary>
     /// Map an Order to a list of Equations using a Product Equation
     /// mapping and a Sum Equation mapping
@@ -2606,6 +2656,16 @@ module Order =
 
                     ord // calculated order
         |> Ok
+
+
+    let solveNormDose logger normDose ord =
+        match normDose with
+        | Informedica.GenForm.Lib.Types.NormQuantityAdjust (Informedica.GenForm.Lib.Types.SubstanceLimitTarget sn, _)
+        | Informedica.GenForm.Lib.Types.NormPerTimeAdjust (Informedica.GenForm.Lib.Types.SubstanceLimitTarget sn, _) ->
+            ord
+            |> setNormDose sn normDose
+            |> solveOrder false logger
+        | _ -> ord |> Ok
 
 
     let setDoseUnit sn du ord =

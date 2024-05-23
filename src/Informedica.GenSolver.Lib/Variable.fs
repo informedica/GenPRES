@@ -1369,6 +1369,7 @@ module Variable =
         let convertToUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
+
         let getUnit vr =
             if vr |> checkEqualUnitGroup then
                 vr
@@ -1555,6 +1556,7 @@ module Variable =
                 returnFalse
                 returnFalse
                 Boolean.returnTrue
+
 
 
         /// <summary>
@@ -2074,6 +2076,15 @@ module Variable =
         /// Get an optional `ValueSet` in a `ValueRange`
         let getValSet =
             apply None None Option.none Option.none Option.none Option.none Option.none Option.none Option.none Some
+
+
+        let setNearestValue vu vr =
+            match vr |> getValSet with
+            | None -> vr
+            | Some vs ->
+                vs
+                |> ValueSet.map (ValueUnit.setNearestValue vu)
+                |> ValSet
 
 
         /// <summary>
@@ -2601,7 +2612,6 @@ module Variable =
         /// <1N..3N] * <4N..5N> = <4N..15N>
         module MinMaxCalculator =
 
-            open MathNet.Numerics.LinearAlgebra
             open Utils.ValueUnit.Operators
 
 
@@ -3382,6 +3392,14 @@ module Variable =
             Values =
                 var.Values
                 |> ValueRange.convertToUnit unit
+        }
+
+
+    let setNearestValue vu var =
+        { var with
+            Values =
+                var.Values
+                |> ValueRange.setNearestValue vu
         }
 
 

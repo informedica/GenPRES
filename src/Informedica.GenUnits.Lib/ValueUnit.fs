@@ -1927,6 +1927,8 @@ module Units =
 
 module ValueUnit =
 
+    open System.Net.NetworkInformation
+
 
     //----------------------------------------------------------------------------
     // Operator String functions
@@ -3457,6 +3459,22 @@ module ValueUnit =
     /// </code>
     /// </example>
     let valueCount = getValue >> Array.length
+
+
+    let setNearestValue vu1 vu2 =
+        if vu1 |> valueCount <> 1 then vu2
+        else
+            if vu1 >? vu2 || vu1 <? vu2 then vu2
+            else
+                let vu1 = vu1 |> getBaseValue |> Array.head
+                let vs2 = vu2 |> getBaseValue
+                // find the nearest value in vs2 to vu1
+                vs2
+                |> Array.map (fun v -> (v, v - vu1 |> BigRational.Abs))
+                |> Array.minBy snd
+                |> fun (v, _) ->
+                    setSingleValue v vu2
+                    |> toUnit
 
 
     //----------------------------------------------------------------------------

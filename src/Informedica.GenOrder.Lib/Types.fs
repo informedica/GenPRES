@@ -312,6 +312,9 @@ module Types =
         type DoseType = Informedica.GenForm.Lib.Types.DoseType
 
 
+        type NormDose = Informedica.GenForm.Lib.Types.NormDose
+
+
         /// <summary>
         /// The representation of an order with a
         /// <list type="bullet">
@@ -378,7 +381,6 @@ module Types =
                 /// the list of scenarios
                 Scenarios: Scenario []
             }
-
 
 
         module Exceptions =

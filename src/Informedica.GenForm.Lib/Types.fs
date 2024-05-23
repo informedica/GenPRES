@@ -346,3 +346,8 @@ module Types =
             SolutionRules : SolutionRule []
         }
 
+
+    type NormDose =
+        | NormQuantityAdjust of LimitTarget * ValueUnit
+        | NormPerTimeAdjust of LimitTarget * ValueUnit
+        | NormRateAdjust of LimitTarget * ValueUnit

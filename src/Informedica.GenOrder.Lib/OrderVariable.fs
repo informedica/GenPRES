@@ -265,6 +265,15 @@ module OrderVariable =
         }
 
 
+    let setNormDose vu (ovar: OrderVariable) =
+        {
+            ovar with
+                Variable =
+                    ovar.Variable
+                    |> Variable.setNearestValue vu
+        }
+
+
     /// <summary>
     /// Get the string representation of an OrderVariable.
     /// </summary>
@@ -830,7 +839,7 @@ module OrderVariable =
             |> Quantity
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> Quantity
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> Quantity
 
 
         /// Turn a `Quantity` to a string
@@ -912,7 +921,7 @@ module OrderVariable =
             |> PerTime
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> PerTime
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> PerTime
 
 
         /// Turn a `PerTime` to a string
@@ -979,7 +988,7 @@ module OrderVariable =
 
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> Rate
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> Rate
 
 
         /// Turn a `Rate` to a string
@@ -1052,7 +1061,7 @@ module OrderVariable =
 
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> Total
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> Total
 
 
         /// Turn a `Total` to a string
@@ -1118,7 +1127,10 @@ module OrderVariable =
             |> QuantityAdjust
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> QuantityAdjust
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> QuantityAdjust
+
+
+        let setNearestValue vu = toOrdVar >> setNormDose vu >> QuantityAdjust
 
 
         /// Turn a `QuantityAdjust` to a string
@@ -1197,7 +1209,10 @@ module OrderVariable =
 
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> PerTimeAdjust
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> PerTimeAdjust
+
+
+        let setNearestValue vu = toOrdVar >> setNormDose vu >> PerTimeAdjust
 
 
         let toString = toOrdVar >> (toString false)
@@ -1271,7 +1286,7 @@ module OrderVariable =
             |> RateAdjust
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> RateAdjust
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> RateAdjust
 
 
         /// Turn a `RateAdjust` to a string
@@ -1340,7 +1355,7 @@ module OrderVariable =
             |> TotalAdjust
 
 
-        let setDoseUnit u = toOrdVar >> setFirstUnit u >> TotalAdjust
+        let setFirstUnit u = toOrdVar >> setFirstUnit u >> TotalAdjust
 
 
         /// Turn a `TotalAdjust` to a string
