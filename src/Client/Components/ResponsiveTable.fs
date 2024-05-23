@@ -36,9 +36,9 @@ module ResponsiveTable =
                             else
                                 let b, s =
                                     match cell.value with
-                                    | _ when cell.value.Contains("**") -> "h6", cell.value.Replace("**", "")
-                                    | _ when cell.value.Contains("*") -> "h5", cell.value.Replace("*", "")
-                                    | _ -> "subtitle2", cell.value
+                                    | _ when cell.value.Contains("**") -> "", cell.value.Replace("**", "")
+                                    | _ when cell.value.Contains("*") -> "", cell.value.Replace("*", "")
+                                    | _ -> Mui.Colors.Grey.``700``, cell.value
 
                                 let h =
                                     props.columns
@@ -54,18 +54,15 @@ module ResponsiveTable =
                                 import Divider from '@mui/material/Divider';
                                 import Typography from '@mui/material/Typography';
 
-                                <React.Fragment>
-                                    <Stack direction="column" spacing={1} >
-                                        <Stack direction="row" spacing={3} alignItems="flex-end" >
-                                            <Typography minHeight={40} minWidth={80} variant="body2" align="left" >
+                                <React.Fragment>                                    
+                                        <Stack direction="row" spacing={3} >
+                                            <Typography minHeight={40} minWidth={80} variant="body2" color={Mui.Colors.Blue.``900``} >
                                                 {h}
                                             </Typography>
-                                            <Typography minHeight={40} variant={b} align="left" >
+                                            <Typography minHeight={40} color={b} variant="body2" >
                                                 {s}
                                             </Typography>
                                         </Stack>
-                                    <Divider variant="middle" />
-                                    </Stack>
                                 </React.Fragment>
                                 """
                         )
@@ -73,19 +70,25 @@ module ResponsiveTable =
                     JSX.jsx
                         $"""
                     import Card from '@mui/material/Card';
+                    import CardHeader from '@mui/material/CardHeader';
                     import CardActions from '@mui/material/CardActions';
                     import CardContent from '@mui/material/CardContent';
 
                     <Grid item width={500} sx={ {| mb = 1 |} } >
                         <Card raised={true} >
+                            <CardHeader>
+                                Header
+                            </CardHeader>
                             <CardContent>
                                 {React.fragment (content |> unbox)}
                             </CardContent>
-                            {
-                                match row.actions with
-                                | None -> JSX.jsx "<></>" |> toReact
-                                | Some acts -> acts
-                            }
+                            <CardActions>
+                                {
+                                    match row.actions with
+                                    | None -> JSX.jsx "<></>" |> toReact
+                                    | Some acts -> acts
+                                }
+                            </CardActions>
                         </Card>
                     </Grid>
                     """

@@ -2575,10 +2575,12 @@ module Order =
                 )
                 ord // original order
             | Ok ord ->
+                (*
                 ConsoleWriter.writeInfoMessage
                     $"""=== solved order with increased increment === {ord |> toString |> String.concat "\n"}"""
                     true
                     false
+                *)
 
                 ord // increased increment order
                 |> solveOrder false logger
@@ -2594,11 +2596,13 @@ module Order =
                     )
                     ord // increased increment order
                 | Ok ord ->
+                    (*
                     let s = ord |> toString |> String.concat "\n"
                     ConsoleWriter.writeInfoMessage
                         $"solved order with increased increment and values:\n {s}"
                         true
                         false
+                    *)
 
                     ord // calculated order
         |> Ok

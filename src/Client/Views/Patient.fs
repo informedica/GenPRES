@@ -397,7 +397,7 @@ module Patient =
             |> Array.map (fun el ->
                 JSX.jsx
                     $"""
-                <Grid item xs={12} md={3} lg={2}>{el}</Grid>
+                <Grid item xs={6} md={3} lg={2}>{el}</Grid>
                 """
             )
 
@@ -428,7 +428,7 @@ module Patient =
                 </AccordionSummary>
                 <AccordionDetails>
                     <Grid container spacing={2}>
-                    {React.fragment (items |> unbox)}
+                        {React.fragment (items |> unbox)}
                     </Grid>
                     <Box sx={ {| mt=2 |} }>
                         <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
