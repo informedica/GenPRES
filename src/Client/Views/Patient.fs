@@ -319,7 +319,7 @@ module Patient =
 
             <Checkbox
                 checked={props.patient |> Option.map (fun p -> p.CVL) |> Option.defaultValue false}
-                onChange={fun _ -> ToggleCVL |> dispatch} >
+                onChange={fun _ -> handleChange (); ToggleCVL |> dispatch} >
             </Checkbox>
             """
 
@@ -330,42 +330,42 @@ module Patient =
                 |> createSelect
                     (Terms.``Patient Age years`` |> getTerm "jaren")
                     (pat |> Option.bind Patient.getAgeYears)
-                    (UpdateYear >> dispatch)
+                    (fun s -> handleChange (); s |> UpdateYear |> dispatch)
 
                 [|1..11|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
                     (Terms.``Patient Age months`` |> getTerm "maanden")
                     (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
-                    (UpdateMonth >> dispatch)
+                    (fun s -> handleChange (); s |> UpdateMonth |> dispatch)
 
                 [|1..3|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
                     (Terms.``Patient Age weeks`` |> getTerm "weken")
                     (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
-                    (UpdateWeek >> dispatch)
+                    (fun s -> handleChange (); s |> UpdateWeek |> dispatch)
 
                 [|1..6|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
                     (Terms.``Patient Age days`` |> getTerm "dagen")
                     (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
-                    (UpdateDay >> dispatch)
+                    (fun s -> handleChange (); s |> UpdateDay |> dispatch)
 
                 wghts
                 |> Array.map (fun k -> $"{k}", $"{(k |> float)/1000.}")
                 |> createSelect
                     (Terms.``Patient Weight`` |> getTerm "gewicht" |> fun s -> $"{s} (kg)")
                     (pat |> Option.bind (Patient.getWeight >> weightToNone))
-                    (UpdateWeight >> dispatch)
+                    (fun s -> handleChange (); s |> UpdateWeight |> dispatch)
 
                 [|40..220|]
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
                     (Terms.``Patient Length`` |> getTerm "lengte" |> fun s -> $"{s} (cm)")
                     (pat |> Option.bind (Patient.getHeight >> heightToNone))
-                    (UpdateHeight >> dispatch)
+                    (fun s -> handleChange (); s |> UpdateHeight |> dispatch)
 
                 if pat |> Option.isSome &&
                    pat |> Option.map (fun p -> p |> Shared.Patient.getAgeInYears |> Option.defaultValue 0. < 1)
@@ -375,14 +375,14 @@ module Patient =
                     |> createSelect
                         (Terms.``Patient Age weeks`` |> getTerm "weken" |> fun s -> $"GA {s}")
                         (pat |> Option.bind Shared.Patient.getGAWeeks |> zeroToNone)
-                        (UpdateGAWeek >> dispatch)
+                        (fun s -> handleChange (); s |> UpdateGAWeek |> dispatch)
 
                     [|1..6|]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createSelect
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> fun s -> $"GA {s}")
                         (pat |> Option.bind Shared.Patient.getGADays |> zeroToNone)
-                        (UpdateGADay >> dispatch)
+                        (fun s -> handleChange (); s |> UpdateGADay |> dispatch)
 
                 JSX.jsx
                     $"""
