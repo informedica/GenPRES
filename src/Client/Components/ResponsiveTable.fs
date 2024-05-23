@@ -36,8 +36,8 @@ module ResponsiveTable =
                             else
                                 let b, s =
                                     match cell.value with
-                                    | _ when cell.value.Contains("**") -> "", cell.value.Replace("**", "")
-                                    | _ when cell.value.Contains("*") -> "", cell.value.Replace("*", "")
+                                    | _ when cell.value.Contains("**") -> Mui.Colors.Blue.``900``, cell.value.Replace("**", "")
+                                    | _ when cell.value.Contains("*") -> Mui.Colors.Blue.``900``, cell.value.Replace("*", "")
                                     | _ -> Mui.Colors.Grey.``700``, cell.value
 
                                 let h =
@@ -56,7 +56,7 @@ module ResponsiveTable =
 
                                 <React.Fragment>                                    
                                         <Stack direction="row" spacing={3} >
-                                            <Typography minHeight={40} minWidth={80} variant="body2" color={Mui.Colors.Blue.``900``} >
+                                            <Typography minHeight={40} minWidth={80} variant="body2" color={Mui.Colors.Grey.``900``} >
                                                 {h}
                                             </Typography>
                                             <Typography minHeight={40} color={b} variant="body2" >
@@ -85,8 +85,7 @@ module ResponsiveTable =
                             <CardActions>
                                 {
                                     match row.actions with
-                                    | None -> JSX.jsx "<></>" |> toReact
-                                    | Some acts -> acts
+                                    | _ -> JSX.jsx "<></>" |> toReact
                                 }
                             </CardActions>
                         </Card>
