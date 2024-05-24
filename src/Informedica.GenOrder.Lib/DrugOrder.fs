@@ -68,12 +68,12 @@ module DrugOrder =
 
             let limToVu = Option.map Limit.getValueUnit
 
-            let times0_95 = (95N/100N) |> ValueUnit.singleWithUnit Units.Count.times
+            let times0_90 = (90N/100N) |> ValueUnit.singleWithUnit Units.Count.times
             let times1_10 = (11N/10N) |> ValueUnit.singleWithUnit Units.Count.times
 
             let min =
                 match minMax.Min, norm with
-                | None, Some norm -> norm * times0_95 |> Some
+                | None, Some norm -> norm * times0_90 |> Some
                 | _  -> minMax.Min |> limToVu
                 |> vuToDto
 

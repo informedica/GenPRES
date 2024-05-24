@@ -82,12 +82,18 @@ module OrderVariable =
                 >> Option.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3)
                 >> Option.defaultValue ""
 
+            let times0_90 = (90N/100N) |> ValueUnit.singleWithUnit Units.Count.times
+            let times1_10 = (11N/10N) |> ValueUnit.singleWithUnit Units.Count.times
+
             match cs.Min |> Option.map Minimum.toValueUnit,
                   cs.Max |> Option.map Maximum.toValueUnit with
             | Some min, Some max ->
                 if min |> ValueUnit.eqs max then $"{min |> toStr}"
                 else
-                    $"{min |> toVal} - {max |> toStr}"
+                    if min / times0_90 = (max / times1_10) then
+                        $"{min / times0_90 |> toStr}"
+                    else
+                        $"{min |> toVal} - {max |> toStr}"
             | _ -> ""
 
 
