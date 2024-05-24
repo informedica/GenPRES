@@ -2938,7 +2938,17 @@ module Order =
                                 [|
                                     // the frequency
                                     if ord.Prescription |> Prescription.hasFrequency then
-                                       if i = 0 then freq else ""
+                                       if i = 0 then
+                                           freq
+                                           ord.Orderable |> Orderable.Print.doseQuantityTo printMd -1
+                                       else
+                                            ""
+                                            ""
+                                    else
+                                        if i = 0 then
+                                            ord.Orderable |> Orderable.Print.doseQuantityTo printMd -1
+                                        else
+                                            ""
 
                                     let itmQty = itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
                                     if itmQty |> String.notEmpty then
