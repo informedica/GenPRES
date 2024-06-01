@@ -525,6 +525,7 @@ module DoseRule =
                                         )
                                 }
                         )
+                RenalRule = None
             }
             |> Some
         with
@@ -666,7 +667,7 @@ cannot map {r}
                             Products =
                                 [|
                                     rs
-                                    |> Array.map (fun p -> p.Substance)
+                                    |> Array.map (fun r -> r.Substance)
                                     |> Array.filter String.notEmpty
                                     |> Array.distinct
                                     |> Product.create gen rte
@@ -847,7 +848,7 @@ cannot map {r}
                         }
                     )
                     |> Array.distinct
-                    // check if there is only one dose limit and its
+                    // check if there is only one dose limit, and it's
                     // a shape dose limit, then only use that shape
                     // dose limit
                     |> function

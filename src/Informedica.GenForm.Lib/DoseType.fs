@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module DoseType =
 
 
+    open Informedica.GenUnits.Lib.Units
     open Informedica.Utils.Lib.BCL
 
 
@@ -75,3 +76,11 @@ module DoseType =
 
         | NoDoseType -> ""
 
+
+    let setDescription descr = function
+        | OnceTimed _ -> OnceTimed descr
+        | Once _ -> Once descr
+        | Timed _ -> Timed descr
+        | Discontinuous _ -> Discontinuous descr
+        | Continuous _ -> Continuous descr
+        | NoDoseType -> NoDoseType

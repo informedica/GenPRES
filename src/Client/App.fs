@@ -40,6 +40,8 @@ module private Elmish =
             Context : Global.Context
             ShowDisclaimer: bool
             IsDemo : bool
+            SnackbarMsg : string
+            SnackbarOpen : bool
         }
 
     type Msg =
@@ -66,6 +68,7 @@ module private Elmish =
         | LoadLocalization of AsyncOperationStatus<Result<string [][], string>>
         | UpdateLanguage of Localization.Locales
         | UpdateHospital of string
+        | CloseSnackbar
 
 
     let serverApi =
@@ -152,7 +155,9 @@ module private Elmish =
                             height
                             gaWeeks 
                             gaDays
-                            cvl
+                            UnknownGender
+                            [ CVL ]
+                            None
                             dep
 
                     Logging.log "parsed: " patient
@@ -180,8 +185,8 @@ module private Elmish =
 
                     let cvl =
                         match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> true
-                        | _ -> false
+                        | Some s when s = "y" -> [ CVL ]
+                        | _ -> []
 
                     let dep =  Map.tryFind "dp"paramsMap 
 
@@ -197,7 +202,9 @@ module private Elmish =
                             height
                             gaWeeks 
                             gaDays
+                            UnknownGender
                             cvl
+                            None
                             dep
 
                     Logging.log "parsed: " patient
@@ -288,6 +295,8 @@ module private Elmish =
                     Hospital = "UMCU"
                 }
             IsDemo = false
+            SnackbarMsg = ""
+            SnackbarOpen = false
         }
 
     let init () : Model * Cmd<Msg> =
@@ -310,6 +319,11 @@ module private Elmish =
 
     let update (msg: Msg) (state: Model) =
         match msg with
+        | CloseSnackbar ->
+            { state with
+                SnackbarMsg = ""
+                SnackbarOpen = false
+            }, Cmd.none
         | AcceptDisclaimer ->
             { state with
                 ShowDisclaimer = false
@@ -329,7 +343,9 @@ module private Elmish =
             }, Cmd.none
 
         | UpdatePatient p ->
-            { state with Patient = p },
+            { state with 
+                Patient = p
+            },
             Cmd.batch [
                 Cmd.ofMsg (LoadScenarios Started)
                 Cmd.ofMsg (LoadFormulary Started)
@@ -471,10 +487,14 @@ module private Elmish =
                         HeightInCm =
                             state.Patient 
                             |> Option.bind Patient.getHeight
-                        CVL =
+                        AccessList =
                             match state.Patient with
-                            | Some pat -> pat.CVL
-                            | None -> false
+                            | Some pat -> pat.Access
+                            | None -> []
+                        RenalFunction =
+                            match state.Patient with
+                            | Some pat -> pat.RenalFunction
+                            | None -> None
                         Department = 
                             state.Patient 
                             |> Option.bind (fun p -> p.Department)
@@ -495,9 +515,19 @@ module private Elmish =
             }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
+            let useRenalRule =
+                result.Scenarios
+                |> Array.exists (fun sc ->
+                    sc.UseRenalRule
+                )
             { state with
                 Scenarios = Resolved result
                 IsDemo = result.DemoVersion
+                SnackbarMsg = 
+                    if useRenalRule |> not then ""
+                    else
+                        "Dosering aangepast aan nierfunctie"
+                SnackbarOpen = useRenalRule
             },
             Cmd.none
 
@@ -787,6 +817,8 @@ let View () =
     let state, dispatch = React.useElmish (init, update, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
+    let handleClose = fun _ -> CloseSnackbar |> dispatch
+
     let bm =
         calculatInterventions
             EmergencyTreatment.calculate
@@ -815,6 +847,9 @@ let View () =
     import CssBaseline from '@mui/material/CssBaseline';
     import React from "react";
     import Box from '@mui/material/Box';
+    import Snackbar from '@mui/material/Snackbar';
+    import IconButton from '@mui/material/IconButton';
+    import CloseIcon from '@mui/icons-material/Close';
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>
@@ -854,6 +889,14 @@ let View () =
                     |> toReact |> Components.Context.Context state.Context
                 }
             </Box>
+            <div>
+                <Snackbar
+                    open={ state.SnackbarOpen }
+                    autoHideDuration={3000}
+                    message={ state.SnackbarMsg }
+                    onClose={handleClose}
+                />                
+            </div>
         </ThemeProvider>
     </React.StrictMode>
     """

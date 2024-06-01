@@ -348,6 +348,10 @@ module Types =
                 Order : Order option
                 /// Whether or not to us adjust
                 UseAdjust : bool
+                /// Whether or not to use a renal rule
+                UseRenalRule : bool
+                /// Renal rule name
+                RenalRule : string option
             }
 
 

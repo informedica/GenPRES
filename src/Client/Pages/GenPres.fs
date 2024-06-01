@@ -202,7 +202,7 @@ module GenPres =
                     |})
                 }
             </React.Fragment>
-            <Container sx={ {| height="87%"; mt= 4 |} } >
+            <Container sx={ {| height="87%"; mt= 3 |} } >
                 <Stack sx={ {| height="100%" |} }>
                     <Box sx={ {| flexBasis=1 |} } >
                         {
@@ -213,7 +213,7 @@ module GenPres =
                             |})
                         }
                     </Box>
-                    <Box sx={ {| maxHeight = "80%"; mt=4; overflowY="auto" |} }>
+                    <Box sx={ {| mt=4; overflowY="auto" |} }>
                         {
                             match props.page with
                             | Global.Pages.LifeSupport ->

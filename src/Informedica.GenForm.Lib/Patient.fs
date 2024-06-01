@@ -150,7 +150,7 @@ module PatientCategory =
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
             fun (p: PatientCategory) ->
-                VenousAccess.check p.Location filter.Patient.VenousAccess
+                VenousAccess.check p.Location filter.Patient.Locations
         |])
         ||> Array.fold(fun acc pred ->
             acc
@@ -325,7 +325,8 @@ module Patient =
             Height = None
             GestAge = None
             PMAge = None
-            VenousAccess = [ ]
+            Locations = [ ]
+            RenalFunction = None
         }
 
 

@@ -438,6 +438,43 @@ module Patient =
 
 
 
+    module RenalFunction =
+
+        let options =
+            [|
+                "> 50 mL/min/1,73 m2"
+                "30 - 50 mL/min/1,73 m2"
+                "10 - 30 mL/min/1,73 m2"
+                "< 10 mL/min/1,73 m2"
+                "Intermitterende Hemodialyse"
+                "Continue Hemodialyse"
+                "Peritioneaal dialyse"
+            |]
+
+
+        let renalToOption = function
+            | EGFR(min, max) ->
+                match min, max with
+                | _, Some max when max <= 10 -> options[3]
+                | _, Some max when max <= 30 -> options[2]
+                | _, Some max when max <= 50 -> options[1]
+                | _ -> options[0]
+            | IntermittendHemoDialysis -> options[4]
+            | ContinuousHemoDialysis -> options[5]
+            | PeritionealDialysis -> options[6]
+
+
+        let optionToRenal s =
+            match s with
+            | s when s = options[1] -> EGFR(Some 30, Some 50)
+            | s when s = options[2] -> EGFR(Some 10, Some 30)
+            | s when s = options[3] -> EGFR(None, Some 10)
+            | s when s = options[4] -> IntermittendHemoDialysis
+            | s when s = options[5] -> ContinuousHemoDialysis
+            | s when s = options[6] -> PeritionealDialysis
+            | _ -> EGFR(Some 50, None)
+
+
     let apply f (p: Patient) = f p
 
 
@@ -471,7 +508,11 @@ module Patient =
         p.GestationalAge |> Option.map (fun ga -> ga.Days)
 
 
-    let create years months weeks days weight height gw gd cvl dep : Patient option =
+    let getRenalFunction (p : Patient) =
+        p.RenalFunction |> Option.map RenalFunction.renalToOption
+
+
+    let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
         if [
             years
             months
@@ -542,7 +583,9 @@ module Patient =
                 GestationalAge = ga
                 Weight = { Estimated = ew; Measured = weight }
                 Height = { Estimated = eh; Measured = height }
-                CVL = cvl
+                Gender = gend
+                Access = cvl
+                RenalFunction = gfr
                 Department = dep
             }
             |> Some
@@ -716,6 +759,12 @@ module Patient =
                 pat.GestationalAge
                 |> Option.map (Age.gestAgeToString terms lang)
                 |> Option.orElse ("" |> Some)
+
+            if pat.RenalFunction |> Option.isSome then
+                Some "Nierfunctie" |> italic
+                pat.RenalFunction 
+                |> Option.map RenalFunction.renalToOption
+                |> bold
 
         ]
         |> List.choose id
@@ -1541,7 +1590,7 @@ module ScenarioResult =
         |> Seq.toArray
 
 
-    let createScenario shp dst prs prep adm o adj =
+    let createScenario shp dst prs prep adm o adj rr rn =
         {
             Shape = shp
             DoseType = dst
@@ -1550,6 +1599,8 @@ module ScenarioResult =
             Administration = adm |> Array.map (Array.map parseTextItem)
             Order = o
             UseAdjust = adj
+            UseRenalRule = rr
+            RenalRule = rn
         }
 
 
@@ -1569,8 +1620,9 @@ module ScenarioResult =
             GestAgeInDays = None
             WeightInKg = None
             HeightInCm = None
-            Gender = None
-            CVL = false
+            Gender = UnknownGender
+            AccessList = []
+            RenalFunction = None
             Department = None
             DemoVersion = true
         }

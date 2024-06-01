@@ -284,13 +284,14 @@ module Prescribe =
         let displayScenario med (sc : Types.Scenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
-                let med =
-                    med |> Option.defaultValue ""
-                    |> fun s ->
-                        let dt = sc.DoseType |> ScenarioResult.doseTypeToDescription
-                        if s.Contains(sc.Shape) then $"{s} {dt}"
-                        else
-                            $"{s} {sc.Shape} {dt}"
+                let caption =
+                    let renal = 
+                        sc.RenalRule
+                        |> Option.map (fun s ->
+                            $" (doseer aanpassing volgens {s})"
+                        )
+                        |> Option.defaultValue ""
+                    $"{sc.Shape}{renal}"
 
                 let ord = sc.Order
 
@@ -369,7 +370,7 @@ module Prescribe =
                         $"""
                     <React.Fragment>
                         <Typography variant="h6" >
-                            {med}
+                            {caption}
                         </Typography>
                         <List sx={ {| width="100%"; maxWidth=1200; bgcolor=Mui.Colors.Grey.``50`` |} }>
                             {

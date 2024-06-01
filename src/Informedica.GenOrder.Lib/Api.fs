@@ -297,7 +297,8 @@ module Api =
                         Height = Some h
                         Diagnoses = [||]
                         Gender = sc.Patient.Gender
-                        VenousAccess = sc.Patient.VenousAccess
+                        Locations = sc.Patient.Locations
+                        RenalFunction = sc.Patient.RenalFunction
                     }
                 }
 
@@ -371,6 +372,8 @@ module Api =
                                                 Administration = adm |> Array.map (Array.map replace)
                                                 Order = Some ord
                                                 UseAdjust = useAdjust
+                                                UseRenalRule = pr.RenalRules |> Array.isEmpty |> not
+                                                RenalRule = pr.DoseRule.RenalRule
                                             }
                                             |> Some
 

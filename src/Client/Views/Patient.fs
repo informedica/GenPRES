@@ -5,6 +5,7 @@ open Fable.Core
 open Fable.React
 open Feliz
 open Browser.Types
+open Fable.Core.JsInterop
 
 
 module Patient =
@@ -30,7 +31,11 @@ module Patient =
             | UpdateHeight of string option
             | UpdateGAWeek of string option
             | UpdateGADay of string option
+            | UpdateGender of string
+            | UpdateRenal of string option
             | ToggleCVL
+            | TogglePVL
+            | ToggleET
 
 
         let tryParse (s : string) = match Int32.TryParse(s) with | false, _ -> None | true, v -> v |> Some
@@ -44,7 +49,7 @@ module Patient =
             | None ->
                 Patient.create
                     (s |> Option.bind tryParse)
-                    None None None None None None None false None
+                    None None None None None None None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (s |> Option.bind tryParse)
@@ -55,7 +60,9 @@ module Patient =
                     None
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
-                    (p.CVL)
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -65,7 +72,7 @@ module Patient =
                 Patient.create
                     None
                     (s |> Option.bind tryParse)
-                    None None None None None None false None
+                    None None None None None None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -76,7 +83,9 @@ module Patient =
                     None
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -86,7 +95,7 @@ module Patient =
                 Patient.create
                     None None
                     (s |> Option.bind tryParse)
-                    None None None None None false None
+                    None None None None None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -97,7 +106,9 @@ module Patient =
                     None
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -107,7 +118,7 @@ module Patient =
                 Patient.create
                     None None None
                     (s |> Option.bind tryParse)
-                    None None None None false None
+                    None None None None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -118,7 +129,9 @@ module Patient =
                     None
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -128,7 +141,7 @@ module Patient =
                 Patient.create
                     None None None None
                     (s |> Option.bind tryParse |> Option.map (fun v -> (v |> float) / 1000.))
-                    None None None false None
+                    None None None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -139,7 +152,9 @@ module Patient =
                     (p |> Patient.getHeight)
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -149,7 +164,7 @@ module Patient =
                 Patient.create
                     None None None None None
                     (s |> Option.bind tryParse |> Option.map float)
-                    None None false None
+                    None None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -160,7 +175,9 @@ module Patient =
                     (s |> Option.bind tryParse |> Option.map float)
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -170,7 +187,7 @@ module Patient =
                 Patient.create
                     None None None None None None
                     (s |> Option.bind tryParse |> Option.map int)
-                    None false None
+                    None UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -180,7 +197,9 @@ module Patient =
                     None None
                     (s |> Option.bind tryParse |> Option.map int)
                     (p |> Patient.getGADays)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
@@ -190,7 +209,7 @@ module Patient =
                 Patient.create
                     None None None None None None None
                     (s |> Option.bind tryParse |> Option.map int)
-                    false None
+                    UnknownGender [] None None
             | Some p ->
                 Patient.create
                     (p |> Patient.getAgeYears)
@@ -200,16 +219,57 @@ module Patient =
                     None None
                     (p |> Patient.getGAWeeks)
                     (s |> Option.bind tryParse |> Option.map int)
-                    p.CVL
+                    p.Gender
+                    p.Access
+                    p.RenalFunction
                     p.Department
 
 
-        let toggleCVL (p: Patient option) : Patient option =
-            printfn "toggleCVL was called"
+        let toggle item (p: Patient option) : Patient option =
             p |> Option.map (fun p ->
-                { p with CVL = not p.CVL}
+                { p with 
+                    Access = 
+                        if p.Access |> List.exists((=) item) then
+                            p.Access 
+                            |> List.filter ((<>) item)
+                        else
+                            p.Access
+                            |> List.append [ item ]
+                }
             )
 
+
+        let toggleCVL = toggle CVL
+
+
+        let togglePVL = toggle PVL
+
+
+        let toggleET = toggle EnteralTube
+
+
+        let setRenal (s: string option) (p: Patient option) : Patient option =
+            let set rf (p : Patient option) =
+                match p with
+                | None -> p
+                | Some p ->
+                    { p with 
+                        RenalFunction = rf
+                    }
+                    |> Some
+
+            match s with
+            | None -> 
+                p
+                |> set None
+            | Some s -> 
+                let rf = 
+                    s 
+                    |> Patient.RenalFunction.optionToRenal
+                    |> Some
+                p
+                |> set rf
+        
 
         let update dispatch msg (state : State) : State * Cmd<Msg> =
             match msg with
@@ -222,7 +282,22 @@ module Patient =
             | UpdateHeight s -> state |> setHeight s, Cmd.none
             | UpdateGAWeek s -> state |> setGAWeek s, Cmd.none
             | UpdateGADay s  -> state |> setGADay s, Cmd.none
-            | ToggleCVL     -> state |> toggleCVL, Cmd.none
+            | UpdateRenal s  -> state |> setRenal s, Cmd.none
+            | UpdateGender s -> 
+                printfn $"update gender with:{s}"
+                state
+                |> Option.map (fun p ->
+                    { p with
+                        Gender = 
+                            match s with
+                            | "male" -> Male
+                            | "female" -> Female
+                            | _ -> UnknownGender
+                    }
+                ), Cmd.none
+            | ToggleCVL      -> state |> toggleCVL, Cmd.none
+            | TogglePVL      -> state |> togglePVL, Cmd.none
+            | ToggleET       -> state |> toggleET, Cmd.none
             |> fun (state, cmd) ->
                 state |> dispatch
                 state, cmd
@@ -313,17 +388,65 @@ module Patient =
             | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
 
-        let checkBox =
+        let checkBox item ev =
             JSX.jsx $"""
             import Checkbox from '@mui/material/Checkbox';
 
             <Checkbox
-                checked={props.patient |> Option.map (fun p -> p.CVL) |> Option.defaultValue false}
-                onChange={fun _ -> handleChange (); ToggleCVL |> dispatch} >
+                checked={props.patient |> Option.map (fun p -> p.Access |> List.exists ((=) item)) |> Option.defaultValue false }
+                onChange={fun _ -> handleChange (); ev |> dispatch} >
             </Checkbox>
             """
 
-        let items =
+        let gender =
+            let value =
+                pat
+                |> Option.map (fun p ->
+                    p.Gender
+                    |> function
+                    | Male -> "male"
+                    | Female -> "female"
+                    | _ -> "other"
+                )
+                |> Option.defaultValue ""
+
+            let radio = 
+                JSX.jsx $"""
+                import Radio from '@mui/material/Radio';
+                <Radio />
+                """
+
+            let handleChange = 
+                fun ev -> 
+                    handleChange ()
+
+                    ev?target?value 
+                    |> string
+                    |> UpdateGender |> dispatch
+
+            JSX.jsx $"""
+            import RadioGroup from '@mui/material/RadioGroup';
+            import FormControlLabel from '@mui/material/FormControlLabel';
+            import FormControl from '@mui/material/FormControl';
+            import FormLabel from '@mui/material/FormLabel';
+
+            <FormControl>
+                <FormLabel id="demo-row-radio-buttons-group-label">Geslacht</FormLabel>
+                <RadioGroup
+                    row
+                    aria-labelledby="demo-row-radio-buttons-group-label"
+                    name="row-radio-buttons-group"
+                    value={ value }
+                    onChange={ handleChange }
+                >
+                    <FormControlLabel value="male" control={ radio } label="Man" />
+                    <FormControlLabel value="female" control={ radio } label="Vrouw" />
+                    <FormControlLabel value="other" control={ radio } label="Onbekend" />
+                </RadioGroup>
+            </FormControl>
+            """
+
+        let items1 =
             [|
                 [|0..19|]
                 |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
@@ -383,21 +506,57 @@ module Patient =
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> fun s -> $"GA {s}")
                         (pat |> Option.bind Shared.Patient.getGADays |> zeroToNone)
                         (fun s -> handleChange (); s |> UpdateGADay |> dispatch)
-
-                JSX.jsx
-                    $"""
-                import Checkbox from '@mui/material/Checkbox';
-
-                <FormControlLabel
-                    control={ checkBox }
-                    label="CVL" />
-                """
-
             |]
             |> Array.map (fun el ->
                 JSX.jsx
                     $"""
                 <Grid item xs={6} md={3} lg={2}>{el}</Grid>
+                """
+            )
+
+        let items2 =
+            [|
+                gender
+
+                JSX.jsx
+                    $"""
+                import Checkbox from '@mui/material/Checkbox';
+                import FormGroup from '@mui/material/FormGroup';
+
+                <Box>
+                    <FormLabel component="legend">Toegangen</FormLabel>
+                    <FormGroup row>
+                        <FormControl>
+                            <FormControlLabel
+                                control={ checkBox CVL ToggleCVL }
+                                label="CVL" />
+                        </FormControl>
+                        <FormControl>
+                            <FormControlLabel
+                                control={ checkBox PVL TogglePVL }
+                                label="PVL" />
+                        </FormControl>
+                        <FormControl>
+                            <FormControlLabel
+                                control={ checkBox EnteralTube ToggleET }
+                                label="Sonde" />
+                        </FormControl>
+                    </FormGroup>
+                </Box>
+                """
+
+                Patient.RenalFunction.options
+                |> Array.map (fun k -> $"{k}", $"{k}")
+                |> createSelect
+                    "Nierfunctie"
+                    (pat |> Option.bind (Patient.getRenalFunction))
+                    (fun s -> handleChange (); s |> UpdateRenal |> dispatch)
+
+            |]
+            |> Array.map (fun el ->
+                JSX.jsx
+                    $"""
+                <Grid item xs={6} md={4} lg={4}>{el}</Grid>
                 """
             )
 
@@ -426,9 +585,12 @@ module Patient =
                 >
                 { pat |> show lang props.localizationTerms }
                 </AccordionSummary>
-                <AccordionDetails>
+                <AccordionDetails >
                     <Grid container spacing={2}>
-                        {React.fragment (items |> unbox)}
+                        {React.fragment (items1 |> unbox)}
+                    </Grid>
+                    <Grid container spacing={2}sx={ {| mt=2 |} } >
+                        {React.fragment (items2 |> unbox)}
                     </Grid>
                     <Box sx={ {| mt=2 |} }>
                         <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >

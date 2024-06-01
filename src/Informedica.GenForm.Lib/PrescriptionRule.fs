@@ -19,19 +19,20 @@ module PrescriptionRule =
         DoseRule.get ()
         |> DoseRule.filter filter
         |> Array.map (fun dr ->
-            let dr = dr |> DoseRule.reconstitute pat.Department pat.VenousAccess
+            let dr = dr |> DoseRule.reconstitute pat.Department pat.Locations
+            let filter =
+                { filter with
+                    Generic = dr.Generic |> Some
+                    Shape = dr.Shape |> Some
+                    Route = dr.Route |> Some
+                    DoseType = dr.DoseType |> Some
+                }
             {
                 Patient = pat
                 DoseRule = dr
                 SolutionRules =
                     SolutionRule.get ()
-                    |> SolutionRule.filter
-                        { filter with
-                            Generic = dr.Generic |> Some
-                            Shape = dr.Shape |> Some
-                            Route = dr.Route |> Some
-                            DoseType = dr.DoseType |> Some
-                        }
+                    |> SolutionRule.filter filter
                     |> Array.map (fun sr ->
                         { sr with
                             Products =
@@ -44,6 +45,9 @@ module PrescriptionRule =
                                 )
                         }
                     )
+                RenalRules =
+                    RenalRule.get ()
+                    |> RenalRule.filter filter
             }
         )
         |> Array.filter (fun pr ->
@@ -175,6 +179,19 @@ module PrescriptionRule =
                                     |> Array.filter DoseRule.DoseLimit.isShapeLimit)
                     }
                 }
+        )
+        // Recalculate the dose rule according to a renal rules
+        |> Array.collect (fun pr ->
+            if pr.RenalRules |> Array.isEmpty then [| pr |]
+            else
+                pr.RenalRules
+                |> Array.map (fun rr ->
+                    { pr with
+                        DoseRule =
+                            pr.DoseRule
+                            |> RenalRule.adjustDoseRule rr
+                    }
+                )
         )
 
 

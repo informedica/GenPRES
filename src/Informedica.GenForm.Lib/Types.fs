@@ -37,7 +37,7 @@ module Types =
 
 
     /// The types for VenousAccess.
-    type VenousAccess =
+    type Locations =
         /// Peripheral Venous Access
         | PVL
         /// Central Venous Access
@@ -48,6 +48,13 @@ module Types =
 
     /// Possible Genders.
     type Gender = Male | Female | AnyGender
+
+
+    type RenalFunction =
+        | EGFR of int option * int option
+        | IntermittentHemodialysis
+        | ContinuousHemodialysis
+        | PeritonealDialysis
 
 
     /// Possible Dose Types.
@@ -85,7 +92,7 @@ module Types =
             ATC : string
             /// The ATC main group of the Product
             MainGroup : string
-            /// The ATC sub group of the Product
+            /// The ATC subgroup of the Product
             SubGroup : string
             /// The Generic name of the Product
             Generic : string
@@ -170,6 +177,8 @@ module Types =
             /// A MinMax Rate Adjust for the DoseLimit
             RateAdjust : MinMax
         }
+
+
     /// A PatientCategory to which a DoseRule applies.
     type PatientCategory =
         {
@@ -180,7 +189,7 @@ module Types =
             BSA : MinMax
             GestAge : MinMax
             PMAge : MinMax
-            Location : VenousAccess
+            Location : Locations
         }
 
 
@@ -204,7 +213,8 @@ module Types =
             /// The Post Menstrual Age in days of the Patient
             PMAge : ValueUnit option
             /// The Venous Access of the Patient
-            VenousAccess : VenousAccess list
+            Locations : Locations list
+            RenalFunction : RenalFunction option
         }
         static member Gender_ =
             (fun (p : Patient) -> p.Gender), (fun g (p : Patient) -> { p with Gender = g})
@@ -264,6 +274,7 @@ module Types =
             DoseLimits : DoseLimit array
             /// The list of associated Products of the DoseRule.
             Products : Product array
+            RenalRule : string option
         }
 
 
@@ -296,7 +307,7 @@ module Types =
             /// The Department of the SolutionRule
             Department : string option
             /// The Venous Access Location of the SolutionRule
-            Location : VenousAccess
+            Location : Locations
             /// The MinMax Age range of the SolutionRule
             Age : MinMax
             /// The MinMax Weight range of the SolutionRule
@@ -312,10 +323,59 @@ module Types =
             /// A MinMax Volume range to use
             Volume : MinMax
             DripRate : MinMax
-            /// The percentage to be use as a DoseQuantity
+            /// The percentage to be used as a DoseQuantity
             DosePerc : MinMax
             /// The SolutionLimits for the SolutionRule
             SolutionLimits : SolutionLimit []
+        }
+
+
+
+    /// A DoseLimit for a Shape or Substance.
+    type RenalLimit =
+        {
+            DoseLimitTarget : LimitTarget
+            DoseReduction : DoseReduction
+            Quantity : MinMax
+            /// An optional Dose Quantity Adjust for the DoseLimit.
+            /// Note: if this is specified a min and max QuantityAdjust
+            /// will be assumed to be 10% minus and plus the normal value
+            NormQuantityAdjust : ValueUnit option
+            /// A MinMax Quantity Adjust for the DoseLimit
+            QuantityAdjust : MinMax
+            /// An optional Dose Per Time for the DoseLimit
+            PerTime : MinMax
+            /// An optional Per Time Adjust for the DoseLimit
+            /// Note: if this is specified a min and max NormPerTimeAdjust
+            /// will be assumed to be 10% minus and plus the normal value
+            NormPerTimeAdjust : ValueUnit option
+            /// A MinMax Per Time Adjust for the DoseLimit
+            PerTimeAdjust : MinMax
+            /// A MinMax Rate for the DoseLimit
+            Rate : MinMax
+            /// A MinMax Rate Adjust for the DoseLimit
+            RateAdjust : MinMax
+        }
+    and DoseReduction = | Absolute | Relative
+
+
+    type RenalRule =
+        {
+            /// The Generic of the RenalRule
+            Generic : string
+            /// The Route of administration of the RenalRule
+            Route : string
+            /// The source of the RenalRule
+            Source : string
+            RenalFunction : RenalFunction
+            /// The DoseType of the RenalRule
+            DoseType : DoseType
+            /// The possible Frequencies of the RenalRule
+            Frequencies : ValueUnit option
+            /// The MinMax Interval Time of the RenalRule
+            IntervalTime : MinMax
+            /// The list of associated RenalLimits of the RenalRule.
+            RenalLimits : RenalLimit array
         }
 
 
@@ -344,6 +404,7 @@ module Types =
             Patient : Patient
             DoseRule : DoseRule
             SolutionRules : SolutionRule []
+            RenalRules : RenalRule []
         }
 
 

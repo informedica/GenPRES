@@ -63,7 +63,9 @@ module Types =
             GestationalAge: GestAge option
             Weight: Weight
             Height: Height
-            CVL : bool
+            Gender : Gender
+            Access : Access list
+            RenalFunction : RenalFunction option
             Department : string option
         }
     /// Weight in kg
@@ -78,6 +80,13 @@ module Types =
             Estimated: float option
             Measured: float option
         }
+    and Gender = Male | Female | UnknownGender
+    and Access = | CVL | PVL | EnteralTube
+    and RenalFunction =
+        | EGFR of int option * int option
+        | IntermittendHemoDialysis
+        | ContinuousHemoDialysis
+        | PeritionealDialysis
 
 
     type ValueUnit =
@@ -327,6 +336,8 @@ module Types =
             Administration : TextItem[][][]
             Order : Order option
             UseAdjust : bool
+            UseRenalRule : bool
+            RenalRule : string option
         }
 
 
@@ -346,8 +357,9 @@ module Types =
             GestAgeInDays : int option
             WeightInKg: float option
             HeightInCm: float option
-            Gender : string option
-            CVL : bool
+            Gender : Gender
+            AccessList : Access list
+            RenalFunction : RenalFunction option
             Department : string option
             DemoVersion : bool
         }

@@ -27,6 +27,7 @@ module DoseLimit = DoseRule.DoseLimit
 open Informedica.ZIndex.Lib
 
 
+
 let calcTotal () =
     Patient.patient
     |> PrescriptionRule.get

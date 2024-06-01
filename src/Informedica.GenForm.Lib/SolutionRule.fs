@@ -7,6 +7,9 @@ module SolutionRule =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
+    open Informedica.GenUnits.Lib
+    open Informedica.GenCore.Lib.Ranges
+
 
     module SolutionLimit =
 
@@ -20,10 +23,6 @@ module SolutionRule =
                 Quantities = None
                 Concentration = MinMax.empty
             }
-
-
-    open Informedica.GenUnits.Lib
-    open Informedica.GenCore.Lib.Ranges
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -212,7 +211,7 @@ module SolutionRule =
             fun (sr : SolutionRule) -> filter.Patient.Weight |> Utils.MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
-                | CVL -> filter.Patient.VenousAccess |> List.exists ((=) CVL)
+                | CVL -> filter.Patient.Locations |> List.exists ((=) CVL)
                 | PVL //-> filter.Location = PVL
                 | AnyAccess -> true
         |]

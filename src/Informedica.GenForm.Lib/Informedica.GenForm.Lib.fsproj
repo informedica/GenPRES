@@ -17,6 +17,7 @@
     <Compile Include="DoseRule.fs" />
     <Compile Include="Check.fs" />
     <Compile Include="SolutionRule.fs" />
+    <Compile Include="RenalRule.fs" />
     <Compile Include="PrescriptionRule.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Scripts.fsx" />
@@ -24,6 +25,7 @@
     <None Include="Scripts\Check.fsx" />
     <None Include="Scripts\Update.fsx" />
     <None Include="Scripts\DoseRule.fsx" />
+    <None Include="Scripts\RenalRule.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />

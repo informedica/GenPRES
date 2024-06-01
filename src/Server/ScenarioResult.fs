@@ -8,6 +8,7 @@ open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
 
+open Shared.Patient
 open Shared.Types
 
 
@@ -285,7 +286,7 @@ let get (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
         $"""
 {stage}:
-Patient: {sc.AgeInDays} days, {sc.WeightInKg} kg, {sc.HeightInCm} cm, CVL {sc.CVL}, {sc.GestAgeInDays} days
+Patient: {sc.AgeInDays} days, {sc.WeightInKg} kg, {sc.HeightInCm} cm, CVL {sc.AccessList}, {sc.GestAgeInDays} days, {sc.RenalFunction}
 Department: {sc.Department}
 Indications: {sc.Indications |> Array.length}
 Medications: {sc.Medications |> Array.length}
@@ -323,17 +324,34 @@ Scenarios: {sc.Scenarios |> Array.length}
                 |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
             Gender =
                 match sc.Gender with
-                | Some s when s |> String.equalsCapInsens "man" -> Male
-                | Some s when s |> String.equalsCapInsens "vrouw" -> Female
-                | _ -> AnyGender
-            VenousAccess = if sc.CVL then [VenousAccess.CVL] else []
+                | Male -> Informedica.GenForm.Lib.Types.Male
+                | Female -> Informedica.GenForm.Lib.Types.Female
+                | _ -> Informedica.GenForm.Lib.Types.AnyGender
+            Locations =
+                sc.AccessList
+                // TODO make proper mapping
+                |> List.choose (fun a ->
+                    match a with
+                    | CVL -> Informedica.GenForm.Lib.Types.CVL |> Some
+                    | PVL -> Informedica.GenForm.Lib.Types.PVL |> Some
+                    | _ -> None
+            )
+            RenalFunction =
+                sc.RenalFunction
+                |> Option.map (fun rf ->
+                    match rf with
+                    | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
+                    | IntermittendHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
+                    | ContinuousHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
+                    | PeritionealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
+                )
         }
         |> Patient.calcPMAge
 
     try
         let newSc =
             let r = Api.scenarioResult pat
-            { Api.scenarioResult pat with
+            { r with
                 Indications =
                     if sc.Indication |> Option.isSome then
                         [| sc.Indication |> Option.defaultValue "" |]
@@ -390,6 +408,8 @@ Scenarios: {sc.Scenarios |> Array.length}
                             sc.Administration
                             (sc.Order |> Option.map (Order.Dto.toDto >> mapToOrder))
                             sc.UseAdjust
+                            sc.UseRenalRule
+                            sc.RenalRule
                     )
             }
         ConsoleWriter.writeInfoMessage $"""{msg "finished" sc}""" true true
