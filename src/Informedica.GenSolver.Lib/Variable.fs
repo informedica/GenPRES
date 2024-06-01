@@ -1154,12 +1154,12 @@ module Variable =
                 let count =
                     ValueUnit.getValue >> Array.length
 
-                if vu |> count <= 10 then
+                if vu |> count <= 3 then
                     $"""{vu |> ValueUnit.toDelimitedString prec}"""
                 else
-                    let first3 = vu |> ValueUnit.takeFirst 3
-                    let last3 = vu |> ValueUnit.takeLast 3
-                    $"{first3 |> ValueUnit.toDelimitedString prec} .. {last3 |> ValueUnit.toDelimitedString prec}"
+                    let first1 = vu |> ValueUnit.takeFirst 1
+                    let last1 = vu |> ValueUnit.takeLast 1
+                    $"{first1 |> ValueUnit.toDelimitedString prec} .. {last1 |> ValueUnit.toDelimitedString prec}"
 
 
 

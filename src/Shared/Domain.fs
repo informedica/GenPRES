@@ -751,7 +751,7 @@ module Patient =
 
 
             (Some "BSA:") |> italic
-            pat |> calcBSA |> Option.map (fun x -> $" {x} m2")
+            pat |> calcBSA |> Option.map (fun x -> $"{x} m2") |> bold
 
             if pat |> getAgeInDays |> Option.map (fun ds -> ds < 365.) |> Option.defaultValue false then
                 (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
@@ -761,7 +761,7 @@ module Patient =
                 |> Option.orElse ("" |> Some)
 
             if pat.RenalFunction |> Option.isSome then
-                Some "Nierfunctie" |> italic
+                Some "Nierfunctie:" |> italic
                 pat.RenalFunction 
                 |> Option.map RenalFunction.renalToOption
                 |> bold
