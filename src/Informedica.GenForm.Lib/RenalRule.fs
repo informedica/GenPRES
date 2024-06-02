@@ -170,7 +170,7 @@ module RenalRule =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&
-            r.Route <> ""
+            r.Source <> ""
         )
         |> Array.choose (fun r ->
             createRenalFunction
@@ -320,7 +320,9 @@ module RenalRule =
 
         [|
             fun (rr : RenalRule) -> rr.Generic |> eqs filter.Generic
-            fun (rr : RenalRule) -> filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRoute filter.Route
+            fun (rr : RenalRule) ->
+                rr.Route |> String.isNullOrWhiteSpace ||
+                (filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRoute filter.Route)
             fun (rr : RenalRule) ->
                 rr.DoseType = NoDoseType ||
                 filter.DoseType
@@ -367,9 +369,21 @@ module RenalRule =
                 )
             | Absolute -> vu2
 
+        let adjustMinMax dr mm2 mm1 =
+            match dr with
+            | Absolute ->
+                if mm2 <> MinMax.empty then mm2 else mm1
+            | Relative ->
+                if mm2 = MinMax.empty then mm2
+                else
+                    mm1
+                    |> MinMax.calc (*) mm2
+
         { doseRule with
             RenalRule = Some renalRule.Source
-            Frequencies = renalRule.Frequencies
+            Frequencies =
+                if renalRule.Frequencies |> Option.isSome then renalRule.Frequencies
+                else doseRule.Frequencies
             DoseLimits =
                 doseRule.DoseLimits
                 |> Array.map (fun dl ->
@@ -387,14 +401,25 @@ module RenalRule =
                                         |> Option.map (fun f -> vu / f)
                                     )
                             { dl with
+                                Quantity =
+                                    printfn $"adjusting: {dl.Quantity} with {rl.Quantity}"
+                                    dl.Quantity
+                                    |> adjustMinMax
+                                        rl.DoseReduction
+                                        rl.Quantity
                                 NormQuantityAdjust =
                                     normQtyAdj
                                     |> adjustVU
                                         rl.DoseReduction
                                         rl.NormQuantityAdjust
-                                QuantityAdjust = rl.QuantityAdjust
+                                QuantityAdjust =
+                                    dl.QuantityAdjust
+                                    |> adjustMinMax
+                                        rl.DoseReduction
+                                        rl.QuantityAdjust
                                 NormPerTimeAdjust =
-                                    if rl.NormQuantityAdjust |> Option.isSome then None
+                                    if rl.NormQuantityAdjust |> Option.isSome ||
+                                       rl.QuantityAdjust <> MinMax.empty then None
                                     else
                                         dl.NormPerTimeAdjust
                                         |> adjustVU
