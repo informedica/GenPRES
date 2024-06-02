@@ -20,14 +20,13 @@ module RenalRule =
             match s with
             | _ when s |> String.equalsCapInsens "abs" -> Absolute
             | _ when s |> String.equalsCapInsens "rel" -> Relative
-            | _ ->
-                $"cannot parse {s}"
-                |> failwith
+            | _ -> NoReduction
 
 
         let toString = function
             | Absolute -> "abs"
             | Relative -> "rel"
+            | NoReduction -> ""
 
 
 
@@ -205,6 +204,7 @@ module RenalRule =
         |> Array.map (fun ((gen, rte, src, dt, fr, it, rf), rules) ->
             let limits =
                 rules
+                |> Array.filter (fun r -> r.DoseRed |> String.notEmpty)
                 |> Array.map (fun r ->
                     let times =
                         Units.Count.times
@@ -319,6 +319,13 @@ module RenalRule =
             |> Option.defaultValue true
 
         [|
+            // renal rules only applies to patients at least 3 months of age
+            fun _ ->
+                filter.Patient.Age
+                |> Option.map (fun a ->
+                    let mo3 = Units.Time.month |> ValueUnit.singleWithValue 3N
+                    a >? mo3
+                ) |> Option.defaultValue false
             fun (rr : RenalRule) -> rr.Generic |> eqs filter.Generic
             fun (rr : RenalRule) ->
                 rr.Route |> String.isNullOrWhiteSpace ||
@@ -368,6 +375,7 @@ module RenalRule =
                     |> Option.defaultValue vu1
                 )
             | Absolute -> vu2
+            | NoReduction -> vu1
 
         let adjustMinMax dr mm2 mm1 =
             match dr with
@@ -378,12 +386,15 @@ module RenalRule =
                 else
                     mm1
                     |> MinMax.calc (*) mm2
+            | NoReduction -> mm1
 
         { doseRule with
             RenalRule = Some renalRule.Source
             Frequencies =
-                if renalRule.Frequencies |> Option.isSome then renalRule.Frequencies
-                else doseRule.Frequencies
+                if renalRule.Frequencies |> Option.isNone then doseRule.Frequencies
+                else
+                    printfn $"setting freq to renalrule: {renalRule.Frequencies}"
+                    renalRule.Frequencies
             DoseLimits =
                 doseRule.DoseLimits
                 |> Array.map (fun dl ->
@@ -391,6 +402,7 @@ module RenalRule =
                     |> Array.tryFind (fun rl -> rl.DoseLimitTarget = dl.DoseLimitTarget)
                     |> function
                         | None -> dl
+                        | Some rl when rl.DoseReduction = NoReduction -> dl
                         | Some rl ->
                             let normQtyAdj =
                                 if dl.NormQuantityAdjust |> Option.isSome then dl.NormQuantityAdjust
@@ -402,7 +414,6 @@ module RenalRule =
                                     )
                             { dl with
                                 Quantity =
-                                    printfn $"adjusting: {dl.Quantity} with {rl.Quantity}"
                                     dl.Quantity
                                     |> adjustMinMax
                                         rl.DoseReduction
@@ -425,6 +436,17 @@ module RenalRule =
                                         |> adjustVU
                                             rl.DoseReduction
                                             rl.NormPerTimeAdjust
+                                Rate =
+                                    dl.Rate
+                                    |> adjustMinMax
+                                        rl.DoseReduction
+                                        rl.Rate
+                                RateAdjust =
+                                    dl.RateAdjust
+                                    |> adjustMinMax
+                                        rl.DoseReduction
+                                        rl.RateAdjust
+
                             }
                 )
         }

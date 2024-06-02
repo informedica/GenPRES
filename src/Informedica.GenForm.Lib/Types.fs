@@ -356,7 +356,7 @@ module Types =
             /// A MinMax Rate Adjust for the DoseLimit
             RateAdjust : MinMax
         }
-    and DoseReduction = | Absolute | Relative
+    and DoseReduction = | Absolute | Relative | NoReduction
 
 
     type RenalRule =
