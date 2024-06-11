@@ -21,6 +21,7 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 #load "../Filter.fs"
 #load "../DoseRule.fs"
 #load "../SolutionRule.fs"
+#load "../RenalRule.fs"
 #load "../PrescriptionRule.fs"
 
 
@@ -33,30 +34,30 @@ open Informedica.GenForm.Lib
 
 
 
-{ Filter.filter with
-    Patient =
-        { Filter.filter.Patient with
-            VenousAccess = []
-            Department = Some "ICK"
-            Age =
-                1N
-                |> ValueUnit.singleWithUnit Units.Time.year
-                |> Some
-            (*
-            GestAge =
-                28N
-                |> ValueUnit.singleWithUnit Units.Time.week
-                |> Some
-            *)
-        }
-    //Generic = (Some "morfine")
-    //Route = Some "oraal"
-}
-|> PrescriptionRule.filter
-|> Array.collect _.SolutionRules
-//|> Array.take 1
-|> SolutionRule.Print.toMarkdown ""
+let pr =
+    { Filter.filter with
+        Generic = Some "methadon"
+        Indication = Some "Pijn"
+        Patient =
+            { Patient.patient with
+                Locations =  []
+                Department = Some "ICK"
+                Age =
+                    Units.Time.year
+                    |> ValueUnit.singleWithValue 2N
+                    |> Some
+                Weight =
+                  Units.Weight.kiloGram
+                  |> ValueUnit.singleWithValue (13N)
+                  |> Some
+                RenalFunction = EGFR(Some 5, Some 5) |> Some
+            }
+    }
+    |> PrescriptionRule.filter
 
+
+pr[0].DoseRule.DoseLimits |> Array.length
+pr[0].RenalRules
 
 let printAllDoseRules () =
     let rs =

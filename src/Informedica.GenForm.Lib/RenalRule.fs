@@ -380,9 +380,9 @@ module RenalRule =
         let adjustMinMax dr mm2 mm1 =
             match dr with
             | Absolute ->
-                if mm2 <> MinMax.empty then mm2 else mm1
+                if mm2 = MinMax.empty then mm1 else mm2
             | Relative ->
-                if mm2 = MinMax.empty then mm2
+                if mm1 = MinMax.empty || mm2 = MinMax.empty then mm1
                 else
                     mm1
                     |> MinMax.calc (*) mm2
@@ -393,7 +393,6 @@ module RenalRule =
             Frequencies =
                 if renalRule.Frequencies |> Option.isNone then doseRule.Frequencies
                 else
-                    printfn $"setting freq to renalrule: {renalRule.Frequencies}"
                     renalRule.Frequencies
             DoseLimits =
                 doseRule.DoseLimits

@@ -39,19 +39,22 @@ open Utils
 
 open Informedica.GenUnits.Lib
 
+
 let filter =
     { Filter.filter with
+        Generic = Some "methadon"
+        Indication = Some "Pijn"
         Patient =
             { Patient.patient with
-                VenousAccess = []
+                Locations =  []
                 Department = Some "ICK"
                 Age =
-                    Units.Time.day
+                    Units.Time.year
                     |> ValueUnit.singleWithValue 2N
                     |> Some
                 Weight =
                   Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (3N)
+                  |> ValueUnit.singleWithValue (13N)
                   |> Some
             }
     }
@@ -59,9 +62,11 @@ let filter =
 
 let dr =
     DoseRule.get ()
-    |> Array.take 1
+//    |> Array.take 1
     |> DoseRule.filter filter
     |> Array.item 0
+
+dr.DoseLimits |> Array.length
 
 
 dr

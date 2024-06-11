@@ -5,6 +5,7 @@ module DoseType =
 
 
     open Informedica.GenUnits.Lib.Units
+    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
 
@@ -40,7 +41,11 @@ module DoseType =
         | "timed" -> Timed |> withText
         | "discontinuous" -> Discontinuous |> withText
         | "continuous" -> Continuous |> withText
-        | _ -> NoDoseType
+        | _ ->
+            if doseType |> String.notEmpty then
+                let msg = $"{doseType} is not a valid dose type!"
+                ConsoleWriter.writeWarningMessage msg true false
+            NoDoseType
 
 
     let toString doseType =
