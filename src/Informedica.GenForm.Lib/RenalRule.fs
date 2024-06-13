@@ -15,17 +15,22 @@ module RenalRule =
 
     module DoseReduction =
 
+        let [<Literal>] REL = "rel"
+        let [<Literal>] ABS = "abs"
 
         let fromString s =
             match s with
-            | _ when s |> String.equalsCapInsens "abs" -> Absolute
-            | _ when s |> String.equalsCapInsens "rel" -> Relative
-            | _ -> NoReduction
+            | _ when s |> String.equalsCapInsens ABS -> Absolute
+            | _ when s |> String.equalsCapInsens REL -> Relative
+            | _ ->
+                ConsoleWriter.writeWarningMessage
+                    $"{s} is not a valid dosereduction" true false
+                NoReduction
 
 
         let toString = function
-            | Absolute -> "abs"
-            | Relative -> "rel"
+            | Absolute -> ABS
+            | Relative -> REL
             | NoReduction -> ""
 
 
@@ -212,17 +217,17 @@ module RenalRule =
 
                     // the adjust unit
                     let adj =
-                        if r.DoseRed = "rel" then None
+                        if r.DoseRed = DoseReduction.REL then None
                         else
                             r.AdjustUnit |> Utils.Units.adjustUnit
                     // the dose unit
                     let du =
-                        if r.DoseRed = "rel" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             r.DoseUnit |> Units.fromString
                     // the adjusted dose unit
                     let duAdj =
-                        if r.DoseRed = "rel" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             match adj, du with
                             | Some adj, Some du ->
@@ -234,7 +239,7 @@ module RenalRule =
                     let tu = r.FreqUnit |> Utils.Units.timeUnit
                     // the dose unit per time unit
                     let duTime =
-                        if r.DoseRed = "rel" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             match du, tu with
                             | Some du, Some tu ->
@@ -244,7 +249,7 @@ module RenalRule =
                             | _ -> None
                     // the adjusted dose unit per time unit
                     let duAdjTime =
-                        if r.DoseRed = "red" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             match duAdj, tu with
                             | Some duAdj, Some tu ->
@@ -254,12 +259,12 @@ module RenalRule =
                             | _ -> None
                     // the rate unit
                     let ru =
-                        if r.DoseRed = "rel" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             r.RateUnit |> Units.fromString
                     // the dose unit per rate unit
                     let duRate =
-                        if r.DoseRed = "rel" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             match du, ru with
                             | Some du, Some ru ->
@@ -269,7 +274,7 @@ module RenalRule =
                             | _ -> None
                     // the adjusted dose unit per rate unit
                     let duAdjRate =
-                        if r.DoseRed = "red" then times
+                        if r.DoseRed = DoseReduction.REL then times
                         else
                             match duAdj, ru with
                             | Some duAdj, Some ru ->
@@ -427,6 +432,11 @@ module RenalRule =
                                     |> adjustMinMax
                                         rl.DoseReduction
                                         rl.QuantityAdjust
+                                PerTime =
+                                    dl.PerTime
+                                    |> adjustMinMax
+                                        rl.DoseReduction
+                                        rl.PerTime
                                 NormPerTimeAdjust =
                                     if rl.NormQuantityAdjust |> Option.isSome ||
                                        rl.QuantityAdjust <> MinMax.empty then None
@@ -435,6 +445,11 @@ module RenalRule =
                                         |> adjustVU
                                             rl.DoseReduction
                                             rl.NormPerTimeAdjust
+                                PerTimeAdjust =
+                                    dl.PerTimeAdjust
+                                    |> adjustMinMax
+                                        rl.DoseReduction
+                                        rl.PerTimeAdjust
                                 Rate =
                                     dl.Rate
                                     |> adjustMinMax
