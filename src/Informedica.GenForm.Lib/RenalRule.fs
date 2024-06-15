@@ -389,8 +389,20 @@ module RenalRule =
             | Relative ->
                 if mm1 = MinMax.empty || mm2 = MinMax.empty then mm1
                 else
-                    mm1
-                    |> MinMax.calc (*) mm2
+                    {
+                        Min =
+                            match mm1.Min, mm2.Min with
+                            | Some lim1, Some lim2 ->
+                                MinMax.calcLimit (*) lim1 lim2
+                                |> Some
+                            | _ -> mm1.Min
+                        Max =
+                            match mm1.Max, mm2.Max with
+                            | Some lim1, Some lim2 ->
+                                MinMax.calcLimit (*) lim1 lim2
+                                |> Some
+                            | _ -> mm1.Max
+                    }
             | NoReduction -> mm1
 
         { doseRule with
