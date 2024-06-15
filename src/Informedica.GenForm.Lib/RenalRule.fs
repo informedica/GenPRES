@@ -379,13 +379,40 @@ module RenalRule =
                     )
                     |> Option.defaultValue vu1
                 )
-            | Absolute -> vu2
+            | Absolute ->
+                match vu1, vu2 with
+                | Some v1, Some v2 ->
+                    if v1 <? v2 then v1 else v2
+                    |> Some
+                | None, Some _ -> vu2
+                | Some _, None -> vu1
+                | None, None -> None
             | NoReduction -> vu1
 
         let adjustMinMax dr mm2 mm1 =
             match dr with
             | Absolute ->
-                if mm2 = MinMax.empty then mm1 else mm2
+                if mm2 = MinMax.empty then mm1 else
+                    {
+                        Min =
+                            match mm1.Min, mm2.Min with
+                            | Some lim1, Some lim2 ->
+                                if Limit.st true true lim1 lim2 then lim1 |> Some
+                                else
+                                    lim2 |> Some
+                            | None, Some lim2 -> Some lim2
+                            | Some lim1, None -> lim1 |> Some
+                            | None, None -> None
+                        Max =
+                            match mm1.Max, mm2.Max with
+                            | Some lim1, Some lim2 ->
+                                if Limit.st false false lim1 lim2 then lim1 |> Some
+                                else
+                                    lim2 |> Some
+                            | None, Some lim2 -> lim2 |> Some
+                            | Some lim1, None -> lim1 |> Some
+                            | None, None -> None
+                    }
             | Relative ->
                 if mm1 = MinMax.empty || mm2 = MinMax.empty then mm1
                 else
