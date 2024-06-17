@@ -395,6 +395,7 @@ module RenalRule =
                         Min =
                             match mm1.Min, mm2.Min with
                             | Some lim1, Some lim2 ->
+                                // if lim1 < lim2 then lim1 else lim2
                                 if lim1 |> (Limit.st true true) <| lim2 then lim1 |> Some
                                 else
                                     lim2 |> Some
@@ -402,6 +403,7 @@ module RenalRule =
                         Max =
                             match mm1.Max, mm2.Max with
                             | Some lim1, Some lim2 ->
+                                // if lim1 < lim2 then lim1 else lim2
                                 if lim1 |> (Limit.st false false) <| lim2 then lim1 |> Some
                                 else
                                     lim2 |> Some
