@@ -195,8 +195,19 @@ module Limit =
         |> fun (fInclIncl, fInclExcl, fExclIncl, fExclExcl) -> map2 fInclIncl fInclExcl fExclIncl fExclExcl
 
 
+    /// <summary>
     /// Check whether v1 >= v2 using
     /// inclusive and exclusive logic
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// let gteMin = Limit.gte true true
+    /// let oneIncl = Units.Count.times |> ValueUnit.singleWithValue 1N |> Inclusive
+    /// let twoIncl = Units.Count.times |> ValueUnit.singleWithValue 2N |> Inclusive
+    /// gteMin oneIncl twoIncl // false
+    /// gteMin twoIncl oneIncl // true
+    /// </code>
+    /// </example>
     let gte isMin1 isMin2 =
         match isMin1, isMin2 with
         // min >= min

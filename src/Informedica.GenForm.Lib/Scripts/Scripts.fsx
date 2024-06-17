@@ -32,7 +32,7 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
-
+Units.Count.times |> ValueUnit.singleWithValue 2N
 
 let pr =
     { Filter.filter with
