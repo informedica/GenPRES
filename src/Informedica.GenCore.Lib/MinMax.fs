@@ -518,6 +518,10 @@ module MinMax =
     let empty = create None None
 
 
+    let isEmpty mm = mm = empty
+
+
+
     /// A `MinMax` range with value 1, can
     /// be used in calculations as a "unit"
     /// with multiplication and division

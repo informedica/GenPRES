@@ -155,6 +155,12 @@ module SolutionRule =
                                     |> fromTupleInclIncl u
                             }
                         )
+                        |> Array.filter (fun sl ->
+                            (sl.Concentration |> MinMax.isEmpty &&
+                            sl.Quantities |> Option.isNone &&
+                            sl.Quantity |> MinMax.isEmpty)
+                            |> not
+                        )
                     Products =
                         Product.get ()
                         |> Array.filter (fun p ->
@@ -170,6 +176,7 @@ module SolutionRule =
 
                 }
             )
+            |> Array.filter (fun sr -> sr.SolutionLimits |> Array.isEmpty |> not)
 
 
     /// <summary>

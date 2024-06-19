@@ -34,6 +34,9 @@ open Informedica.GenForm.Lib
 
 Units.Count.times |> ValueUnit.singleWithValue 2N
 
+SolutionRule.get ()
+|> Array.filter (fun sr -> sr.SolutionLimits |> Array.isEmpty)
+
 let pr =
     { Filter.filter with
         Generic = Some "methadon"

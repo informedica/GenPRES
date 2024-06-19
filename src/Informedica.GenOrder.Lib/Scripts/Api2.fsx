@@ -214,7 +214,7 @@ let pr =
     Patient.infant
     |> fun p ->
         { p with
-            VenousAccess = [VenousAccess.CVL]
+            Locations =  [Locations.CVL]
             Department = Some "ICK"
             Age =
                 Units.Time.year
@@ -234,15 +234,15 @@ let pr =
 Patient.infant
 |> fun p ->
     { p with
-        VenousAccess = []
+        Locations =  []
         Department = Some "ICK"
     }
 //|> Api.scenarioResult |> Api.filter
 //|> fun p -> { p with VenousAccess = CVL; AgeInDays = Some 0N }
 |> PrescriptionRule.get
 |> Array.item 0 //|> Api.evaluate (OrderLogger.logger.Logger)
-|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
-//|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
+//|> fun pr -> pr |> DrugOrder.createDrugOrder None  //|> printfn "%A"
+|> fun pr -> pr |> DrugOrder.createDrugOrder (pr.SolutionRules[0] |> Some)  //|> printfn "%A"
 |> DrugOrder.toOrderDto
 |> Order.Dto.fromDto //|> Order.toString |> List.iter (printfn "%s")
 |> Order.Dto.toDto
