@@ -282,6 +282,7 @@ module Check =
 
 
     let filterPatient (pat : PatientCategory) (pdsg : Informedica.ZForm.Lib.Types.PatientDosage) =
+        // TODO need to map G-stand age in mo to days (1 mo = 30 days)
         let age =
             pat.Age = MinMax.empty && pdsg.Patient.Age = MinMax.empty ||
             (pdsg.Patient.Age |> MinMax.intersect pat.Age = MinMax.empty |> not)

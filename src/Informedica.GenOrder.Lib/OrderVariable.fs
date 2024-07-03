@@ -484,7 +484,7 @@ module OrderVariable =
             with
             | e ->
                 ConsoleWriter.writeErrorMessage
-                    $"cannot create OrderVariable fromDto: {dto.Name |> JsonConvert.DeserializeObject}"
+                    $"cannot create OrderVariable fromDto: {dto |> JsonConvert.SerializeObject}"
                     true false
                 e |> raise
 
