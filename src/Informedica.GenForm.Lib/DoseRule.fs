@@ -620,6 +620,7 @@ cannot map {r}
 
     let get_ dataUrl =
         let prods = Product.get ()
+        let warnings = System.Collections.Generic.Dictionary<_, _>()
 
         dataUrl
         |> getData
@@ -659,9 +660,13 @@ cannot map {r}
                         |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
 
                 if filtered |> Array.length = 0 then
-                    ConsoleWriter.writeWarningMessage
-                        $"no products for {gen} {rte}"
-                        true false
+                    let key = $"{gen} {rte}"
+                    if warnings.ContainsKey(key) |> not then
+                        warnings.Add(key, key)
+                        ConsoleWriter.writeWarningMessage
+                            $"no products for {key}"
+                            true false
+
                     [|
                         {| r with
                             Products =
