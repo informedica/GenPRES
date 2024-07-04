@@ -75,12 +75,14 @@ module DrugOrder =
                 match minMax.Min, norm with
                 | None, Some norm -> norm * times0_90 |> Some
                 | _  -> minMax.Min |> limToVu
+                |> Option.bind ValueUnit.minValue
                 |> vuToDto
 
             let max =
                 match minMax.Max, norm with
                 | None, Some norm -> norm * times1_10 |> Some
                 | _  -> minMax.Max |> limToVu
+                |> Option.bind ValueUnit.maxValue
                 |> vuToDto
 
             match min with
