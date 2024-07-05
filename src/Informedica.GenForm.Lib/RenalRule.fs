@@ -69,11 +69,13 @@ module RenalRule =
             }
 
 
-    let create gen rte src dt fr it rf limits : RenalRule =
+    let create gen rte ind src age dt fr it rf limits : RenalRule =
         {
             Generic = gen
             Route = rte
+            Indication = ind
             Source = src
+            Age = age
             RenalFunction = rf
             DoseType = dt
             Frequencies = fr
@@ -101,7 +103,10 @@ module RenalRule =
                 {|
                     Generic = get "Generic"
                     Route = get "Route"
+                    Indication = get "Indication"
                     Source = get "Source"
+                    MinAge = get "MinAge" |> toBrOpt
+                    MaxAge = get "MaxAge" |> toBrOpt
                     IntDial = get "IntDial"
                     ContDial = get "ContDial"
                     PerDial = get "PerDial"
@@ -170,7 +175,7 @@ module RenalRule =
             |> EGFR |> Some
 
 
-    let fromData (data : {| AdjustUnit: string; ContDial: string; DoseRed: string; DoseText: string; DoseType: string; DoseUnit: string; FreqUnit: string; Frequencies: BigRational array; Generic: string; IntDial: string; IntervalUnit: string; MaxGFR: BigRational option; MaxInterval: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MinGFR: BigRational option; MinInterval: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; PerDial: string; RateUnit: string; Route: string; Source: string; Substance: string |} array) =
+    let fromData (data : {| AdjustUnit: string; ContDial: string; DoseRed: string; DoseText: string; DoseType: string; DoseUnit: string; FreqUnit: string; Frequencies: BigRational array; Generic: string; Indication: string; IntDial: string; IntervalUnit: string; MaxAge: BigRational option; MaxGFR: BigRational option; MaxInterval: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MinAge: BigRational option; MinGFR: BigRational option; MinInterval: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; PerDial: string; RateUnit: string; Route: string; Source: string; Substance: string |} array) =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&
@@ -190,7 +195,10 @@ module RenalRule =
         |> Array.groupBy (fun r ->
             r.Generic,
             r.Route,
+            r.Indication,
             r.Source,
+            r.MinAge,
+            r.MaxAge,
             DoseType.fromString r.DoseType r.DoseText,
             match r.FreqUnit |> Units.freqUnit with
             | None -> None
@@ -206,7 +214,7 @@ module RenalRule =
             ,
             r.RenalFunction
         )
-        |> Array.map (fun ((gen, rte, src, dt, fr, it, rf), rules) ->
+        |> Array.map (fun ((gen, rte, ind, src, minAge, maxAge, dt, fr, it, rf), rules) ->
             let limits =
                 rules
                 |> Array.filter (fun r -> r.DoseRed |> String.notEmpty)
@@ -296,10 +304,14 @@ module RenalRule =
                         ((r.MinRateAdj, r.MaxRateAdj) |> fromTupleInclIncl duAdjRate)
                 )
 
+            let age = (minAge, maxAge) |> fromTupleInclIncl (Some Units.Time.day)
+
             create
                 gen
                 rte
+                ind
                 src
+                age
                 dt
                 fr
                 it
@@ -324,17 +336,21 @@ module RenalRule =
             |> Option.defaultValue true
 
         [|
-            // renal rules only applies to patients at least 3 months of age
-            fun _ ->
+            fun (rr : RenalRule) ->
                 filter.Patient.Age
                 |> Option.map (fun a ->
-                    let mo3 = Units.Time.month |> ValueUnit.singleWithValue 3N
-                    a >? mo3
+                    (rr.Age |> MinMax.isEmpty ||
+                    Some a |> Utils.MinMax.inRange rr.Age) &&
+                    // renal rules only applies to patients at least 28 days of age
+                    Units.Time.day |> ValueUnit.singleWithValue 28N <=? a
                 ) |> Option.defaultValue false
             fun (rr : RenalRule) -> rr.Generic |> eqs filter.Generic
             fun (rr : RenalRule) ->
                 rr.Route |> String.isNullOrWhiteSpace ||
                 (filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRoute filter.Route)
+            fun (rr : RenalRule) ->
+                rr.Indication |> String.isNullOrWhiteSpace ||
+                (filter.Indication |> Option.isNone || rr.Indication |> eqs filter.Indication)
             fun (rr : RenalRule) ->
                 rr.DoseType = NoDoseType ||
                 filter.DoseType

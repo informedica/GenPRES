@@ -365,8 +365,10 @@ module Types =
             Generic : string
             /// The Route of administration of the RenalRule
             Route : string
+            Indication : string
             /// The source of the RenalRule
             Source : string
+            Age : MinMax
             RenalFunction : RenalFunction
             /// The DoseType of the RenalRule
             DoseType : DoseType
