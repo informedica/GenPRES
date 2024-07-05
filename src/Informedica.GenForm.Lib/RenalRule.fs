@@ -368,65 +368,66 @@ module RenalRule =
 
 
     let adjustDoseRule (renalRule : RenalRule) (doseRule : DoseRule) =
-        let adjustVU dr vu2 vu1 =
+        let adjustVU dr vuNew vuOrig =
             match dr with
             | Relative ->
-                vu1
+                vuOrig
                 |> Option.map (fun vu1 ->
-                    vu2
+                    vuNew
                     |> Option.map (fun vu2 ->
                         vu1 * vu2
                     )
                     |> Option.defaultValue vu1
                 )
             | Absolute ->
-                match vu1, vu2 with
+                match vuOrig, vuNew with
                 | Some v1, Some v2 ->
                     if v1 <? v2 then v1 else v2
                     |> Some
-                | _ -> vu2
-            | NoReduction -> vu1
+                | _ -> vuNew
+            | NoReduction -> vuOrig
 
-        let adjustMinMax dr mm2 mm1 =
+        let adjustMinMax dr mmNew mmOrig =
             match dr with
             | Absolute ->
-                if mm2 = MinMax.empty then mm1 else
+                if mmNew = MinMax.empty then mmNew
+                else
                     {
                         Min =
-                            match mm1.Min, mm2.Min with
+                            match mmOrig.Min, mmNew.Min with
                             | Some lim1, Some lim2 ->
                                 // if lim1 < lim2 then lim1 else lim2
                                 if lim1 |> (Limit.st true true) <| lim2 then lim1 |> Some
                                 else
                                     lim2 |> Some
-                            | _ -> mm2.Min
+                            | _ -> mmNew.Min
                         Max =
-                            match mm1.Max, mm2.Max with
+                            match mmOrig.Max, mmNew.Max with
                             | Some lim1, Some lim2 ->
                                 // if lim1 < lim2 then lim1 else lim2
                                 if lim1 |> (Limit.st false false) <| lim2 then lim1 |> Some
                                 else
                                     lim2 |> Some
-                            | _ -> mm2.Max
+                            | _ -> mmNew.Max
                     }
             | Relative ->
-                if mm1 = MinMax.empty || mm2 = MinMax.empty then mm1
+                if mmOrig = MinMax.empty || mmNew = MinMax.empty then mmOrig
                 else
                     {
                         Min =
-                            match mm1.Min, mm2.Min with
+                            match mmOrig.Min, mmNew.Min with
                             | Some lim1, Some lim2 ->
                                 MinMax.calcLimit (*) lim1 lim2
                                 |> Some
-                            | _ -> mm1.Min
+                            | _ -> mmOrig.Min
                         Max =
-                            match mm1.Max, mm2.Max with
+                            match mmOrig.Max, mmNew.Max with
                             | Some lim1, Some lim2 ->
                                 MinMax.calcLimit (*) lim1 lim2
                                 |> Some
-                            | _ -> mm1.Max
+                            | _ -> mmOrig.Max
                     }
-            | NoReduction -> mm1
+            | NoReduction -> mmOrig
 
         { doseRule with
             RenalRule = Some renalRule.Source
