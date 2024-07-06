@@ -468,7 +468,6 @@ module RenalRule =
                                         doseRule.Frequencies
                                         |> Option.map (fun f -> vu / f)
                                     )
-                            printfn $"== going to apply:\n{rl}\nto:\n{dl}\nwith normQtyAdj:\n{normQtyAdj}\n\n"
                             { dl with
                                 Quantity =
                                     dl.Quantity
@@ -515,7 +514,5 @@ module RenalRule =
                                         rl.RateAdjust
 
                             }
-                            |> fun x ->
-                                printfn $"== result:\n{x}"; x
                 )
         }
