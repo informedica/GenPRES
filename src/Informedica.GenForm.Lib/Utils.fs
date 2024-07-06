@@ -176,13 +176,24 @@ module Utils =
         let ageFullTerm = 37N |> ValueUnit.singleWithUnit Units.Time.week
 
 
-        let withOptionalUnit u v =
+        let withOptSingleAndOptUnit u v =
             match v, u with
             | Some v, Some u ->
                 v
                 |> ValueUnit.singleWithUnit u
                 |> Some
             | _ -> None
+
+
+        let withArrayAndOptUnit u v =
+            if v |> Array.isEmpty then None
+            else
+                match u with
+                | Some u ->
+                    v
+                    |> ValueUnit.withUnit u
+                    |> Some
+                | _ -> None
 
 
         let toString prec vu =

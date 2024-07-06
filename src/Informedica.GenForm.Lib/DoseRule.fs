@@ -831,7 +831,7 @@ cannot map {r}
                                 |> fromTupleInclIncl du
                             NormQuantityAdjust =
                                 r.NormQtyAdj
-                                |> ValueUnit.withOptionalUnit duAdj
+                                |> ValueUnit.withOptSingleAndOptUnit duAdj
                             QuantityAdjust =
                                 (r.MinQtyAdj, r.MaxQtyAdj)
                                 |> fromTupleInclIncl duAdj
@@ -840,7 +840,7 @@ cannot map {r}
                                 |> fromTupleInclIncl duTime
                             NormPerTimeAdjust =
                                 r.NormPerTimeAdj
-                                |> ValueUnit.withOptionalUnit duAdjTime
+                                |> ValueUnit.withOptSingleAndOptUnit duAdjTime
                             PerTimeAdjust =
                                 (r.MinPerTimeAdj, r.MaxPerTimeAdj)
                                 |> fromTupleInclIncl duAdjTime

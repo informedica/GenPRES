@@ -126,12 +126,12 @@ module RenalRule =
                     Substance = get "Substance"
                     MinQty = get "MinQty" |> toBrOpt
                     MaxQty = get "MaxQty" |> toBrOpt
-                    NormQtyAdj = get "NormQtyAdj" |> String.replace " - " ";" |> toBrOpt
+                    NormQtyAdj = get "NormQtyAdj" |> String.replace " - " ";" |> BigRational.toBrs
                     MinQtyAdj = get "MinQtyAdj" |> toBrOpt
                     MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
                     MinPerTime = get "MinPerTime" |> toBrOpt
                     MaxPerTime = get "MaxPerTime" |> toBrOpt
-                    NormPerTimeAdj = get "NormPerTimeAdj" |> String.replace " - " ";" |> toBrOpt
+                    NormPerTimeAdj = get "NormPerTimeAdj" |> String.replace " - " ";" |> BigRational.toBrs
                     MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
                     MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
                     MinRate = get "MinRate" |> toBrOpt
@@ -175,7 +175,7 @@ module RenalRule =
             |> EGFR |> Some
 
 
-    let fromData (data : {| AdjustUnit: string; ContDial: string; DoseRed: string; DoseText: string; DoseType: string; DoseUnit: string; FreqUnit: string; Frequencies: BigRational array; Generic: string; Indication: string; IntDial: string; IntervalUnit: string; MaxAge: BigRational option; MaxGFR: BigRational option; MaxInterval: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MinAge: BigRational option; MinGFR: BigRational option; MinInterval: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; PerDial: string; RateUnit: string; Route: string; Source: string; Substance: string |} array) =
+    let fromData (data : {| AdjustUnit: string; ContDial: string; DoseRed: string; DoseText: string; DoseType: string; DoseUnit: string; FreqUnit: string; Frequencies: BigRational array; Generic: string; Indication: string; IntDial: string; IntervalUnit: string; MaxAge: BigRational option; MaxGFR: BigRational option; MaxInterval: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MinAge: BigRational option; MinGFR: BigRational option; MinInterval: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; NormPerTimeAdj: BigRational[]; NormQtyAdj: BigRational[]; PerDial: string; RateUnit: string; Route: string; Source: string; Substance: string |} array) =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&
@@ -295,10 +295,10 @@ module RenalRule =
                         (r.Substance |> LimitTarget.SubstanceLimitTarget)
                         (r.DoseRed |> DoseReduction.fromString)
                         ((r.MinQty, r.MaxQty) |> fromTupleInclIncl du)
-                        (r.NormQtyAdj |> ValueUnit.withOptionalUnit duAdj)
+                        (r.NormQtyAdj |> ValueUnit.withArrayAndOptUnit duAdj)
                         ((r.MinQtyAdj, r.MaxQtyAdj) |> fromTupleInclIncl duAdj)
                         ((r.MinPerTime, r.MaxPerTime) |> fromTupleInclIncl duTime)
-                        (r.NormPerTimeAdj |> ValueUnit.withOptionalUnit duAdjTime)
+                        (r.NormPerTimeAdj |> ValueUnit.withArrayAndOptUnit duAdjTime)
                         ((r.MinPerTimeAdj, r.MaxPerTimeAdj) |> fromTupleInclIncl duAdjTime)
                         ((r.MinRate, r.MaxRate) |> fromTupleInclIncl duRate)
                         ((r.MinRateAdj, r.MaxRateAdj) |> fromTupleInclIncl duAdjRate)
@@ -468,6 +468,7 @@ module RenalRule =
                                         doseRule.Frequencies
                                         |> Option.map (fun f -> vu / f)
                                     )
+                            printfn $"== going to apply:\n{rl}\nto:\n{dl}\nwith normQtyAdj:\n{normQtyAdj}\n\n"
                             { dl with
                                 Quantity =
                                     dl.Quantity
@@ -514,5 +515,7 @@ module RenalRule =
                                         rl.RateAdjust
 
                             }
+                            |> fun x ->
+                                printfn $"== result:\n{x}"; x
                 )
         }
