@@ -237,10 +237,31 @@ module Prescribe =
                 JSX.jsx
                     $"""
                 import CircularProgress from '@mui/material/CircularProgress';
+                import Backdrop from '@mui/material/Backdrop';
 
-                <Box sx={ {| mt = 5; display = "flex"; p = 20 |} }>
-                    <CircularProgress />
-                </Box>
+                <Backdrop open={true} sx={ {| color= Mui.Colors.Grey.``200`` |} } >
+                    <Box sx={ {| position = "relative"; display= "inline-flex"; p = 20 |} }>
+                        <CircularProgress color="primary" size={250} thickness={1} disableShrink={true} />
+                        <Box
+                            sx={ {|
+                            top= 0
+                            left= 0
+                            bottom= 0
+                            right= 0
+                            position= "absolute"
+                            display= "flex"
+                            alignItems= "center"
+                            justifyContent= "center"
+                            |} }
+                        >
+                            <Typography
+                            variant="subtitle2"
+                            component="div"
+                            color="white"
+                            >... even geduld A.U.B.</Typography>
+                        </Box>
+                    </Box>
+                </Backdrop>
                 """
 
         let typoGraphy (items : Types.TextItem[]) =
@@ -332,7 +353,7 @@ module Prescribe =
                         sec
                         |> Array.mapi (fun i row ->
                             JSX.jsx $"""
-                                <TableRow key={i} sx={ {| border=0 |} }>
+                                <TableRow key={i} sx={ {| border=0 |} } > 
                                     {cells row}
                                 </TableRow>              
                             """
@@ -353,7 +374,7 @@ module Prescribe =
                         <TableContainer sx={ {| width="max-content" |} } >
                             <Table padding="none" size="small" >
                                 <TableBody>
-                                    <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} }>
+                                    <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} } >
                                         <TableCell >
                                             {prim}
                                         </TableCell>                     
