@@ -15,21 +15,21 @@
     },
     "devDependencies": {
         "@types/node": "^20.12.7",
-        "@vitejs/plugin-react": "^4.2.1",
+        "@vitejs/plugin-react": "^4.3.3",
         "autoprefixer": "^10.4.19",
-        "mocha": "^8.4.0",
+        "mocha": "^10.8.2",
         "postcss": "^8.4.38",
-        "remotedev": "^0.2.9",
+        "remotedev": "^0.2.7",
         "sass": "^1.76.0",
-        "vite": "^5.2.10"
+        "vite": "^5.4.10"
     },
     "dependencies": {
         "@emotion/react": "^11.11.4",
         "@emotion/styled": "^11.11.5",
         "@fontsource/roboto": "^4.5.8",
-        "@mui/icons-material": "^5.15.15",
-        "@mui/material": "^5.15.15",
-        "@mui/x-data-grid": "^6.19.11",
+        "@mui/icons-material": "^6.1.6",
+        "@mui/material": "^6.1.6",
+        "@mui/x-data-grid": "^7.22.2",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-markdown": "^8.0.7",
