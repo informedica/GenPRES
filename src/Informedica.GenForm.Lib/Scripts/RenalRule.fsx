@@ -42,6 +42,9 @@ open Informedica.GenUnits.Lib
 
 RenalRule.get ()
 
+Web.getDataFromSheet dataUrlId "RenalRules"
+
+Web.GoogleSheets.createUrl "RenalRules" (Web.getDataUrlIdGenPres ())
 
 open RenalRule
 

@@ -800,13 +800,14 @@ open Shared
 
 [<Literal>]
 let private themeDef = """
-responsiveFontSizes(createTheme())
+responsiveFontSizes(createTheme(), { factor : 2 })
 """
 
 
 [<Import("createTheme", from="@mui/material/styles")>]
 [<Emit(themeDef)>]
 let private theme : obj = jsNative
+
 
 
 // Entry point must be in a separate file

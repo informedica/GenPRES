@@ -435,6 +435,8 @@ module Ollama =
 
         let gemma = "gemma"
 
+        let gemma2 = "gemma2"
+
         let ``gemma:7b-instruct`` = "gemma:7b-instruct"
 
         let mistral = "mistral"
