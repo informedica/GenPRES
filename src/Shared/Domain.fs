@@ -551,18 +551,20 @@ module Patient =
                 else
                     let a =
                         ((years |> Option.defaultValue 0 |> float) * 12.)
-                        + ((months |> Option.defaultValue 0 |> float) / 12.)
-                        + ((weeks |> Option.defaultValue 0 |> float) / 52.)
-                        + ((days |> Option.defaultValue 0 |> float) / 365.)
+                        + ((months |> Option.defaultValue 0 |> float) / 1.)
+                        + ((weeks |> Option.defaultValue 0 |> float) / 4.)
+                        + ((days |> Option.defaultValue 0 |> float) / 30.)
 
                     let w =
                         NormalValues.ageWeight
-                        |> List.tryFind (fun (x, _) -> x >= a)
+                        |> List.rev
+                        |> List.tryFind (fun (x, _) -> x <= a)
                         |> Option.map snd
 
                     let h =
                         NormalValues.ageHeight
-                        |> List.tryFind (fun (x, _) -> x >= a)
+                        |> List.rev
+                        |> List.tryFind (fun (x, _) -> x <= a)
                         |> Option.map snd
 
                     w, h
@@ -762,7 +764,7 @@ module Patient =
 
             if pat.RenalFunction |> Option.isSome then
                 Some "Nierfunctie:" |> italic
-                pat.RenalFunction 
+                pat.RenalFunction
                 |> Option.map RenalFunction.renalToOption
                 |> bold
 
