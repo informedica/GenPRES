@@ -24,12 +24,12 @@ module File =
 
 
     /// Writes the given text to the given file
-    let writeTextToFile path text =
+    let writeTextToFile path (text : string) =
         File.WriteAllText(path, text)
 
 
     /// Appends the given text to the given file
-    let appendTextToFile path text =
+    let appendTextToFile path (text : string) =
         File.AppendAllText(path, text)
 
 

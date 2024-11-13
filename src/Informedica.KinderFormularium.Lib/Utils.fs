@@ -42,7 +42,7 @@ module Utils =
 
         (*
         *)
-        let writeTextToFile path text =
+        let writeTextToFile path (text : string) =
             File.WriteAllText(path, text)
 
         let exists path =

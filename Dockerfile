@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 as build
 
 # Install node
 # RUN curl -sL https://deb.nodesource.com/setup_14.x | bash
@@ -47,7 +47,7 @@ COPY src/Client src/Client
 RUN npm run build
 
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 COPY --from=server-build /workspace/deploy /app
 COPY --from=client-build /workspace/deploy /app/public
 COPY src/Server/data /app/data
