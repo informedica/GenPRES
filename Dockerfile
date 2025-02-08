@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
 # Install node
 # RUN curl -sL https://deb.nodesource.com/setup_14.x | bash
@@ -7,7 +7,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 as build
 # and install dependencies
 RUN mkdir /usr/local/nvm
 ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 20.11.1
+ENV NODE_VERSION 22.11.0
 RUN curl https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash \
     && . $NVM_DIR/nvm.sh \
     && nvm install $NODE_VERSION \
@@ -21,9 +21,13 @@ WORKDIR /workspace
 COPY .config .config
 RUN dotnet tool restore
 COPY .paket .paket
+COPY paket.references paket.references
 COPY paket.dependencies paket.lock ./
 
-FROM build as server-build
+FROM build AS app-build
+COPY Build.fsproj .
+COPY Build.fs .
+COPY Helpers.fs .
 COPY src/Informedica.Utils.Lib src/Informedica.Utils.Lib
 COPY src/Informedica.ZIndex.Lib src/Informedica.ZIndex.Lib
 COPY src/Informedica.ZForm.Lib src/Informedica.ZForm.Lib
@@ -35,22 +39,12 @@ COPY src/Informedica.GenForm.Lib src/Informedica.GenForm.Lib
 COPY src/Informedica.GenOrder.Lib src/Informedica.GenOrder.Lib
 COPY src/Shared src/Shared
 COPY src/Server src/Server
-RUN cd src/Server && dotnet publish -c release -o ../../deploy
-
-
-FROM build as client-build
-COPY package.json package-lock.json ./
-RUN npm install
-COPY vite.config.mts ./
-COPY src/Shared src/Shared
 COPY src/Client src/Client
-RUN npm run build
+RUN dotnet run bundle
 
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
-COPY --from=server-build /workspace/deploy /app
-COPY --from=client-build /workspace/deploy /app/public
-COPY src/Server/data /app/data
+COPY --from=app-build /workspace/deploy /app
 
 ENV GENPRES_LOG="0"
 ENV GENPRES_PROD="1"
