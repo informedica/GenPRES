@@ -30,7 +30,7 @@ The current solution runs at: http://genpres.nl.
 Some more background information can be found at:
 
 - https://github.com/informedica/Informedica.GenPres.Lib/wiki/Informedica.GenOrder.Lib
-- https://medicatieveiligensnel.nl (website in Dutch)
+- https://medicatieveiligensnel.nl (website in Dutch, with a language banner!)
 
 
 ## Build
@@ -49,9 +49,9 @@ You'll need to install the following pre-requisites in order to build SAFE appli
 
 Current known build configuration
 
-* dotnet: 8.0.0
-* npm: 9.8.1
-* node: v18.18.2
+* dotnet: 9.0.0
+* npm: 10.9.0
+* node: v22.11.0
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
@@ -59,14 +59,7 @@ A demo cache file with medication product data is include in this repository. Th
 
 ## Starting the application
 
-Currently, the project is moving to using Vite and the current build system has been updated using package.json scripts and plain commands.
-
-For the time being the application can be started by the following procedure:
-
-1. `npm install` will perform a tool restore and install all dependencies
-2. `npm run watch-server` will start the server
-3. `npm start` will start the fable compilation and the Vite development server
-4. `npm run build` will create a deployment to a `deploy` folder
+Starting the application in developper mode is now super easy, just `dotnet run` spins up the entire application. Look for different targets by `dotnet run list`.
 
 Open a browser to `http://localhost:5173` to view the site.
 
