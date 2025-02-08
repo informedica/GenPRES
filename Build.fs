@@ -96,7 +96,7 @@ Target.create "Format" (fun _ -> run dotnet [ "fantomas"; "." ] ".")
 
 Target.create "Docker" (fun _ ->
     run docker [ "build"; "--platform"; "linux/amd64"; "-t"; "halcwb/genpres"; "." ] "."
-    run docker [ "run"; "-p"; "8085:80"; "halcwb/genpres" ] "."
+    run docker [ "run"; "-p"; "8085:8080"; "halcwb/genpres" ] "."
 )
 
 open Fake.Core.TargetOperators
