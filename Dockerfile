@@ -6,16 +6,16 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 # update the repository sources list
 # and install dependencies
 RUN mkdir /usr/local/nvm
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 22.11.0
+ENV NVM_DIR=/usr/local/nvm
+ENV NODE_VERSION=22.11.0
 RUN curl https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash \
     && . $NVM_DIR/nvm.sh \
     && nvm install $NODE_VERSION \
     && nvm alias default $NODE_VERSION \
     && nvm use default
 
-ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+ENV NODE_PATH=$NVM_DIR/v$NODE_VERSION/lib/node_modules
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 WORKDIR /workspace
 COPY .config .config

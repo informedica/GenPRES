@@ -22,6 +22,7 @@
     <Compile Include="./Components/ElmishSelect.fs" />
     <Compile Include="./Components/StateSelect.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
+    <Compile Include="./Components/MultipleSelect.fs" />
     <Compile Include="./Components/SelectableList.fs" />
     <Compile Include="./Components/TitleBar.fs" />
     <Compile Include="./Components/SideMenu.fs" />

@@ -166,6 +166,18 @@ module GenPres =
                 boxShadow= 24
             |}
 
+        let sxPageBox =
+            {|
+                mt= 4
+                overflowY =
+                    match props.page with
+                    | Global.Pages.Prescribe
+                    | Global.Pages.Parenteralia
+                    | Global.Pages.Formulary -> "auto"
+                    | _ -> "hidden"
+
+            |}
+
         JSX.jsx
             $"""
         import {{ ThemeProvider }} from '@mui/material/styles';
@@ -213,7 +225,7 @@ module GenPres =
                             |})
                         }
                     </Box>
-                    <Box sx={ {| mt=4; overflowY="auto" |} }>
+                    <Box sx={sxPageBox}>
                         {
                             match props.page with
                             | Global.Pages.LifeSupport ->

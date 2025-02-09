@@ -89,10 +89,10 @@ module Formulary =
             | IndicationChange s ->
                 match formulary with
                 | Resolved form ->
-                    if s |> Option.isNone then 
-                        { form with 
+                    if s |> Option.isNone then
+                        { form with
                             Indication = None
-                            Indications = [||] 
+                            Indications = [||]
                         }
                     else
                         { form with Indication = s }
@@ -104,12 +104,12 @@ module Formulary =
             | GenericChange s ->
                 match formulary with
                 | Resolved form ->
-                    if s |> Option.isNone then 
-                        { form with 
+                    if s |> Option.isNone then
+                        { form with
                             Generic = None
                             Generics = [||]
                             Indication = None
-                            Indications = [||] 
+                            Indications = [||]
                         }
                     else
                         { form with Generic = s }
@@ -121,8 +121,8 @@ module Formulary =
             | RouteChange s ->
                 match formulary with
                 | Resolved form ->
-                    { form with 
-                        Route = s 
+                    { form with
+                        Route = s
                     }
                     |> updateFormulary
                 | _ -> ()
@@ -147,7 +147,7 @@ module Formulary =
         let lang = context.Localization
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             props.localizationTerms
             |> Deferred.map (fun terms ->
                 Localization.getTerm terms lang term
@@ -159,7 +159,7 @@ module Formulary =
             React.useElmish (
                 init props.formulary,
                 update props.formulary props.updateFormulary,
-                [| 
+                [|
                     box props.formulary
                 |]
             )
@@ -219,7 +219,7 @@ module Formulary =
                         | Resolved form -> false, form.Indication, form.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            let lbl = (Terms.``Formulary Indications`` |> getTerm "Indicaties") 
+                            let lbl = (Terms.``Formulary Indications`` |> getTerm "Indicaties")
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
@@ -227,7 +227,7 @@ module Formulary =
                             else
                                 items
                                 |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
-                            
+
                     }
                     <Stack direction={stackDirection} spacing={3} >
                         {
@@ -235,7 +235,7 @@ module Formulary =
                             | Resolved form -> false, form.Generic, form.Generics
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
-                                let lbl = (Terms.``Formulary Medications`` |> getTerm "Medicatie") 
+                                let lbl = (Terms.``Formulary Medications`` |> getTerm "Medicatie")
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
@@ -300,7 +300,7 @@ module Formulary =
         import Button from '@mui/material/Button';
         import Typography from '@mui/material/Typography';
 
-        <Box sx={ {| height="100%" |} }>
+        <Box sx={ {| overflowY="auto" |} }>
                 {content}
                 {progress}
         </Box>

@@ -120,7 +120,7 @@ module ResponsiveTable =
             rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             rowCreate : string[] -> obj
         |}) =
-        let state, setState = React.useState None
+        let state, setState = React.useState [||]
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
@@ -145,7 +145,7 @@ module ResponsiveTable =
                     |> Array.distinct
                     |> Array.sortBy (_.ToLower())
 
-                SimpleSelect.View({|
+                MultipleSelect.View({|
                     label = "Filter"
                     selected = state
                     updateSelected = setState
@@ -163,7 +163,7 @@ module ResponsiveTable =
                     r.cells
                     |> Array.exists (fun cell ->
                         cell.field = column.field &&
-                        (state |> Option.isNone || state.Value = cell.value)
+                        (state |> Array.isEmpty || state |> Array.exists ((=) cell.value))
                     )
             )
 
@@ -190,7 +190,7 @@ module ResponsiveTable =
                 $"""
             import {{ DataGrid }} from '@mui/x-data-grid';
 
-            <Box sx={ {| height="75vh" |} } >
+            <Box sx={ {| maxHeight="80vh"; overflowY="auto" |} } >
                 <Box sx={ {| mb=3 |} }>
                     {filter}
                 </Box>
@@ -211,8 +211,6 @@ module ResponsiveTable =
                                 | _ -> c |> box
                             )
                         }
-                    pageSize={100}
-                    autoPageSize={true}
                 />
             </Box>
             """
