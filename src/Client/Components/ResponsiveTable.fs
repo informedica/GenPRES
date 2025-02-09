@@ -54,7 +54,7 @@ module ResponsiveTable =
                                 import Divider from '@mui/material/Divider';
                                 import Typography from '@mui/material/Typography';
 
-                                <React.Fragment>                                    
+                                <React.Fragment>
                                         <Stack direction="row" spacing={3} >
                                             <Typography minHeight={40} minWidth={80} variant="body2" color={Mui.Colors.Grey.``900``} >
                                                 {h}
@@ -177,16 +177,26 @@ module ResponsiveTable =
                 |> Array.map (Array.map (fun r -> r.value))
                 |> Array.map props.rowCreate
 
+            let toolbar () =
+                JSX.jsx
+                    $"""
+                import {{ GridToolbar }} from '@mui/x-data-grid';
+
+                <GridToolbar printOptions = { {| hideFooter=true; hideToolbar=true |} } />
+                """
+                |> toReact
+
             JSX.jsx
                 $"""
-            import {{DataGrid}} from '@mui/x-data-grid';
+            import {{ DataGrid }} from '@mui/x-data-grid';
 
-            <Box sx={ {| height="80vh" |} } >
+            <Box sx={ {| height="75vh" |} } >
                 <Box sx={ {| mb=3 |} }>
                     {filter}
                 </Box>
                 <DataGrid
                     rows={rows}
+                    slots={ {| toolbar = toolbar |} }
                     initialState =
                         {
                             {| columns = {| columnVisibilityModel = {| id = false |} |} |}

@@ -136,10 +136,10 @@ module GenPres =
         let context = React.useContext(Global.context)
         let lang = context.Localization
 
-        let deps = 
-            [| 
+        let deps =
+            [|
                 box props.page
-                box props.updatePage 
+                box props.updatePage
                 box lang
                 box props.scenarioResult
             |]
