@@ -1169,6 +1169,10 @@ module Units =
 
     module Count =
 
+        module Constants =
+
+            let [<Literal>] Times = "x"
+
         /// Create a Count unit
         let toCount = Count
 
@@ -1179,6 +1183,19 @@ module Units =
 
 
     module Mass =
+
+        module Constants =
+
+            let [<Literal>] KiloGram = "kg"
+
+            let [<Literal>] Gram = "g"
+
+            let [<Literal>] MilliGram = "mg"
+
+            let [<Literal>] MicroGram = "microg"
+
+            let [<Literal>] NanoGram = "nanog"
+
 
         /// Create a Mass unit
         let toMass = Mass
@@ -1208,6 +1225,14 @@ module Units =
 
     module Distance =
 
+        module Constants =
+
+            let [<Literal>] Meter = "m"
+
+            let [<Literal>] CentiMeter = "cm"
+
+            let [<Literal>] MilliMeter = "mm"
+
         /// Create a Distance unit
         let toDistance = Distance
 
@@ -1228,6 +1253,13 @@ module Units =
 
     module Weight =
 
+        module Constants =
+
+            let [<Literal>] KiloGram = "kg"
+
+            let [<Literal>] Gram = "g"
+
+
         /// Create a Weight unit
         let toWeight = Weight
 
@@ -1243,6 +1275,19 @@ module Units =
 
 
     module Volume =
+
+        module Constants =
+
+            let [<Literal>] Liter = "l"
+
+            let [<Literal>] DeciLiter = "dl"
+
+            let [<Literal>] MilliLiter = "ml"
+
+            let [<Literal>] MicroLiter = "microL"
+
+            let [<Literal>] Droplet = "droplet"
+
 
         /// Create a Volume unit
         let toVolume = Volume
@@ -1280,6 +1325,24 @@ module Units =
 
     module Time =
 
+
+        module Constants =
+
+            let [<Literal>] Year = "yr"
+
+            let [<Literal>] Month = "mo"
+
+            let [<Literal>] Week = "week"
+
+            let [<Literal>] Day = "day"
+
+            let [<Literal>] Hour = "hr"
+
+            let [<Literal>] Minute = "min"
+
+            let [<Literal>] Second = "sec"
+
+
         /// Create a Time unit
         let toTime = Time
 
@@ -1316,6 +1379,15 @@ module Units =
 
     module Molar =
 
+        module Constants =
+
+            let [<Literal>] Mole = "mol"
+
+            let [<Literal>] MilliMole = "mmol"
+
+            let [<Literal>] MicroMole = "micromol"
+
+
         /// Create a Molar unit
         let toMolar = Molar
 
@@ -1335,6 +1407,15 @@ module Units =
 
 
     module InterNational =
+
+        module Constants =
+
+            let [<Literal>] MIU = "MIU"
+
+            let [<Literal>] IU = "IU"
+
+            let [<Literal>] MilliIU = "milliIU"
+
 
         /// Create a InterNational unit
         let toInterNationalUnit = International
@@ -1356,6 +1437,13 @@ module Units =
 
     module Height =
 
+        module Constants =
+
+            let [<Literal>] Meter = "m"
+
+            let [<Literal>] CentiMeter = "cm"
+
+
         /// Create a Height unit
         let toHeight = Height
 
@@ -1372,6 +1460,11 @@ module Units =
 
     module BSA =
 
+        module Constants =
+
+            let [<Literal>] M2 = "m2"
+
+
         /// Create a BSA unit
         let toBSA = BSA
 
@@ -1383,6 +1476,13 @@ module Units =
 
 
     module Energy =
+
+        module Constants =
+
+            let [<Literal>] Calorie = "cal"
+
+            let [<Literal>] KiloCalorie = "kCal"
+
 
         let toEnergy = Energy
 
@@ -1956,6 +2056,36 @@ module ValueUnit =
 
 
     module Group =
+
+        module Constants =
+
+
+            let [<Literal>] General = "General"
+
+            let [<Literal>] NoGroup = "NoGroup"
+
+            let [<Literal>] Count = "Count"
+
+            let [<Literal>] Mass = "Mass"
+
+            let [<Literal>] Distance = "Distance"
+
+            let [<Literal>] Volume = "Volume"
+
+            let [<Literal>] Time = "Time"
+
+            let [<Literal>] Molar = "Molar"
+
+            let [<Literal>] InterNatUnit = "InterNatUnit"
+
+            let [<Literal>] Weight = "Weight"
+
+            let [<Literal>] Height = "Height"
+
+            let [<Literal>] BSA = "BSA"
+
+            let [<Literal>] Energy = "Energy"
+
 
 
         /// Get the corresponding group for a unit
