@@ -6,8 +6,8 @@
 #r "nuget: FParsec"
 
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net8.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net8.0/Informedica.GenUnits.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
 
 
 open System

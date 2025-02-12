@@ -8,7 +8,6 @@ open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
 
-open Shared.Patient
 open Shared.Types
 
 
@@ -16,8 +15,13 @@ module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
 let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
-    Shared.Order.ValueUnit.create
+    let v =
         dto.Value
+        |> Array.map (fun br ->
+            $"{br}", br |> BigRational.toDecimal
+        )
+    Shared.Order.ValueUnit.create
+        v
         dto.Unit
         dto.Group
         dto.Short
@@ -26,8 +30,9 @@ let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
 
 
 let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
+    let v = vu.Value |> Array.map (fst >> BigRational.parse)
     let dto = ValueUnit.Dto.dto ()
-    dto.Value <- vu.Value
+    dto.Value <- v
     dto.Unit <- vu.Unit
     dto.Group <- vu.Group
     dto.Language <- vu.Language
@@ -343,7 +348,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                 match sc.Gender with
                 | Male -> Informedica.GenForm.Lib.Types.Male
                 | Female -> Informedica.GenForm.Lib.Types.Female
-                | _ -> Informedica.GenForm.Lib.Types.AnyGender
+                | _ -> AnyGender
             Locations =
                 sc.AccessList
                 // TODO make proper mapping

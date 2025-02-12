@@ -4,7 +4,7 @@
 #r "nuget: Unquote"
 #r "nuget: Newtonsoft.Json"
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net8.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
 
 #load "../ValueUnit.fs"
 #load "../Api.fs"

@@ -143,9 +143,7 @@ module Api =
                                 c.ComponentQuantity.Variable.ValsOpt
                                 |> Option.map (fun v ->
                                     {|
-                                        shapeQty =
-                                            v.Value
-                                            |> Array.map (fst >> BigRational.parse)
+                                        shapeQty = v.Value
                                         substs =
                                             [
                                                 for i in c.Items do
@@ -153,9 +151,7 @@ module Api =
                                                     |> Option.map (fun v ->
                                                         {|
                                                             name = i.Name
-                                                            qty =
-                                                                v.Value
-                                                                |> Array.map (fst >> BigRational.parse)
+                                                            qty = v.Value
                                                         |}
                                                     )
                                             ]
@@ -169,10 +165,7 @@ module Api =
                     dto.Orderable.Components
                     |> List.choose _.ComponentQuantity.Variable.ValsOpt
                     |> List.toArray
-                    |> Array.collect (fun dto ->
-                        dto.Value
-                        |> Array.map (fst >> BigRational.parse)
-                    )
+                    |> Array.collect _.Value
 
                 let sbsts =
                     dto.Orderable.Components
@@ -185,7 +178,6 @@ module Api =
                             |> Option.map (fun v ->
                                 iDto.Name,
                                 v.Value
-                                |> Array.map (fst >> BigRational.parse)
                                 |> Array.tryHead
                             )
                         )
@@ -495,8 +487,7 @@ module Api =
                     printfn $"intake: {v.Group}"
                     if v.Group |> String.containsCapsInsens "volume" then
                         match v.Value |> Array.tryExactlyOne with
-                        | Some v ->
-                            v |> snd |> float |> Double.fixPrecision 2 |> Some
+                        | Some v -> v |> BigRational.toDouble |> Double.fixPrecision 2 |> Some
                         | None -> None
                     else None
                 | _ -> None

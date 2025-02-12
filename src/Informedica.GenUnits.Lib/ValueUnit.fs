@@ -1554,7 +1554,7 @@ module Units =
                     if us |> List.forall Option.isSome then
                         us
                         |> List.map Option.get
-                        |> List.reduce (fun u1 u2 -> u1 |> Units.per u2)
+                        |> List.reduce (fun u1 u2 -> u1 |> per u2)
                         |> Some
                     else
                         printfn $"cannot parse {s}"
@@ -1927,7 +1927,6 @@ module Units =
 
 module ValueUnit =
 
-    open System.Net.NetworkInformation
 
 
     //----------------------------------------------------------------------------
@@ -3689,7 +3688,7 @@ module ValueUnit =
 
 
         type Dto() =
-            member val Value : (string * decimal) [] = [||] with get, set
+            member val Value : BigRational [] = [||] with get, set
             member val Unit = "" with get, set
             member val Group = "" with get, set
             member val Short = true with get, set
@@ -3730,11 +3729,6 @@ module ValueUnit =
                         Units.Long
 
                 let v, u = vu |> ValueUnit.get
-                let v =
-                    v |> Array.map (fun v ->
-                        v |> string,
-                        v |> BigRational.toDecimal
-                    )
 
                 let g =
                     u |> Group.unitToGroup |> Group.toString
@@ -3760,8 +3754,7 @@ module ValueUnit =
 
 
         let fromDto (dto: Dto ) =
-            let v =
-                dto.Value |> Array.map (fst >> BigRational.parse)
+            let v = dto.Value
 
             if dto.Json |> String.notEmpty then dto.Json |> Json.deSerialize<Unit> |> Some
             else

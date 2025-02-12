@@ -5,8 +5,7 @@
 
 #time
 
-
-
+open MathNet.Numerics
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 
@@ -32,11 +31,11 @@ let dto2 = ovar2 |> OrderVariable.Dto.toDto
 
 dto1.Variable.IncrOpt <- ValueUnit.Dto.dto () |> Some
 dto1.Variable.IncrOpt.Value.Unit <- "x"
-dto1.Variable.IncrOpt.Value.Value <- [|"1", 1m|]
+dto1.Variable.IncrOpt.Value.Value <- [| 1N |]
 
 dto2.Variable.IncrOpt <- ValueUnit.Dto.dto () |> Some
 dto2.Variable.IncrOpt.Value.Unit <- "x"
-dto2.Variable.IncrOpt.Value.Value <- [|"1", 1m|]
+dto2.Variable.IncrOpt.Value.Value <- [| 1N |]
 
 
 open Informedica.GenSolver.Lib.Variable.Operators
@@ -44,7 +43,7 @@ open Informedica.GenSolver.Lib.Variable.Operators
 dto1.Variable.ValsOpt <- ValueUnit.Dto.dto () |> Some
 dto1.Variable.ValsOpt.Value.Group <- "Count"
 dto1.Variable.ValsOpt.Value.Unit <- "x"
-dto1.Variable.ValsOpt.Value.Value <- [| "1", 1M |]
+dto1.Variable.ValsOpt.Value.Value <- [| 1N |]
 
 dto1.Variable.ValsOpt.Value |> ValueUnit.Dto.fromDto
 

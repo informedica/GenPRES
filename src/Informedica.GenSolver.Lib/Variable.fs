@@ -517,7 +517,7 @@ module Variable =
             /// </summary>
             /// <remarks>
             /// In theory a Minimum can have a numerator or denominator of any size.
-            /// However, in practice, this will lead to performance issues. Therefore
+            /// However, in practice, this will lead to performance issues. Therefore,
             /// we limit the size of the numerator and denominator to a maximum value.
             /// </remarks>
             let checkOverflow min =
@@ -862,7 +862,7 @@ module Variable =
             /// </summary>
             /// <remarks>
             /// In theory a Maximum can have a numerator or denominator of any size.
-            /// However, in practice, this will lead to performance issues. Therefore
+            /// However, in practice, this will lead to performance issues. Therefore,
             /// we limit the size of the numerator and denominator to a maximum value.
             /// </remarks>
             let checkOverflow max =
@@ -1097,7 +1097,7 @@ module Variable =
             /// calculation. If you multiply a `ValueSet` [3;6] with a `ValueSet`
             /// [2;4;6] you get [6;12;18;24;36]. However, if you create a value set
             /// using a minimum of 6, an increment of 6 and a maximum of 36, you get
-            /// [6;12;18;24;30;36]. However 30 cannot be multiplying [3;6] with [2;4;6].
+            /// [6;12;18;24;30;36]. However, 30 cannot be multiplying [3;6] with [2;4;6].
             /// </remarks>
             let minIncrMaxToValueSet min incr max =
                     let min =
@@ -2663,7 +2663,7 @@ module Variable =
                 // of multiplication will always be zero excl
                 | _, false, _, _, true, _, Mult
                 | _, _, _, false, _, true, Mult -> createZero false u1 u2
-                // multiplication by Some non zero by a None will result in a None
+                // multiplication by Some non-zero by a None will result in a None
                 | None, _, Some _, _, false, false, Mult
                 | Some _, _, None, _, false, false, Mult -> None
 
@@ -3202,7 +3202,7 @@ module Variable =
     let createSucc = create id
 
 
-    /// A Variable with a Unrestricted `ValueRange`
+    /// A Variable with an Unrestricted `ValueRange`
     let empty n = Unrestricted |> createSucc n
 
 
