@@ -14,8 +14,20 @@ open Informedica.ZIndex.Lib
 Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
 Environment.CurrentDirectory
 
+module File =
+    open System.IO
+
+    let getFileInfo (f: string) =
+        new FileInfo(f)
+
+    let timeStamp s =
+        s
+        |> getFileInfo
+        |> _.LastWriteTime
+
 // File
 File.exists <| FilePath.GStandPath + "BST000T"
+File.timeStamp <| (FilePath.GStandPath + "BST000T")
 
 // Check the product cache
 FilePath.productCache false
@@ -25,6 +37,7 @@ FilePath.useDemo()
 
 // Clear the cache
 Json.clearCache (FilePath.useDemo ())
+
 
 // Load all
 printfn "Loading GenPresProduct ..."
@@ -54,6 +67,7 @@ FilePath.useDemo()
 // Check the demo cache
 FilePath.productCache (FilePath.useDemo ())
 |> File.exists
+
 Json.clearCache (FilePath.useDemo ())
 
 // Load demo
@@ -376,8 +390,8 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "somapacitan" "" ""
-|> Array.collect (_.GenericProducts)
+GenPresProduct.filter "alimemazine" "drank" "oraal"
+|> Array.collect _.GenericProducts
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
     gp.Id, gp.Name, gp.Shape, gp.Route,
@@ -493,3 +507,18 @@ GenPresProduct.get []
 |> Array.distinct
 |> Array.length
 
+
+GenPresProduct.get []
+|> Array.filter (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.Substances
+        |> Array.exists _.IsAdditional
+    )
+)
+|> Array.collect _.GenericProducts
+|> Array.filter (fun gp ->
+    gp.Substances
+    |> Array.exists _.IsAdditional
+)
+|> Array.head

@@ -120,6 +120,7 @@ module GenPres =
             updateScenario : ScenarioResult -> unit
             selectOrder : (Scenario * Order option) -> unit
             order: Deferred<(bool * string option * Order) option>
+            intake : Deferred<Intake>
             loadOrder: (string option * Order) -> unit
             updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
@@ -135,6 +136,7 @@ module GenPres =
 
         let context = React.useContext(Global.context)
         let lang = context.Localization
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
         let deps =
             [|
@@ -168,14 +170,18 @@ module GenPres =
 
         let sxPageBox =
             {|
-                mt= 4
+                mt= 3
+                mb =
+                    match props.page with
+                    | Global.Pages.Prescribe -> 26 |> box
+                    | _ -> 0 |> box
                 overflowY =
                     match props.page with
                     | Global.Pages.Prescribe
                     | Global.Pages.Parenteralia
                     | Global.Pages.Formulary -> "auto"
-                    | _ -> "hidden"
-
+                    | _ when not isMobile -> "hidden"
+                    | _ -> "auto"
             |}
 
         JSX.jsx
@@ -259,6 +265,14 @@ module GenPres =
                                     parenteralia = props.parenteralia
                                     updateParenteralia = props.updateParenteralia
                                 |})
+                        }
+                    </Box>
+                    <Box>
+                        {
+                            match props.page with
+                            | Global.Pages.Prescribe ->
+                                Views.Intake.View(props.intake)
+                            | _ -> JSX.jsx "<></>"
                         }
                     </Box>
                 </Stack>

@@ -135,6 +135,37 @@ module Types =
         }
 
 
+    /// A substance in a product.
+    type ProductSubstance =
+        {
+            /// The id of the substance.
+            SubstanceId : int
+            /// The order in which the substances are listed
+            /// in a GenericProduct and GenPresProduct name.
+            SortOrder : int
+            /// The name of the substance.
+            /// For example: 'NORADRENALINE'
+            SubstanceName : string
+            /// The quantity of the substance.
+            SubstanceQuantity : float
+            /// The unit of the substance.
+            SubstanceUnit : string
+            /// The id of the generic substance (salt form).
+            GenericId : int
+            /// The full name (salt form) of the substance.
+            /// For example: 'NORADRENALINE WATERSTOFTARTRAAT-1-WATER'
+            GenericName : string
+            /// The quantity of the generic substance (salt form).
+            GenericQuantity : float
+            /// The unit of the generic substance (salt form).
+            GenericUnit : string
+            /// The pharmacological shape unit in which the substance is contained.
+            ShapeUnit : string
+            /// Is the substance additional
+            IsAdditional: bool
+        }
+
+
     /// <summary>
     /// A Z-Index Consumer Product
     /// </summary>
@@ -171,6 +202,7 @@ module Types =
             Denominator : int
             UnitWeight : float
             Route : string []
+            Substances: ProductSubstance []
             ConsumerProducts : ConsumerProduct []
         }
 
@@ -232,33 +264,6 @@ module Types =
             Substances : ProductSubstance []
             /// The prescription products of the generic product.
             PrescriptionProducts : PrescriptionProduct []
-        }
-    /// A substance in a product.
-    and ProductSubstance =
-        {
-            /// The id of the substance.
-            SubstanceId : int
-            /// The order in which the substances are listed
-            /// in a GenericProduct and GenPresProduct name.
-            SortOrder : int
-            /// The name of the substance.
-            /// For example: 'NORADRENALINE'
-            SubstanceName : string
-            /// The quantity of the substance.
-            SubstanceQuantity : float
-            /// The unit of the substance.
-            SubstanceUnit : string
-            /// The id of the generic substance (salt form).
-            GenericId : int
-            /// The full name (salt form) of the substance.
-            /// For example: 'NORADRENALINE WATERSTOFTARTRAAT-1-WATER'
-            GenericName : string
-            /// The quantity of the generic substance (salt form).
-            GenericQuantity : float
-            /// The unit of the generic substance (salt form).
-            GenericUnit : string
-            /// The pharmacological shape unit in which the substance is contained.
-            ShapeUnit : string
         }
 
 
@@ -353,42 +358,42 @@ module Types =
 
         static member Weight_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.Weight) ,
+            _.Weight ,
             (fun mm dr -> { dr with Weight = mm })
 
         static member BSA_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.BSA) ,
+            _.BSA ,
             (fun mm dr -> { dr with BSA = mm })
 
         static member Norm_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.Norm) ,
+            _.Norm ,
             (fun mm dr -> { dr with Norm = mm })
 
         static member Abs_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.Abs) ,
+            _.Abs ,
             (fun mm dr -> { dr with Abs = mm })
 
         static member NormKg_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.NormKg) ,
+            _.NormKg ,
             (fun mm dr -> { dr with NormKg = mm })
 
         static member AbsKg_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.AbsKg) ,
+            _.AbsKg ,
             (fun mm dr -> { dr with AbsKg = mm })
 
         static member NormM2_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.NormM2) ,
+            _.NormM2 ,
             (fun mm dr -> { dr with NormM2 = mm })
 
         static member AbsM2_ :
             (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            (fun dr -> dr.AbsM2) ,
+            _.AbsM2 ,
             (fun mm dr -> { dr with AbsM2 = mm })
     /// A Z-Index trade or consumer product that is part of a dose rule.
     and RuleProduct = { Id: int; Name: string }

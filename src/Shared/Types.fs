@@ -46,11 +46,7 @@ module Types =
                 Days: int
             }
 
-        type GestationalAge =
-            {
-                Weeks: int
-                Days: int
-            }
+        type GestationalAge = { Weeks: int; Days: int }
 
 
     type Age = Patient.Age
@@ -63,25 +59,36 @@ module Types =
             GestationalAge: GestAge option
             Weight: Weight
             Height: Height
-            Gender : Gender
-            Access : Access list
-            RenalFunction : RenalFunction option
-            Department : string option
+            Gender: Gender
+            Access: Access list
+            RenalFunction: RenalFunction option
+            Department: string option
         }
+
     /// Weight in kg
     and Weight =
         {
             Estimated: float option
             Measured: float option
         }
+
     /// Length in cm
     and Height =
         {
             Estimated: float option
             Measured: float option
         }
-    and Gender = Male | Female | UnknownGender
-    and Access = | CVL | PVL | EnteralTube
+
+    and Gender =
+        | Male
+        | Female
+        | UnknownGender
+
+    and Access =
+        | CVL
+        | PVL
+        | EnteralTube
+
     and RenalFunction =
         | EGFR of int option * int option
         | IntermittendHemoDialysis
@@ -91,114 +98,111 @@ module Types =
 
     type ValueUnit =
         {
-            Value : (string * decimal) []
-            Unit : string
-            Group : string
-            Short : bool
-            Language : string
-            Json : string
+            Value: (string * decimal)[]
+            Unit: string
+            Group: string
+            Short: bool
+            Language: string
+            Json: string
         }
 
 
     type Variable =
         {
-            Name : string
-            IsNonZeroNegative : bool
-            Min : ValueUnit option
-            MinIncl : bool
-            Incr : ValueUnit option
-            Max : ValueUnit option
-            MaxIncl : bool
-            Vals : ValueUnit option
+            Name: string
+            IsNonZeroNegative: bool
+            Min: ValueUnit option
+            MinIncl: bool
+            Incr: ValueUnit option
+            Max: ValueUnit option
+            MaxIncl: bool
+            Vals: ValueUnit option
         }
 
 
     type OrderVariable =
         {
-            Name : string
-            Constraints : Variable
-            Variable : Variable
+            Name: string
+            Constraints: Variable
+            Variable: Variable
         }
-
 
 
     type Prescription =
         {
-            IsOnce : bool
-            IsOnceTimed : bool
-            IsContinuous : bool
-            IsDiscontinuous : bool
-            IsTimed : bool
-            Frequency : OrderVariable
-            Time : OrderVariable
+            IsOnce: bool
+            IsOnceTimed: bool
+            IsContinuous: bool
+            IsDiscontinuous: bool
+            IsTimed: bool
+            Frequency: OrderVariable
+            Time: OrderVariable
         }
-
 
 
     type Dose =
         {
-            Quantity : OrderVariable
-            PerTime : OrderVariable
-            Rate : OrderVariable
-            Total : OrderVariable
-            QuantityAdjust : OrderVariable
-            PerTimeAdjust : OrderVariable
-            RateAdjust : OrderVariable
-            TotalAdjust : OrderVariable
+            Quantity: OrderVariable
+            PerTime: OrderVariable
+            Rate: OrderVariable
+            Total: OrderVariable
+            QuantityAdjust: OrderVariable
+            PerTimeAdjust: OrderVariable
+            RateAdjust: OrderVariable
+            TotalAdjust: OrderVariable
         }
 
 
     type Item =
         {
-            Name : string
-            ComponentQuantity : OrderVariable
-            OrderableQuantity : OrderVariable
-            ComponentConcentration : OrderVariable
-            OrderableConcentration : OrderVariable
-            Dose : Dose
+            Name: string
+            ComponentQuantity: OrderVariable
+            OrderableQuantity: OrderVariable
+            ComponentConcentration: OrderVariable
+            OrderableConcentration: OrderVariable
+            Dose: Dose
         }
 
 
     type Component =
         {
-            Id : string
-            Name : string
-            Shape : string
-            ComponentQuantity : OrderVariable
-            OrderableQuantity : OrderVariable
-            OrderableCount : OrderVariable
-            OrderQuantity : OrderVariable
-            OrderCount : OrderVariable
-            OrderableConcentration : OrderVariable
-            Dose : Dose
-            Items : Item[]
+            Id: string
+            Name: string
+            Shape: string
+            ComponentQuantity: OrderVariable
+            OrderableQuantity: OrderVariable
+            OrderableCount: OrderVariable
+            OrderQuantity: OrderVariable
+            OrderCount: OrderVariable
+            OrderableConcentration: OrderVariable
+            Dose: Dose
+            Items: Item[]
         }
 
 
     type Orderable =
         {
-            Name : string
-            OrderableQuantity : OrderVariable
-            OrderQuantity : OrderVariable
-            OrderCount : OrderVariable
-            DoseCount : OrderVariable
-            Dose : Dose
-            Components : Component[]
+            Name: string
+            OrderableQuantity: OrderVariable
+            OrderQuantity: OrderVariable
+            OrderCount: OrderVariable
+            DoseCount: OrderVariable
+            Dose: Dose
+            Components: Component[]
         }
 
 
     type Order =
         {
-            Id : string
-            Adjust : OrderVariable
-            Orderable : Orderable
-            Prescription : Prescription
-            Route : string
-            Duration : OrderVariable
-            Start : DateTime
-            Stop : DateTime option
+            Id: string
+            Adjust: OrderVariable
+            Orderable: Orderable
+            Prescription: Prescription
+            Route: string
+            Duration: OrderVariable
+            Start: DateTime
+            Stop: DateTime option
         }
-
 
 
     type Medication =
@@ -207,7 +211,7 @@ module Types =
 
     and BolusMedication =
         {
-            Hospital : string
+            Hospital: string
             Indication: string
             Generic: string
             NormDose: float
@@ -220,7 +224,7 @@ module Types =
 
     and ContinuousMedication =
         {
-            Hospital : string
+            Hospital: string
             Indication: string
             Generic: string
             Unit: string
@@ -249,7 +253,7 @@ module Types =
     // DoseText
     type Intervention =
         {
-            Hospital : string
+            Hospital: string
             // == Intervention ==
             // Indication for the intervention
             Indication: string
@@ -329,70 +333,88 @@ module Types =
 
     type Scenario =
         {
-            Shape : string
-            DoseType : DoseType
-            Prescription : TextItem[][][]
-            Preparation : TextItem[][][]
-            Administration : TextItem[][][]
-            Order : Order option
-            UseAdjust : bool
-            UseRenalRule : bool
-            RenalRule : string option
+            Shape: string
+            DoseType: DoseType
+            Prescription: TextItem[][][]
+            Preparation: TextItem[][][]
+            Administration: TextItem[][][]
+            Order: Order option
+            UseAdjust: bool
+            UseRenalRule: bool
+            RenalRule: string option
         }
 
 
     type ScenarioResult =
         {
-            Indications: string []
-            Medications: string []
-            Routes: string []
-            DoseTypes : DoseType []
-            Scenarios: Scenario []
+            Indications: string[]
+            Medications: string[]
+            Routes: string[]
+            DoseTypes: DoseType[]
+            Scenarios: Scenario[]
             Indication: string option
             Medication: string option
-            Shape : string option
+            Shape: string option
             Route: string option
-            DoseType : DoseType option
-            AgeInDays : float option
-            GestAgeInDays : int option
+            DoseType: DoseType option
+            AgeInDays: float option
+            GestAgeInDays: int option
             WeightInKg: float option
             HeightInCm: float option
-            Gender : Gender
-            AccessList : Access list
-            RenalFunction : RenalFunction option
-            Department : string option
-            DemoVersion : bool
+            Gender: Gender
+            AccessList: Access list
+            RenalFunction: RenalFunction option
+            Department: string option
+            DemoVersion: bool
+        }
+
+
+    type Intake =
+        {
+            Volume : float option
+            Energy : float option
+            Protein : float option
+            Carbohydrate : float option
+            Fat : float option
+            Sodium : float option
+            Potassium : float option
+            Chloride : float option
+            Calcium : float option
+            Phosphate : float option
+            Magnesium : float option
+            Iron : float option
+            VitaminD : float option
         }
 
 
     type Formulary =
         {
-            Generics : string []
-            Indications : string []
-            Routes : string []
-            Patients : string []
-            Products : string []
+            Generics: string[]
+            Indications: string[]
+            Routes: string[]
+            Patients: string[]
+            Products: string[]
             Generic: string option
             Indication: string option
             Route: string option
-            Patient : string option
-            Age : float option
+            Patient: string option
+            Age: float option
             Weight: float option
             Height: float option
             GestAge: int option
-            Markdown : string
+            Markdown: string
         }
 
 
     type Parenteralia =
         {
-            Generics : string []
-            Shapes : string []
-            Routes : string []
-            Patients : string []
+            Generics: string[]
+            Shapes: string[]
+            Routes: string[]
+            Patients: string[]
             Generic: string option
             Shape: string option
-            Route : string option
+            Route: string option
             Patient: string option
-            Markdown : string
+            Markdown: string
         }

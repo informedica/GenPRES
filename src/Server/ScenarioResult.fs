@@ -281,6 +281,23 @@ let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Shared.Ty
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
+let mapToIntake (intake : Types.Intake) : Intake =
+    {
+        Volume = intake.Volume
+        Energy = intake.Energy
+        Protein = intake.Protein
+        Carbohydrate = intake.Carbohydrate
+        Fat = intake.Fat
+        Sodium = intake.Sodium
+        Potassium = intake.Potassium
+        Chloride = intake.Chloride
+        Calcium = intake.Calcium
+        Magnesium = intake.Magnesium
+        Phosphate = intake.Phosphate
+        Iron = intake.Iron
+        VitaminD = intake.VitaminD
+    }
+
 
 let get (sc: ScenarioResult) =
     let msg stage (sc: ScenarioResult)=
@@ -443,6 +460,13 @@ let calcMinIncrMaxToValues (ord : Order) =
         ConsoleWriter.writeErrorMessage $"error calculating values from min incr max {e}" true true
         "error calculating values from min incr max"
         |> Error
+
+
+let getIntake (ord: Order) =
+    ord
+    |> mapFromOrder
+    |> Api.getIntake
+    |> mapToIntake
 
 
 let print (sc: ScenarioResult) =

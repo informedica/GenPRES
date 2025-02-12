@@ -92,7 +92,7 @@ module ATCGroup =
                             r'.MUTKOD <> 1 &&
                             r'.HPKODE = r.HPKODE
                         )
-                        |> Array.map(fun r' -> r'.ENKTDW)
+                        |> Array.map(_.ENKTDW)
                     )
                     |> Array.distinct
                     |> Array.map (fun tdw ->
@@ -123,26 +123,26 @@ module ATCGroup =
                    gpks |> Array.exists ((=) gpk.GPKODE))
 
             select
-                ({
-                    ATC1 = main.ATCODE.Trim()
-                    AnatomicalGroup = main.ATOMS.Trim()
-                    AnatomicalGroupEng = main.ATOMSE.Trim()
-                    ATC2 = ther.ATCODE.Trim()
-                    TherapeuticMainGroup = ther.ATOMS.Trim()
-                    TherapeuticMainGroupEng = ther.ATOMSE.Trim()
-                    ATC3 = thes.ATCODE.Trim()
-                    TherapeuticSubGroup = thes.ATOMS.Trim()
-                    TherapeuticSubGroupEng = thes.ATOMSE.Trim()
-                    ATC4 = phar.ATCODE.Trim()
-                    PharmacologicalGroup = phar.ATOMS.Trim()
-                    PharmacologicalGroupEng = phar.ATOMSE.Trim()
-                    ATC5 = subs.ATCODE.Trim()
-                    Substance = subs.ATOMS.Trim()
-                    SubstanceEng = subs.ATOMSE.Trim()
-                    Generic = generic
-                    Shape = shape
-                    Routes = route
-                })
+                {
+                   ATC1 = main.ATCODE.Trim()
+                   AnatomicalGroup = main.ATOMS.Trim()
+                   AnatomicalGroupEng = main.ATOMSE.Trim()
+                   ATC2 = ther.ATCODE.Trim()
+                   TherapeuticMainGroup = ther.ATOMS.Trim()
+                   TherapeuticMainGroupEng = ther.ATOMSE.Trim()
+                   ATC3 = thes.ATCODE.Trim()
+                   TherapeuticSubGroup = thes.ATOMS.Trim()
+                   TherapeuticSubGroupEng = thes.ATOMSE.Trim()
+                   ATC4 = phar.ATCODE.Trim()
+                   PharmacologicalGroup = phar.ATOMS.Trim()
+                   PharmacologicalGroupEng = phar.ATOMSE.Trim()
+                   ATC5 = subs.ATCODE.Trim()
+                   Substance = subs.ATOMS.Trim()
+                   SubstanceEng = subs.ATOMSE.Trim()
+                   Generic = generic
+                   Shape = shape
+                   Routes = route
+               }
         }
         |> Seq.toArray
         |> Array.distinct
@@ -215,7 +215,7 @@ module ATCGroup =
                                     gp.PrescriptionProducts
                                     |> Array.collect (fun pp ->
                                         pp.TradeProducts
-                                        |> Array.map (fun tp -> tp.Brand)
+                                        |> Array.map _.Brand
                                     )
                                     |> Array.filter (String.isNullOrWhiteSpace >> not)
                                     |> String.concat ";"
@@ -223,7 +223,7 @@ module ATCGroup =
                                     gp.PrescriptionProducts
                                     |> Array.collect (fun pp ->
                                         pp.TradeProducts
-                                        |> Array.map (fun tp -> tp.Label)
+                                        |> Array.map _.Label
                                     )
                                     |> Array.tryHead
                                     |> Option.defaultValue ""

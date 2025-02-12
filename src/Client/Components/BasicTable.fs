@@ -16,18 +16,45 @@ module BasicTable =
 
 
     [<JSX.Component>]
-    let View (props :
-        {|
-            columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
-            rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
-        |}) =
+    let View (props: {| header: string []; rows : string [][] |}) =
+        let createRow cells =
+            let key = cells |> Array.head
+
+            let cells =
+                cells
+                |> Array.map (fun c ->
+                    JSX.jsx $"""
+                    import TableCell from '@mui/material/TableCell';
+                    <TableCell>
+                        {c}
+                    </TableCell>
+                    """
+                )
+
+            JSX.jsx $"""
+            import TableRow from '@mui/material/TableRow';
+            <TableRow key={key}>
+                {cells}
+            </TableRow>
+            """
+
+        let rows = props.rows |> Array.map createRow
 
         JSX.jsx
             $"""
+        import Paper from '@mui/material/Paper';
         import Table from '@mui/material/Table';
         import TableBody from '@mui/material/TableBody';
-        import TableCell from '@mui/material/TableCell';
         import TableContainer from '@mui/material/TableContainer';
         import TableHead from '@mui/material/TableHead';
-        import TableRow from '@mui/material/TableRow';
+
+        <Paper>
+            <TableContainer >
+                <Table>
+                    <TableBody>
+                        {rows}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Paper>
 """

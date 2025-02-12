@@ -28,13 +28,14 @@ module GenPresProduct =
         |> Array.map (fun gp ->
             let n =
                 gp.Substances
-                |> Array.map (fun s -> s.SubstanceName)
+                |> Array.filter (fun s -> s.IsAdditional |> not)
+                |> Array.map _.SubstanceName
                 |> Array.distinct
                 |> Array.fold (fun a s ->
                     if a = "" then s
                     else a + "/" + s) ""
             ((n, gp.Shape), gp))
-        |> Array.groupBy (fun (key, _) -> key)
+        |> Array.groupBy fst
         |> Array.map (fun ((nm, sh), xs) ->
             let gps = xs |> Array.map (fun (_, gp) -> gp)
 
@@ -61,7 +62,7 @@ module GenPresProduct =
                         |> String.trim
                         |> String.equalsCapInsens (gp.ATC |> String.subString 0 5)
                     )
-                    |> Array.map (fun atc -> atc.ATOMS))
+                    |> Array.map _.ATOMS)
                 |> Array.distinct
 
             let unt =
@@ -78,9 +79,7 @@ module GenPresProduct =
 
             let rt =
                 gps
-                |> Array.collect (fun gp ->
-                    gp.Route
-                )
+                |> Array.collect _.Route
                 |> Array.distinct
 
             create nm sh rt ph gps dpn unt [||])
@@ -135,7 +134,7 @@ module GenPresProduct =
         get all
         |> Array.collect (fun gpp ->
             gpp.GenericProducts
-            |> Array.map (fun gp -> gp.Id)
+            |> Array.map _.Id
         )
         |> Array.distinct
 
@@ -189,9 +188,7 @@ module GenPresProduct =
     let getRoutes =
         fun () ->
             get []
-            |> Array.collect (fun gpp ->
-                gpp.Routes
-            )
+            |> Array.collect _.Routes
             |> Array.distinct
             |> Array.sort
         |> Memoization.memoize
@@ -201,9 +198,7 @@ module GenPresProduct =
     let getShapes =
         fun () ->
             get []
-            |> Array.map (fun gpp ->
-                gpp.Shape
-            )
+            |> Array.map _.Shape
             |> Array.distinct
             |> Array.sort
         |> Memoization.memoize
@@ -213,9 +208,7 @@ module GenPresProduct =
     let getUnits =
         fun () ->
             get []
-            |> Array.map (fun gpp ->
-                gpp.Unit
-            )
+            |> Array.map _.Unit
             |> Array.distinct
             |> Array.sort
         |> Memoization.memoize
@@ -289,7 +282,7 @@ module GenPresProduct =
                 gpp.GenericProducts
                 |> Array.collect (fun gp ->
                     gp.Substances
-                    |> Array.map (fun s -> s.SubstanceUnit)
+                    |> Array.map _.SubstanceUnit
                 )
             )
             |> Array.distinct
@@ -306,7 +299,7 @@ module GenPresProduct =
                 gpp.GenericProducts
                 |> Array.collect (fun gp ->
                     gp.Substances
-                    |> Array.map (fun s -> s.GenericUnit)
+                    |> Array.map _.GenericUnit
                 )
             )
             |> Array.distinct
@@ -341,7 +334,7 @@ module GenPresProduct =
     /// Get all GenericProducts for all GenPresProducts.
     let getGenericProducts () =
         get []
-        |> Array.collect (fun gpp -> gpp.GenericProducts)
+        |> Array.collect _.GenericProducts
 
 
     /// <summary>

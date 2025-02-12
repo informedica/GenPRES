@@ -26,6 +26,7 @@
     <Compile Include="./Components/SelectableList.fs" />
     <Compile Include="./Components/TitleBar.fs" />
     <Compile Include="./Components/SideMenu.fs" />
+    <Compile Include="./Components/BottomDrawer.fs" />
     <Compile Include="./Components/BasicTable.fs" />
     <Compile Include="./Components/ResponsiveTable.fs" />
     <Compile Include="./Views/Disclaimer.fs" />
@@ -33,6 +34,7 @@
     <Compile Include="./Views/Order.fs" />
     <Compile Include="./Views/EmergencyList.fs" />
     <Compile Include="./Views/ContinuousMeds.fs" />
+    <Compile Include="./Views/Intake.fs" />
     <Compile Include="./Views/Prescribe.fs" />
     <Compile Include="./Views/Formulary.fs" />
     <Compile Include="./Views/Parenteralia.fs" />

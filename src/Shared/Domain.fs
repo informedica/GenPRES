@@ -23,19 +23,13 @@ module Utils =
                 else
                     t
                     |> Seq.fold
-                        (fun (flag, dec) c' ->
-                            if c' = c && flag then
-                                (true, dec + 1)
-                            else
-                                (false, dec)
-                        )
+                        (fun (flag, dec) c' -> if c' = c && flag then (true, dec + 1) else (false, dec))
                         (true, 0)
 
             count
 
         /// Check if string `s2` contains string `s1`
-        let contains =
-            fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
+        let contains = fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
 
 
         let toLower s = (s |> get).ToLower()
@@ -80,12 +74,10 @@ module Utils =
             if f = 0. || n = 0 then
                 n
             else
-                let s =
-                    (f |> abs |> string).Split([| '.' |])
+                let s = (f |> abs |> string).Split([| '.' |])
 
                 // calculate number of remaining decimal digits (after '.')
-                let p =
-                    n - (if s[0] = "0" then 0 else s[0].Length)
+                let p = n - (if s[0] = "0" then 0 else s[0].Length)
 
                 let p = if p < 0 then 0 else p
 
@@ -125,11 +117,7 @@ module Utils =
             match ns with
             | [] -> n
             | _ ->
-                let n =
-                    if n > (ns |> List.max) then
-                        ns |> List.max
-                    else
-                        n
+                let n = if n > (ns |> List.max) then ns |> List.max else n
 
                 ns
                 |> List.sort
@@ -158,7 +146,7 @@ module Utils =
         let get = apply id
 
 
-        let optionToDate (yr : int option) mo dy =
+        let optionToDate (yr: int option) mo dy =
             match yr, mo, dy with
             | Some y, Some m, Some d -> DateTime(y, m, d) |> Some
             | _ -> None
@@ -171,16 +159,12 @@ module Utils =
 
 
         let dateDiffMonths dt1 dt2 =
-            (dateDiffDays dt1 dt2)
-            |> float
-            |> (fun x -> x / 365.)
-            |> ((*) 12.)
+            (dateDiffDays dt1 dt2) |> float |> (fun x -> x / 365.) |> ((*) 12.)
 
 
         let dateDiffYearsMonths dt1 dt2 =
             let mos = (dateDiffMonths dt1 dt2) |> int
             (mos / 12), (mos % 12)
-
 
 
 module Patient =
@@ -219,11 +203,13 @@ module Patient =
             let yrs = days / 365
             let mos = (days - yrs * 365) / 30
             let wks = (days - yrs * 365 - mos * 30) / 7
+
             let dys =
                 if days - yrs * 365 - mos * 30 - wks * 7 > 0 then
                     days - yrs * 365 - mos * 30 - wks * 7
                 else
                     0
+
             create
                 yrs
                 (if mos > 0 then Some mos else None)
@@ -238,12 +224,9 @@ module Patient =
             let last, yrs =
                 // set day one day back if not a leap year and birthdate is at Feb 29 in a leap year
                 let day =
-                    if (bdt.Month = 2 && bdt.Day = 29) |> not then
-                        bdt.Day
-                    else if DateTime.IsLeapYear(now.Year) then
-                        bdt.Day
-                    else
-                        bdt.Day - 1
+                    if (bdt.Month = 2 && bdt.Day = 29) |> not then bdt.Day
+                    else if DateTime.IsLeapYear(now.Year) then bdt.Day
+                    else bdt.Day - 1
 
                 if now.Year - bdt.Year <= 0 then
                     bdt, 0
@@ -262,10 +245,7 @@ module Patient =
                     (fun (mos, n) _ ->
                         let n = n + 1
                         // printfn $"folding: {last.AddMonths(n) |> printDate}, {mos}"
-                        if last.AddMonths(n) <= now then
-                            mos + 1, n
-                        else
-                            mos, n
+                        if last.AddMonths(n) <= now then mos + 1, n else mos, n
                     )
                     (0, 0)
                 |> fst
@@ -276,39 +256,28 @@ module Patient =
                 if now.Day >= last.Day && now.Month = last.Month then
                     now.Day - last.Day
                 else
-                    DateTime.DaysInMonth(last.Year, last.Month)
-                    - last.Day
-                    + now.Day
+                    DateTime.DaysInMonth(last.Year, last.Month) - last.Day + now.Day
 
             create yrs (Some mos) (Some(days / 7)) (Some(days - 7 * (days / 7)))
-
 
 
         let validateMinMax lbl min max n =
             if n >= min && n <= max then
                 Result.Ok n
             else
-                $"%s{lbl}: %i{n} not >= %i{min} and <= %i{max}"
-                |> Result.Error
+                $"%s{lbl}: %i{n} not >= %i{min} and <= %i{max}" |> Result.Error
 
 
         let set setter lbl min max n age : Result<Age, string> =
-            n |> validateMinMax lbl min max
-            >== ((setter age) >> Result.Ok)
+            n |> validateMinMax lbl min max >== ((setter age) >> Result.Ok)
 
 
-        let setYears =
-            set (fun age n -> { age with Years = n }) "Years" 0 100
+        let setYears = set (fun age n -> { age with Years = n }) "Years" 0 100
 
 
         let setMonths mos age =
             age |> setYears (mos / 12)
-            >== set
-                (fun age n -> { age with Months = n })
-                "Months"
-                0
-                11
-                (mos % 12)
+            >== set (fun age n -> { age with Months = n }) "Months" 0 11 (mos % 12)
 
 
         let setWeeks wks age =
@@ -325,20 +294,15 @@ module Patient =
             let c = 356. / 12.
             let yrs = dys / 356
 
-            let mos =
-                ((float dys) - (float yrs) * 356.) / c |> int
+            let mos = ((float dys) - (float yrs) * 356.) / c |> int
 
             let wks =
-                (float dys)
-                - ((float mos) * c)
-                - (yrs * 356 |> float)
+                (float dys) - ((float mos) * c) - (yrs * 356 |> float)
                 |> int
                 |> fun x -> x / 7
 
             let dys =
-                (float dys)
-                - ((float mos) * c)
-                - (yrs * 356 |> float)
+                (float dys) - ((float mos) * c) - (yrs * 356 |> float)
                 |> int
                 |> fun x -> x % 7
 
@@ -361,13 +325,12 @@ module Patient =
 
 
         let calcYears a =
-            (a |> getYears |> float)
-            + ((a |> getMonths |> float) / 12.)
+            (a |> getYears |> float) + ((a |> getMonths |> float) / 12.)
 
 
         let calcMonths a = (a |> getYears) * 12 + (a |> getMonths)
 
-        let gestAgeToString terms lang (age : GestationalAge) =
+        let gestAgeToString terms lang (age: GestationalAge) =
             let getTerm = Localization.getTerm terms
 
             $"""
@@ -375,46 +338,31 @@ module Patient =
             """
 
 
-        let toString terms lang (age : Age) =
+        let toString terms lang (age: Age) =
             let getTerm = Localization.getTerm terms lang
 
             let plur s1 s2 n =
-                if n = 1 then
-                    $"{n} {s1}"
-                else
-                    $"{n} {s2}"
+                if n = 1 then $"{n} {s1}" else $"{n} {s2}"
 
             let d =
                 age.Days
-                |> plur
-                    (getTerm Terms.``Patient Age day``)
-                    (getTerm Terms.``Patient Age days``)
+                |> plur (getTerm Terms.``Patient Age day``) (getTerm Terms.``Patient Age days``)
 
             let w =
                 age.Weeks
-                |> plur
-                    (getTerm Terms.``Patient Age week``)
-                    (getTerm Terms.``Patient Age weeks``)
+                |> plur (getTerm Terms.``Patient Age week``) (getTerm Terms.``Patient Age weeks``)
 
             let m =
                 age.Months
-                |> plur
-                    (getTerm Terms.``Patient Age month``)
-                    (getTerm Terms.``Patient Age months``)
+                |> plur (getTerm Terms.``Patient Age month``) (getTerm Terms.``Patient Age months``)
 
             let y =
                 age.Years
-                |> plur
-                    (getTerm Terms.``Patient Age year``)
-                    (getTerm Terms.``Patient Age years``)
+                |> plur (getTerm Terms.``Patient Age year``) (getTerm Terms.``Patient Age years``)
 
             match age with
             | _ when age.Years = 0 && age.Months = 0 && age.Weeks = 0 -> $"{d}"
-            | _ when age.Years = 0 && age.Months = 0 ->
-                if age.Days = 0 then
-                    $"{w}"
-                else
-                    $"{w} en {d}"
+            | _ when age.Years = 0 && age.Months = 0 -> if age.Days = 0 then $"{w}" else $"{w} en {d}"
             | _ when age.Years = 0 ->
                 match age.Weeks, age.Days with
                 | ws, ds when ds > 0 && ws > 0 -> $"{m}, {w} en {d}"
@@ -423,19 +371,14 @@ module Patient =
                 | _ -> $"{m}"
             | _ ->
                 match age.Months, age.Weeks, age.Days with
-                | ms, ws, ds when ms = 0 && ds > 0 && ws > 0 ->
-                    $"{y}, {w}, {d}"
+                | ms, ws, ds when ms = 0 && ds > 0 && ws > 0 -> $"{y}, {w}, {d}"
                 | ms, ws, ds when ms = 0 && ds = 0 && ws > 0 -> $"{y}, {w}"
                 | ms, ws, ds when ms = 0 && ds > 0 && ws = 0 -> $"{y}, {d}"
-                | ms, ws, ds when ms > 0 && ds > 0 && ws > 0 ->
-                    $"{y}, {m}, {w}, {d}"
-                | ms, ws, ds when ms > 0 && ds = 0 && ws > 0 ->
-                    $"{y}, {m}, {w}"
-                | ms, ws, ds when ms > 0 && ds > 0 && ws = 0 ->
-                    $"{y}, {m}, {d}"
+                | ms, ws, ds when ms > 0 && ds > 0 && ws > 0 -> $"{y}, {m}, {w}, {d}"
+                | ms, ws, ds when ms > 0 && ds = 0 && ws > 0 -> $"{y}, {m}, {w}"
+                | ms, ws, ds when ms > 0 && ds > 0 && ws = 0 -> $"{y}, {m}, {d}"
                 | ms, ws, ds when ms > 0 && ds = 0 && ws = 0 -> $"{y}, {m}"
                 | _ -> $"{y}"
-
 
 
     module RenalFunction =
@@ -452,7 +395,8 @@ module Patient =
             |]
 
 
-        let renalToOption = function
+        let renalToOption =
+            function
             | EGFR(min, max) ->
                 match min, max with
                 | _, Some max when max <= 10 -> options[3]
@@ -500,32 +444,27 @@ module Patient =
         p |> getAge |> Option.map (fun a -> a.Days)
 
 
-    let getGAWeeks (p : Patient) =
+    let getGAWeeks (p: Patient) =
         p.GestationalAge |> Option.map (fun ga -> ga.Weeks)
 
 
-    let getGADays (p : Patient) =
+    let getGADays (p: Patient) =
         p.GestationalAge |> Option.map (fun ga -> ga.Days)
 
 
-    let getRenalFunction (p : Patient) =
+    let getRenalFunction (p: Patient) =
         p.RenalFunction |> Option.map RenalFunction.renalToOption
 
 
     let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
-        if [
-            years
-            months
-            weeks
-            days
-            (weight |> Option.map int)
-           ]
-           |> List.forall Option.isNone then
+        if
+            [ years; months; weeks; days; (weight |> Option.map int) ]
+            |> List.forall Option.isNone
+        then
             None
         else
             let a =
-                if [ years; months; weeks; days ]
-                   |> List.forall Option.isNone then
+                if [ years; months; weeks; days ] |> List.forall Option.isNone then
                     None
                 else
                     { Age.ageZero with
@@ -537,16 +476,17 @@ module Patient =
                     |> Some
 
             let ga =
-                if [ gw; gd ] |> List.forall Option.isNone then None
+                if [ gw; gd ] |> List.forall Option.isNone then
+                    None
                 else
                     {
                         Patient.GestationalAge.Weeks = gw |> Option.defaultValue 37
-                        Patient.GestationalAge.Days =  gd |> Option.defaultValue 0
-                    } |> Some
+                        Patient.GestationalAge.Days = gd |> Option.defaultValue 0
+                    }
+                    |> Some
 
             let ew, eh =
-                if a |> Option.isNone ||
-                   gw |> Option.defaultValue 37 < 37 then
+                if a |> Option.isNone || gw |> Option.defaultValue 37 < 37 then
                     None, None
                 else
                     let a =
@@ -570,16 +510,17 @@ module Patient =
                     w, h
 
             let weight =
-                if weight |> Option.isSome then weight
+                if weight |> Option.isSome then
+                    weight
                 else
-                    ew
-                    |> Option.map (Math.fixPrecision 2)
+                    ew |> Option.map (Math.fixPrecision 2)
 
             let height =
-                if height |> Option.isSome then height
+                if height |> Option.isSome then
+                    height
                 else
-                    eh
-                    |> Option.map (Math.fixPrecision 0)
+                    eh |> Option.map (Math.fixPrecision 0)
+
             {
                 Age = a
                 GestationalAge = ga
@@ -602,11 +543,8 @@ module Patient =
         ]
         |> List.choose id
         |> function
-        | [] -> None
-        | xs ->
-            xs
-            |> List.sum
-            |> Some
+            | [] -> None
+            | xs -> xs |> List.sum |> Some
 
 
     let getAgeInMonths p =
@@ -618,11 +556,8 @@ module Patient =
         ]
         |> List.choose id
         |> function
-        | [] -> None
-        | xs ->
-            xs
-            |> List.sum
-            |> Some
+            | [] -> None
+            | xs -> xs |> List.sum |> Some
 
 
     let getAgeInDays p =
@@ -634,16 +569,12 @@ module Patient =
         ]
         |> List.choose id
         |> function
-        | [] -> None
-        | xs ->
-            xs
-            |> List.sum
-            |> Some
+            | [] -> None
+            | xs -> xs |> List.sum |> Some
 
 
-    let getGestAgeInDays (p : Patient) =
-        p.GestationalAge
-        |> Option.map (fun ga -> ga.Weeks * 7 + ga.Days)
+    let getGestAgeInDays (p: Patient) =
+        p.GestationalAge |> Option.map (fun ga -> ga.Weeks * 7 + ga.Days)
 
 
     /// Get either the measured weight or the
@@ -656,7 +587,7 @@ module Patient =
 
     /// Get either the measured height or the
     /// estimated height if measured weight = 0
-    let getHeight (pat : Patient) =
+    let getHeight (pat: Patient) =
         if pat.Height.Measured.IsSome then
             pat.Height.Measured
         else
@@ -675,36 +606,21 @@ module Patient =
 
 
     let calcBMI (pat: Patient) =
-        match pat.Weight.Measured,
-              pat.Weight.Estimated,
-              pat.Height.Measured,
-              pat.Height.Estimated
-            with
+        match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
         | Some w, _, Some h, _
-        | None, Some w, None, Some h ->
-            if h > 0. then
-                (w / (h ** 2.)) |> Some
-            else
-                None
+        | None, Some w, None, Some h -> if h > 0. then (w / (h ** 2.)) |> Some else None
         | _ -> None
 
 
     let calcBSA (pat: Patient) =
-        match pat.Weight.Measured,
-              pat.Weight.Estimated,
-              pat.Height.Measured,
-              pat.Height.Estimated
-            with
+        match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
         | None, None, _, _
         | _, _, None, None -> None
 
         | Some w, _, Some h, _
         | Some w, _, None, Some h
         | None, Some w, Some h, _
-        | None, Some w, None, Some h ->
-            sqrt (w * (h |> float) / 3600.)
-            |> Math.fixPrecision 2
-            |> Some
+        | None, Some w, None, Some h -> sqrt (w * (h |> float) / 3600.) |> Math.fixPrecision 2 |> Some
 
 
     let calcNormalFluid pat =
@@ -712,30 +628,27 @@ module Patient =
         a
 
 
-    let toString terms lang markDown (pat : Patient) =
+    let toString terms lang markDown (pat: Patient) =
         let getTerm = Localization.getTerm terms lang
         let toStr s n = n |> Option.map (sprintf "%s%.1f" s)
 
         let bold s =
-            s
-            |> Option.map (fun s -> if markDown then $"**{s}**" else s)
+            s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
         let italic s =
-            s
-            |> Option.map (fun s -> if markDown then $"*{s}*" else s)
+            s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
 
         [
             (Some $"{Terms.``Patient Age`` |> getTerm}:") |> italic
 
             pat.Age
-            |> Option.map (Age.toString terms lang) |> bold
+            |> Option.map (Age.toString terms lang)
+            |> bold
             |> Option.orElse ("" |> Some)
 
             (Some $"{Terms.``Patient Weight`` |> getTerm}:") |> italic
 
-            pat.Weight.Measured
-            |> toStr ""
-            |> Option.map (fun s -> $"{s} kg") |> bold
+            pat.Weight.Measured |> toStr "" |> Option.map (fun s -> $"{s} kg") |> bold
 
             pat.Weight.Estimated
             |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
@@ -744,9 +657,7 @@ module Patient =
 
             (Some $"{Terms.``Patient Length`` |> getTerm}:") |> italic
 
-            pat.Height.Measured
-            |> toStr ""
-            |> Option.map (fun s -> $"{s} cm") |> bold
+            pat.Height.Measured |> toStr "" |> Option.map (fun s -> $"{s} cm") |> bold
             pat.Height.Estimated
             |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} cm)")
@@ -755,7 +666,12 @@ module Patient =
             (Some "BSA:") |> italic
             pat |> calcBSA |> Option.map (fun x -> $"{x} m2") |> bold
 
-            if pat |> getAgeInDays |> Option.map (fun ds -> ds < 365.) |> Option.defaultValue false then
+            if
+                pat
+                |> getAgeInDays
+                |> Option.map (fun ds -> ds < 365.)
+                |> Option.defaultValue false
+            then
                 (Some $", {Terms.``Patient GA Age`` |> getTerm}:") |> italic
 
                 pat.GestationalAge
@@ -764,9 +680,7 @@ module Patient =
 
             if pat.RenalFunction |> Option.isSome then
                 Some "Nierfunctie:" |> italic
-                pat.RenalFunction
-                |> Option.map RenalFunction.renalToOption
-                |> bold
+                pat.RenalFunction |> Option.map RenalFunction.renalToOption |> bold
 
         ]
         |> List.choose id
@@ -855,9 +769,7 @@ module EmergencyTreatment =
             $"%.1f{m - 0.5} - %.1f{m} - %.1f{m + 0.5}"
 
         let formula age =
-            s + age / 4.
-            |> Math.roundBy0_5
-            |> (fun m -> if m > 7. then 7. else m)
+            s + age / 4. |> Math.roundBy0_5 |> (fun m -> if m > 7. then 7. else m)
 
         calcIntervention
             ""
@@ -871,26 +783,14 @@ module EmergencyTreatment =
         let formula age = 12. + age / 2. |> Math.roundBy0_5
         let textfn m = $"%A{m} cm"
 
-        calcIntervention
-            ""
-            "reanimatie"
-            "tube lengte oraal"
-            "12 + leeftijd / 2"
-            formula
-            textfn
+        calcIntervention "" "reanimatie" "tube lengte oraal" "12 + leeftijd / 2" formula textfn
 
 
     let calcNasalLength =
         let formula age = 15. + age / 2. |> Math.roundBy0_5
         let textfn m = $"%A{m} cm"
 
-        calcIntervention
-            ""
-            "reanimatie"
-            "tube lengte nasaal"
-            "15 + leeftijd / 2"
-            formula
-            textfn
+        calcIntervention "" "reanimatie" "tube lengte nasaal" "15 + leeftijd / 2" formula textfn
 
 
     let calcFluidBolus wght =
@@ -909,22 +809,7 @@ module EmergencyTreatment =
         }
 
 
-    let joules =
-        [
-            1
-            2
-            3
-            5
-            7
-            10
-            20
-            30
-            50
-            70
-            100
-            150
-        ]
-        |> List.map float
+    let joules = [ 1; 2; 3; 5; 7; 10; 20; 30; 50; 70; 100; 150 ] |> List.map float
 
 
     let calcDefib =
@@ -933,13 +818,7 @@ module EmergencyTreatment =
 
         let textfn m = $"{m} joule"
 
-        calcIntervention
-            ""
-            "reanimatie"
-            "defibrillatie"
-            "4 joule/kg"
-            formula
-            textfn
+        calcIntervention "" "reanimatie" "defibrillatie" "4 joule/kg" formula textfn
 
 
     let calcCardioVersion =
@@ -947,31 +826,18 @@ module EmergencyTreatment =
             joules |> List.findNearestMax (wght * 2.)
 
         let textfn m = $"{m} joule"
-        calcIntervention
-            ""
-            "reanimatie"
-            "cardioversie"
-            "2 joule/kg"
-            formula textfn
+        calcIntervention "" "reanimatie" "cardioversie" "2 joule/kg" formula textfn
 
 
     let calcBolusMedication wght (bolus: BolusMedication) =
         let d, v, c =
             let d, v =
-                calcDoseVol
-                    wght
-                    bolus.NormDose
-                    bolus.Concentration
-                    bolus.MinDose
-                    bolus.MaxDose
-            if d > 0. then (d, v, bolus.Concentration)
+                calcDoseVol wght bolus.NormDose bolus.Concentration bolus.MinDose bolus.MaxDose
+
+            if d > 0. then
+                (d, v, bolus.Concentration)
             else
-                calcDoseVol
-                    wght
-                    bolus.NormDose
-                    (bolus.Concentration / 10.)
-                    bolus.MinDose
-                    bolus.MaxDose
+                calcDoseVol wght bolus.NormDose (bolus.Concentration / 10.) bolus.MinDose bolus.MaxDose
                 |> fun (d, v) -> d, v, (bolus.Concentration / 10.)
 
         let adv s =
@@ -981,12 +847,9 @@ module EmergencyTreatment =
                 let minmax =
                     match (bolus.MinDose = 0., bolus.MaxDose = 0.) with
                     | true, true -> ""
-                    | true, false ->
-                        $"(max %A{bolus.MaxDose} %s{bolus.Unit})"
-                    | false, true ->
-                        $"(min %A{bolus.MinDose} %s{bolus.Unit})"
-                    | false, false ->
-                        $"(%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
+                    | true, false -> $"(max %A{bolus.MaxDose} %s{bolus.Unit})"
+                    | false, true -> $"(min %A{bolus.MinDose} %s{bolus.Unit})"
+                    | false, false -> $"(%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
 
                 $"%A{bolus.NormDose} %s{bolus.Unit}/kg %s{minmax}"
 
@@ -999,25 +862,15 @@ module EmergencyTreatment =
             TotalUnit = "ml"
             InterventionDose = Some v
             InterventionDoseUnit = "ml"
-            InterventionDoseText =
-                $"{v} ml van {c} {bolus.Unit}/ml"
+            InterventionDoseText = $"{v} ml van {c} {bolus.Unit}/ml"
             SubstanceDose = Some d
-            SubstanceMinDose =
-                if bolus.MinDose = 0. then
-                    None
-                else
-                    Some bolus.MinDose
-            SubstanceMaxDose =
-                if bolus.MaxDose = 0. then
-                    None
-                else
-                    Some bolus.MaxDose
+            SubstanceMinDose = if bolus.MinDose = 0. then None else Some bolus.MinDose
+            SubstanceMaxDose = if bolus.MaxDose = 0. then None else Some bolus.MaxDose
             SubstanceDoseUnit = bolus.Unit
             SubstanceDoseAdjust = Some(d / wght |> Math.fixPrecision 1)
             SubstanceNormDoseAdjust = Some bolus.NormDose
             SubstanceDoseAdjustUnit = $"{bolus.Unit}/kg"
-            SubstanceDoseText =
-                $"{d} {bolus.Unit} ({d / wght |> Math.fixPrecision 1} {bolus.Unit}/kg)"
+            SubstanceDoseText = $"{d} {bolus.Unit} ({d / wght |> Math.fixPrecision 1} {bolus.Unit}/kg)"
             Text = adv bolus.Remark
         }
 
@@ -1036,7 +889,7 @@ module EmergencyTreatment =
         }
 
 
-    let parse (data: string [] []) =
+    let parse (data: string[][]) =
         match data with
         | data when data |> Array.length > 1 ->
             let cms = data |> Array.head
@@ -1065,113 +918,112 @@ module EmergencyTreatment =
 
 
     let calculate age weight (bolusMed: BolusMedication list) =
-            if weight |> Option.isSome &&
-               weight.Value < 3. then
-                [
-                    calcIntervention
-                        ""
-                        "reanimatie"
-                        "tube maat"
-                        "< 1 kg: 2.5, 1-3 kg: 3.0"
-                        (fun w -> if w < 1. then 2.5 else 3)
-                        (fun f -> $"%.1f{f}")
-                        weight.Value
+        if weight |> Option.isSome && weight.Value < 3. then
+            [
+                calcIntervention
+                    ""
+                    "reanimatie"
+                    "tube maat"
+                    "< 1 kg: 2.5, 1-3 kg: 3.0"
+                    (fun w -> if w < 1. then 2.5 else 3)
+                    (fun f -> $"%.1f{f}")
+                    weight.Value
 
+                calcIntervention
+                    ""
+                    "reanimatie"
+                    "tube lengte oraal"
+                    "6.632 + 1.822 x ln(kg)"
+                    (fun w -> 6.632 + 1.822 * System.Math.Log(w))
+                    (fun f -> $"%.1f{f} cm")
+                    weight.Value
+
+                calcIntervention
+                    ""
+                    "reanimatie"
+                    "tube lengte nasaal"
+                    "(45 + 1.15 x \u221A (gram)) / 10"
+                    (fun w -> (45. + 1.15 * System.Math.Sqrt(w * 1000.)) / 10.)
+                    (fun f -> $"%.1f{f} cm")
+                    weight.Value
+
+                calcIntervention
+                    ""
+                    "reanimatie"
+                    "navel lijn maat"
+                    "< 1.5 kg: 3,5 anders 5 "
+                    (fun w -> if w < 1.5 then 3.5 else 5.)
+                    (fun f -> $"%A{f} French")
+                    weight.Value
+
+                if weight.Value < 1.5 then
                     calcIntervention
                         ""
                         "reanimatie"
-                        "tube lengte oraal"
-                        "6.632 + 1.822 x ln(kg)"
-                        (fun w -> 6.632 + 1.822 * System.Math.Log(w))
+                        "navel arterie lijn lengte"
+                        "kg x 4 + 7"
+                        (fun w -> w * 4. + 7.)
+                        (fun f -> $"%.1f{f} cm")
+                        weight.Value
+                else
+                    calcIntervention
+                        ""
+                        "reanimatie"
+                        "navel arterie lijn lengte"
+                        "kg x 2.5 + 9.7"
+                        (fun w -> w * 2.5 + 9.7)
                         (fun f -> $"%.1f{f} cm")
                         weight.Value
 
-                    calcIntervention
-                        ""
-                        "reanimatie"
-                        "tube lengte nasaal"
-                        "(45 + 1.15 x \u221A (gram)) / 10"
-                        (fun w -> (45. + 1.15 * System.Math.Sqrt(w * 1000.)) / 10.)
-                        (fun f -> $"%.1f{f} cm")
-                        weight.Value
+                calcIntervention
+                    ""
+                    "reanimatie"
+                    "navel vene lijn lengte"
+                    "kg x 1.5 + 5.5"
+                    (fun w -> w * 1.5 + 5.5)
+                    (fun f -> $"%.1f{f} cm")
+                    weight.Value
 
-                    calcIntervention
-                        ""
-                        "reanimatie"
-                        "navel lijn maat"
-                        "< 1.5 kg: 3,5 anders 5 "
-                        (fun w -> if w < 1.5 then 3.5 else 5.)
-                        (fun f -> $"%A{f} French")
-                        weight.Value
+            ]
+        else
+            [
 
-                    if weight.Value < 1.5 then
-                        calcIntervention
-                            ""
-                            "reanimatie"
-                            "navel arterie lijn lengte"
-                            "kg x 4 + 7"
-                            (fun w -> w * 4. + 7.)
-                            (fun f -> $"%.1f{f} cm")
-                            weight.Value
-                    else
-                        calcIntervention
-                            ""
-                            "reanimatie"
-                            "navel arterie lijn lengte"
-                            "kg x 2.5 + 9.7"
-                            (fun w -> w * 2.5 + 9.7)
-                            (fun f -> $"%.1f{f} cm")
-                            weight.Value
-
-                    calcIntervention
-                        ""
-                        "reanimatie"
-                        "navel vene lijn lengte"
-                        "kg x 1.5 + 5.5"
-                        (fun w -> w * 1.5 + 5.5)
-                        (fun f -> $"%.1f{f} cm")
-                        weight.Value
-
-                ]
-            else
-                [
-
-                    // tube
-                    if age |> Option.isSome then
-                        calcTube 3.5 age.Value
-                        calcTube 4.0 age.Value
-                    // oral length
-                    if age |> Option.isSome then
-                        calcOralLength age.Value
-                    // nasal length
-                    if age |> Option.isSome then
-                        calcNasalLength age.Value
-                    // adrenalin
-                    if weight |> Option.isSome then
-                        yield!
-                            bolusMed
-                            |> List.filter (fun m -> m.Generic = "adrenaline")
-                            |> List.map (calcBolusMedication weight.Value)
-                    // fluid bolus
-                    if weight |> Option.isSome then
-                        calcFluidBolus weight.Value
-                    // defibrillation
-                    if weight |> Option.isSome then
-                        calcDefib weight.Value
-                    // cardioversion
-                    if weight |> Option.isSome then
-                        calcCardioVersion weight.Value
-                ]
-                // add rest of bolus medication
-                |> fun xs ->
-                    if weight.IsNone then
-                        []
-                    else
+                // tube
+                if age |> Option.isSome then
+                    calcTube 3.5 age.Value
+                    calcTube 4.0 age.Value
+                // oral length
+                if age |> Option.isSome then
+                    calcOralLength age.Value
+                // nasal length
+                if age |> Option.isSome then
+                    calcNasalLength age.Value
+                // adrenalin
+                if weight |> Option.isSome then
+                    yield!
                         bolusMed
-                        |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
+                        |> List.filter (fun m -> m.Generic = "adrenaline")
                         |> List.map (calcBolusMedication weight.Value)
-                    |> List.append xs
-                    |> List.distinct
+                // fluid bolus
+                if weight |> Option.isSome then
+                    calcFluidBolus weight.Value
+                // defibrillation
+                if weight |> Option.isSome then
+                    calcDefib weight.Value
+                // cardioversion
+                if weight |> Option.isSome then
+                    calcCardioVersion weight.Value
+            ]
+            // add rest of bolus medication
+            |> fun xs ->
+                if weight.IsNone then
+                    []
+                else
+                    bolusMed
+                    |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
+                    |> List.map (calcBolusMedication weight.Value)
+                |> List.append xs
+                |> List.distinct
 
 
 module ContinuousMedication =
@@ -1217,7 +1069,7 @@ module ContinuousMedication =
         }
 
 
-    let parse (data: string [] []) =
+    let parse (data: string[][]) =
         match data with
         | data when data |> Array.length > 1 ->
             let cms = data |> Array.head
@@ -1254,9 +1106,7 @@ module ContinuousMedication =
     let calculate wght (contMeds: ContinuousMedication list) =
 
         let calcDose qty vol wght unit doseU =
-            let wght =
-                if doseU |> String.contains "kg" then wght
-                else 1.
+            let wght = if doseU |> String.contains "kg" then wght else 1.
 
             let f =
                 let t =
@@ -1267,16 +1117,13 @@ module ContinuousMedication =
 
                 let u =
                     match unit, doseU with
-                    | _ when unit = "mg" && doseU |> String.contains "microg" ->
-                        1000.
-                    | _ when unit = "mg" && doseU |> String.contains "nanog" ->
-                        1000. * 1000.
+                    | _ when unit = "mg" && doseU |> String.contains "microg" -> 1000.
+                    | _ when unit = "mg" && doseU |> String.contains "nanog" -> 1000. * 1000.
                     | _ -> 1.
 
                 1. * t * u
 
-            let d =
-                (f * qty / vol / wght) |> Math.fixPrecision 2
+            let d = (f * qty / vol / wght) |> Math.fixPrecision 2
 
             d, doseU
 
@@ -1284,26 +1131,22 @@ module ContinuousMedication =
         let printAdv min max unit = $"%A{min} - %A{max} %s{unit}"
 
         contMeds
-        |> List.filter (fun m ->
-            m.MinWeight <= wght
-            && (wght < m.MaxWeight || m.MaxWeight = 0.)
-        )
+        |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
         |> List.sortBy (fun med -> med.Indication, med.Generic)
         |> List.collect (fun med ->
             let vol = med.Total
             // TODO: really ugly hack to meet specific dose calc
             // need to create a config structure for this
             let qty =
-                if med.Quantity = 0. &&
-                   med.Hospital = "Radboud UMC" &&
-                   med.Generic = "morfine" then wght / 2. |> int |> float
-                else med.Quantity
+                if med.Quantity = 0. && med.Hospital = "Radboud UMC" && med.Generic = "morfine" then
+                    wght / 2. |> int |> float
+                else
+                    med.Quantity
 
             if vol = 0. then
                 []
             else
-                let d, u =
-                    calcDose qty vol wght med.Unit med.DoseUnit
+                let d, u = calcDose qty vol wght med.Unit med.DoseUnit
 
                 [
                     { Intervention.emptyIntervention with
@@ -1345,7 +1188,7 @@ module Products =
         }
 
 
-    let parse (data: string [] []) =
+    let parse (data: string[][]) =
         match data with
         | data when data |> Array.length > 1 ->
             let cms = data |> Array.head
@@ -1358,15 +1201,10 @@ module Products =
 
                 let getFloat = Csv.getFloatColumn cms sl
 
-                create
-                    (getString "indication")
-                    (getString "medication")
-                    (getFloat "conc")
-                    (getString "unit")
+                create (getString "indication") (getString "medication") (getFloat "conc") (getString "unit")
             )
             |> Array.toList
         | _ -> []
-
 
 
 module Order =
@@ -1399,7 +1237,6 @@ module Order =
                 MaxIncl = maxIncl
                 Vals = vals
             }
-
 
 
     module OrderVariable =
@@ -1440,8 +1277,6 @@ module Order =
                 RateAdjust = rte_adj
                 TotalAdjust = tot_adj
             }
-
-
 
 
     module Item =
@@ -1489,7 +1324,6 @@ module Order =
             }
 
 
-
     let create id adj_qty orb prs rte tme sta sto =
         {
             Id = id
@@ -1513,7 +1347,8 @@ module ScenarioResult =
         | Timed s
         | Discontinuous s
         | Continuous s ->
-            if String.isNullOrWhiteSpace(s) |> not then s
+            if String.isNullOrWhiteSpace (s) |> not then
+                s
             else
                 match doseType with
                 | OnceTimed _
@@ -1534,9 +1369,7 @@ module ScenarioResult =
         | Discontinuous s -> "discontinuous", s
         | Continuous s -> "continuous", s
         | NoDoseType -> "", ""
-        |> fun (s1, s2) ->
-            if String.isNullOrWhiteSpace(s2) then s1
-            else $"{s1} {s2}"
+        |> fun (s1, s2) -> if String.isNullOrWhiteSpace (s2) then s1 else $"{s1} {s2}"
 
 
     let doseTypeFromString s =
@@ -1553,41 +1386,34 @@ module ScenarioResult =
             | _ -> NoDoseType
 
         match s |> String.split " " |> Array.toList with
-        | [dt] -> matchDoseType dt ""
-        | dt::rest ->
-            rest
-            |> String.concat " "
-            |> matchDoseType dt
+        | [ dt ] -> matchDoseType dt ""
+        | dt :: rest -> rest |> String.concat " " |> matchDoseType dt
         | _ -> NoDoseType
 
 
     let parseTextItem (s: string) =
         s
         |> Seq.map (id >> string)
-        |> Seq.fold(fun acc c ->
-            if s |> String.isNullOrWhiteSpace then acc
-            else
-                match c |> string, acc |> fst with
-                | s, Normal _ when s = "#" ->
-                    Bold "", (acc |> fst)::(acc |> snd)
-                | s, Italic _ when s = "#" ->
-                    Bold s, (acc |> fst)::(acc |> snd)
-                | s, Bold _ when s = "#" ->
-                    Normal "", (acc |> fst)::(acc |> snd)
-                | s, Bold b ->
-                    Bold $"{b}{s}", (acc |> snd)
+        |> Seq.fold
+            (fun acc c ->
+                if s |> String.isNullOrWhiteSpace then
+                    acc
+                else
+                    match c |> string, acc |> fst with
+                    | s, Normal _ when s = "#" -> Bold "", (acc |> fst) :: (acc |> snd)
+                    | s, Italic _ when s = "#" -> Bold s, (acc |> fst) :: (acc |> snd)
+                    | s, Bold _ when s = "#" -> Normal "", (acc |> fst) :: (acc |> snd)
+                    | s, Bold b -> Bold $"{b}{s}", (acc |> snd)
 
-                | s, Normal _ when s = "|" ->
-                    Italic "", (acc |> fst)::(acc |> snd)
-                | s, Italic _ when s = "|" ->
-                    Normal "", (acc |> fst)::(acc |> snd)
-                | s, Italic i ->
-                    Italic $"{i}{s}", (acc |> snd)
+                    | s, Normal _ when s = "|" -> Italic "", (acc |> fst) :: (acc |> snd)
+                    | s, Italic _ when s = "|" -> Normal "", (acc |> fst) :: (acc |> snd)
+                    | s, Italic i -> Italic $"{i}{s}", (acc |> snd)
 
-                | s2, Normal s1 -> Normal $"{s1}{s2}", acc |> snd
+                    | s2, Normal s1 -> Normal $"{s1}{s2}", acc |> snd
 
-        ) (Normal "", [])
-        |> fun (md, acc) -> md::acc
+            )
+            (Normal "", [])
+        |> fun (md, acc) -> md :: acc
         |> Seq.rev
         |> Seq.toArray
 
@@ -1632,20 +1458,20 @@ module ScenarioResult =
 
 module Formulary =
 
-    let empty : Formulary =
+    let empty: Formulary =
         {
             Generics = [||]
             Indications = [||]
             Routes = [||]
             Patients = [||]
             Products = [||]
-            Generic= None
-            Indication= None
-            Route= None
+            Generic = None
+            Indication = None
+            Route = None
             Patient = None
             Age = None
-            Weight= None
-            Height= None
+            Weight = None
+            Height = None
             GestAge = None
             Markdown = ""
         }
@@ -1653,7 +1479,7 @@ module Formulary =
 
 module Parenteralia =
 
-    let empty : Parenteralia =
+    let empty: Parenteralia =
         {
             Generics = [||]
             Shapes = [||]

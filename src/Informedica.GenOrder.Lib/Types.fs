@@ -309,6 +309,24 @@ module Types =
             }
 
 
+        type Intake =
+            {
+                Volume : float option
+                Energy : float option
+                Protein : float option
+                Carbohydrate : float option
+                Fat : float option
+                Sodium : float option
+                Potassium : float option
+                Chloride : float option
+                Calcium : float option
+                Phosphate : float option
+                Magnesium : float option
+                Iron : float option
+                VitaminD : float option
+            }
+
+
         type DoseType = Informedica.GenForm.Lib.Types.DoseType
 
 

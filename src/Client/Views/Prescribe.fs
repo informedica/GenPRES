@@ -95,7 +95,7 @@ module Prescribe =
                             DoseTypes = [||]
                             DoseType = None
                             Scenarios = [||]
-                        } 
+                        }
                     else
                         { sc with Indication = s }
                     |> updateScenario
@@ -114,7 +114,7 @@ module Prescribe =
                             DoseType = None
                             Scenarios = [||]
                         }
-                        
+
                     else
                         { sc with Medication = s }
                     |> updateScenario
@@ -125,7 +125,7 @@ module Prescribe =
             | RouteChange s ->
                 match scenarios with
                 | Resolved sc ->
-                    if s |> Option.isNone then 
+                    if s |> Option.isNone then
                         { sc with
                             Routes = [||]
                             Route = None
@@ -144,7 +144,7 @@ module Prescribe =
                 let dt = s |> Option.map ScenarioResult.doseTypeFromString
                 match scenarios with
                 | Resolved sc ->
-                    if dt |> Option.isNone then 
+                    if dt |> Option.isNone then
                         { sc with
                             DoseTypes = [||]
                             DoseType = None
@@ -163,7 +163,7 @@ module Prescribe =
                     ScenarioResult.empty |> updateScenario
                 | _ -> ()
 
-                { state with 
+                { state with
                     Indication = None
                     Medication = None
                     Route = None
@@ -306,7 +306,7 @@ module Prescribe =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let caption =
-                    let renal = 
+                    let renal =
                         sc.RenalRule
                         |> Option.map (fun s ->
                             $" (doseer aanpassing volgens {s})"
@@ -329,10 +329,10 @@ module Prescribe =
                             )
 
                         let sec =
-                             if not isMobile then sec 
+                             if not isMobile then sec
                              else
-                                let add xs = 
-                                    let plus = [| [| "+ " |> Normal |] |] 
+                                let add xs =
+                                    let plus = [| [| "+ " |> Normal |] |]
                                     xs
                                     |> Array.fold (fun acc x ->
                                         if acc |> Array.isEmpty then x
@@ -353,9 +353,9 @@ module Prescribe =
                         sec
                         |> Array.mapi (fun i row ->
                             JSX.jsx $"""
-                                <TableRow key={i} sx={ {| border=0 |} } > 
+                                <TableRow key={i} sx={ {| border=0 |} } >
                                     {cells row}
-                                </TableRow>              
+                                </TableRow>
                             """
                         )
 
@@ -377,10 +377,10 @@ module Prescribe =
                                     <TableRow sx={ {| border=0; ``& td``={| borderBottom=0 |} |} } >
                                         <TableCell >
                                             {prim}
-                                        </TableCell>                     
+                                        </TableCell>
                                     </TableRow >
                                     {rows}
-                                </TableBody> 
+                                </TableBody>
                             </Table>
                         </TableContainer>
                     </ListItem>
@@ -495,7 +495,7 @@ module Prescribe =
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
                                 let lbl = (Terms.``Prescribe Routes`` |> getTerm "Routes")
-                                
+
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
@@ -503,13 +503,13 @@ module Prescribe =
                                 else
                                     items
                                     |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
-                                
+
                         }
                         {
                             match props.scenarios with
                             | Resolved scrs when scrs.Indication.IsSome &&
                                                  scrs.Medication.IsSome &&
-                                                 scrs.Route.IsSome -> 
+                                                 scrs.Route.IsSome ->
                                 (false, scrs.DoseType, scrs.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
                                     let lbl = "Doseer types"

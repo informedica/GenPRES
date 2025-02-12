@@ -487,6 +487,34 @@ module Api =
         |> Result.map Order.Dto.toDto
 
 
+    let getIntake (dto: Order.Dto.Dto) : Intake =
+        {
+            Volume =
+                match dto.Orderable.Dose.PerTimeAdjust.Variable.ValsOpt with
+                | Some v ->
+                    printfn $"intake: {v.Group}"
+                    if v.Group |> String.containsCapsInsens "volume" then
+                        match v.Value |> Array.tryExactlyOne with
+                        | Some v ->
+                            v |> snd |> float |> Double.fixPrecision 2 |> Some
+                        | None -> None
+                    else None
+                | _ -> None
+            Energy = None
+            Protein = None
+            Carbohydrate = None
+            Fat = None
+            Sodium = None
+            Potassium = None
+            Chloride = None
+            Calcium = None
+            Phosphate = None
+            Magnesium = None
+            Iron = None
+            VitaminD = None
+        }
+
+
     let getDoseRules filter =
         DoseRule.get ()
         |> DoseRule.filter filter

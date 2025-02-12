@@ -8,7 +8,7 @@ module GenericProduct =
 
 
     /// Creates a ProductSubstance
-    let createSubstance si so sn sq su gi gn gq gu un =
+    let createSubstance si so sn sq su gi gn gq gu un ia =
         {
             SubstanceId = si
             SortOrder = so
@@ -20,6 +20,7 @@ module GenericProduct =
             GenericQuantity = gq
             GenericUnit = gu
             ShapeUnit = un
+            IsAdditional = ia
         }
 
 
@@ -60,7 +61,7 @@ module GenericProduct =
                     rt.MUTKOD <> 1 &&
                     rt.HPKODE = hp.HPKODE
                 )
-                |> Array.map(fun rt -> rt.ENKTDW)
+                |> Array.map(_.ENKTDW)
             )
             |> Array.distinct
             |> Array.map (fun rt ->
@@ -82,8 +83,7 @@ module GenericProduct =
         Zindex.BST715T.records ()
         |> Array.filter (fun gs ->
             gs.GSKODE = gp.GSKODE &&
-            gs.MUTKOD <> 1 &&
-            gs.GNMWHS = "W"
+            gs.MUTKOD <> 1
         )
         |> Array.collect (fun gs ->
             Zindex.BST750T.records ()
@@ -97,10 +97,12 @@ module GenericProduct =
                 Zindex.BST750T.records ()
                 |> Array.find (fun s -> s.GNGNK = gn.GNSTAM)
 
+            let isAdditional = gs.GNMWHS = "H"
+
             match hpks with
             | _ when hpks |> Array.isEmpty ->
                 let un1 = Names.getThes gs.XNMOME Names.GenericUnit Names.Fifty
-                createSubstance gn.GNSTAM 1 stam.GNGNAM gs.GNMOMH un1 gn.GNGNK gn.GNGNAM gs.GNMOMH un1 un
+                createSubstance gn.GNSTAM 1 stam.GNGNAM gs.GNMOMH un1 gn.GNGNK gn.GNGNAM gs.GNMOMH un1 un isAdditional
                 |> Array.singleton
             | _  ->
                 hpks
@@ -123,12 +125,12 @@ module GenericProduct =
                     |> Array.map (fun ig ->
                         let un1 = Names.getThes ig.XNMINE Names.GenericUnit Names.Fifty
                         let un2 = Names.getThes gs.XNMOME Names.GenericUnit Names.Fifty
-                        createSubstance ig.GNSTAM ig.GNVOLG stam.GNGNAM ig.GNMINH un1 gn.GNGNK gn.GNGNAM gs.GNMOMH un2 un
+                        createSubstance ig.GNSTAM ig.GNVOLG stam.GNGNAM ig.GNMINH un1 gn.GNGNK gn.GNGNAM gs.GNMOMH un2 un isAdditional
                     )
                 )
         )
         |> Array.distinct
-        |> Array.sortBy (fun s -> s.SortOrder)
+        |> Array.sortBy _.SortOrder
 
 
     let private _get gpks =
@@ -161,7 +163,7 @@ module GenericProduct =
                 ps
                 |> Array.collect (fun pp ->
                     pp.TradeProducts
-                    |> Array.map (fun tp -> tp.Id)
+                    |> Array.map _.Id
                 )
                 |> getSubstances un gp
             printfn $"creating: {nm}"

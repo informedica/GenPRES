@@ -52,4 +52,9 @@ let serverApi: IServerApi =
                     return ord |> ScenarioResult.solveOrder
                 }
 
+        getIntake =
+            fun (ord : Order) ->
+                async {
+                    return ord |> ScenarioResult.getIntake |> Ok
+                }
     }

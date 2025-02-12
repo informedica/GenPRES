@@ -26,7 +26,7 @@ module DrugOrder =
     /// <param name="u">The unit as a string.</param>
     /// <param name="brs">The big rationals as a sequence.</param>
     /// <remarks>
-    /// If the unit is null or an empty empty string, the function returns None.
+    /// If the unit is null or an empty string, the function returns None.
     /// </remarks>
     let createValueUnitDto u brs =
         if u = NoUnit then None
@@ -41,7 +41,7 @@ module DrugOrder =
     /// <param name="u">The unit as a string.</param>
     /// <param name="br">The big rational.</param>
     /// <remarks>
-    /// If the unit is null or an empty empty string, the function returns None.
+    /// If the unit is null or an empty string, the function returns None.
     /// </remarks>
     let createSingleValueUnitDto u br =
         createValueUnitDto u [| br |]
@@ -140,7 +140,7 @@ module DrugOrder =
         }
 
 
-    /// Short hand for Units.stringWithGroup to
+    /// Shorthand for Units.stringWithGroup to
     /// append the unit group to a unit.
     let unitGroup = Units.stringWithGroup
 
@@ -152,7 +152,7 @@ module DrugOrder =
     /// If noSubst is true, the substances will not be added to the ProductComponent.
     /// The freqUnit is used to set the TimeUnit for the Frequencies.
     /// </summary>
-    /// <param name="noSubst">Whether or not to add the substances to the ProductComponent</param>
+    /// <param name="noSubst">Whether to add the substances to the ProductComponent</param>
     /// <param name="solutionRule">The SolutionRule for the ProductComponent</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     /// <param name="ps">The Products to create the ProductComponent from</param>

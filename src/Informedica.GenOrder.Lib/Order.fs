@@ -425,7 +425,7 @@ module Order =
                         if md then Quantity.toValueUnitMarkdown prec
                         else Quantity.toValueUnitString prec
 
-                    doseTo (_.Quantity) toStr
+                    doseTo _.Quantity toStr
 
 
                 let doseQuantityToString = doseQuantityTo false
@@ -439,7 +439,7 @@ module Order =
                         if md then QuantityAdjust.toValueUnitMarkdown prec
                         else QuantityAdjust.toValueUnitString prec
 
-                    doseTo (_.QuantityAdjust) toStr
+                    doseTo _.QuantityAdjust toStr
 
 
                 let doseQuantityAdjustToString = doseQuantityAdjustTo false
@@ -453,7 +453,7 @@ module Order =
                         if md then PerTime.toValueUnitMarkdown prec
                         else PerTime.toValueUnitString prec
 
-                    doseTo (_.PerTime) toStr
+                    doseTo _.PerTime toStr
 
 
                 let dosePerTimeToString = dosePerTimeTo false
@@ -467,7 +467,7 @@ module Order =
                         if md then PerTimeAdjust.toValueUnitMarkdown prec
                         else PerTimeAdjust.toValueUnitString prec
 
-                    doseTo (_.PerTimeAdjust) toStr
+                    doseTo _.PerTimeAdjust toStr
 
 
                 let dosePerTimeAdjustToString = doseQuantityAdjustTo false
@@ -481,7 +481,7 @@ module Order =
                         if md then Rate.toValueUnitMarkdown prec
                         else Rate.toValueUnitString prec
 
-                    doseTo (_.Rate) toStr
+                    doseTo _.Rate toStr
 
 
                 let doseRateToString = doseRateTo false
@@ -495,7 +495,7 @@ module Order =
                         if md then RateAdjust.toValueUnitMarkdown prec
                         else RateAdjust.toValueUnitString prec
 
-                    doseTo (_.RateAdjust) toStr
+                    doseTo _.RateAdjust toStr
 
 
                 let doseRateAdjustToString = doseRateAdjustTo false
@@ -507,7 +507,7 @@ module Order =
                 let doseConstraints get prec (d: Dose) =
                     d
                     |> get
-                    |> (_.Constraints)
+                    |> _.Constraints
                     |> OrderVariable.Constraints.toMinMaxString prec
 
 
@@ -780,7 +780,7 @@ module Order =
 
 
                 let itemComponentConcentrationTo =
-                    concentrationTo (_.ComponentConcentration)
+                    concentrationTo _.ComponentConcentration
 
 
                 let itemComponentConcentrationToString = itemComponentConcentrationTo false
@@ -790,7 +790,7 @@ module Order =
 
 
                 let itemOrderableConcentrationTo =
-                    concentrationTo (_.OrderableConcentration)
+                    concentrationTo _.OrderableConcentration
 
 
                 let itemOrderableConcentrationToString = itemOrderableConcentrationTo false
@@ -808,7 +808,7 @@ module Order =
 
 
                 let componentQuantityTo =
-                    quantityTo (_.ComponentQuantity)
+                    quantityTo _.ComponentQuantity
 
 
                 let itemComponentQuantityToString = componentQuantityTo false
@@ -818,7 +818,7 @@ module Order =
 
 
                 let orderableQuantityTo =
-                    quantityTo (_.OrderableQuantity)
+                    quantityTo _.OrderableQuantity
 
 
                 let itemOrderableQuantityToString = orderableQuantityTo false
@@ -1172,7 +1172,7 @@ module Order =
 
 
                 let componentQuantityTo =
-                    quantityTo (_.ComponentQuantity)
+                    quantityTo _.ComponentQuantity
 
 
                 let componentQuantityToString = componentQuantityTo false
@@ -1182,7 +1182,7 @@ module Order =
 
 
                 let componentOrderableQuantityTo =
-                    quantityTo (_.OrderableQuantity)
+                    quantityTo _.OrderableQuantity
 
 
                 let componentOrderableQuantityToString = componentOrderableQuantityTo false
@@ -1192,7 +1192,7 @@ module Order =
 
 
                 let componentOrderQuantityTo =
-                    quantityTo (_.OrderQuantity)
+                    quantityTo _.OrderQuantity
 
                 let componentOrderQuantityToString = componentOrderQuantityTo false
 
@@ -1209,7 +1209,7 @@ module Order =
 
 
                 let componentOrderableCountTo =
-                    countTo (_.OrderableCount)
+                    countTo _.OrderableCount
 
 
                 let componentOrderableCountToString = componentOrderableCountTo false
@@ -1219,7 +1219,7 @@ module Order =
 
 
                 let componentOrderCountTo =
-                    countTo (_.OrderCount)
+                    countTo _.OrderCount
 
 
                 let componentOrderCountToString = componentOrderCountTo false
@@ -1237,7 +1237,7 @@ module Order =
 
 
                 let componentOrderableConcentrationTo =
-                    concentrationTo (_.OrderableConcentration)
+                    concentrationTo _.OrderableConcentration
 
 
                 let componentOrderableConcentrationToString prec =
@@ -1650,7 +1650,7 @@ module Order =
 
 
             let orderableQuantityTo =
-                quantityTo (_.OrderableQuantity)
+                quantityTo _.OrderableQuantity
 
             let orderableQuantityToString = orderableQuantityTo false
 
@@ -1659,7 +1659,7 @@ module Order =
 
 
             let orderQuantityTo =
-                quantityTo (_.OrderQuantity)
+                quantityTo _.OrderQuantity
 
 
             let orderQuantityToString = orderQuantityTo false
@@ -1677,7 +1677,7 @@ module Order =
 
 
             let orderCountTo =
-                countTo (_.OrderCount)
+                countTo _.OrderCount
 
 
             let orderCountToString = orderCountTo false
@@ -2672,6 +2672,7 @@ module Order =
         { ord with Orderable = ord.Orderable |> Orderable.setDoseUnit sn du }
 
 
+
     module Print =
 
         open Informedica.GenOrder.Lib
@@ -2684,7 +2685,7 @@ module Order =
 
                 let findItem sn =
                     ord.Orderable.Components
-                    |> List.collect (_.Items)
+                    |> List.collect _.Items
                     |> List.tryFind (fun i -> i.Name |> Name.toString |> String.equalsCapInsens sn)
 
                 let itms =

@@ -446,9 +446,7 @@ module DoseRule =
                 if (r.Routes |> Array.isEmpty)
                 then
                     gpks
-                    |> Array.collect (fun gp ->
-                        gp.Route
-                    )
+                    |> Array.collect _.Route
                 else r.Routes
             let un =
                 match gpks |> Array.tryHead with

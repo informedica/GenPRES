@@ -41,6 +41,13 @@ dto2.Variable.IncrOpt.Value.Value <- [|"1", 1m|]
 
 open Informedica.GenSolver.Lib.Variable.Operators
 
+dto1.Variable.ValsOpt <- ValueUnit.Dto.dto () |> Some
+dto1.Variable.ValsOpt.Value.Group <- "Count"
+dto1.Variable.ValsOpt.Value.Unit <- "x"
+dto1.Variable.ValsOpt.Value.Value <- [| "1", 1M |]
+
+dto1.Variable.ValsOpt.Value |> ValueUnit.Dto.fromDto
+
 dto1 |> OrderVariable.Dto.fromDto
 
 let ovar3 =

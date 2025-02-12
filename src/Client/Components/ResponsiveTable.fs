@@ -190,10 +190,11 @@ module ResponsiveTable =
                 $"""
             import {{ DataGrid }} from '@mui/x-data-grid';
 
-            <Box sx={ {| maxHeight="80vh"; overflowY="auto" |} } >
+            <Box>
                 <Box sx={ {| mb=3 |} }>
                     {filter}
                 </Box>
+                <div style={ {| height ="70vh"; width = "100%" |} }>
                 <DataGrid
                     rows={rows}
                     slots={ {| toolbar = toolbar |} }
@@ -212,6 +213,7 @@ module ResponsiveTable =
                             )
                         }
                 />
+                </div>
             </Box>
             """
 

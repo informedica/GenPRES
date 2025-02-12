@@ -13,4 +13,4 @@ File.exists <| FilePath.GStandPath + "BST000T"
 CodeGen.generateZIndex CodeGen.tableList
 |> File.writeTextToFile "Zindex.fs"
 
-
+System.Environment.CurrentDirectory

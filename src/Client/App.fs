@@ -28,6 +28,7 @@ module private Elmish =
             Scenarios: Deferred<ScenarioResult>
             SelectedScenarioOrder : (Scenario * Order) option
             CalculatedOrder : Deferred<(bool * Order) option>
+            Intake : Deferred<Intake>
             SelectedSubstance : string option
             InitialMedication : string option
             InitialRoute : string option
@@ -61,6 +62,7 @@ module private Elmish =
         | UpdateScenarioOrder
         | LoadOrder of string option * Order
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
+        | GetIntake of AsyncOperationStatus<Result<Intake, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
         | LoadParenteralia of AsyncOperationStatus<Result<Parenteralia, string>>
@@ -141,7 +143,7 @@ module private Elmish =
                         | Some s when s = "y" -> true
                         | _ -> false
 
-                    let dep =  Map.tryFind "dp"paramsMap 
+                    let dep =  Map.tryFind "dp"paramsMap
 
                     let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
@@ -153,7 +155,7 @@ module private Elmish =
                             (Some age.Days)
                             weight
                             height
-                            gaWeeks 
+                            gaWeeks
                             gaDays
                             UnknownGender
                             [ CVL ]
@@ -188,7 +190,7 @@ module private Elmish =
                         | Some s when s = "y" -> [ CVL ]
                         | _ -> []
 
-                    let dep =  Map.tryFind "dp"paramsMap 
+                    let dep =  Map.tryFind "dp"paramsMap
 
                     let age = Patient.Age.fromDays days
 
@@ -200,7 +202,7 @@ module private Elmish =
                             (Some age.Days)
                             weight
                             height
-                            gaWeeks 
+                            gaWeeks
                             gaDays
                             UnknownGender
                             cvl
@@ -223,7 +225,7 @@ module private Elmish =
                 | Some s when s = "pe" -> Some Global.Parenteralia
                 | _ -> None
 
-            let lang = 
+            let lang =
                 match paramsMap |> Map.tryFind "la" with
                 | Some s when s = "en" -> Some Localization.English
                 | Some s when s = "du" -> Some Localization.Dutch
@@ -239,13 +241,13 @@ module private Elmish =
                 | Some s when s = "n" -> false
                 | _ -> true
 
-            let med = 
-                {| 
+            let med =
+                {|
                     medication = paramsMap |> Map.tryFind "md"
                     route = paramsMap |> Map.tryFind "rt"
                     indication = paramsMap |> Map.tryFind "in"
-                    dosetype = 
-                        paramsMap 
+                    dosetype =
+                        paramsMap
                         |> Map.tryFind "dt"
                         |> Option.map ScenarioResult.doseTypeFromString
                 |}
@@ -271,11 +273,12 @@ module private Elmish =
             Products = HasNotStartedYet
             Scenarios = HasNotStartedYet
             CalculatedOrder = HasNotStartedYet
+            Intake = HasNotStartedYet
             SelectedSubstance = None
             InitialMedication =
                 med
                 |> Option.bind _.medication
-            InitialRoute = 
+            InitialRoute =
                 med
                 |> Option.bind _.route
             InitialIndication =
@@ -290,7 +293,7 @@ module private Elmish =
             Localization = HasNotStartedYet
             Hospitals = HasNotStartedYet
             Context =
-                { 
+                {
                     Localization = lang |> Option.defaultValue Localization.Dutch
                     Hospital = "UMCU"
                 }
@@ -331,19 +334,19 @@ module private Elmish =
             Cmd.none
 
         | UpdateLanguage lang ->
-            { state with 
+            { state with
                 ShowDisclaimer = true
-                Context =  { state.Context with Localization = lang } 
+                Context =  { state.Context with Localization = lang }
             }, Cmd.none
 
         | UpdateHospital hosp ->
-            { state with 
+            { state with
                 ShowDisclaimer = true
-                Context =  { state.Context with Hospital = hosp } 
+                Context =  { state.Context with Hospital = hosp }
             }, Cmd.none
 
         | UpdatePatient p ->
-            { state with 
+            { state with
                 Patient = p
             },
             Cmd.batch [
@@ -358,11 +361,11 @@ module private Elmish =
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
-                Context =  
-                    { state.Context with 
+                Context =
+                    { state.Context with
                         Localization =
-                            lang |> Option.defaultValue Localization.English 
-                    } 
+                            lang |> Option.defaultValue Localization.English
+                    }
             },
             Cmd.ofMsg (pat |> UpdatePatient)
 
@@ -466,7 +469,7 @@ module private Elmish =
             let scenarios =
                 match state.Scenarios, state.Patient with
                 | Resolved sc, Some _ -> sc
-                | _ -> 
+                | _ ->
                     { ScenarioResult.empty with
                         Medication = state.InitialMedication
                         Route = state.InitialRoute
@@ -476,16 +479,16 @@ module private Elmish =
                 |> fun sc ->
                     { sc with
                         AgeInDays =
-                            state.Patient 
+                            state.Patient
                             |> Option.bind Patient.getAgeInDays
                         GestAgeInDays =
-                            state.Patient 
+                            state.Patient
                             |> Option.bind Patient.getGestAgeInDays
                         WeightInKg =
-                            state.Patient 
+                            state.Patient
                             |> Option.bind Patient.getWeight
                         HeightInCm =
-                            state.Patient 
+                            state.Patient
                             |> Option.bind Patient.getHeight
                         AccessList =
                             match state.Patient with
@@ -495,8 +498,8 @@ module private Elmish =
                             match state.Patient with
                             | Some pat -> pat.RenalFunction
                             | None -> None
-                        Department = 
-                            state.Patient 
+                        Department =
+                            state.Patient
                             |> Option.bind (fun p -> p.Department)
                     }
 
@@ -506,12 +509,15 @@ module private Elmish =
                     return Finished result |> LoadScenarios
                 }
 
-            { state with 
+            { state with
                 Scenarios = InProgress
                 InitialMedication = None
                 InitialRoute = None
                 InitialIndication = None
                 InitialDoseType = None
+                CalculatedOrder = HasNotStartedYet
+                Intake = HasNotStartedYet
+                SelectedSubstance = None
             }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
@@ -523,7 +529,7 @@ module private Elmish =
             { state with
                 Scenarios = Resolved result
                 IsDemo = result.DemoVersion
-                SnackbarMsg = 
+                SnackbarMsg =
                     if useRenalRule |> not then ""
                     else
                         "Dosering aangepast aan nierfunctie"
@@ -568,9 +574,9 @@ module private Elmish =
                         | None -> sc.WeightInKg
                 }
 
-            { state with 
-                Scenarios = Resolved sc 
-                Formulary = 
+            { state with
+                Scenarios = Resolved sc
+                Formulary =
                     state.Formulary
                     |> Deferred.map (fun form ->
                         { form with
@@ -624,11 +630,11 @@ module private Elmish =
                     if o |> Option.isNone then state.SelectedScenarioOrder
                     else
                         (sc, o |> Option.get) |> Some
-                CalculatedOrder = 
+                CalculatedOrder =
                     o
                     |> Option.map (fun o ->
                         sc.UseAdjust, o
-                    ) 
+                    )
                     |> Resolved
             },
             Cmd.ofMsg (CalculateOrder Started)
@@ -647,8 +653,8 @@ module private Elmish =
             | Resolved (Some order) ->
                 let load =
                     async {
-                        let! order = 
-                            order 
+                        let! order =
+                            order
                             |> snd
                             |> serverApi.calcMinIncrMax
                         return Finished order |> CalculateOrder
@@ -663,19 +669,19 @@ module private Elmish =
                     SelectedScenarioOrder =
                         state.SelectedScenarioOrder
                         |> Option.map (fun (sc, _) -> sc, o)
-                    CalculatedOrder = 
-                        o 
-                        |> Some 
+                    CalculatedOrder =
+                        o
+                        |> Some
                         |> Option.map (fun o ->
                             match state.SelectedScenarioOrder with
                             | None -> false, o
-                            | Some (sc, _) -> 
-
+                            | Some (sc, _) ->
                                 sc.UseAdjust, o
                         )
                         |> Resolved
                     // show only the calculated order scenario
-                    Scenarios = 
+                    Intake = InProgress
+                    Scenarios =
                         state.Scenarios
                         |> Deferred.map (fun scr ->
                             { scr with
@@ -690,10 +696,31 @@ module private Elmish =
                                     )
                             }
                         )
-                }, Cmd.none
+                }, Cmd.ofMsg (GetIntake Started)
+
             | Error s ->
                 Logging.error "eror calculating order" s
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
+
+        | GetIntake Started ->
+            match state.CalculatedOrder with
+            | Resolved (Some (_, o)) ->
+                Logging.log "getting intake for" o
+                let load =
+                    async {
+                        let! intake = serverApi.getIntake o
+                        return Finished intake |> GetIntake
+                    }
+                { state with Intake = InProgress }, Cmd.fromAsync load
+            | _ -> state, Cmd.none
+
+        | GetIntake (Finished (Ok intake)) ->
+            Logging.log "got intake" intake
+            { state with Intake = intake |> Resolved }, Cmd.none
+
+        | GetIntake (Finished (Error s)) ->
+            Logging.error "error getting intake" s
+            state, Cmd.none
 
         | LoadFormulary Started ->
             let form =
@@ -701,10 +728,10 @@ module private Elmish =
                 | Resolved form ->
                     { form with
                         Age =
-                            state.Patient 
+                            state.Patient
                             |> Option.bind Patient.getAgeInDays
                         Weight =
-                            state.Patient 
+                            state.Patient
                             |> Option.bind Patient.getWeight
                         Height =
                             state.Patient
@@ -755,7 +782,7 @@ module private Elmish =
             ]
 
         | LoadParenteralia Started ->
-            let load = 
+            let load =
                 let par =
                     state.Parenteralia
                     |> Deferred.defaultValue Parenteralia.empty
@@ -775,7 +802,7 @@ module private Elmish =
             state, Cmd.none
 
         | UpdateParenteralia par ->
-            let state = 
+            let state =
                 { state with
                     Parenteralia = Resolved par
                 }
@@ -835,11 +862,11 @@ let View () =
 
         calculatInterventions calc state.ContinuousMedication state.Patient
 
-    let sx = 
-        if isMobile 
-        then 
+    let sx =
+        if isMobile
+        then
             {| height= "100vh"; overflowY = "hidden"; mb=5 |}
-        else 
+        else
             {| height= "100vh"; overflowY = "hidden"; mb=0 |}
     JSX.jsx
         $"""
@@ -878,6 +905,7 @@ let View () =
                         updateParenteralia = UpdateParenteralia >> dispatch
                         selectOrder = SelectOrder >> dispatch
                         order = state.CalculatedOrder |> Deferred.map (Option.map (fun (b, o) -> b, state.SelectedSubstance, o))
+                        intake = state.Intake
                         loadOrder = LoadOrder >> dispatch
                         updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
                         page = state.Page
@@ -886,7 +914,7 @@ let View () =
                         hospitals = state.Hospitals
                         switchLang = UpdateLanguage >> dispatch
                         switchHosp = UpdateHospital >> dispatch
-                    |}) 
+                    |})
                     |> toReact |> Components.Context.Context state.Context
                 }
             </Box>
@@ -896,7 +924,7 @@ let View () =
                     autoHideDuration={3000}
                     message={ state.SnackbarMsg }
                     onClose={handleClose}
-                />                
+                />
             </div>
         </ThemeProvider>
     </React.StrictMode>

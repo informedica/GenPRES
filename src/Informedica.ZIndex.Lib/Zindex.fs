@@ -149,7 +149,8 @@ module Zindex =
     /// <para> 9.	GRP003: 	FTK 3 </para>
     /// <para> 10.	GRP004: 	FTK 4 </para>
     /// <para> 11.	GRP005: 	FTK 5 </para>
-    /// <para> 12.	HPDEEL: 	Deelbaarheid aantal </para>
+    /// <para> 12.	XSEENH: 	HPK-eenheid kode </para>
+    /// <para> 13.	HPDEEL: 	Deelbaarheid aantal </para>
     /// </summary>
     module BST031T =
 
@@ -169,11 +170,12 @@ module Zindex =
                 GRP003 : int
                 GRP004 : int
                 GRP005 : int
+                XSEENH : int
                 HPDEEL : int
             }
 
 
-        let create mutkod hpkode prkode hpnamn msnaam fsnaam hpsgew grp001 grp002 grp003 grp004 grp005 hpdeel  =
+        let create mutkod hpkode prkode hpnamn msnaam fsnaam hpsgew grp001 grp002 grp003 grp004 grp005 xseenh hpdeel  =
             {
                 MUTKOD = mutkod |> ((Parser.parseValue "N" "") >> Int32.parse)
                 HPKODE = hpkode |> ((Parser.parseValue "N" "(7+1)") >> Int32.parse)
@@ -187,17 +189,18 @@ module Zindex =
                 GRP003 = grp003 |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GRP004 = grp004 |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GRP005 = grp005 |> ((Parser.parseValue "N" "") >> Int32.parse)
+                XSEENH = xseenh |> ((Parser.parseValue "N" "") >> Int32.parse)
                 HPDEEL = hpdeel |> ((Parser.parseValue "N" "") >> Int32.parse)
             }
 
 
         let posl = BST001T.getPosl name
 
-        let pickList = [1;2;3;5;6;7;10;18;19;20;21;22;38]
+        let pickList = [1;2;3;5;6;7;10;18;19;20;21;22;30;38]
 
         let _records _ =
             Parser.getData name posl pickList
-            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7) (xs |> Array.item 8) (xs |> Array.item 9) (xs |> Array.item 10) (xs |> Array.item 11) (xs |> Array.item 12))
+            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7) (xs |> Array.item 8) (xs |> Array.item 9) (xs |> Array.item 10) (xs |> Array.item 11) (xs |> Array.item 12) (xs |> Array.item 13))
 
         let records : unit -> BST031T [] = Memoization.memoize _records
 

@@ -93,7 +93,7 @@ module RuleFinder =
             GenPresProduct.filter gsr.Generic gsr.Shape gsr.Route
             |> Array.collect (fun gpp ->
                 gpp.GenericProducts
-                |> Array.map (_.Id)
+                |> Array.map _.Id
             )
         |> Array.collect (fun gpk ->
             DoseRule.get gpks
@@ -168,7 +168,7 @@ module RuleFinder =
             drs
             |> Array.collect (fun dr ->
                 dr.GenericProduct
-                |> Array.map (fun gp -> gp.Id)
+                |> Array.map _.Id
             )
             |> Array.distinct
             |> Array.collect GenPresProduct.findByGPK
@@ -199,7 +199,7 @@ module RuleFinder =
 
             let gpks (dr : DoseRule) =
                 dr.GenericProduct
-                |> Array.map (fun gp -> gp.Id)
+                |> Array.map _.Id
                 |> Array.toList
                 |> GenericProduct.get
 
@@ -290,7 +290,7 @@ module RuleFinder =
 
             let freqs =
                 drs
-                |> Array.map (fun dr -> dr.Freq)
+                |> Array.map _.Freq
                 |> Array.distinct
                 |> Array.map (fun fr ->
                     let drs' =

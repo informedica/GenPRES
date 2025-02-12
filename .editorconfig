@@ -6,10 +6,11 @@ indent_size = 4
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = false
-max_line_length=80
+max_line_length=120
 
 [*.fs]
-fsharp_multiline_block_brackets_on_same_column=true
+fsharp_multiline_bracket_style = aligned
+fsharp_align_function_signature_to_indentation = true
+fsharp_keep_max_number_of_blank_lines = 2
 fsharp_multi_line_lambda_closing_newline=true
-fsharp_single_argument_web_mode=true
-fsharp_max_value_binding_width=40
+fsharp_max_value_binding_width=80
