@@ -1915,6 +1915,7 @@ module Units =
         app u
 
 
+
     /// <summary>
     /// Check whether unit u1 equals unit u2
     /// irrespective of the unit value
@@ -2023,6 +2024,23 @@ module Units =
         | CombiUnit (ul1, op1, ur1), CombiUnit (ul2, op2, ur2) ->
             op1 = op2 && eqsUnit ul1 ul2 && eqsUnit ur1 ur2
 
+
+
+    let hasGroup u1 u2 =
+        match u1, u2 with
+        | CombiUnit (u1L, _, u1R), CombiUnit (u2L, _, u2R) ->
+            hasGroup u1L u2L ||
+            hasGroup u1L u2R ||
+            hasGroup u1R u2L ||
+            hasGroup u1R u2R
+        | CombiUnit (u1L, _, u1R), u2 ->
+            hasGroup u1L u2 ||
+            hasGroup u1R u2
+        | u1, CombiUnit (u2L, _, u2R) ->
+            hasGroup u1 u2L ||
+            hasGroup u1 u2R
+        | u1, u2 ->
+            (u1 |> ValueUnit.Group.unitToGroup) = (u2 |> ValueUnit.Group.unitToGroup)
 
 
 module ValueUnit =
@@ -2553,6 +2571,12 @@ module ValueUnit =
     /// Create a general 'single' ValueUnit with unit value
     /// n general text s and single value v
     let generalSingleValueUnit v n s = generalValueUnit [| v |] n s
+
+
+    let setUnit u vu =
+        vu
+        |> getValue
+        |> withUnit u
 
 
     //----------------------------------------------------------------------------
@@ -3923,6 +3947,7 @@ module ValueUnit =
                 v
                 |> ValueUnit.withUnit u
                 |> Some
+
 
 
 

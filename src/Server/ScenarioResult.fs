@@ -494,9 +494,11 @@ let print (sc: ScenarioResult) =
                     let prs, prp, adm =
                         sc.Order
                         |> Option.map (fun ord ->
+                            // only print the item quantities of the principal component
                             let sn =
-                                ord.Orderable.Components
-                                |> Array.collect (fun c -> c.Items |> Array.map _.Name)
+                                match ord.Orderable.Components |> Array.tryHead with
+                                | Some c ->  c.Items |> Array.map _.Name
+                                | None -> [||]
 
                             ord
                             |> mapFromOrder

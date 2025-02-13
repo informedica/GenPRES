@@ -2871,8 +2871,9 @@ module Order =
                     |> List.toArray
                     |> Array.mapi (fun i1 c ->
                         let cmpQty = c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
+
                         [|
-                            if c.Items |> List.isEmpty then
+                            if i1 > 0 then //c.Items |> List.isEmpty then
                                 [|
                                     [|
                                         if cmpQty |> String.notEmpty then

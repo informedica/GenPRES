@@ -1377,6 +1377,12 @@ module Variable =
             else None
 
 
+        let setUnit unt vr =
+            vr
+            |> mapValueUnit (ValueUnit.setUnit unt)
+
+
+
         /// <summary>
         /// Count the number of values in a `ValueRange`.
         /// Returns 0 if no count is possible.
@@ -3406,6 +3412,14 @@ module Variable =
     /// Get the unit of a Variable
     let getUnit var =
         var |> getValueRange |> ValueRange.getUnit
+
+    let setUnit unt var =
+        { var with
+            Values =
+                var
+                |> getValueRange
+                |> ValueRange.setUnit unt
+        }
 
     module Operators =
 

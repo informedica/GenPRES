@@ -247,6 +247,63 @@ module DrugOrder =
                 }
         )
 
+    let addSolution sr (parenteral : Product[]) dro =
+        // add an optional solution rule
+        match sr with
+        | None -> dro
+        | Some sr ->
+            { dro with
+                Dose =
+                    { DoseRule.DoseLimit.limit with
+                        Rate = sr.DripRate
+                        Quantity  = sr.Volume
+                        DoseUnit = Units.Volume.milliLiter
+                    } |> Some
+                Quantities = sr.Volumes
+                DoseCount =
+                    sr.DosePerc.Max
+                    |> Option.map Limit.getValueUnit
+                    |> Option.map (fun dc ->
+                        (Units.Count.times |> ValueUnit.one) / dc
+                    )
+
+                Products =
+                    let ps =
+                        dro.Products
+                        |> List.map (fun p ->
+                            { p with
+                                Name = dro.Name
+                                Shape = p.Shape
+                                Substances =
+                                    p.Substances
+                                    |> setSolutionLimit sr.SolutionLimits
+                            }
+                        )
+
+                    let s =
+                        // ugly hack to get default solution
+                        sr.Solutions
+                        |> Array.tryHead
+                        |> Option.defaultValue "x"
+
+                    parenteral
+                    |> Array.tryFind (fun p ->
+                            s |> String.notEmpty &&
+                            p.Generic |> String.startsWith s
+                        )
+                    |> function
+                    | Some p ->
+                        [|p|]
+                        |> createProductComponent false None [||]
+                        |> List.singleton
+                        |> List.append ps
+                    | None ->
+                        ConsoleWriter.writeInfoMessage
+                            $"couldn't find {s} in parenterals"
+                            true false
+                        ps
+            }
+
 
     /// <summary>
     /// Create a DrugOrder from a PrescriptionRule and a SolutionRule.
@@ -311,63 +368,7 @@ module DrugOrder =
                 else pr.Patient |> Patient.calcBSA
             AdjustUnit = Some au
         }
-        |> fun dro ->
-                // add an optional solution rule
-                match sr with
-                | None -> dro
-                | Some sr ->
-                    { dro with
-                        Dose =
-                            { DoseRule.DoseLimit.limit with
-                                Rate = sr.DripRate
-                                Quantity  = sr.Volume
-                                DoseUnit = Units.Volume.milliLiter
-                            } |> Some
-                        Quantities = sr.Volumes
-                        DoseCount =
-                            sr.DosePerc.Max
-                            |> Option.map Limit.getValueUnit
-                            |> Option.map (fun dc ->
-                                (Units.Count.times |> ValueUnit.one) / dc
-                            )
-
-                        Products =
-                            let ps =
-                                dro.Products
-                                |> List.map (fun p ->
-                                    { p with
-                                        Name = dro.Name
-                                        Shape = p.Shape
-                                        Substances =
-                                            p.Substances
-                                            |> setSolutionLimit sr.SolutionLimits
-                                    }
-                                )
-
-                            let s =
-                                // ugly hack to get default solution
-                                sr.Solutions
-                                |> Array.tryHead
-                                |> Option.defaultValue "x"
-
-                            parenteral
-                            |> Array.tryFind (fun p ->
-                                    s |> String.notEmpty &&
-                                    p.Generic |> String.startsWith s
-                                )
-                            |> function
-                            | Some p ->
-
-                                [|p|]
-                                |> createProductComponent true None [||]
-                                |> List.singleton
-                                |> List.append ps
-                            | None ->
-                                ConsoleWriter.writeInfoMessage
-                                    $"couldn't find {s} in parenterals"
-                                    true false
-                                ps
-                    }
+        |> addSolution sr parenteral
 
 
 

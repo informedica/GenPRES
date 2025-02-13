@@ -385,6 +385,9 @@ module Product =
                         rs[0].Divisibility
             Substances =
                 gp.Substances
+                |> Array.filter (fun ps ->
+                    ps.SubstanceQuantity > 0.
+                )
                 |> Array.distinctBy _.SubstanceId
                 |> Array.map (fun s ->
                     let su =
@@ -456,7 +459,7 @@ module Product =
                 )
                 // collect the GenericProducts
                 // filtered by "valid shape" and
-                // substance quantity > 0
+                // at least one substance quantity > 0
                 |> Array.collect (fun (r, gpp) ->
                     gpp.GenericProducts
                     |> Array.filter (fun gp ->
@@ -464,7 +467,7 @@ module Product =
                         Mapping.validShapes ()
                         |> Array.exists (String.equalsCapInsens gp.Shape) &&
                         gp.Substances
-                        |> Array.forall (fun s ->
+                        |> Array.exists (fun s ->
                             s.SubstanceQuantity > 0.
                         )
                     )
