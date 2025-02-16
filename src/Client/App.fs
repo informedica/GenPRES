@@ -576,6 +576,7 @@ module private Elmish =
 
             { state with
                 Scenarios = Resolved sc
+                Intake = HasNotStartedYet
                 Formulary =
                     state.Formulary
                     |> Deferred.map (fun form ->

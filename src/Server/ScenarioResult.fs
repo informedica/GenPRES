@@ -62,9 +62,6 @@ let mapPatient
                 | PeritionealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
             )
     }
-    |> fun p ->
-        printfn $"patient mapped: {p}"
-        p
     |> Patient.calcPMAge
 
 

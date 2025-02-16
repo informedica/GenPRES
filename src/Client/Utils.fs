@@ -14,10 +14,24 @@ open Feliz
 open Browser.Types
 
 let inline toJsx (el: ReactElement) : JSX.Element = unbox el
+
 let inline toReact (el: JSX.Element) : ReactElement = unbox el
 
 /// Enables use of Feliz styles within a JSX hole
 let inline toStyle (styles: IStyleAttribute list) : obj = JsInterop.createObj (unbox styles)
+
+let inline withKey els =
+    els
+    |> Array.mapi (fun i (key, el) ->
+        let key = $"{key}-{i}"
+
+        JSX.jsx $"""
+        import React from 'react';
+
+        <React.Fragment key={key}>
+            {el}
+        </React.Fragment>
+        """)
 
 
 let toClass (classes: (string * bool) list) : string =
@@ -116,4 +130,3 @@ module GoogleDocs =
         dataGPUrlId
         |> createUrl "Localization"
         |> getUrl id msg
-    

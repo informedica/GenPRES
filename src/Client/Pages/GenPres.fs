@@ -271,7 +271,7 @@ module GenPres =
                         {
                             match props.page with
                             | Global.Pages.Prescribe ->
-                                Views.Intake.View(props.intake)
+                                Views.Intake.View props.intake
                             | _ -> JSX.jsx "<></>"
                         }
                     </Box>

@@ -43,7 +43,7 @@ module Intake =
     |]
 
 
-    let private typoGraphy (item : Types.TextItem) =
+    let private typoGraphy (items : Types.TextItem[]) =
         let print item =
             match item with
             | Normal s ->
@@ -55,7 +55,7 @@ module Intake =
                 JSX.jsx
                     $"""
                 <Typography
-                color={Mui.Colors.BlueGrey.``500``}
+                color={Mui.Colors.BlueGrey.``700``}
                 display="inline"
                 >
                 <strong> {s} </strong>
@@ -67,12 +67,11 @@ module Intake =
                 <Typography
                 color={Mui.Colors.Grey.``700``}
                 display="inline"
-                variant="caption"
+                variant="body2"
                 >
-                <strong> {s} </strong>
+                {s}
                 </Typography>
                 """
-            |> Array.singleton
 
         JSX.jsx
             $"""
@@ -80,7 +79,7 @@ module Intake =
         import Box from '@mui/material/Box';
 
         <Box display="inline" >
-            {item |> print |> unbox |> React.fragment}
+            {items |> Array.map print |> unbox |> React.fragment}
         </Box>
         """
 
@@ -88,145 +87,36 @@ module Intake =
     [<JSX.Component>]
     let View(res: Deferred<Intake>) =
         let mapRow (intake: Intake) row =
+            let print n itms =
+                if itms |> Array.length < 2 then [||]
+                else
+                    [|
+                        [| Normal n |] |> typoGraphy
+                        itms[0..(itms.Length - 2)] |> typoGraphy
+                        [| itms |> Array.last |] |> typoGraphy
+                    |]
+                |> Array.map box
+
             row
             |> Array.map (fun cells ->
                 match cells |> Array.head with
-                | "volume" ->
-                    if intake.Volume |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Volume[0] |> typoGraphy
-                            intake.Volume[1] |> typoGraphy
-                        |]
-                | "energie" ->
-                    if intake.Energy |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Energy[0] |> typoGraphy
-                            intake.Energy[1] |> typoGraphy
-                        |]
-                | "koolhydraat" ->
-                    if intake.Carbohydrate |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Carbohydrate[0] |> typoGraphy
-                            intake.Carbohydrate[1] |> typoGraphy
-                        |]
-                | "eiwit" ->
-                    if intake.Protein |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Protein[0] |> typoGraphy
-                            intake.Protein[1] |> typoGraphy
-                        |]
-                | "vet" ->
-                    if intake.Fat |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Fat[0] |> typoGraphy
-                            intake.Fat[1] |> typoGraphy
-                        |]
-                | "natrium" ->
-                    if intake.Sodium |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Sodium[0] |> typoGraphy
-                            intake.Sodium[1] |> typoGraphy
-                        |]
-                | "kalium" ->
-                    if intake.Potassium |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Potassium[0] |> typoGraphy
-                            intake.Potassium[1] |> typoGraphy
-                        |]
-                | "chloride" ->
-                    if intake.Chloride |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Chloride[0] |> typoGraphy
-                            intake.Chloride[1] |> typoGraphy
-                        |]
-                | "calcium" ->
-                    if intake.Calcium |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Calcium[0] |> typoGraphy
-                            intake.Calcium[1] |> typoGraphy
-                        |]
-                | "magnesium" ->
-                    if intake.Magnesium |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Magnesium[0] |> typoGraphy
-                            intake.Magnesium[1] |> typoGraphy
-                        |]
-                | "phosphaat" ->
-                    if intake.Phosphate |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Phosphate[0] |> typoGraphy
-                            intake.Phosphate[1] |> typoGraphy
-                        |]
-                | "ijzer" ->
-                    if intake.Iron |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Iron[0] |> typoGraphy
-                            intake.Iron[1] |> typoGraphy
-                        |]
-                | "vitamine D" ->
-                    if intake.VitaminD |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.VitaminD[0] |> typoGraphy
-                            intake.VitaminD[1] |> typoGraphy
-                        |]
-                | "ethanol" ->
-                    if intake.Ethanol |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Ethanol[0] |> typoGraphy
-                            intake.Ethanol[1] |> typoGraphy
-                        |]
-                | "propyleenglycol" ->
-                    if intake.Propyleenglycol |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.Propyleenglycol[0] |> typoGraphy
-                            intake.Propyleenglycol[1] |> typoGraphy
-                        |]
-                | "boorzuur" ->
-                    if intake.BoricAcid |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.BoricAcid[0] |> typoGraphy
-                            intake.BoricAcid[1] |> typoGraphy
-                        |]
-                | "benzylalcohol" ->
-                    if intake.BenzylAlcohol |> Array.isEmpty then [||] |> Array.map box
-                    else
-                        [|
-                            cells[0] |> box
-                            intake.BenzylAlcohol[0] |> typoGraphy
-                            intake.BenzylAlcohol[1] |> typoGraphy
-                        |]
+                | "volume"      -> print "volume" intake.Volume
+                | "energie"     -> print "energie" intake.Energy
+                | "koolhydraat" -> print "koolhydraat" intake.Carbohydrate
+                | "eiwit"       -> print "eiwit" intake.Protein
+                | "vet"         -> print "vet" intake.Fat
+                | "natrium"     -> print "natrium" intake.Sodium
+                | "kalium"      -> print "kalium" intake.Potassium
+                | "chloride"    -> print "chloride" intake.Chloride
+                | "calcium"     -> print "calcium" intake.Calcium
+                | "magnesium"   -> print "magnesium" intake.Magnesium
+                | "phosphaat"   -> print "phosphaat" intake.Phosphate
+                | "ijzer"       -> print "ijzer" intake.Iron
+                | "vitamine D"  -> print "vitamine D" intake.VitaminD
+                | "ethanol"         -> print "ethanol" intake.Ethanol
+                | "propyleenglycol" -> print "propyleenglycol" intake.Propyleenglycol
+                | "boorzuur"        -> print "boorzuur" intake.BoricAcid
+                | "benzylalcohol"   -> print "benzylalcohol" intake.BenzylAlcohol
                 | _ -> [||] |> Array.map box
             )
 
@@ -242,40 +132,24 @@ module Intake =
                 ,
                 map rows4
             | _ ->
-                rows1 |> Array.map (Array.map box),
-                rows2 |> Array.map (Array.map box),
-                rows3 |> Array.map (Array.map box),
-                rows4 |> Array.map (Array.map box)
+                [||],
+                [||],
+                [||],
+                [||]
 
-        let content1 =
-            Components.BasicTable.View({|
-                header = [||]
-                rows =rows1
-            |})
-            |> toReact
+        let createTable n rows = $"table{n}", Components.BasicTable.View({| header = [||]; rows = rows |}) |> toReact
 
-        let content2 =
-            Components.BasicTable.View({|
-                header = [||]
-                rows =rows2
-            |})
-            |> toReact
+        let content =
+            [|
+                if rows1 |> Array.isEmpty |> not then createTable 1 rows1
+                if rows2 |> Array.isEmpty |> not then createTable 2 rows2
+                if rows3 |> Array.isEmpty |> not then createTable 3 rows3
+                if rows4 |> Array.isEmpty |> not then createTable 4 rows4
+            |]
 
-        let content3 =
-            Components.BasicTable.View({|
-                header = [||]
-                rows =rows3
-            |})
-            |> toReact
 
-        let content4 =
-            Components.BasicTable.View({|
-                header = [||]
-                rows =rows4
-            |})
-            |> toReact
 
         Components.BottomDrawer.View {|
             isOpen = true;
-            content = [| content1; content2; content3; content4 |]
+            content = content
             |}

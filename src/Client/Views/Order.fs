@@ -43,25 +43,33 @@ module Order =
 
 
         let init (ord: Deferred<(bool * string option * Order ) option>) =
-            {
-                SelectedSubstance =
-                    match ord with
-                    | Resolved (Some (_, subst, ord)) ->
-                        ord.Orderable.Components
-                        |> Array.tryHead
-                        |> Option.bind (fun c ->
-                            if c.Items |> Array.isEmpty then None
-                            else
+            let SelectedSubstance =
+
+                match ord with
+                | Resolved (Some (_, subst, ord)) ->
+                    ord.Orderable.Components
+                    |> Array.tryHead
+                    |> Option.bind (fun c ->
+                        if c.Items |> Array.isEmpty then None
+                        else
+                            // only use substances that are not additional
+                            let substs =
                                 c.Items
-                                |> Array.tryFind (fun i -> i.Name |> Some = subst)
-                                |> Option.map _.Name
-                                |> Option.defaultValue (c.Items[0].Name)
-                                |> Some
-                        )
-                    | _ -> None
+                                |> Array.filter (_.IsAdditional >> not)
+
+                            substs
+                            |> Array.tryFind (fun i -> i.Name |> Some = subst)
+                            |> Option.map _.Name
+                            |> Option.defaultValue (substs[0].Name)
+                            |> Some
+                    )
+                | _ -> None
+
+            {
+                SelectedSubstance = SelectedSubstance
                 Order =
-                ord
-                |> Deferred.map (fun opt -> opt |> Option.map (fun (_, _, o) -> o))
+                    ord
+                    |> Deferred.map (fun opt -> opt |> Option.map (fun (_, _, o) -> o))
             }
             , Cmd.none
 
@@ -487,6 +495,7 @@ module Order =
             match state.Order with
             | Resolved (Some ord) ->
                 ord.Orderable.Components
+                // only use the main component for dosing
                 |> Array.tryHead
                 |> Option.map (fun c ->
                     // filter out additional items, they are not used for dosing

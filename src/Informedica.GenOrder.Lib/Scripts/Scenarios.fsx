@@ -68,14 +68,46 @@ let tpn =
     |> getPrescr "Samenstelling C" "" ""
 
 
-tpn |> Order.toString |> List.iter (printfn "%s")
+adrenInf |> Order.toString |> List.iter (printfn "%s")
 
+
+let w =
+    Patient.child.Weight
+    |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+
+open Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
 
 [|
     adrenInf
 |]
-|> Intake.calc Units.Time.day
+|> Intake.calc w Units.Time.day
+|> fun intake ->
+    intake[0]
+    |> snd
+    |> Variable.getValueRange
+    |> Variable.ValueRange.getMin
+    |> Option.map (fun min ->
+        let _, vu = min |> toBoolValueUnit
 
+        let s =
+            $"""{vu |> ValueUnit.toDelimitedString 3}"""
+
+        if false then s
+        else
+            let u =
+                vu
+                |> ValueUnit.getUnit
+                |> Units.toStringDutchShort
+                |> String.removeBrackets
+
+            printfn $"{u}"
+            s
+            |> String.replace $"|{u}|" ""
+    )
+
+adrenInf
+|> Order.Dto.toDto
+|> Api.getIntake w
 
 let shp = ""
 let rte = "INTRAVENEUS"

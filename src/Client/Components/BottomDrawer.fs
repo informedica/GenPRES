@@ -18,7 +18,7 @@ module BottomDrawer =
     let View (props :
             {|
                 isOpen : bool
-                content : ReactElement[]
+                content : (string * ReactElement) []
             |}
         ) =
 
@@ -33,7 +33,7 @@ module BottomDrawer =
             open={props.isOpen}
         >
             <Stack sx={sx} direction="row" spacing={3} >
-                {props.content}
+                {props.content |> withKey}
             </Stack>
         </Drawer>
         """

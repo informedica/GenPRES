@@ -6,13 +6,7 @@
     "type": "module",
     "engines": {
         "node": "~18 || ~22",
-        "npm": "~9 || ~10"
-    },
-    "scripts": {
-        "init-assets": "[ -d dist ] || mkdir dist && cp src/Client/public/*.* dist/.",
-        "watch-server": "dotnet watch --project src/Server/Server.fsproj",
-        "start": "npm run init-assets && dotnet fable watch src/Client -o dist -e .jsx --run vite",
-        "build": "dotnet fable src/Client -o dist -e .jsx && npm run init-assets && vite build --outDir ./../deploy"
+        "npm": "~9 || ~10 || ~11"
     },
     "devDependencies": {
         "@types/node": "^20.12.7",

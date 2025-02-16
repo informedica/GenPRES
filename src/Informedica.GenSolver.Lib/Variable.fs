@@ -613,8 +613,10 @@ module Variable =
                         |> ValueUnit.getUnit
                         |> Units.toStringDutchShort
                         |> String.removeBrackets
+
                     s
                     |> String.replace $"|{u}|" ""
+                    |> String.trim
 
 
 
@@ -1154,12 +1156,28 @@ module Variable =
                 let count =
                     ValueUnit.getValue >> Array.length
 
+
+
                 if vu |> count <= 3 then
                     $"""{vu |> ValueUnit.toDelimitedString prec}"""
                 else
+
                     let first1 = vu |> ValueUnit.takeFirst 1
                     let last1 = vu |> ValueUnit.takeLast 1
-                    $"{first1 |> ValueUnit.toDelimitedString prec} .. {last1 |> ValueUnit.toDelimitedString prec}"
+
+                    let u =
+                        first1
+                        |> ValueUnit.getUnit
+                        |> Units.toStringDutchShort
+                        |> String.removeBrackets
+
+                    let first1 =
+                        first1
+                        |> ValueUnit.toDelimitedString prec
+                        |> String.replace $"|{u}|" ""
+                        |> String.trim
+
+                    $"{first1} .. {last1 |> ValueUnit.toDelimitedString prec}"
 
 
 
@@ -2572,7 +2590,7 @@ module Variable =
                         let maxToStr = Maximum.toMarkdown prec
 
                         match min, max with
-                        | None, None -> $""
+                        | None, None -> ""
                         | Some min, None -> $"{min |> minToStr true} .."
                         | None, Some max -> $".. {max |> maxToStr}"
                         | Some min, Some max -> $"{min |> minToStr false} .. {max |> maxToStr}"

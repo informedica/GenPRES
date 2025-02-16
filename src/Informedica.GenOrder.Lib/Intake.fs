@@ -87,5 +87,19 @@ module Intake =
                 |> Array.map snd
                 |> Array.reduce (^+)
             )
-            |> Array.map (fun (n, tot) -> n, tot ^/ w)
+            |> Array.choose (fun (n, tot) ->
+                match tot |> Variable.getUnit with
+                | None   -> None
+                | Some u ->
+                    let u =
+                        u
+                        |> ValueUnit.getUnits
+                        |> List.head
+                        |> Units.per Units.Weight.kiloGram
+                        |> Units.per tu
+                    (n,
+                    tot ^/ w
+                    |> Variable.setUnit u)
+                    |> Some
+            )
 
