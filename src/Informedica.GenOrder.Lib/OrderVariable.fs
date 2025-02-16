@@ -247,7 +247,7 @@ module OrderVariable =
         }
 
 
-    let setFirstUnit u ovar =
+    let convertFirstUnit u ovar =
         let u =
             ovar.Variable |> Variable.getUnit
             |> Option.map (fun u1 ->
@@ -263,6 +263,34 @@ module OrderVariable =
                     | _ -> u
             )
             |> Option.defaultValue u
+
+        { ovar with
+            Variable =
+                ovar.Variable
+                |> Variable.convertToUnit u
+        }
+
+
+    let convertTimeUnit tu ovar =
+        let u =
+            ovar.Variable |> Variable.getUnit
+            |> Option.map (fun u1 ->
+                if u1 = ZeroUnit || u1 = NoUnit then u1
+                else
+                    match u1 |> ValueUnit.getUnits |> List.rev with
+                    // assume last unit is a time unit
+                    | _ :: rest ->
+                        match tu::rest |> List.rev with
+                        | u::rest ->
+                            rest
+                            |> List.fold (fun acc x ->
+                                acc
+                                |> Units.per x
+                            ) u
+                        | _ -> tu
+                    | _ -> tu
+            )
+            |> Option.defaultValue tu
 
         { ovar with
             Variable =
@@ -845,7 +873,7 @@ module OrderVariable =
             |> Quantity
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> Quantity
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Quantity
 
 
         /// Turn a `Quantity` to a string
@@ -927,7 +955,10 @@ module OrderVariable =
             |> PerTime
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> PerTime
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTime
+
+
+        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTime
 
 
         /// Turn a `PerTime` to a string
@@ -994,7 +1025,10 @@ module OrderVariable =
 
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> Rate
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Rate
+
+
+        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> Rate
 
 
         /// Turn a `Rate` to a string
@@ -1067,7 +1101,7 @@ module OrderVariable =
 
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> Total
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Total
 
 
         /// Turn a `Total` to a string
@@ -1133,7 +1167,7 @@ module OrderVariable =
             |> QuantityAdjust
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> QuantityAdjust
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> QuantityAdjust
 
 
         let setNearestValue vu = toOrdVar >> setNormDose vu >> QuantityAdjust
@@ -1215,7 +1249,10 @@ module OrderVariable =
 
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> PerTimeAdjust
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTimeAdjust
+
+
+        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTimeAdjust
 
 
         let setNearestValue vu = toOrdVar >> setNormDose vu >> PerTimeAdjust
@@ -1292,7 +1329,10 @@ module OrderVariable =
             |> RateAdjust
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> RateAdjust
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> RateAdjust
+
+
+        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> RateAdjust
 
 
         /// Turn a `RateAdjust` to a string
@@ -1361,7 +1401,7 @@ module OrderVariable =
             |> TotalAdjust
 
 
-        let setFirstUnit u = toOrdVar >> setFirstUnit u >> TotalAdjust
+        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> TotalAdjust
 
 
         /// Turn a `TotalAdjust` to a string

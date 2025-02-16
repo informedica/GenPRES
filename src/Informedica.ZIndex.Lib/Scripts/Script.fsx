@@ -522,3 +522,28 @@ GenPresProduct.get []
     |> Array.exists _.IsAdditional
 )
 |> Array.head
+
+
+GenPresProduct.get []
+|> Array.collect (fun gpp ->
+    gpp.GenericProducts
+    |> Array.collect (fun gp ->
+        gp.Substances
+        |> Array.filter _.IsAdditional
+        |> Array.append (
+            gp.PrescriptionProducts
+            |> Array.collect (fun pp ->
+                pp.TradeProducts
+                |> Array.collect (fun tp ->
+                    tp.Substances
+                    |> Array.filter _.IsAdditional
+                )
+            )
+        )
+    )
+)
+|> Array.map _.SubstanceName
+|> Array.map String.trim
+|> Array.distinct
+|> Array.sort
+|> Array.iteri (printfn "%i. %s")

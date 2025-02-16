@@ -142,3 +142,21 @@ Units.Volume.dropletWithDropsPerMl 36N
 
 Units.Volume.dropletWithDropsPerMl 36N
 |> Units.tryFind
+
+let setLast u u1 =
+    match u1 |> ValueUnit.getUnits |> List.rev with
+    | _ :: rest ->
+        match u::rest |> List.rev with
+        | u::rest ->
+            rest
+            |> List.fold (fun acc x ->
+                acc
+                |> Units.per x
+            ) u
+        | _ -> u
+    | _ -> u
+
+Units.Mass.milliGram
+|> Units.per Units.Weight.kiloGram
+|> Units.per Units.Time.hour
+|> setLast Units.Time.day

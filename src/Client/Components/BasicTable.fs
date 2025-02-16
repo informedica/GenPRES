@@ -16,7 +16,7 @@ module BasicTable =
 
 
     [<JSX.Component>]
-    let View (props: {| header: string []; rows : string [][] |}) =
+    let View (props: {| header: obj []; rows : obj [][] |}) =
         let createRow cells =
             let key = cells |> Array.head
 
@@ -38,7 +38,10 @@ module BasicTable =
             </TableRow>
             """
 
-        let rows = props.rows |> Array.map createRow
+        let rows =
+            props.rows
+            |> Array.filter (Array.isEmpty >> not)
+            |> Array.map createRow
 
         JSX.jsx
             $"""

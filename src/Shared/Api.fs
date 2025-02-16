@@ -17,7 +17,7 @@ module Api =
             printScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
             calcMinIncrMax: Order -> Async<Result<Order, string>>
             solveOrder: Order -> Async<Result<Order, string>>
-            getIntake: Order -> Async<Result<Intake, string>>
+            getIntake: float option -> Order -> Async<Result<Intake, string>>
             getFormulary : Formulary -> Async<Result<Formulary, string>>
             getParenteralia : Parenteralia -> Async<Result<Parenteralia, string>>
             test : unit -> Async<string>

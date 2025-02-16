@@ -7,6 +7,7 @@ module Types =
 
 
         open System
+        open Informedica.Utils.Lib.Csv
         open MathNet.Numerics
 
         open Informedica.GenUnits.Lib
@@ -311,19 +312,23 @@ module Types =
 
         type Intake =
             {
-                Volume : float option
-                Energy : float option
-                Protein : float option
-                Carbohydrate : float option
-                Fat : float option
-                Sodium : float option
-                Potassium : float option
-                Chloride : float option
-                Calcium : float option
-                Phosphate : float option
-                Magnesium : float option
-                Iron : float option
-                VitaminD : float option
+                Volume : string option
+                Energy : string option
+                Protein : string option
+                Carbohydrate : string option
+                Fat : string option
+                Sodium : string option
+                Potassium : string option
+                Chloride : string option
+                Calcium : string option
+                Phosphate : string option
+                Magnesium : string option
+                Iron : string option
+                VitaminD : string option
+                Ethanol : string option
+                Propyleenglycol : string option
+                BenzylAlcohol : string option
+                BoricAcid : string option
             }
 
 
@@ -352,6 +357,8 @@ module Types =
                 DoseType : DoseType
                 /// the name of the order
                 Name : string
+                // The list of substances to print out
+                Substances : string []
                 /// the shape of the order
                 Shape : string
                 /// the route of the order
@@ -397,8 +404,9 @@ module Types =
                 Route: string option
                 /// the selected shape
                 Shape: string option
-                /// the patient
+                /// the DoseType
                 DoseType : DoseType option
+                /// the patient
                 Patient: Patient
                 /// the list of scenarios
                 Scenarios: Scenario []

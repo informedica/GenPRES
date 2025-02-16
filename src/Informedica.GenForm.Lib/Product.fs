@@ -5,6 +5,7 @@ namespace Informedica.GenForm.Lib
 
 module Product =
 
+    open Informedica.ZForm.Lib.DoseRule
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -384,10 +385,22 @@ module Product =
                     else
                         rs[0].Divisibility
             Substances =
+                let additional =
+                    gp.PrescriptionProducts
+                    |> Array.collect (fun pp ->
+                        pp.TradeProducts
+                        |> Array.collect _.Substances
+                    )
+                    |> Array.filter (fun s ->
+                        s.SubstanceQuantity > 0. &&
+                        s.IsAdditional
+                    )
+
                 gp.Substances
                 |> Array.filter (fun ps ->
                     ps.SubstanceQuantity > 0.
                 )
+                |> Array.append additional
                 |> Array.distinctBy _.SubstanceId
                 |> Array.map (fun s ->
                     let su =
@@ -412,6 +425,7 @@ module Product =
                                 |> Option.map (ValueUnit.singleWithUnit u)
                     }
                 )
+
         }
 
 
@@ -481,7 +495,7 @@ module Product =
                         gp.PrescriptionProducts
                         |> Array.collect (fun pp ->
                             pp.TradeProducts
-                            |> Array.map (_.Brand)
+                            |> Array.map _.Brand
                         )
                         |> Array.distinct
                         |> Array.filter String.notEmpty

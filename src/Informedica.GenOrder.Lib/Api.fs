@@ -357,6 +357,11 @@ module Api =
                                                 Indication = pr.DoseRule.Indication
                                                 DoseType = pr.DoseRule.DoseType
                                                 Name = pr.DoseRule.Generic
+                                                Substances =
+                                                    pr.DoseRule.DoseLimits
+                                                    |> Array.map _.DoseLimitTarget
+                                                    |> Array.filter LimitTarget.isSubstanceLimit
+                                                    |> Array.map LimitTarget.limitTargetToString
                                                 Shape = pr.DoseRule.Shape
                                                 Route = pr.DoseRule.Route
                                                 Prescription = prs |> Array.map (Array.map replace)
@@ -479,30 +484,40 @@ module Api =
         |> Result.map Order.Dto.toDto
 
 
-    let getIntake (dto: Order.Dto.Dto) : Intake =
+    let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto) : Intake =
+        let intake =
+            dto
+            |> Order.Dto.fromDto
+            |> Array.singleton
+            |> Intake.calc wght Informedica.GenUnits.Lib.Units.Time.day
+
+        let get n =
+                intake
+                |> Array.tryFind (fst >> String.equalsCapInsens n)
+                |> Option.map (fun (_, var) ->
+                    var
+                    |> Informedica.GenSolver.Lib.Variable.getValueRange
+                    |> Informedica.GenSolver.Lib.Variable.ValueRange.toMarkdown 3
+                )
+
         {
-            Volume =
-                match dto.Orderable.Dose.PerTimeAdjust.Variable.ValsOpt with
-                | Some v ->
-                    printfn $"intake: {v.Group}"
-                    if v.Group |> String.containsCapsInsens "volume" then
-                        match v.Value |> Array.tryExactlyOne with
-                        | Some v -> v |> BigRational.toDouble |> Double.fixPrecision 2 |> Some
-                        | None -> None
-                    else None
-                | _ -> None
-            Energy = None
-            Protein = None
-            Carbohydrate = None
-            Fat = None
-            Sodium = None
-            Potassium = None
-            Chloride = None
-            Calcium = None
-            Phosphate = None
-            Magnesium = None
-            Iron = None
-            VitaminD = None
+            Volume = get "volume"
+            Energy = get "energie"
+            Protein = get "eiwit"
+            Carbohydrate = get "KH"
+            Fat = get "vet"
+            Sodium = get "na"
+            Potassium = get "K"
+            Chloride = get "Cl"
+            Calcium = get "Ca"
+            Phosphate = get "P"
+            Magnesium = get "Mg"
+            Iron = get "Fe"
+            VitaminD = get "VitD"
+            Ethanol = get "ethanol"
+            Propyleenglycol = get "propyleenglycol"
+            BenzylAlcohol = get "benzylalcohol"
+            BoricAcid = get "boorzuur"
         }
 
 

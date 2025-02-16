@@ -16,6 +16,7 @@
     <Compile Include="OrderVariable.fs" />
     <Compile Include="Solver.fs" />
     <Compile Include="Order.fs" />
+    <Compile Include="Intake.fs" />
     <Compile Include="DrugOrder.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="OrderLogger.fs" />

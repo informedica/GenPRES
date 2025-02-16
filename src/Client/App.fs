@@ -703,12 +703,13 @@ module private Elmish =
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
 
         | GetIntake Started ->
-            match state.CalculatedOrder with
-            | Resolved (Some (_, o)) ->
+            match state.CalculatedOrder, state.Patient with
+            | Resolved (Some (_, o)), Some pat ->
+                let w = pat |> Patient.getWeight
                 Logging.log "getting intake for" o
                 let load =
                     async {
-                        let! intake = serverApi.getIntake o
+                        let! intake = serverApi.getIntake w o
                         return Finished intake |> GetIntake
                     }
                 { state with Intake = InProgress }, Cmd.fromAsync load

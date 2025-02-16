@@ -1281,7 +1281,7 @@ module Order =
 
     module Item =
 
-        let create n cmp_qty orb_qty cmp_cnc orb_cnc dos =
+        let create n cmp_qty orb_qty cmp_cnc orb_cnc dos add =
             {
                 Name = n
                 ComponentQuantity = cmp_qty
@@ -1289,6 +1289,7 @@ module Order =
                 ComponentConcentration = cmp_cnc
                 OrderableConcentration = orb_cnc
                 Dose = dos
+                IsAdditional = add
             }
 
 
@@ -1347,7 +1348,7 @@ module ScenarioResult =
         | Timed s
         | Discontinuous s
         | Continuous s ->
-            if String.isNullOrWhiteSpace (s) |> not then
+            if String.isNullOrWhiteSpace s |> not then
                 s
             else
                 match doseType with
@@ -1369,7 +1370,7 @@ module ScenarioResult =
         | Discontinuous s -> "discontinuous", s
         | Continuous s -> "continuous", s
         | NoDoseType -> "", ""
-        |> fun (s1, s2) -> if String.isNullOrWhiteSpace (s2) then s1 else $"{s1} {s2}"
+        |> fun (s1, s2) -> if String.isNullOrWhiteSpace s2 then s1 else $"{s1} {s2}"
 
 
     let doseTypeFromString s =
@@ -1415,11 +1416,18 @@ module ScenarioResult =
             (Normal "", [])
         |> fun (md, acc) -> md :: acc
         |> Seq.rev
+        |> Seq.filter (fun ti ->
+            match ti with
+            | Bold s
+            | Italic s
+            | Normal s -> s |> String.isNullOrWhiteSpace |> not
+        )
         |> Seq.toArray
 
 
-    let createScenario shp dst prs prep adm o adj rr rn =
+    let createScenario sbs shp dst prs prep adm o adj rr rn =
         {
+            Substances = sbs
             Shape = shp
             DoseType = dst
             Prescription = prs |> Array.map (Array.map parseTextItem)

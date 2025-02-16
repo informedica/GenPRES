@@ -2887,6 +2887,7 @@ module Order =
                                 |]
                             else
                                 c.Items
+                                |> List.filter (fun i -> sns |> Array.exists (String.equalsCapInsens (i.Name |> Name.toString)))
                                 |> List.toArray
                                 |> Array.mapi (fun i2 itm ->
                                     [|

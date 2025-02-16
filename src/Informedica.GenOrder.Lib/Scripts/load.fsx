@@ -26,6 +26,7 @@
 #load "../OrderVariable.fs"
 #load "../Solver.fs"
 #load "../Order.fs"
+#load "../Intake.fs"
 #load "../OrderLogger.fs"
 #load "../DrugOrder.fs"
 #load "../Patient.fs"

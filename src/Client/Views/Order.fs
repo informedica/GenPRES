@@ -44,7 +44,7 @@ module Order =
 
         let init (ord: Deferred<(bool * string option * Order ) option>) =
             {
-                SelectedSubstance = 
+                SelectedSubstance =
                     match ord with
                     | Resolved (Some (_, subst, ord)) ->
                         ord.Orderable.Components
@@ -59,7 +59,7 @@ module Order =
                                 |> Some
                         )
                     | _ -> None
-                Order = 
+                Order =
                 ord
                 |> Deferred.map (fun opt -> opt |> Option.map (fun (_, _, o) -> o))
             }
@@ -160,7 +160,7 @@ module Order =
                                                         comp.Items
                                                         |> Array.map (fun item ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name -> 
+                                                            | Some subst when subst = item.Name ->
                                                                 { item with
                                                                     Dose =
                                                                         { item.Dose with
@@ -202,7 +202,7 @@ module Order =
                                                         comp.Items
                                                         |> Array.map (fun item ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name -> 
+                                                            | Some subst when subst = item.Name ->
                                                                 { item with
                                                                     Dose =
                                                                         { item.Dose with
@@ -244,7 +244,7 @@ module Order =
                                                         comp.Items
                                                         |> Array.map (fun item ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name -> 
+                                                            | Some subst when subst = item.Name ->
                                                                 { item with
                                                                     Dose =
                                                                         { item.Dose with
@@ -286,7 +286,7 @@ module Order =
                                                         comp.Items
                                                         |> Array.map (fun item ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name -> 
+                                                            | Some subst when subst = item.Name ->
                                                                 { item with
                                                                     Dose =
                                                                         { item.Dose with
@@ -328,7 +328,7 @@ module Order =
                                                         comp.Items
                                                         |> Array.map (fun item ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name -> 
+                                                            | Some subst when subst = item.Name ->
                                                                 { item with
                                                                     Dose =
                                                                         { item.Dose with
@@ -370,7 +370,7 @@ module Order =
                                                         comp.Items
                                                         |> Array.map (fun item ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name -> 
+                                                            | Some subst when subst = item.Name ->
                                                                 { item with
                                                                     ComponentConcentration =
                                                                         { item.ComponentConcentration with
@@ -465,10 +465,10 @@ module Order =
 
         |}) =
 
-        let context = React.useContext(Global.context)
+        let context = React.useContext Global.context
         let lang = context.Localization
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             props.localizationTerms
             |> Deferred.map (fun terms ->
                 Localization.getTerm terms lang term
@@ -483,25 +483,29 @@ module Order =
                 [| box props.order; box props.loadOrder |]
             )
 
-        let substIndx = 
+        let itms =
             match state.Order with
             | Resolved (Some ord) ->
                 ord.Orderable.Components
                 |> Array.tryHead
-                |> Option.bind (fun c ->
-                    if c.Items |> Array.isEmpty then None
-                    else
-                        c.Items
-                        |> Array.tryFindIndex (fun i ->
-                            state.SelectedSubstance
-                            |> Option.map ((=) i.Name)
-                            |> Option.defaultValue false
-                        )
-                        |> function 
-                        | None -> Some 0
-                        | Some i -> Some i
+                |> Option.map (fun c ->
+                    // filter out additional items, they are not used for dosing
+                    c.Items
+                    |> Array.filter (_.IsAdditional >> not)
                 )
-            | _ -> None
+                |> Option.defaultValue [||]
+            | _ -> [||]
+
+        let substIndx =
+            itms
+            |> Array.tryFindIndex (fun i ->
+                state.SelectedSubstance
+                |> Option.map ((=) i.Name)
+                |> Option.defaultValue false
+            )
+            |> function
+            | None -> Some 0
+            | Some i -> Some i
 
         let select isLoading lbl selected dispatch xs =
             if xs |> Array.isEmpty then
@@ -560,16 +564,9 @@ module Order =
                     {
                         match props.order with
                         | Resolved (Some (_, _, o)) ->
-                            o.Orderable.Components
-                            |> Array.tryHead
-                            |> Option.bind (fun c -> 
-                                if c.Items |> Array.isEmpty then None
-                                else c.Items |> Some
-                            )
-                            |> function 
-                            | None -> JSX.jsx $"<></>"
-                            | Some items ->
-                                items
+                            if o.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
+                            else
+                                itms
                                 |> Array.map _.Name
                                 |> Array.map (fun s -> s, s)
                                 |> select false "Stoffen" state.SelectedSubstance (ChangeSubstance >> dispatch)
@@ -590,14 +587,14 @@ module Order =
                     }
                     {
                         match substIndx, props.order with
-                        | Some i, Resolved (Some (_, _, o)) when o.Orderable.Components[0].Items |> Array.length > 0->
+                        | Some i, Resolved (Some (_, _, o)) when itms |> Array.length > 0->
                             let label, vals =
-                                o.Orderable.Components[0].Items[i].Dose.Quantity.Variable.Vals
-                                |> Option.map (fun v -> 
-                                    (Terms.``Continuous Medication Dose`` 
+                                itms[i].Dose.Quantity.Variable.Vals
+                                |> Option.map (fun v ->
+                                    (Terms.``Continuous Medication Dose``
                                     |> getTerm "Keer Dosis"
                                     |> fun s -> $"{s} ({v.Unit})"),
-                                    v.Value 
+                                    v.Value
                                     |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                                     |> Array.distinctBy snd
                                 )
@@ -612,18 +609,18 @@ module Order =
                     {
                         match substIndx, props.order with
                         | Some i, Resolved (Some (b, _, o)) when o.Prescription.IsContinuous |> not &&
-                                                                 o.Orderable.Components[0].Items |> Array.length > 0 ->
+                                                                 itms |> Array.length > 0 ->
                             let dispatch = if b then ChangeSubstancePerTimeAdjust >> dispatch else ChangeSubstancePerTime >> dispatch
                             let label, vals =
                                 if b then
-                                    o.Orderable.Components[0].Items[i].Dose.PerTimeAdjust.Variable.Vals
-                                else 
-                                    o.Orderable.Components[0].Items[i].Dose.PerTime.Variable.Vals
-                                |> Option.map (fun v -> 
-                                    (Terms.``Order Adjusted dose`` 
+                                    itms[i].Dose.PerTimeAdjust.Variable.Vals
+                                else
+                                    itms[i].Dose.PerTime.Variable.Vals
+                                |> Option.map (fun v ->
+                                    (Terms.``Order Adjusted dose``
                                     |> getTerm "Dosering"
                                     |> fun s -> $"{s} ({v.Unit})"),
-                                    v.Value 
+                                    v.Value
                                     |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                                     |> Array.distinctBy snd
                                 )
@@ -638,14 +635,14 @@ module Order =
                     {
                         match substIndx, props.order with
                         | Some i, Resolved (Some (b,_,  o)) when o.Prescription.IsContinuous &&
-                                                                 o.Orderable.Components[0].Items |> Array.length > 0->
+                                                                 itms |> Array.length > 0 ->
                             let dispatch = if b then ChangeSubstanceRateAdjust >> dispatch else ChangeSubstanceRate >> dispatch
                             if b then
-                                o.Orderable.Components[0].Items[i].Dose.RateAdjust.Variable.Vals
+                                itms[i].Dose.RateAdjust.Variable.Vals
                             else
-                                o.Orderable.Components[0].Items[i].Dose.Rate.Variable.Vals
-                            |> Option.map (fun v -> 
-                                v.Value 
+                                itms[i].Dose.Rate.Variable.Vals
+                            |> Option.map (fun v ->
+                                v.Value
                                 |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
                                 |> Array.distinctBy snd
                             )
@@ -668,8 +665,8 @@ module Order =
                     }
                     {
                         match substIndx, props.order with
-                        | Some i, Resolved (Some (_, _, o)) when o.Orderable.Components[0].Items |> Array.length > 0 ->
-                            o.Orderable.Components[0].Items[i].ComponentConcentration.Variable.Vals
+                        | Some i, Resolved (Some (_, _, _)) when itms |> Array.length > 0 ->
+                            itms[i].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Concentration`` |> getTerm "Sterkte") None (ChangeSubstanceComponentConcentration >> dispatch)

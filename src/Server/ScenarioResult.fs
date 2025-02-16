@@ -14,6 +14,61 @@ open Shared.Types
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
+let mapPatient
+    (sc: ScenarioResult)
+    =
+    { Patient.patient with
+        Department =
+            sc.Department
+            |> Option.defaultValue "ICK"
+            |> Some
+        Age =
+            sc.AgeInDays
+            |> Option.bind BigRational.fromFloat
+            |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+        GestAge =
+            sc.GestAgeInDays
+            |> Option.map BigRational.fromInt
+            |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+        Weight =
+            sc.WeightInKg
+            |> Option.bind BigRational.fromFloat
+            |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+        Height =
+            sc.HeightInCm
+            |> Option.bind BigRational.fromFloat
+            |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
+        Gender =
+            match sc.Gender with
+            | Male -> Informedica.GenForm.Lib.Types.Male
+            | Female -> Informedica.GenForm.Lib.Types.Female
+            | UnknownGender -> AnyGender
+        Locations =
+            sc.AccessList
+            // TODO make proper mapping
+            |> List.choose (fun a ->
+                match a with
+                | CVL -> Informedica.GenForm.Lib.Types.CVL |> Some
+                | PVL -> Informedica.GenForm.Lib.Types.PVL |> Some
+                | _ -> None
+            )
+        RenalFunction =
+            sc.RenalFunction
+            |> Option.map (fun rf ->
+                match rf with
+                | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
+                | IntermittendHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
+                | ContinuousHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
+                | PeritionealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
+            )
+    }
+    |> fun p ->
+        printfn $"patient mapped: {p}"
+        p
+    |> Patient.calcPMAge
+
+
+
 let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
     let v =
         dto.Value
@@ -107,7 +162,7 @@ let mapFromDose (dose : Dose) : Order.Orderable.Dose.Dto.Dto =
 
     dto
 
-let mapToItem (dto : Order.Orderable.Item.Dto.Dto) : Item =
+let mapToItem sns (dto : Order.Orderable.Item.Dto.Dto) : Item =
     Shared.Order.Item.create
         dto.Name
         (dto.ComponentQuantity |> mapToOrderVariable)
@@ -115,7 +170,8 @@ let mapToItem (dto : Order.Orderable.Item.Dto.Dto) : Item =
         (dto.ComponentConcentration |> mapToOrderVariable)
         (dto.OrderableConcentration |> mapToOrderVariable)
         (dto.Dose |> mapToDose)
-
+        // filter out sns (substance names) to indicate an additional ingredient
+        (sns |> Array.exists (String.equalsCapInsens dto.Name) |> not)
 
 // member val Name = "" with get, set
 // member val ComponentQuantity = OrderVariable.Dto.dto () with get, set
@@ -135,7 +191,7 @@ let mapFromItem (item : Item) : Order.Orderable.Item.Dto.Dto =
     dto
 
 
-let mapToComponent (dto : Order.Orderable.Component.Dto.Dto) : Component =
+let mapToComponent sns (dto : Order.Orderable.Component.Dto.Dto) : Component =
     Shared.Order.Component.create
         dto.Id
         dto.Name
@@ -147,7 +203,7 @@ let mapToComponent (dto : Order.Orderable.Component.Dto.Dto) : Component =
         (dto.OrderCount |> mapToOrderVariable)
         (dto.OrderableConcentration |> mapToOrderVariable)
         (dto.Dose |> mapToDose)
-        (dto.Items |> List.toArray |> Array.map mapToItem)
+        (dto.Items |> List.toArray |> Array.map (mapToItem sns))
 
 
 // member val Id = "" with get, set
@@ -178,7 +234,7 @@ let mapFromComponent (comp : Component) : Order.Orderable.Component.Dto.Dto =
     dto
 
 
-let mapToOrderable (dto : Order.Orderable.Dto.Dto) : Orderable =
+let mapToOrderable sns (dto : Order.Orderable.Dto.Dto) : Orderable =
     Shared.Order.Orderable.create
         dto.Name
         (dto.OrderableQuantity |> mapToOrderVariable)
@@ -186,7 +242,7 @@ let mapToOrderable (dto : Order.Orderable.Dto.Dto) : Orderable =
         (dto.OrderCount |> mapToOrderVariable)
         (dto.DoseCount |> mapToOrderVariable)
         (dto.Dose |> mapToDose)
-        (dto.Components |> List.toArray |> Array.map mapToComponent)
+        (dto.Components |> List.toArray |> Array.map (mapToComponent sns))
 
 
 // member val Name = "" with get, set
@@ -232,11 +288,11 @@ let mapFromPrescription (prescription : Prescription) : Order.Prescription.Dto.D
     dto
 
 
-let mapToOrder (dto : Order.Dto.Dto) : Shared.Types.Order =
+let mapToOrder sns (dto : Order.Dto.Dto) : Shared.Types.Order =
     Shared.Order.create
         dto.Id
         (dto.Adjust |> mapToOrderVariable)
-        (dto.Orderable |> mapToOrderable)
+        (dto.Orderable |> (mapToOrderable sns))
         (dto.Prescription |> mapToPrescription)
         dto.Route
         (dto.Duration |> mapToOrderVariable)
@@ -287,20 +343,27 @@ let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Shared.Ty
 
 
 let mapToIntake (intake : Types.Intake) : Intake =
+    let toTextItem =
+        Option.map Shared.ScenarioResult.parseTextItem
+        >> (Option.defaultValue [||])
     {
-        Volume = intake.Volume
-        Energy = intake.Energy
-        Protein = intake.Protein
-        Carbohydrate = intake.Carbohydrate
-        Fat = intake.Fat
-        Sodium = intake.Sodium
-        Potassium = intake.Potassium
-        Chloride = intake.Chloride
-        Calcium = intake.Calcium
-        Magnesium = intake.Magnesium
-        Phosphate = intake.Phosphate
-        Iron = intake.Iron
-        VitaminD = intake.VitaminD
+        Volume = intake.Volume |> toTextItem
+        Energy = intake.Energy |> toTextItem
+        Protein = intake.Protein |> toTextItem
+        Carbohydrate = intake.Carbohydrate |> toTextItem
+        Fat = intake.Fat |> toTextItem
+        Sodium = intake.Sodium |> toTextItem
+        Potassium = intake.Potassium |> toTextItem
+        Chloride = intake.Chloride |> toTextItem
+        Calcium = intake.Calcium |> toTextItem
+        Magnesium = intake.Magnesium |> toTextItem
+        Phosphate = intake.Phosphate |> toTextItem
+        Iron = intake.Iron |> toTextItem
+        VitaminD = intake.VitaminD |> toTextItem
+        Ethanol = intake.Ethanol |> toTextItem
+        Propyleenglycol = intake.Propyleenglycol |> toTextItem
+        BenzylAlcohol = intake.BenzylAlcohol |> toTextItem
+        BoricAcid = intake.BoricAcid |> toTextItem
     }
 
 
@@ -423,12 +486,13 @@ Scenarios: {sc.Scenarios |> Array.length}
                     newSc.Scenarios
                     |> Array.map (fun sc ->
                         Shared.ScenarioResult.createScenario
+                            sc.Substances
                             sc.Shape
                             (sc.DoseType |> mapToSharedDoseType)
                             sc.Prescription
                             sc.Preparation
                             sc.Administration
-                            (sc.Order |> Option.map (Order.Dto.toDto >> mapToOrder))
+                            (sc.Order |> Option.map (Order.Dto.toDto >> mapToOrder sc.Substances))
                             sc.UseAdjust
                             sc.UseRenalRule
                             sc.RenalRule
@@ -455,11 +519,17 @@ let calcMinIncrMaxToValues (ord : Order) =
         let path = $"{__SOURCE_DIRECTORY__}/log.txt"
         OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
+    let sns =
+        ord.Orderable.Components
+        |> Array.collect _.Items
+        |> Array.filter (_.IsAdditional >> not)
+        |> Array.map _.Name
+
     try
         ord
         |> mapFromOrder
         |> Api.calc
-        |> Result.map mapToOrder
+        |> Result.map (mapToOrder sns)
     with
     | e ->
         ConsoleWriter.writeErrorMessage $"error calculating values from min incr max {e}" true true
@@ -467,10 +537,15 @@ let calcMinIncrMaxToValues (ord : Order) =
         |> Error
 
 
-let getIntake (ord: Order) =
+let getIntake wghtInKg (ord: Order) =
+    let wghtInKg =
+        wghtInKg
+        |> Option.bind BigRational.fromFloat
+        |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+
     ord
     |> mapFromOrder
-    |> Api.getIntake
+    |> Api.getIntake wghtInKg
     |> mapToIntake
 
 
@@ -497,7 +572,10 @@ let print (sc: ScenarioResult) =
                             // only print the item quantities of the principal component
                             let sn =
                                 match ord.Orderable.Components |> Array.tryHead with
-                                | Some c ->  c.Items |> Array.map _.Name
+                                | Some c ->
+                                    c.Items
+                                    |> Array.map _.Name
+                                    |> Array.filter (fun n -> Array.exists ((=) n) sc.Substances)
                                 | None -> [||]
 
                             ord
@@ -527,6 +605,12 @@ let solveOrder (ord : Order) =
         let path = $"{__SOURCE_DIRECTORY__}/log.txt"
         OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
+    let sns =
+        ord.Orderable.Components
+        |> Array.collect _.Items
+        |> Array.filter (_.IsAdditional >> not)
+        |> Array.map _.Name
+
     ord
     |> mapFromOrder
     |> Order.Dto.fromDto
@@ -539,7 +623,7 @@ let solveOrder (ord : Order) =
         ord
         |> mapFromOrder
         |> Api.solve
-        |> Result.map mapToOrder
+        |> Result.map (mapToOrder sns)
         |> Result.mapError (fun (_, errs) ->
             let s =
                 errs

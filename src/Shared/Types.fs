@@ -161,6 +161,7 @@ module Types =
             ComponentConcentration: OrderVariable
             OrderableConcentration: OrderVariable
             Dose: Dose
+            IsAdditional: bool
         }
 
 
@@ -333,6 +334,7 @@ module Types =
 
     type Scenario =
         {
+            Substances: string[]
             Shape: string
             DoseType: DoseType
             Prescription: TextItem[][][]
@@ -371,19 +373,23 @@ module Types =
 
     type Intake =
         {
-            Volume : float option
-            Energy : float option
-            Protein : float option
-            Carbohydrate : float option
-            Fat : float option
-            Sodium : float option
-            Potassium : float option
-            Chloride : float option
-            Calcium : float option
-            Phosphate : float option
-            Magnesium : float option
-            Iron : float option
-            VitaminD : float option
+            Volume: TextItem[]
+            Energy: TextItem[]
+            Protein: TextItem[]
+            Carbohydrate: TextItem[]
+            Fat: TextItem[]
+            Sodium: TextItem[]
+            Potassium: TextItem[]
+            Chloride: TextItem[]
+            Calcium: TextItem[]
+            Phosphate: TextItem[]
+            Magnesium: TextItem[]
+            Iron: TextItem[]
+            VitaminD: TextItem[]
+            Ethanol: TextItem[]
+            Propyleenglycol: TextItem[]
+            BoricAcid: TextItem[]
+            BenzylAlcohol: TextItem[]
         }
 
 
