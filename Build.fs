@@ -106,7 +106,14 @@ Target.create
 Target.create "Format" (fun _ -> run dotnet [ "fantomas"; "." ] ".")
 
 
-Target.create "Docker" (fun _ -> run docker [ "build"; "--platform"; "linux/amd64"; "-t"; "halcwb/genpres"; "." ] ".")
+Target.create "DockerRun" (fun _ -> run docker [ "run"; "-it"; "p"; "8080:8085"; "halcwb/genpres"] ".")
+
+
+Target.create "DockerLinux" (fun _ -> run docker [ "build"; "--platform"; "linux/amd64"; "-t"; "halcwb/genpres"; "."] ".")
+
+
+Target.create "DockerLocal" (fun _ -> run docker [ "build"; "-t"; "halcwb/genpres"; "."] ".")
+
 
 open Fake.Core.TargetOperators
 

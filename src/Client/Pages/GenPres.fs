@@ -171,10 +171,12 @@ module GenPres =
         let sxPageBox =
             {|
                 mt= 3
+                (*
                 mb =
                     match props.page with
                     | Global.Pages.Prescribe -> 26 |> box
                     | _ -> 0 |> box
+                *)
                 overflowY =
                     match props.page with
                     | Global.Pages.Prescribe
@@ -220,7 +222,7 @@ module GenPres =
                     |})
                 }
             </React.Fragment>
-            <Container sx={ {| height="87%"; mt= 3 |} } >
+            <Container id="page-container" sx={ {| height="87%"; mt= 3 |} } >
                 <Stack sx={ {| height="100%" |} }>
                     <Box sx={ {| flexBasis=1 |} } >
                         {
@@ -231,7 +233,7 @@ module GenPres =
                             |})
                         }
                     </Box>
-                    <Box sx={sxPageBox}>
+                    <Box id="page-box" sx={sxPageBox}>
                         {
                             match props.page with
                             | Global.Pages.LifeSupport ->

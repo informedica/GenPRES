@@ -425,9 +425,9 @@ module Prescribe =
                 import Avatar from '@mui/material/Avatar';
                 import Typography from '@mui/material/Typography';
 
-                <Box sx={ {| mt=3; height="100%" |} } >
-                    <Card sx={ {| minWidth = 275 |}  }>
-                        <CardContent>
+                <Box sx={ {| height="100%" |} } >
+                    <Card sx={ {| padding=0; minWidth = 275 |}  }>
+                        <CardContent sx={ {| padding=0 |} }>
                             {content}
                             {progress}
                         </CardContent>
