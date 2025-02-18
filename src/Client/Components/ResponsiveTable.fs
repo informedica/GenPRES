@@ -119,6 +119,7 @@ module ResponsiveTable =
             columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
             rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             rowCreate : string[] -> obj
+            height : string
         |}) =
         let state, setState = React.useState [||]
 
@@ -143,7 +144,7 @@ module ResponsiveTable =
                     ))
                     |> Array.collect (Array.map (_.value))
                     |> Array.distinct
-                    |> Array.sortBy (_.ToLower())
+                    |> Array.sortBy _.ToLower()
 
                 MultipleSelect.View({|
                     label = "Filter"
@@ -194,26 +195,26 @@ module ResponsiveTable =
                 <Box sx={ {| mb=3 |} }>
                     {filter}
                 </Box>
-                <div style={ {| height ="70vh"; width = "100%" |} }>
-                <DataGrid
-                    rows={rows}
-                    slots={ {| toolbar = toolbar |} }
-                    initialState =
-                        {
-                            {| columns = {| columnVisibilityModel = {| id = false |} |} |}
-                        }
-                    columns=
-                        {
-                            props.columns
-                            |> Array.map (fun c ->
-                                match c.field with
-                                | s when s = "id" ->
-                                    {| c with hide = true |} |> box
-                                | _ -> c |> box
-                            )
-                        }
-                />
-                </div>
+                <div style={ {| height =props.height; width = "100%" |} }>
+                    <DataGrid
+                        rows={rows}
+                        slots={ {| toolbar = toolbar |} }
+                        initialState =
+                            {
+                                {| columns = {| columnVisibilityModel = {| id = false |} |} |}
+                            }
+                        columns=
+                            {
+                                props.columns
+                                |> Array.map (fun c ->
+                                    match c.field with
+                                    | s when s = "id" ->
+                                        {| c with hide = true |} |> box
+                                    | _ -> c |> box
+                                )
+                            }
+                    />
+                    </div>
             </Box>
             """
 

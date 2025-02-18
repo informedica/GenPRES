@@ -282,6 +282,10 @@ module Icons =
         <CalculateIcon/>
     """
 
+    let SummarizeIcon = JSX.jsx $"""
+    import SummarizeIcon from '@mui/icons-material/Summarize';
+    <SummarizeIcon/>
+    """
 
 
 type Color = {|

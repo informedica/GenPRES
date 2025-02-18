@@ -52,6 +52,7 @@ type Terms =
     | ``Order Concentration``
     | ``Order Drip rate``
     | ``Order Administration time``
+    | ``Treatment Plan``
     | ``Formulary``
     | ``Formulary Medications``
     | ``Formulary Indications``
@@ -79,7 +80,7 @@ module Localization =
         | German
         | Spanish
         | Italian
-//        | Chinees
+    //        | Chinees
 
 
     let toString =
@@ -90,7 +91,7 @@ module Localization =
         | Spanish -> "Español"
         | German -> "Deutsch"
         | Italian -> "Italiano"
-//        | Chinees -> "中文"
+    //        | Chinees -> "中文"
 
 
     let fromString (s: string) =
@@ -103,15 +104,16 @@ module Localization =
         | _ when s = "español" -> Spanish
         | _ when s = "deutsch" -> German
         | _ when s = "italiano" -> Italian
-//        | _ when s = "中文" -> Chinees
+        //        | _ when s = "中文" -> Chinees
         | _ -> failwith $"{s} is not a known language"
 
 
     let languages = [| English; Dutch; French; German; Spanish; Italian |]
 
 
-    let getTerm (terms : string [][]) locale term =
+    let getTerm (terms: string[][]) locale term =
         let term = $"{term}".Trim()
+
         let indx =
             match locale with
             | English -> 1
@@ -120,13 +122,13 @@ module Localization =
             | German -> 4
             | Spanish -> 5
             | Italian -> 6
-//            | Chinees -> 7
+        //            | Chinees -> 7
 
         terms
-        |> Array.tryFind (fun r ->
-            r[0] = term
-        )
+        |> Array.tryFind (fun r -> r[0] = term)
         |> Option.map (fun r -> r[indx])
         |> fun r ->
-            if r.IsNone then printfn $"cannot find term: {term}"
+            if r.IsNone then
+                printfn $"cannot find term: {term}"
+
             r

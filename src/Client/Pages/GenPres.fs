@@ -39,6 +39,7 @@ module GenPres =
                 LifeSupport
                 ContinuousMeds
                 Prescribe
+                TreatmentPlan
                 Formulary
                 Parenteralia
             ]
@@ -54,11 +55,12 @@ module GenPres =
                         |> Array.map (fun p ->
                             let b = p = page
                             match p |> pageToString terms lang with
-                            | s when p = LifeSupport -> (Mui.Icons.FireExtinguisher |> Some), s, b
-                            | s when p = ContinuousMeds -> (Mui.Icons.Vaccines |> Some), s, b
-                            | s when p = Prescribe -> (Mui.Icons.Message |> Some), s, b
-                            | s when p = Formulary -> (Mui.Icons.LocalPharmacy |> Some), s, b
-                            | s when p = Parenteralia -> (Mui.Icons.Bloodtype |> Some), s, b
+                            | s when p = LifeSupport -> Mui.Icons.FireExtinguisher |> Some, s, b
+                            | s when p = ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b
+                            | s when p = Prescribe -> Mui.Icons.Message |> Some, s, b
+                            | s when p = TreatmentPlan -> Mui.Icons.SummarizeIcon |> Some, s, b
+                            | s when p = Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b
+                            | s when p = Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b
                             | s -> None, s, b
                         )
 
@@ -120,6 +122,8 @@ module GenPres =
             updateScenario : ScenarioResult -> unit
             selectOrder : (Scenario * Order option) -> unit
             order: Deferred<(bool * string option * Order) option>
+            addOrderToPlan: Order -> unit
+            treatmentPlan: Deferred<(bool * Order) []>
             intake : Deferred<Intake>
             loadOrder: (string option * Order) -> unit
             updateScenarioOrder : unit -> unit
@@ -180,6 +184,7 @@ module GenPres =
                 overflowY =
                     match props.page with
                     | Global.Pages.Prescribe
+                    | Global.Pages.TreatmentPlan
                     | Global.Pages.Parenteralia
                     | Global.Pages.Formulary -> "auto"
                     | _ when not isMobile -> "hidden"
@@ -253,7 +258,13 @@ module GenPres =
                                     updateScenario = props.updateScenario
                                     selectOrder = props.selectOrder
                                     loadOrder = props.loadOrder
+                                    addOrderToPlan = props.addOrderToPlan
                                     updateScenarioOrder = props.updateScenarioOrder
+                                    localizationTerms = props.localizationTerms
+                                |})
+                            | Global.Pages.TreatmentPlan ->
+                                Views.TreatmentPlan.View ({|
+                                    treatmentPlan = props.treatmentPlan
                                     localizationTerms = props.localizationTerms
                                 |})
                             | Global.Pages.Formulary ->
@@ -272,7 +283,8 @@ module GenPres =
                     <Box>
                         {
                             match props.page with
-                            | Global.Pages.Prescribe ->
+                            | Global.Pages.Prescribe
+                            | Global.Pages.TreatmentPlan ->
                                 Views.Intake.View props.intake
                             | _ -> JSX.jsx "<></>"
                         }

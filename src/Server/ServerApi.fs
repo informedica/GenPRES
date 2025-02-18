@@ -53,8 +53,8 @@ let serverApi: IServerApi =
                 }
 
         getIntake =
-            fun wghtInKg (ord : Order) ->
+            fun wghtInKg (ords : Order []) ->
                 async {
-                    return ord |> ScenarioResult.getIntake wghtInKg |> Ok
+                    return ords |> ScenarioResult.getIntake wghtInKg |> Ok
                 }
     }

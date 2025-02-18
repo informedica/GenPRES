@@ -44,6 +44,7 @@ module Intake =
 
 
     let private typoGraphy (items : Types.TextItem[]) =
+        let variant = "body2"
         let print item =
             match item with
             | Normal s ->
@@ -147,9 +148,15 @@ module Intake =
                 if rows4 |> Array.isEmpty |> not then createTable 4 rows4
             |]
 
+        let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
-
-        Components.BottomDrawer.View {|
-            isOpen = true;
-            content = content
-            |}
+        if isMobile then
+            JSX.jsx $"""
+            import React from 'react';
+            <React.Fragment />
+            """
+        else
+            Components.BottomDrawer.View {|
+                isOpen = true;
+                content = content
+                |}

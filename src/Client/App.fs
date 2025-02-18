@@ -34,6 +34,7 @@ module private Elmish =
             InitialRoute : string option
             InitialDoseType : DoseType option
             InitialIndication : string option
+            TreatmentPlan : Deferred<(bool * Order) []>
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
@@ -62,6 +63,7 @@ module private Elmish =
         | UpdateScenarioOrder
         | LoadOrder of string option * Order
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
+        | AddOrderToPlan of Order
         | GetIntake of AsyncOperationStatus<Result<Intake, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
@@ -288,6 +290,7 @@ module private Elmish =
                 med
                 |> Option.bind _.dosetype
             SelectedScenarioOrder = None
+            TreatmentPlan = HasNotStartedYet
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Localization = HasNotStartedYet
@@ -377,6 +380,12 @@ module private Elmish =
                     | Resolved _ -> Cmd.none
                     | _ ->
                         LoadScenarios Started |> Cmd.ofMsg
+                | p when p = TreatmentPlan ->
+                    match state.TreatmentPlan with
+                    | Resolved _ ->
+                        GetIntake Started |> Cmd.ofMsg
+                    | _ ->
+                        Cmd.none
                 | p when p = Formulary ->
                     match state.Formulary with
                     | Resolved _ -> Cmd.none
@@ -703,18 +712,42 @@ module private Elmish =
                 Logging.error "eror calculating order" s
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
 
+        | AddOrderToPlan o ->
+            Logging.log "adding order to plan" o.Orderable.Name
+            { state with
+                TreatmentPlan =
+                    state.TreatmentPlan
+                    |> Deferred.defaultValue [||]
+                    |> Array.append [| false, o|]
+                    |> Resolved
+            },
+            Cmd.ofMsg (UpdatePage TreatmentPlan)
+
         | GetIntake Started ->
-            match state.CalculatedOrder, state.Patient with
-            | Resolved (Some (_, o)), Some pat ->
-                let w = pat |> Patient.getWeight
-                Logging.log "getting intake for" o
+            let getIntake w ords =
                 let load =
                     async {
-                        let! intake = serverApi.getIntake w o
+                        let! intake = serverApi.getIntake w ords
                         return Finished intake |> GetIntake
                     }
                 { state with Intake = InProgress }, Cmd.fromAsync load
-            | _ -> state, Cmd.none
+
+            match state.Patient with
+            | Some pat ->
+                let w = pat |> Patient.getWeight
+
+                match state.Page with
+                | Prescribe ->
+                    match state.CalculatedOrder with
+                    | Resolved (Some (_, o)) -> getIntake w [| o |]
+                    | _ -> state, Cmd.none
+                | TreatmentPlan ->
+                    match state.TreatmentPlan with
+                    | Resolved ords when ords |> Array.isEmpty |> not ->
+                        ords |> Array.map snd |> getIntake w
+                    | _ -> state, Cmd.none
+                | _ -> state, Cmd.none
+            | None -> state, Cmd.none
 
         | GetIntake (Finished (Ok intake)) ->
             Logging.log "got intake" intake
@@ -829,7 +862,7 @@ open Shared
 
 [<Literal>]
 let private themeDef = """
-responsiveFontSizes(createTheme(), { factor : 2 })
+responsiveFontSizes(createTheme({ typography: { fontSize : 14, } }), { factor : 2 })
 """
 
 
@@ -837,6 +870,16 @@ responsiveFontSizes(createTheme(), { factor : 2 })
 [<Emit(themeDef)>]
 let private theme : obj = jsNative
 
+
+[<Literal>]
+let private mobileDef = """
+responsiveFontSizes(createTheme({ typography: { fontSize : 12, } }), { factor : 2 })
+"""
+
+
+[<Import("createTheme", from="@mui/material/styles")>]
+[<Emit(mobileDef)>]
+let private mobile : obj = jsNative
 
 
 // Entry point must be in a separate file
@@ -870,6 +913,9 @@ let View () =
             {| height= "100vh"; overflowY = "hidden"; mb=5 |}
         else
             {| height= "100vh"; overflowY = "hidden"; mb=0 |}
+
+    let theme = if isMobile then mobile else theme
+
     JSX.jsx
         $"""
     import {{ ThemeProvider }} from '@mui/material/styles';
@@ -907,6 +953,8 @@ let View () =
                         updateParenteralia = UpdateParenteralia >> dispatch
                         selectOrder = SelectOrder >> dispatch
                         order = state.CalculatedOrder |> Deferred.map (Option.map (fun (b, o) -> b, state.SelectedSubstance, o))
+                        addOrderToPlan = AddOrderToPlan >> dispatch
+                        treatmentPlan = state.TreatmentPlan
                         intake = state.Intake
                         loadOrder = LoadOrder >> dispatch
                         updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)

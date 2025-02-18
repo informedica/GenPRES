@@ -484,11 +484,10 @@ module Api =
         |> Result.map Order.Dto.toDto
 
 
-    let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto) : Intake =
+    let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =
         let intake =
             dto
-            |> Order.Dto.fromDto
-            |> Array.singleton
+            |> Array.map Order.Dto.fromDto
             |> Intake.calc wght Informedica.GenUnits.Lib.Units.Time.day
 
         let get n =

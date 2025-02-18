@@ -20,7 +20,7 @@ module EmergencyList =
         let lang = context.Localization
         let hosp = context.Hospital
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             props.localizationTerms
             |> Deferred.map (fun terms ->
                 Localization.getTerm terms lang term
@@ -111,6 +111,7 @@ module EmergencyList =
             columns = columns
             rows = rows
             rowCreate = rowCreate
+            height = "70vh"
         |})
 
 

@@ -11,12 +11,13 @@ type Pages =
     | LifeSupport
     | ContinuousMeds
     | Prescribe
+    | TreatmentPlan
     | Formulary
     | Parenteralia
 
 
 let pageToString terms locale page =
-    let getTerm term = 
+    let getTerm term =
         terms
         |> Deferred.map (fun terms ->
             term
@@ -29,6 +30,7 @@ let pageToString terms locale page =
     | LifeSupport -> Terms.``Emergency List`` |> getTerm
     | ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
     | Prescribe -> Terms.``Prescribe`` |> getTerm
+    | TreatmentPlan -> Terms.``Treatment Plan`` |> getTerm
     | Formulary -> Terms.``Formulary`` |> getTerm
     | Parenteralia -> Terms.``Parenteralia`` |> getTerm
 

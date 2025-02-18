@@ -37,6 +37,7 @@ module Prescribe =
             | MedicationChange of string option
             | RouteChange of string option
             | DoseTypeChange of string option
+            | AddOrder of Order
             | Clear
 
 
@@ -68,22 +69,20 @@ module Prescribe =
         let update
             (scenarios: Deferred<ScenarioResult>)
             updateScenario
+            addOrderToPlan
             (msg: Msg)
             state
             =
-            let clear (sc : ScenarioResult) =
-                { sc with
-                    Indication = None
-                    Medication = None
-                    Route = None
-                    DoseType = None
-                }
 
             match msg with
             | RowClick (i, xs) ->
                 { state with Dialog = xs }, Cmd.none
 
             | CloseDialog -> { state with Dialog = [] }, Cmd.none
+
+            | AddOrder o ->
+                addOrderToPlan o
+                state, Cmd.none
 
             | IndicationChange s ->
                 match scenarios with
@@ -185,6 +184,7 @@ module Prescribe =
             selectOrder : (Types.Scenario * Types.Order option) -> unit
             order: Deferred<(bool * string option * Order) option>
             loadOrder: (string option * Order) -> unit
+            addOrderToPlan : Order -> unit
             updateScenarioOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -204,8 +204,8 @@ module Prescribe =
         let state, dispatch =
             React.useElmish (
                 init props.order props.scenarios,
-                update props.scenarios props.updateScenario,
-                [| box props.order; box props.scenarios; box props.updateScenario; box props.selectOrder |]
+                update props.scenarios props.updateScenario props.addOrderToPlan,
+                [| box props.order; box props.scenarios; box props.updateScenario; box props.addOrderToPlan; box props.selectOrder |]
             )
 
         let modalOpen, setModalOpen = React.useState(false)
@@ -437,6 +437,11 @@ module Prescribe =
                                 onClick={fun () -> setModalOpen true; (sc, ord) |> props.selectOrder}
                                 startIcon={Mui.Icons.CalculateIcon}
                             >{Terms.Edit |> getTerm "bewerken"}</Button>
+                            <Button
+                                size="small"
+                                onClick={fun () -> if ord.IsSome then ord.Value |> AddOrder |> dispatch }
+                                startIcon={Mui.Icons.Add}
+                            >Voorschrijven</Button>
                         </CardActions>
                     </Card>
                 </Box>

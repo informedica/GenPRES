@@ -1,13 +1,10 @@
 namespace Views
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
 
 module ContinuousMeds =
+
+    open Fable.Core
+    open Feliz
 
     open Shared
 
@@ -19,7 +16,7 @@ module ContinuousMeds =
         let lang = context.Localization
         let hosp = context.Hospital
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             props.localizationTerms
             |> Deferred.map (fun terms ->
                 Localization.getTerm terms lang term
@@ -89,6 +86,7 @@ module ContinuousMeds =
                     columns = columns
                     rows = rows
                     rowCreate = rowCreate
+                    height = "70vh"
                 |})
             }
         </Box>

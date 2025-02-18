@@ -534,14 +534,14 @@ let calcMinIncrMaxToValues (ord : Order) =
         |> Error
 
 
-let getIntake wghtInKg (ord: Order) =
+let getIntake wghtInKg (ords: Order []) =
     let wghtInKg =
         wghtInKg
         |> Option.bind BigRational.fromFloat
         |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
 
-    ord
-    |> mapFromOrder
+    ords
+    |> Array.map mapFromOrder
     |> Api.getIntake wghtInKg
     |> mapToIntake
 
