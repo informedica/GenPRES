@@ -21,7 +21,6 @@ module BottomDrawer =
                 content : (string * ReactElement) []
             |}
         ) =
-
         let sx = {| margin="auto" |}
         JSX.jsx
             $"""

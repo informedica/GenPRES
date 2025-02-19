@@ -50,13 +50,14 @@ module Intake =
             | Normal s ->
                 JSX.jsx
                     $"""
-                <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
+                <Typography variant={variant} color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
                 """
             | Bold s ->
                 JSX.jsx
                     $"""
                 <Typography
                 color={Mui.Colors.BlueGrey.``700``}
+                variant={variant}
                 display="inline"
                 >
                 <strong> {s} </strong>
@@ -67,8 +68,8 @@ module Intake =
                     $"""
                 <Typography
                 color={Mui.Colors.Grey.``700``}
+                variant={variant}
                 display="inline"
-                variant="body2"
                 >
                 {s}
                 </Typography>

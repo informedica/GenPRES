@@ -39,6 +39,7 @@ module GenPres =
                 LifeSupport
                 ContinuousMeds
                 Prescribe
+                Nutrition
                 TreatmentPlan
                 Formulary
                 Parenteralia
@@ -58,6 +59,7 @@ module GenPres =
                             | s when p = LifeSupport -> Mui.Icons.FireExtinguisher |> Some, s, b
                             | s when p = ContinuousMeds -> Mui.Icons.Vaccines |> Some, s, b
                             | s when p = Prescribe -> Mui.Icons.Message |> Some, s, b
+                            | s when p = Nutrition -> Mui.Icons.LocalDiningIcon |> Some, s, b
                             | s when p = TreatmentPlan -> Mui.Icons.SummarizeIcon |> Some, s, b
                             | s when p = Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b
                             | s when p = Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b
@@ -122,8 +124,8 @@ module GenPres =
             updateScenario : ScenarioResult -> unit
             selectOrder : (Scenario * Order option) -> unit
             order: Deferred<(bool * string option * Order) option>
-            addOrderToPlan: Order -> unit
-            treatmentPlan: Deferred<(bool * Order) []>
+            addOrderToPlan: Scenario * Order -> unit
+            treatmentPlan: Deferred<(Scenario * Order) []>
             intake : Deferred<Intake>
             loadOrder: (string option * Order) -> unit
             updateScenarioOrder : unit -> unit
@@ -242,17 +244,17 @@ module GenPres =
                         {
                             match props.page with
                             | Global.Pages.LifeSupport ->
-                                Views.EmergencyList.View ({|
+                                Views.EmergencyList.View {|
                                     interventions = props.bolusMedication
                                     localizationTerms = props.localizationTerms
-                                |})
+                                |}
                             | Global.Pages.ContinuousMeds ->
-                                Views.ContinuousMeds.View ({|
+                                Views.ContinuousMeds.View {|
                                     interventions = props.continuousMedication
                                     localizationTerms = props.localizationTerms
-                                |})
+                                |}
                             | Global.Pages.Prescribe ->
-                                Views.Prescribe.View ({|
+                                Views.Prescribe.View {|
                                     order = props.order
                                     scenarios = props.scenarioResult
                                     updateScenario = props.updateScenario
@@ -261,29 +263,37 @@ module GenPres =
                                     addOrderToPlan = props.addOrderToPlan
                                     updateScenarioOrder = props.updateScenarioOrder
                                     localizationTerms = props.localizationTerms
-                                |})
+                                |}
+                            | Global.Pages.Nutrition ->
+                                Views.Nutrion.View()
                             | Global.Pages.TreatmentPlan ->
-                                Views.TreatmentPlan.View ({|
+                                Views.TreatmentPlan.View {|
+                                    order = props.order
+                                    loadOrder = props.loadOrder
+                                    removeOrderFromPlan = ignore // TODO: need to implement
+                                    updateScenarioOrder = props.updateScenarioOrder
+                                    selectOrder = props.selectOrder
                                     treatmentPlan = props.treatmentPlan
                                     localizationTerms = props.localizationTerms
-                                |})
+                                |}
                             | Global.Pages.Formulary ->
-                                Views.Formulary.View ({|
+                                Views.Formulary.View {|
                                     formulary = props.formulary
                                     updateFormulary = props.updateFormulary
                                     localizationTerms = props.localizationTerms
-                                |})
+                                |}
                             | Global.Pages.Parenteralia ->
-                                Views.Parenteralia.View ({|
+                                Views.Parenteralia.View {|
                                     parenteralia = props.parenteralia
                                     updateParenteralia = props.updateParenteralia
-                                |})
+                                |}
                         }
                     </Box>
                     <Box>
                         {
                             match props.page with
                             | Global.Pages.Prescribe
+                            | Global.Pages.Nutrition
                             | Global.Pages.TreatmentPlan ->
                                 Views.Intake.View props.intake
                             | _ -> JSX.jsx "<></>"

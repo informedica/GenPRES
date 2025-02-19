@@ -10,11 +10,21 @@ module TreatmentPlan =
 
 
     [<JSX.Component>]
-    let View (props : {| treatmentPlan: Deferred<(bool * Order) []>; localizationTerms : Deferred<string [] []> |}) =
+    let View (props : {|
+        loadOrder: (string option * Order) -> unit
+        order: Deferred<(bool * string option * Order) option>
+        removeOrderFromPlan : Order -> unit
+        updateScenarioOrder : unit -> unit
+        treatmentPlan: Deferred<(Scenario * Order) []>
+        selectOrder : (Types.Scenario * Types.Order option) -> unit
+        localizationTerms : Deferred<string [] []>
+        |}) =
 
-        let context = React.useContext(Global.context)
+        let context = React.useContext Global.context
         let lang = context.Localization
-        let hosp = context.Hospital
+
+        let modalOpen, setModalOpen = React.useState false
+        let handleModalClose = fun () -> setModalOpen false
 
         let getTerm defVal term =
             props.localizationTerms
@@ -107,7 +117,7 @@ module TreatmentPlan =
                     {|
                         cells =
                             [|
-                                {| field = "id"; value = $"{i + 1}" |}
+                                {| field = "id"; value = $"{o.Id}" |}
                                 {| field = "medication"; value = $"{o.Orderable.Name}" |}
                                 {| field = "frequency"; value = $"{freq}" |}
                                 {| field = "quantity"; value = $"{qty}" |}
@@ -130,18 +140,55 @@ module TreatmentPlan =
             |}
             |> box
 
+        let modalStyle =
+            {|
+                position="absolute"
+                top= "50%"
+                left= "50%"
+                transform= "translate(-50%, -50%)"
+                width= 400
+                bgcolor= "background.paper"
+                boxShadow= 24
+            |}
+
+        let selectOrder s =
+            match props.treatmentPlan with
+            | Resolved tp ->
+                tp
+                |> Array.tryFind (fun (_, o) -> o.Id = s)
+                |> function
+                | None -> ()
+                | Some (sc, ord) -> setModalOpen true; (sc, Some ord) |> props.selectOrder
+            | _ -> ()
+
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
+        import Modal from '@mui/material/Modal';
 
         <Box sx={ {| height="100%" |} } >
             {
                 Components.ResponsiveTable.View({|
+                    hideFilter = true
                     columns = columns
                     rows = rows
                     rowCreate = rowCreate
                     height = "50vh"
+                    onRowClick = selectOrder
                 |})
             }
+            <Modal open={modalOpen} onClose={handleModalClose} >
+                <Box sx={modalStyle}>
+                    {
+                        Order.View {|
+                            order = props.order
+                            loadOrder = props.loadOrder
+                            updateScenarioOrder = props.updateScenarioOrder
+                            closeOrder = handleModalClose
+                            localizationTerms = props.localizationTerms
+                        |}
+                    }
+                </Box>
+            </Modal>
         </Box>
         """

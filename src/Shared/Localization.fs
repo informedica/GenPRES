@@ -52,6 +52,7 @@ type Terms =
     | ``Order Concentration``
     | ``Order Drip rate``
     | ``Order Administration time``
+    | ``Nutrition``
     | ``Treatment Plan``
     | ``Formulary``
     | ``Formulary Medications``

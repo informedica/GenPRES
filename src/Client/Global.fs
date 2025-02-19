@@ -11,6 +11,7 @@ type Pages =
     | LifeSupport
     | ContinuousMeds
     | Prescribe
+    | Nutrition
     | TreatmentPlan
     | Formulary
     | Parenteralia
@@ -30,6 +31,7 @@ let pageToString terms locale page =
     | LifeSupport -> Terms.``Emergency List`` |> getTerm
     | ContinuousMeds -> Terms.``Continuous Medication List`` |> getTerm
     | Prescribe -> Terms.``Prescribe`` |> getTerm
+    | Nutrition -> Terms.``Nutrition`` |> getTerm
     | TreatmentPlan -> Terms.``Treatment Plan`` |> getTerm
     | Formulary -> Terms.``Formulary`` |> getTerm
     | Parenteralia -> Terms.``Parenteralia`` |> getTerm

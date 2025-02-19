@@ -34,7 +34,7 @@ module private Elmish =
             InitialRoute : string option
             InitialDoseType : DoseType option
             InitialIndication : string option
-            TreatmentPlan : Deferred<(bool * Order) []>
+            TreatmentPlan : Deferred<(Scenario * Order) []>
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
@@ -63,7 +63,7 @@ module private Elmish =
         | UpdateScenarioOrder
         | LoadOrder of string option * Order
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
-        | AddOrderToPlan of Order
+        | AddOrderToPlan of Scenario * Order
         | GetIntake of AsyncOperationStatus<Result<Intake, string>>
         | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
         | UpdateFormulary of Formulary
@@ -377,10 +377,11 @@ module private Elmish =
                 match page with
                 | p when p = Prescribe ->
                     match state.Scenarios with
-                    | Resolved _ -> Cmd.none
+                    | Resolved _ ->
+                        GetIntake Started |> Cmd.ofMsg
                     | _ ->
                         LoadScenarios Started |> Cmd.ofMsg
-                | p when p = TreatmentPlan ->
+                | p when p = TreatmentPlan || p = Nutrition ->
                     match state.TreatmentPlan with
                     | Resolved _ ->
                         GetIntake Started |> Cmd.ofMsg
@@ -706,19 +707,28 @@ module private Elmish =
                                     )
                             }
                         )
+                    TreatmentPlan =
+                        state.TreatmentPlan
+                        |> Deferred.map (fun ords ->
+                            ords
+                            |> Array.map (fun (sc, o') ->
+                                if o'.Id = o.Id then sc, o
+                                else sc, o'
+                            )
+                        )
                 }, Cmd.ofMsg (GetIntake Started)
 
             | Error s ->
                 Logging.error "eror calculating order" s
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
 
-        | AddOrderToPlan o ->
-            Logging.log "adding order to plan" o.Orderable.Name
+        | AddOrderToPlan (sc, ord) ->
+            Logging.log "adding order to plan" ord.Orderable.Name
             { state with
                 TreatmentPlan =
                     state.TreatmentPlan
                     |> Deferred.defaultValue [||]
-                    |> Array.append [| false, o|]
+                    |> Array.append [| sc, ord |]
                     |> Resolved
             },
             Cmd.ofMsg (UpdatePage TreatmentPlan)
@@ -957,7 +967,7 @@ let View () =
                         treatmentPlan = state.TreatmentPlan
                         intake = state.Intake
                         loadOrder = LoadOrder >> dispatch
-                        updateScenarioOrder = (fun () -> UpdateScenarioOrder |> dispatch)
+                        updateScenarioOrder = fun () -> UpdateScenarioOrder |> dispatch
                         page = state.Page
                         localizationTerms = state.Localization
                         languages = Localization.languages

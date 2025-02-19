@@ -287,6 +287,11 @@ module Icons =
     <SummarizeIcon/>
     """
 
+    let LocalDiningIcon = JSX.jsx $"""
+        import LocalDiningIcon from '@mui/icons-material/LocalDining';
+        <LocalDiningIcon/>
+    """
+
 
 type Color = {|
     ``50`` : string;

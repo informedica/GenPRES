@@ -108,10 +108,12 @@ module EmergencyList =
             |> box
 
         Components.ResponsiveTable.View({|
+            hideFilter = false
             columns = columns
             rows = rows
             rowCreate = rowCreate
             height = "70vh"
+            onRowClick = ignore
         |})
 
 

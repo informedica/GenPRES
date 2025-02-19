@@ -1,15 +1,15 @@
 namespace Views
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-open Fable.Core.JsInterop
 
 
 module Patient =
 
+    open System
+    open Fable.Core
+    open Fable.React
+    open Feliz
+    open Browser.Types
+    open Fable.Core.JsInterop
     open Elmish
     open Shared
 
@@ -227,10 +227,10 @@ module Patient =
 
         let toggle item (p: Patient option) : Patient option =
             p |> Option.map (fun p ->
-                { p with 
-                    Access = 
+                { p with
+                    Access =
                         if p.Access |> List.exists((=) item) then
-                            p.Access 
+                            p.Access
                             |> List.filter ((<>) item)
                         else
                             p.Access
@@ -253,23 +253,23 @@ module Patient =
                 match p with
                 | None -> p
                 | Some p ->
-                    { p with 
+                    { p with
                         RenalFunction = rf
                     }
                     |> Some
 
             match s with
-            | None -> 
+            | None ->
                 p
                 |> set None
-            | Some s -> 
-                let rf = 
-                    s 
+            | Some s ->
+                let rf =
+                    s
                     |> Patient.RenalFunction.optionToRenal
                     |> Some
                 p
                 |> set rf
-        
+
 
         let update dispatch msg (state : State) : State * Cmd<Msg> =
             match msg with
@@ -283,12 +283,12 @@ module Patient =
             | UpdateGAWeek s -> state |> setGAWeek s, Cmd.none
             | UpdateGADay s  -> state |> setGADay s, Cmd.none
             | UpdateRenal s  -> state |> setRenal s, Cmd.none
-            | UpdateGender s -> 
+            | UpdateGender s ->
                 printfn $"update gender with:{s}"
                 state
                 |> Option.map (fun p ->
                     { p with
-                        Gender = 
+                        Gender =
                             match s with
                             | "male" -> Male
                             | "female" -> Female
@@ -304,7 +304,7 @@ module Patient =
 
 
         let show lang terms pat =
-            let toString = 
+            let toString =
                 match terms with
                 | Resolved terms -> Patient.toString terms lang true
                 | _ -> fun _ -> ""
@@ -315,7 +315,7 @@ module Patient =
                 |> Markdown.markdown.children
             | None ->
                 terms
-                |> Deferred.map (fun terms -> 
+                |> Deferred.map (fun terms ->
                     Terms.``Patient enter patient data``
                     |> Localization.getTerm terms lang
                     |> Option.defaultValue "Voer patient gegevens in"
@@ -349,7 +349,7 @@ module Patient =
                     update props.updatePatient,
                     depArr)
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             props.localizationTerms
             |> Deferred.map (fun terms ->
                 Localization.getTerm terms lang term
@@ -410,17 +410,17 @@ module Patient =
                 )
                 |> Option.defaultValue ""
 
-            let radio = 
+            let radio =
                 JSX.jsx $"""
                 import Radio from '@mui/material/Radio';
                 <Radio />
                 """
 
-            let handleChange = 
-                fun ev -> 
+            let handleChange =
+                fun ev ->
                     handleChange ()
 
-                    ev?target?value 
+                    ev?target?value
                     |> string
                     |> UpdateGender |> dispatch
 

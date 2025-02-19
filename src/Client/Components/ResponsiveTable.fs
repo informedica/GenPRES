@@ -1,18 +1,19 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
-
-open Elmish
-open Fable.Core.JsInterop
 
 
 module ResponsiveTable =
+
+    open System
+    open Fable.Core
+    open Fable.React
+    open Feliz
+    open Browser.Types
+
+
+
+    open Elmish
+    open Fable.Core.JsInterop
 
 
     module private Cards =
@@ -116,20 +117,24 @@ module ResponsiveTable =
     [<JSX.Component>]
     let View (props :
         {|
+            hideFilter : bool
             columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
             rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             rowCreate : string[] -> obj
             height : string
+            onRowClick : string -> unit
         |}) =
         let state, setState = React.useState [||]
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
         let columnFilter =
-            if props.rows |> Array.isEmpty then None
+            if props.hideFilter then None
             else
-                props.columns
-                |> Array.tryFind (fun c -> c.filterable)
+                if props.rows |> Array.isEmpty then None
+                else
+                    props.columns
+                    |> Array.tryFind (fun c -> c.filterable)
 
         let filter =
             columnFilter
@@ -154,6 +159,10 @@ module ResponsiveTable =
                     isLoading = false
                 |})
             |> toReact
+
+        let onRowClick =
+            fun pars ->
+                pars?id |> string |> props.onRowClick
 
         let rows =
             props.rows
@@ -199,6 +208,7 @@ module ResponsiveTable =
                     <DataGrid
                         rows={rows}
                         slots={ {| toolbar = toolbar |} }
+                        onRowClick={onRowClick}
                         initialState =
                             {
                                 {| columns = {| columnVisibilityModel = {| id = false |} |} |}

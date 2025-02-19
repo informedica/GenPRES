@@ -36,6 +36,7 @@
     <Compile Include="./Views/ContinuousMeds.fs" />
     <Compile Include="./Views/Intake.fs" />
     <Compile Include="./Views/Prescribe.fs" />
+    <Compile Include="./Views/Nutrition.fs" />
     <Compile Include="./Views/TreatmentPlan.fs" />
     <Compile Include="./Views/Formulary.fs" />
     <Compile Include="./Views/Parenteralia.fs" />

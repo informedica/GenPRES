@@ -9,170 +9,6 @@ open Browser.Types
 
 module Prescribe =
 
-
-    module private Elmish =
-
-        open Feliz
-        open Feliz.UseElmish
-        open Elmish
-        open Shared
-        open Utils
-        open FSharp.Core
-
-
-        type State =
-            {
-                Dialog: string list
-                Indication: string option
-                Medication: string option
-                Route: string option
-                DoseType : DoseType option
-            }
-
-
-        type Msg =
-            | RowClick of int * string list
-            | CloseDialog
-            | IndicationChange of string option
-            | MedicationChange of string option
-            | RouteChange of string option
-            | DoseTypeChange of string option
-            | AddOrder of Order
-            | Clear
-
-
-        let empty =
-            {
-                Dialog = []
-                Indication = None
-                Medication = None
-                Route = None
-                DoseType = None
-            }
-
-
-        let init ord (scenarios: Deferred<ScenarioResult>) =
-            let state =
-                match scenarios with
-                | Resolved sc ->
-                    {
-                        Dialog = []
-                        Indication = sc.Indication
-                        Medication = sc.Medication
-                        Route = sc.Route
-                        DoseType = sc.DoseType
-                    }
-                | _ -> empty
-            state, Cmd.none
-
-
-        let update
-            (scenarios: Deferred<ScenarioResult>)
-            updateScenario
-            addOrderToPlan
-            (msg: Msg)
-            state
-            =
-
-            match msg with
-            | RowClick (i, xs) ->
-                { state with Dialog = xs }, Cmd.none
-
-            | CloseDialog -> { state with Dialog = [] }, Cmd.none
-
-            | AddOrder o ->
-                addOrderToPlan o
-                state, Cmd.none
-
-            | IndicationChange s ->
-                match scenarios with
-                | Resolved sc ->
-                    if s |> Option.isNone then
-                        { sc with
-                            Indications = [||]
-                            Indication = None
-                            DoseTypes = [||]
-                            DoseType = None
-                            Scenarios = [||]
-                        }
-                    else
-                        { sc with Indication = s }
-                    |> updateScenario
-                | _ -> ()
-
-                { state with Indication = s }, Cmd.none
-
-            | MedicationChange s ->
-                match scenarios with
-                | Resolved sc ->
-                    if s |> Option.isNone then
-                        { sc with
-                            Medications = [||]
-                            Medication = None
-                            DoseTypes = [||]
-                            DoseType = None
-                            Scenarios = [||]
-                        }
-
-                    else
-                        { sc with Medication = s }
-                    |> updateScenario
-                | _ -> ()
-
-                { state with Medication = s }, Cmd.none
-
-            | RouteChange s ->
-                match scenarios with
-                | Resolved sc ->
-                    if s |> Option.isNone then
-                        { sc with
-                            Routes = [||]
-                            Route = None
-                            DoseTypes = [||]
-                            DoseType = None
-                            Scenarios = [||]
-                        }
-                    else
-                        { sc with Route = s }
-                    |> updateScenario
-                | _ -> ()
-
-                { state with Route = s }, Cmd.none
-
-            | DoseTypeChange s ->
-                let dt = s |> Option.map ScenarioResult.doseTypeFromString
-                match scenarios with
-                | Resolved sc ->
-                    if dt |> Option.isNone then
-                        { sc with
-                            DoseTypes = [||]
-                            DoseType = None
-                            Scenarios = [||]
-                        }
-                    else
-                        { sc with DoseType = dt }
-                    |> updateScenario
-                | _ -> ()
-
-                { state with DoseType = dt }, Cmd.none
-
-            | Clear ->
-                match scenarios with
-                | Resolved _ ->
-                    ScenarioResult.empty |> updateScenario
-                | _ -> ()
-
-                { state with
-                    Indication = None
-                    Medication = None
-                    Route = None
-                    DoseType =  None
-
-                }, Cmd.none
-
-
-
-    open Elmish
     open Shared
 
 
@@ -184,12 +20,12 @@ module Prescribe =
             selectOrder : (Types.Scenario * Types.Order option) -> unit
             order: Deferred<(bool * string option * Order) option>
             loadOrder: (string option * Order) -> unit
-            addOrderToPlan : Order -> unit
+            addOrderToPlan : (Scenario * Order) -> unit
             updateScenarioOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
 
-        let context = React.useContext(Global.context)
+        let context = React.useContext Global.context
         let lang = context.Localization
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:900px)"
 
@@ -201,15 +37,77 @@ module Prescribe =
             )
             |> Deferred.defaultValue defVal
 
-        let state, dispatch =
-            React.useElmish (
-                init props.order props.scenarios,
-                update props.scenarios props.updateScenario props.addOrderToPlan,
-                [| box props.order; box props.scenarios; box props.updateScenario; box props.addOrderToPlan; box props.selectOrder |]
-            )
+        let indicationChange s =
+            match props.scenarios with
+            | Resolved sc ->
+                if s |> Option.isNone then
+                    { sc with
+                        Indications = [||]
+                        Indication = None
+                        DoseTypes = [||]
+                        DoseType = None
+                        Scenarios = [||]
+                    }
+                else
+                    { sc with Indication = s }
+                |> props.updateScenario
+            | _ -> ()
 
-        let modalOpen, setModalOpen = React.useState(false)
+        let medicationChange s =
+            match props.scenarios with
+            | Resolved sc ->
+                if s |> Option.isNone then
+                    { sc with
+                        Medications = [||]
+                        Medication = None
+                        DoseTypes = [||]
+                        DoseType = None
+                        Scenarios = [||]
+                    }
 
+                else
+                    { sc with Medication = s }
+                |> props.updateScenario
+            | _ -> ()
+
+        let routeChange s =
+            match props.scenarios with
+            | Resolved sc ->
+                if s |> Option.isNone then
+                    { sc with
+                        Routes = [||]
+                        Route = None
+                        DoseTypes = [||]
+                        DoseType = None
+                        Scenarios = [||]
+                    }
+                else
+                    { sc with Route = s }
+                |> props.updateScenario
+            | _ -> ()
+
+        let doseTypeChange s =
+            let dt = s |> Option.map ScenarioResult.doseTypeFromString
+            match props.scenarios with
+            | Resolved sc ->
+                if dt |> Option.isNone then
+                    { sc with
+                        DoseTypes = [||]
+                        DoseType = None
+                        Scenarios = [||]
+                    }
+                else
+                    { sc with DoseType = dt }
+                |> props.updateScenario
+            | _ -> ()
+
+        let clear () =
+            match props.scenarios with
+            | Resolved _ ->
+                ScenarioResult.empty |> props.updateScenario
+            | _ -> ()
+
+        let modalOpen, setModalOpen = React.useState false
         let handleModalClose = fun () -> setModalOpen false
 
         let select isLoading lbl selected dispatch xs =
@@ -439,7 +337,7 @@ module Prescribe =
                             >{Terms.Edit |> getTerm "bewerken"}</Button>
                             <Button
                                 size="small"
-                                onClick={fun () -> if ord.IsSome then ord.Value |> AddOrder |> dispatch }
+                                onClick={fun () -> if ord.IsSome then (sc, ord.Value) |> props.addOrderToPlan }
                                 startIcon={Mui.Icons.Add}
                             >Voorschrijven</Button>
                         </CardActions>
@@ -472,10 +370,10 @@ module Prescribe =
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
-                                |> select isLoading lbl sel (IndicationChange >> dispatch)
+                                |> select isLoading lbl sel indicationChange
                             else
                                 items
-                                |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
+                                |> autoComplete isLoading lbl sel indicationChange
                     }
                     <Stack direction={stackDirection} spacing={3} >
                         {
@@ -488,10 +386,10 @@ module Prescribe =
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading lbl sel (MedicationChange >> dispatch)
+                                    |> select isLoading lbl sel medicationChange
                                 else
                                     items
-                                    |> autoComplete isLoading lbl sel (MedicationChange >> dispatch)
+                                    |> autoComplete isLoading lbl sel medicationChange
 
                         }
                         {
@@ -504,10 +402,10 @@ module Prescribe =
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading lbl sel (RouteChange >> dispatch)
+                                    |> select isLoading lbl sel routeChange
                                 else
                                     items
-                                    |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
+                                    |> autoComplete isLoading lbl sel routeChange
 
                         }
                         {
@@ -522,13 +420,13 @@ module Prescribe =
 
                                     items
                                     |> Array.map (fun s -> s |> ScenarioResult.doseTypeToString, s |> ScenarioResult.doseTypeToDescription)
-                                    |> select isLoading lbl sel (DoseTypeChange >> dispatch)
+                                    |> select isLoading lbl sel doseTypeChange
 
                             | _ -> JSX.jsx $"<></>"
                         }
 
                         <Box sx={ {| mt=2 |} }>
-                            <Button variant="text" onClick={fun _ -> Clear |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
+                            <Button variant="text" onClick={clear} fullWidth startIcon={Mui.Icons.Delete} >
                                 {Terms.Delete |> getTerm "Verwijder"}
                             </Button>
                         </Box>
