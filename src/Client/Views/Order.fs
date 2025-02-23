@@ -50,13 +50,13 @@ module Order =
                     ord.Orderable.Components
                     |> Array.tryHead
                     |> Option.bind (fun c ->
-                        if c.Items |> Array.isEmpty then None
-                        else
-                            // only use substances that are not additional
-                            let substs =
-                                c.Items
-                                |> Array.filter (_.IsAdditional >> not)
+                        // only use substances that are not additional
+                        let substs =
+                            c.Items
+                            |> Array.filter (_.IsAdditional >> not)
 
+                        if substs |> Array.isEmpty then None
+                        else
                             substs
                             |> Array.tryFind (fun i -> i.Name |> Some = subst)
                             |> Option.map _.Name

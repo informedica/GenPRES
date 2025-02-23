@@ -389,6 +389,20 @@ module OrderVariable =
         }
 
 
+    let setMinValue (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                ovar.Variable |> Variable.setMinValue
+        }
+
+
+    let setMaxValue (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                ovar.Variable |> Variable.setMaxValue
+        }
+
+
     /// <summary>
     /// Set the unit of the Variable of an OrderVariable according to the unit
     /// of the Constraints of the OrderVariable.

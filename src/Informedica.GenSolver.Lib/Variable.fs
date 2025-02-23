@@ -2492,6 +2492,46 @@ module Variable =
             |> snd
 
 
+        let setMinValue vr =
+            let toMin min =
+                let b, vu = min |> Minimum.toBoolValueUnit
+                if b then
+                    ValueSet.create vu
+                    |> ValueRange.ValSet
+                else vr
+
+            match vr with
+            | Min min
+            | MinMax (min, _)
+            | MinIncrMax (min, _, _) -> min |> toMin
+            | ValSet vs ->
+                    vs
+                    |> ValueSet.getMin
+                    |> Option.map toMin
+                    |> Option.defaultValue vr
+            | _ -> vr
+
+
+        let setMaxValue vr =
+            let toMax max =
+                let b, vu = max |> Maximum.toBoolValueUnit
+                if b then
+                    ValueSet.create vu
+                    |> ValueRange.ValSet
+                else vr
+
+            match vr with
+            | Max max
+            | MinMax (_, max)
+            | MinIncrMax (_, _, max) -> max |> toMax
+            | ValSet vs ->
+                    vs
+                    |> ValueSet.getMax
+                    |> Option.map toMax
+                    |> Option.defaultValue vr
+            | _ -> vr
+
+
         /// Check if ValueRange vr1 is equal to ValueRange vr2.
         let eqs vr1 vr2 =
             match vr1, vr2 with
@@ -3400,7 +3440,11 @@ module Variable =
                             ValueRange.ValueSet.minIncrMaxToValueSet min incr max
                             |> ValSet
                         | _ -> var.Values
-                        |> ValueRange.prune n
+                        |> fun vr ->
+                            if n |> Option.isNone then vr
+                            else
+                                vr
+                                |> ValueRange.prune n.Value
                 }
             with
             | e ->
@@ -3424,6 +3468,22 @@ module Variable =
             Values =
                 var.Values
                 |> ValueRange.setNearestValue vu
+        }
+
+
+    let setMinValue var =
+        { var with
+            Values =
+                var.Values
+                |> ValueRange.setMinValue
+        }
+
+
+    let setMaxValue var =
+        { var with
+            Values =
+                var.Values
+                |> ValueRange.setMinValue
         }
 
 

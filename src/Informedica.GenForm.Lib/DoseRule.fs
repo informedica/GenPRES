@@ -205,8 +205,8 @@ module DoseRule =
             let res = JsonValue.Load(kinderFormUrl)
             [ for v in res do
                 {|
-                    id = (v?id.AsString())
-                    generic = (v?generic_name.AsString()).Trim().ToLower()
+                    id = v?id.AsString()
+                    generic = v?generic_name.AsString().Trim().ToLower()
                 |}
             ]
             |> List.distinct
@@ -403,7 +403,7 @@ module DoseRule =
                                     )
                         )
             )
-            |> (_.md)
+            |> _.md
 
 
         let printGenerics generics (doseRules : DoseRule[]) =
@@ -433,7 +433,7 @@ module DoseRule =
         { dr with
             Products =
                 if dr.Products
-                   |> Array.exists (_.RequiresReconstitution)
+                   |> Array.exists _.RequiresReconstitution
                    |> not then dr.Products
                 else
                     dr.Products
@@ -651,7 +651,7 @@ cannot map {r}
                     if r.GPKs |> Array.isEmpty then
                         prods
                         |> Product.filter
-                            { Filter.filter with
+                            { Filter.doseFilter with
                                 Generic = gen |> Some
                                 Route = rte |> Some
                             }
@@ -690,7 +690,7 @@ cannot map {r}
                                 else
                                     filtered
                                     |> Product.filter
-                                     { Filter.filter with
+                                     { Filter.doseFilter with
                                          Generic = gen |> Some
                                          Shape = product.Shape |> Some
                                          Route = rte |> Some
@@ -885,9 +885,9 @@ cannot map {r}
     /// </summary>
     /// <param name="filter">The Filter</param>
     /// <param name="drs">The DoseRule array</param>
-    let filter (filter : Filter) (drs : DoseRule array) =
+    let filter (filter : DoseFilter) (drs : DoseRule array) =
         // if the filter is 'empty' just return all
-        if filter = Filter.filter then drs
+        if filter = Filter.doseFilter then drs
         else
             let eqs a b =
                 a

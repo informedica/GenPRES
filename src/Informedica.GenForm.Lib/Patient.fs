@@ -24,7 +24,7 @@ module Gender =
 
     /// Check if a Filter contains a Gender.
     /// Note if AnyGender is specified, this will always return true.
-    let filter gender (filter : Filter) =
+    let filter gender (filter : DoseFilter) =
         match filter.Patient.Gender, gender with
         | _, AnyGender -> true
         | _ -> filter.Patient.Gender = gender
@@ -99,7 +99,7 @@ module PatientCategory =
     /// </summary>
     /// <param name="filter">The Filter to filter the PatientCategory with</param>
     /// <param name="patCat">The Patient Category</param>
-    let filter (filter : Filter) (patCat : PatientCategory) =
+    let filter (filter : DoseFilter) (patCat : PatientCategory) =
         let eqs a b =
             match a, b with
             | None, _

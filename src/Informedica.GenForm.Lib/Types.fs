@@ -317,7 +317,7 @@ module Types =
             /// The Products the SolutionRule applies to
             Products : Product []
             /// The possible Solutions to use
-            Solutions : string []
+            Diluents : Product []
             /// The possible Volumes to use
             Volumes : ValueUnit option
             /// A MinMax Volume range to use
@@ -382,7 +382,7 @@ module Types =
 
 
     /// A Filter to get the DoseRules for a specific Patient.
-    type Filter =
+    type DoseFilter =
         {
             /// The Indication to filter on
             Indication : string option
@@ -394,10 +394,34 @@ module Types =
             Route : string option
             /// The DoseType to filter on
             DoseType : DoseType option
+
+            Diluent : string option
             /// The patient to filter on
             Patient : Patient
         }
 
+    type SolutionFilter =
+        {
+            /// The Generic of the SolutionRule
+            Generic : string
+            /// The Shape of the SolutionRule
+            Shape : string option
+            /// The Route of the SolutionRule
+            Route : string option
+            /// The DoseType of the SolutionRule
+            DoseType : DoseType option
+            /// The Department of the SolutionRule
+            Diluent : string option
+            Department : string option
+            /// The Venous Access Location of the SolutionRule
+            Locations : Locations list
+            /// The MinMax Age range of the SolutionRule
+            Age : ValueUnit option
+            /// The MinMax Weight range of the SolutionRule
+            Weight : ValueUnit option
+            /// The MinMax Dose range of the SolutionRule
+            Dose : ValueUnit option
+        }
 
     /// A PrescriptionRule for a specific Patient
     /// with a DoseRule and a list of SolutionRules.

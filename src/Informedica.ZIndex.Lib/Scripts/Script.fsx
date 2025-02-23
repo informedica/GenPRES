@@ -390,7 +390,7 @@ printfn "Loading Substance"
 Substance.load ()
 
 
-GenPresProduct.filter "alimemazine" "drank" "oraal"
+GenPresProduct.filter "natriumchloride" "" "intraveneus"
 |> Array.collect _.GenericProducts
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
@@ -402,6 +402,11 @@ GenPresProduct.filter "alimemazine" "drank" "oraal"
     let rte = rte |> String.concat ", "
     printfn $"{id}\t{lbl}\t{shp}\t{rte}\t{sn}\t{sq}"
 )
+
+9. / 58.44
+
+Substance.get ()
+|> Array.tryFind (fun s -> s.Name |> String.equalsCapInsens "natriumchloride")
 
 
 GenPresProduct.filter "natriumchloride" "" ""

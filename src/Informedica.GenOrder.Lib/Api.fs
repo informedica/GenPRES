@@ -78,6 +78,8 @@ module Api =
     let filterDoseTypes = PrescriptionRule.filter >> PrescriptionRule.doseTypes
 
 
+    let filterDiluents = PrescriptionRule.filter >> PrescriptionRule.diluents >> Array.map _.Generic
+
     /// <summary>
     /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
     /// </summary>
@@ -235,11 +237,17 @@ module Api =
             Routes = rules |> PrescriptionRule.routes
             Shapes= rules |> PrescriptionRule.shapes
             DoseTypes = rules |> PrescriptionRule.doseTypes
+            Diluents =
+                rules
+                |> Array.collect _.SolutionRules
+                |> Array.collect _.Diluents
+                |> Array.map _.Generic
             Indication = None
             Generic = None
             Route = None
             Shape = None
             DoseType = None
+            Diluent = None
             Patient = pat
             Scenarios = [||]
         }
@@ -272,6 +280,9 @@ module Api =
             let dst =
                 if sc.DoseType.IsSome then sc.DoseType
                 else sc.DoseTypes |> Array.someIfOne
+            let dil =
+                if sc.Diluent.IsSome then sc.Diluent
+                else sc.Diluents |> Array.someIfOne
 
             let filter =
                 {
@@ -280,6 +291,7 @@ module Api =
                     Route = rte
                     Shape = shp
                     DoseType = dst
+                    Diluent = dil
                     Patient = {
                         Department = d
                         Age = sc.Patient.Age
@@ -299,12 +311,14 @@ module Api =
             let rtes = filter |> filterRoutes
             let shps = filter |> filterShapes
             let dsts = filter |> filterDoseTypes
+            let dils = filter |> filterDiluents
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
             let rte = rtes |> Array.someIfOne
             let shp = shps |> Array.someIfOne
             let dst = dsts |> Array.someIfOne
+            let dil = dils |> Array.someIfOne
 
             { sc with
                 Indications = inds
@@ -312,11 +326,13 @@ module Api =
                 Routes = rtes
                 Shapes = shps
                 DoseTypes = dsts
+                Diluents = dils
                 Indication = ind
                 Generic = gen
                 Route = rte
                 Shape = shp
                 DoseType = dst
+                Diluent = dil
                 Scenarios =
                     match ind, gen, rte, shp, dst with
                     | Some _, Some _,    Some _, _, Some _
@@ -327,6 +343,7 @@ module Api =
                             Route = rte
                             Shape = shp
                             DoseType = dst
+                            Diluent = dil
                         }
                         |> PrescriptionRule.filter
                         |> Array.map (fun pr ->
@@ -364,6 +381,11 @@ module Api =
                                                     |> Array.map LimitTarget.limitTargetToString
                                                 Shape = pr.DoseRule.Shape
                                                 Route = pr.DoseRule.Route
+                                                Diluent =
+                                                    pr.SolutionRules
+                                                    |> Array.collect _.Diluents
+                                                    |> Array.map _.Generic
+                                                    |> Array.tryExactlyOne
                                                 Prescription = prs |> Array.map (Array.map replace)
                                                 Preparation = prp |> Array.map (Array.map replace)
                                                 Administration = adm |> Array.map (Array.map replace)

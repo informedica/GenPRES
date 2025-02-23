@@ -15,7 +15,7 @@ module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
 let mapFormularyToFilter (form: Formulary)=
-    { Filter.filter with
+    { Filter.doseFilter with
         Generic = form.Generic
         Indication = form.Indication
         Route = form.Route

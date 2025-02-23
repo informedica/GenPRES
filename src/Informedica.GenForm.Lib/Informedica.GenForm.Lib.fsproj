@@ -26,6 +26,7 @@
     <None Include="Scripts\Update.fsx" />
     <None Include="Scripts\DoseRule.fsx" />
     <None Include="Scripts\RenalRule.fsx" />
+    <None Include="Scripts\SolutionRule.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />

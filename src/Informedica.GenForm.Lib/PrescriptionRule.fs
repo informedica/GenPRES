@@ -13,13 +13,14 @@ module PrescriptionRule =
 
 
     /// Use a Filter to get matching PrescriptionRules.
-    let filter (filter : Filter) =
+    let filter (filter : DoseFilter) =
         let pat = filter.Patient
 
         DoseRule.get ()
         |> DoseRule.filter filter
         |> Array.map (fun dr ->
             let dr = dr |> DoseRule.reconstitute pat.Department pat.Locations
+
             let filter =
                 { filter with
                     Generic = dr.Generic |> Some
@@ -31,8 +32,23 @@ module PrescriptionRule =
                 Patient = pat
                 DoseRule = dr
                 SolutionRules =
+                    let doseMinMax =
+                        dr.DoseLimits
+                        |> Array.map _.Quantity
+                    let solFilter =
+                        { Filter.solutionFilter dr.Generic with
+                            Department = filter.Patient.Department
+                            Locations = filter.Patient.Locations
+                            Age = filter.Patient.Age
+                            Weight  = filter.Patient.Weight
+                            Shape = dr.Shape |> Some
+                            Route = dr.Route |> Some
+                            Diluent = filter.Diluent
+                            DoseType = dr.DoseType |> Some
+                            Dose = None
+                        }
                     SolutionRule.get ()
-                    |> SolutionRule.filter filter
+                    |> SolutionRule.filter solFilter
                     |> Array.map (fun sr ->
                         { sr with
                             Products =
@@ -93,10 +109,7 @@ module PrescriptionRule =
                                             else
                                                 { dl with
                                                     NormQuantityAdjust = None
-                                                    Quantity =
-                                                        { dl.Quantity with
-                                                            Min = dl.Quantity.Max
-                                                        }
+                                                    Quantity.Min = dl.Quantity.Max
                                                 }
                                         | Some max, _, Some min ->
                                             let min = min * adj
@@ -104,10 +117,7 @@ module PrescriptionRule =
                                             else
                                                 { dl with
                                                     QuantityAdjust = MinMax.empty
-                                                    Quantity =
-                                                        { dl.Quantity with
-                                                            Min = dl.Quantity.Max
-                                                        }
+                                                    Quantity.Min = dl.Quantity.Max
                                                 }
                                         | _ -> dl
                                         // recalculate the max dose per administration with the freq
@@ -121,10 +131,7 @@ module PrescriptionRule =
                                                 else
                                                     { dl with
                                                         NormPerTimeAdjust = None
-                                                        Quantity =
-                                                            { dl.Quantity with
-                                                                Min = dl.Quantity.Max
-                                                            }
+                                                        Quantity.Min = dl.Quantity.Max
                                                     }
                                             | _ -> dl
                                         // recalculate the max dose per time
@@ -139,10 +146,7 @@ module PrescriptionRule =
                                                 else
                                                     { dl with
                                                         NormPerTimeAdjust = None
-                                                        PerTime =
-                                                            { dl.PerTime with
-                                                                Min = dl.PerTime.Max
-                                                            }
+                                                        PerTime.Min = dl.PerTime.Max
                                                     }
                                             | Some max, _, Some min ->
                                                 let min = min * adj
@@ -150,10 +154,7 @@ module PrescriptionRule =
                                                 else
                                                     { dl with
                                                         PerTimeAdjust = MinMax.empty
-                                                        PerTime =
-                                                            { dl.PerTime with
-                                                                Min = dl.PerTime.Max
-                                                            }
+                                                        PerTime.Min = dl.PerTime.Max
                                                     }
                                             | _ -> dl
                                         // recalculate the max dose rate
@@ -166,10 +167,7 @@ module PrescriptionRule =
                                                 else
                                                     { dl with
                                                         RateAdjust = MinMax.empty
-                                                        Rate =
-                                                            { dl.Rate with
-                                                                Min = dl.Rate.Max
-                                                            }
+                                                        Rate.Min = dl.Rate.Max
                                                     }
                                             | _ -> dl
 
@@ -197,7 +195,7 @@ module PrescriptionRule =
 
     /// Get all matching PrescriptionRules for a given Patient.
     let get (pat : Patient) =
-        Filter.filter
+        Filter.doseFilter
         |> Filter.setPatient pat
         |> filter
 
@@ -257,10 +255,13 @@ module PrescriptionRule =
     /// Get the DoseRule of a PrescriptionRule.
     let getDoseRule (pr : PrescriptionRule) = pr.DoseRule
 
+    let getSolutionRules (pr: PrescriptionRule) = pr.SolutionRules
+
 
     /// Get all DoseRules of an array of PrescriptionRules.
     let getDoseRules = Array.map getDoseRule
 
+    let collectSolutionRules = Array.collect getSolutionRules
 
     /// Get all indications of an array of PrescriptionRules.
     let indications = getDoseRules >> DoseRule.indications
@@ -277,7 +278,16 @@ module PrescriptionRule =
     /// Get all routes of an array of PrescriptionRules.
     let routes = getDoseRules >> DoseRule.routes
 
+
     let doseTypes = getDoseRules >> DoseRule.doseTypes
+
+
+    let diluents (prs : PrescriptionRule []) =
+        prs
+        |> Array.collect _.SolutionRules
+        |> Array.collect _.Diluents
+        |> Array.distinct
+
 
     /// Get all departments of an array of PrescriptionRules.
     let departments = getDoseRules >> DoseRule.departments

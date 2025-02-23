@@ -18,7 +18,7 @@ module Tests =
 
 
         let tests = testList "PatientCategory" [
-            let filter = Filter.filter
+            let filter = Filter.doseFilter
             let patCat =
                 {
                     Department = None

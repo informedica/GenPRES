@@ -280,17 +280,8 @@ module DrugOrder =
                             }
                         )
 
-                    let s =
-                        // ugly hack to get default solution
-                        sr.Solutions
-                        |> Array.tryHead
-                        |> Option.defaultValue "x"
-
-                    parenteral
-                    |> Array.tryFind (fun p ->
-                            s |> String.notEmpty &&
-                            p.Generic |> String.startsWith s
-                        )
+                    sr.Diluents
+                    |> Array.tryHead
                     |> function
                     | Some p ->
                         [|p|]
@@ -299,7 +290,7 @@ module DrugOrder =
                         |> List.append ps
                     | None ->
                         ConsoleWriter.writeInfoMessage
-                            $"couldn't find {s} in parenterals"
+                            $"No diluents available"
                             true false
                         ps
             }

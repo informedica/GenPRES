@@ -1425,11 +1425,12 @@ module ScenarioResult =
         |> Seq.toArray
 
 
-    let createScenario sbs shp dst prs prep adm o adj rr rn =
+    let createScenario sbs shp dst dil prs prep adm o adj rr rn =
         {
             Substances = sbs
             Shape = shp
             DoseType = dst
+            Diluent = dil
             Prescription = prs |> Array.map (Array.map parseTextItem)
             Preparation = prep |> Array.map (Array.map parseTextItem)
             Administration = adm |> Array.map (Array.map parseTextItem)
@@ -1446,12 +1447,14 @@ module ScenarioResult =
             Medications = [||]
             Routes = [||]
             DoseTypes = [||]
+            Diluents = [||]
             Scenarios = [||]
             Indication = None
             Medication = None
             Shape = None
             Route = None
             DoseType = None
+            Diluent = None
             AgeInDays = None
             GestAgeInDays = None
             WeightInKg = None

@@ -327,7 +327,7 @@ module RenalRule =
         |> Memoization.memoize
 
 
-    let filter (filter : Filter) (renalRules : RenalRule []) =
+    let filter (filter : DoseFilter) (renalRules : RenalRule []) =
         let eqs a (b : string) =
             a
             |> Option.map (fun x ->

@@ -33,6 +33,8 @@ module SolutionRule =
 
     let private get_ () =
         let dataUrlId = Web.getDataUrlIdGenPres ()
+        let parenteral = Product.Parenteral.get ()
+
         Web.getDataFromSheet dataUrlId "SolutionRules"
         |> fun data ->
             let getColumn =
@@ -48,6 +50,7 @@ module SolutionRule =
                 let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                 {|
+                    // solution rule section
                     Generic = get "Generic"
                     Shape = get "Shape"
                     Route = get "Route"
@@ -61,12 +64,13 @@ module SolutionRule =
                     MinDose = get "MinDose" |> toBrOpt
                     MaxDose = get "MaxDose" |> toBrOpt
                     DoseType = get "DoseType"
-                    Solutions = get "Solutions" |> String.split "|"
+                    Solutions = get "Solutions" |> String.split "|" |> List.map String.trim
                     Volumes = get "Volumes" |> BigRational.toBrs
                     MinVol = get "MinVol" |> toBrOpt
                     MaxVol = get "MaxVol" |> toBrOpt
                     MinPerc = get "MinPerc" |> toBrOpt
                     MaxPerc = get "MaxPerc" |> toBrOpt
+                    // solution limit section
                     Substance = get "Substance"
                     Unit = get "Unit"
                     Quantities = get "Quantities" |> BigRational.toBrs
@@ -105,7 +109,16 @@ module SolutionRule =
                         (r.MinDose, r.MaxDose)
                         |> fromTupleInclIncl du
                     DoseType = DoseType.fromString r.DoseType ""
-                    Solutions = r.Solutions |> List.toArray
+                    Diluents =
+                        parenteral
+                        |> Array.filter (fun p ->
+                            r.Solutions
+                            |> List.exists (fun s ->
+                                p.Generic
+                                |> String.equalsCapInsens s
+                            )
+                        )
+                        |> Array.distinctBy _.Generic
                     Volumes =
                         if r.Volumes |> Array.isEmpty then None
                         else
@@ -195,7 +208,7 @@ module SolutionRule =
     /// <param name="filter">The Filter</param>
     /// <param name="solutionRules">The SolutionRules</param>
     /// <returns>The matching SolutionRules</returns>
-    let filter (filter : Filter) (solutionRules : SolutionRule []) =
+    let filter (filter : SolutionFilter) (solutionRules : SolutionRule []) =
         let eqs a (b : string) =
             a
             |> Option.map (fun x ->
@@ -204,27 +217,38 @@ module SolutionRule =
             |> Option.defaultValue true
 
         [|
-            fun (sr : SolutionRule) -> sr.Generic |> eqs filter.Generic
+            fun (sr : SolutionRule) -> sr.Generic |> String.equalsCapInsens filter.Generic
             fun (sr : SolutionRule) ->
-                PatientCategory.checkAgeWeightMinMax filter.Patient.Age filter.Patient.Weight sr.Age sr.Weight
+                PatientCategory.checkAgeWeightMinMax filter.Age filter.Weight sr.Age sr.Weight
             fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
-            fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Patient.Department) |> Option.defaultValue true
+            fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Department) |> Option.defaultValue true
             fun (sr : SolutionRule) ->
                 sr.DoseType = NoDoseType ||
                 filter.DoseType
                 |> Option.map (DoseType.eqsType sr.DoseType)
                 |> Option.defaultValue true
-            fun (sr : SolutionRule) -> filter.Patient.Weight |> Utils.MinMax.inRange sr.Weight
+            fun (sr : SolutionRule) -> filter.Weight |> Utils.MinMax.inRange sr.Weight
             fun (sr : SolutionRule) ->
                 match sr.Location with
-                | CVL -> filter.Patient.Locations |> List.exists ((=) CVL)
+                | CVL -> filter.Locations |> List.exists ((=) CVL)
                 | PVL //-> filter.Location = PVL
                 | AnyAccess -> true
         |]
         |> Array.fold (fun (acc : SolutionRule[]) pred ->
             acc |> Array.filter pred
         ) solutionRules
+        |> Array.map (fun sr ->
+            { sr with
+                Diluents =
+                    sr.Diluents
+                    |> Array.filter (fun dil ->
+                        filter.Diluent
+                        |> Option.map ((=) dil.Generic)
+                        |> Option.defaultValue true
+                    )
+            }
+        )
 
 
     /// Helper function to get the distinct values of a member of SolutionRule.
@@ -280,7 +304,7 @@ module SolutionRule =
                 else
                     sr.Volume
                     |> mmToStr
-                    |> fun s -> $""" in {s} {sr.Solutions |> String.concat "/"}"""
+                    |> fun s -> $""" in {s} {sr.Diluents |> Array.map _.Generic |> String.concat "/"}"""
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace |> not then s
                     else
@@ -288,7 +312,7 @@ module SolutionRule =
                         |> Option.map (Utils.ValueUnit.toString -1)
                         |> Option.defaultValue ""
                         |> fun s ->
-                            let sols = sr.Solutions |> String.concat "/"
+                            let sols = sr.Diluents |> Array.map _.Generic |> String.concat "/"
                             if s |> String.isNullOrWhiteSpace then
                                 if sols |> String.isNullOrWhiteSpace then " puur"
                                 else $" in {sols}"

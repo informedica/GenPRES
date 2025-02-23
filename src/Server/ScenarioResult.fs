@@ -454,6 +454,11 @@ Scenarios: {sc.Scenarios |> Array.length}
                         [| sc.Route |> Option.defaultValue "" |]
                     else
                         r.Routes
+                Diluents =
+                    if sc.Diluent |> Option.isSome then
+                        [| sc.Diluent |> Option.defaultValue "" |]
+                    else
+                        r.Diluents
                 DoseTypes =
                     if sc.DoseType |> Option.isSome then
                         [| sc.DoseType |> Option.defaultValue NoDoseType |]
@@ -464,6 +469,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                 Generic = sc.Medication
                 Shape = sc.Shape
                 Route = sc.Route
+                Diluent = sc.Diluent
                 DoseType = sc.DoseType |> Option.map mapFromSharedDoseType
             }
             |> Api.filter
@@ -474,6 +480,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                 Medications = newSc.Generics
                 Routes = newSc.Routes
                 DoseTypes = newSc.DoseTypes |> Array.map mapToSharedDoseType
+                Diluents = newSc.Diluents
                 Indication = newSc.Indication
                 Medication = newSc.Generic
                 Shape = newSc.Shape
@@ -486,6 +493,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                             sc.Substances
                             sc.Shape
                             (sc.DoseType |> mapToSharedDoseType)
+                            sc.Diluent
                             sc.Prescription
                             sc.Preparation
                             sc.Administration

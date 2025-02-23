@@ -44,6 +44,8 @@ module Prescribe =
                     { sc with
                         Indications = [||]
                         Indication = None
+                        Diluents = [||]
+                        Diluent = None
                         DoseTypes = [||]
                         DoseType = None
                         Scenarios = [||]
@@ -60,6 +62,8 @@ module Prescribe =
                     { sc with
                         Medications = [||]
                         Medication = None
+                        Diluents = [||]
+                        Diluent = None
                         DoseTypes = [||]
                         DoseType = None
                         Scenarios = [||]
@@ -77,12 +81,30 @@ module Prescribe =
                     { sc with
                         Routes = [||]
                         Route = None
+                        Diluents = [||]
+                        Diluent = None
                         DoseTypes = [||]
                         DoseType = None
                         Scenarios = [||]
                     }
                 else
                     { sc with Route = s }
+                |> props.updateScenario
+            | _ -> ()
+
+        let diluentChange s =
+            match props.scenarios with
+            | Resolved sc ->
+                if s |> Option.isNone then
+                    { sc with
+                        Diluents = [||]
+                        Diluent = None
+                        DoseTypes = [||]
+                        DoseType = None
+                        Scenarios = [||]
+                    }
+                else
+                    { sc with Diluent = s }
                 |> props.updateScenario
             | _ -> ()
 
@@ -407,6 +429,23 @@ module Prescribe =
                                     items
                                     |> autoComplete isLoading lbl sel routeChange
 
+                        }
+                        {
+                            match props.scenarios with
+                            | Resolved scrs when scrs.Indication.IsSome &&
+                                                 scrs.Medication.IsSome &&
+                                                 scrs.Route.IsSome &&
+                                                 scrs.Diluents |> Array.length > 1 ->
+                                (false, scrs.Diluent, scrs.Diluents)
+                                |> fun (isLoading, sel, items) ->
+                                    let lbl = "Verdunningsvorm"
+                                    let sel = sel
+
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading lbl sel diluentChange
+
+                            | _ -> JSX.jsx $"<></>"
                         }
                         {
                             match props.scenarios with

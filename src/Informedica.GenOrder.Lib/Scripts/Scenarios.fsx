@@ -44,6 +44,9 @@ let getPrescr gen shp rte prescrs =
         | Error (o, _, _) -> o
 
 
+let naclIV =
+    prescrs
+    |> getPrescr "natriumchloride" "" "INTRAVENEUS"
 
 // oral solution for PCM
 let pcmOralSolution =
@@ -68,7 +71,7 @@ let tpn =
     |> getPrescr "Samenstelling C" "" ""
 
 
-adrenInf |> Order.toString |> List.iter (printfn "%s")
+naclIV |> Order.toString |> List.iter (printfn "%s")
 
 
 let w =
@@ -78,7 +81,7 @@ let w =
 open Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
 
 [|
-    adrenInf
+    naclIV
 |]
 |> Intake.calc w Units.Time.day
 |> fun intake ->

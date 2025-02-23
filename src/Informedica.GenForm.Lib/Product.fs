@@ -105,7 +105,7 @@ module Product =
         /// </summary>
         /// <param name="filter">The Filter</param>
         /// <param name="rs">The array of reconstitution rules</param>
-        let filter (filter : Filter) (rs : Reconstitution []) =
+        let filter (filter : DoseFilter) (rs : Reconstitution []) =
             let eqs a b =
                 a
                 |> Option.map (fun x -> x = b)
@@ -592,7 +592,7 @@ module Product =
     /// </summary>
     /// <param name="filter">The Filter</param>
     /// <param name="prods">The array of Products</param>
-    let filter (filter : Filter) (prods : Product []) =
+    let filter (filter : DoseFilter) (prods : Product []) =
         let repl s =
             s
             |> String.replace "/" ""

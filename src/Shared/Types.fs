@@ -336,6 +336,7 @@ module Types =
         {
             Substances: string[]
             Shape: string
+            Diluent: string option
             DoseType: DoseType
             Prescription: TextItem[][][]
             Preparation: TextItem[][][]
@@ -352,12 +353,14 @@ module Types =
             Indications: string[]
             Medications: string[]
             Routes: string[]
+            Diluents: string[]
             DoseTypes: DoseType[]
             Scenarios: Scenario[]
             Indication: string option
             Medication: string option
             Shape: string option
             Route: string option
+            Diluent: string option
             DoseType: DoseType option
             AgeInDays: float option
             GestAgeInDays: int option

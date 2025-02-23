@@ -363,6 +363,8 @@ module Types =
                 Shape : string
                 /// the route of the order
                 Route : string
+                /// The diluent
+                Diluent : string option
                 /// the prescription of the order
                 Prescription : string[][]
                 /// the preparation of the order
@@ -395,6 +397,9 @@ module Types =
                 Routes: string []
                 /// the list of shapes to select from
                 Shapes: string []
+                /// the list of diluents to use to dilute the drug
+                Diluents : string []
+                /// the possible dose types
                 DoseTypes : DoseType []
                 /// the selected indication
                 Indication: string option
@@ -405,6 +410,7 @@ module Types =
                 /// the selected shape
                 Shape: string option
                 /// the DoseType
+                Diluent : string option
                 DoseType : DoseType option
                 /// the patient
                 Patient: Patient

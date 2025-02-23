@@ -2547,26 +2547,46 @@ module Order =
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
     let minIncrMaxToValues logger (ord: Order) =
-        let rec loop runAgain ord =
+        let rec loop runAgain (ord : Order) =
             if not runAgain then ord
             else
                 let mutable flag = false
+                // set the max rate if timed prescription
+                let maxRte =
+                    match ord.Prescription |> Prescription.toOrdVars, ord.Orderable.Dose.Rate |> Rate.toOrdVar with
+                    | (_, Some _), rte ->
+                        rte
+                        |> OrderVariable.minIncrMaxToValues (Some 100)
+                        |> OrderVariable.setMaxValue
+                        |> Some
+                    | _ -> None
+
                 let ovars =
                     ord
                     |> toOrdVars
+                    // first check if max rate can be set
+                    |> List.map (fun ovar ->
+                        match maxRte with
+                        | Some rte ->
+                            if ovar.Variable.Name = rte.Variable.Name then rte
+                            else ovar
+                        | None -> ovar
+                    )
                     |> List.map (fun ovar ->
                         if flag ||
                            ovar.Constraints.Incr |> Option.isNone ||
                            ovar.Variable.Values |> ValueRange.isMinIncrMax |> not then ovar
                         else
                             flag <- true
+
                             let n =
                                 match ord.Prescription with
-                                | OnceTimed _ -> 5
                                 | Once -> 50
                                 | Continuous -> 100
                                 | Discontinuous _ -> 50
+                                | OnceTimed _
                                 | Timed _ -> 5
+                                |> Some
 
                             ovar
                             |> OrderVariable.minIncrMaxToValues n
@@ -2609,10 +2629,11 @@ module Order =
             else
                 ord
                 |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
-
+            (*
             |> increaseRateIncrement
                 maxRateCount
                 (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
+            *)
             |> solveMinMax false logger
             |> function
             | Error (_, errs) ->

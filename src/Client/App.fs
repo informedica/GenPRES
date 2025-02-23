@@ -731,7 +731,10 @@ module private Elmish =
                     |> Array.append [| sc, ord |]
                     |> Resolved
             },
-            Cmd.ofMsg (UpdatePage TreatmentPlan)
+            Cmd.batch [
+                Cmd.ofMsg (UpdateScenarios ScenarioResult.empty)
+                Cmd.ofMsg (UpdatePage TreatmentPlan)
+            ]
 
         | GetIntake Started ->
             let getIntake w ords =
