@@ -37,7 +37,8 @@ module TreatmentPlan =
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
             {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "frequency"; headerName = "frequentie"; width = 150; filterable = false; sortable = false |}
+            {|  field = "route"; headerName = "Route"; width = 150; filterable = true; sortable = true |}
+            {|  field = "frequency"; headerName = "Frequentie"; width = 150; filterable = false; sortable = false |}
             {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
             {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
             {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
@@ -54,6 +55,25 @@ module TreatmentPlan =
             | None -> ""
 
         let rows =
+            let parseVals vals =
+                vals
+                |> Array.map getVal
+                |> Array.map (String.split " ")
+                |> Array.groupBy Array.tryLast
+                |> Array.map (fun (k, v) ->
+                    match k with
+                    | Some u ->
+                        v
+                        |> Array.collect id
+                        |> Array.map (String.replace u "")
+                        |> Array.map _.Trim()
+                        |> Array.filter (String.isNullOrWhiteSpace >> not)
+                        |> String.concat "/"
+                        |> fun s -> $"{s} {u}"
+                    | None -> ""
+                )
+                |> String.concat ""
+
             match props.treatmentPlan with
             | Resolved ords ->
                 ords
@@ -65,24 +85,24 @@ module TreatmentPlan =
                             o.Orderable.Dose.Rate.Variable.Vals |> getVal
                         else ""
 
-                    let itm =
+                    let itms =
                         match o.Orderable.Components |> Array.tryHead with
                         | Some c ->
                             c.Items
                             |> Array.filter (_.IsAdditional >> not)
-                            |> Array.tryHead
-                        | _ -> None
+                        | _ -> [||]
 
                     let qty =
                         if o.Prescription.IsDiscontinuous ||
                            o.Prescription.IsTimed ||
                            o.Prescription.IsOnce ||
                            o.Prescription.IsOnceTimed then
-                            itm
-                            |> Option.map (fun i -> i.Dose.Quantity.Variable.Vals |> getVal)
-                            |> Option.defaultValue ""
+                            itms
+                            |> Array.map _.Dose.Quantity.Variable.Vals
+                            |> parseVals
                         else if o.Prescription.IsContinuous then
-                            itm
+                            itms
+                            |> Array.tryHead
                             |> Option.map (fun i -> i.OrderableQuantity.Variable.Vals |> getVal)
                             |> Option.defaultValue ""
                         else ""
@@ -100,18 +120,19 @@ module TreatmentPlan =
 
                     let dose =
                         if o.Prescription.IsDiscontinuous || o.Prescription.IsTimed then
-                            itm
-                            |> Option.map (fun i -> i.Dose.PerTimeAdjust.Variable.Vals |> getVal)
-                            |> Option.defaultValue ""
+                            itms
+                            |> Array.map _.Dose.PerTimeAdjust.Variable.Vals
+                            |> parseVals
                         else if o.Prescription.IsContinuous then
-                            itm
+                            itms
+                            |> Array.tryHead
                             |> Option.map (fun i -> i.Dose.RateAdjust.Variable.Vals |> getVal)
                             |> Option.defaultValue ""
 
                         else if o.Prescription.IsOnce || o.Prescription.IsOnceTimed then
-                            itm
-                            |> Option.map (fun i -> i.Dose.QuantityAdjust.Variable.Vals |> getVal)
-                            |> Option.defaultValue ""
+                            itms
+                            |> Array.map _.Dose.QuantityAdjust.Variable.Vals
+                            |> parseVals
                         else ""
 
                     {|
@@ -119,6 +140,7 @@ module TreatmentPlan =
                             [|
                                 {| field = "id"; value = $"{o.Id}" |}
                                 {| field = "medication"; value = $"{o.Orderable.Name}" |}
+                                {| field = "route"; value = $"{o.Route}" |}
                                 {| field = "frequency"; value = $"{freq}" |}
                                 {| field = "quantity"; value = $"{qty}" |}
                                 {| field = "solution"; value = $"{sol}" |}
@@ -132,11 +154,12 @@ module TreatmentPlan =
         let rowCreate (cells : string []) =
             {|
                 id = cells[0]
-                medication = cells[1].Replace("*", "")
-                frequency = cells[2].Replace("*", "")
-                quantity = cells[3].Replace("*", "")
-                solution = cells[4].Replace("*", "")
-                dose = cells[5].Replace("*", "")
+                medication = cells[1]
+                route = cells[2]
+                frequency = cells[3]
+                quantity = cells[4]
+                solution = cells[5]
+                dose = cells[6]
             |}
             |> box
 
