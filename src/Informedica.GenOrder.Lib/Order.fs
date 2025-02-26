@@ -2926,7 +2926,6 @@ module Order =
                                                 itmQty
                                     |]
                                 )
-
                         |]
                     )
                     |> Array.collect id
@@ -3273,7 +3272,3 @@ module Order =
                 dto.Prescription
                 |> Prescription.Dto.setToTimed
             dto
-
-
-
-

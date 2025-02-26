@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module DoseRule =
 
     open System
+    open System.ComponentModel
     open MathNet.Numerics
 
     open FSharp.Data
@@ -22,6 +23,8 @@ module DoseRule =
         /// An empty DoseLimit.
         let limit =
             {
+                Component = ""
+                Products = [||]
                 DoseLimitTarget = NoLimitTarget
                 AdjustUnit = None
                 DoseUnit = NoUnit
@@ -83,6 +86,9 @@ module DoseRule =
             |> function
             | ShapeLimitTarget _ -> true
             | _ -> false
+
+
+        let hasProducts (dl : DoseLimit) = dl.Products |> Array.isEmpty |> not
 
 
 
@@ -349,6 +355,7 @@ module DoseRule =
                                     ||> Array.fold (fun acc (route, rs) ->
                                         let prods =
                                             rs
+                                            |> Array.collect _.DoseLimits
                                             |> Array.collect _.Products
                                             |> Array.sortBy (fun p ->
                                                 p.Substances
@@ -369,6 +376,7 @@ module DoseRule =
 
                                         let synonyms =
                                             rs
+                                            |> Array.collect _.DoseLimits
                                             |> Array.collect _.Products
                                             |> Array.collect _.Synonyms
                                             |> Array.distinct
@@ -431,14 +439,19 @@ module DoseRule =
     /// <param name="dr">The DoseRule</param>
     let reconstitute dep loc (dr : DoseRule) =
         { dr with
-            Products =
-                if dr.Products
-                   |> Array.exists _.RequiresReconstitution
-                   |> not then dr.Products
-                else
-                    dr.Products
-                    |> Array.choose (Product.reconstitute dr.Route dr.DoseType dep loc)
-
+            DoseLimits =
+                dr.DoseLimits
+                |> Array.map (fun dl ->
+                    { dl with
+                        Products =
+                            if dl.Products
+                               |> Array.exists _.RequiresReconstitution
+                               |> not then dl.Products
+                            else
+                                dl.Products
+                                |> Array.choose (Product.reconstitute dr.Route dr.DoseType dep loc)
+                    }
+                )
         }
 
 
@@ -448,9 +461,10 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Department: string; ScheduleText: string; DoseText: string;  DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; GPKs : string []; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Substance: string; TimeUnit: string; UseGenericName : string |}) =
+    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Component : string;  Department: string; ScheduleText: string; DoseText: string;  DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; GPKs : string []; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Source: string; Substance: string; TimeUnit: string |}) =
         try
             {
+                Source = r.Source
                 Indication = r.Indication
                 Generic = r.Generic
                 Shape = r.Shape
@@ -505,26 +519,6 @@ module DoseRule =
                     (r.MinDur, r.MaxDur)
                     |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
                 DoseLimits = [||]
-                Products =
-                    match r.DoseUnit |> Units.fromString with
-                    | None -> r.Products
-                    | Some du ->
-                        if du |> ValueUnit.Group.eqsGroup Units.Molar.milliMole |> not then r.Products
-                        else
-                            r.Products
-                            |> Array.map (fun product ->
-                                { product with
-                                    Substances =
-                                        product.Substances
-                                        |> Array.map (fun s ->
-                                            if s.Name |> String.equalsCapInsens r.Substance |> not then s
-                                            else
-                                                { s with
-                                                    Concentration = s.MolarConcentration
-                                                }
-                                        )
-                                }
-                        )
                 RenalRule = None
             }
             |> Some
@@ -554,6 +548,7 @@ cannot map {r}
                 let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                 {|
+                    Source = get "Source"
                     Indication = get "Indication"
                     Generic = get "Generic"
                     Shape = get "Shape"
@@ -598,8 +593,8 @@ cannot map {r}
                     MinDur = get "MinDur" |> toBrOpt
                     MaxDur = get "MaxDur" |> toBrOpt
                     DurUnit = get "DurUnit"
+                    Component = get "Component"
                     Substance = get "Substance"
-                    UseGenericName = get "UseGenericName"
                     MinQty = get "MinQty" |> toBrOpt
                     MaxQty = get "MaxQty" |> toBrOpt
                     NormQtyAdj = get "NormQtyAdj" |> toBrOpt
@@ -652,7 +647,7 @@ cannot map {r}
                         prods
                         |> Product.filter
                             { Filter.doseFilter with
-                                Generic = gen |> Some
+                                Generic = r.Component |> Some
                                 Route = rte |> Some
                             }
                     else
@@ -672,7 +667,7 @@ cannot map {r}
                             Products =
                                 [|
                                     rs
-                                    |> Array.map (fun r -> r.Substance)
+                                    |> Array.map _.Substance
                                     |> Array.filter String.notEmpty
                                     |> Array.distinct
                                     |> Product.create gen rte
@@ -691,7 +686,7 @@ cannot map {r}
                                     filtered
                                     |> Product.filter
                                      { Filter.doseFilter with
-                                         Generic = gen |> Some
+                                         Generic = r.Component |> Some
                                          Shape = product.Shape |> Some
                                          Route = rte |> Some
                                      }
@@ -708,7 +703,8 @@ cannot map {r}
                 DoseLimits =
                     let shapeLimits =
                          let droplets =
-                             dr.Products
+                             rs
+                             |> Array.collect _.Products
                              |> Array.filter (fun p ->
                                  p.Shape |> String.containsCapsInsens "druppel"
                              )
@@ -819,6 +815,8 @@ cannot map {r}
                             | _ -> None
 
                         {
+                            Component = r.Component
+                            Products = r.Products
                             DoseLimitTarget =
                                 if r.Substance |> String.isNullOrWhiteSpace then
                                     dr.Shape |> ShapeLimitTarget
@@ -891,7 +889,7 @@ cannot map {r}
         else
             let eqs a b =
                 a
-                |> Option.map (fun x -> x = b)
+                |> Option.map (String.equalsCapInsens b)
                 |> Option.defaultValue true
 
             [|

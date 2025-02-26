@@ -170,6 +170,7 @@ let mapToItem sns (dto : Order.Orderable.Item.Dto.Dto) : Item =
         // filter out sns (substance names) to indicate an additional ingredient
         (sns |> Array.exists (String.equalsCapInsens dto.Name) |> not)
 
+
 // member val Name = "" with get, set
 // member val ComponentQuantity = OrderVariable.Dto.dto () with get, set
 // member val OrderableQuantity = OrderVariable.Dto.dto () with get, set
@@ -575,7 +576,7 @@ let print (sc: ScenarioResult) =
                         sc.Order
                         |> Option.map (fun ord ->
                             // only print the item quantities of the principal component
-                            let sn =
+                            let sns =
                                 match ord.Orderable.Components |> Array.tryHead with
                                 | Some c ->
                                     c.Items
@@ -586,7 +587,7 @@ let print (sc: ScenarioResult) =
                             ord
                             |> mapFromOrder
                             |> Order.Dto.fromDto
-                            |> Order.Print.printOrderToTableFormat sc.UseAdjust true sn
+                            |> Order.Print.printOrderToTableFormat sc.UseAdjust true sns
                             |> fun (prs, prp, adm) ->
                                 prs |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
                                 prp |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),

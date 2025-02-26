@@ -211,9 +211,7 @@ module SolutionRule =
     let filter (filter : SolutionFilter) (solutionRules : SolutionRule []) =
         let eqs a (b : string) =
             a
-            |> Option.map (fun x ->
-                x |> String.equalsCapInsens b
-            )
+            |> Option.map (String.equalsCapInsens b)
             |> Option.defaultValue true
 
         [|

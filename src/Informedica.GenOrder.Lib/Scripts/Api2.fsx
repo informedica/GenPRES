@@ -10,8 +10,6 @@ System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELR
 #time
 
 
-
-
 open MathNet.Numerics
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
@@ -24,15 +22,12 @@ open Informedica.GenOrder.Lib
 module DoseLimit = DoseRule.DoseLimit
 
 
-open Informedica.ZIndex.Lib
-
-
-
 let calcTotal () =
     Patient.patient
     |> PrescriptionRule.get
     |> Array.collect (fun pr ->
-        pr.DoseRule.Products
+        pr.DoseRule.DoseLimits
+        |> Array.collect _.Products
         |> Array.filter (fun p -> p.Generic |> String.contains "/")
         |> Array.collect (fun p ->
             pr.DoseRule.Frequencies
@@ -54,7 +49,9 @@ let calcTotal2 () =
     let dsrs =
         Informedica.GenForm.Lib.DoseRule.get ()
         |> Array.filter (fun dr ->
-            dr.Products |> Array.length >  0 &&
+            dr.DoseLimits
+            |> Array.collect _.Products
+            |> Array.length >  0 &&
             dr.DoseType <> NoDoseType
         )
 //        |> Array.filter (fun p -> p.Generic |> String.contains "/")
@@ -62,7 +59,8 @@ let calcTotal2 () =
     let total1 =
         dsrs
         |> Array.collect (fun dr ->
-            dr.Products
+            dr.DoseLimits
+            |> Array.collect _.Products
             |> Array.collect (fun _ ->
                 dr.Frequencies
                 |> Option.map ValueUnit.getValue
@@ -75,7 +73,6 @@ let calcTotal2 () =
     |> Array.map (fun dr ->
         { dr with
             Shape = ""
-            Products = [||]
             DoseLimits = [||]
         }
     )
@@ -99,7 +96,10 @@ let test pat n =
     let pr =
         pat
         |> PrescriptionRule.get
-        |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+        |> Array.filter (fun pr ->
+            pr.DoseRule.DoseLimits
+            |> Array.forall DoseLimit.hasProducts
+        )
         |> Array.item n
 
     pr
@@ -130,7 +130,10 @@ let test pat n =
 let getN pat =
     pat
     |> PrescriptionRule.get
-    |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+    |> Array.filter (fun pr ->
+        pr.DoseRule.DoseLimits
+        |> Array.forall DoseLimit.hasProducts
+    )
     |> Array.length
 
 
@@ -161,7 +164,10 @@ let run n pat =
             let pr =
                 pat
                 |> PrescriptionRule.get
-                |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+                |> Array.filter (fun pr ->
+                    pr.DoseRule.DoseLimits
+                    |> Array.forall DoseLimit.hasProducts
+                )
                 |> Array.item i
                 |> fun pr ->
                     $"{pr.DoseRule.Generic}, {pr.DoseRule.Shape}, {pr.DoseRule.Indication}"
@@ -174,7 +180,10 @@ let run n pat =
 let getRule i pat =
     pat
     |> PrescriptionRule.get
-    |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+    |> Array.filter (fun pr ->
+        pr.DoseRule.DoseLimits
+        |> Array.forall DoseLimit.hasProducts
+    )
     |> Array.item i
 
 
@@ -269,7 +278,7 @@ Patient.infant
     //|> String.concat "\n"
     |> printfn "%A"
     ord
-) |> ignore
+) //|> ignore
 |> Result.bind (Api.increaseIncrements OrderLogger.logger.Logger)
 |> function
 | Error (ord, msgs) ->
@@ -414,7 +423,10 @@ with
 let testDto =
     Patient.adult
     |> PrescriptionRule.get
-    |> Array.filter (fun pr -> pr.DoseRule.Products |> Array.isEmpty |> not)
+    |> Array.filter (fun pr ->
+        pr.DoseRule.DoseLimits
+        |> Array.forall DoseLimit.hasProducts
+    )
     |> Array.filter (fun pr ->
         pr.DoseRule.Generic = "trimethoprim/sulfamethoxazol" &&
         pr.DoseRule.Route = "iv" //&&
@@ -436,7 +448,7 @@ let vancoDoseRules =
     Informedica.GenForm.Lib.DoseRule.get ()
     |> DoseRule.filter
     //    Filter.filter
-       { Filter.filter with Patient = Patient.child }
+       { Filter.doseFilter with Patient = Patient.child }
     |> Array.filter (fun dr ->
         dr.Generic = "vancomycine" &&
         dr.Route = "iv"
@@ -448,16 +460,16 @@ let vancoDoseRules =
 vancoDoseRules
 //Informedica.GenForm.Lib.DoseRule.get ()
 |> DoseRule.filter
-    { Filter.filter with
+    { Filter.doseFilter with
         Patient =
             Patient.child
             |> Patient.calcPMAge
     }
-|> Array.map (fun dr -> dr |> DoseRule.reconstitute Patient.child.Department [VenousAccess.CVL])
+|> Array.map (fun dr -> dr |> DoseRule.reconstitute Patient.child.Department [CVL])
 |> Array.filter (fun dr ->
     dr.Generic = "vancomycine" &&
     dr.Route = "iv" &&
-    dr.Products |> Array.isEmpty |> not
+    dr.DoseLimits |> Array.forall DoseRule.DoseLimit.hasProducts
 )
 
 
@@ -484,7 +496,7 @@ dto.Value
 Patient.premature
 |> fun p ->
     { p with
-        VenousAccess = [VenousAccess.CVL]
+        Locations = [CVL]
         Department = Some "ICK"
         Age =
             Units.Time.year
@@ -498,9 +510,9 @@ Patient.premature
     }
 |> fun p ->
     let filter =
-        { Filter.filter with
-            Patient = p
-            Generic = Some "adrenaline"
+        { Filter.solutionFilter "adrenaline" with
+            Age = p.Age
+            Weight = p.Weight
             Shape = Some ""
         }
 
@@ -512,7 +524,7 @@ let gen = "acetylcysteine"
 Patient.teenager
 |> fun p ->
     { p with
-        VenousAccess = []
+        Locations = []
         Department = Some "ICK"
         (*
         Weight =

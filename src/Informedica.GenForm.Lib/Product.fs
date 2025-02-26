@@ -148,16 +148,16 @@ module Product =
                                 "volume mL", get "volume mL" |> toBrOpt
                                 "energie kCal", get "energie kCal" |> toBrOpt
                                 "eiwit g", get "eiwit g" |> toBrOpt
-                                "KH g", get "KH g" |> toBrOpt
+                                "koolhydraat g", get "koolhydraat g" |> toBrOpt
                                 "vet g", get "vet g" |> toBrOpt
-                                "Na mmol", get "Na mmol" |> toBrOpt
-                                "K mmol", get "K mmol" |> toBrOpt
-                                "Ca mmol", get "Ca mmol" |> toBrOpt
-                                "P mmol", get "P mmol" |> toBrOpt
-                                "Mg mmol", get "Mg mmol" |> toBrOpt
-                                "Fe mmol", get "Fe mmol" |> toBrOpt
+                                "natrium mmol", get "natrium mmol" |> toBrOpt
+                                "kalium mmol", get "kalium mmol" |> toBrOpt
+                                "calcium mmol", get "calcium mmol" |> toBrOpt
+                                "fosfaat mmol", get "fosfaat mmol" |> toBrOpt
+                                "magnesium mmol", get "magnesium mmol" |> toBrOpt
+                                "ijzer mmol", get "ijzer mmol" |> toBrOpt
                                 "VitD IE", get "VitD IE" |> toBrOpt
-                                "Cl mmol", get "Cl mmol" |> toBrOpt
+                                "chloor mmol", get "chloor mmol" |> toBrOpt
 
                             |]
                         Oplosmiddel = get "volume mL"

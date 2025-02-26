@@ -18,15 +18,46 @@ open Informedica.GenOrder.Lib
 open Informedica.GenSolver.Lib.Variable.Operators
 
 
-
 /// Get all possible prescriptions for a child
 let prescrs =
-    Patient.teenager
+    Patient.toddler
+    |> Patient.setWeight (Patient.Optics.Kilogram 10m |> Some)
+    |> fun p -> { p with Locations = [CVL]  }
     |> PrescriptionRule.get
 
-Informedica.ZIndex.Lib.GenPresProduct.findByGPK 73377
 
 prescrs |> Array.length
+
+
+prescrs[0].DoseRule.DoseLimits
+|> Array.map _.Component
+
+let dros =
+    prescrs
+    |> Array.find (fun pr ->
+        pr.DoseRule.Generic = "paracetamol" &&
+        pr.DoseRule.Route = "RECTAAL"
+    )
+    |> DrugOrder.fromRule
+
+dros[0].Products |> List.length
+
+prescrs
+|> Array.find (fun pr ->
+    pr.DoseRule.Generic = "paracetamol" &&
+    pr.DoseRule.Route = "ORAAL"
+)
+|> fun dr ->
+    printfn $"{dr.SolutionRules |> Array.toList}"
+    dr
+    |> DrugOrder.fromRule
+    |> Array.map (fun dro ->
+
+        dro
+        |> DrugOrder.toOrderDto
+        |> Order.Dto.fromDto
+        |> (Order.applyConstraints >> Order.toString >> List.iter (printfn "%s"))
+    )
 
 
 let getPrescr gen shp rte prescrs =
@@ -53,6 +84,15 @@ let pcmOralSolution =
     prescrs
     |> getPrescr "paracetamol" "drank" ""
 
+let pcmOralSolution =
+    prescrs
+    |> getPrescr "paracetamol" "tablet" ""
+
+// rectal solution for PCM
+let pcmRect =
+    prescrs
+    |> getPrescr "paracetamol" "" "RECTAAL"
+
 
 let amoxyIv =
     prescrs
@@ -71,7 +111,12 @@ let tpn =
     |> getPrescr "Samenstelling C" "" ""
 
 
-naclIV |> Order.toString |> List.iter (printfn "%s")
+pcmOralSolution |> Order.toString |> List.iter (printfn "%s")
+
+pcmRect
+|> Order.solve false true Logging.ignore
+|> Result.get
+|> Order.toString |> List.iter (printfn "%s")
 
 
 let w =
@@ -110,6 +155,7 @@ open Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
 
 adrenInf
 |> Order.Dto.toDto
+|> Array.singleton
 |> Api.getIntake w
 
 let shp = ""
@@ -125,4 +171,3 @@ prescrs
 
 Informedica.GenForm.Lib.Product.get ()
 |> Array.filter (fun p -> p.GPK = "170976")
-

@@ -19,7 +19,6 @@ module DrugOrder =
     let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
 
 
-
     /// <summary>
     /// Create a value unit dto from a string and a sequence of big rationals.
     /// </summary>
@@ -155,76 +154,84 @@ module DrugOrder =
     /// <param name="noSubst">Whether to add the substances to the ProductComponent</param>
     /// <param name="solutionRule">The SolutionRule for the ProductComponent</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
-    /// <param name="ps">The Products to create the ProductComponent from</param>
-    let createProductComponent
+    let createComponents
         noSubst
         (solutionRule: SolutionRule option)
-        (doseLimits : DoseLimit [])
-        (ps : Product []) =
+        (doseLimits : DoseLimit []) =
 
-        let shape =
-            ps
-            |> tryHead _.Shape
-            |> fun s ->
-                if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
-                else s
-
-        {
-            Name =
-                ps
-                |> tryHead _.Generic
+        doseLimits
+        |> Array.groupBy _.Component
+        |> Array.map (fun (_, dls) ->
+            let shape =
+                dls
+                |> Array.collect _.Products
+                |> tryHead _.Shape
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else s
-            Shape = shape
-            Quantities =
-                // hack to prevent too many quantities
-                if solutionRule |> Option.isSome then None
-                else
-                    ps
-                    |> Array.map _.ShapeQuantities
-                    |> ValueUnit.collect
-            Divisible =
-                ps
-                |> Array.choose _.Divisible
-                |> Array.tryHead
-            Solution =
-                match solutionRule with
-                | None -> None
-                | Some r ->
-                    r.SolutionLimits
-                    |> Array.tryFind (fun sl ->
-                        match sl.SolutionLimitTarget with
-                        | ShapeLimitTarget s -> s |> String.equalsCapInsens shape
-                        | _ -> false
-                    )
-            Substances =
-                if noSubst then []
-                else
-                    ps
-                    |> Array.collect _.Substances
-                    |> Array.groupBy _.Name
-                    |> Array.map (fun (n, xs) ->
-                        {
-                            Name = n
-                            Concentrations =
-                                xs
-                                |> Array.choose _.Concentration
-                                |> Array.distinct
-                                |> ValueUnit.collect
-                            Dose =
-                                doseLimits
-                                |> Array.tryFind (fun l ->
-                                    match l.DoseLimitTarget with
-                                    | SubstanceLimitTarget s ->
-                                        s |> String.equalsCapInsens n
-                                    | _ -> false
-                                )
-                            Solution = None
-                        }
-                    )
-                    |> Array.toList
-        }
+
+            {
+                Name =
+                    dls
+                    |> Array.collect _.Products
+                    |> tryHead _.Generic
+                    |> fun s ->
+                        if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
+                        else s
+                Shape = shape
+                Quantities =
+                    // hack to prevent too many quantities
+                    if solutionRule |> Option.isSome then None
+                    else
+                        dls
+                        |> Array.collect _.Products
+                        |> Array.map _.ShapeQuantities
+                        |> ValueUnit.collect
+                Divisible =
+                    dls
+                    |> Array.collect _.Products
+                    |> Array.choose _.Divisible
+                    |> Array.tryHead
+                Solution =
+                    match solutionRule with
+                    | None -> None
+                    | Some r ->
+                        r.SolutionLimits
+                        |> Array.tryFind (fun sl ->
+                            match sl.SolutionLimitTarget with
+                            | ShapeLimitTarget s -> s |> String.equalsCapInsens shape
+                            | _ -> false
+                        )
+                Substances =
+                    if noSubst then []
+                    else
+                        dls
+                        |> Array.collect _.Products
+                        |> Array.collect _.Substances
+                        |> Array.groupBy _.Name
+                        |> Array.map (fun (n, xs) ->
+                            {
+                                Name = n
+                                Concentrations =
+                                    xs
+                                    |> Array.choose _.Concentration
+                                    |> Array.distinct
+                                    |> ValueUnit.collect
+                                Dose =
+                                    dls
+                                    |> Array.tryFind (fun l ->
+                                        match l.DoseLimitTarget with
+                                        | SubstanceLimitTarget s ->
+                                            s |> String.equalsCapInsens n
+                                        | _ -> false
+                                    )
+                                Solution = None
+                            }
+                        )
+                        |> Array.toList
+            }
+        )
+        |> Array.toList
 
 
     /// <summary>
@@ -247,7 +254,8 @@ module DrugOrder =
                 }
         )
 
-    let addSolution sr (parenteral : Product[]) dro =
+
+    let addSolution sr dro =
         // add an optional solution rule
         match sr with
         | None -> dro
@@ -272,7 +280,6 @@ module DrugOrder =
                         dro.Products
                         |> List.map (fun p ->
                             { p with
-                                Name = dro.Name
                                 Shape = p.Shape
                                 Substances =
                                     p.Substances
@@ -284,9 +291,12 @@ module DrugOrder =
                     |> Array.tryHead
                     |> function
                     | Some p ->
-                        [|p|]
-                        |> createProductComponent false None [||]
-                        |> List.singleton
+                        [|
+                            { DoseLimit.limit with
+                                Products = [| p |]
+                            }
+                        |]
+                        |> createComponents false None
                         |> List.append ps
                     | None ->
                         ConsoleWriter.writeInfoMessage
@@ -296,14 +306,47 @@ module DrugOrder =
             }
 
 
+    let create (pat : Patient) au dose noSubst (dr : DoseRule) (sr: SolutionRule option) =
+        { drugOrder with
+            Id = Guid.NewGuid().ToString()
+            Name = dr.Generic |> String.toLower
+            Products =
+                dr.DoseLimits
+                |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                |> createComponents noSubst sr
+            Quantities = None
+            Frequencies = dr.Frequencies
+            Time = dr.AdministrationTime
+            Route = dr.Route
+            DoseCount =
+                if sr.IsSome then None // note: dose count will be set in the addSolution
+                else
+                    Units.Count.times
+                    |> ValueUnit.singleWithValue 1N
+                    |> Some
+            OrderType =
+                match dr.DoseType with
+                | Continuous _ -> ContinuousOrder
+                | OnceTimed _ -> OnceTimedOrder
+                | Once _ -> OnceOrder
+                | Discontinuous _ -> DiscontinuousOrder
+                | Timed _ -> TimedOrder
+                | NoDoseType -> AnyOrder
+            Dose = dose
+            Adjust =
+                if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
+                    pat.Weight
+                else pat |> Patient.calcBSA
+            AdjustUnit = Some au
+        }
+        |> addSolution sr
+
+
     /// <summary>
-    /// Create a DrugOrder from a PrescriptionRule and a SolutionRule.
+    /// Create DrugOrders from a PrescriptionRule
     /// </summary>
-    /// <param name="sr">The optional SolutionRule to use</param>
     /// <param name="pr">The PrescriptionRule to use</param>
-    let createDrugOrder (sr: SolutionRule option) (pr : PrescriptionRule) =
-        let parenteral = Product.Parenteral.get ()
-            // adjust unit defaults to kg
+    let fromRule (pr : PrescriptionRule) =
         let au =
             pr.DoseRule.AdjustUnit
             |> Option.defaultValue Units.Weight.kiloGram
@@ -323,43 +366,13 @@ module DrugOrder =
             )
             |> Array.isEmpty |> not
 
-        let substLimits =
-            pr.DoseRule.DoseLimits
-            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+        let create = create pr.Patient au dose noSubst pr.DoseRule
 
-        { drugOrder with
-            Id = Guid.NewGuid().ToString()
-            Name = pr.DoseRule.Generic |> String.toLower
-            Products =
-                pr.DoseRule.Products
-                |> createProductComponent noSubst sr substLimits
-                |> List.singleton
-            Quantities = None
-            Frequencies = pr.DoseRule.Frequencies
-            Time = pr.DoseRule.AdministrationTime
-            Route = pr.DoseRule.Route
-            DoseCount =
-                if pr.SolutionRules |> Array.isEmpty |> not then None
-                else
-                    Units.Count.times
-                    |> ValueUnit.singleWithValue 1N
-                    |> Some
-            OrderType =
-                match pr.DoseRule.DoseType with
-                | Continuous _ -> ContinuousOrder
-                | OnceTimed _ -> OnceTimedOrder
-                | Once _ -> OnceOrder
-                | Discontinuous _ -> DiscontinuousOrder
-                | Timed _ -> TimedOrder
-                | NoDoseType -> AnyOrder
-            Dose = dose
-            Adjust =
-                if au |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
-                    pr.Patient.Weight
-                else pr.Patient |> Patient.calcBSA
-            AdjustUnit = Some au
-        }
-        |> addSolution sr parenteral
+        if pr.SolutionRules |> Array.isEmpty then [| create  None |]
+        else
+            pr.SolutionRules
+            |> Array.map Some
+            |> Array.map create
 
 
 
@@ -367,7 +380,7 @@ module DrugOrder =
     /// Map a DrugOrder record to a DrugOrderDto record.
     /// </summary>
     /// <remarks>
-    /// The DrugOrder will mainly mapping the constraints of the DrugOrderDto.
+    /// The DrugOrder will map the constraints of the DrugOrderDto.
     /// </remarks>
     let toOrderDto (d : DrugOrder) =
         let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
@@ -647,5 +660,3 @@ module DrugOrder =
         dto.Adjust.Constraints.ValsOpt <- d.Adjust |> vuToDto
 
         dto
-
-

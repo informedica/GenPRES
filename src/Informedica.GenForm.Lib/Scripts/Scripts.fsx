@@ -32,18 +32,17 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
-Units.Count.times |> ValueUnit.singleWithValue 2N
 
 SolutionRule.get ()
 |> Array.filter (fun sr -> sr.SolutionLimits |> Array.isEmpty)
 
+
 let pr =
-    { Filter.filter with
-        Generic = Some "methadon"
-        Indication = Some "Pijn"
+    { Filter.doseFilter with
+        Generic = Some "samenstelling c"
         Patient =
             { Patient.patient with
-                Locations =  []
+                Locations =  [ CVL ]
                 Department = Some "ICK"
                 Age =
                     Units.Time.year
@@ -53,7 +52,7 @@ let pr =
                   Units.Weight.kiloGram
                   |> ValueUnit.singleWithValue (13N)
                   |> Some
-                RenalFunction = EGFR(Some 5, Some 5) |> Some
+//                RenalFunction = EGFR(Some 5, Some 5) |> Some
             }
     }
     |> PrescriptionRule.filter
@@ -64,7 +63,7 @@ pr[0].RenalRules
 
 let printAllDoseRules () =
     let rs =
-        Filter.filter
+        Filter.doseFilter
         |> PrescriptionRule.filter
         |> Array.map _.DoseRule
 
@@ -103,12 +102,12 @@ SolutionRule.get ()
 
 DoseRule.get ()
 |> DoseRule.filter
-    { Filter.filter with
+    { Filter.doseFilter with
         Route = Some "oraal"
     }
 
 
-Web.getDataFromSheet urlId "DoseRules"
+Web.getDataFromSheet "" "DoseRules"
 |> fun data ->
     let getColumn =
         data

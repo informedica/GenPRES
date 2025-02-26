@@ -54,7 +54,8 @@ module PrescriptionRule =
                             Products =
                                 sr.Products
                                 |> Array.filter (fun sr_p ->
-                                    dr.Products
+                                    dr.DoseLimits
+                                    |> Array.collect _.Products
                                     |> Array.exists (fun dr_p ->
                                         sr_p.GPK = dr_p.GPK
                                     )
@@ -209,28 +210,36 @@ module PrescriptionRule =
         { pr with
             DoseRule =
                 { pr.DoseRule with
-                    Products =
-                        pr.DoseRule.Products
-                        |> Array.filter (fun p ->
-                            // TODO rewrite to compare valueunits
-                            p.ShapeQuantities
-                            |> ValueUnit.getValue
-                            |> Array.exists (fun sq ->
-                                shapeQuantities
-                                |> Array.exists ((=) sq)
-                            ) &&
-                            p.Substances
-                            // TODO rewrite to compare valueunits
-                            |> Array.map (fun s ->
-                                s.Name.ToLower(),
-                                s.Concentration
-                                |> Option.map ValueUnit.getValue
-                                |> Option.bind Array.tryHead
-                            )
-                            |> Array.forall (fun sq ->
-                                substs
-                                |> Array.exists((=) sq)
-                            )
+                    DoseLimits =
+                        pr.DoseRule.DoseLimits
+
+                        |> Array.map (fun dl ->
+                            { dl with
+                                Products =
+                                    dl.Products
+                                    |> Array.filter (fun p ->
+                                        // TODO rewrite to compare valueunits
+                                        p.ShapeQuantities
+                                        |> ValueUnit.getValue
+                                        |> Array.exists (fun sq ->
+                                            shapeQuantities
+                                            |> Array.exists ((=) sq)
+                                        ) &&
+                                        p.Substances
+                                        // TODO rewrite to compare valueunits
+                                        |> Array.map (fun s ->
+                                            s.Name.ToLower(),
+                                            s.Concentration
+                                            |> Option.map ValueUnit.getValue
+                                            |> Option.bind Array.tryHead
+                                        )
+                                        |> Array.forall (fun sq ->
+                                            substs
+                                            |> Array.exists((=) sq)
+                                        )
+                                    )
+                            }
+
                         )
                 }
         }

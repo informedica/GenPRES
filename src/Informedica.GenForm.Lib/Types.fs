@@ -151,6 +151,9 @@ module Types =
     /// A DoseLimit for a Shape or Substance.
     type DoseLimit =
         {
+            Component : string
+            /// The list of associated Products of the DoseLimit.
+            Products : Product array
             DoseLimitTarget : LimitTarget
             /// The unit to adjust dosing with
             AdjustUnit : Unit option
@@ -242,6 +245,7 @@ module Types =
     /// for a specific PatientCategory, Indication, Generic, Shape, Route and DoseType.
     type DoseRule =
         {
+            Source : string
             /// The Indication of the DoseRule
             Indication : string
             /// The Generic of the DoseRule
@@ -272,8 +276,6 @@ module Types =
             /// The list of associated DoseLimits of the DoseRule.
             /// In principle for the Shape and each Substance .
             DoseLimits : DoseLimit array
-            /// The list of associated Products of the DoseRule.
-            Products : Product array
             RenalRule : string option
         }
 

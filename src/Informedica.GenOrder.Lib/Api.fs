@@ -99,6 +99,32 @@ module Api =
     let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
 
 
+    let adjustRule rule =
+        { rule with
+            DoseRule =
+                { rule.DoseRule with
+                    Shape = rule.DoseRule.Generic
+                    DoseLimits =
+                        rule.DoseRule .DoseLimits
+                        |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                        |> Array.map (fun dl ->
+                            { dl with
+                                Products =
+                                    [|
+                                        dl.DoseLimitTarget
+                                        |> DoseRule.DoseLimit.substanceDoseLimitTargetToString
+                                        |> Array.singleton
+                                        |> Array.filter String.notEmpty
+                                        |> Product.create
+                                            rule.DoseRule.Generic
+                                            rule.DoseRule.Route
+                                    |]
+                            }
+                        )
+                }
+        }
+
+
     /// <summary>
     /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
     /// multiple Orders, depending on the SolutionRules.
@@ -109,15 +135,14 @@ module Api =
     /// An array of Results, containing the Order and the PrescriptionRule.
     /// </returns>
     let evaluate logger (rule : PrescriptionRule) =
-        let rec solve tryAgain sr pr =
-            pr
-            |> DrugOrder.createDrugOrder sr
+        let solve rule drugOrder =
+            drugOrder
             |> DrugOrder.toOrderDto
             |> Order.Dto.fromDto
             |> Order.solveMinMax false logger
             |> Result.bind (increaseIncrements logger)
             |> Result.bind (fun ord ->
-                match pr.DoseRule |> DoseRule.getNormDose with
+                match rule.DoseRule |> DoseRule.getNormDose with
                 | Some nd ->
                     ord
                     |> Order.minIncrMaxToValues logger
@@ -127,7 +152,7 @@ module Api =
             |> function
             | Ok ord ->
                 let ord =
-                    pr.DoseRule.DoseLimits
+                    rule.DoseRule.DoseLimits
                     |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                     |> Array.fold (fun acc dl ->
                         let sn =
@@ -187,43 +212,19 @@ module Api =
                     |> Array.distinct
 
                 let pr =
-                    pr
+                    rule
                     |> PrescriptionRule.filterProducts
                         shps
                         sbsts
 
                 Ok (ord, pr)
-            | Error (ord, _) when tryAgain &&
-                                  ord.Prescription |> Prescription.isContinuous |> not
-                ->
-                { pr with
-                    DoseRule =
-                        { pr.DoseRule with
-                            Shape = pr.DoseRule.Generic
-                            Products =
-                                [|
-                                    pr.DoseRule.DoseLimits
-                                    |> Array.map _.DoseLimitTarget
-                                    |> Array.map DoseRule.DoseLimit.substanceDoseLimitTargetToString
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
-                                    |> Product.create
-                                        pr.DoseRule.Generic
-                                        pr.DoseRule.Route
-                                |]
-                            DoseLimits =
-                                pr.DoseRule .DoseLimits
-                                |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
-                        }
-                }
-                |> solve false None
             | Error (ord, m) ->
-                Error (ord, pr, m)
+                Error (ord, rule, m)
 
-        if rule.SolutionRules |> Array.isEmpty then [| solve true None rule |]
-        else
-            rule.SolutionRules
-            |> Array.map (fun sr -> solve true (Some sr) rule)
+        rule
+        |> DrugOrder.fromRule
+        |> Array.map (solve rule)
+        |> Array.filter Result.isOk
 
 
     /// <summary>
@@ -251,6 +252,90 @@ module Api =
             Patient = pat
             Scenarios = [||]
         }
+
+    let evaluateRules rules =
+        rules
+        |> Array.map (fun pr ->
+            async {
+                return
+                    pr
+                    |> evaluate OrderLogger.logger.Logger
+            }
+        )
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> Array.collect id
+        |> Array.filter Result.isOk
+
+
+    let createScenario i pr ord =
+        let ns =
+            pr.DoseRule.DoseLimits
+            |> Array.groupBy _.Component// use only main component items
+            |> Array.map snd
+            |> Array.tryHead
+            |> Option.defaultValue [||]
+            |> Array.choose (fun dl ->
+                match dl.DoseLimitTarget with
+                | SubstanceLimitTarget s -> Some s
+                | _ -> None
+            )
+            |> Array.distinct
+
+        let useAdjust = pr.DoseRule |> DoseRule.useAdjust
+
+        let prs, prp, adm =
+            ord
+            |> Order.Print.printOrderToTableFormat useAdjust true ns
+
+        {
+            No = i
+            Indication = pr.DoseRule.Indication
+            DoseType = pr.DoseRule.DoseType
+            Name = pr.DoseRule.Generic
+            Substances =
+                pr.DoseRule.DoseLimits
+                // take only the substance dose limits from the principal component
+                // TODO: need to refactor as this is done in multiple places
+                |> Array.groupBy _.Component
+                |> Array.map snd
+                |> Array.tryHead
+                |> Option.defaultValue [||]
+                // now only main component substance dose limits are used
+                |> Array.map _.DoseLimitTarget
+                |> Array.filter LimitTarget.isSubstanceLimit
+                |> Array.map LimitTarget.limitTargetToString
+            Shape = pr.DoseRule.Shape
+            Route = pr.DoseRule.Route
+            Diluent =
+                pr.SolutionRules
+                |> Array.collect _.Diluents
+                |> Array.map _.Generic
+                |> Array.tryExactlyOne
+            Prescription = prs |> Array.map (Array.map replace)
+            Preparation = prp |> Array.map (Array.map replace)
+            Administration = adm |> Array.map (Array.map replace)
+            Order = Some ord
+            UseAdjust = useAdjust
+            UseRenalRule = pr.RenalRules |> Array.isEmpty |> not
+            RenalRule = pr.DoseRule.RenalRule
+        }
+
+
+    let procesResults rs =
+        rs
+        |> Array.mapi (fun i r -> (i, r))
+        |> Array.choose (function
+            | i, Ok (ord, pr) ->
+                createScenario i pr ord
+                |> Some
+            | _, Error (_, _, errs) ->
+                errs
+                |> List.map string
+                |> String.concat "\n"
+                |> fun s -> ConsoleWriter.writeErrorMessage s true false
+                None
+        )
 
 
     /// <summary>
@@ -337,77 +422,30 @@ module Api =
                     match ind, gen, rte, shp, dst with
                     | Some _, Some _,    Some _, _, Some _
                     | Some _, Some _, _, Some _, Some _ ->
-                        { filter with
-                            Indication = ind
-                            Generic = gen
-                            Route = rte
-                            Shape = shp
-                            DoseType = dst
-                            Diluent = dil
-                        }
-                        |> PrescriptionRule.filter
-                        |> Array.map (fun pr ->
-                            async {
-                                return
-                                    pr
-                                    |> evaluate OrderLogger.logger.Logger
-                                    |> Array.mapi (fun i r -> (i, r))
-                                    |> Array.choose (function
-                                        | i, Ok (ord, pr) ->
-                                            let ns =
-                                                pr.DoseRule.DoseLimits
-                                                |> Array.choose (fun dl ->
-                                                    match dl.DoseLimitTarget with
-                                                    | SubstanceLimitTarget s -> Some s
-                                                    | _ -> None
-                                                )
-                                                |> Array.distinct
-
-                                            let useAdjust = pr.DoseRule |> DoseRule.useAdjust
-
-                                            let prs, prp, adm =
-                                                ord
-                                                |> Order.Print.printOrderToTableFormat useAdjust true ns
-
-                                            {
-                                                No = i
-                                                Indication = pr.DoseRule.Indication
-                                                DoseType = pr.DoseRule.DoseType
-                                                Name = pr.DoseRule.Generic
-                                                Substances =
-                                                    pr.DoseRule.DoseLimits
-                                                    |> Array.map _.DoseLimitTarget
-                                                    |> Array.filter LimitTarget.isSubstanceLimit
-                                                    |> Array.map LimitTarget.limitTargetToString
-                                                Shape = pr.DoseRule.Shape
-                                                Route = pr.DoseRule.Route
-                                                Diluent =
-                                                    pr.SolutionRules
-                                                    |> Array.collect _.Diluents
-                                                    |> Array.map _.Generic
-                                                    |> Array.tryExactlyOne
-                                                Prescription = prs |> Array.map (Array.map replace)
-                                                Preparation = prp |> Array.map (Array.map replace)
-                                                Administration = adm |> Array.map (Array.map replace)
-                                                Order = Some ord
-                                                UseAdjust = useAdjust
-                                                UseRenalRule = pr.RenalRules |> Array.isEmpty |> not
-                                                RenalRule = pr.DoseRule.RenalRule
-                                            }
-                                            |> Some
-
-                                        | _, Error (_, _, errs) ->
-                                            errs
-                                            |> List.map string
-                                            |> String.concat "\n"
-                                            |> fun s -> ConsoleWriter.writeErrorMessage s true false
-                                            None
-                                    )
+                        let rules =
+                            { filter with
+                                Indication = ind
+                                Generic = gen
+                                Route = rte
+                                Shape = shp
+                                DoseType = dst
+                                Diluent = dil
                             }
-                        )
-                        |> Async.Parallel
-                        |> Async.RunSynchronously
-                        |> Array.collect id
+                            |> PrescriptionRule.filter
+
+                        rules
+                        |> evaluateRules
+                        |> function
+                        | [||] ->
+                            // no valid results so evaluate again
+                            // with adjusted rules
+                            rules
+                            |> Array.map adjustRule
+                            |> evaluateRules
+                            |> procesResults
+                        | results ->
+                            results
+                            |> procesResults
                         |> Array.distinctBy (fun pr ->
                             pr.DoseType,
                             pr.Preparation,
@@ -525,15 +563,15 @@ module Api =
             Volume = get "volume"
             Energy = get "energie"
             Protein = get "eiwit"
-            Carbohydrate = get "KH"
+            Carbohydrate = get "koolhydraat"
             Fat = get "vet"
-            Sodium = get "na"
-            Potassium = get "K"
-            Chloride = get "Cl"
-            Calcium = get "Ca"
-            Phosphate = get "P"
-            Magnesium = get "Mg"
-            Iron = get "Fe"
+            Sodium = get "natrium"
+            Potassium = get "kalium"
+            Chloride = get "chloor"
+            Calcium = get "calcium"
+            Phosphate = get "fosfaat"
+            Magnesium = get "magnesium"
+            Iron = get "ijzer"
             VitaminD = get "VitD"
             Ethanol = get "ethanol"
             Propyleenglycol = get "propyleenglycol"

@@ -29,5 +29,5 @@ SolutionRule.get ()
 |> Array.length
 
 DoseRule.get ()
-|> Array.filter (fun dr -> dr.Generic |> String.equalsCapInsens "paracetamol")
+|> Array.filter (fun dr -> dr.Generic |> String.equalsCapInsens "samenstelling c")
 |> Array.head
