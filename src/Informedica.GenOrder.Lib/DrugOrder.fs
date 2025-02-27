@@ -2,6 +2,7 @@ namespace Informedica.GenOrder.Lib
 
 
 
+
 module DrugOrder =
 
     open System
@@ -125,6 +126,7 @@ module DrugOrder =
             Quantities = None
             Divisible = None
             Solution = None
+            Dose = None
             Substances = []
         }
 
@@ -151,17 +153,17 @@ module DrugOrder =
     /// If noSubst is true, the substances will not be added to the ProductComponent.
     /// The freqUnit is used to set the TimeUnit for the Frequencies.
     /// </summary>
-    /// <param name="noSubst">Whether to add the substances to the ProductComponent</param>
     /// <param name="solutionRule">The SolutionRule for the ProductComponent</param>
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     let createComponents
-        noSubst
         (solutionRule: SolutionRule option)
         (doseLimits : DoseLimit []) =
 
         doseLimits
         |> Array.groupBy _.Component
-        |> Array.map (fun (_, dls) ->
+        // only use components with names
+        |> Array.filter (fst >> String.isNullOrWhiteSpace >> not)
+        |> Array.map (fun (c, dls) ->
             let shape =
                 dls
                 |> Array.collect _.Products
@@ -202,33 +204,40 @@ module DrugOrder =
                             | ShapeLimitTarget s -> s |> String.equalsCapInsens shape
                             | _ -> false
                         )
+                Dose =
+                    doseLimits
+                    |> Array.filter DoseRule.DoseLimit.isShapeLimit
+                    // note: a shape limit can be component specific
+                    |> Array.filter (fun dl ->
+                        dl.Component |> String.isNullOrWhiteSpace ||
+                        dl.Component |> String.equalsCapInsens c
+                    )
+                    |> Array.tryExactlyOne
                 Substances =
-                    if noSubst then []
-                    else
-                        dls
-                        |> Array.collect _.Products
-                        |> Array.collect _.Substances
-                        |> Array.groupBy _.Name
-                        |> Array.map (fun (n, xs) ->
-                            {
-                                Name = n
-                                Concentrations =
-                                    xs
-                                    |> Array.choose _.Concentration
-                                    |> Array.distinct
-                                    |> ValueUnit.collect
-                                Dose =
-                                    dls
-                                    |> Array.tryFind (fun l ->
-                                        match l.DoseLimitTarget with
-                                        | SubstanceLimitTarget s ->
-                                            s |> String.equalsCapInsens n
-                                        | _ -> false
-                                    )
-                                Solution = None
-                            }
-                        )
-                        |> Array.toList
+                    dls
+                    |> Array.collect _.Products
+                    |> Array.collect _.Substances
+                    |> Array.groupBy _.Name
+                    |> Array.map (fun (n, xs) ->
+                        {
+                            Name = n
+                            Concentrations =
+                                xs
+                                |> Array.choose _.Concentration
+                                |> Array.distinct
+                                |> ValueUnit.collect
+                            Dose =
+                                dls
+                                |> Array.tryFind (fun l ->
+                                    match l.DoseLimitTarget with
+                                    | SubstanceLimitTarget s ->
+                                        s |> String.equalsCapInsens n
+                                    | _ -> false
+                                )
+                            Solution = None
+                        }
+                    )
+                    |> Array.toList
             }
         )
         |> Array.toList
@@ -293,10 +302,11 @@ module DrugOrder =
                     | Some p ->
                         [|
                             { DoseLimit.limit with
+                                DoseLimitTarget = NoLimitTarget
                                 Products = [| p |]
                             }
                         |]
-                        |> createComponents false None
+                        |> createComponents None
                         |> List.append ps
                     | None ->
                         ConsoleWriter.writeInfoMessage
@@ -306,14 +316,13 @@ module DrugOrder =
             }
 
 
-    let create (pat : Patient) au dose noSubst (dr : DoseRule) (sr: SolutionRule option) =
+    let create (pat : Patient) au dose (dr : DoseRule) (sr: SolutionRule option) =
         { drugOrder with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> String.toLower
             Products =
                 dr.DoseLimits
-                |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
-                |> createComponents noSubst sr
+                |> createComponents sr
             Quantities = None
             Frequencies = dr.Frequencies
             Time = dr.AdministrationTime
@@ -354,19 +363,9 @@ module DrugOrder =
         let dose =
             pr.DoseRule.DoseLimits
             |> Array.filter DoseRule.DoseLimit.isShapeLimit
-            |> Array.tryHead
+            |> Array.tryExactlyOne
 
-        // if no subst, dose is based on shape
-        let noSubst =
-            pr.DoseRule.DoseLimits
-            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
-            |> Array.filter (fun d ->
-                d.DoseUnit = NoUnit ||
-                d.DoseUnit |> ValueUnit.Group.eqsGroup Units.Count.times
-            )
-            |> Array.isEmpty |> not
-
-        let create = create pr.Patient au dose noSubst pr.DoseRule
+        let create = create pr.Patient au dose pr.DoseRule
 
         if pr.SolutionRules |> Array.isEmpty then [| create  None |]
         else
@@ -502,7 +501,7 @@ module DrugOrder =
         orbDto.Components <-
             [
                 for p in d.Products do
-                    let cdto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
+                    let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
                     let div =
                         p.Divisible
                         |> Option.bind (fun d ->
@@ -510,33 +509,96 @@ module DrugOrder =
                             |> createSingleValueUnitDto ou
                         )
 
-                    cdto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> vuToDto
-                    cdto.OrderableQuantity.Constraints.IncrOpt <- div
+                    cmpDto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> vuToDto
+                    cmpDto.OrderableQuantity.Constraints.IncrOpt <- div
 
                     if d.Products |> List.length = 1 then
                         // if there is only one product, the concentration of that product in the
                         // Orderable will be by definition be 1.
-                        cdto.OrderableConcentration.Constraints.ValsOpt <-
+                        cmpDto.OrderableConcentration.Constraints.ValsOpt <-
                             1N
                             |> createSingleValueUnitDto Units.Count.times
-                        cdto.Dose.Quantity.Constraints.IncrOpt <- div
+                        cmpDto.Dose.Quantity.Constraints.IncrOpt <- div
 
                     orbDto.Dose.Quantity.Constraints.IncrOpt <- div
 
                     match p.Solution with
                     | Some sl ->
-                        cdto.OrderableQuantity.Constraints
+                        cmpDto.OrderableQuantity.Constraints
                         |> MinMax.setConstraints
                             sl.Quantities
                             sl.Quantity
 
-                        cdto.OrderableConcentration.Constraints
+                        cmpDto.OrderableConcentration.Constraints
                         |> MinMax.setConstraints
                             None
                             sl.Concentration
                     | None -> ()
 
-                    cdto.Items <- [
+                    let setDoseRate (dl : DoseLimit) =
+
+                        if dl.Rate |> MinMax.isEmpty |> not then
+                            cmpDto.Dose.Rate.Constraints
+                            |> MinMax.setConstraints
+                                   None
+                                   dl.Rate
+
+                        if dl.RateAdjust |> MinMax.isEmpty |> not then
+                            cmpDto.Dose.RateAdjust.Constraints
+                            |> MinMax.setConstraints
+                                   None
+                                   dl.RateAdjust
+
+                    let setDoseQty (dl : DoseLimit) =
+                            if dl.Quantity |> MinMax.isEmpty |> not then
+                                cmpDto.Dose.Quantity.Constraints
+                                |> MinMax.setConstraints
+                                       None
+                                       dl.Quantity
+                            if dl.QuantityAdjust |> MinMax.isEmpty |> not ||
+                               dl.NormQuantityAdjust |> Option.isSome then
+                                cmpDto.Dose.QuantityAdjust.Constraints
+                                |> MinMax.setConstraints
+                                       dl.NormQuantityAdjust
+                                       dl.QuantityAdjust
+
+                            if dl.PerTime |> MinMax.isEmpty |> not then
+                                cmpDto.Dose.PerTime.Constraints
+                                |> MinMax.setConstraints
+                                       None
+                                       dl.PerTime
+
+                            if dl.PerTimeAdjust |> MinMax.isEmpty |> not ||
+                               dl.NormPerTimeAdjust |> Option.isSome then
+                                cmpDto.Dose.PerTimeAdjust.Constraints
+                                |> MinMax.setConstraints
+                                       dl.NormPerTimeAdjust
+                                       dl.PerTimeAdjust
+
+
+                    match d.OrderType with
+                    | AnyOrder -> ()
+                    | ProcessOrder -> ()
+                    | ContinuousOrder ->
+                        match p.Dose with
+                        | None    -> ()
+                        | Some dl -> dl |> setDoseRate
+
+                    | OnceOrder
+                    | DiscontinuousOrder ->
+                        match p.Dose with
+                        | None -> ()
+                        | Some dl -> dl |> setDoseQty
+
+                    | OnceTimedOrder
+                    | TimedOrder ->
+                        match p.Dose with
+                        | None -> ()
+                        | Some dl ->
+                            dl |> setDoseRate
+                            dl |> setDoseQty
+
+                    cmpDto.Items <- [
                         for s in p.Substances do
                             let itmDto =
                                 Order.Orderable.Item.Dto.dto d.Id d.Name p.Name s.Name
@@ -617,7 +679,7 @@ module DrugOrder =
                             itmDto
                     ]
 
-                    cdto
+                    cmpDto
             ]
 
         let dto =

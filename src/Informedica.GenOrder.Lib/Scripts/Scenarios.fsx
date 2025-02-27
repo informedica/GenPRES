@@ -18,29 +18,40 @@ open Informedica.GenOrder.Lib
 open Informedica.GenSolver.Lib.Variable.Operators
 
 
+
 /// Get all possible prescriptions for a child
 let prescrs =
-    Patient.toddler
-    |> Patient.setWeight (Patient.Optics.Kilogram 10m |> Some)
-    |> fun p -> { p with Locations = [CVL]  }
+    Patient.child
+    |> fun p -> { p with Locations = [CVL]; Department = Some "ICK"  }
     |> PrescriptionRule.get
 
 
-prescrs |> Array.length
+prescrs
+|> Array.find (fun pr ->
+    pr.DoseRule.Generic |> String.equalsCapInsens "paracetamol" &&
+    pr.DoseRule.Route |> String.equalsCapInsens "rectaal"
+)
+|> fun pr ->
+    pr.DoseRule.DoseLimits
+    |> Array.map _.Component
 
-
-prescrs[0].DoseRule.DoseLimits
-|> Array.map _.Component
 
 let dros =
     prescrs
     |> Array.find (fun pr ->
-        pr.DoseRule.Generic = "paracetamol" &&
-        pr.DoseRule.Route = "RECTAAL"
+        pr.DoseRule.Generic |> String.equalsCapInsens "paracetamol" &&
+        pr.DoseRule.Route |> String.equalsCapInsens "rectaal"
     )
     |> DrugOrder.fromRule
 
-dros[0].Products |> List.length
+
+dros[0]
+|> DrugOrder.toOrderDto
+|> Order.Dto.fromDto
+|> Order.applyConstraints
+|> Order.toString
+|> List.iter (printfn "%s")
+
 
 prescrs
 |> Array.find (fun pr ->
@@ -63,9 +74,9 @@ prescrs
 let getPrescr gen shp rte prescrs =
     prescrs
     |> Array.filter (fun prescr ->
-        prescr.DoseRule.Generic = gen &&
-        (shp |> String.isNullOrWhiteSpace || prescr.DoseRule.Shape = shp) &&
-        (rte |> String.isNullOrWhiteSpace || prescr.DoseRule.Route = rte)
+        prescr.DoseRule.Generic |> String.equalsCapInsens gen &&
+        (shp |> String.isNullOrWhiteSpace || prescr.DoseRule.Shape |> String.equalsCapInsens shp) &&
+        (rte |> String.isNullOrWhiteSpace || prescr.DoseRule.Route |> String.equalsCapInsens rte)
     )
     |> Array.item 0
     |> Api.evaluate Logging.ignore
@@ -91,7 +102,7 @@ let pcmOralSolution =
 // rectal solution for PCM
 let pcmRect =
     prescrs
-    |> getPrescr "paracetamol" "" "RECTAAL"
+    |> getPrescr "paracetamol" "" "rectaal"
 
 
 let amoxyIv =
@@ -111,12 +122,12 @@ let tpn =
     |> getPrescr "Samenstelling C" "" ""
 
 
-pcmOralSolution |> Order.toString |> List.iter (printfn "%s")
+pcmRect |> Order.toString |> List.iter (printfn "%s")
 
 pcmRect
 |> Order.solve false true Logging.ignore
 |> Result.get
-|> Order.toString |> List.iter (printfn "%s")
+|> Order.Print.printOrderToTableFormat true false [|"paracetamol"|]
 
 
 let w =

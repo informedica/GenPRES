@@ -28,6 +28,7 @@ module PrescriptionRule =
                     Route = dr.Route |> Some
                     DoseType = dr.DoseType |> Some
                 }
+
             {
                 Patient = pat
                 DoseRule = dr
@@ -90,7 +91,8 @@ module PrescriptionRule =
                         { pr.DoseRule with
                             DoseLimits =
                                 pr.DoseRule.DoseLimits
-                                |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                                // applies to all targets?
+                                // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                                 |> Array.map(fun dl ->
                                     if dl.AdjustUnit |> Option.isNone then dl
                                     else
@@ -173,9 +175,6 @@ module PrescriptionRule =
                                             | _ -> dl
 
                                 )
-                                |> Array.prepend
-                                    (pr.DoseRule.DoseLimits
-                                    |> Array.filter DoseRule.DoseLimit.isShapeLimit)
                     }
                 }
         )
@@ -312,7 +311,3 @@ module PrescriptionRule =
 
     /// Get all frequencies of an array of PrescriptionRules.
     let frequencies = getDoseRules >> DoseRule.frequencies
-
-
-
-

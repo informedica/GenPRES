@@ -39,24 +39,42 @@ SolutionRule.get ()
 
 let pr =
     { Filter.doseFilter with
-        Generic = Some "samenstelling c"
+        Generic = Some "samenstelling D"
+        DoseType = "dag 3" |> DoseType.Timed |> Some
         Patient =
             { Patient.patient with
                 Locations =  [ CVL ]
                 Department = Some "ICK"
                 Age =
                     Units.Time.year
-                    |> ValueUnit.singleWithValue 2N
+                    |> ValueUnit.singleWithValue 6N
                     |> Some
                 Weight =
                   Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (13N)
+                  |> ValueUnit.singleWithValue (22N)
                   |> Some
 //                RenalFunction = EGFR(Some 5, Some 5) |> Some
             }
     }
     |> PrescriptionRule.filter
 
+
+{ Patient.patient with
+    Locations =  [ CVL ]
+    Department = Some "ICK"
+    Age =
+        Units.Time.year
+        |> ValueUnit.singleWithValue 6N
+        |> Some
+    Weight =
+      Units.Weight.kiloGram
+      |> ValueUnit.singleWithValue (22N)
+      |> Some
+//                RenalFunction = EGFR(Some 5, Some 5) |> Some
+}
+|> PrescriptionRule.get
+|> Array.last
+|> fun pr -> pr.DoseRule.DoseLimits |> Array.toList
 
 pr[0].DoseRule.DoseLimits |> Array.length
 pr[0].RenalRules

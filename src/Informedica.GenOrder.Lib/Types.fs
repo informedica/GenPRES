@@ -290,6 +290,7 @@ module Types =
                 Quantities : ValueUnit option
                 /// The "divisibility" of the products
                 Divisible : BigRational option
+                Dose : DoseLimit option
                 /// The solution limits for a product
                 Solution : SolutionLimit option
                 /// The list of substances contained in the product
@@ -445,5 +446,3 @@ module Types =
                 | OrderException of Exceptions.Message
                 | OrderEvent of Events.Event
                 interface IMessage
-
-

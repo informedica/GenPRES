@@ -2892,13 +2892,17 @@ module Order =
                     |> List.toArray
                     |> Array.mapi (fun i1 c ->
                         let cmpQty = c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
+                        let cItms =
+                           c.Items
+                           |> List.filter (fun i -> sns |> Array.exists (String.equalsCapInsens (i.Name |> Name.toString)))
+                           |> List.toArray
 
                         [|
-                            if i1 > 0 then //c.Items |> List.isEmpty then
+                            if i1 > 0 || cItms |> Array.isEmpty then
                                 [|
                                     [|
                                         if cmpQty |> String.notEmpty then
-                                            if i1 = 0 then c.Shape
+                                            if i1 = 0 && cItms |> Array.isEmpty |> not then c.Shape
                                             else
                                                 $"{c.Shape} ({c.Name |> Name.toString})"
                                             cmpQty
@@ -2907,9 +2911,7 @@ module Order =
                                     |]
                                 |]
                             else
-                                c.Items
-                                |> List.filter (fun i -> sns |> Array.exists (String.equalsCapInsens (i.Name |> Name.toString)))
-                                |> List.toArray
+                                cItms
                                 |> Array.mapi (fun i2 itm ->
                                     [|
                                         if cmpQty |> String.notEmpty then
