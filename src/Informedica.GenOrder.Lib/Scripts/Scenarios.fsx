@@ -56,11 +56,21 @@ prescrs
 let dros =
     prescrs
     |> Array.find (fun pr ->
-        pr.DoseRule.Generic |> String.equalsCapInsens "paracetamol" &&
-        pr.DoseRule.Route |> String.equalsCapInsens "rectaal"
+        pr.DoseRule.Generic |> String.equalsCapInsens "gentamicine" &&
+        pr.DoseRule.Route |> String.equalsCapInsens "intraveneus"
     )
     |> DrugOrder.fromRule
 
+let presr =
+    prescrs
+    |> Array.find (fun pr ->
+        pr.DoseRule.Generic |> String.equalsCapInsens "gentamicine" &&
+        pr.DoseRule.Route |> String.equalsCapInsens "intraveneus"
+    )
+
+presr.SolutionRules[0].Diluents
+
+dros[0].Products |> Array.length
 
 dros[0]
 |> DrugOrder.toOrderDto
@@ -123,6 +133,10 @@ let cotrimIv =
 let tpn =
     prescrs
     |> getPrescr "Samenstelling D" "" ""
+
+let gentaIv =
+    prescrs
+    |> getPrescr "gentamicine" "" "intraveneus"
 
 
 tpn |> Order.toString |> List.iter (printfn "%s")

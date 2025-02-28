@@ -302,6 +302,7 @@ module DrugOrder =
                     | Some p ->
                         [|
                             { DoseLimit.limit with
+                                Component = "diluent"
                                 DoseLimitTarget = NoLimitTarget
                                 Products = [| p |]
                             }
