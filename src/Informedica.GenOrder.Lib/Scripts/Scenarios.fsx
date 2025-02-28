@@ -19,11 +19,28 @@ open Informedica.GenSolver.Lib.Variable.Operators
 
 
 
+
+let getPrescr gen shp rte prescrs =
+    prescrs
+    |> Array.filter (fun prescr ->
+        prescr.DoseRule.Generic |> String.equalsCapInsens gen &&
+        (shp |> String.isNullOrWhiteSpace || prescr.DoseRule.Shape |> String.equalsCapInsens shp) &&
+        (rte |> String.isNullOrWhiteSpace || prescr.DoseRule.Route |> String.equalsCapInsens rte)
+    )
+    |> Array.item 0
+    |> Api.evaluate Logging.ignore
+    |> Array.head
+    |> function
+        | Ok (o, _) -> o
+        | Error (o, _, _) -> o
+
+
 /// Get all possible prescriptions for a child
 let prescrs =
     Patient.child
     |> fun p -> { p with Locations = [CVL]; Department = Some "ICK"  }
     |> PrescriptionRule.get
+
 
 
 prescrs
@@ -71,20 +88,6 @@ prescrs
     )
 
 
-let getPrescr gen shp rte prescrs =
-    prescrs
-    |> Array.filter (fun prescr ->
-        prescr.DoseRule.Generic |> String.equalsCapInsens gen &&
-        (shp |> String.isNullOrWhiteSpace || prescr.DoseRule.Shape |> String.equalsCapInsens shp) &&
-        (rte |> String.isNullOrWhiteSpace || prescr.DoseRule.Route |> String.equalsCapInsens rte)
-    )
-    |> Array.item 0
-    |> Api.evaluate Logging.ignore
-    |> Array.head
-    |> function
-        | Ok (o, _) -> o
-        | Error (o, _, _) -> o
-
 
 let naclIV =
     prescrs
@@ -119,10 +122,10 @@ let cotrimIv =
 
 let tpn =
     prescrs
-    |> getPrescr "Samenstelling C" "" ""
+    |> getPrescr "Samenstelling D" "" ""
 
 
-pcmRect |> Order.toString |> List.iter (printfn "%s")
+tpn |> Order.toString |> List.iter (printfn "%s")
 
 pcmRect
 |> Order.solve false true Logging.ignore

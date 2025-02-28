@@ -41,11 +41,11 @@ module Utils =
 
         /// Maximum times a loop can run to solve a
         /// list of equations.
-        let MAX_LOOP_COUNT = 10
+        let MAX_LOOP_COUNT = 20
 
         /// Maximum set of values that can be used to perform
         /// a Variable calculation.
-        let MAX_CALC_COUNT = 300
+        let MAX_CALC_COUNT = 500
 
         /// Reduce a set of values to a maximum of 100 for a Variable
         let PRUNE = 4
@@ -183,4 +183,3 @@ module Utils =
                 | _ when op |> opIsAdd -> Add
                 | _ when op |> opIsSubtr -> Sub
                 | _ -> failwith "Operator is not supported"
-

@@ -208,7 +208,7 @@ module GenPres =
             <Box>
                 {Components.TitleBar.View({|
                     title =
-                        let s = $"GenPRES 2023 {props.page |> (Global.pageToString props.localizationTerms lang)}"
+                        let s = $"GenPRES 2023 {props.page |> Global.pageToString props.localizationTerms lang}"
                         if props.isDemo then $"{s} - DEMO VERSION!" else s
 
                     toggleSideMenu = fun _ -> ToggleMenu |> dispatch

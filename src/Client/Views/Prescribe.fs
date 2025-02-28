@@ -161,7 +161,7 @@ module Prescribe =
 
                 <Backdrop open={true} sx={ {| color= Mui.Colors.Grey.``200`` |} } >
                     <Box sx={ {| position = "relative"; display= "inline-flex"; p = 20 |} }>
-                        <CircularProgress color="primary" size={250} thickness={1} disableShrink={true} />
+                        <CircularProgress color="primary" size={260} thickness={1} disableShrink={true} />
                         <Box
                             sx={ {|
                             top= 0
@@ -178,7 +178,7 @@ module Prescribe =
                             variant="subtitle2"
                             component="div"
                             color="white"
-                            >... even geduld A.U.B.</Typography>
+                            >... berekenen, even geduld A.U.B.</Typography>
                         </Box>
                     </Box>
                 </Backdrop>

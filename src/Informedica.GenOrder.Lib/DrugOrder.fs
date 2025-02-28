@@ -486,16 +486,20 @@ module DrugOrder =
 
         | TimedOrder ->
             orbDto |> standDoseRate oru
+            // assume timed order always solution
+            orbDto.Dose.Quantity.Constraints.IncrOpt <-
+                1N/10N
+                |> createSingleValueUnitDto
+                    Units.Volume.milliLiter
+            orbDto.OrderableQuantity.Constraints.IncrOpt <-
+                1N/10N
+                |> createSingleValueUnitDto
+                    Units.Volume.milliLiter
 
             match d.Dose with
             | Some dl ->
                 dl |> setOrbDoseRate
                 dl |> setOrbDoseQty false
-                // assume timed order always solution
-                orbDto.Dose.Quantity.Constraints.IncrOpt <-
-                    1N/10N
-                    |> createSingleValueUnitDto
-                        Units.Volume.milliLiter
             | None -> ()
 
         orbDto.Components <-
