@@ -1620,13 +1620,13 @@ module Order =
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
-        let setDoseUnit sn du orb =
+        let setDoseUnit sn du (orb : Orderable) =
             { orb with
                 Components = orb.Components |> List.map (Component.setDoseUnit sn du)
             }
 
 
-        let setNormDose sn nd orb =
+        let setNormDose sn nd (orb : Orderable) =
             { orb with
                 Components = orb.Components |> List.map (Component.setNormDose sn nd)
             }

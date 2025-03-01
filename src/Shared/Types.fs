@@ -206,6 +206,23 @@ module Types =
         }
 
 
+    type OrderLoader =
+        {
+            Component: string option
+            Item: string option
+            Order: Order
+        }
+
+
+    type LoadedOrder =
+        {
+            UseAdjust: bool
+            Component: string option
+            Item: string option
+            Order: Order
+        }
+
+
     type Medication =
         | Bolus of BolusMedication
         | Continuous of ContinuousMedication
@@ -334,6 +351,7 @@ module Types =
 
     type Scenario =
         {
+            Components: string[]
             Substances: string[]
             Shape: string
             Diluent: string option

@@ -1338,6 +1338,27 @@ module Order =
         }
 
 
+    module OrderLoader =
+
+        let create cmp itm o =
+            {
+                Component = cmp
+                Item = itm
+                Order = o
+            }
+
+
+    module LoadedOrder =
+
+        let create adj cmp itm o =
+            {
+                UseAdjust = adj
+                Component = cmp
+                Item = itm
+                Order = o
+            }
+
+
 module ScenarioResult =
 
 
@@ -1425,8 +1446,9 @@ module ScenarioResult =
         |> Seq.toArray
 
 
-    let createScenario sbs shp dst dil prs prep adm o adj rr rn =
+    let createScenario cmps sbs shp dst dil prs prep adm o adj rr rn =
         {
+            Components = cmps
             Substances = sbs
             Shape = shp
             DoseType = dst

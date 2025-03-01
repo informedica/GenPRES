@@ -27,9 +27,10 @@ module private Elmish =
             Products: Deferred<Product list>
             Scenarios: Deferred<ScenarioResult>
             SelectedScenarioOrder : (Scenario * Order) option
-            CalculatedOrder : Deferred<(bool * Order) option>
+            CalculatedOrder : Deferred<(LoadedOrder) option>
             Intake : Deferred<Intake>
-            SelectedSubstance : string option
+            SelectedComponent : string option
+            SelectedItem : string option
             InitialMedication : string option
             InitialRoute : string option
             InitialDoseType : DoseType option
@@ -61,7 +62,7 @@ module private Elmish =
         | UpdateScenarios of ScenarioResult
         | SelectOrder of (Scenario * Order option)
         | UpdateScenarioOrder
-        | LoadOrder of string option * Order
+        | LoadOrder of OrderLoader
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
         | AddOrderToPlan of Scenario * Order
         | GetIntake of AsyncOperationStatus<Result<Intake, string>>
@@ -73,6 +74,7 @@ module private Elmish =
         | UpdateLanguage of Localization.Locales
         | UpdateHospital of string
         | CloseSnackbar
+
 
 
     let serverApi =
@@ -276,7 +278,8 @@ module private Elmish =
             Scenarios = HasNotStartedYet
             CalculatedOrder = HasNotStartedYet
             Intake = HasNotStartedYet
-            SelectedSubstance = None
+            SelectedComponent = None
+            SelectedItem = None
             InitialMedication =
                 med
                 |> Option.bind _.medication
@@ -527,7 +530,7 @@ module private Elmish =
                 InitialDoseType = None
                 CalculatedOrder = HasNotStartedYet
                 Intake = HasNotStartedYet
-                SelectedSubstance = None
+                SelectedItem = None
             }, Cmd.fromAsync load
 
         | LoadScenarios (Finished (Ok result)) ->
@@ -643,21 +646,23 @@ module private Elmish =
                         (sc, o |> Option.get) |> Some
                 CalculatedOrder =
                     o
-                    |> Option.map (fun o ->
-                        sc.UseAdjust, o
-                    )
+                    |> Option.map (Order.LoadedOrder.create sc.UseAdjust None None)
                     |> Resolved
             },
             Cmd.ofMsg (CalculateOrder Started)
 
-        | LoadOrder (s, o) ->
+        | LoadOrder ol ->
             let load =
                 async {
-                    let! order = o |> serverApi.solveOrder
+                    let! order = ol.Order |> serverApi.solveOrder
                     return Finished order |> CalculateOrder
                 }
 
-            { state with SelectedSubstance = s; CalculatedOrder = InProgress }, Cmd.fromAsync load
+            { state with
+                SelectedComponent = ol.Component
+                SelectedItem = ol.Item
+                CalculatedOrder = InProgress
+            }, Cmd.fromAsync load
 
         | CalculateOrder Started ->
             match state.CalculatedOrder with
@@ -665,8 +670,7 @@ module private Elmish =
                 let load =
                     async {
                         let! order =
-                            order
-                            |> snd
+                            order.Order
                             |> serverApi.calcMinIncrMax
                         return Finished order |> CalculateOrder
                     }
@@ -685,9 +689,9 @@ module private Elmish =
                         |> Some
                         |> Option.map (fun o ->
                             match state.SelectedScenarioOrder with
-                            | None -> false, o
+                            | None -> o |> Order.LoadedOrder.create false None None
                             | Some (sc, _) ->
-                                sc.UseAdjust, o
+                                o |> Order.LoadedOrder.create sc.UseAdjust None None
                         )
                         |> Resolved
                     // show only the calculated order scenario
@@ -752,7 +756,7 @@ module private Elmish =
                 match state.Page with
                 | Prescribe ->
                     match state.CalculatedOrder with
-                    | Resolved (Some (_, o)) -> getIntake w [| o |]
+                    | Resolved (Some o) -> getIntake w [| o.Order |]
                     | _ -> state, Cmd.none
                 | TreatmentPlan ->
                     match state.TreatmentPlan with
@@ -965,7 +969,14 @@ let View () =
                         parenteralia = state.Parenteralia
                         updateParenteralia = UpdateParenteralia >> dispatch
                         selectOrder = SelectOrder >> dispatch
-                        order = state.CalculatedOrder |> Deferred.map (Option.map (fun (b, o) -> b, state.SelectedSubstance, o))
+                        order =
+                            state.CalculatedOrder
+                            |> Deferred.map (Option.map (fun o ->
+                                { o with
+                                    Component = state.SelectedComponent
+                                    Item = state.SelectedItem }
+                                )
+                            )
                         addOrderToPlan = AddOrderToPlan >> dispatch
                         treatmentPlan = state.TreatmentPlan
                         intake = state.Intake

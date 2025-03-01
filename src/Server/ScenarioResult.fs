@@ -491,6 +491,7 @@ Scenarios: {sc.Scenarios |> Array.length}
                     newSc.Scenarios
                     |> Array.map (fun sc ->
                         Shared.ScenarioResult.createScenario
+                            sc.Components
                             sc.Substances
                             sc.Shape
                             (sc.DoseType |> mapToSharedDoseType)

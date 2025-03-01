@@ -358,6 +358,8 @@ module Types =
                 DoseType : DoseType
                 /// the name of the order
                 Name : string
+                // The list of components to print out
+                Components : string []
                 // The list of substances to print out
                 Substances : string []
                 /// the shape of the order

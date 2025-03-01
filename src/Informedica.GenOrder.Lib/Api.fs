@@ -295,21 +295,8 @@ module Api =
             Indication = pr.DoseRule.Indication
             DoseType = pr.DoseRule.DoseType
             Name = pr.DoseRule.Generic
+            Components = [||] // TODO need to implement
             Substances = ns
-                (*
-                pr.DoseRule.DoseLimits
-                // take only the substance dose limits from the principal component
-                // TODO: need to refactor as this is done in multiple places
-                |> Array.groupBy _.Component
-                |> Array.filter (fst >> String.isNullOrWhiteSpace >> not)
-                |> Array.map snd
-                |> Array.tryHead
-                |> Option.defaultValue [||]
-                // now only main component substance dose limits are used
-                |> Array.map _.DoseLimitTarget
-                |> Array.filter LimitTarget.isSubstanceLimit
-                |> Array.map LimitTarget.limitTargetToString
-                *)
             Shape = pr.DoseRule.Shape
             Route = pr.DoseRule.Route
             Diluent =

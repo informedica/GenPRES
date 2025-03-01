@@ -123,11 +123,11 @@ module GenPres =
             scenarioResult: Deferred<ScenarioResult>
             updateScenario : ScenarioResult -> unit
             selectOrder : (Scenario * Order option) -> unit
-            order: Deferred<(bool * string option * Order) option>
+            order: Deferred<LoadedOrder option>
             addOrderToPlan: Scenario * Order -> unit
             treatmentPlan: Deferred<(Scenario * Order) []>
             intake : Deferred<Intake>
-            loadOrder: (string option * Order) -> unit
+            loadOrder: OrderLoader -> unit
             updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit

@@ -11,8 +11,8 @@ module TreatmentPlan =
 
     [<JSX.Component>]
     let View (props : {|
-        loadOrder: (string option * Order) -> unit
-        order: Deferred<(bool * string option * Order) option>
+        loadOrder: OrderLoader -> unit
+        order: Deferred<LoadedOrder option>
         removeOrderFromPlan : Order -> unit
         updateScenarioOrder : unit -> unit
         treatmentPlan: Deferred<(Scenario * Order) []>

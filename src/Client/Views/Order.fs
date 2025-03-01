@@ -1,15 +1,17 @@
 namespace Views
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-open Shared.Types
 
 
 module Order =
 
+    open System
+    open Fable.Core
+    open Fable.React
+    open Feliz
+    open Browser.Types
+    open Shared.Types
+    open Shared.Order
+    open Shared
 
     module private Elmish =
 
@@ -21,13 +23,16 @@ module Order =
         open FSharp.Core
 
 
-        type State = {
-            SelectedSubstance : string option
-            Order : Deferred<Order option>
-        }
+        type State =
+            {
+                SelectedComponent : string option
+                SelectedSubstance : string option
+                Order : Deferred<Order option>
+            }
 
 
         type Msg =
+            | ChangeComponent of string option
             | ChangeSubstance of string option
             | ChangeFrequency of string option
             | ChangeTime of string option
@@ -42,34 +47,46 @@ module Order =
             | UpdateOrder of Order
 
 
-        let init (ord: Deferred<(bool * string option * Order ) option>) =
-            let SelectedSubstance =
-
+        let init (ord: Deferred<LoadedOrder option>) =
+            let c, s =
                 match ord with
-                | Resolved (Some (_, subst, ord)) ->
-                    ord.Orderable.Components
-                    |> Array.tryHead
-                    |> Option.bind (fun c ->
-                        // only use substances that are not additional
-                        let substs =
-                            c.Items
-                            |> Array.filter (_.IsAdditional >> not)
+                | Resolved (Some lo) ->
+                    let ord = lo.Order
+                    let cmp = lo.Component
+                    let itm = lo.Item
 
-                        if substs |> Array.isEmpty then None
-                        else
-                            substs
-                            |> Array.tryFind (fun i -> i.Name |> Some = subst)
-                            |> Option.map _.Name
-                            |> Option.defaultValue (substs[0].Name)
-                            |> Some
-                    )
-                | _ -> None
+                    match ord.Orderable.Components with
+                    | [||] -> None, None
+                    | _ ->
+                        ord.Orderable.Components
+                        |> Array.tryFind (fun c ->
+                            cmp.IsNone ||
+                            c.Name = cmp.Value
+                        )
+                        |> Option.map (fun c ->
+                            // only use substances that are not additional
+                            let substs =
+                                c.Items
+                                |> Array.filter (_.IsAdditional >> not)
+
+                            if substs |> Array.isEmpty then None,None
+                            else
+                                let s =
+                                    substs
+                                    |> Array.tryFind (fun i -> i.Name |> Some = itm)
+                                    |> Option.map (fun s -> s.Name)
+                                    |> Option.defaultValue (substs[0].Name)
+                                    |> Some
+                                Some c.Name, s
+                        )
+                        |> Option.defaultValue (None, None)
+
+                | _ -> None, None
 
             {
-                SelectedSubstance = SelectedSubstance
-                Order =
-                    ord
-                    |> Deferred.map (fun opt -> opt |> Option.map (fun (_, _, o) -> o))
+                SelectedComponent = c
+                SelectedSubstance = s
+                Order = ord |> Deferred.map (Option.map _.Order)
             }
             , Cmd.none
 
@@ -80,7 +97,7 @@ module Order =
             (state : State) : State * Cmd<Msg>
             =
 
-            let setVu s (vu : Shared.Types.ValueUnit option) =
+            let setVu s (vu : Types.ValueUnit option) =
                 match vu with
                 | Some vu ->
                     { vu with
@@ -99,12 +116,19 @@ module Order =
             match msg with
 
             | UpdateOrder ord ->
-                (state.SelectedSubstance, ord) |> loadOrder
+
+                OrderLoader.create state.SelectedComponent state.SelectedSubstance ord
+                |> loadOrder
 
                 { state with
                     Order = InProgress
                 }
                 , Cmd.none
+
+            | ChangeComponent s ->
+                match s with
+                | None -> state, Cmd.none
+                | Some _ -> { state with SelectedComponent = s }, Cmd.none
 
             | ChangeSubstance s ->
                 match s with
@@ -465,8 +489,8 @@ module Order =
     [<JSX.Component>]
     let View (props:
         {|
-            order: Deferred<(bool * string option * Order) option>
-            loadOrder: (string option * Order) -> unit
+            order: Deferred<LoadedOrder option>
+            loadOrder: OrderLoader -> unit
             updateScenarioOrder : unit -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
@@ -565,14 +589,15 @@ module Order =
             <div>
 
             <CardHeader
-                title={props.order |> Deferred.map (Option.map (fun (_, _, o) -> o)) |> showOrderName}
+                title={props.order |> Deferred.map (Option.map _.Order) |> showOrderName}
                 titleTypographyProps={ {| variant = "h6" |} }
             ></CardHeader>
             <CardContent>
                 <Stack direction={"column"} spacing={3} >
                     {
                         match props.order with
-                        | Resolved (Some (_, _, o)) ->
+                        | Resolved (Some lo) ->
+                            let o = lo.Order
                             if o.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
                             else
                                 itms
@@ -585,7 +610,8 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some (_, _, o)) ->
+                        | Resolved (Some lo) ->
+                            let o = lo.Order
                             o.Prescription.Frequency.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
@@ -596,7 +622,7 @@ module Order =
                     }
                     {
                         match substIndx, props.order with
-                        | Some i, Resolved (Some (_, _, o)) when itms |> Array.length > 0->
+                        | Some i, Resolved (Some _) when itms |> Array.length > 0->
                             let label, vals =
                                 itms[i].Dose.Quantity.Variable.Vals
                                 |> Option.map (fun v ->
@@ -617,11 +643,11 @@ module Order =
                     }
                     {
                         match substIndx, props.order with
-                        | Some i, Resolved (Some (b, _, o)) when o.Prescription.IsContinuous |> not &&
-                                                                 itms |> Array.length > 0 ->
-                            let dispatch = if b then ChangeSubstancePerTimeAdjust >> dispatch else ChangeSubstancePerTime >> dispatch
+                        | Some i, Resolved (Some lo) when lo.Order.Prescription.IsContinuous |> not &&
+                                                          itms |> Array.length > 0 ->
+                            let dispatch = if lo.UseAdjust then ChangeSubstancePerTimeAdjust >> dispatch else ChangeSubstancePerTime >> dispatch
                             let label, vals =
-                                if b then
+                                if lo.UseAdjust then
                                     itms[i].Dose.PerTimeAdjust.Variable.Vals
                                 else
                                     itms[i].Dose.PerTime.Variable.Vals
@@ -643,10 +669,11 @@ module Order =
                     }
                     {
                         match substIndx, props.order with
-                        | Some i, Resolved (Some (b,_,  o)) when o.Prescription.IsContinuous &&
-                                                                 itms |> Array.length > 0 ->
-                            let dispatch = if b then ChangeSubstanceRateAdjust >> dispatch else ChangeSubstanceRate >> dispatch
-                            if b then
+                        | Some i, Resolved (Some lo) when lo.Order.Prescription.IsContinuous &&
+                                                          itms |> Array.length > 0 ->
+                            let dispatch = if lo.UseAdjust then ChangeSubstanceRateAdjust >> dispatch else ChangeSubstanceRate >> dispatch
+
+                            if lo.UseAdjust then
                                 itms[i].Dose.RateAdjust.Variable.Vals
                             else
                                 itms[i].Dose.Rate.Variable.Vals
@@ -663,9 +690,10 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some (_, _, o)) ->
+                        | Resolved (Some lo) ->
+                            let o = lo.Order
                             o.Orderable.Dose.Quantity.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None (ChangeOrderableDoseQuantity >> dispatch)
                         | _ ->
@@ -674,7 +702,7 @@ module Order =
                     }
                     {
                         match substIndx, props.order with
-                        | Some i, Resolved (Some (_, _, _)) when itms |> Array.length > 0 ->
+                        | Some i, Resolved (Some _) when itms |> Array.length > 0 ->
                             itms[i].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
@@ -685,7 +713,8 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some (_, _, o)) ->
+                        | Resolved (Some lo) ->
+                            let o = lo.Order
                             o.Orderable.Dose.Rate.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
@@ -696,7 +725,8 @@ module Order =
                     }
                     {
                         match props.order with
-                        | Resolved (Some (_, _, o))  ->
+                        | Resolved (Some lo) ->
+                            let o = lo.Order
                             o.Prescription.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
                             |> Option.defaultValue [||]
