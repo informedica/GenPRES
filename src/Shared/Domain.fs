@@ -1463,20 +1463,28 @@ module ScenarioResult =
         }
 
 
-    let empty: ScenarioResult =
+    let filter =
         {
             Indications = [||]
             Medications = [||]
             Routes = [||]
             DoseTypes = [||]
             Diluents = [||]
-            Scenarios = [||]
             Indication = None
             Medication = None
             Shape = None
             Route = None
             DoseType = None
             Diluent = None
+
+        }
+
+
+    let empty: ScenarioResult =
+
+        {
+            DemoVersion = true
+            Filter = filter
             AgeInDays = None
             GestAgeInDays = None
             WeightInKg = None
@@ -1485,7 +1493,7 @@ module ScenarioResult =
             AccessList = []
             RenalFunction = None
             Department = None
-            DemoVersion = true
+            Scenarios = [||]
         }
 
 

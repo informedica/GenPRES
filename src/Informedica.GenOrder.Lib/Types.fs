@@ -385,12 +385,7 @@ module Types =
             }
 
 
-        /// <summary>
-        /// The main communication object to transfer the
-        /// results of the solver to the client. The fields
-        /// are used to select the correct scenario.
-        /// </summary>
-        type ScenarioResult =
+        type Filter =
             {
                 /// the list of indications to select from
                 Indications: string []
@@ -415,6 +410,17 @@ module Types =
                 /// the DoseType
                 Diluent : string option
                 DoseType : DoseType option
+            }
+
+
+        /// <summary>
+        /// The main communication object to transfer the
+        /// results of the solver to the client. The fields
+        /// are used to select the correct scenario.
+        /// </summary>
+        type ScenarioResult =
+            {
+                Filter : Filter
                 /// the patient
                 Patient: Patient
                 /// the list of scenarios

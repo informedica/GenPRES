@@ -5,6 +5,17 @@ module Api =
 
     open Types
 
+    type Message =
+        | GetScenarioResult of ScenarioResult
+        | PrintScenarioResult of ScenarioResult
+        | CalcMinIncrMax of ScenarioResult
+        | SolveOrder of ScenarioResult
+        | GetIntake of TreatmentPlan
+        | GetFormulary of Formulary
+        | GetParenteralia of Parenteralia
+        | Test
+
+
     /// Defines how routes are generated on server and mapped from client
     let routerPaths typeName method = sprintf "/api/%s/%s" typeName method
 

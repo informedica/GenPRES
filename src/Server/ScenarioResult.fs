@@ -371,13 +371,13 @@ let get (sc: ScenarioResult) =
 {stage}:
 Patient: {sc.AgeInDays} days, {sc.WeightInKg} kg, {sc.HeightInCm} cm, CVL {sc.AccessList}, {sc.GestAgeInDays} days, {sc.RenalFunction}
 Department: {sc.Department}
-Indications: {sc.Indications |> Array.length}
-Medications: {sc.Medications |> Array.length}
-Routes: {sc.Routes |> Array.length}
-Indication: {sc.Indication |> Option.defaultValue ""}
-Medication: {sc.Medication |> Option.defaultValue ""}
-Route: {sc.Route |> Option.defaultValue ""}
-DoseType: {sc.DoseType}
+Indications: {sc.Filter.Indications |> Array.length}
+Medications: {sc.Filter.Medications |> Array.length}
+Routes: {sc.Filter.Routes |> Array.length}
+Indication: {sc.Filter.Indication |> Option.defaultValue ""}
+Medication: {sc.Filter.Medication |> Option.defaultValue ""}
+Route: {sc.Filter.Route |> Option.defaultValue ""}
+DoseType: {sc.Filter.DoseType}
 Scenarios: {sc.Scenarios |> Array.length}
 """
 
@@ -435,58 +435,64 @@ Scenarios: {sc.Scenarios |> Array.length}
         let newSc =
             let r = Api.scenarioResult pat
             { r with
-                Indications =
-                    if sc.Indication |> Option.isSome then
-                        [| sc.Indication |> Option.defaultValue "" |]
-                    else
-                        r.Indications
-                Generics =
-                    if sc.Medication |> Option.isSome then
-                        [| sc.Medication |> Option.defaultValue "" |]
-                    else
-                        r.Generics
-                Shapes =
-                    if sc.Shape |> Option.isSome then
-                        [| sc.Shape |> Option.defaultValue "" |]
-                    else
-                        r.Shapes
-                Routes =
-                    if sc.Route |> Option.isSome then
-                        [| sc.Route |> Option.defaultValue "" |]
-                    else
-                        r.Routes
-                Diluents =
-                    if sc.Diluent |> Option.isSome then
-                        [| sc.Diluent |> Option.defaultValue "" |]
-                    else
-                        r.Diluents
-                DoseTypes =
-                    if sc.DoseType |> Option.isSome then
-                        [| sc.DoseType |> Option.defaultValue NoDoseType |]
-                        |> Array.map mapFromSharedDoseType
-                    else
-                        r.DoseTypes
-                Indication = sc.Indication
-                Generic = sc.Medication
-                Shape = sc.Shape
-                Route = sc.Route
-                Diluent = sc.Diluent
-                DoseType = sc.DoseType |> Option.map mapFromSharedDoseType
+                Filter =
+                    { r.Filter with
+                        Indications =
+                            if sc.Filter.Indication |> Option.isSome then
+                                [| sc.Filter.Indication |> Option.defaultValue "" |]
+                            else
+                                r.Filter.Indications
+                        Generics =
+                            if sc.Filter.Medication |> Option.isSome then
+                                [| sc.Filter.Medication |> Option.defaultValue "" |]
+                            else
+                                r.Filter.Generics
+                        Shapes =
+                            if sc.Filter.Shape |> Option.isSome then
+                                [| sc.Filter.Shape |> Option.defaultValue "" |]
+                            else
+                                r.Filter.Shapes
+                        Routes =
+                            if sc.Filter.Route |> Option.isSome then
+                                [| sc.Filter.Route |> Option.defaultValue "" |]
+                            else
+                                r.Filter.Routes
+                        Diluents =
+                            if sc.Filter.Diluent |> Option.isSome then
+                                [| sc.Filter.Diluent |> Option.defaultValue "" |]
+                            else
+                                r.Filter.Diluents
+                        DoseTypes =
+                            if sc.Filter.DoseType |> Option.isSome then
+                                [| sc.Filter.DoseType |> Option.defaultValue NoDoseType |]
+                                |> Array.map mapFromSharedDoseType
+                            else
+                                r.Filter.DoseTypes
+                        Indication = sc.Filter.Indication
+                        Generic = sc.Filter.Medication
+                        Shape = sc.Filter.Shape
+                        Route = sc.Filter.Route
+                        Diluent = sc.Filter.Diluent
+                        DoseType = sc.Filter.DoseType |> Option.map mapFromSharedDoseType
+                    }
             }
             |> Api.filter
 
         let sc =
             { sc with
-                Indications = newSc.Indications
-                Medications = newSc.Generics
-                Routes = newSc.Routes
-                DoseTypes = newSc.DoseTypes |> Array.map mapToSharedDoseType
-                Diluents = newSc.Diluents
-                Indication = newSc.Indication
-                Medication = newSc.Generic
-                Shape = newSc.Shape
-                Route = newSc.Route
-                DoseType = newSc.DoseType |> Option.map mapToSharedDoseType
+                Filter =
+                    { sc.Filter with
+                        Indications = newSc.Filter.Indications
+                        Medications = newSc.Filter.Generics
+                        Routes = newSc.Filter.Routes
+                        DoseTypes = newSc.Filter.DoseTypes |> Array.map mapToSharedDoseType
+                        Diluents = newSc.Filter.Diluents
+                        Indication = newSc.Filter.Indication
+                        Medication = newSc.Filter.Generic
+                        Shape = newSc.Filter.Shape
+                        Route = newSc.Filter.Route
+                        DoseType = newSc.Filter.DoseType |> Option.map mapToSharedDoseType
+                    }
                 Scenarios =
                     newSc.Scenarios
                     |> Array.map (fun sc ->

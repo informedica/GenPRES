@@ -366,20 +366,39 @@ module Types =
         }
 
 
-    type ScenarioResult =
+    type Filter =
         {
             Indications: string[]
             Medications: string[]
             Routes: string[]
             Diluents: string[]
             DoseTypes: DoseType[]
-            Scenarios: Scenario[]
             Indication: string option
             Medication: string option
             Shape: string option
             Route: string option
             Diluent: string option
             DoseType: DoseType option
+        }
+
+
+    type ScenarioResult =
+        {
+            DemoVersion: bool
+            Filter: Filter
+            (*
+            Indications: string[]
+            Medications: string[]
+            Routes: string[]
+            Diluents: string[]
+            DoseTypes: DoseType[]
+            Indication: string option
+            Medication: string option
+            Shape: string option
+            Route: string option
+            Diluent: string option
+            DoseType: DoseType option
+            *)
             AgeInDays: float option
             GestAgeInDays: int option
             WeightInKg: float option
@@ -388,7 +407,7 @@ module Types =
             AccessList: Access list
             RenalFunction: RenalFunction option
             Department: string option
-            DemoVersion: bool
+            Scenarios: Scenario[]
         }
 
 
@@ -411,6 +430,14 @@ module Types =
             Propyleenglycol: TextItem[]
             BoricAcid: TextItem[]
             BenzylAlcohol: TextItem[]
+        }
+
+
+    type TreatmentPlan =
+        {
+            Patient: Patient
+            Scenarios: Scenario[]
+            Intake: Intake
         }
 
 

@@ -25,8 +25,8 @@ module private Elmish =
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
-            Scenarios: Deferred<ScenarioResult>
-            SelectedScenarioOrder : (Scenario * Order) option
+            ScenarioResult: Deferred<ScenarioResult>
+            SelectedScenario : (Scenario * Order) option
             CalculatedOrder : Deferred<(LoadedOrder) option>
             Intake : Deferred<Intake>
             SelectedComponent : string option
@@ -57,10 +57,10 @@ module private Elmish =
         | LoadContinuousMedication of
             AsyncOperationStatus<Result<ContinuousMedication list, string>>
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
-        | LoadScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
-        | PrintScenarios of AsyncOperationStatus<Result<ScenarioResult, string>>
-        | UpdateScenarios of ScenarioResult
-        | SelectOrder of (Scenario * Order option)
+        | LoadScenarioResult of AsyncOperationStatus<Result<ScenarioResult, string>>
+        | PrintScenarioResult of AsyncOperationStatus<Result<ScenarioResult, string>>
+        | UpdateScenarioResult of ScenarioResult
+        | SelectScenario of (Scenario * Order option)
         | UpdateScenarioOrder
         | LoadOrder of OrderLoader
         | CalculateOrder of AsyncOperationStatus<Result<Order, string>>
@@ -275,7 +275,7 @@ module private Elmish =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
-            Scenarios = HasNotStartedYet
+            ScenarioResult = HasNotStartedYet
             CalculatedOrder = HasNotStartedYet
             Intake = HasNotStartedYet
             SelectedComponent = None
@@ -292,7 +292,7 @@ module private Elmish =
             InitialDoseType =
                 med
                 |> Option.bind _.dosetype
-            SelectedScenarioOrder = None
+            SelectedScenario = None
             TreatmentPlan = HasNotStartedYet
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
@@ -356,7 +356,7 @@ module private Elmish =
                 Patient = p
             },
             Cmd.batch [
-                Cmd.ofMsg (LoadScenarios Started)
+                Cmd.ofMsg (LoadScenarioResult Started)
                 Cmd.ofMsg (LoadFormulary Started)
             ]
 
@@ -379,11 +379,11 @@ module private Elmish =
             let cmd =
                 match page with
                 | p when p = Prescribe ->
-                    match state.Scenarios with
+                    match state.ScenarioResult with
                     | Resolved _ ->
                         GetIntake Started |> Cmd.ofMsg
                     | _ ->
-                        LoadScenarios Started |> Cmd.ofMsg
+                        LoadScenarioResult Started |> Cmd.ofMsg
                 | p when p = TreatmentPlan || p = Nutrition ->
                     match state.TreatmentPlan with
                     | Resolved _ ->
@@ -478,16 +478,19 @@ module private Elmish =
             Logging.error "cannot load products" s
             state, Cmd.none
 
-        | LoadScenarios Started ->
+        | LoadScenarioResult Started ->
             let scenarios =
-                match state.Scenarios, state.Patient with
+                match state.ScenarioResult, state.Patient with
                 | Resolved sc, Some _ -> sc
                 | _ ->
                     { ScenarioResult.empty with
-                        Medication = state.InitialMedication
-                        Route = state.InitialRoute
-                        Indication = state.InitialIndication
-                        DoseType = state.InitialDoseType
+                        Filter =
+                            { ScenarioResult.filter with
+                                Medication = state.InitialMedication
+                                Route = state.InitialRoute
+                                Indication = state.InitialIndication
+                                DoseType = state.InitialDoseType
+                            }
                     }
                 |> fun sc ->
                     { sc with
@@ -519,28 +522,29 @@ module private Elmish =
             let load =
                 async {
                     let! result = serverApi.getScenarioResult scenarios
-                    return Finished result |> LoadScenarios
+                    return Finished result |> LoadScenarioResult
                 }
 
             { state with
-                Scenarios = InProgress
+                ScenarioResult = InProgress
                 InitialMedication = None
                 InitialRoute = None
                 InitialIndication = None
                 InitialDoseType = None
                 CalculatedOrder = HasNotStartedYet
                 Intake = HasNotStartedYet
+                SelectedComponent = None
                 SelectedItem = None
             }, Cmd.fromAsync load
 
-        | LoadScenarios (Finished (Ok result)) ->
+        | LoadScenarioResult (Finished (Ok result)) ->
             let useRenalRule =
                 result.Scenarios
                 |> Array.exists (fun sc ->
                     sc.UseRenalRule
                 )
             { state with
-                Scenarios = Resolved result
+                ScenarioResult = Resolved result
                 IsDemo = result.DemoVersion
                 SnackbarMsg =
                     if useRenalRule |> not then ""
@@ -550,35 +554,35 @@ module private Elmish =
             },
             Cmd.none
 
-        | LoadScenarios (Finished (Error msg)) ->
+        | LoadScenarioResult (Finished (Error msg)) ->
             Logging.error "error" msg
             state, Cmd.none
 
-        | PrintScenarios Started ->
+        | PrintScenarioResult Started ->
             let scenarios =
-                match state.Scenarios with
+                match state.ScenarioResult with
                 | Resolved sc when state.Patient.IsSome -> sc
                 | _ -> ScenarioResult.empty
 
             let load =
                 async {
                     let! result = serverApi.printScenarioResult scenarios
-                    return Finished result |> PrintScenarios
+                    return Finished result |> PrintScenarioResult
                 }
 
-            { state with Scenarios = InProgress }, Cmd.fromAsync load
+            { state with ScenarioResult = InProgress }, Cmd.fromAsync load
 
-        | PrintScenarios (Finished (Ok result)) ->
+        | PrintScenarioResult (Finished (Ok result)) ->
             { state with
-                Scenarios = Resolved result
+                ScenarioResult = Resolved result
             },
             Cmd.none
 
-        | PrintScenarios (Finished (Error msg)) ->
+        | PrintScenarioResult (Finished (Error msg)) ->
             Logging.error "error" msg
             state, Cmd.none
 
-        | UpdateScenarios sc ->
+        | UpdateScenarioResult sc ->
             let sc =
                 { sc with
                     WeightInKg =
@@ -588,39 +592,39 @@ module private Elmish =
                 }
 
             { state with
-                Scenarios = Resolved sc
+                ScenarioResult = Resolved sc
                 Intake = HasNotStartedYet
                 Formulary =
                     state.Formulary
                     |> Deferred.map (fun form ->
                         { form with
-                            Indication = sc.Indication
-                            Generic = sc.Medication
-                            Route = sc.Route
+                            Indication = sc.Filter.Indication
+                            Generic = sc.Filter.Medication
+                            Route = sc.Filter.Route
                         }
                     )
                 Parenteralia =
                     state.Parenteralia
                     |> Deferred.map (fun par ->
                         { par with
-                            Generic = sc.Medication
-                            Shape = sc.Shape
-                            Route = sc.Route
+                            Generic = sc.Filter.Medication
+                            Shape = sc.Filter.Shape
+                            Route = sc.Filter.Route
                         }
                     )
             },
             Cmd.batch [
-                Cmd.ofMsg (LoadScenarios Started)
+                Cmd.ofMsg (LoadScenarioResult Started)
                 Cmd.ofMsg (LoadFormulary Started)
                 Cmd.ofMsg (LoadParenteralia Started)
             ]
 
         | UpdateScenarioOrder ->
-            match state.SelectedScenarioOrder with
+            match state.SelectedScenario with
             | Some (sc, o) ->
                 { state with
-                    Scenarios =
-                        state.Scenarios
+                    ScenarioResult =
+                        state.ScenarioResult
                         |> Deferred.map (fun scr ->
                             { scr with
                                 Scenarios =
@@ -635,13 +639,13 @@ module private Elmish =
                             }
                         )
                 },
-                Cmd.ofMsg (PrintScenarios Started)
+                Cmd.ofMsg (PrintScenarioResult Started)
             | None -> state, Cmd.none
 
-        | SelectOrder (sc, o) ->
+        | SelectScenario (sc, o) ->
             { state with
-                SelectedScenarioOrder =
-                    if o |> Option.isNone then state.SelectedScenarioOrder
+                SelectedScenario =
+                    if o |> Option.isNone then state.SelectedScenario
                     else
                         (sc, o |> Option.get) |> Some
                 CalculatedOrder =
@@ -681,23 +685,23 @@ module private Elmish =
             match r with
             | Ok o ->
                 { state with
-                    SelectedScenarioOrder =
-                        state.SelectedScenarioOrder
+                    SelectedScenario =
+                        state.SelectedScenario
                         |> Option.map (fun (sc, _) -> sc, o)
                     CalculatedOrder =
                         o
                         |> Some
                         |> Option.map (fun o ->
-                            match state.SelectedScenarioOrder with
-                            | None -> o |> Order.LoadedOrder.create false None None
+                            match state.SelectedScenario with
+                            | None -> o |> Order.LoadedOrder.create false state.SelectedComponent state.SelectedItem
                             | Some (sc, _) ->
-                                o |> Order.LoadedOrder.create sc.UseAdjust None None
+                                o |> Order.LoadedOrder.create sc.UseAdjust state.SelectedComponent state.SelectedItem
                         )
                         |> Resolved
                     // show only the calculated order scenario
                     Intake = InProgress
-                    Scenarios =
-                        state.Scenarios
+                    ScenarioResult =
+                        state.ScenarioResult
                         |> Deferred.map (fun scr ->
                             { scr with
                                 Scenarios =
@@ -727,7 +731,6 @@ module private Elmish =
                 { state with CalculatedOrder = None |> Resolved }, Cmd.none
 
         | AddOrderToPlan (sc, ord) ->
-            Logging.log "adding order to plan" ord.Orderable.Name
             { state with
                 TreatmentPlan =
                     state.TreatmentPlan
@@ -736,7 +739,7 @@ module private Elmish =
                     |> Resolved
             },
             Cmd.batch [
-                Cmd.ofMsg (UpdateScenarios ScenarioResult.empty)
+                Cmd.ofMsg (UpdateScenarioResult ScenarioResult.empty)
                 Cmd.ofMsg (UpdatePage TreatmentPlan)
             ]
 
@@ -767,7 +770,6 @@ module private Elmish =
             | None -> state, Cmd.none
 
         | GetIntake (Finished (Ok intake)) ->
-            Logging.log "got intake" intake
             { state with Intake = intake |> Resolved }, Cmd.none
 
         | GetIntake (Finished (Error s)) ->
@@ -817,20 +819,23 @@ module private Elmish =
             let state =
                 { state with
                     Formulary = Resolved form
-                    Scenarios =
-                        state.Scenarios
+                    ScenarioResult =
+                        state.ScenarioResult
                         |> Deferred.map (fun scr ->
                             { scr with
-                                Indication = form.Indication
-                                Medication = form.Generic
-                                Route = form.Route
+                                Filter =
+                                    { scr.Filter with
+                                        Indication = form.Indication
+                                        Medication = form.Generic
+                                        Route = form.Route
+                                    }
                             }
                         )
                 }
             state,
             Cmd.batch [
                 Cmd.ofMsg (LoadFormulary Started)
-                Cmd.ofMsg (LoadScenarios Started)
+                Cmd.ofMsg (LoadScenarioResult Started)
             ]
 
         | LoadParenteralia Started ->
@@ -962,19 +967,20 @@ let View () =
                         bolusMedication = bm
                         continuousMedication = cm
                         products = state.Products
-                        scenarioResult = state.Scenarios
-                        updateScenario = UpdateScenarios >> dispatch
+                        scenarioResult = state.ScenarioResult
+                        updateScenarioResult = UpdateScenarioResult >> dispatch
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch
                         parenteralia = state.Parenteralia
                         updateParenteralia = UpdateParenteralia >> dispatch
-                        selectOrder = SelectOrder >> dispatch
+                        selectScenario = SelectScenario >> dispatch
                         order =
                             state.CalculatedOrder
                             |> Deferred.map (Option.map (fun o ->
-                                { o with
-                                    Component = state.SelectedComponent
-                                    Item = state.SelectedItem }
+                                    { o with
+                                        Component = state.SelectedComponent
+                                        Item = state.SelectedItem
+                                    }
                                 )
                             )
                         addOrderToPlan = AddOrderToPlan >> dispatch

@@ -16,7 +16,7 @@ module TreatmentPlan =
         removeOrderFromPlan : Order -> unit
         updateScenarioOrder : unit -> unit
         treatmentPlan: Deferred<(Scenario * Order) []>
-        selectOrder : (Types.Scenario * Types.Order option) -> unit
+        selectScenario : (Types.Scenario * Types.Order option) -> unit
         localizationTerms : Deferred<string [] []>
         |}) =
 
@@ -181,7 +181,7 @@ module TreatmentPlan =
                 |> Array.tryFind (fun (_, o) -> o.Id = s)
                 |> function
                 | None -> ()
-                | Some (sc, ord) -> setModalOpen true; (sc, Some ord) |> props.selectOrder
+                | Some (sc, ord) -> setModalOpen true; (sc, Some ord) |> props.selectScenario
             | _ -> ()
 
         JSX.jsx

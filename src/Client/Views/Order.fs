@@ -4,23 +4,19 @@ namespace Views
 
 module Order =
 
-    open System
     open Fable.Core
     open Fable.React
     open Feliz
-    open Browser.Types
     open Shared.Types
     open Shared.Order
     open Shared
+    open Elmish
+    open Utils
+    open FSharp.Core
+
 
     module private Elmish =
 
-        open Feliz
-        open Feliz.UseElmish
-        open Elmish
-        open Shared
-        open Utils
-        open FSharp.Core
 
 
         type State =
@@ -69,7 +65,9 @@ module Order =
                                 c.Items
                                 |> Array.filter (_.IsAdditional >> not)
 
-                            if substs |> Array.isEmpty then None,None
+                            if substs |> Array.isEmpty then
+                                Some c.Name,
+                                None
                             else
                                 let s =
                                     substs
@@ -125,15 +123,21 @@ module Order =
                 }
                 , Cmd.none
 
-            | ChangeComponent s ->
-                match s with
+            | ChangeComponent cmp ->
+                match cmp with
                 | None -> state, Cmd.none
-                | Some _ -> { state with SelectedComponent = s }, Cmd.none
+                | Some _ ->
+                    { state with
+                        SelectedComponent = cmp
+                        SelectedSubstance =
+                            if state.SelectedComponent = cmp then state.SelectedSubstance
+                            else None
+                    }, Cmd.none
 
-            | ChangeSubstance s ->
-                match s with
+            | ChangeSubstance itm ->
+                match itm with
                 | None -> state, Cmd.none
-                | Some _ -> { state with SelectedSubstance = s }, Cmd.none
+                | Some _ -> { state with SelectedSubstance = itm }, Cmd.none
 
             | ChangeFrequency s ->
                 match state.Order with
@@ -184,29 +188,29 @@ module Order =
                                 { ord.Orderable with
                                     Components =
                                         ord.Orderable.Components
-                                        |> Array.mapi (fun i comp ->
-                                            if i > 0 then comp
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
                                             else
-                                                { comp with
+                                                { cmp with
                                                     Items =
-                                                        comp.Items
-                                                        |> Array.map (fun item ->
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name ->
-                                                                { item with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
                                                                     Dose =
-                                                                        { item.Dose with
+                                                                        { itm.Dose with
                                                                             Quantity =
-                                                                                { item.Dose.Quantity with
+                                                                                { itm.Dose.Quantity with
                                                                                     Variable =
-                                                                                        { item.Dose.Quantity.Variable with
-                                                                                            Vals = item.Dose.Quantity.Variable.Vals |> setVu s
+                                                                                        { itm.Dose.Quantity.Variable with
+                                                                                            Vals = itm.Dose.Quantity.Variable.Vals |> setVu s
                                                                                         }
                                                                                 }
 
                                                                         }
                                                                 }
-                                                            | _ -> item
+                                                            | _ -> itm
                                                         )
                                                 }
                                         )
@@ -226,29 +230,29 @@ module Order =
                                 { ord.Orderable with
                                     Components =
                                         ord.Orderable.Components
-                                        |> Array.mapi (fun i comp ->
-                                            if i > 0 then comp
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
                                             else
-                                                { comp with
+                                                { cmp with
                                                     Items =
-                                                        comp.Items
-                                                        |> Array.map (fun item ->
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name ->
-                                                                { item with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
                                                                     Dose =
-                                                                        { item.Dose with
+                                                                        { itm.Dose with
                                                                             PerTime =
-                                                                                { item.Dose.PerTime with
+                                                                                { itm.Dose.PerTime with
                                                                                     Variable =
-                                                                                        { item.Dose.PerTime.Variable with
-                                                                                            Vals = item.Dose.PerTime.Variable.Vals |> setVu s
+                                                                                        { itm.Dose.PerTime.Variable with
+                                                                                            Vals = itm.Dose.PerTime.Variable.Vals |> setVu s
                                                                                         }
                                                                                 }
 
                                                                         }
                                                                 }
-                                                            | _ -> item
+                                                            | _ -> itm
                                                         )
                                                 }
                                         )
@@ -268,29 +272,29 @@ module Order =
                                 { ord.Orderable with
                                     Components =
                                         ord.Orderable.Components
-                                        |> Array.mapi (fun i comp ->
-                                            if i > 0 then comp
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
                                             else
-                                                { comp with
+                                                { cmp with
                                                     Items =
-                                                        comp.Items
-                                                        |> Array.map (fun item ->
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name ->
-                                                                { item with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
                                                                     Dose =
-                                                                        { item.Dose with
+                                                                        { itm.Dose with
                                                                             PerTimeAdjust =
-                                                                                { item.Dose.PerTimeAdjust with
+                                                                                { itm.Dose.PerTimeAdjust with
                                                                                     Variable =
-                                                                                        { item.Dose.PerTimeAdjust.Variable with
-                                                                                            Vals = item.Dose.PerTimeAdjust.Variable.Vals |> setVu s
+                                                                                        { itm.Dose.PerTimeAdjust.Variable with
+                                                                                            Vals = itm.Dose.PerTimeAdjust.Variable.Vals |> setVu s
                                                                                         }
                                                                                 }
 
                                                                         }
                                                                 }
-                                                            | _ -> item
+                                                            | _ -> itm
                                                         )
                                                 }
                                         )
@@ -310,29 +314,29 @@ module Order =
                                 { ord.Orderable with
                                     Components =
                                         ord.Orderable.Components
-                                        |> Array.mapi (fun i comp ->
-                                            if i > 0 then comp
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
                                             else
-                                                { comp with
+                                                { cmp with
                                                     Items =
-                                                        comp.Items
-                                                        |> Array.map (fun item ->
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name ->
-                                                                { item with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
                                                                     Dose =
-                                                                        { item.Dose with
+                                                                        { itm.Dose with
                                                                             Rate =
-                                                                                { item.Dose.Rate with
+                                                                                { itm.Dose.Rate with
                                                                                     Variable =
-                                                                                        { item.Dose.Rate.Variable with
-                                                                                            Vals = item.Dose.Rate.Variable.Vals |> setVu s
+                                                                                        { itm.Dose.Rate.Variable with
+                                                                                            Vals = itm.Dose.Rate.Variable.Vals |> setVu s
                                                                                         }
                                                                                 }
 
                                                                         }
                                                                 }
-                                                            | _ -> item
+                                                            | _ -> itm
                                                         )
                                                 }
                                         )
@@ -352,29 +356,29 @@ module Order =
                                 { ord.Orderable with
                                     Components =
                                         ord.Orderable.Components
-                                        |> Array.mapi (fun i comp ->
-                                            if i > 0 then comp
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
                                             else
-                                                { comp with
+                                                { cmp with
                                                     Items =
-                                                        comp.Items
-                                                        |> Array.map (fun item ->
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name ->
-                                                                { item with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
                                                                     Dose =
-                                                                        { item.Dose with
+                                                                        { itm.Dose with
                                                                             RateAdjust =
-                                                                                { item.Dose.RateAdjust with
+                                                                                { itm.Dose.RateAdjust with
                                                                                     Variable =
-                                                                                        { item.Dose.RateAdjust.Variable with
-                                                                                            Vals = item.Dose.RateAdjust.Variable.Vals |> setVu s
+                                                                                        { itm.Dose.RateAdjust.Variable with
+                                                                                            Vals = itm.Dose.RateAdjust.Variable.Vals |> setVu s
                                                                                         }
                                                                                 }
 
                                                                         }
                                                                 }
-                                                            | _ -> item
+                                                            | _ -> itm
                                                         )
                                                 }
                                         )
@@ -394,26 +398,26 @@ module Order =
                                 { ord.Orderable with
                                     Components =
                                         ord.Orderable.Components
-                                        |> Array.mapi (fun i comp ->
-                                            if i > 0 then comp
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
                                             else
-                                                { comp with
+                                                { cmp with
                                                     Items =
-                                                        comp.Items
-                                                        |> Array.map (fun item ->
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
                                                             match state.SelectedSubstance with
-                                                            | Some subst when subst = item.Name ->
-                                                                { item with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
                                                                     ComponentConcentration =
-                                                                        { item.ComponentConcentration with
+                                                                        { itm.ComponentConcentration with
                                                                             Variable =
-                                                                                { item.ComponentConcentration.Variable with
-                                                                                    Vals = item.ComponentConcentration.Variable.Vals |> setVu s
+                                                                                { itm.ComponentConcentration.Variable with
+                                                                                    Vals = itm.ComponentConcentration.Variable.Vals |> setVu s
                                                                                 }
 
                                                                         }
                                                                 }
-                                                            | _ -> item
+                                                            | _ -> itm
                                                         )
                                                 }
                                         )
@@ -494,7 +498,6 @@ module Order =
             updateScenarioOrder : unit -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
-
         |}) =
 
         let context = React.useContext Global.context
@@ -520,10 +523,13 @@ module Order =
             | Resolved (Some ord) ->
                 ord.Orderable.Components
                 // only use the main component for dosing
-                |> Array.tryHead
-                |> Option.map (fun c ->
+                |> Array.tryFind(fun cmp ->
+                    state.SelectedComponent.IsNone ||
+                    state.SelectedComponent.Value = cmp.Name
+                )
+                |> Option.map (fun cmp ->
                     // filter out additional items, they are not used for dosing
-                    c.Items
+                    cmp.Items
                     |> Array.filter (_.IsAdditional >> not)
                 )
                 |> Option.defaultValue [||]
@@ -597,8 +603,36 @@ module Order =
                     {
                         match props.order with
                         | Resolved (Some lo) ->
-                            let o = lo.Order
-                            if o.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
+                            let ord = lo.Order
+                            if ord.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
+                            else
+                                ord.Orderable.Components
+                                |> Array.map _.Name
+                                |> Array.map (fun s -> s, s)
+                                |> select false "Componenten" state.SelectedComponent (ChangeComponent >> dispatch)
+                        | _ ->
+                            [||]
+                            |> select true "" None ignore
+                    }
+                    {
+                        match props.order with
+                        | Resolved (Some lo) ->
+                            let ord = lo.Order
+                            ord.Orderable.Components
+                            |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || c.Name = state.SelectedComponent.Value)
+                            |> Option.bind _.Dose.Quantity.Variable.Vals
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
+                            |> Option.defaultValue [||]
+                            |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None ignore //(ChangeOrderableDoseQuantity >> dispatch)
+                        | _ ->
+                            [||]
+                            |> select true "" None ignore
+                    }
+                    {
+                        match props.order with
+                        | Resolved (Some lo) ->
+                            let ord = lo.Order
+                            if ord.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
                             else
                                 itms
                                 |> Array.map _.Name
@@ -611,8 +645,8 @@ module Order =
                     {
                         match props.order with
                         | Resolved (Some lo) ->
-                            let o = lo.Order
-                            o.Prescription.Frequency.Variable.Vals
+                            let ord = lo.Order
+                            ord.Prescription.Frequency.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Frequency`` |> getTerm "Frequentie") None (ChangeFrequency >> dispatch)
@@ -645,7 +679,9 @@ module Order =
                         match substIndx, props.order with
                         | Some i, Resolved (Some lo) when lo.Order.Prescription.IsContinuous |> not &&
                                                           itms |> Array.length > 0 ->
-                            let dispatch = if lo.UseAdjust then ChangeSubstancePerTimeAdjust >> dispatch else ChangeSubstancePerTime >> dispatch
+                            let dispatch =
+                                if lo.UseAdjust then ChangeSubstancePerTimeAdjust >> dispatch
+                                else ChangeSubstancePerTime >> dispatch
                             let label, vals =
                                 if lo.UseAdjust then
                                     itms[i].Dose.PerTimeAdjust.Variable.Vals
@@ -691,8 +727,8 @@ module Order =
                     {
                         match props.order with
                         | Resolved (Some lo) ->
-                            let o = lo.Order
-                            o.Orderable.Dose.Quantity.Variable.Vals
+                            let ord = lo.Order
+                            ord.Orderable.Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None (ChangeOrderableDoseQuantity >> dispatch)
@@ -714,8 +750,8 @@ module Order =
                     {
                         match props.order with
                         | Resolved (Some lo) ->
-                            let o = lo.Order
-                            o.Orderable.Dose.Rate.Variable.Vals
+                            let ord = lo.Order
+                            ord.Orderable.Dose.Rate.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Drip rate`` |> getTerm "Pompsnelheid") None (ChangeOrderableDoseRate >> dispatch)
@@ -726,8 +762,8 @@ module Order =
                     {
                         match props.order with
                         | Resolved (Some lo) ->
-                            let o = lo.Order
-                            o.Prescription.Time.Variable.Vals
+                            let ord = lo.Order
+                            ord.Prescription.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Administration time`` |> getTerm "Inloop tijd") None (ChangeTime >> dispatch)

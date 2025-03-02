@@ -232,26 +232,33 @@ module Api =
     /// </summary>
     let scenarioResult pat =
         let rules = pat |> PrescriptionRule.get
+
+        let filter =
+            {
+                Indications = rules |> PrescriptionRule.indications
+                Generics = rules |> PrescriptionRule.generics
+                Routes = rules |> PrescriptionRule.routes
+                Shapes= rules |> PrescriptionRule.shapes
+                DoseTypes = rules |> PrescriptionRule.doseTypes
+                Diluents =
+                    rules
+                    |> Array.collect _.SolutionRules
+                    |> Array.collect _.Diluents
+                    |> Array.map _.Generic
+                Indication = None
+                Generic = None
+                Route = None
+                Shape = None
+                DoseType = None
+                Diluent = None
+            }
+
         {
-            Indications = rules |> PrescriptionRule.indications
-            Generics = rules |> PrescriptionRule.generics
-            Routes = rules |> PrescriptionRule.routes
-            Shapes= rules |> PrescriptionRule.shapes
-            DoseTypes = rules |> PrescriptionRule.doseTypes
-            Diluents =
-                rules
-                |> Array.collect _.SolutionRules
-                |> Array.collect _.Diluents
-                |> Array.map _.Generic
-            Indication = None
-            Generic = None
-            Route = None
-            Shape = None
-            DoseType = None
-            Diluent = None
+            Filter = filter
             Patient = pat
             Scenarios = [||]
         }
+
 
     let evaluateRules rules =
         rules
@@ -269,11 +276,13 @@ module Api =
 
 
     let createScenario i pr ord =
-        let ns =
+        let cmps =
             pr.DoseRule.DoseLimits
             |> Array.groupBy _.Component// use only main component items
             |> Array.filter (fst >> String.isNullOrWhiteSpace >> not)
 
+        let ns =
+            cmps
             |> Array.map snd
             |> Array.tryHead
             |> Option.defaultValue [||]
@@ -295,7 +304,7 @@ module Api =
             Indication = pr.DoseRule.Indication
             DoseType = pr.DoseRule.DoseType
             Name = pr.DoseRule.Generic
-            Components = [||] // TODO need to implement
+            Components = cmps |> Array.map fst
             Substances = ns
             Shape = pr.DoseRule.Shape
             Route = pr.DoseRule.Route
@@ -342,24 +351,25 @@ module Api =
         match sc.Patient.Weight, sc.Patient.Height, sc.Patient.Department with
         | Some w, Some h, d when d |> Option.isSome ->
 
+
             let ind =
-                if sc.Indication.IsSome then sc.Indication
-                else sc.Indications |> Array.someIfOne
+                if sc.Filter.Indication.IsSome then sc.Filter.Indication
+                else sc.Filter.Indications |> Array.someIfOne
             let gen =
-                if sc.Generic.IsSome then sc.Generic
-                else sc.Generics |> Array.someIfOne
+                if sc.Filter.Generic.IsSome then sc.Filter.Generic
+                else sc.Filter.Generics |> Array.someIfOne
             let rte =
-                if sc.Route.IsSome then sc.Route
-                else sc.Routes |> Array.someIfOne
+                if sc.Filter.Route.IsSome then sc.Filter.Route
+                else sc.Filter.Routes |> Array.someIfOne
             let shp =
-                if sc.Shape.IsSome then sc.Shape
-                else sc.Shapes |> Array.someIfOne
+                if sc.Filter.Shape.IsSome then sc.Filter.Shape
+                else sc.Filter.Shapes |> Array.someIfOne
             let dst =
-                if sc.DoseType.IsSome then sc.DoseType
-                else sc.DoseTypes |> Array.someIfOne
+                if sc.Filter.DoseType.IsSome then sc.Filter.DoseType
+                else sc.Filter.DoseTypes |> Array.someIfOne
             let dil =
-                if sc.Diluent.IsSome then sc.Diluent
-                else sc.Diluents |> Array.someIfOne
+                if sc.Filter.Diluent.IsSome then sc.Filter.Diluent
+                else sc.Filter.Diluents |> Array.someIfOne
 
             let filter =
                 {
@@ -398,18 +408,21 @@ module Api =
             let dil = dils |> Array.someIfOne
 
             { sc with
-                Indications = inds
-                Generics = gens
-                Routes = rtes
-                Shapes = shps
-                DoseTypes = dsts
-                Diluents = dils
-                Indication = ind
-                Generic = gen
-                Route = rte
-                Shape = shp
-                DoseType = dst
-                Diluent = dil
+                Filter =
+                    { sc.Filter with
+                        Indications = inds
+                        Generics = gens
+                        Routes = rtes
+                        Shapes = shps
+                        DoseTypes = dsts
+                        Diluents = dils
+                        Indication = ind
+                        Generic = gen
+                        Route = rte
+                        Shape = shp
+                        DoseType = dst
+                        Diluent = dil
+                    }
                 Scenarios =
                     match ind, gen, rte, shp, dst with
                     | Some _, Some _,    Some _, _, Some _
@@ -471,11 +484,15 @@ module Api =
             }
         | _ ->
             { sc with
-                Indications = [||]
-                Generics = [||]
-                Routes = [||]
-                Shapes = [||]
-                DoseTypes = [||]
+                Filter =
+                    { sc.Filter with
+                        Indications = [||]
+                        Generics = [||]
+                        Routes = [||]
+                        Shapes = [||]
+                        DoseTypes = [||]
+
+                    }
                 Scenarios = [||]
             }
 

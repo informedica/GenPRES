@@ -121,8 +121,8 @@ module GenPres =
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
             scenarioResult: Deferred<ScenarioResult>
-            updateScenario : ScenarioResult -> unit
-            selectOrder : (Scenario * Order option) -> unit
+            updateScenarioResult : ScenarioResult -> unit
+            selectScenario : (Scenario * Order option) -> unit
             order: Deferred<LoadedOrder option>
             addOrderToPlan: Scenario * Order -> unit
             treatmentPlan: Deferred<(Scenario * Order) []>
@@ -256,9 +256,9 @@ module GenPres =
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View {|
                                     order = props.order
-                                    scenarios = props.scenarioResult
-                                    updateScenario = props.updateScenario
-                                    selectOrder = props.selectOrder
+                                    scenarioResult = props.scenarioResult
+                                    updateScenarioResult = props.updateScenarioResult
+                                    selectScenario = props.selectScenario
                                     loadOrder = props.loadOrder
                                     addOrderToPlan = props.addOrderToPlan
                                     updateScenarioOrder = props.updateScenarioOrder
@@ -272,7 +272,7 @@ module GenPres =
                                     loadOrder = props.loadOrder
                                     removeOrderFromPlan = ignore // TODO: need to implement
                                     updateScenarioOrder = props.updateScenarioOrder
-                                    selectOrder = props.selectOrder
+                                    selectScenario = props.selectScenario
                                     treatmentPlan = props.treatmentPlan
                                     localizationTerms = props.localizationTerms
                                 |}
