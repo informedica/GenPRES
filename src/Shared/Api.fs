@@ -5,14 +5,21 @@ module Api =
 
     open Types
 
-    type Message =
+    type ScenarioResultMessage =
         | GetScenarioResult of ScenarioResult
-        | PrintScenarioResult of ScenarioResult
-        | CalcMinIncrMax of ScenarioResult
+        | CalcValues of ScenarioResult
         | SolveOrder of ScenarioResult
-        | GetIntake of TreatmentPlan
+
+    type IntakeMessage = GetIntake of TreatmentPlan
+
+    type FormularyMessage =
         | GetFormulary of Formulary
         | GetParenteralia of Parenteralia
+
+    type Message =
+        | ScenarioResultMsg of ScenarioResultMessage
+        | IntakeMsg of IntakeMessage
+        | FormularyMsg of FormularyMessage
         | Test
 
 
@@ -24,11 +31,12 @@ module Api =
     /// to learn more, read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
     type IServerApi =
         {
+            processMessage: Message -> Async<Result<Message, string[]>>
             getScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
             printScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
             calcMinIncrMax: Order -> Async<Result<Order, string>>
             solveOrder: Order -> Async<Result<Order, string>>
-            getIntake: float option -> Order[] -> Async<Result<Intake, string>>
+            getIntake: int option -> Order[] -> Async<Result<Intake, string>>
             getFormulary: Formulary -> Async<Result<Formulary, string>>
             getParenteralia: Parenteralia -> Async<Result<Parenteralia, string>>
             test: unit -> Async<string>

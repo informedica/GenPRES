@@ -122,13 +122,9 @@ module GenPres =
             products: Deferred<Product list>
             scenarioResult: Deferred<ScenarioResult>
             updateScenarioResult : ScenarioResult -> unit
-            selectScenario : (Scenario * Order option) -> unit
-            order: Deferred<LoadedOrder option>
-            addOrderToPlan: Scenario * Order -> unit
-            treatmentPlan: Deferred<(Scenario * Order) []>
+            treatmentPlan: Deferred<TreatmentPlan>
+            addScenarioToPlan: Scenario -> unit
             intake : Deferred<Intake>
-            loadOrder: OrderLoader -> unit
-            updateScenarioOrder : unit -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
             parenteralia : Deferred<Parenteralia>
@@ -153,16 +149,6 @@ module GenPres =
             |]
         let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
-        let notFound =
-            JSX.jsx
-                $"""
-            <React.Fragment>
-                <Typography>
-                    Nog niet geimplementeerd
-                </Typography>
-            </React.Fragment>
-            """
-
         let modalStyle =
             {|
                 position="absolute"
@@ -177,12 +163,6 @@ module GenPres =
         let sxPageBox =
             {|
                 mt= 3
-                (*
-                mb =
-                    match props.page with
-                    | Global.Pages.Prescribe -> 26 |> box
-                    | _ -> 0 |> box
-                *)
                 overflowY =
                     match props.page with
                     | Global.Pages.Prescribe
@@ -255,26 +235,21 @@ module GenPres =
                                 |}
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View {|
-                                    order = props.order
                                     scenarioResult = props.scenarioResult
                                     updateScenarioResult = props.updateScenarioResult
-                                    selectScenario = props.selectScenario
-                                    loadOrder = props.loadOrder
-                                    addOrderToPlan = props.addOrderToPlan
-                                    updateScenarioOrder = props.updateScenarioOrder
+                                    addScenarioToPlan = props.addScenarioToPlan
                                     localizationTerms = props.localizationTerms
                                 |}
                             | Global.Pages.Nutrition ->
                                 Views.Nutrion.View()
+
                             | Global.Pages.TreatmentPlan ->
                                 Views.TreatmentPlan.View {|
-                                    order = props.order
-                                    loadOrder = props.loadOrder
-                                    removeOrderFromPlan = ignore // TODO: need to implement
-                                    updateScenarioOrder = props.updateScenarioOrder
-                                    selectScenario = props.selectScenario
+                                    scenarioResult = props.scenarioResult
+                                    updateScenarioResult = props.updateScenarioResult
                                     treatmentPlan = props.treatmentPlan
                                     localizationTerms = props.localizationTerms
+                                    removeOrderFromPlan = ignore
                                 |}
                             | Global.Pages.Formulary ->
                                 Views.Formulary.View {|

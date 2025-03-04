@@ -68,15 +68,15 @@ module Types =
     /// Weight in kg
     and Weight =
         {
-            Estimated: float option
-            Measured: float option
+            Estimated: int option
+            Measured: int option
         }
 
     /// Length in cm
     and Height =
         {
-            Estimated: float option
-            Measured: float option
+            Estimated: int option
+            Measured: int option
         }
 
     and Gender =
@@ -349,17 +349,27 @@ module Types =
         | NoDoseType
 
 
+    type OrderState =
+        | Constrained of Order
+        | Values of Order
+        | Solved of Order
+
+
     type Scenario =
         {
+            Id: string
+            Indication: string
             Components: string[]
-            Substances: string[]
+            Items: string[]
             Shape: string
             Diluent: string option
+            Component: string option
+            Item: string option
             DoseType: DoseType
             Prescription: TextItem[][][]
             Preparation: TextItem[][][]
             Administration: TextItem[][][]
-            Order: Order option
+            Order: OrderState
             UseAdjust: bool
             UseRenalRule: bool
             RenalRule: string option
@@ -386,27 +396,7 @@ module Types =
         {
             DemoVersion: bool
             Filter: Filter
-            (*
-            Indications: string[]
-            Medications: string[]
-            Routes: string[]
-            Diluents: string[]
-            DoseTypes: DoseType[]
-            Indication: string option
-            Medication: string option
-            Shape: string option
-            Route: string option
-            Diluent: string option
-            DoseType: DoseType option
-            *)
-            AgeInDays: float option
-            GestAgeInDays: int option
-            WeightInKg: float option
-            HeightInCm: float option
-            Gender: Gender
-            AccessList: Access list
-            RenalFunction: RenalFunction option
-            Department: string option
+            Patient: Patient
             Scenarios: Scenario[]
         }
 
@@ -446,16 +436,13 @@ module Types =
             Generics: string[]
             Indications: string[]
             Routes: string[]
-            Patients: string[]
+            PatientCategories: string[]
             Products: string[]
             Generic: string option
             Indication: string option
             Route: string option
-            Patient: string option
-            Age: float option
-            Weight: float option
-            Height: float option
-            GestAge: int option
+            PatientCategory: string option
+            Patient: Patient option
             Markdown: string
         }
 
@@ -465,10 +452,10 @@ module Types =
             Generics: string[]
             Shapes: string[]
             Routes: string[]
-            Patients: string[]
+            PatientCategories: string[]
             Generic: string option
             Shape: string option
             Route: string option
-            Patient: string option
+            PatientCategory: string option
             Markdown: string
         }

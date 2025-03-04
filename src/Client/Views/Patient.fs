@@ -8,7 +8,6 @@ module Patient =
     open Fable.Core
     open Fable.React
     open Feliz
-    open Browser.Types
     open Fable.Core.JsInterop
     open Elmish
     open Shared
@@ -140,7 +139,7 @@ module Patient =
             | None ->
                 Patient.create
                     None None None None
-                    (s |> Option.bind tryParse |> Option.map (fun v -> (v |> float) / 1000.))
+                    (s |> Option.bind tryParse)
                     None None None UnknownGender [] None None
             | Some p ->
                 Patient.create
@@ -148,7 +147,7 @@ module Patient =
                     (p |> Patient.getAgeMonths)
                     (p |> Patient.getAgeWeeks)
                     (p |> Patient.getAgeDays)
-                    (s |> Option.bind tryParse |> Option.map (fun v -> (v |> float) / 1000.))
+                    (s |> Option.bind tryParse)
                     (p |> Patient.getHeight)
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
@@ -163,7 +162,7 @@ module Patient =
             | None ->
                 Patient.create
                     None None None None None
-                    (s |> Option.bind tryParse |> Option.map float)
+                    (s |> Option.bind tryParse)
                     None None UnknownGender [] None None
             | Some p ->
                 Patient.create
@@ -172,7 +171,7 @@ module Patient =
                     (p |> Patient.getAgeWeeks)
                     (p |> Patient.getAgeDays)
                     (p |> Patient.getWeight)
-                    (s |> Option.bind tryParse |> Option.map float)
+                    (s |> Option.bind tryParse)
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.Gender
@@ -381,11 +380,11 @@ module Patient =
             | None -> None
 
         let weightToNone = function
-            | Some v -> wghts |> Array.tryFind ((=) (int (v * 1000.)))
+            | Some v -> wghts |> Array.tryFind ((=) v)
             | None -> None
 
         let heightToNone = function
-            | Some v -> hghts |> Array.tryFind ((=) (int v))
+            | Some v -> hghts |> Array.tryFind ((=) v)
             | None -> None
 
         let checkBox item ev =

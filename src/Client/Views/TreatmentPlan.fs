@@ -11,12 +11,10 @@ module TreatmentPlan =
 
     [<JSX.Component>]
     let View (props : {|
-        loadOrder: OrderLoader -> unit
-        order: Deferred<LoadedOrder option>
+        scenarioResult: Deferred<ScenarioResult>
+        updateScenarioResult : ScenarioResult -> unit
         removeOrderFromPlan : Order -> unit
-        updateScenarioOrder : unit -> unit
-        treatmentPlan: Deferred<(Scenario * Order) []>
-        selectScenario : (Types.Scenario * Types.Order option) -> unit
+        treatmentPlan: Deferred<TreatmentPlan>
         localizationTerms : Deferred<string [] []>
         |}) =
 
@@ -75,9 +73,11 @@ module TreatmentPlan =
                 |> String.concat ""
 
             match props.treatmentPlan with
-            | Resolved ords ->
-                ords
-                |> Array.mapi (fun i (b, o) ->
+            | Resolved tp ->
+                tp.Scenarios
+                |> Array.map _.Order
+                |> Array.map OrderState.getOrder
+                |> Array.mapi (fun i o ->
                     let freq =
                         if o.Prescription.IsDiscontinuous || o.Prescription.IsTimed then
                             o.Prescription.Frequency.Variable.Vals |> getVal
@@ -174,14 +174,32 @@ module TreatmentPlan =
                 boxShadow= 24
             |}
 
-        let selectOrder s =
+        let selectOrder id =
             match props.treatmentPlan with
             | Resolved tp ->
-                tp
-                |> Array.tryFind (fun (_, o) -> o.Id = s)
+                tp.Scenarios
+                |> Array.tryFind (fun sc -> (sc.Order |> OrderState.getOrder).Id = id)
+                |> Option.map _.Order
                 |> function
                 | None -> ()
-                | Some (sc, ord) -> setModalOpen true; (sc, Some ord) |> props.selectScenario
+                | Some ord ->
+                    setModalOpen true
+
+                    match props.scenarioResult with
+                    | Resolved sr ->
+                        {
+                            sr with
+                                Scenarios =
+                                    sr.Scenarios
+                                    |> Array.map (fun sc ->
+                                        if (sc.Order |> OrderState.getOrder).Id =
+                                           (ord |> OrderState.getOrder).Id then
+                                            { sc with Order = ord }
+                                        else sc
+                                    )
+                        }
+                        |> props.updateScenarioResult
+                    | _ -> ()
             | _ -> ()
 
         JSX.jsx
@@ -204,9 +222,8 @@ module TreatmentPlan =
                 <Box sx={modalStyle}>
                     {
                         Order.View {|
-                            order = props.order
-                            loadOrder = props.loadOrder
-                            updateScenarioOrder = props.updateScenarioOrder
+                            scenarioResult = props.scenarioResult
+                            updateScenarioResult = props.updateScenarioResult
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}

@@ -350,9 +350,10 @@ module Types =
         /// </summary>
         type Scenario =
             {
-                /// the id of the scenario
+                Id : string
+                /// the order number of the scenario
                 No : int
-                /// the indication for the the order
+                /// the indication for the order
                 Indication : string
                 /// the dose type of the order
                 DoseType : DoseType
@@ -361,13 +362,15 @@ module Types =
                 // The list of components to print out
                 Components : string []
                 // The list of substances to print out
-                Substances : string []
+                Items : string []
                 /// the shape of the order
                 Shape : string
                 /// the route of the order
                 Route : string
                 /// The diluent
                 Diluent : string option
+                Component : string option
+                Item : string option
                 /// the prescription of the order
                 Prescription : string[][]
                 /// the preparation of the order
@@ -375,7 +378,7 @@ module Types =
                 /// the administration of the order
                 Administration : string[][]
                 /// the order itself
-                Order : Order option
+                Order : Order
                 /// Whether or not to us adjust
                 UseAdjust : bool
                 /// Whether or not to use a renal rule

@@ -13,6 +13,7 @@
     <Compile Include="Formulary.fs" />
     <Compile Include="Parenteralia.fs" />
     <Compile Include="ScenarioResult.fs" />
+    <Compile Include="Message.fs" />
     <Compile Include="ServerApi.fs" />
     <Compile Include="Server.fs" />
     <None Include="Scripts\load.fsx" />

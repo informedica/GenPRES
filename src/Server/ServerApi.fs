@@ -5,11 +5,15 @@ open Shared.Types
 open Shared.Api
 
 
-
-
 /// An implementation of the Shared IServerApi protocol.
 let serverApi: IServerApi =
     {
+        processMessage =
+            fun msg ->
+                async {
+                    return msg |> Message.processMsg
+                }
+
         test =
             fun () ->
                 async {
@@ -31,7 +35,7 @@ let serverApi: IServerApi =
         printScenarioResult =
             fun (sc : ScenarioResult) ->
                 async {
-                    return sc |> ScenarioResult.print
+                    return sc |> ScenarioResult.print |> Ok
                 }
 
         getScenarioResult =
@@ -43,7 +47,7 @@ let serverApi: IServerApi =
         calcMinIncrMax =
             fun (ord : Order) ->
                 async {
-                    return ord |> ScenarioResult.calcMinIncrMaxToValues
+                    return ord |> ScenarioResult.calcValues
                 }
 
         solveOrder =
@@ -53,8 +57,8 @@ let serverApi: IServerApi =
                 }
 
         getIntake =
-            fun wghtInKg (ords : Order []) ->
+            fun wghtInGram (ords : Order []) ->
                 async {
-                    return ords |> ScenarioResult.getIntake wghtInKg |> Ok
+                    return ords |> ScenarioResult.getIntake wghtInGram |> Ok
                 }
     }

@@ -419,6 +419,19 @@ module Patient =
             | _ -> EGFR(Some 50, None)
 
 
+    let empty =
+        {
+            Age = None
+            GestationalAge = None
+            Weight = { Estimated = None; Measured = None }
+            Height = { Estimated = None; Measured = None }
+            Gender = UnknownGender
+            Access = []
+            RenalFunction = None
+            Department = None
+        }
+
+
     let apply f (p: Patient) = f p
 
 
@@ -428,28 +441,22 @@ module Patient =
     let getAge p = (p |> get).Age
 
 
-    let getAgeYears p =
-        p |> getAge |> Option.map (fun a -> a.Years)
+    let getAgeYears p = p |> getAge |> Option.map _.Years
 
 
-    let getAgeMonths p =
-        p |> getAge |> Option.map (fun a -> a.Months)
+    let getAgeMonths p = p |> getAge |> Option.map _.Months
 
 
-    let getAgeWeeks p =
-        p |> getAge |> Option.map (fun a -> a.Weeks)
+    let getAgeWeeks p = p |> getAge |> Option.map _.Weeks
 
 
-    let getAgeDays p =
-        p |> getAge |> Option.map (fun a -> a.Days)
+    let getAgeDays p = p |> getAge |> Option.map _.Days
 
 
-    let getGAWeeks (p: Patient) =
-        p.GestationalAge |> Option.map (fun ga -> ga.Weeks)
+    let getGAWeeks (p: Patient) = p.GestationalAge |> Option.map _.Weeks
 
 
-    let getGADays (p: Patient) =
-        p.GestationalAge |> Option.map (fun ga -> ga.Days)
+    let getGADays (p: Patient) = p.GestationalAge |> Option.map _.Days
 
 
     let getRenalFunction (p: Patient) =
@@ -490,16 +497,18 @@ module Patient =
                     None, None
                 else
                     let a =
-                        ((years |> Option.defaultValue 0 |> float) * 12.)
-                        + ((months |> Option.defaultValue 0 |> float) / 1.)
-                        + ((weeks |> Option.defaultValue 0 |> float) / 4.)
-                        + ((days |> Option.defaultValue 0 |> float) / 30.)
+                        (years |> Option.defaultValue 0 |> float) * 12.
+                        + (months |> Option.defaultValue 0 |> float) / 1.
+                        + (weeks |> Option.defaultValue 0 |> float) / 4.
+                        + (days |> Option.defaultValue 0 |> float) / 30.
 
                     let w =
                         NormalValues.ageWeight
                         |> List.rev
                         |> List.tryFind (fun (x, _) -> x <= a)
                         |> Option.map snd
+                        |> Option.map (Math.fixPrecision 2)
+                        |> Option.map (fun x -> x * 1000.)
 
                     let h =
                         NormalValues.ageHeight
@@ -513,19 +522,27 @@ module Patient =
                 if weight |> Option.isSome then
                     weight
                 else
-                    ew |> Option.map (Math.fixPrecision 2)
+                    ew |> Option.map (Math.fixPrecision 2) |> Option.map int
 
             let height =
                 if height |> Option.isSome then
                     height
                 else
-                    eh |> Option.map (Math.fixPrecision 0)
+                    eh |> Option.map (Math.fixPrecision 0) |> Option.map int
 
             {
                 Age = a
                 GestationalAge = ga
-                Weight = { Estimated = ew; Measured = weight }
-                Height = { Estimated = eh; Measured = height }
+                Weight =
+                    {
+                        Estimated = ew |> Option.map int
+                        Measured = weight
+                    }
+                Height =
+                    {
+                        Estimated = eh |> Option.map int
+                        Measured = height
+                    }
                 Gender = gend
                 Access = cvl
                 RenalFunction = gfr
@@ -585,6 +602,11 @@ module Patient =
         else
             pat.Weight.Estimated
 
+
+    let getWeightInKg (pat: Patient) =
+        pat |> getWeight |> Option.map (fun x -> float x / 1000.)
+
+
     /// Get either the measured height or the
     /// estimated height if measured weight = 0
     let getHeight (pat: Patient) =
@@ -595,12 +617,11 @@ module Patient =
 
 
     let updateWeightGram gr pat =
-        let kg = gr / 1000.
 
         { (pat |> get) with
             Weight =
                 { pat.Weight with
-                    Measured = kg |> Some
+                    Measured = gr |> Some
                 }
         }
 
@@ -608,7 +629,11 @@ module Patient =
     let calcBMI (pat: Patient) =
         match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
         | Some w, _, Some h, _
-        | None, Some w, None, Some h -> if h > 0. then (w / (h ** 2.)) |> Some else None
+        | None, Some w, None, Some h ->
+            if h > 0 then
+                float w / 1000. / float h ** 2. |> Some
+            else
+                None
         | _ -> None
 
 
@@ -620,7 +645,7 @@ module Patient =
         | Some w, _, Some h, _
         | Some w, _, None, Some h
         | None, Some w, Some h, _
-        | None, Some w, None, Some h -> sqrt (w * (h |> float) / 3600.) |> Math.fixPrecision 2 |> Some
+        | None, Some w, None, Some h -> sqrt (float w * (h |> float) / 3600.) |> Math.fixPrecision 2 |> Some
 
 
     let calcNormalFluid pat =
@@ -648,17 +673,28 @@ module Patient =
 
             (Some $"{Terms.``Patient Weight`` |> getTerm}:") |> italic
 
-            pat.Weight.Measured |> toStr "" |> Option.map (fun s -> $"{s} kg") |> bold
+            pat.Weight.Measured
+            |> Option.map (fun x -> float x / 1000.)
+            |> toStr ""
+            |> Option.map (fun s -> $"{s} kg")
+            |> bold
 
             pat.Weight.Estimated
+            |> Option.map (fun x -> float x / 1000.)
             |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} kg)")
 
 
             (Some $"{Terms.``Patient Length`` |> getTerm}:") |> italic
 
-            pat.Height.Measured |> toStr "" |> Option.map (fun s -> $"{s} cm") |> bold
+            pat.Height.Measured
+            |> Option.map float
+            |> toStr ""
+            |> Option.map (fun s -> $"{s} cm")
+            |> bold
+
             pat.Height.Estimated
+            |> Option.map float
             |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
             |> Option.map (fun s -> $"({s} cm)")
 
@@ -1446,13 +1482,17 @@ module ScenarioResult =
         |> Seq.toArray
 
 
-    let createScenario cmps sbs shp dst dil prs prep adm o adj rr rn =
+    let createScenario id ind cmps sbs shp dst dil cmp itm prs prep adm o adj rr rn =
         {
+            Id = id
+            Indication = ind
             Components = cmps
-            Substances = sbs
+            Items = sbs
             Shape = shp
             DoseType = dst
             Diluent = dil
+            Component = cmp
+            Item = itm
             Prescription = prs |> Array.map (Array.map parseTextItem)
             Preparation = prep |> Array.map (Array.map parseTextItem)
             Administration = adm |> Array.map (Array.map parseTextItem)
@@ -1481,20 +1521,23 @@ module ScenarioResult =
 
 
     let empty: ScenarioResult =
-
         {
             DemoVersion = true
             Filter = filter
-            AgeInDays = None
-            GestAgeInDays = None
-            WeightInKg = None
-            HeightInCm = None
-            Gender = UnknownGender
-            AccessList = []
-            RenalFunction = None
-            Department = None
+            Patient = Patient.empty
             Scenarios = [||]
         }
+
+    let setPatient pat sr : ScenarioResult = { sr with Patient = pat }
+
+
+module OrderState =
+
+    let getOrder =
+        function
+        | Constrained o
+        | Values o
+        | Solved o -> o
 
 
 module Formulary =
@@ -1504,16 +1547,13 @@ module Formulary =
             Generics = [||]
             Indications = [||]
             Routes = [||]
-            Patients = [||]
+            PatientCategories = [||]
             Products = [||]
             Generic = None
             Indication = None
             Route = None
+            PatientCategory = None
             Patient = None
-            Age = None
-            Weight = None
-            Height = None
-            GestAge = None
             Markdown = ""
         }
 
@@ -1525,10 +1565,10 @@ module Parenteralia =
             Generics = [||]
             Shapes = [||]
             Routes = [||]
-            Patients = [||]
+            PatientCategories = [||]
             Generic = None
             Shape = None
             Route = None
-            Patient = None
+            PatientCategory = None
             Markdown = ""
         }

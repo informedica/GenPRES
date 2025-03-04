@@ -1134,13 +1134,13 @@ module Order =
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
-            let setDoseUnit sn du cmp =
+            let setDoseUnit sn du cmp : Component =
                 { cmp with
                     Items = cmp.Items |> List.map (Item.setDoseUnit sn du)
                 }
 
 
-            let setNormDose sn nd cmp =
+            let setNormDose sn nd cmp : Component =
                 { cmp with
                     Items = cmp.Items |> List.map (Item.setNormDose sn nd)
                 }

@@ -3,6 +3,7 @@ namespace Informedica.GenOrder.Lib
 
 module Api =
 
+    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -275,7 +276,7 @@ module Api =
         |> Array.filter Result.isOk
 
 
-    let createScenario i pr ord =
+    let createScenario id no pr ord =
         let cmps =
             pr.DoseRule.DoseLimits
             |> Array.groupBy _.Component// use only main component items
@@ -300,12 +301,13 @@ module Api =
             |> Order.Print.printOrderToTableFormat useAdjust true ns
 
         {
-            No = i
+            Id = id
+            No = no
             Indication = pr.DoseRule.Indication
             DoseType = pr.DoseRule.DoseType
             Name = pr.DoseRule.Generic
             Components = cmps |> Array.map fst
-            Substances = ns
+            Items = ns
             Shape = pr.DoseRule.Shape
             Route = pr.DoseRule.Route
             Diluent =
@@ -313,10 +315,12 @@ module Api =
                 |> Array.collect _.Diluents
                 |> Array.map _.Generic
                 |> Array.tryExactlyOne
+            Component = cmps |> Array.tryExactlyOne |> Option.map fst
+            Item = ns |> Array.tryExactlyOne
             Prescription = prs |> Array.map (Array.map replace)
             Preparation = prp |> Array.map (Array.map replace)
             Administration = adm |> Array.map (Array.map replace)
-            Order = Some ord
+            Order = ord
             UseAdjust = useAdjust
             UseRenalRule = pr.RenalRules |> Array.isEmpty |> not
             RenalRule = pr.DoseRule.RenalRule
@@ -328,7 +332,8 @@ module Api =
         |> Array.mapi (fun i r -> (i, r))
         |> Array.choose (function
             | i, Ok (ord, pr) ->
-                createScenario i pr ord
+                let id = Guid.NewGuid().ToString()
+                createScenario id i pr ord
                 |> Some
             | _, Error (_, _, errs) ->
                 errs

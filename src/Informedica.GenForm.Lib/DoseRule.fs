@@ -950,7 +950,7 @@ cannot map {r}
 
 
     /// Extract all patient categories from the DoseRules as strings.
-    let patients (drs : DoseRule array) =
+    let patientCategories (drs : DoseRule array) =
         drs
         |> Array.map _.PatientCategory
         |> Array.sortBy PatientCategory.sortBy

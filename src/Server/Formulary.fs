@@ -20,21 +20,26 @@ let mapFormularyToFilter (form: Formulary)=
         Indication = form.Indication
         Route = form.Route
         Patient =
-            { Patient.patient with
-                Age =
-                    form.Age
-                    |> Option.bind BigRational.fromFloat
-                    |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-                Weight =
-                    form.Weight
-                    |> Option.bind BigRational.fromFloat
-                    |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-                GestAge =
-                    form.GestAge
-                    |> Option.map BigRational.fromInt
-                    |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-
-            }
+            match form.Patient with
+            | Some pat ->
+                { Patient.patient with
+                    Age =
+                        pat
+                        |> Shared.Patient.getAgeInDays
+                        |> Option.bind BigRational.fromFloat
+                        |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+                    Weight =
+                        pat
+                        |> Shared.Patient.getWeightInKg
+                        |> Option.bind BigRational.fromFloat
+                        |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+                    GestAge =
+                        pat
+                        |> Shared.Patient.getHeight
+                        |> Option.map BigRational.fromInt
+                        |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+                }
+            | None -> Patient.patient
     }
     |> Filter.calcPMAge
 
@@ -83,14 +88,14 @@ let get (form : Formulary) =
             Generics = dsrs |> DoseRule.generics
             Indications = dsrs |> DoseRule.indications
             Routes = dsrs |> DoseRule.routes
-            Patients = dsrs |> DoseRule.patients
+            PatientCategories = dsrs |> DoseRule.patientCategories
         }
         |> fun form ->
             { form with
                 Generic = form.Generics |> selectIfOne form.Generic
                 Indication = form.Indications |> selectIfOne form.Indication
                 Route = form.Routes |> selectIfOne form.Route
-                Patient = form.Patients |> selectIfOne form.Patient
+                PatientCategory = form.PatientCategories |> selectIfOne form.PatientCategory
             }
         |> fun form ->
             { form with

@@ -15,36 +15,38 @@ module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
 let mapPatient
-    (sc: ScenarioResult)
+    (sr: ScenarioResult)
     =
     { Patient.patient with
         Department =
-            sc.Department
+            sr.Patient.Department
             |> Option.defaultValue "ICK"
             |> Some
         Age =
-            sc.AgeInDays
+            sr.Patient
+            |> Shared.Patient.getAgeInDays
             |> Option.bind BigRational.fromFloat
             |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
         GestAge =
-            sc.GestAgeInDays
+            sr.Patient |> Shared.Patient.getGestAgeInDays
             |> Option.map BigRational.fromInt
             |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
         Weight =
-            sc.WeightInKg
-            |> Option.bind BigRational.fromFloat
-            |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+            sr.Patient |> Shared.Patient.getWeight
+            |> Option.map BigRational.fromInt
+            |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
+            |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
         Height =
-            sc.HeightInCm
-            |> Option.bind BigRational.fromFloat
+            sr.Patient |> Shared.Patient.getHeight
+            |> Option.map BigRational.fromInt
             |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
         Gender =
-            match sc.Gender with
+            match sr.Patient.Gender with
             | Male -> Informedica.GenForm.Lib.Types.Male
             | Female -> Informedica.GenForm.Lib.Types.Female
             | UnknownGender -> AnyGender
         Locations =
-            sc.AccessList
+            sr.Patient.Access
             // TODO make proper mapping
             |> List.choose (fun a ->
                 match a with
@@ -53,7 +55,7 @@ let mapPatient
                 | _ -> None
             )
         RenalFunction =
-            sc.RenalFunction
+            sr.Patient.RenalFunction
             |> Option.map (fun rf ->
                 match rf with
                 | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
@@ -365,70 +367,26 @@ let mapToIntake (intake : Types.Intake) : Intake =
     }
 
 
-let get (sc: ScenarioResult) =
-    let msg stage (sc: ScenarioResult)=
+let get (sr: ScenarioResult) =
+    let msg stage (sr: ScenarioResult)=
         $"""
 {stage}:
-Patient: {sc.AgeInDays} days, {sc.WeightInKg} kg, {sc.HeightInCm} cm, CVL {sc.AccessList}, {sc.GestAgeInDays} days, {sc.RenalFunction}
-Department: {sc.Department}
-Indications: {sc.Filter.Indications |> Array.length}
-Medications: {sc.Filter.Medications |> Array.length}
-Routes: {sc.Filter.Routes |> Array.length}
-Indication: {sc.Filter.Indication |> Option.defaultValue ""}
-Medication: {sc.Filter.Medication |> Option.defaultValue ""}
-Route: {sc.Filter.Route |> Option.defaultValue ""}
-DoseType: {sc.Filter.DoseType}
-Scenarios: {sc.Scenarios |> Array.length}
+Patient: {sr |> mapPatient |> Patient.toString}
+Indications: {sr.Filter.Indications |> Array.length}
+Medications: {sr.Filter.Medications |> Array.length}
+Routes: {sr.Filter.Routes |> Array.length}
+Indication: {sr.Filter.Indication |> Option.defaultValue ""}
+Medication: {sr.Filter.Medication |> Option.defaultValue ""}
+Route: {sr.Filter.Route |> Option.defaultValue ""}
+DoseType: {sr.Filter.DoseType}
+Scenarios: {sr.Scenarios |> Array.length}
 """
 
-    ConsoleWriter.writeInfoMessage $"""{msg "processing" sc}""" true true
+    ConsoleWriter.writeInfoMessage $"""{msg "processing" sr}""" true true
 
     let pat =
-        { Patient.patient with
-            Department =
-                sc.Department
-                |> Option.defaultValue "ICK"
-                |> Some
-            Age =
-                sc.AgeInDays
-                |> Option.bind BigRational.fromFloat
-                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-            GestAge =
-                sc.GestAgeInDays
-                |> Option.map BigRational.fromInt
-                |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-            Weight =
-                sc.WeightInKg
-                |> Option.bind BigRational.fromFloat
-                |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-            Height =
-                sc.HeightInCm
-                |> Option.bind BigRational.fromFloat
-                |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
-            Gender =
-                match sc.Gender with
-                | Male -> Informedica.GenForm.Lib.Types.Male
-                | Female -> Informedica.GenForm.Lib.Types.Female
-                | _ -> AnyGender
-            Locations =
-                sc.AccessList
-                // TODO make proper mapping
-                |> List.choose (fun a ->
-                    match a with
-                    | CVL -> Informedica.GenForm.Lib.Types.CVL |> Some
-                    | PVL -> Informedica.GenForm.Lib.Types.PVL |> Some
-                    | _ -> None
-            )
-            RenalFunction =
-                sc.RenalFunction
-                |> Option.map (fun rf ->
-                    match rf with
-                    | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
-                    | IntermittendHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
-                    | ContinuousHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
-                    | PeritionealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
-                )
-        }
+        sr
+        |> mapPatient
         |> Patient.calcPMAge
 
     try
@@ -438,85 +396,89 @@ Scenarios: {sc.Scenarios |> Array.length}
                 Filter =
                     { r.Filter with
                         Indications =
-                            if sc.Filter.Indication |> Option.isSome then
-                                [| sc.Filter.Indication |> Option.defaultValue "" |]
+                            if sr.Filter.Indication |> Option.isSome then
+                                [| sr.Filter.Indication |> Option.defaultValue "" |]
                             else
                                 r.Filter.Indications
                         Generics =
-                            if sc.Filter.Medication |> Option.isSome then
-                                [| sc.Filter.Medication |> Option.defaultValue "" |]
+                            if sr.Filter.Medication |> Option.isSome then
+                                [| sr.Filter.Medication |> Option.defaultValue "" |]
                             else
                                 r.Filter.Generics
                         Shapes =
-                            if sc.Filter.Shape |> Option.isSome then
-                                [| sc.Filter.Shape |> Option.defaultValue "" |]
+                            if sr.Filter.Shape |> Option.isSome then
+                                [| sr.Filter.Shape |> Option.defaultValue "" |]
                             else
                                 r.Filter.Shapes
                         Routes =
-                            if sc.Filter.Route |> Option.isSome then
-                                [| sc.Filter.Route |> Option.defaultValue "" |]
+                            if sr.Filter.Route |> Option.isSome then
+                                [| sr.Filter.Route |> Option.defaultValue "" |]
                             else
                                 r.Filter.Routes
                         Diluents =
-                            if sc.Filter.Diluent |> Option.isSome then
-                                [| sc.Filter.Diluent |> Option.defaultValue "" |]
+                            if sr.Filter.Diluent |> Option.isSome then
+                                [| sr.Filter.Diluent |> Option.defaultValue "" |]
                             else
                                 r.Filter.Diluents
                         DoseTypes =
-                            if sc.Filter.DoseType |> Option.isSome then
-                                [| sc.Filter.DoseType |> Option.defaultValue NoDoseType |]
+                            if sr.Filter.DoseType |> Option.isSome then
+                                [| sr.Filter.DoseType |> Option.defaultValue NoDoseType |]
                                 |> Array.map mapFromSharedDoseType
                             else
                                 r.Filter.DoseTypes
-                        Indication = sc.Filter.Indication
-                        Generic = sc.Filter.Medication
-                        Shape = sc.Filter.Shape
-                        Route = sc.Filter.Route
-                        Diluent = sc.Filter.Diluent
-                        DoseType = sc.Filter.DoseType |> Option.map mapFromSharedDoseType
+                        Indication = sr.Filter.Indication
+                        Generic = sr.Filter.Medication
+                        Shape = sr.Filter.Shape
+                        Route = sr.Filter.Route
+                        Diluent = sr.Filter.Diluent
+                        DoseType = sr.Filter.DoseType |> Option.map mapFromSharedDoseType
                     }
             }
             |> Api.filter
 
-        let sc =
-            { sc with
-                Filter =
-                    { sc.Filter with
-                        Indications = newSc.Filter.Indications
-                        Medications = newSc.Filter.Generics
-                        Routes = newSc.Filter.Routes
-                        DoseTypes = newSc.Filter.DoseTypes |> Array.map mapToSharedDoseType
-                        Diluents = newSc.Filter.Diluents
-                        Indication = newSc.Filter.Indication
-                        Medication = newSc.Filter.Generic
-                        Shape = newSc.Filter.Shape
-                        Route = newSc.Filter.Route
-                        DoseType = newSc.Filter.DoseType |> Option.map mapToSharedDoseType
-                    }
-                Scenarios =
-                    newSc.Scenarios
-                    |> Array.map (fun sc ->
-                        Shared.ScenarioResult.createScenario
-                            sc.Components
-                            sc.Substances
-                            sc.Shape
-                            (sc.DoseType |> mapToSharedDoseType)
-                            sc.Diluent
-                            sc.Prescription
-                            sc.Preparation
-                            sc.Administration
-                            (sc.Order |> Option.map (Order.Dto.toDto >> mapToOrder sc.Substances))
-                            sc.UseAdjust
-                            sc.UseRenalRule
-                            sc.RenalRule
-                    )
-            }
-        ConsoleWriter.writeInfoMessage $"""{msg "finished" sc}""" true true
-        sc //|> Ok
+        { sr with
+            Filter =
+                { sr.Filter with
+                    Indications = newSc.Filter.Indications
+                    Medications = newSc.Filter.Generics
+                    Routes = newSc.Filter.Routes
+                    DoseTypes = newSc.Filter.DoseTypes |> Array.map mapToSharedDoseType
+                    Diluents = newSc.Filter.Diluents
+                    Indication = newSc.Filter.Indication
+                    Medication = newSc.Filter.Generic
+                    Shape = newSc.Filter.Shape
+                    Route = newSc.Filter.Route
+                    DoseType = newSc.Filter.DoseType |> Option.map mapToSharedDoseType
+                }
+            Scenarios =
+                newSc.Scenarios
+                |> Array.map (fun sc ->
+                    Shared.ScenarioResult.createScenario
+                        sc.Id
+                        sc.Indication
+                        sc.Components
+                        sc.Items
+                        sc.Shape
+                        (sc.DoseType |> mapToSharedDoseType)
+                        sc.Component
+                        sc.Item
+                        sc.Diluent
+                        sc.Prescription
+                        sc.Preparation
+                        sc.Administration
+                        (sc.Order |> (Order.Dto.toDto >> mapToOrder sc.Items >> Constrained))
+                        sc.UseAdjust
+                        sc.UseRenalRule
+                        sc.RenalRule
+                )
+        }
+        |> fun sr ->
+            ConsoleWriter.writeInfoMessage $"""{msg "finished" sr}""" true true
+            sr //|> Ok
     with
     | e ->
         ConsoleWriter.writeErrorMessage $"errored:\n{e}" true true
-        sc //|> Ok
+        sr //|> Ok
     |> fun sc ->
         { sc with
             DemoVersion =
@@ -527,7 +489,7 @@ Scenarios: {sc.Scenarios |> Array.length}
         |> Ok
 
 
-let calcMinIncrMaxToValues (ord : Order) =
+let calcValues (ord : Order) =
     if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
         let path = $"{__SOURCE_DIRECTORY__}/log.txt"
         OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
@@ -550,11 +512,12 @@ let calcMinIncrMaxToValues (ord : Order) =
         |> Error
 
 
-let getIntake wghtInKg (ords: Order []) =
+let getIntake wghtInGram (ords: Order []) =
     let wghtInKg =
-        wghtInKg
-        |> Option.bind BigRational.fromFloat
-        |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
+        wghtInGram
+        |> Option.map BigRational.fromInt
+        |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
+        |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
     ords
     |> Array.map mapFromOrder
@@ -578,29 +541,26 @@ let print (sc: ScenarioResult) =
             Scenarios =
                 sc.Scenarios
                 |> Array.map (fun sc ->
+                    let ord = sc.Order |> Shared.OrderState.getOrder
 
                     let prs, prp, adm =
-                        sc.Order
-                        |> Option.map (fun ord ->
-                            // only print the item quantities of the principal component
-                            let sns =
-                                match ord.Orderable.Components |> Array.tryHead with
-                                | Some c ->
-                                    c.Items
-                                    |> Array.map _.Name
-                                    |> Array.filter (fun n -> Array.exists ((=) n) sc.Substances)
-                                | None -> [||]
+                        // only print the item quantities of the principal component
+                        let sns =
+                            match ord.Orderable.Components |> Array.tryHead with
+                            | Some c ->
+                                c.Items
+                                |> Array.map _.Name
+                                |> Array.filter (fun n -> Array.exists ((=) n) sc.Items)
+                            | None -> [||]
 
-                            ord
-                            |> mapFromOrder
-                            |> Order.Dto.fromDto
-                            |> Order.Print.printOrderToTableFormat sc.UseAdjust true sns
-                            |> fun (prs, prp, adm) ->
-                                prs |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
-                                prp |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
-                                adm |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem))
-                        )
-                        |> Option.defaultValue (sc.Prescription, sc.Preparation, sc.Administration)
+                        ord
+                        |> mapFromOrder
+                        |> Order.Dto.fromDto
+                        |> Order.Print.printOrderToTableFormat sc.UseAdjust true sns
+                        |> fun (prs, prp, adm) ->
+                            prs |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
+                            prp |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
+                            adm |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem))
                     { sc with
                         Prescription = prs
                         Preparation = prp
@@ -609,8 +569,7 @@ let print (sc: ScenarioResult) =
                 )
         }
     ConsoleWriter.writeInfoMessage $"""{msg "finished printing" sc}""" true true
-    sc |> Ok
-
+    sc
 
 
 let solveOrder (ord : Order) =

@@ -306,7 +306,7 @@ module PrescriptionRule =
 
 
     /// Get all patients of an array of PrescriptionRules.
-    let patients = getDoseRules >> DoseRule.patients
+    let patients = getDoseRules >> DoseRule.patientCategories
 
 
     /// Get all frequencies of an array of PrescriptionRules.

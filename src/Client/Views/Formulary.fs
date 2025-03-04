@@ -69,7 +69,7 @@ module Formulary =
                     Indication = None
                     Generic = None
                     Route = None
-                    Patient = None
+                    PatientCategory = None
                 }
 
             match msg with

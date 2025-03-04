@@ -17,11 +17,7 @@ module Prescribe =
         {|
             scenarioResult: Deferred<Types.ScenarioResult>
             updateScenarioResult: Types.ScenarioResult -> unit
-            selectScenario : (Types.Scenario * Types.Order option) -> unit
-            order: Deferred<LoadedOrder option>
-            loadOrder: OrderLoader -> unit
-            addOrderToPlan : (Scenario * Order) -> unit
-            updateScenarioOrder : unit -> unit
+            addScenarioToPlan : Scenario -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
 
@@ -263,7 +259,7 @@ module Prescribe =
             </Box>
             """
 
-        let displayScenario med (sc : Types.Scenario) =
+        let displayScenario (sr : ScenarioResult) med (sc : Types.Scenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let caption =
@@ -275,7 +271,11 @@ module Prescribe =
                         |> Option.defaultValue ""
                     $"{sc.Shape}{renal}"
 
-                let ord = sc.Order
+                let onClick sc =
+                    { sr with
+                        Scenarios = [| sc |]
+                    }
+                    |> props.updateScenarioResult
 
                 let item key icon prim sec =
                     let rows =
@@ -395,12 +395,12 @@ module Prescribe =
                         <CardActions>
                             <Button
                                 size="small"
-                                onClick={fun () -> setModalOpen true; (sc, ord) |> props.selectScenario}
+                                onClick={fun () -> setModalOpen true; onClick sc}
                                 startIcon={Mui.Icons.CalculateIcon}
                             >{Terms.Edit |> getTerm "bewerken"}</Button>
                             <Button
                                 size="small"
-                                onClick={fun () -> if ord.IsSome then (sc, ord.Value) |> props.addOrderToPlan }
+                                onClick={fun () -> sc |> props.addScenarioToPlan }
                                 startIcon={Mui.Icons.Add}
                             >Voorschrijven</Button>
                         </CardActions>
@@ -516,13 +516,11 @@ module Prescribe =
                         {
                             match props.scenarioResult with
                             | Resolved sr ->
-                                sr.Filter.Medication,
                                 sr.Scenarios
-                            | _ -> None, [||]
-                            |> fun (med, scs) ->
-                                scs
-                                |> Array.map (displayScenario med)
-                            |> unbox |> React.fragment
+                                |> Array.map (displayScenario sr sr.Filter.Medication)
+                                |> unbox
+                                |> React.fragment
+                            | _ -> Seq.empty |> React.fragment
                         }
                     </Stack>
                 </Stack>
@@ -554,9 +552,8 @@ module Prescribe =
                 <Box sx={modalStyle}>
                     {
                         Order.View {|
-                            order = props.order
-                            loadOrder = props.loadOrder
-                            updateScenarioOrder = props.updateScenarioOrder
+                            scenarioResult = props.scenarioResult
+                            updateScenarioResult = props.updateScenarioResult
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}
