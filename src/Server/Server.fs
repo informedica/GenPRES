@@ -9,12 +9,11 @@ open Shared
 open Shared.Api
 
 
-printfn $"""
+Console.WriteLine $"""
 === Initialized: ===
-- Formulary {Formulary.empty |> Formulary.get |> ignore}
-- Parenteralia {Parenteralia.empty |> Parenteralia.get |> ignore}
-- Scenarios {ScenarioResult.empty |> ScenarioResult.get |> ignore}
-
+- Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
+- Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
+- Scenarios {Models.ScenarioResult.empty |> ScenarioResult.get |> ignore}
 """
 
 
@@ -66,7 +65,8 @@ GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID"}
 GENPRES_LOG={tryGetEnv "GENPRES_LOG"}
 GENPRES_PROD={tryGetEnv "GENPRES_PROD"}
 """
-|> printfn "%s"
+|> sprintf "%s"
+|> Console.WriteLine
 
 
 run application

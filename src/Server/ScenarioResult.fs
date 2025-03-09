@@ -9,6 +9,7 @@ open Informedica.GenOrder.Lib
 
 
 open Shared.Types
+open Shared
 
 
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
@@ -24,20 +25,20 @@ let mapPatient
             |> Some
         Age =
             sr.Patient
-            |> Shared.Patient.getAgeInDays
+            |> Models.Patient.getAgeInDays
             |> Option.bind BigRational.fromFloat
             |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
         GestAge =
-            sr.Patient |> Shared.Patient.getGestAgeInDays
+            sr.Patient |> Models.Patient.getGestAgeInDays
             |> Option.map BigRational.fromInt
             |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
         Weight =
-            sr.Patient |> Shared.Patient.getWeight
+            sr.Patient |> Models.Patient.getWeight
             |> Option.map BigRational.fromInt
             |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
             |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
         Height =
-            sr.Patient |> Shared.Patient.getHeight
+            sr.Patient |> Models.Patient.getHeight
             |> Option.map BigRational.fromInt
             |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
         Gender =
@@ -74,7 +75,7 @@ let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
         |> Array.map (fun br ->
             $"{br}", br |> BigRational.toDecimal
         )
-    Shared.Order.ValueUnit.create
+    Models.Order.ValueUnit.create
         v
         dto.Unit
         dto.Group
@@ -97,7 +98,7 @@ let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
 
 
 let mapToVariable (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) : Variable =
-    Shared.Order.Variable.create dto.Name dto.IsNonZeroNegative
+    Models.Order.Variable.create dto.Name dto.IsNonZeroNegative
         (dto.MinOpt |> Option.map mapToValueUnit)
         dto.MinIncl
         (dto.IncrOpt |> Option.map mapToValueUnit)
@@ -121,7 +122,7 @@ let mapFromVariable (var : Variable) : Informedica.GenSolver.Lib.Variable.Dto.Dt
 
 
 let mapToOrderVariable (dto : OrderVariable.Dto.Dto) : Shared.Types.OrderVariable =
-    Shared.Order.OrderVariable.create
+    Models.Order.OrderVariable.create
         dto.Name
         (dto.Constraints |> mapToVariable)
         (dto.Variable |> mapToVariable)
@@ -137,7 +138,7 @@ let mapFromOrderVariable (ov : Shared.Types.OrderVariable) : OrderVariable.Dto.D
 
 
 let mapToDose (dto : Order.Orderable.Dose.Dto.Dto) : Dose =
-    Shared.Order.Dose.create
+    Models.Order.Dose.create
         (dto.Quantity |> mapToOrderVariable)
         (dto.PerTime |> mapToOrderVariable)
         (dto.Rate |> mapToOrderVariable)
@@ -162,7 +163,7 @@ let mapFromDose (dose : Dose) : Order.Orderable.Dose.Dto.Dto =
     dto
 
 let mapToItem sns (dto : Order.Orderable.Item.Dto.Dto) : Item =
-    Shared.Order.Item.create
+    Models.Order.Item.create
         dto.Name
         (dto.ComponentQuantity |> mapToOrderVariable)
         (dto.OrderableQuantity |> mapToOrderVariable)
@@ -192,7 +193,7 @@ let mapFromItem (item : Item) : Order.Orderable.Item.Dto.Dto =
 
 
 let mapToComponent sns (dto : Order.Orderable.Component.Dto.Dto) : Component =
-    Shared.Order.Component.create
+    Models.Order.Component.create
         dto.Id
         dto.Name
         dto.Shape
@@ -235,7 +236,7 @@ let mapFromComponent (comp : Component) : Order.Orderable.Component.Dto.Dto =
 
 
 let mapToOrderable sns (dto : Order.Orderable.Dto.Dto) : Orderable =
-    Shared.Order.Orderable.create
+    Models.Order.Orderable.create
         dto.Name
         (dto.OrderableQuantity |> mapToOrderVariable)
         (dto.OrderQuantity |> mapToOrderVariable)
@@ -265,7 +266,7 @@ let mapFromOrderable id n (orderable : Orderable) : Order.Orderable.Dto.Dto =
 
 
 let mapToPrescription (dto : Order.Prescription.Dto.Dto) : Prescription =
-    Shared.Order.Prescription.create
+    Models.Order.Prescription.create
         dto.IsOnce
         dto.IsOnceTimed
         dto.IsContinuous
@@ -289,7 +290,7 @@ let mapFromPrescription (prescription : Prescription) : Order.Prescription.Dto.D
 
 
 let mapToOrder sns (dto : Order.Dto.Dto) : Shared.Types.Order =
-    Shared.Order.create
+    Models.Order.create
         dto.Id
         (dto.Adjust |> mapToOrderVariable)
         (dto.Orderable |> (mapToOrderable sns))
@@ -342,9 +343,9 @@ let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Shared.Ty
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
-let mapToIntake (intake : Types.Intake) : Intake =
+let mapToIntake (intake : Informedica.GenOrder.Lib.Types.Intake) : Intake =
     let toTextItem =
-        Option.map Shared.ScenarioResult.parseTextItem
+        Option.map Models.ScenarioResult.parseTextItem
         >> (Option.defaultValue [||])
     {
         Volume = intake.Volume |> toTextItem
@@ -379,6 +380,7 @@ Indication: {sr.Filter.Indication |> Option.defaultValue ""}
 Medication: {sr.Filter.Medication |> Option.defaultValue ""}
 Route: {sr.Filter.Route |> Option.defaultValue ""}
 DoseType: {sr.Filter.DoseType}
+Diluent: {sr.Filter.Diluent}
 Scenarios: {sr.Scenarios |> Array.length}
 """
 
@@ -390,48 +392,51 @@ Scenarios: {sr.Scenarios |> Array.length}
         |> Patient.calcPMAge
 
     try
-        let newSc =
-            let r = Api.scenarioResult pat
-            { r with
+        let newResult =
+            let patResult = Api.scenarioResult pat
+
+            let dil =
+                if sr.Filter.Diluent.IsSome then sr.Filter.Diluent
+                else
+                    sr.Scenarios
+                    |> Array.tryExactlyOne
+                    |> Option.bind _.Diluent
+
+            { patResult with
                 Filter =
-                    { r.Filter with
+                    { patResult.Filter with
                         Indications =
                             if sr.Filter.Indication |> Option.isSome then
                                 [| sr.Filter.Indication |> Option.defaultValue "" |]
                             else
-                                r.Filter.Indications
+                                patResult.Filter.Indications
                         Generics =
                             if sr.Filter.Medication |> Option.isSome then
                                 [| sr.Filter.Medication |> Option.defaultValue "" |]
                             else
-                                r.Filter.Generics
+                                patResult.Filter.Generics
                         Shapes =
                             if sr.Filter.Shape |> Option.isSome then
                                 [| sr.Filter.Shape |> Option.defaultValue "" |]
                             else
-                                r.Filter.Shapes
+                                patResult.Filter.Shapes
                         Routes =
                             if sr.Filter.Route |> Option.isSome then
                                 [| sr.Filter.Route |> Option.defaultValue "" |]
                             else
-                                r.Filter.Routes
-                        Diluents =
-                            if sr.Filter.Diluent |> Option.isSome then
-                                [| sr.Filter.Diluent |> Option.defaultValue "" |]
-                            else
-                                r.Filter.Diluents
+                                patResult.Filter.Routes
                         DoseTypes =
                             if sr.Filter.DoseType |> Option.isSome then
                                 [| sr.Filter.DoseType |> Option.defaultValue NoDoseType |]
                                 |> Array.map mapFromSharedDoseType
                             else
-                                r.Filter.DoseTypes
+                                patResult.Filter.DoseTypes
                         Indication = sr.Filter.Indication
                         Generic = sr.Filter.Medication
                         Shape = sr.Filter.Shape
                         Route = sr.Filter.Route
-                        Diluent = sr.Filter.Diluent
                         DoseType = sr.Filter.DoseType |> Option.map mapFromSharedDoseType
+                        Diluent = dil
                     }
             }
             |> Api.filter
@@ -439,30 +444,33 @@ Scenarios: {sr.Scenarios |> Array.length}
         { sr with
             Filter =
                 { sr.Filter with
-                    Indications = newSc.Filter.Indications
-                    Medications = newSc.Filter.Generics
-                    Routes = newSc.Filter.Routes
-                    DoseTypes = newSc.Filter.DoseTypes |> Array.map mapToSharedDoseType
-                    Diluents = newSc.Filter.Diluents
-                    Indication = newSc.Filter.Indication
-                    Medication = newSc.Filter.Generic
-                    Shape = newSc.Filter.Shape
-                    Route = newSc.Filter.Route
-                    DoseType = newSc.Filter.DoseType |> Option.map mapToSharedDoseType
+                    Indications = newResult.Filter.Indications
+                    Medications = newResult.Filter.Generics
+                    Routes = newResult.Filter.Routes
+                    DoseTypes = newResult.Filter.DoseTypes |> Array.map mapToSharedDoseType
+                    Diluents = newResult.Filter.Diluents
+                    Indication = newResult.Filter.Indication
+                    Medication = newResult.Filter.Generic
+                    Shape = newResult.Filter.Shape
+                    Route = newResult.Filter.Route
+                    DoseType = newResult.Filter.DoseType |> Option.map mapToSharedDoseType
+                    Diluent = newResult.Filter.Diluent
                 }
+
             Scenarios =
-                newSc.Scenarios
+                newResult.Scenarios
                 |> Array.map (fun sc ->
-                    Shared.ScenarioResult.createScenario
+                    Models.ScenarioResult.createScenario
                         sc.Id
                         sc.Indication
+                        sc.Diluents
                         sc.Components
                         sc.Items
                         sc.Shape
+                        sc.Diluent
                         (sc.DoseType |> mapToSharedDoseType)
                         sc.Component
                         sc.Item
-                        sc.Diluent
                         sc.Prescription
                         sc.Preparation
                         sc.Administration
@@ -541,7 +549,7 @@ let print (sc: ScenarioResult) =
             Scenarios =
                 sc.Scenarios
                 |> Array.map (fun sc ->
-                    let ord = sc.Order |> Shared.OrderState.getOrder
+                    let ord = sc.Order |> Models.OrderState.getOrder
 
                     let prs, prp, adm =
                         // only print the item quantities of the principal component
@@ -558,9 +566,9 @@ let print (sc: ScenarioResult) =
                         |> Order.Dto.fromDto
                         |> Order.Print.printOrderToTableFormat sc.UseAdjust true sns
                         |> fun (prs, prp, adm) ->
-                            prs |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
-                            prp |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem)),
-                            adm |> Array.map (Array.map (Api.replace >> Shared.ScenarioResult.parseTextItem))
+                            prs |> Array.map (Array.map (Api.replace >> Models.ScenarioResult.parseTextItem)),
+                            prp |> Array.map (Array.map (Api.replace >> Models.ScenarioResult.parseTextItem)),
+                            adm |> Array.map (Array.map (Api.replace >> Models.ScenarioResult.parseTextItem))
                     { sc with
                         Prescription = prs
                         Preparation = prp

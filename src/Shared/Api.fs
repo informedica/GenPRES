@@ -3,14 +3,17 @@ namespace Shared
 
 module Api =
 
+
     open Types
+
 
     type ScenarioResultMessage =
         | GetScenarioResult of ScenarioResult
         | CalcValues of ScenarioResult
         | SolveOrder of ScenarioResult
 
-    type IntakeMessage = GetIntake of TreatmentPlan
+    type TreatmentPlanMessage =
+        | CalcTreatmentPlan of TreatmentPlan
 
     type FormularyMessage =
         | GetFormulary of Formulary
@@ -18,9 +21,8 @@ module Api =
 
     type Message =
         | ScenarioResultMsg of ScenarioResultMessage
-        | IntakeMsg of IntakeMessage
+        | TreatmentPlanMsg of TreatmentPlanMessage
         | FormularyMsg of FormularyMessage
-        | Test
 
 
     /// Defines how routes are generated on server and mapped from client
@@ -32,12 +34,5 @@ module Api =
     type IServerApi =
         {
             processMessage: Message -> Async<Result<Message, string[]>>
-            getScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
-            printScenarioResult: ScenarioResult -> Async<Result<ScenarioResult, string>>
-            calcMinIncrMax: Order -> Async<Result<Order, string>>
-            solveOrder: Order -> Async<Result<Order, string>>
-            getIntake: int option -> Order[] -> Async<Result<Intake, string>>
-            getFormulary: Formulary -> Async<Result<Formulary, string>>
-            getParenteralia: Parenteralia -> Async<Result<Parenteralia, string>>
-            test: unit -> Async<string>
+            testApi: unit -> Async<string>
         }

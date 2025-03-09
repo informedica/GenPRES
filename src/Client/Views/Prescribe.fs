@@ -1,23 +1,22 @@
 namespace Views
 
-open System
 open Fable.Core
-open Fable.React
 open Feliz
-open Browser.Types
+open Shared
+open Shared.Models
 
 
 module Prescribe =
 
-    open Shared
 
 
     [<JSX.Component>]
     let View (props:
         {|
-            scenarioResult: Deferred<Types.ScenarioResult>
-            updateScenarioResult: Types.ScenarioResult -> unit
-            addScenarioToPlan : Scenario -> unit
+            scenarioResult: Deferred<ScenarioResult>
+            updateScenarioResult: ScenarioResult -> unit
+            treatmentPlan : Deferred<TreatmentPlan>
+            updateTreatmentPlan : TreatmentPlan -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
 
@@ -42,8 +41,6 @@ module Prescribe =
                             { sr.Filter with
                                 Indications = [||]
                                 Indication = None
-                                Diluents = [||]
-                                Diluent = None
                                 DoseTypes = [||]
                                 DoseType = None
                             }
@@ -68,8 +65,6 @@ module Prescribe =
                             { sr.Filter with
                                 Medications = [||]
                                 Medication = None
-                                Diluents = [||]
-                                Diluent = None
                                 DoseTypes = [||]
                                 DoseType = None
                             }
@@ -95,8 +90,6 @@ module Prescribe =
                             { sr.Filter with
                                 Routes = [||]
                                 Route = None
-                                Diluents = [||]
-                                Diluent = None
                                 DoseTypes = [||]
                                 DoseType = None
                             }
@@ -115,24 +108,16 @@ module Prescribe =
         let diluentChange s =
             match props.scenarioResult with
             | Resolved sr ->
-                if s |> Option.isNone then
-                    { sr with
-                        Filter =
-                            { sr.Filter with
-                                Diluents = [||]
-                                Diluent = None
-                                DoseTypes = [||]
-                                DoseType = None
-                            }
-                        Scenarios = [||]
-                    }
-                else
-                    { sr with
-                        Filter =
-                            { sr.Filter with
+                { sr with
+                    Filter = { sr.Filter with Diluent = s }
+                    Scenarios =
+                        sr.Scenarios
+                        |> Array.map (fun sc ->
+                            { sc with
                                 Diluent = s
                             }
-                    }
+                        )
+                }
                 |> props.updateScenarioResult
             | _ -> ()
 
@@ -190,6 +175,7 @@ module Prescribe =
         let progress =
             match props.scenarioResult with
             | Resolved _ -> JSX.jsx $"<></>"
+            | HasNotStartedYet -> JSX.jsx $"<>Voer eerst patient gegevens in</>"
             | _ ->
                 JSX.jsx
                     $"""
@@ -259,7 +245,7 @@ module Prescribe =
             </Box>
             """
 
-        let displayScenario (sr : ScenarioResult) med (sc : Types.Scenario) =
+        let displayScenario (sr : ScenarioResult) med (sc : Scenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let caption =
@@ -271,11 +257,21 @@ module Prescribe =
                         |> Option.defaultValue ""
                     $"{sc.Shape}{renal}"
 
-                let onClick sc =
+                let onClick (sc : Scenario) =
                     { sr with
+                        Filter = { sr.Filter with Shape = Some sc.Shape }
                         Scenarios = [| sc |]
                     }
                     |> props.updateScenarioResult
+
+                let updateTreatmentPlan () =
+                    match props.treatmentPlan with
+                    | Resolved tp ->
+                        { tp with
+                            Scenarios = [| sc |]
+                        }
+                        |> props.updateTreatmentPlan
+                    | _ -> ()
 
                 let item key icon prim sec =
                     let rows =
@@ -400,7 +396,7 @@ module Prescribe =
                             >{Terms.Edit |> getTerm "bewerken"}</Button>
                             <Button
                                 size="small"
-                                onClick={fun () -> sc |> props.addScenarioToPlan }
+                                onClick={updateTreatmentPlan}
                                 startIcon={Mui.Icons.Add}
                             >Voorschrijven</Button>
                         </CardActions>
@@ -428,7 +424,7 @@ module Prescribe =
                         | Resolved sr -> false, sr.Filter.Indication, sr.Filter.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            let lbl = (Terms.``Prescribe Indications`` |> getTerm "Indicaties")
+                            let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
 
                             if isMobile then
                                 items
@@ -444,7 +440,7 @@ module Prescribe =
                             | Resolved sr -> false, sr.Filter.Medication, sr.Filter.Medications
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
-                                let lbl = (Terms.``Prescribe Medications`` |> getTerm "Medicatie")
+                                let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
 
                                 if isMobile then
                                     items
@@ -460,7 +456,7 @@ module Prescribe =
                             | Resolved sr -> false, sr.Filter.Route, sr.Filter.Routes
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
-                                let lbl = (Terms.``Prescribe Routes`` |> getTerm "Routes")
+                                let lbl = Terms.``Prescribe Routes`` |> getTerm "Routes"
 
                                 if isMobile then
                                     items
@@ -476,15 +472,18 @@ module Prescribe =
                             | Resolved sr when sr.Filter.Indication.IsSome &&
                                                sr.Filter.Medication.IsSome &&
                                                sr.Filter.Route.IsSome &&
-                                               sr.Filter.Diluents |> Array.length > 1 ->
-                                (false, sr.Filter.Diluent, sr.Filter.Diluents)
-                                |> fun (isLoading, sel, items) ->
+                                               sr.Filter.Diluents |> Array.length > 1 &&
+                                               sr.Scenarios |> Array.length = 1 ->
+
+                                    let sc = sr.Scenarios |> Array.head
+                                    let sel = sc.Diluent
+                                    let items = sr.Filter.Diluents
                                     let lbl = "Verdunningsvorm"
                                     let sel = sel
 
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading lbl sel diluentChange
+                                    |> select false lbl sel diluentChange
 
                             | _ -> JSX.jsx $"<></>"
                         }

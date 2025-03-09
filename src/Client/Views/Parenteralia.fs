@@ -1,11 +1,13 @@
 namespace Views
 
-open System
 open Fable.Core
-open Fable.React
 open Feliz
-open Browser.Types
+open Feliz.UseElmish
+open Elmish
+open Utils
 open Shared.Types
+open Shared
+open Shared.Models
 
 
 module Parenteralia =
@@ -13,12 +15,6 @@ module Parenteralia =
 
     module private Elmish =
 
-        open Feliz
-        open Feliz.UseElmish
-        open Elmish
-        open Shared
-        open Utils
-        open FSharp.Core
 
 
         type State =
@@ -66,7 +62,7 @@ module Parenteralia =
             =
 
             match msg with
-            | Clear -> 
+            | Clear ->
                 match parentaralia with
                 | Resolved par ->
                     Parenteralia.empty
@@ -124,7 +120,7 @@ module Parenteralia =
         let lang = context.Localization
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:900px)"
 
-        let getTerm defVal term = 
+        let getTerm defVal term =
             //props.localizationTerms
             HasNotStartedYet
             |> Deferred.map (fun terms ->
@@ -137,7 +133,7 @@ module Parenteralia =
             React.useElmish (
                 init props.parenteralia,
                 update props.parenteralia props.updateParenteralia,
-                [| 
+                [|
                     box props.parenteralia
                 |]
             )

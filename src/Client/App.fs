@@ -1,22 +1,22 @@
 module App
 
+open System
 open Fable.Core
 open Browser
 open Fable.React
+open Elmish
+open Feliz.Router
+open Fable.Remoting.Client
+open Utils
+open Shared
+open Shared.Models
+open Global
 
 
 module private Elmish =
 
-    open Elmish
-    open Feliz.Router
-    open Fable.Remoting.Client
-    open Shared
-    open Global
-    open Utils
-    open System
 
-
-    type Model =
+    type State =
         {
             Page : Global.Pages
             Patient: Patient option
@@ -25,7 +25,6 @@ module private Elmish =
             Products: Deferred<Product list>
             ScenarioResult: Deferred<ScenarioResult>
             TreatmentPlan : Deferred<TreatmentPlan>
-            Intake : Deferred<Intake>
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
@@ -39,27 +38,35 @@ module private Elmish =
 
 
     type Msg =
-        | AcceptDisclaimer
-        | UpdatePatient of Patient option
-        | UpdatePage of Global.Pages
         | UrlChanged of string list
+        | AcceptDisclaimer
+
+        | UpdatePage of Global.Pages
+        | UpdatePatient of Patient option
+
         | LoadBolusMedication of
             AsyncOperationStatus<Result<BolusMedication list, string>>
         | LoadContinuousMedication of
             AsyncOperationStatus<Result<ContinuousMedication list, string>>
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
+
         | UpdateScenarioResult of ScenarioResult
-        | AddScenarioToPlan of Scenario
-        | GetIntake of AsyncOperationStatus<Result<Intake, string>>
-        | LoadFormulary of AsyncOperationStatus<Result<Formulary, string>>
+        | LoadScenarioResult of AsyncOperationStatus<Result<Api.Message, string []>>
+
+        | UpdateTreatmentPlan of TreatmentPlan
+        | LoadTreatmentPlan of AsyncOperationStatus<Result<Api.Message, string []>>
+
         | UpdateFormulary of Formulary
-        | LoadParenteralia of AsyncOperationStatus<Result<Parenteralia, string>>
+        | LoadFormulary of AsyncOperationStatus<Result<Api.Message, string []>>
+
         | UpdateParenteralia of Parenteralia
-        | LoadLocalization of AsyncOperationStatus<Result<string [][], string>>
+        | LoadParenteralia of AsyncOperationStatus<Result<Api.Message, string []>>
+
         | UpdateLanguage of Localization.Locales
+        | LoadLocalization of AsyncOperationStatus<Result<string [][], string>>
+
         | UpdateHospital of string
         | CloseSnackbar
-        | MessageServer of AsyncOperationStatus<Result<Api.Message, string []>>
 
 
     let serverApi =
@@ -68,42 +75,72 @@ module private Elmish =
         |> Remoting.buildProxy<Api.IServerApi>
 
 
-    let processApiMsg msg =
+    let createApiMsg msg cmd =
         async {
-            let! result = serverApi.processMessage msg
-            return Finished result |> MessageServer
+            let! result = serverApi.processMessage cmd
+            return Finished result |> msg
         }
         |> Cmd.fromAsync
+
+
+    let processApiMsg state msg =
+        match msg with
+        | Api.ScenarioResultMsg msg ->
+            match msg with
+            | Api.SolveOrder sr
+            | Api.CalcValues sr
+            | Api.GetScenarioResult sr ->
+                { state with
+                    ScenarioResult = Resolved sr
+                }, Cmd.none
+        | Api.TreatmentPlanMsg (Api.CalcTreatmentPlan tp) ->
+            {  state with
+                TreatmentPlan = Resolved tp
+            }, Cmd.none
+        | Api.FormularyMsg (Api.GetFormulary form) ->
+            { state with
+                Formulary = Resolved form
+            }, Cmd.none
+        | Api.FormularyMsg (Api.GetParenteralia par) ->
+            { state with
+                Parenteralia = Resolved par
+            }, Cmd.none
 
 
     let getScenarioResult =
         Api.GetScenarioResult
         >> Api.ScenarioResultMsg
-        >> processApiMsg
+        >> createApiMsg LoadScenarioResult
 
+
+    let calcTreatmentPlan =
+        Api.CalcTreatmentPlan
+        >> Api.TreatmentPlanMsg
+        >> createApiMsg LoadTreatmentPlan
 
     let calcValues =
        Api.CalcValues
         >> Api.ScenarioResultMsg
-        >> processApiMsg
+        >> createApiMsg LoadScenarioResult
 
 
     let solveOrder =
         Api.SolveOrder
         >> Api.ScenarioResultMsg
-        >> processApiMsg
+        >> createApiMsg LoadScenarioResult
 
 
     let loadFormuarly =
         Api.GetFormulary
         >> Api.FormularyMsg
-        >> processApiMsg
+        >> createApiMsg LoadFormulary
 
 
     let loadParenteralia =
         Api.GetParenteralia
         >> Api.FormularyMsg
-        >> processApiMsg
+        >> createApiMsg LoadParenteralia
+
 
 
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
@@ -299,8 +336,10 @@ module private Elmish =
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
             ScenarioResult = HasNotStartedYet
-            Intake = HasNotStartedYet
-            TreatmentPlan = HasNotStartedYet
+            TreatmentPlan =
+                match pat with
+                | None -> HasNotStartedYet
+                | Some p -> TreatmentPlan.create p [||] |> Resolved
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Localization = HasNotStartedYet
@@ -315,7 +354,7 @@ module private Elmish =
             SnackbarOpen = false
         }
 
-    let init () : Model * Cmd<Msg> =
+    let init () : State * Cmd<Msg> =
         let pat, page, lang, discl, med = Router.currentUrl () |> parseUrl
 
         let cmds =
@@ -333,7 +372,13 @@ module private Elmish =
         , cmds
 
 
-    let update (msg: Msg) (state: Model) =
+    let update (msg: Msg) (state: State) =
+        let processOk = processApiMsg state
+        let processError s =
+            Logging.error "error" s
+            state, Cmd.none
+
+
         match msg with
         | CloseSnackbar ->
             { state with
@@ -359,13 +404,44 @@ module private Elmish =
                 Context =  { state.Context with Hospital = hosp }
             }, Cmd.none
 
+        | UpdatePage p ->
+            { state with
+                Page = p
+            }, Cmd.none
+
         | UpdatePatient p ->
             { state with
                 Patient = p
+                ScenarioResult =
+                    match p with
+                    | None -> HasNotStartedYet
+                    | Some p ->
+                        ScenarioResult.empty
+                        |> ScenarioResult.setPatient p
+                        |> Resolved
+                TreatmentPlan =
+                    match p with
+                    | None -> HasNotStartedYet
+                    | Some p ->
+                        let tp = TreatmentPlan.create p [||]
+                        state.TreatmentPlan
+                        |> Deferred.map (fun tp ->
+                            { tp with Patient = p }
+                        )
+                        |> Deferred.defaultValue tp
+                        |> Resolved
+                Formulary =
+                    {Formulary.empty with Patient = p }
+                    |> Resolved
+                Parenteralia =
+                    Parenteralia.empty
+                    |> Resolved
             },
             Cmd.batch [
-                Cmd.ofMsg (MessageServer Started)
+                Cmd.ofMsg (LoadScenarioResult Started)
+                Cmd.ofMsg (LoadTreatmentPlan Started)
                 Cmd.ofMsg (LoadFormulary Started)
+                Cmd.ofMsg (LoadParenteralia Started)
             ]
 
         | UrlChanged sl ->
@@ -382,34 +458,6 @@ module private Elmish =
                     }
             },
             Cmd.ofMsg (pat |> UpdatePatient)
-
-        | UpdatePage page ->
-            let cmd =
-                match page with
-                | p when p = Prescribe ->
-                    match state.ScenarioResult with
-                    | Resolved _ ->
-                        GetIntake Started |> Cmd.ofMsg
-                    | _ ->
-                        MessageServer Started |> Cmd.ofMsg
-                | p when p = TreatmentPlan || p = Nutrition ->
-                    match state.TreatmentPlan with
-                    | Resolved _ ->
-                        GetIntake Started |> Cmd.ofMsg
-                    | _ ->
-                        Cmd.none
-                | p when p = Formulary ->
-                    match state.Formulary with
-                    | Resolved _ -> Cmd.none
-                    | _ ->
-                        LoadFormulary Started |> Cmd.ofMsg
-
-                | _ -> Cmd.none
-
-            { state with
-                Page = page
-            }
-            , cmd
 
         | LoadLocalization Started ->
             { state with
@@ -488,7 +536,7 @@ module private Elmish =
 
 
         | UpdateScenarioResult sr ->
-            let sc =
+            let sr =
                 { sr with
                     Patient =
                         state.Patient
@@ -496,92 +544,41 @@ module private Elmish =
                 }
 
             { state with
-                ScenarioResult = Resolved sc
-                Intake = HasNotStartedYet
+                ScenarioResult = Resolved sr
                 Formulary =
                     state.Formulary
                     |> Deferred.map (fun form ->
                         { form with
-                            Indication = sc.Filter.Indication
-                            Generic = sc.Filter.Medication
-                            Route = sc.Filter.Route
+                            Indication = sr.Filter.Indication
+                            Generic = sr.Filter.Medication
+                            Route = sr.Filter.Route
                         }
                     )
                 Parenteralia =
                     state.Parenteralia
                     |> Deferred.map (fun par ->
                         { par with
-                            Generic = sc.Filter.Medication
-                            Shape = sc.Filter.Shape
-                            Route = sc.Filter.Route
+                            Generic = sr.Filter.Medication
+                            Shape = sr.Filter.Shape
+                            Route = sr.Filter.Route
                         }
                     )
             },
             Cmd.batch [
-                Cmd.ofMsg (MessageServer Started)
+                Cmd.ofMsg (LoadScenarioResult Started)
                 Cmd.ofMsg (LoadFormulary Started)
                 Cmd.ofMsg (LoadParenteralia Started)
             ]
 
-        | AddScenarioToPlan sc ->
+        | UpdateTreatmentPlan tp ->
             { state with
-                TreatmentPlan =
-                    state.TreatmentPlan
-                    |> Deferred.map (fun tp ->
-                        { tp with
-                            Scenarios
-                                = tp.Scenarios
-                                |> Array.append [| sc |]
-                        }
-                    )
+                Page = TreatmentPlan
+                TreatmentPlan = Resolved tp
             },
             Cmd.batch [
                 Cmd.ofMsg (UpdateScenarioResult ScenarioResult.empty)
-                Cmd.ofMsg (UpdatePage TreatmentPlan)
+                Cmd.ofMsg (LoadTreatmentPlan Started)
             ]
-
-        | GetIntake Started ->
-            let getIntake w ords =
-                let load =
-                    async {
-                        let! intake = serverApi.getIntake w ords
-                        return Finished intake |> GetIntake
-                    }
-                { state with Intake = InProgress }, Cmd.fromAsync load
-
-            match state.Patient with
-            | Some pat ->
-                let w = pat |> Patient.getWeight
-
-                match state.Page with
-                | Prescribe ->
-                    match state.ScenarioResult with
-                    | Resolved sr ->
-                        if sr.Scenarios |> Array.length = 1 then
-                            sr.Scenarios
-                            |> Array.map _.Order
-                            |> Array.map OrderState.getOrder
-                            |> getIntake w
-                        else
-                            state, Cmd.none
-                    | _ -> state, Cmd.none
-                | TreatmentPlan ->
-                    match state.TreatmentPlan with
-                    | Resolved tp when tp.Scenarios |> Array.isEmpty |> not ->
-                        tp.Scenarios
-                        |> Array.map _.Order
-                        |> Array.map OrderState.getOrder
-                        |> getIntake w
-                    | _ -> state, Cmd.none
-                | _ -> state, Cmd.none
-            | None -> state, Cmd.none
-
-        | GetIntake (Finished (Ok intake)) ->
-            { state with Intake = intake |> Resolved }, Cmd.none
-
-        | GetIntake (Finished (Error s)) ->
-            Logging.error "error getting intake" s
-            state, Cmd.none
 
         | LoadFormulary Started ->
             let form =
@@ -593,19 +590,11 @@ module private Elmish =
                     }
                 | _ -> Formulary.empty
 
-            let load =
-                async {
-                    let! result = serverApi.getFormulary form
-                    return Finished result |> LoadFormulary
-                }
+            let cmd = form |> loadFormuarly
 
-            { state with Formulary = InProgress }, Cmd.fromAsync load
+            { state with Formulary = InProgress }, cmd
 
-        | LoadFormulary (Finished (Ok form)) ->
-            { state with
-                Formulary = Resolved form
-            },
-            Cmd.none
+        | LoadFormulary (Finished (Ok msg)) -> processOk msg
 
         | LoadFormulary (Finished(Error err)) ->
             Logging.error "LoadFormulary error:" err
@@ -632,24 +621,19 @@ module private Elmish =
             state,
             Cmd.batch [
                 Cmd.ofMsg (LoadFormulary Started)
-                Cmd.ofMsg (MessageServer Started)
+                Cmd.ofMsg (LoadScenarioResult Started)
             ]
 
         | LoadParenteralia Started ->
-            let load =
+            let cmd =
                 let par =
                     state.Parenteralia
                     |> Deferred.defaultValue Parenteralia.empty
 
-                async {
-                    let! result = par |> serverApi.getParenteralia
-                    return Finished result |> LoadParenteralia
-                }
-            { state with Parenteralia = InProgress }, Cmd.fromAsync load
+                loadParenteralia par
+            { state with Parenteralia = InProgress }, cmd
 
-        | LoadParenteralia (Finished(Ok par)) ->
-
-            { state with Parenteralia = Resolved par }, Cmd.none
+        | LoadParenteralia (Finished(Ok msg)) -> msg |> processOk
 
         | LoadParenteralia (Finished (Error err)) ->
             Logging.error "LoadParenteralia finished with error:" err
@@ -662,65 +646,49 @@ module private Elmish =
                 }
             state, Cmd.ofMsg(LoadParenteralia Started)
 
-        | MessageServer Started ->
-            match state.Page with
-            | Prescribe ->
+        | LoadScenarioResult Started ->
+            match state.Patient with
+            | None -> { state with ScenarioResult = HasNotStartedYet }, Cmd.none
+            | Some pat ->
                 match state.ScenarioResult with
                 | HasNotStartedYet ->
-                    match state.Patient with
-                    | Some pat ->
                         { state with ScenarioResult = InProgress },
                         ScenarioResult.empty
                         |> ScenarioResult.setPatient pat
                         |> getScenarioResult
-                    | _ -> state, Cmd.none
                 | InProgress -> state, Cmd.none
                 | Resolved sr ->
+                    let sr = { sr with Patient = pat }
+
                     { state with ScenarioResult = InProgress },
                     match sr.Scenarios with
                     | [| sc |] ->
                         match sc.Order with
-                        | Constrained _ -> Logging.log "order is" "constrained"; sr |> calcValues
-                        | Values _      -> Logging.log "order is" "values"; sr |> solveOrder
-                        | Solved _      -> Logging.log "order is" "solved"; sr |> calcValues
+                        | Constrained o -> Logging.log "order is" "constrained"; sr |> calcValues
+                        | Values o      -> Logging.log "order is" "values"; sr |> solveOrder
+                        | Solved o      -> Logging.log "order is" "solved"; sr |> calcValues
 
                     | _ -> sr |> getScenarioResult
 
-            | Formulary ->
-                match state.Formulary with
+        | LoadScenarioResult (Finished (Ok msg)) -> msg |> processOk
+        | LoadScenarioResult (Finished (Error err)) -> err |> processError
+
+        | LoadTreatmentPlan Started ->
+            match state.Patient with
+            | None -> { state with TreatmentPlan = HasNotStartedYet }, Cmd.none
+            | Some pat ->
+                match state.TreatmentPlan with
                 | HasNotStartedYet ->
-                    state,
-                    Formulary.empty
-                    |> loadFormuarly
+                    { state with TreatmentPlan = InProgress },
+                    TreatmentPlan.create pat [||]
+                    |> calcTreatmentPlan
                 | InProgress -> state, Cmd.none
-                | Resolved form ->
-                    state,
-                    if state.Patient = form.Patient then
-                        Cmd.none
-                    else
-                        { form with Patient = state.Patient }
-                        |> loadFormuarly
+                | Resolved tp ->
+                    { state with TreatmentPlan = InProgress },
+                    tp |> calcTreatmentPlan
 
-            | _ -> state, Cmd.none
-
-        | MessageServer (Finished (Ok msg)) ->
-            match msg with
-            | Api.ScenarioResultMsg msg ->
-                match msg with
-                | Api.SolveOrder sr
-                | Api.CalcValues sr
-                | Api.GetScenarioResult sr ->
-                    { state with
-                        ScenarioResult = Resolved sr
-                    },
-                    Cmd.none
-
-            | _ ->
-                failwith "Not Implemented"
-
-        | MessageServer (Finished (Error s)) ->
-            Logging.error "error" s
-            state, Cmd.none
+        | LoadTreatmentPlan (Finished (Ok msg)) -> msg |> processOk
+        | LoadTreatmentPlan (Finished (Error err)) -> err |> processError
 
 
     let calculatInterventions calc meds pat =
@@ -827,12 +795,11 @@ let View () =
                         scenarioResult = state.ScenarioResult
                         updateScenarioResult = UpdateScenarioResult >> dispatch
                         treatmentPlan = state.TreatmentPlan
-                        addScenarioToPlan = AddScenarioToPlan >> dispatch
+                        updateTreatmentPlan = UpdateTreatmentPlan >> dispatch
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch
                         parenteralia = state.Parenteralia
                         updateParenteralia = UpdateParenteralia >> dispatch
-                        intake = state.Intake
                         page = state.Page
                         localizationTerms = state.Localization
                         languages = Localization.languages

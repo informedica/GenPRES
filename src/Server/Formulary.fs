@@ -9,6 +9,7 @@ open Informedica.GenOrder.Lib
 
 
 open Shared.Types
+open Shared
 
 
 module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
@@ -25,17 +26,17 @@ let mapFormularyToFilter (form: Formulary)=
                 { Patient.patient with
                     Age =
                         pat
-                        |> Shared.Patient.getAgeInDays
+                        |> Models.Patient.getAgeInDays
                         |> Option.bind BigRational.fromFloat
                         |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
                     Weight =
                         pat
-                        |> Shared.Patient.getWeightInKg
+                        |> Models.Patient.getWeightInKg
                         |> Option.bind BigRational.fromFloat
                         |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
                     GestAge =
                         pat
-                        |> Shared.Patient.getHeight
+                        |> Models.Patient.getHeight
                         |> Option.map BigRational.fromInt
                         |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
                 }
@@ -108,7 +109,7 @@ let get (form : Formulary) =
                             |> checkDoseRules filter.Patient
                             |> Array.map (fun s ->
                                 match s |> String.split "\t" with
-                                | [s1; _; p; s2] ->
+                                | [| s1; _; p; s2 |] ->
                                     if dsrs |> Array.length = 1 then $"{s1} {s2}"
                                     else
                                         $"{s1} {p} {s2}"

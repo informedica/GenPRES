@@ -1,8 +1,6 @@
 [<AutoOpen>]
 module Utils
 
-open System
-
 
 module String =
 
@@ -12,6 +10,7 @@ module String =
 open Fable.Core
 open Feliz
 open Browser.Types
+
 
 let inline toJsx (el: ReactElement) : JSX.Element = unbox el
 
@@ -71,9 +70,9 @@ module Logging =
 
 module GoogleDocs =
 
-    open System
     open Fable.SimpleHttp
     open Shared
+
 
     let inline getUrl parseResponse msg url =
         async {
@@ -106,6 +105,9 @@ module GoogleDocs =
 
     let dataGPUrlId =
         "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+
+
+    open Shared.Models
 
 
     let loadBolusMedication msg =

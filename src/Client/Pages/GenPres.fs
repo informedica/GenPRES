@@ -123,8 +123,7 @@ module GenPres =
             scenarioResult: Deferred<ScenarioResult>
             updateScenarioResult : ScenarioResult -> unit
             treatmentPlan: Deferred<TreatmentPlan>
-            addScenarioToPlan: Scenario -> unit
-            intake : Deferred<Intake>
+            updateTreatmentPlan: TreatmentPlan -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
             parenteralia : Deferred<Parenteralia>
@@ -237,7 +236,8 @@ module GenPres =
                                 Views.Prescribe.View {|
                                     scenarioResult = props.scenarioResult
                                     updateScenarioResult = props.updateScenarioResult
-                                    addScenarioToPlan = props.addScenarioToPlan
+                                    treatmentPlan = props.treatmentPlan
+                                    updateTreatmentPlan = props.updateTreatmentPlan
                                     localizationTerms = props.localizationTerms
                                 |}
                             | Global.Pages.Nutrition ->
@@ -268,9 +268,16 @@ module GenPres =
                         {
                             match props.page with
                             | Global.Pages.Prescribe
-                            | Global.Pages.Nutrition
+                            | Global.Pages.Nutrition ->
+                                match props.scenarioResult with
+                                | Resolved sr ->
+                                    Views.Intake.View {| intake = sr.Intake |}
+                                | _ -> JSX.jsx "<></>"
                             | Global.Pages.TreatmentPlan ->
-                                Views.Intake.View props.intake
+                                match props.treatmentPlan with
+                                | Resolved tp ->
+                                    Views.Intake.View {| intake = tp.Intake |}
+                                | _ -> JSX.jsx "<></>"
                             | _ -> JSX.jsx "<></>"
                         }
                     </Box>

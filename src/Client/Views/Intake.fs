@@ -87,7 +87,7 @@ module Intake =
 
 
     [<JSX.Component>]
-    let View(res: Deferred<Intake>) =
+    let View(props: {| intake : Intake |}) =
         let mapRow (intake: Intake) row =
             let print n itms =
                 if itms |> Array.length < 2 then [||]
@@ -123,21 +123,14 @@ module Intake =
             )
 
         let rows1, rows2, rows3, rows4 =
-            match res with
-            | Resolved intake ->
-                let map = mapRow intake
-                map rows1
-                ,
-                map rows2
-                ,
-                map rows3
-                ,
-                map rows4
-            | _ ->
-                [||],
-                [||],
-                [||],
-                [||]
+            let map = mapRow props.intake
+            map rows1
+            ,
+            map rows2
+            ,
+            map rows3
+            ,
+            map rows4
 
         let createTable n rows = $"table{n}", Components.BasicTable.View({| header = [||]; rows = rows |}) |> toReact
 

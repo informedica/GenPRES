@@ -7,6 +7,7 @@ module TreatmentPlan =
     open Feliz
 
     open Shared
+    open Shared.Models
 
 
     [<JSX.Component>]

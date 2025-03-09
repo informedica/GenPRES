@@ -359,6 +359,7 @@ module Types =
                 DoseType : DoseType
                 /// the name of the order
                 Name : string
+                Diluents : string []
                 // The list of components to print out
                 Components : string []
                 // The list of substances to print out
@@ -379,9 +380,9 @@ module Types =
                 Administration : string[][]
                 /// the order itself
                 Order : Order
-                /// Whether or not to us adjust
+                /// Whether to us adjust
                 UseAdjust : bool
-                /// Whether or not to use a renal rule
+                /// Whether to use a renal rule
                 UseRenalRule : bool
                 /// Renal rule name
                 RenalRule : string option
@@ -398,10 +399,9 @@ module Types =
                 Routes: string []
                 /// the list of shapes to select from
                 Shapes: string []
-                /// the list of diluents to use to dilute the drug
-                Diluents : string []
                 /// the possible dose types
                 DoseTypes : DoseType []
+                Diluents : string []
                 /// the selected indication
                 Indication: string option
                 /// the selected generic
@@ -411,8 +411,8 @@ module Types =
                 /// the selected shape
                 Shape: string option
                 /// the DoseType
-                Diluent : string option
                 DoseType : DoseType option
+                Diluent : string option
             }
 
 

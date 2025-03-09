@@ -8,7 +8,8 @@ module Order =
     open Fable.React
     open Feliz
     open Shared.Types
-    open Shared.Order
+    open Shared.Models
+    open Shared.Models.Order
     open Shared
     open Elmish
     open Utils

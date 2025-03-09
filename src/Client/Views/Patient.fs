@@ -11,8 +11,11 @@ module Patient =
     open Fable.Core.JsInterop
     open Elmish
     open Shared
+    open Shared.Models
+
 
     module private Elmish =
+
 
         module Patient = Patient
 
@@ -271,35 +274,35 @@ module Patient =
 
 
         let update dispatch msg (state : State) : State * Cmd<Msg> =
-            match msg with
-            | Clear          -> None, Cmd.none
-            | UpdateYear s   -> state |> setYear s, Cmd.none
-            | UpdateMonth s  -> state |> setMonth s, Cmd.none
-            | UpdateWeek s   -> state |> setWeek s, Cmd.none
-            | UpdateDay s    -> state |> setDay s, Cmd.none
-            | UpdateWeight s -> state |> setWeight s, Cmd.none
-            | UpdateHeight s -> state |> setHeight s, Cmd.none
-            | UpdateGAWeek s -> state |> setGAWeek s, Cmd.none
-            | UpdateGADay s  -> state |> setGADay s, Cmd.none
-            | UpdateRenal s  -> state |> setRenal s, Cmd.none
-            | UpdateGender s ->
-                printfn $"update gender with:{s}"
-                state
-                |> Option.map (fun p ->
-                    { p with
-                        Gender =
-                            match s with
-                            | "male" -> Male
-                            | "female" -> Female
-                            | _ -> UnknownGender
-                    }
-                ), Cmd.none
-            | ToggleCVL      -> state |> toggleCVL, Cmd.none
-            | TogglePVL      -> state |> togglePVL, Cmd.none
-            | ToggleET       -> state |> toggleET, Cmd.none
-            |> fun (state, cmd) ->
-                state |> dispatch
-                state, cmd
+            let state =
+                match msg with
+                | Clear          -> None
+                | UpdateYear s   -> state |> setYear s
+                | UpdateMonth s  -> state |> setMonth s
+                | UpdateWeek s   -> state |> setWeek s
+                | UpdateDay s    -> state |> setDay s
+                | UpdateWeight s -> state |> setWeight s
+                | UpdateHeight s -> state |> setHeight s
+                | UpdateGAWeek s -> state |> setGAWeek s
+                | UpdateGADay s  -> state |> setGADay s
+                | UpdateRenal s  -> state |> setRenal s
+                | UpdateGender s ->
+                    state
+                    |> Option.map (fun p ->
+                        { p with
+                            Gender =
+                                match s with
+                                | "male" -> Male
+                                | "female" -> Female
+                                | _ -> UnknownGender
+                        }
+                    )
+                | ToggleCVL      -> state |> toggleCVL
+                | TogglePVL      -> state |> togglePVL
+                | ToggleET       -> state |> toggleET
+
+            state |> dispatch
+            state, Cmd.none
 
 
         let show lang terms pat =
@@ -490,20 +493,20 @@ module Patient =
                     (fun s -> handleChange (); s |> UpdateHeight |> dispatch)
 
                 if pat |> Option.isSome &&
-                   pat |> Option.map (fun p -> p |> Shared.Patient.getAgeInYears |> Option.defaultValue 0. < 1)
+                   pat |> Option.map (fun p -> p |> Patient.getAgeInYears |> Option.defaultValue 0. < 1)
                        |> Option.defaultValue false then
                     [| 24 .. 42 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createSelect
                         (Terms.``Patient Age weeks`` |> getTerm "weken" |> fun s -> $"GA {s}")
-                        (pat |> Option.bind Shared.Patient.getGAWeeks |> zeroToNone)
+                        (pat |> Option.bind Patient.getGAWeeks |> zeroToNone)
                         (fun s -> handleChange (); s |> UpdateGAWeek |> dispatch)
 
                     [|1..6|]
                     |> Array.map (fun k -> $"{k}", $"{k}")
                     |> createSelect
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> fun s -> $"GA {s}")
-                        (pat |> Option.bind Shared.Patient.getGADays |> zeroToNone)
+                        (pat |> Option.bind Patient.getGADays |> zeroToNone)
                         (fun s -> handleChange (); s |> UpdateGADay |> dispatch)
             |]
             |> Array.map (fun el ->

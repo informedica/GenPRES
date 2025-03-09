@@ -359,6 +359,7 @@ module Types =
         {
             Id: string
             Indication: string
+            Diluents: string[]
             Components: string[]
             Items: string[]
             Shape: string
@@ -381,23 +382,14 @@ module Types =
             Indications: string[]
             Medications: string[]
             Routes: string[]
-            Diluents: string[]
             DoseTypes: DoseType[]
+            Diluents: string[]
             Indication: string option
             Medication: string option
             Shape: string option
             Route: string option
-            Diluent: string option
             DoseType: DoseType option
-        }
-
-
-    type ScenarioResult =
-        {
-            DemoVersion: bool
-            Filter: Filter
-            Patient: Patient
-            Scenarios: Scenario[]
+            Diluent: string option
         }
 
 
@@ -420,6 +412,16 @@ module Types =
             Propyleenglycol: TextItem[]
             BoricAcid: TextItem[]
             BenzylAlcohol: TextItem[]
+        }
+
+
+    type ScenarioResult =
+        {
+            DemoVersion: bool
+            Filter: Filter
+            Patient: Patient
+            Scenarios: Scenario[]
+            Intake: Intake
         }
 
 

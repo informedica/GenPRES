@@ -8,7 +8,7 @@
     <Compile Include="../Shared/Types.fs" />
     <Compile Include="../Shared/Data.fs" />
     <Compile Include="../Shared/Localization.fs" />
-    <Compile Include="../Shared/Domain.fs" />
+    <Compile Include="../Shared/Models.fs" />
     <Compile Include="../Shared/Api.fs" />
     <Compile Include="Formulary.fs" />
     <Compile Include="Parenteralia.fs" />
