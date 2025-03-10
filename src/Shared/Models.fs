@@ -730,7 +730,6 @@ module Models =
     module Intervention =
 
 
-
         let emptyIntervention =
             {
                 Hospital = ""
@@ -1394,6 +1393,15 @@ module Models =
                 }
 
 
+    module OrderState =
+
+        let getOrder =
+            function
+            | Constrained o
+            | Calculated o
+            | Solved o -> o
+
+
     module Intake =
 
         let empty: Intake =
@@ -1474,6 +1482,12 @@ module Models =
                 RenalRule = rn
             }
 
+
+        let eqs os1 os2 =
+            let ord1 = os1.Order |> OrderState.getOrder
+            let ord2 = os2.Order |> OrderState.getOrder
+
+            ord1.Id = ord2.Id
 
 
     module PrescriptionResult =
@@ -1561,15 +1575,24 @@ module Models =
         let setScenarios srs sr : PrescriptionResult = { sr with Scenarios = srs }
 
 
-    module OrderState =
+        let fromOrderScenario (os: OrderScenario) : PrescriptionResult =
+            let ord = os.Order |> OrderState.getOrder
 
-        let getOrder =
-            function
-            | Constrained o
-            | Calculated o
-            | Solved o -> o
-
-
+            {
+                DemoVersion = false
+                Filter =
+                    { filter with
+                        Indication = Some os.Indication
+                        Medication = ord.Orderable.Name |> Some
+                        Shape = os.Shape |> Some
+                        Route = ord.Route |> Some
+                        DoseType = os.DoseType |> Some
+                        Diluent = os.Diluent
+                    }
+                Patient = Patient.empty
+                Scenarios = [| os |]
+                Intake = Intake.empty
+            }
 
     module TreatmentPlan =
 

@@ -16,48 +16,57 @@ module TreatmentPlan =
     module private Elmish =
 
 
-        type State = PrescriptionResult option
+        type State = Deferred<TreatmentPlan>
 
 
         type Msg =
-            | SelectPrescriptionResult of PrescriptionResult
+            | SelectPrescriptionResult of PrescriptionResult option
             | UpdateTreatmentPlan of PrescriptionResult
 
 
-        let init : State * Cmd<Msg>  = None, Cmd.none
+        let init tp : State * Cmd<Msg>  = tp, Cmd.none
 
 
-        let update (treatmentPlan : Deferred<TreatmentPlan>) updateTreatmentPlan (msg : Msg) (state : State) =
-            match msg with
-            | SelectPrescriptionResult pr -> pr |> Some, Cmd.none
-            | UpdateTreatmentPlan pr ->
-                let id =
-                    pr.Scenarios
-                    |> Array.tryExactlyOne
+        let update updateTreatmentPlan (msg : Msg) (state : State) =
+            match state with
+            | Resolved tp ->
+                match msg with
+                | SelectPrescriptionResult (Some pr) ->
+                    { tp with
+                        Selected =
+                            pr.Scenarios
+                            |> Array.tryExactlyOne
+                    } |> Resolved
+                    , Cmd.none
+                | SelectPrescriptionResult None ->
+                    { tp with Selected = None } |> Resolved
+                    , Cmd.none
+                | UpdateTreatmentPlan pr ->
+                    let id =
+                        pr.Scenarios
+                        |> Array.tryExactlyOne
 
-                match id with
-                | None ->
-                    Logging.error "Order not found" pr
-                    state, Cmd.none
-                | Some newSc ->
-                    let id = newSc.Order |> OrderState.getOrder |> _.Id
-                    match treatmentPlan with
-                    | Resolved treatmentPlan ->
+                    match id with
+                    | None ->
+                        Logging.error "Order not found" pr
+                        state, Cmd.none
+                    | Some newSc ->
                         let tp =
-                            { treatmentPlan with
+                            { tp with
+                                Selected = newSc |> Some
                                 Scenarios =
                                     pr.Scenarios
                                     |> Array.map (fun sc ->
-                                        if sc.Order |> OrderState.getOrder |> _.Id = id then
+                                        if sc |> OrderScenario.eqs newSc then
                                             newSc
                                         else
                                             sc
                                     )
                             }
                         tp |> updateTreatmentPlan
-                    | _ -> ()
+                        state, Cmd.none
 
-                    state, Cmd.none
+            | _ -> state, Cmd.none
 
 
     open Elmish
@@ -73,11 +82,15 @@ module TreatmentPlan =
         let context = React.useContext Global.context
         let lang = context.Localization
 
-        let modalOpen, setModalOpen = React.useState false
-        let handleModalClose = fun () -> setModalOpen false
-
-        let update = update props.treatmentPlan props.updateTreatmentPlan
+        let init = init props.treatmentPlan
+        let update = update props.updateTreatmentPlan
         let state, dispatch = React.useElmish (init, update, [| box props.treatmentPlan|])
+
+        let modalOpen, setModalOpen = React.useState false
+        let handleModalClose =
+            fun () ->
+                dispatch (SelectPrescriptionResult None)
+                setModalOpen false
 
         let getTerm defVal term =
             props.localizationTerms
@@ -253,6 +266,7 @@ module TreatmentPlan =
                             }
                         Scenarios = [| sc |]
                     }
+                    |> Some
                     |> SelectPrescriptionResult
                     |> dispatch
 
@@ -280,9 +294,12 @@ module TreatmentPlan =
                     {
                         Order.View {|
                             prescriptionResult =
-                                state
-                                |> Option.map Resolved
-                                |> Option.defaultValue HasNotStartedYet
+                                match state with
+                                | Resolved tp ->
+                                    tp.Selected
+                                    |> Option.map (PrescriptionResult.fromOrderScenario >> Resolved)
+                                    |> Option.defaultValue HasNotStartedYet
+                                | _ -> HasNotStartedYet
                             updatePrescriptionResult = UpdateTreatmentPlan >> dispatch
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms

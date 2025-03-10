@@ -5,11 +5,11 @@ open Shared.Types
 open Shared.Api
 
 
-let processOrders (sr : PrescriptionResult) =
+let processOrders (pr : PrescriptionResult) =
     let mutable errors = [||]
 
     let scenarios =
-        sr.Scenarios
+        pr.Scenarios
         |> Array.map (fun sc ->
             { sc with
                 Order =
@@ -28,11 +28,11 @@ let processOrders (sr : PrescriptionResult) =
         )
 
     let calculated =
-        { sr with
+        { pr with
             Scenarios = scenarios
 
             Intake =
-                let w = sr.Patient |> Models.Patient.getWeight
+                let w = pr.Patient |> Models.Patient.getWeight
 
                 scenarios
                 |> Array.map (_.Order >> Models.OrderState.getOrder)
@@ -43,8 +43,8 @@ let processOrders (sr : PrescriptionResult) =
     else errors |> Error
 
 
-let checkDiluent (sr: PrescriptionResult) =
-    sr.Scenarios
+let checkDiluent (pr: PrescriptionResult) =
+    pr.Scenarios
     |> Array.tryExactlyOne
     |> Option.map (fun sc ->
         let ord =
@@ -92,16 +92,40 @@ let processMsg msg =
         |> Result.map PrescriptionResultMsg
 
     | TreatmentPlanMsg tp ->
-        { tp with
-            Intake =
-                let w = tp.Patient |> Models.Patient.getWeight
+        match tp.Selected with
+        | Some os ->
+            os
+            |> Models.PrescriptionResult.fromOrderScenario
+            |> processOrders
+            |> Result.map (fun pr ->
+                let newOsc = pr.Scenarios |> Array.tryExactlyOne
 
-                tp.Scenarios
-                |> Array.map (_.Order >> Models.OrderState.getOrder)
-                |> Order.getIntake w
-        }
-        |> TreatmentPlanMsg
-        |> Ok
+                { tp with
+                    Selected = newOsc
+                    Scenarios =
+                        match newOsc with
+                        | None -> tp.Scenarios
+                        | Some newOsc ->
+                            tp.Scenarios
+                            |> Array.map (fun sc ->
+                                if sc |> Models.OrderScenario.eqs newOsc then newOsc
+                                else sc
+                            )
+                }
+            )
+            |> Result.defaultValue tp
+        | None -> tp
+        |> fun tp ->
+            { tp with
+                Intake =
+                    let w = tp.Patient |> Models.Patient.getWeight
+
+                    tp.Scenarios
+                    |> Array.map (_.Order >> Models.OrderState.getOrder)
+                    |> Order.getIntake w
+            }
+            |> TreatmentPlanMsg
+            |> Ok
 
     | FormularyMsg form ->
         form
