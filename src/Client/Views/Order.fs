@@ -42,11 +42,11 @@ module Order =
             | UpdateOrder of Order
 
 
-        let init (sr : Deferred<Types.ScenarioResult>) =
+        let init (pr : Deferred<Types.PrescriptionResult>) =
             let ord, cmp, itm =
-                match sr with
-                | Resolved sr ->
-                    match sr.Scenarios with
+                match pr with
+                | Resolved pr ->
+                    match pr.Scenarios with
                     | [| sc |] ->
 
                         let ord =
@@ -500,8 +500,8 @@ module Order =
     [<JSX.Component>]
     let View (props:
         {|
-            scenarioResult: Deferred<Types.ScenarioResult>
-            updateScenarioResult: Types.ScenarioResult -> unit
+            prescriptionResult: Deferred<Types.PrescriptionResult>
+            updatePrescriptionResult: Types.PrescriptionResult -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -518,28 +518,28 @@ module Order =
             |> Deferred.defaultValue defVal
 
         let useAdjust =
-            match props.scenarioResult with
-            | Resolved sr ->
-                sr.Scenarios
+            match props.prescriptionResult with
+            | Resolved pr ->
+                pr.Scenarios
                 |> Array.tryExactlyOne
                 |> Option.map (fun sc -> sc.UseAdjust)
                 |> Option.defaultValue false
             | _ -> false
 
         let updateScenarioResult (ol : OrderLoader) =
-            match props.scenarioResult with
-            | Resolved sr ->
-                { sr with
+            match props.prescriptionResult with
+            | Resolved pr ->
+                { pr with
                     Scenarios =
-                        sr.Scenarios
+                        pr.Scenarios
                         |> Array.map (fun sc ->
                             if (sc.Order |> OrderState.getOrder).Id <> ol.Order.Id then sc
                             else
                                 let state o =
                                     match sc.Order with
                                     | Constrained _ -> o |> Constrained
-                                    | Values _ -> o |> Values
-                                    | Solved _ -> o |> Solved
+                                    | Solved _      -> o |> Solved
+                                    | Calculated _  -> o |> Calculated
                                 {
                                     sc with
                                         Component = ol.Component
@@ -550,14 +550,14 @@ module Order =
                                 }
                         )
                 }
-                |> props.updateScenarioResult
+                |> props.updatePrescriptionResult
             | _ -> ()
 
         let state, dispatch =
             React.useElmish (
-                init props.scenarioResult,
+                init props.prescriptionResult,
                 update updateScenarioResult,
-                [| box props.scenarioResult |]
+                [| box props.prescriptionResult |]
             )
 
         let itms =
@@ -603,7 +603,7 @@ module Order =
                 |})
 
         let progress =
-            match props.scenarioResult with
+            match props.prescriptionResult with
             | Resolved _ -> JSX.jsx $"<></>"
             | _ ->
                 JSX.jsx

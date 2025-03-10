@@ -169,12 +169,12 @@ module Utils =
 
 module Models =
 
+    open Types
 
     module Patient =
 
         open System
         open Utils
-        open Types
 
 
         module Age =
@@ -729,7 +729,6 @@ module Models =
 
     module Intervention =
 
-        open Types
 
 
         let emptyIntervention =
@@ -761,7 +760,6 @@ module Models =
 
     module EmergencyTreatment =
 
-        open Types
         open Utils
 
 
@@ -1068,7 +1066,6 @@ module Models =
     module ContinuousMedication =
 
         open Utils
-        open Types
         open Shared
 
 
@@ -1214,7 +1211,6 @@ module Models =
     module Products =
 
         open Utils
-        open Types
         open Shared
 
 
@@ -1422,7 +1418,65 @@ module Models =
             }
 
 
-    module ScenarioResult =
+    module OrderScenario =
+
+
+        let parseTextItem (s: string) =
+            s
+            |> Seq.map (id >> string)
+            |> Seq.fold
+                (fun acc c ->
+                    if s |> String.isNullOrWhiteSpace then
+                        acc
+                    else
+                        match c |> string, acc |> fst with
+                        | s, Normal _ when s = "#" -> Bold "", (acc |> fst) :: (acc |> snd)
+                        | s, Italic _ when s = "#" -> Bold s, (acc |> fst) :: (acc |> snd)
+                        | s, Bold _ when s = "#" -> Normal "", (acc |> fst) :: (acc |> snd)
+                        | s, Bold b -> Bold $"{b}{s}", (acc |> snd)
+
+                        | s, Normal _ when s = "|" -> Italic "", (acc |> fst) :: (acc |> snd)
+                        | s, Italic _ when s = "|" -> Normal "", (acc |> fst) :: (acc |> snd)
+                        | s, Italic i -> Italic $"{i}{s}", (acc |> snd)
+
+                        | s2, Normal s1 -> Normal $"{s1}{s2}", acc |> snd
+
+                )
+                (Normal "", [])
+            |> fun (md, acc) -> md :: acc
+            |> Seq.rev
+            |> Seq.filter (fun ti ->
+                match ti with
+                | Bold s
+                | Italic s
+                | Normal s -> s |> String.isNullOrWhiteSpace |> not
+            )
+            |> Seq.toArray
+
+
+        let create ind dils cmps sbs shp dil dst cmp itm prs prep adm o adj rr rn =
+            {
+                Indication = ind
+                Diluents = dils
+                Components = cmps
+                Items = sbs
+                Shape = shp
+                Diluent = dil
+                DoseType = dst
+                Component = cmp
+                Item = itm
+                Prescription = prs |> Array.map (Array.map parseTextItem)
+                Preparation = prep |> Array.map (Array.map parseTextItem)
+                Administration = adm |> Array.map (Array.map parseTextItem)
+                Order = o
+                UseAdjust = adj
+                UseRenalRule = rr
+                RenalRule = rn
+            }
+
+
+
+    module PrescriptionResult =
 
 
         let doseTypeToDescription doseType =
@@ -1476,61 +1530,6 @@ module Models =
             | _ -> NoDoseType
 
 
-        let parseTextItem (s: string) =
-            s
-            |> Seq.map (id >> string)
-            |> Seq.fold
-                (fun acc c ->
-                    if s |> String.isNullOrWhiteSpace then
-                        acc
-                    else
-                        match c |> string, acc |> fst with
-                        | s, Normal _ when s = "#" -> Bold "", (acc |> fst) :: (acc |> snd)
-                        | s, Italic _ when s = "#" -> Bold s, (acc |> fst) :: (acc |> snd)
-                        | s, Bold _ when s = "#" -> Normal "", (acc |> fst) :: (acc |> snd)
-                        | s, Bold b -> Bold $"{b}{s}", (acc |> snd)
-
-                        | s, Normal _ when s = "|" -> Italic "", (acc |> fst) :: (acc |> snd)
-                        | s, Italic _ when s = "|" -> Normal "", (acc |> fst) :: (acc |> snd)
-                        | s, Italic i -> Italic $"{i}{s}", (acc |> snd)
-
-                        | s2, Normal s1 -> Normal $"{s1}{s2}", acc |> snd
-
-                )
-                (Normal "", [])
-            |> fun (md, acc) -> md :: acc
-            |> Seq.rev
-            |> Seq.filter (fun ti ->
-                match ti with
-                | Bold s
-                | Italic s
-                | Normal s -> s |> String.isNullOrWhiteSpace |> not
-            )
-            |> Seq.toArray
-
-
-        let createScenario id ind dils cmps sbs shp dil dst cmp itm prs prep adm o adj rr rn =
-            {
-                Id = id
-                Indication = ind
-                Diluents = dils
-                Components = cmps
-                Items = sbs
-                Shape = shp
-                Diluent = dil
-                DoseType = dst
-                Component = cmp
-                Item = itm
-                Prescription = prs |> Array.map (Array.map parseTextItem)
-                Preparation = prep |> Array.map (Array.map parseTextItem)
-                Administration = adm |> Array.map (Array.map parseTextItem)
-                Order = o
-                UseAdjust = adj
-                UseRenalRule = rr
-                RenalRule = rn
-            }
-
-
         let filter =
             {
                 Indications = [||]
@@ -1547,7 +1546,7 @@ module Models =
             }
 
 
-        let empty: ScenarioResult =
+        let empty: PrescriptionResult =
             {
                 DemoVersion = true
                 Filter = filter
@@ -1556,7 +1555,10 @@ module Models =
                 Intake = Intake.empty
             }
 
-        let setPatient pat sr : ScenarioResult = { sr with Patient = pat }
+        let setPatient pat sr : PrescriptionResult = { sr with Patient = pat }
+
+
+        let setScenarios srs sr : PrescriptionResult = { sr with Scenarios = srs }
 
 
     module OrderState =
@@ -1564,8 +1566,9 @@ module Models =
         let getOrder =
             function
             | Constrained o
-            | Values o
+            | Calculated o
             | Solved o -> o
+
 
 
     module TreatmentPlan =
@@ -1573,6 +1576,7 @@ module Models =
         let create pat srs =
             {
                 Patient = pat
+                Selected = None
                 Scenarios = srs
                 Intake = Intake.empty
             }

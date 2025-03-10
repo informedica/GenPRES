@@ -3274,3 +3274,10 @@ module Order =
                 dto.Prescription
                 |> Prescription.Dto.setToTimed
             dto
+
+
+        let toString dto =
+            dto
+            |> fromDto
+            |> toString
+            |> String.concat "\n"

@@ -1,14 +1,12 @@
 namespace Views
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-open Shared.Types
 
 
 module Disclaimer =
+
+    open Fable.Core
+    open Feliz
+
 
     let private text =
         """

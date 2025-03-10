@@ -7,22 +7,11 @@ module Api =
     open Types
 
 
-    type ScenarioResultMessage =
-        | GetScenarioResult of ScenarioResult
-        | CalcValues of ScenarioResult
-        | SolveOrder of ScenarioResult
-
-    type TreatmentPlanMessage =
-        | CalcTreatmentPlan of TreatmentPlan
-
-    type FormularyMessage =
-        | GetFormulary of Formulary
-        | GetParenteralia of Parenteralia
-
     type Message =
-        | ScenarioResultMsg of ScenarioResultMessage
-        | TreatmentPlanMsg of TreatmentPlanMessage
-        | FormularyMsg of FormularyMessage
+        | PrescriptionResultMsg of PrescriptionResult
+        | TreatmentPlanMsg of TreatmentPlan
+        | FormularyMsg of Formulary
+        | ParenteraliaMsg of Parenteralia
 
 
     /// Defines how routes are generated on server and mapped from client

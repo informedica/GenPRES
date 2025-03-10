@@ -13,7 +13,7 @@ Console.WriteLine $"""
 === Initialized: ===
 - Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
 - Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
-- Scenarios {Models.ScenarioResult.empty |> ScenarioResult.get |> ignore}
+- Scenarios {Models.PrescriptionResult.empty |> PrescriptionResult.get |> ignore}
 """
 
 

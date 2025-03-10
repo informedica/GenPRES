@@ -1,16 +1,17 @@
 namespace Views
 
-open Fable.Core
-open Feliz
-open Feliz.UseElmish
-open Elmish
-open Utils
-open Shared.Types
-open Shared
-open Shared.Models
-
 
 module Parenteralia =
+
+
+    open Fable.Core
+    open Feliz
+    open Feliz.UseElmish
+    open Elmish
+    open Utils
+    open Shared.Types
+    open Shared
+    open Shared.Models
 
 
     module private Elmish =

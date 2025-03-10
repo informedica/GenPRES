@@ -1,18 +1,11 @@
 namespace Components
 
 
-
 module ResponsiveTable =
 
     open System
     open Fable.Core
-    open Fable.React
     open Feliz
-    open Browser.Types
-
-
-
-    open Elmish
     open Fable.Core.JsInterop
 
 

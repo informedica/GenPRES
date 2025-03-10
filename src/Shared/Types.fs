@@ -3,7 +3,6 @@ namespace Shared
 
 /// This module defines shared types between
 /// the client and the server
-[<AutoOpen>]
 module Types =
 
     open System
@@ -351,30 +350,8 @@ module Types =
 
     type OrderState =
         | Constrained of Order
-        | Values of Order
+        | Calculated of Order
         | Solved of Order
-
-
-    type Scenario =
-        {
-            Id: string
-            Indication: string
-            Diluents: string[]
-            Components: string[]
-            Items: string[]
-            Shape: string
-            Diluent: string option
-            Component: string option
-            Item: string option
-            DoseType: DoseType
-            Prescription: TextItem[][][]
-            Preparation: TextItem[][][]
-            Administration: TextItem[][][]
-            Order: OrderState
-            UseAdjust: bool
-            UseRenalRule: bool
-            RenalRule: string option
-        }
 
 
     type Filter =
@@ -415,12 +392,33 @@ module Types =
         }
 
 
-    type ScenarioResult =
+    type OrderScenario =
+        {
+            Indication: string
+            Diluents: string[]
+            Components: string[]
+            Items: string[]
+            Shape: string
+            Diluent: string option
+            Component: string option
+            Item: string option
+            DoseType: DoseType
+            Prescription: TextItem[][][]
+            Preparation: TextItem[][][]
+            Administration: TextItem[][][]
+            Order: OrderState
+            UseAdjust: bool
+            UseRenalRule: bool
+            RenalRule: string option
+        }
+
+
+    type PrescriptionResult =
         {
             DemoVersion: bool
             Filter: Filter
             Patient: Patient
-            Scenarios: Scenario[]
+            Scenarios: OrderScenario[]
             Intake: Intake
         }
 
@@ -428,7 +426,8 @@ module Types =
     type TreatmentPlan =
         {
             Patient: Patient
-            Scenarios: Scenario[]
+            Selected : OrderScenario option
+            Scenarios: OrderScenario[]
             Intake: Intake
         }
 

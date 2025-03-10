@@ -1,18 +1,11 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
-
-open Elmish
-open Fable.Core.JsInterop
 
 
 module SelectableList =
+
+
+    open Fable.Core
 
 
     [<JSX.Component>]
@@ -23,7 +16,7 @@ module SelectableList =
                 let icon =
                     match el with
                     | None -> JSX.jsx "<></>"
-                    | Some el -> 
+                    | Some el ->
                         JSX.jsx
                             $"""
                         import ListItemIcon from '@mui/material/ListItemIcon';

@@ -2,15 +2,12 @@ namespace Views
 
 module Intake =
 
-    open System
+
     open Fable.Core
-    open Fable.React
     open Feliz
-    open Browser.Types
     open Shared
     open Types
-    open Elmish
-    open Fable.Core.JsInterop
+
 
     let private rows1 = [|
         [| "volume"; ""; "ml/kg/dag" |]

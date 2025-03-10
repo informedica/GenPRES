@@ -11,6 +11,7 @@ module Patient =
     open Fable.Core.JsInterop
     open Elmish
     open Shared
+    open Shared.Types
     open Shared.Models
 
 

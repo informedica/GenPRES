@@ -2,14 +2,8 @@ namespace Views
 
 module Nutrion =
 
-    open System
+
     open Fable.Core
-    open Fable.React
-    open Feliz
-    open Browser.Types
-    open Fable.Core.JsInterop
-    open Elmish
-    open Shared
 
 
     [<JSX.Component>]

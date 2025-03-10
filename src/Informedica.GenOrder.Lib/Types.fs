@@ -348,7 +348,7 @@ module Types =
         /// </list>
         ///
         /// </summary>
-        type Scenario =
+        type OrderScenario =
             {
                 Id : string
                 /// the order number of the scenario
@@ -421,13 +421,13 @@ module Types =
         /// results of the solver to the client. The fields
         /// are used to select the correct scenario.
         /// </summary>
-        type ScenarioResult =
+        type PrescriptionResult =
             {
                 Filter : Filter
                 /// the patient
                 Patient: Patient
                 /// the list of scenarios
-                Scenarios: Scenario []
+                Scenarios: OrderScenario []
             }
 
 

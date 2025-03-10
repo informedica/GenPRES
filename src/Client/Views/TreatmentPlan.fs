@@ -3,19 +3,70 @@ namespace Views
 
 module TreatmentPlan =
 
-    open Fable.Core
-    open Feliz
 
+    open Fable.Core
+    open Fable.React
+    open Feliz
+    open Elmish
     open Shared
+    open Shared.Types
     open Shared.Models
+
+
+    module private Elmish =
+
+
+        type State = PrescriptionResult option
+
+
+        type Msg =
+            | SelectPrescriptionResult of PrescriptionResult
+            | UpdateTreatmentPlan of PrescriptionResult
+
+
+        let init : State * Cmd<Msg>  = None, Cmd.none
+
+
+        let update (treatmentPlan : Deferred<TreatmentPlan>) updateTreatmentPlan (msg : Msg) (state : State) =
+            match msg with
+            | SelectPrescriptionResult pr -> pr |> Some, Cmd.none
+            | UpdateTreatmentPlan pr ->
+                let id =
+                    pr.Scenarios
+                    |> Array.tryExactlyOne
+
+                match id with
+                | None ->
+                    Logging.error "Order not found" pr
+                    state, Cmd.none
+                | Some newSc ->
+                    let id = newSc.Order |> OrderState.getOrder |> _.Id
+                    match treatmentPlan with
+                    | Resolved treatmentPlan ->
+                        let tp =
+                            { treatmentPlan with
+                                Scenarios =
+                                    pr.Scenarios
+                                    |> Array.map (fun sc ->
+                                        if sc.Order |> OrderState.getOrder |> _.Id = id then
+                                            newSc
+                                        else
+                                            sc
+                                    )
+                            }
+                        tp |> updateTreatmentPlan
+                    | _ -> ()
+
+                    state, Cmd.none
+
+
+    open Elmish
 
 
     [<JSX.Component>]
     let View (props : {|
-        scenarioResult: Deferred<ScenarioResult>
-        updateScenarioResult : ScenarioResult -> unit
-        removeOrderFromPlan : Order -> unit
         treatmentPlan: Deferred<TreatmentPlan>
+        updateTreatmentPlan: TreatmentPlan -> unit
         localizationTerms : Deferred<string [] []>
         |}) =
 
@@ -24,6 +75,9 @@ module TreatmentPlan =
 
         let modalOpen, setModalOpen = React.useState false
         let handleModalClose = fun () -> setModalOpen false
+
+        let update = update props.treatmentPlan props.updateTreatmentPlan
+        let state, dispatch = React.useElmish (init, update, [| box props.treatmentPlan|])
 
         let getTerm defVal term =
             props.localizationTerms
@@ -180,27 +234,29 @@ module TreatmentPlan =
             | Resolved tp ->
                 tp.Scenarios
                 |> Array.tryFind (fun sc -> (sc.Order |> OrderState.getOrder).Id = id)
-                |> Option.map _.Order
                 |> function
-                | None -> ()
-                | Some ord ->
-                    setModalOpen true
+                | None ->
+                    Logging.error "Order not found" id
+                    ()
+                | Some sc ->
+                    let ord = sc.Order |> OrderState.getOrder
 
-                    match props.scenarioResult with
-                    | Resolved sr ->
-                        {
-                            sr with
-                                Scenarios =
-                                    sr.Scenarios
-                                    |> Array.map (fun sc ->
-                                        if (sc.Order |> OrderState.getOrder).Id =
-                                           (ord |> OrderState.getOrder).Id then
-                                            { sc with Order = ord }
-                                        else sc
-                                    )
-                        }
-                        |> props.updateScenarioResult
-                    | _ -> ()
+                    { PrescriptionResult.empty with
+                        Patient = tp.Patient
+                        Filter =
+                            { PrescriptionResult.filter with
+                                Indication = Some sc.Indication
+                                Medication = Some ord.Orderable.Name
+                                Route = Some ord.Route
+                                DoseType = Some sc.DoseType
+                                Diluent = sc.Diluent
+                            }
+                        Scenarios = [| sc |]
+                    }
+                    |> SelectPrescriptionResult
+                    |> dispatch
+
+                    setModalOpen true
             | _ -> ()
 
         JSX.jsx
@@ -223,8 +279,11 @@ module TreatmentPlan =
                 <Box sx={modalStyle}>
                     {
                         Order.View {|
-                            scenarioResult = props.scenarioResult
-                            updateScenarioResult = props.updateScenarioResult
+                            prescriptionResult =
+                                state
+                                |> Option.map Resolved
+                                |> Option.defaultValue HasNotStartedYet
+                            updatePrescriptionResult = UpdateTreatmentPlan >> dispatch
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}

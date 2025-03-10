@@ -1,16 +1,11 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
 
 module SimpleSelect =
 
-    open Elmish
+
+    open System
+    open Fable.Core
     open Fable.Core.JsInterop
 
 

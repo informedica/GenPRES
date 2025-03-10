@@ -352,7 +352,7 @@ module Api =
     /// <summary>
     /// Use a Filter and a ScenarioResult to create a new ScenarioResult.
     /// </summary>
-    let filter (sr : ScenarioResult) =
+    let filter (sr : PrescriptionResult) =
 
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
@@ -507,7 +507,7 @@ module Api =
             }
 
 
-    let calc (dto : Order.Dto.Dto) =
+    let orderCalcValues (dto : Order.Dto.Dto) =
         try
             dto
             |> Order.Dto.fromDto
@@ -537,7 +537,6 @@ module Api =
                 else
                     ord
                     |> Order.minIncrMaxToValues OrderLogger.logger.Logger
-            |> Order.Dto.toDto
             |> Ok
         with
         | e ->
@@ -547,7 +546,7 @@ module Api =
             |> Error
 
 
-    let solve (dto : Order.Dto.Dto) =
+    let orderSolve (dto : Order.Dto.Dto) =
         dto
         |> Order.Dto.fromDto
         |> Order.solveOrder false OrderLogger.logger.Logger
@@ -560,7 +559,6 @@ module Api =
 
             o
         )
-        |> Result.map Order.Dto.toDto
 
 
     let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =

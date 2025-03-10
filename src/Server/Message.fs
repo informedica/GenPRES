@@ -1,14 +1,11 @@
 module Message
 
-open Giraffe.HttpStatusCodeHandlers.Successful
-open Informedica.Utils.Lib
-open ScenarioResult
 open Shared
 open Shared.Types
 open Shared.Api
 
 
-let processOrders f state (sr : ScenarioResult) =
+let processOrders (sr : PrescriptionResult) =
     let mutable errors = [||]
 
     let scenarios =
@@ -16,11 +13,14 @@ let processOrders f state (sr : ScenarioResult) =
         |> Array.map (fun sc ->
             { sc with
                 Order =
-                    let ord =
-                        sc.Order
-                        |> Models.OrderState.getOrder
+                    let ord, f =
+                        match sc.Order with
+                        | Constrained o -> o, Order.calcValues
+                        | Calculated o  -> o, Order.solveOrder
+                        | Solved o      -> o, Order.calcValues
+
                     match ord |> f with
-                    | Ok ord -> ord |> state
+                    | Ok ord -> ord
                     | Error errs ->
                         errors <- Array.append errors [| errs |]
                         sc.Order
@@ -36,21 +36,21 @@ let processOrders f state (sr : ScenarioResult) =
 
                 scenarios
                 |> Array.map (_.Order >> Models.OrderState.getOrder)
-                |> getIntake w
+                |> Order.getIntake w
         }
 
     if errors |> Array.isEmpty then calculated |> Ok
     else errors |> Error
 
 
-let checkDiluent (sr: ScenarioResult) =
+let checkDiluent (sr: PrescriptionResult) =
     sr.Scenarios
     |> Array.tryExactlyOne
     |> Option.map (fun sc ->
         let ord =
             match sc.Order with
             | Constrained o
-            | Values o
+            | Calculated o
             | Solved o -> o
 
         match sc.Diluent with
@@ -66,66 +66,50 @@ let checkDiluent (sr: ScenarioResult) =
 
 let processMsg msg =
     match msg with
-    | ScenarioResultMsg msg ->
-        match msg with
-        | GetScenarioResult sr ->
-            sr
-            |> ScenarioResult.get
-            |> Result.map (fun sr ->
-                { sr with
-                    Intake =
-                        let w = sr.Patient |> Models.Patient.getWeight
-                        sr.Scenarios
-                        |> Array.map (_.Order >> Models.OrderState.getOrder)
-                        |> getIntake w
-                }
-            )
-            |> Result.map GetScenarioResult
+    | PrescriptionResultMsg pr ->
+        if pr.Scenarios |> Array.isEmpty then
+            pr
+            |> PrescriptionResult.get
 
-        | CalcValues sr ->
-            if sr |> checkDiluent then
-                sr
-                |> processOrders calcValues Values
-                |> Result.map print
-                |> Result.map CalcValues
+        else
+            if pr |> checkDiluent then
+                pr
+                |> processOrders
+                |> Result.map PrescriptionResult.print
             else
-                sr
-                |> get
-                |> Result.map GetScenarioResult
+                pr
+                |> PrescriptionResult.get
 
-        | SolveOrder sr ->
-            if sr |> checkDiluent then
-                sr
-                |> processOrders solveOrder Solved
-                |> Result.map print
-                |> Result.map SolveOrder
-            else
-                sr
-                |> get
-                |> Result.map GetScenarioResult
+        |> Result.map (fun sr ->
+            { sr with
+                Intake =
+                    let w = sr.Patient |> Models.Patient.getWeight
+                    sr.Scenarios
+                    |> Array.map (_.Order >> Models.OrderState.getOrder)
+                    |> Order.getIntake w
+            }
+        )
+        |> Result.map PrescriptionResultMsg
 
-        |> Result.map ScenarioResultMsg
-
-    | TreatmentPlanMsg (CalcTreatmentPlan tp) ->
+    | TreatmentPlanMsg tp ->
         { tp with
             Intake =
                 let w = tp.Patient |> Models.Patient.getWeight
 
                 tp.Scenarios
                 |> Array.map (_.Order >> Models.OrderState.getOrder)
-                |> getIntake w
+                |> Order.getIntake w
         }
-        |> CalcTreatmentPlan
         |> TreatmentPlanMsg
         |> Ok
 
-    | FormularyMsg (GetFormulary form) ->
+    | FormularyMsg form ->
         form
         |> Formulary.get
-        |> Result.map (GetFormulary >> FormularyMsg)
+        |> Result.map FormularyMsg
 
-    | FormularyMsg (GetParenteralia par) ->
+    | ParenteraliaMsg par ->
         par
         |> Parenteralia.get
         |> Result.mapError Array.singleton
-        |> Result.map (GetParenteralia >> FormularyMsg)
+        |> Result.map ParenteraliaMsg

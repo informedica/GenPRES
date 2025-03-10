@@ -1,18 +1,15 @@
 namespace Pages
 
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
-open Elmish
-open Shared
-
-
 module GenPres =
+
+
+    open Fable.Core
+    open Fable.React
+    open Feliz
+    open Elmish
+    open Shared
+    open Shared.Types
 
 
     module private Elmish =
@@ -47,7 +44,6 @@ module GenPres =
 
 
         let init lang terms page : State * Cmd<Msg> =
-
             let state =
                 {
                     SideMenuItems =
@@ -96,9 +92,9 @@ module GenPres =
                         state.SideMenuItems
                         |> Array.map (fun (icon, item, _) ->
                             if item = s then
-                                (icon, item, true)
+                                icon, item, true
                             else
-                                (icon, item, false)
+                                icon, item, false
                         )
                 },
                 Cmd.none
@@ -120,8 +116,8 @@ module GenPres =
             bolusMedication: Deferred<Intervention list>
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
-            scenarioResult: Deferred<ScenarioResult>
-            updateScenarioResult : ScenarioResult -> unit
+            prescriptionResult: Deferred<PrescriptionResult>
+            updatePrescriptionResult : PrescriptionResult -> unit
             treatmentPlan: Deferred<TreatmentPlan>
             updateTreatmentPlan: TreatmentPlan -> unit
             formulary: Deferred<Formulary>
@@ -144,7 +140,7 @@ module GenPres =
                 box props.page
                 box props.updatePage
                 box lang
-                box props.scenarioResult
+                box props.prescriptionResult
             |]
         let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
@@ -234,8 +230,8 @@ module GenPres =
                                 |}
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View {|
-                                    scenarioResult = props.scenarioResult
-                                    updateScenarioResult = props.updateScenarioResult
+                                    prescriptionResult = props.prescriptionResult
+                                    updatePrescriptionResult = props.updatePrescriptionResult
                                     treatmentPlan = props.treatmentPlan
                                     updateTreatmentPlan = props.updateTreatmentPlan
                                     localizationTerms = props.localizationTerms
@@ -245,11 +241,9 @@ module GenPres =
 
                             | Global.Pages.TreatmentPlan ->
                                 Views.TreatmentPlan.View {|
-                                    scenarioResult = props.scenarioResult
-                                    updateScenarioResult = props.updateScenarioResult
                                     treatmentPlan = props.treatmentPlan
+                                    updateTreatmentPlan = props.updateTreatmentPlan
                                     localizationTerms = props.localizationTerms
-                                    removeOrderFromPlan = ignore
                                 |}
                             | Global.Pages.Formulary ->
                                 Views.Formulary.View {|
@@ -269,9 +263,9 @@ module GenPres =
                             match props.page with
                             | Global.Pages.Prescribe
                             | Global.Pages.Nutrition ->
-                                match props.scenarioResult with
-                                | Resolved sr ->
-                                    Views.Intake.View {| intake = sr.Intake |}
+                                match props.prescriptionResult with
+                                | Resolved pr ->
+                                    Views.Intake.View {| intake = pr.Intake |}
                                 | _ -> JSX.jsx "<></>"
                             | Global.Pages.TreatmentPlan ->
                                 match props.treatmentPlan with

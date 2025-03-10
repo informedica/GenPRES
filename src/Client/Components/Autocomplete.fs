@@ -1,18 +1,14 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
 
 // Note: cannot set label on textfield in render function using the props.label
 // therefore hardcoded versions of autocomplete. Need to fix this.
 // Note: runs when building in development mode, but fails in production mode!
 module Autocomplete =
 
-    open Elmish
+
+    open System
+    open Fable.Core
     open Fable.Core.JsInterop
 
 

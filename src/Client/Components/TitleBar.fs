@@ -1,18 +1,12 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
-
-open Elmish
-open Fable.Core.JsInterop
-
 
 module TitleBar =
+
+
+    open Fable.Core
+    open Feliz
+    open Fable.Core.JsInterop
 
 
     [<JSX.Component>]

@@ -1,15 +1,12 @@
 namespace Views
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
 
 module EmergencyList =
 
+
+    open System
+    open Fable.Core
+    open Feliz
     open Shared
 
 

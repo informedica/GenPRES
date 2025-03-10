@@ -1,17 +1,13 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-open Shared.Utils
 
 module MultipleSelect =
 
-    open Elmish
+
+    open System
+    open Fable.Core
     open Fable.Core.JsInterop
+
 
     [<JSX.Component>]
     let View (props :

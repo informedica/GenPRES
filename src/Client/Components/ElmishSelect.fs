@@ -1,18 +1,14 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
-
-open Elmish
-open Fable.Core.JsInterop
-
 
 module ElmishSelect =
+
+
+    open System
+    open Fable.Core
+    open Fable.React
+    open Elmish
+    open Fable.Core.JsInterop
 
 
     module private Elmish =

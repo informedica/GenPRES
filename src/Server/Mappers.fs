@@ -1,7 +1,6 @@
-module ScenarioResult
+module Mappers
 
 
-open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
@@ -16,7 +15,7 @@ module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
 let mapPatient
-    (sr: ScenarioResult)
+    (sr: PrescriptionResult)
     =
     { Patient.patient with
         Department =
@@ -69,7 +68,7 @@ let mapPatient
 
 
 
-let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
+let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Types.ValueUnit =
     let v =
         dto.Value
         |> Array.map (fun br ->
@@ -84,7 +83,7 @@ let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Shared.Types.ValueUnit =
         dto.Json
 
 
-let mapFromValueUnit (vu : Shared.Types.ValueUnit) : ValueUnit.Dto.Dto =
+let mapFromValueUnit (vu : Types.ValueUnit) : ValueUnit.Dto.Dto =
     let v = vu.Value |> Array.map (fst >> BigRational.parse)
     let dto = ValueUnit.Dto.dto ()
     dto.Value <- v
@@ -121,14 +120,14 @@ let mapFromVariable (var : Variable) : Informedica.GenSolver.Lib.Variable.Dto.Dt
     dto
 
 
-let mapToOrderVariable (dto : OrderVariable.Dto.Dto) : Shared.Types.OrderVariable =
+let mapToOrderVariable (dto : OrderVariable.Dto.Dto) : Types.OrderVariable =
     Models.Order.OrderVariable.create
         dto.Name
         (dto.Constraints |> mapToVariable)
         (dto.Variable |> mapToVariable)
 
 
-let mapFromOrderVariable (ov : Shared.Types.OrderVariable) : OrderVariable.Dto.Dto =
+let mapFromOrderVariable (ov : Types.OrderVariable) : OrderVariable.Dto.Dto =
     let dto = OrderVariable.Dto.dto ()
     dto.Name <- ov.Name
     dto.Variable <- ov.Variable |> mapFromVariable
@@ -161,6 +160,7 @@ let mapFromDose (dose : Dose) : Order.Orderable.Dose.Dto.Dto =
     dto.TotalAdjust <- dose.TotalAdjust |> mapFromOrderVariable
 
     dto
+
 
 let mapToItem sns (dto : Order.Orderable.Item.Dto.Dto) : Item =
     Models.Order.Item.create
@@ -289,7 +289,7 @@ let mapFromPrescription (prescription : Prescription) : Order.Prescription.Dto.D
     dto
 
 
-let mapToOrder sns (dto : Order.Dto.Dto) : Shared.Types.Order =
+let mapToOrder sns (dto : Order.Dto.Dto) : Types.Order =
     Models.Order.create
         dto.Id
         (dto.Adjust |> mapToOrderVariable)
@@ -309,7 +309,7 @@ let mapToOrder sns (dto : Order.Dto.Dto) : Shared.Types.Order =
 // member val Duration = OrderVariable.Dto.dto () with get, set
 // member val Start = DateTime.now () with get, set
 // member val Stop : DateTime option = None with get, set
-let mapFromOrder (order : Shared.Types.Order) : Order.Dto.Dto =
+let mapFromOrder (order : Types.Order) : Order.Dto.Dto =
     let dto = Order.Dto.Dto(order.Id, order.Orderable.Name)
     dto.Adjust <- order.Adjust |> mapFromOrderVariable
     dto.Orderable <- order.Orderable |> mapFromOrderable order.Id order.Orderable.Name
@@ -322,7 +322,7 @@ let mapFromOrder (order : Shared.Types.Order) : Order.Dto.Dto =
     dto
 
 
-let mapFromSharedDoseType (dt: Shared.Types.DoseType) : Informedica.GenForm.Lib.Types.DoseType =
+let mapFromSharedDoseType (dt: Types.DoseType) : Informedica.GenForm.Lib.Types.DoseType =
         match dt with
         | OnceTimed s -> s |> Informedica.GenForm.Lib.Types.OnceTimed
         | Once s -> s |> Informedica.GenForm.Lib.Types.Once
@@ -333,7 +333,7 @@ let mapFromSharedDoseType (dt: Shared.Types.DoseType) : Informedica.GenForm.Lib.
 
 
 
-let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Shared.Types.DoseType =
+let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Types.DoseType =
         match dt with
         | Informedica.GenForm.Lib.Types.OnceTimed s -> s |> OnceTimed
         | Informedica.GenForm.Lib.Types.Once s -> s |> Once
@@ -345,7 +345,7 @@ let mapToSharedDoseType (dt: Informedica.GenForm.Lib.Types.DoseType) : Shared.Ty
 
 let mapToIntake (intake : Informedica.GenOrder.Lib.Types.Intake) : Intake =
     let toTextItem =
-        Option.map Models.ScenarioResult.parseTextItem
+        Option.map Models.OrderScenario.parseTextItem
         >> (Option.defaultValue [||])
     {
         Volume = intake.Volume |> toTextItem
@@ -366,252 +366,3 @@ let mapToIntake (intake : Informedica.GenOrder.Lib.Types.Intake) : Intake =
         BenzylAlcohol = intake.BenzylAlcohol |> toTextItem
         BoricAcid = intake.BoricAcid |> toTextItem
     }
-
-
-let get (sr: ScenarioResult) =
-    let msg stage (sr: ScenarioResult)=
-        $"""
-{stage}:
-Patient: {sr |> mapPatient |> Patient.toString}
-Indications: {sr.Filter.Indications |> Array.length}
-Medications: {sr.Filter.Medications |> Array.length}
-Routes: {sr.Filter.Routes |> Array.length}
-Indication: {sr.Filter.Indication |> Option.defaultValue ""}
-Medication: {sr.Filter.Medication |> Option.defaultValue ""}
-Route: {sr.Filter.Route |> Option.defaultValue ""}
-DoseType: {sr.Filter.DoseType}
-Diluent: {sr.Filter.Diluent}
-Scenarios: {sr.Scenarios |> Array.length}
-"""
-
-    ConsoleWriter.writeInfoMessage $"""{msg "processing" sr}""" true true
-
-    let pat =
-        sr
-        |> mapPatient
-        |> Patient.calcPMAge
-
-    try
-        let newResult =
-            let patResult = Api.scenarioResult pat
-
-            let dil =
-                if sr.Filter.Diluent.IsSome then sr.Filter.Diluent
-                else
-                    sr.Scenarios
-                    |> Array.tryExactlyOne
-                    |> Option.bind _.Diluent
-
-            { patResult with
-                Filter =
-                    { patResult.Filter with
-                        Indications =
-                            if sr.Filter.Indication |> Option.isSome then
-                                [| sr.Filter.Indication |> Option.defaultValue "" |]
-                            else
-                                patResult.Filter.Indications
-                        Generics =
-                            if sr.Filter.Medication |> Option.isSome then
-                                [| sr.Filter.Medication |> Option.defaultValue "" |]
-                            else
-                                patResult.Filter.Generics
-                        Shapes =
-                            if sr.Filter.Shape |> Option.isSome then
-                                [| sr.Filter.Shape |> Option.defaultValue "" |]
-                            else
-                                patResult.Filter.Shapes
-                        Routes =
-                            if sr.Filter.Route |> Option.isSome then
-                                [| sr.Filter.Route |> Option.defaultValue "" |]
-                            else
-                                patResult.Filter.Routes
-                        DoseTypes =
-                            if sr.Filter.DoseType |> Option.isSome then
-                                [| sr.Filter.DoseType |> Option.defaultValue NoDoseType |]
-                                |> Array.map mapFromSharedDoseType
-                            else
-                                patResult.Filter.DoseTypes
-                        Indication = sr.Filter.Indication
-                        Generic = sr.Filter.Medication
-                        Shape = sr.Filter.Shape
-                        Route = sr.Filter.Route
-                        DoseType = sr.Filter.DoseType |> Option.map mapFromSharedDoseType
-                        Diluent = dil
-                    }
-            }
-            |> Api.filter
-
-        { sr with
-            Filter =
-                { sr.Filter with
-                    Indications = newResult.Filter.Indications
-                    Medications = newResult.Filter.Generics
-                    Routes = newResult.Filter.Routes
-                    DoseTypes = newResult.Filter.DoseTypes |> Array.map mapToSharedDoseType
-                    Diluents = newResult.Filter.Diluents
-                    Indication = newResult.Filter.Indication
-                    Medication = newResult.Filter.Generic
-                    Shape = newResult.Filter.Shape
-                    Route = newResult.Filter.Route
-                    DoseType = newResult.Filter.DoseType |> Option.map mapToSharedDoseType
-                    Diluent = newResult.Filter.Diluent
-                }
-
-            Scenarios =
-                newResult.Scenarios
-                |> Array.map (fun sc ->
-                    Models.ScenarioResult.createScenario
-                        sc.Id
-                        sc.Indication
-                        sc.Diluents
-                        sc.Components
-                        sc.Items
-                        sc.Shape
-                        sc.Diluent
-                        (sc.DoseType |> mapToSharedDoseType)
-                        sc.Component
-                        sc.Item
-                        sc.Prescription
-                        sc.Preparation
-                        sc.Administration
-                        (sc.Order |> (Order.Dto.toDto >> mapToOrder sc.Items >> Constrained))
-                        sc.UseAdjust
-                        sc.UseRenalRule
-                        sc.RenalRule
-                )
-        }
-        |> fun sr ->
-            ConsoleWriter.writeInfoMessage $"""{msg "finished" sr}""" true true
-            sr //|> Ok
-    with
-    | e ->
-        ConsoleWriter.writeErrorMessage $"errored:\n{e}" true true
-        sr //|> Ok
-    |> fun sc ->
-        { sc with
-            DemoVersion =
-                Env.getItem "GENPRES_PROD"
-                |> Option.map (fun v -> v <> "1")
-                |> Option.defaultValue true
-        }
-        |> Ok
-
-
-let calcValues (ord : Order) =
-    if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-        let path = $"{__SOURCE_DIRECTORY__}/log.txt"
-        OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
-
-    let sns =
-        ord.Orderable.Components
-        |> Array.collect _.Items
-        |> Array.filter (_.IsAdditional >> not)
-        |> Array.map _.Name
-
-    try
-        ord
-        |> mapFromOrder
-        |> Api.calc
-        |> Result.map (mapToOrder sns)
-    with
-    | e ->
-        ConsoleWriter.writeErrorMessage $"error calculating values from min incr max {e}" true true
-        "error calculating values from min incr max"
-        |> Error
-
-
-let getIntake wghtInGram (ords: Order []) =
-    let wghtInKg =
-        wghtInGram
-        |> Option.map BigRational.fromInt
-        |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
-        |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-
-    ords
-    |> Array.map mapFromOrder
-    |> Api.getIntake wghtInKg
-    |> mapToIntake
-
-
-let print (sc: ScenarioResult) =
-    let msg stage (sc: ScenarioResult)=
-        let s =
-            sc.Scenarios
-            |> Array.collect _.Prescription
-        $"""
-{stage}: {s}
-"""
-
-    ConsoleWriter.writeInfoMessage $"""{msg "printing" sc}""" true true
-
-    let sc =
-        { sc with
-            Scenarios =
-                sc.Scenarios
-                |> Array.map (fun sc ->
-                    let ord = sc.Order |> Models.OrderState.getOrder
-
-                    let prs, prp, adm =
-                        // only print the item quantities of the principal component
-                        let sns =
-                            match ord.Orderable.Components |> Array.tryHead with
-                            | Some c ->
-                                c.Items
-                                |> Array.map _.Name
-                                |> Array.filter (fun n -> Array.exists ((=) n) sc.Items)
-                            | None -> [||]
-
-                        ord
-                        |> mapFromOrder
-                        |> Order.Dto.fromDto
-                        |> Order.Print.printOrderToTableFormat sc.UseAdjust true sns
-                        |> fun (prs, prp, adm) ->
-                            prs |> Array.map (Array.map (Api.replace >> Models.ScenarioResult.parseTextItem)),
-                            prp |> Array.map (Array.map (Api.replace >> Models.ScenarioResult.parseTextItem)),
-                            adm |> Array.map (Array.map (Api.replace >> Models.ScenarioResult.parseTextItem))
-                    { sc with
-                        Prescription = prs
-                        Preparation = prp
-                        Administration = adm
-                    }
-                )
-        }
-    ConsoleWriter.writeInfoMessage $"""{msg "finished printing" sc}""" true true
-    sc
-
-
-let solveOrder (ord : Order) =
-    if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-        let path = $"{__SOURCE_DIRECTORY__}/log.txt"
-        OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
-
-    let sns =
-        ord.Orderable.Components
-        |> Array.collect _.Items
-        |> Array.filter (_.IsAdditional >> not)
-        |> Array.map _.Name
-
-    ord
-    |> mapFromOrder
-    |> Order.Dto.fromDto
-    |> Order.toString
-    |> String.concat "\n"
-    |> sprintf "solving order:\n%s"
-    |> fun s -> ConsoleWriter.writeInfoMessage s true false
-
-    try
-        ord
-        |> mapFromOrder
-        |> Api.solve
-        |> Result.map (mapToOrder sns)
-        |> Result.mapError (fun (_, errs) ->
-            let s =
-                errs
-                |> List.map string
-                |> String.concat "\n"
-            ConsoleWriter.writeErrorMessage $"error solving order\n{s}" true false
-            s
-        )
-    with
-    | e ->
-        failwith $"error solving order\n{e}"

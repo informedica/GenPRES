@@ -1,18 +1,10 @@
 namespace Components
 
-open System
-open Fable.Core
-open Fable.React
-open Feliz
-open Browser.Types
-
-
-
-open Elmish
-open Fable.Core.JsInterop
-
 
 module BasicTable =
+
+
+    open Fable.Core
 
 
     [<JSX.Component>]
