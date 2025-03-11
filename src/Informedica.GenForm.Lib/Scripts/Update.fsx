@@ -1,6 +1,7 @@
 
 
 #load "load.fsx"
+
 #load "../Types.fs"
 #load "../Utils.fs"
 #load "../Mapping.fs"
@@ -12,6 +13,7 @@
 #load "../Filter.fs"
 #load "../DoseRule.fs"
 #load "../SolutionRule.fs"
+#load "../RenalRule.fs"
 #load "../PrescriptionRule.fs"
 
 

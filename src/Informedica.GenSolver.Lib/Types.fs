@@ -160,6 +160,7 @@ module rec Types =
             | SolverInvalidEquations of Equation list
             | SolverTooManyLoops of loopCount : int * Equation list
             | SolverErrored of loopCount: int * Message list * Equation list
+            | UnexpectedException of ex: exn
 
 
     module Events =

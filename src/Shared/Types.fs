@@ -258,16 +258,7 @@ module Types =
             Solution: string
         }
 
-    // CalculatedDose
-    // MinDose
-    // MaxDose
-    // DoseUnit
-    // CalculatedDoseAdjust
-    // NormDoseAdjust
-    // MinDoseAdjust
-    // MaxDoseAdjust
-    // DoseAdjustUnit
-    // DoseText
+
     type Intervention =
         {
             Hospital: string

@@ -9,7 +9,7 @@ module DoseRule =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-
+    open ConsoleWriter.NewLineNoTime
 
 
     module Constants =
@@ -490,11 +490,9 @@ module DoseRule =
                 |> Json.getCache<DoseRule[]>
             else
                 let p = FilePath.ruleCache useDemo
-                ConsoleWriter.writeInfoMessage
-                    $"No {p}, creating DoseRule" true false
+                writeInfoMessage $"No {p}, creating DoseRule"
                 let rules = GenPresProduct.getGPKS gpks |> parse
-                ConsoleWriter.writeInfoMessage
-                    $"Created {rules |> Array.length} Rules" true false
+                writeInfoMessage $"Created {rules |> Array.length} Rules"
 
                 rules |> Json.cache p
                 rules

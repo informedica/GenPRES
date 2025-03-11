@@ -14,6 +14,7 @@ module Order =
     open System
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open ConsoleWriter.NewLineNoTime
     open Informedica.GenUnits.Lib
     open WrappedString
 
@@ -175,9 +176,7 @@ module Order =
                             |> String.concat " + "
                             |> fun s -> $"{lv} = {s}"
                         | _ ->
-                            ConsoleWriter.writeErrorMessage
-                                $"could not match {e}"
-                                true false
+                            writeErrorMessage $"could not match {e}"
                             ""
                     )
                     |> List.filter (String.isNullOrWhiteSpace >> not)
@@ -2346,9 +2345,7 @@ module Order =
         with
         | _ ->
             let s = ord |> toString |> String.concat "\n"
-            ConsoleWriter.writeErrorMessage
-                $"couldn't apply constraints:\n{s}"
-                true false
+            writeErrorMessage $"couldn't apply constraints:\n{s}"
             reraise()
 
 
@@ -2511,8 +2508,7 @@ module Order =
                 eqs
                 |> Solver.mapToOrderEqs oEqs
                 |> mapFromOrderEquations ord
-                |> fun eqs -> Error (eqs, m)
-
+                |> fun ord -> Error (ord, m)
         with
         | e ->
             if printErr then
@@ -2521,7 +2517,8 @@ module Order =
                 |> toString
                 |> List.iteri (printfn "%i. %s")
 
-            raise e
+            let msg = [ e |> Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException ]
+            Error (ord, msg)
 
 
     /// <summary>
@@ -2639,20 +2636,10 @@ module Order =
             | Error (_, errs) ->
                 errs
                 |> List.iter (fun e ->
-                    ConsoleWriter.writeErrorMessage
-                        $"{e}"
-                        true
-                        false
+                    writeErrorMessage $"{e}"
                 )
                 ord // original order
             | Ok ord ->
-                (*
-                ConsoleWriter.writeInfoMessage
-                    $"""=== solved order with increased increment === {ord |> toString |> String.concat "\n"}"""
-                    true
-                    false
-                *)
-
                 ord // increased increment order
                 |> solveOrder false logger
 
@@ -2660,21 +2647,10 @@ module Order =
                 | Error (_, errs) ->
                     errs
                     |> List.iter (fun e ->
-                        ConsoleWriter.writeErrorMessage
-                            $"{e}"
-                            true
-                            false
+                        writeErrorMessage $"{e}"
                     )
                     ord // increased increment order
                 | Ok ord ->
-                    (*
-                    let s = ord |> toString |> String.concat "\n"
-                    ConsoleWriter.writeInfoMessage
-                        $"solved order with increased increment and values:\n {s}"
-                        true
-                        false
-                    *)
-
                     ord // calculated order
         |> Ok
 

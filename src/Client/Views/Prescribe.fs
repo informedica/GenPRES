@@ -268,7 +268,9 @@ module Prescribe =
                     match props.treatmentPlan with
                     | Resolved tp ->
                         { tp with
-                            Scenarios = [| sc |]
+                            Scenarios =
+                                [| sc |]
+                                |> Array.append tp.Scenarios
                         }
                         |> props.updateTreatmentPlan
                     | _ -> ()

@@ -13,6 +13,7 @@ module OrderLogger =
 
     open Informedica.GenUnits.Lib
     open Informedica.GenOrder.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
     module Units = ValueUnit.Units
@@ -31,10 +32,6 @@ module OrderLogger =
 
     module Name = Variable.Name
 
-
-    let writeInfo txt = ConsoleWriter.writeInfoMessage txt true false
-
-    let writeError txt = ConsoleWriter.writeErrorMessage txt true false
 
     let printOrderEqs (o : Order) eqs =
         let toEqString op vs =
@@ -82,7 +79,7 @@ module OrderLogger =
 
         with
         | e ->
-            writeError $"error printing: {e.ToString()}"
+            writeErrorMessage $"error printing: {e.ToString()}"
             ""
 
 
@@ -103,7 +100,7 @@ module OrderLogger =
             | _ -> ""
 
         | Logging.OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
-            writeError $"""
+            writeErrorMessage $"""
 printing error for order {o.Orderable.Name}
 messages: {msgs.Value.Count}
 """
@@ -126,17 +123,17 @@ messages: {msgs.Value.Count}
                         | _ -> None
                     )
                     |> fun xs ->
-                        writeInfo $"found {xs |> Array.length}"; xs
+                        writeInfoMessage $"found {xs |> Array.length}"; xs
                     |> Array.tryHead
                 | None -> None
             match eqs with
             | Some eqs ->
                 let s = $"Terminated with {s}:\n{printOrderEqs o eqs}"
-                writeInfo $"%s{s}"
+                writeInfoMessage $"%s{s}"
                 s
             | None ->
                 let s = $"Terminated with {s}"
-                writeInfo $"%s{s}"
+                writeInfoMessage $"%s{s}"
                 s
 
 
@@ -148,7 +145,7 @@ messages: {msgs.Value.Count}
         | :? SolverMessage as m -> m |> SolverLogging.printMsg
         | :? OrderMessage  as m -> m |> printOrderMsg msgs
         | _ ->
-            writeError $"printMsg cannot handle {msg}"
+            writeErrorMessage $"printMsg cannot handle {msg}"
             ""
 
     // A message to send to the order logger agent
@@ -233,11 +230,11 @@ messages: {msgs.Value.Count}
                             return! loop timer path level msgs
 
                         | Report ->
-                            writeInfo "=== Start Report ===\n"
+                            writeInfoMessage "=== Start Report ===\n"
                             msgs
                             |> Seq.length
                             |> sprintf "Total messages received: %i\n"
-                            |> writeInfo
+                            |> writeInfoMessage
 
                             msgs
                             |> Seq.iteri (fun i (t, m) ->
@@ -245,7 +242,7 @@ messages: {msgs.Value.Count}
                                 |> printMsg (Some msgs)
                                 |> function
                                 | s when s |> String.IsNullOrEmpty -> ()
-                                | s -> writeInfo $"\n%i{i}. %f{t}: %A{m.Level}\n%s{s}"
+                                | s -> writeInfoMessage $"\n%i{i}. %f{t}: %A{m.Level}\n%s{s}"
                             )
                             printfn "\n"
 
@@ -264,8 +261,8 @@ messages: {msgs.Value.Count}
         {
             Start =
                 fun path level ->
-                    writeInfo $"start logging at level {level}"
-                    if path.IsSome then writeInfo $"file logging to {path}"
+                    writeInfoMessage $"start logging at level {level}"
+                    if path.IsSome then writeInfoMessage $"file logging to {path}"
 
                     (path, level)
                     |> Start
@@ -305,21 +302,20 @@ messages: {msgs.Value.Count}
                 |> Option.defaultValue ""
             | _ -> ""
 
-        writeInfo $"\n\n=== SCENARIOS for Weight: %s{w} ==="
+        writeInfoMessage $"\n\n=== SCENARIOS for Weight: %s{w} ==="
         orders
         |> List.iteri (fun i o ->
             o
             |> Order.Print.printOrderToString true ns
             |> fun (p, a, d) ->
-                writeInfo $"%i{i + 1}\tprescription:\t%s{p}"
-                writeInfo $"  \tdispensing:\t%s{a}"
-                writeInfo $"  \tpreparation:\t%s{d}"
+                writeInfoMessage $"%i{i + 1}\tprescription:\t%s{p}"
+                writeInfoMessage $"  \tdispensing:\t%s{a}"
+                writeInfoMessage $"  \tpreparation:\t%s{d}"
 
             if verbose then
                 o
                 |> Order.toString
-                |> List.iteri (fun i s -> writeInfo $"%i{i + 1}\t%s{s}")
+                |> List.iteri (fun i s -> writeInfoMessage $"%i{i + 1}\t%s{s}")
 
-                writeInfo "\n"
+                writeInfoMessage "\n"
         )
-

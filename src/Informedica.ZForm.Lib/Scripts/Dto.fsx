@@ -104,7 +104,7 @@ let createFormularium () =
                 |> function
                 | _ when pp.TradeProducts |> Array.isEmpty -> "" |> Array.singleton
                 | _ -> pp.TradeProducts
-                       |> Array.map (fun tp -> tp.Label)
+                       |> Array.map _.Label
                 |> Array.collect (fun prd ->
                     gp.Route
                     |> function
@@ -258,7 +258,7 @@ GenPresProduct.get true
     GPK = 00161527
 }
 |> Dto.processDto
-|> fun dto -> dto.Text
+|> _.Text
 
 
 

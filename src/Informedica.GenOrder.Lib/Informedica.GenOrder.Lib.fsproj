@@ -23,10 +23,8 @@
     <Compile Include="Api.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Script1.fsx" />
-    <None Include="Scripts\Api2.fsx" />
     <None Include="Scripts\OrderVariable.fsx" />
     <None Include="Scripts\Agent.fsx" />
-    <None Include="Scripts\Order.fsx" />
     <None Include="Scripts\Scenarios.fsx" />
   </ItemGroup>
   <ItemGroup>

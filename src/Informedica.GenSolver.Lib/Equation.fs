@@ -10,6 +10,7 @@ namespace Informedica.GenSolver.Lib
 module Equation =
 
     open Informedica.Utils.Lib
+    open ConsoleWriter.NewLineNoTime
 
     open Types
     open Variable.Operators
@@ -296,9 +297,9 @@ module Equation =
                         y.Values
                         |> ValueRange.isSubSetOf (xs |> List.reduce op).Values
                     if not b then
-                        ConsoleWriter.writeErrorMessage
-                            $"not a subset: {y.Values |> toStr} {(xs |> List.reduce op).Values |> toStr}"
-                            true false
+                        $"not a subset: {y.Values |> toStr} {(xs |> List.reduce op).Values |> toStr}"
+                        |> writeErrorMessage
+
                     b
                 else true
 

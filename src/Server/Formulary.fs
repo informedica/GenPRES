@@ -3,6 +3,7 @@ module Formulary
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
+open ConsoleWriter.NewLineTime
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
@@ -79,7 +80,6 @@ let checkDoseRules pat (dsrs : DoseRule []) =
 
 let get (form : Formulary) =
     let filter = form |> mapFormularyToFilter
-    //ConsoleWriter.writeInfoMessage $"getting formulary with filter: {filter}" true false
 
     let dsrs = Api.getDoseRules filter
 
@@ -103,7 +103,8 @@ let get (form : Formulary) =
                 Markdown =
                     match form.Generic, form.Indication, form.Route with
                     | Some _, Some _, Some _ ->
-                        ConsoleWriter.writeInfoMessage $"start checking {dsrs |> Array.length} rules" true true
+                        writeInfoMessage $"start checking {dsrs |> Array.length} rules"
+
                         let s =
                             dsrs
                             |> checkDoseRules filter.Patient
@@ -119,7 +120,7 @@ let get (form : Formulary) =
                             |> String.concat "\n"
                             |> fun s -> if s |> String.isNullOrWhiteSpace then "Ok!" else s
 
-                        ConsoleWriter.writeInfoMessage $"finished checking {dsrs |> Array.length} rules" true true
+                        writeInfoMessage $"finished checking {dsrs |> Array.length} rules"
 
                         dsrs
                         |> DoseRule.Print.toMarkdown

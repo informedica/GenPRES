@@ -1,7 +1,7 @@
 module Parenteralia
 
 
-open Informedica.Utils.Lib
+open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 open Informedica.GenForm.Lib
 
 type Parenteralia = Shared.Types.Parenteralia
@@ -10,7 +10,7 @@ module Api = Informedica.GenOrder.Lib.Api
 
 
 let get (par : Parenteralia) : Result<Parenteralia, string> =
-    ConsoleWriter.writeInfoMessage $"getting parenteralia for {par.Generic}" true false
+    writeInfoMessage $"getting parenteralia for {par.Generic}"
 
     let srs =
         Api.getSolutionRules

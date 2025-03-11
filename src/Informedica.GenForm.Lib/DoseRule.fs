@@ -4,13 +4,13 @@ namespace Informedica.GenForm.Lib
 module DoseRule =
 
     open System
-    open System.ComponentModel
     open MathNet.Numerics
 
     open FSharp.Data
     open FSharp.Data.JsonExtensions
 
     open Informedica.Utils.Lib
+    open ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
     open Utils
@@ -524,11 +524,10 @@ module DoseRule =
             |> Some
         with
         | e ->
-            ConsoleWriter.writeErrorMessage $"""
+            writeErrorMessage $"""
 {e}
 cannot map {r}
 """
-                true false
             None
 
 
@@ -658,9 +657,7 @@ cannot map {r}
                     let key = $"{gen} {rte}"
                     if warnings.ContainsKey(key) |> not then
                         warnings.Add(key, key)
-                        ConsoleWriter.writeWarningMessage
-                            $"no products for {key}"
-                            true false
+                        writeWarningMessage $"no products for {key}"
 
                     [|
                         {| r with

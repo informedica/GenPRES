@@ -3,6 +3,13 @@ module Message
 open Shared
 open Shared.Types
 open Shared.Api
+open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+
+let printMsg msg pr =
+    pr
+    |> PrescriptionResult.toString msg
+    |> writeInfoMessage
+    pr
 
 
 let processOrders (pr : PrescriptionResult) =
@@ -67,6 +74,8 @@ let checkDiluent (pr: PrescriptionResult) =
 let processMsg msg =
     match msg with
     | PrescriptionResultMsg pr ->
+        pr |> printMsg "prescription result msg start" |> ignore
+
         if pr.Scenarios |> Array.isEmpty then
             pr
             |> PrescriptionResult.get
@@ -80,15 +89,16 @@ let processMsg msg =
                 pr
                 |> PrescriptionResult.get
 
-        |> Result.map (fun sr ->
-            { sr with
+        |> Result.map (fun pr ->
+            { pr with
                 Intake =
-                    let w = sr.Patient |> Models.Patient.getWeight
-                    sr.Scenarios
+                    let w = pr.Patient |> Models.Patient.getWeight
+                    pr.Scenarios
                     |> Array.map (_.Order >> Models.OrderState.getOrder)
                     |> Order.getIntake w
             }
         )
+        |> Result.map (printMsg "prescription result finish")
         |> Result.map PrescriptionResultMsg
 
     | TreatmentPlanMsg tp ->
@@ -96,8 +106,11 @@ let processMsg msg =
         | Some os ->
             os
             |> Models.PrescriptionResult.fromOrderScenario
+            |> printMsg "TreatmentPlan started"
             |> processOrders
+            |> Result.map PrescriptionResult.print
             |> Result.map (fun pr ->
+                pr |> printMsg "TreatmentPlan finished" |> ignore
                 let newOsc = pr.Scenarios |> Array.tryExactlyOne
 
                 { tp with

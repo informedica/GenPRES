@@ -3,9 +3,9 @@ module Order
 
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
+open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
-
 
 open Shared.Types
 open Mappers
@@ -22,15 +22,21 @@ let calcValues (ord : Order) =
         |> Array.filter (_.IsAdditional >> not)
         |> Array.map _.Name
 
+    let dto = ord |> mapFromOrder
+
+    dto
+    |> Order.Dto.toString
+    |> sprintf "calc values:\n%s"
+    |> writeInfoMessage
+
     try
-        ord
-        |> mapFromOrder
+        dto
         |> Api.orderCalcValues
         |> Result.map (Order.Dto.toDto >> mapToOrder sns)
         |> Result.map Calculated
     with
     | e ->
-        ConsoleWriter.writeErrorMessage $"error calculating values from min incr max {e}" true true
+        writeErrorMessage $"error calculating values from min incr max {e}"
         "error calculating values from min incr max"
         |> Error
 
@@ -64,7 +70,7 @@ let solveOrder (ord : Order) =
     dto
     |> Order.Dto.toString
     |> sprintf "solving order:\n%s"
-    |> fun s -> ConsoleWriter.writeInfoMessage s true false
+    |> writeInfoMessage
 
     try
         let ord =
@@ -85,7 +91,7 @@ let solveOrder (ord : Order) =
                 errs
                 |> List.map string
                 |> String.concat "\n"
-            ConsoleWriter.writeErrorMessage $"error solving order\n{s}" true false
+            writeErrorMessage $"error solving order\n{s}"
             s
         )
     with

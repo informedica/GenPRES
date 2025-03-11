@@ -7,6 +7,8 @@ module Json =
     open Newtonsoft.Json
 
     open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+
 
     /// <summary>
     /// Serializes an object to a JSON string
@@ -53,7 +55,7 @@ module Json =
     /// </summary>
     /// <param name="p">The path to the file</param>
     let getCache<'T> p =
-        ConsoleWriter.writeInfoMessage $"Reading cache: %s{p}" true false
+        writeInfoMessage $"Reading cache: %s{p}"
 
         File.readAllLines p
         |> String.concat ""

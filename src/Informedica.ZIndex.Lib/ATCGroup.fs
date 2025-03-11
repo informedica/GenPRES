@@ -5,7 +5,7 @@ module ATCGroup =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-
+    open ConsoleWriter.NewLineNoTime
 
     /// Create a ATC group.
     let create atc1 ang ange atc2 thg thge atc3 ths thse atc4 phg phge atc5 sub sube gen shp rts =
@@ -157,11 +157,9 @@ module ATCGroup =
                 |> Json.getCache
             else
                 let p = FilePath.groupCache useDemo
-                ConsoleWriter.writeInfoMessage
-                    $"No {p} creating group.cache" true false
+                writeInfoMessage $"No {p} creating group.cache"
                 let grps = GenPresProduct.getGPKS [] |> parse
-                ConsoleWriter.writeInfoMessage
-                    $"Created {grps |> Array.length} ATC Groups" true false
+                writeInfoMessage $"Created {grps |> Array.length} ATC Groups"
 
                 grps |> Json.cache (FilePath.groupCache useDemo)
                 grps

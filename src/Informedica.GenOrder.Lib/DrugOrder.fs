@@ -1,14 +1,13 @@
 namespace Informedica.GenOrder.Lib
 
 
-
-
 module DrugOrder =
 
     open System
     open Informedica.Utils.Lib
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
+    open ConsoleWriter.NewLineNoTime
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
 
@@ -310,9 +309,7 @@ module DrugOrder =
                         |> createComponents None
                         |> List.append ps
                     | None ->
-                        ConsoleWriter.writeInfoMessage
-                            $"No diluents available"
-                            true false
+                        writeInfoMessage "No diluents available"
                         ps
             }
 

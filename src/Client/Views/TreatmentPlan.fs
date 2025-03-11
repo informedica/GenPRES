@@ -5,71 +5,10 @@ module TreatmentPlan =
 
 
     open Fable.Core
-    open Fable.React
     open Feliz
-    open Elmish
     open Shared
     open Shared.Types
     open Shared.Models
-
-
-    module private Elmish =
-
-
-        type State = Deferred<TreatmentPlan>
-
-
-        type Msg =
-            | SelectPrescriptionResult of PrescriptionResult option
-            | UpdateTreatmentPlan of PrescriptionResult
-
-
-        let init tp : State * Cmd<Msg>  = tp, Cmd.none
-
-
-        let update updateTreatmentPlan (msg : Msg) (state : State) =
-            match state with
-            | Resolved tp ->
-                match msg with
-                | SelectPrescriptionResult (Some pr) ->
-                    { tp with
-                        Selected =
-                            pr.Scenarios
-                            |> Array.tryExactlyOne
-                    } |> Resolved
-                    , Cmd.none
-                | SelectPrescriptionResult None ->
-                    { tp with Selected = None } |> Resolved
-                    , Cmd.none
-                | UpdateTreatmentPlan pr ->
-                    let id =
-                        pr.Scenarios
-                        |> Array.tryExactlyOne
-
-                    match id with
-                    | None ->
-                        Logging.error "Order not found" pr
-                        state, Cmd.none
-                    | Some newSc ->
-                        let tp =
-                            { tp with
-                                Selected = newSc |> Some
-                                Scenarios =
-                                    pr.Scenarios
-                                    |> Array.map (fun sc ->
-                                        if sc |> OrderScenario.eqs newSc then
-                                            newSc
-                                        else
-                                            sc
-                                    )
-                            }
-                        tp |> updateTreatmentPlan
-                        state, Cmd.none
-
-            | _ -> state, Cmd.none
-
-
-    open Elmish
 
 
     [<JSX.Component>]
@@ -82,14 +21,14 @@ module TreatmentPlan =
         let context = React.useContext Global.context
         let lang = context.Localization
 
-        let init = init props.treatmentPlan
-        let update = update props.updateTreatmentPlan
-        let state, dispatch = React.useElmish (init, update, [| box props.treatmentPlan|])
-
         let modalOpen, setModalOpen = React.useState false
         let handleModalClose =
             fun () ->
-                dispatch (SelectPrescriptionResult None)
+                match props.treatmentPlan with
+                | Resolved tp ->
+                    { tp with Selected = None }
+                    |> props.updateTreatmentPlan
+                | _ -> ()
                 setModalOpen false
 
         let getTerm defVal term =
@@ -252,25 +191,28 @@ module TreatmentPlan =
                     Logging.error "Order not found" id
                     ()
                 | Some sc ->
-                    let ord = sc.Order |> OrderState.getOrder
-
-                    { PrescriptionResult.empty with
-                        Patient = tp.Patient
-                        Filter =
-                            { PrescriptionResult.filter with
-                                Indication = Some sc.Indication
-                                Medication = Some ord.Orderable.Name
-                                Route = Some ord.Route
-                                DoseType = Some sc.DoseType
-                                Diluent = sc.Diluent
-                            }
-                        Scenarios = [| sc |]
-                    }
-                    |> Some
-                    |> SelectPrescriptionResult
-                    |> dispatch
+                    { tp with Selected = Some sc }
+                    |> props.updateTreatmentPlan
 
                     setModalOpen true
+            | _ -> ()
+
+        let updatePrescriptionResult (pr : PrescriptionResult) =
+            match props.treatmentPlan with
+            | Resolved tp ->
+                match pr.Scenarios |> Array.tryExactlyOne with
+                | None -> ()
+                | Some os ->
+                    { tp with
+                        Selected = os |> Some
+                        Scenarios =
+                            tp.Scenarios
+                            |> Array.map (fun sc ->
+                                if sc |> OrderScenario.eqs os then os else sc
+                            )
+
+                    }
+                    |> props.updateTreatmentPlan
             | _ -> ()
 
         JSX.jsx
@@ -294,13 +236,13 @@ module TreatmentPlan =
                     {
                         Order.View {|
                             prescriptionResult =
-                                match state with
+                                match props.treatmentPlan with
                                 | Resolved tp ->
                                     tp.Selected
                                     |> Option.map (PrescriptionResult.fromOrderScenario >> Resolved)
                                     |> Option.defaultValue HasNotStartedYet
                                 | _ -> HasNotStartedYet
-                            updatePrescriptionResult = UpdateTreatmentPlan >> dispatch
+                            updatePrescriptionResult = updatePrescriptionResult
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}

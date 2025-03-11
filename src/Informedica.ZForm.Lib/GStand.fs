@@ -6,7 +6,7 @@ module GStand =
     open FParsec
     open MathNet.Numerics
 
-    open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
 
     open Aether
@@ -210,10 +210,7 @@ module GStand =
             |> ValueUnit.fromString
             |> function
             | Failure (err, _, _) ->
-                ConsoleWriter.writeErrorMessage
-                    $"Cannot parse |{s}| freq value unit: {fr}\n{err}"
-                    true
-                    false
+                writeErrorMessage $"Cannot parse |{s}| freq value unit: {fr}\n{err}"
                 err |> failwith
             | Success (vu, _, _) -> vu
             |> map
@@ -656,14 +653,14 @@ module GStand =
             | None -> true
             | Some id -> gp.Id = id
         )
-        |> Array.map (fun gp -> gp.ATC)
+        |> Array.map _.ATC
         |> Array.distinct
 
 
     // Get the list of routes for a GenPresProduct.
     let getRoutes (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
-        |> Array.collect (fun gp -> gp.Route)
+        |> Array.collect _.Route
         |> Array.distinct
 
 
@@ -683,8 +680,8 @@ module GStand =
     /// Get a list of TradeNames for a GenPresProduct.
     let getTradeNames (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
-        |> Seq.collect (fun gp -> gp.PrescriptionProducts)
-        |> Seq.collect (fun pp -> pp.TradeProducts)
+        |> Seq.collect _.PrescriptionProducts
+        |> Seq.collect _.TradeProducts
         |> Seq.map (fun tp ->
             match tp.Name |> String.split " " with
             | h :: _ -> h |> String.trim
@@ -866,7 +863,7 @@ module GStand =
                 )
             )
         )
-        |> Seq.groupBy (fun r -> r.indications) // group by indications
+        |> Seq.groupBy _.indications // group by indications
         |> Seq.map (fun (inds, v) ->
             {|
                 indications = inds
@@ -1082,4 +1079,3 @@ module GStand =
 
             foldDoseRules rte age wght bsa gpk cfg dr gpps
         )
-

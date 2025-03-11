@@ -5,9 +5,9 @@ namespace Informedica.GenForm.Lib
 
 module Product =
 
-    open Informedica.ZForm.Lib.DoseRule
     open MathNet.Numerics
     open Informedica.Utils.Lib
+    open ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
 
 
@@ -212,9 +212,7 @@ module Product =
                                             |> Mapping.mapUnit
                                             |> function
                                                 | None ->
-                                                    ConsoleWriter.writeErrorMessage
-                                                        $"cannot map unit: {u}"
-                                                        true false
+                                                    writeErrorMessage $"cannot map unit: {u}"
                                                     None
                                                 | Some u ->
                                                     let u =
@@ -644,5 +642,3 @@ module Product =
         products
         |> Array.map _.Shape
         |> Array.distinct
-
-

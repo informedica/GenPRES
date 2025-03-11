@@ -5,7 +5,7 @@ module GenPresProduct =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-
+    open ConsoleWriter.NewLineNoTime
 
     /// Create a GenPresProduct.
     let create nm sh rt ph gps dpn unt sns =
@@ -106,11 +106,9 @@ module GenPresProduct =
                 )
             else
                 let p = FilePath.productCache useDemo
-                ConsoleWriter.writeInfoMessage
-                    $"No {p}, creating GenPresProduct" true false
+                writeInfoMessage $"No {p}, creating GenPresProduct"
                 let gpps = parse gpks
-                ConsoleWriter.writeInfoMessage
-                    $"Created {gpps |> Array.length} GenPres Products" true false
+                writeInfoMessage $"Created {gpps |> Array.length} GenPres Products"
 
                 gpps |> Json.cache p
                 gpps

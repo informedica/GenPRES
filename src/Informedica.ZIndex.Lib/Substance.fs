@@ -5,7 +5,7 @@ module Substance =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-
+    open ConsoleWriter.NewLineNoTime
 
     /// <summary>
     /// Create a Substance
@@ -57,11 +57,11 @@ module Substance =
                 |> Json.getCache
             else
                     let p = FilePath.substanceCache useDemo
-                    ConsoleWriter.writeInfoMessage
-                        $"No {p}, creating Substance" true false
+                    writeInfoMessage $"No {p}, creating Substance"
+
                     let substs = parse ()
-                    ConsoleWriter.writeInfoMessage
-                        $"Created {substs |> Array.length} Substances" true false
+
+                    writeInfoMessage $"Created {substs |> Array.length} Substances"
 
                     substs |> Json.cache p
                     substs

@@ -5,6 +5,7 @@ module Check =
 
 
     open Informedica.Utils.Lib
+    open ConsoleWriter.NewLineNoTime
     open MathNet.Numerics
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
@@ -497,10 +498,7 @@ module Check =
                             testRange
                     with
                     | e ->
-                        ConsoleWriter.writeErrorMessage
-                            $"{e}"
-                            true
-                            false
+                        writeErrorMessage $"{e}"
                         true, $"{gstand.doseLimitTarget}\t{r}\t{p}\t{m}: kan niet worden gechecked vanwege foutmelding"
 
                 let toMinMax vuOpt =
@@ -626,9 +624,8 @@ module Check =
     let checkAll (pat : Patient) (drs : DoseRule[]) =
         drs
         |> Array.mapi (fun i dr ->
-            ConsoleWriter.writeInfoMessage
-                $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
-                true false
+            writeInfoMessage $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
+
             checkDoseRule pat dr
         )
         |> Array.filter (fun c ->
@@ -637,6 +634,3 @@ module Check =
         |> Array.collect _.didNotPass
         |> Array.filter String.notEmpty
         |> Array.distinct
-
-
-

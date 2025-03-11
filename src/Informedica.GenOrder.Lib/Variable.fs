@@ -8,6 +8,7 @@ module Variable =
 
         open Informedica.GenSolver.Lib.Variable.ValueRange
         open Informedica.Utils.Lib
+        open ConsoleWriter.NewLineNoTime
 
 
         let inline private setOpt aOption set vr =
@@ -17,9 +18,7 @@ module Variable =
                 | None   -> vr
             with
             | e ->
-                ConsoleWriter.writeErrorMessage
-                    $"couldn't set {aOption} to {vr}"
-                    true false
+                writeErrorMessage  $"couldn't set {aOption} to {vr}"
                 vr // TODO: ugly fix need to refactor
 
 

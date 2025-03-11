@@ -8,7 +8,7 @@ module Utils =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-
+    open ConsoleWriter.NewLineNoTime
 
 
     module Web =
@@ -27,7 +27,7 @@ module Utils =
             Env.getItem "GENPRES_URL_ID"
             |> Option.defaultValue  dataUrlIdGenPres
             |> fun s  ->
-                ConsoleWriter.writeInfoMessage $"using: {s}" true false
+                writeInfoMessage $"using: {s}"
                 s
 
 
@@ -144,7 +144,7 @@ module Utils =
             else
                 // TODO need better fix than this
                 if s = "keer" || s = "x" then
-                    $"times[Count]"
+                    "times[Count]"
                 else
                     $"{s}[Time]"
                 |> Units.fromString

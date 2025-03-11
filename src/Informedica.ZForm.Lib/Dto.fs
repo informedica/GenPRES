@@ -189,7 +189,7 @@ module Dto =
                         gp.PrescriptionProducts
                         |> Array.fold (fun acc pp ->
                             pp.TradeProducts
-                            |> Array.map (fun tp -> tp.Label)
+                            |> Array.map _.Label
                             |> Array.toList
                             |> List.append acc
                         ) []
@@ -369,7 +369,7 @@ module Dto =
                     GPP.filter dto.Generic dto.Shape rte
                     |> Array.collect (fun gpp ->
                         gpp.GenericProducts
-                        |> Array.map (fun gp -> gp.Id)
+                        |> Array.map _.Id
                     )
                     |> Array.toList
             }
@@ -401,7 +401,7 @@ module Dto =
                     if rds |> Seq.length <> 1 then
                         let rts =
                             rds
-                            |> List.map(fun rd -> rd.Route)
+                            |> List.map(_.Route)
                             |> String.concat ", "
                         printfn $"wrong rds count: %i{rds |> Seq.length} for %s{prodName} with routes: %s{rts} using route: %s{rte}"
                         []
@@ -414,9 +414,7 @@ module Dto =
                             let sd = rd.ShapeDosages |> Seq.head
 
                             sd.PatientDosages
-                            |> List.collect (fun pd ->
-                                pd.SubstanceDosages
-                            )
+                            |> List.collect _.SubstanceDosages
                             |> List.groupBy (fun sd ->
                                 sd
                                 |> Dosage.Optics.getFrequencyTimeUnit

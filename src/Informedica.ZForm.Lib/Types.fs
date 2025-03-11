@@ -29,23 +29,23 @@ module Types =
 
         static member GestAge_ :
             (PatientCategory -> MinMax) * (MinMax -> PatientCategory -> PatientCategory) =
-            (fun p -> p.GestAge), (fun a p -> { p with GestAge = a })
+            _.GestAge, (fun a p -> { p with GestAge = a })
 
         static member Age_ :
             (PatientCategory -> MinMax) * (MinMax -> PatientCategory -> PatientCategory) =
-            (fun p -> p.Age), (fun a p -> { p with Age = a })
+            _.Age, (fun a p -> { p with Age = a })
 
         static member Weight_ :
             (PatientCategory -> MinMax) * (MinMax -> PatientCategory -> PatientCategory) =
-            (fun p -> p.Weight), (fun w p -> { p with Weight = w })
+            _.Weight, (fun w p -> { p with Weight = w })
 
         static member BSA_ :
             (PatientCategory -> MinMax) * (MinMax -> PatientCategory -> PatientCategory) =
-            (fun p -> p.BSA), (fun b p -> { p with BSA = b })
+            _.BSA, (fun b p -> { p with BSA = b })
 
         static member Gender_ :
             (PatientCategory -> Gender) * (Gender -> PatientCategory -> PatientCategory) =
-            (fun p -> p.Gender), (fun g p -> { p with Gender = g })
+            _.Gender, (fun g p -> { p with Gender = g })
 
     and Gender = Male | Female | Undetermined
 
@@ -287,7 +287,7 @@ module Types =
 
         static member ShapeDosages_ :
             (RouteDosage -> ShapeDosage list) * (ShapeDosage list -> RouteDosage -> RouteDosage) =
-            (fun rd -> rd.ShapeDosages) ,
+            _.ShapeDosages ,
             (fun pdl rd -> { rd with ShapeDosages = pdl })
 
 

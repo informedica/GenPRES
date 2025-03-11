@@ -6,8 +6,8 @@ namespace Informedica.GenSolver.Lib
 /// equations
 module Solver =
 
-    open System.Runtime.CompilerServices
     open Informedica.Utils.Lib
+    open ConsoleWriter.NewLineNoTime
 
     module EQD = Equation.Dto
     module Name = Variable.Name
@@ -124,7 +124,7 @@ module Solver =
                 |> Exceptions.raiseExc (Some log) errs
             | e ->
                 let msg = $"didn't catch {e}"
-                ConsoleWriter.writeErrorMessage msg true false
+                writeErrorMessage msg
 
                 msg |> failwith
 
@@ -134,7 +134,8 @@ module Solver =
             | Ok acc  ->
                 let n = n + 1
                 if n > ((que @ acc |> List.length) * Constants.MAX_LOOP_COUNT) then
-                    ConsoleWriter.writeErrorMessage $"too many loops: {n}" true false
+                    writeErrorMessage $"too many loops: {n}"
+
                     (n, que @ acc)
                     |> Exceptions.SolverTooManyLoops
                     |> Exceptions.raiseExc (Some log) []
@@ -150,7 +151,8 @@ module Solver =
                     match acc |> List.filter (Equation.check >> not) with
                     | []      -> acc |> Ok
                     | invalid ->
-                        ConsoleWriter.writeErrorMessage "invalid equations" true false
+                        writeErrorMessage "invalid equations"
+
                         invalid
                         |> Exceptions.SolverInvalidEquations
                         |> Exceptions.raiseExc (Some log) []
@@ -228,7 +230,7 @@ module Solver =
                  Error (rpl @ rst, errs)
             | e ->
                 let msg = $"something unexpected happened, didn't catch {e}"
-                ConsoleWriter.writeErrorMessage msg true false
+                writeErrorMessage msg
                 msg |> failwith
 
             |> function

@@ -132,3 +132,31 @@ module ConsoleWriter =
 
     let writeColoredTextWithStandardBackColor (text: string) (frontColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
         writeColoredText None text frontColor colors.StandardBackColor writeLine writeCurrentTime
+
+
+    module Flip =
+
+
+        let writeErrorMessage writeLine writeTime text = writeErrorMessage text writeLine writeTime
+
+        let writeWarningMessage writeLine writeTime text = writeWarningMessage text writeLine writeTime
+
+        let writeInfoMessage writeLine writeTime text = writeInfoMessage text writeLine writeTime
+
+
+    module NewLineTime =
+
+        let writeErrorMessage = Flip.writeErrorMessage true true
+
+        let writeWarningMessage = Flip.writeWarningMessage true true
+
+        let writeInfoMessage = Flip.writeInfoMessage true true
+
+
+    module NewLineNoTime =
+
+        let writeErrorMessage = Flip.writeErrorMessage true false
+
+        let writeWarningMessage = Flip.writeWarningMessage true false
+
+        let writeInfoMessage = Flip.writeInfoMessage true false

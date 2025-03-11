@@ -543,14 +543,19 @@ module private Elmish =
             ]
 
         | UpdateTreatmentPlan tp ->
+            let cmd =
+                if state.Page = TreatmentPlan then
+                    Cmd.ofMsg (LoadTreatmentPlan Started)
+                else
+                    Cmd.batch [
+                        Cmd.ofMsg (UpdatePrescriptionResult PrescriptionResult.empty)
+                        Cmd.ofMsg (LoadTreatmentPlan Started)
+                    ]
+
             { state with
                 Page = TreatmentPlan
                 TreatmentPlan = Resolved tp
-            },
-            Cmd.batch [
-                Cmd.ofMsg (UpdatePrescriptionResult PrescriptionResult.empty)
-                Cmd.ofMsg (LoadTreatmentPlan Started)
-            ]
+            }, cmd
 
         | LoadFormulary Started ->
             let form =

@@ -4,9 +4,9 @@ namespace Informedica.GenForm.Lib
 module DoseType =
 
 
-    open Informedica.GenUnits.Lib.Units
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open ConsoleWriter.NewLineNoTime
 
 
     /// Get a sort order for a dose type.
@@ -43,8 +43,8 @@ module DoseType =
         | "continuous" -> Continuous |> withText
         | _ ->
             if doseType |> String.notEmpty then
-                let msg = $"{doseType} is not a valid dose type!"
-                ConsoleWriter.writeWarningMessage msg true false
+                $"{doseType} is not a valid dose type!"
+                |> writeWarningMessage
             NoDoseType
 
 

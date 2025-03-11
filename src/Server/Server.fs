@@ -7,9 +7,10 @@ open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
 open Shared
 open Shared.Api
+open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
 
-Console.WriteLine $"""
+writeInfoMessage $"""
 === Initialized: ===
 - Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
 - Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
@@ -65,8 +66,7 @@ GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID"}
 GENPRES_LOG={tryGetEnv "GENPRES_LOG"}
 GENPRES_PROD={tryGetEnv "GENPRES_PROD"}
 """
-|> sprintf "%s"
-|> Console.WriteLine
+|> writeInfoMessage
 
 
 run application

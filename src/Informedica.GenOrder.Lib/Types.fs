@@ -350,8 +350,6 @@ module Types =
         /// </summary>
         type OrderScenario =
             {
-                Id : string
-                /// the order number of the scenario
                 No : int
                 /// the indication for the order
                 Indication : string

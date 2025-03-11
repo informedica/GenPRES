@@ -145,7 +145,7 @@ module Mapping =
     let unitToString u =
         getUnitMapping ()
         |> Array.tryFind (fun m -> m.Unit = u)
-        |> Option.map (fun m -> m.ZIndexShort)
+        |> Option.map _.ZIndexShort
         |> Option.defaultValue ""
 
 
@@ -160,7 +160,7 @@ module Mapping =
             m.ZIndexShort |> String.equalsCapInsens s ||
             m.MetaVision |> String.equalsCapInsens s
         )
-        |> Option.map (fun m -> m.Unit)
+        |> Option.map _.Unit
         |> Option.defaultValue NoUnit
 
 

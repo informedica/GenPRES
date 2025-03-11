@@ -9,6 +9,7 @@ module OrderVariable =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open ConsoleWriter.NewLineNoTime
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenSolver.Lib
     open Informedica.GenUnits.Lib
@@ -525,9 +526,7 @@ module OrderVariable =
                 create n min incr max vals cs
             with
             | e ->
-                ConsoleWriter.writeErrorMessage
-                    $"cannot create OrderVariable fromDto: {dto |> JsonConvert.SerializeObject}"
-                    true false
+                writeErrorMessage $"cannot create OrderVariable fromDto: {dto |> JsonConvert.SerializeObject}"
                 e |> raise
 
 
@@ -1440,4 +1439,3 @@ module OrderVariable =
 
         /// Check whether a TotalAdjust is solved
         let isSolved = toOrdVar >> isSolved
-

@@ -3,10 +3,10 @@ namespace Informedica.GenForm.Lib
 
 module RenalRule =
 
-    open Informedica.GenCore.Lib.Calculations
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open ConsoleWriter.NewLineNoTime
 
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
@@ -23,8 +23,7 @@ module RenalRule =
             | _ when s |> String.equalsCapInsens ABS -> Absolute
             | _ when s |> String.equalsCapInsens REL -> Relative
             | _ ->
-                ConsoleWriter.writeWarningMessage
-                    $"{s} is not a valid dosereduction" true false
+                writeWarningMessage $"{s} is not a valid dosereduction"
                 NoReduction
 
 
