@@ -253,26 +253,26 @@ module PrescriptionResult =
                 else
                     dils |> Array.someIfOne
 
+            { pr with
+                Filter =
+                    { pr.Filter with
+                        Indications = inds
+                        Generics = gens
+                        Routes = rtes
+                        Shapes = shps
+                        DoseTypes = dsts
+                        Diluents = dils
+                        Indication = ind
+                        Generic = gen
+                        Route = rte
+                        Shape = shp
+                        DoseType = dst
+                    }
+            },
             match ind, gen, rte, shp, dst with
             | Some _, Some _, Some _, _,      Some _
             | Some _, Some _, _,      Some _, Some _ ->
 
-                { pr with
-                    Filter =
-                        { pr.Filter with
-                            Indications = inds
-                            Generics = gens
-                            Routes = rtes
-                            Shapes = shps
-                            DoseTypes = dsts
-                            Diluents = dils
-                            Indication = ind
-                            Generic = gen
-                            Route = rte
-                            Shape = shp
-                            DoseType = dst
-                        }
-                },
                 { doseFilter with
                     Indication = ind
                     Generic = gen
@@ -282,7 +282,7 @@ module PrescriptionResult =
                     Diluent = dil
                 }
                 |> PrescriptionRule.filter
-            | _ -> pr, [||]
+            | _ -> [||]
         | _ ->
             pr.Patient |> create
             , [||]

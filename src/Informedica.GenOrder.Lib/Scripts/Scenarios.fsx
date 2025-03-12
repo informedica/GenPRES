@@ -17,44 +17,56 @@ open Informedica.GenOrder.Lib
 open Informedica.GenSolver.Lib.Variable.Operators
 
 
-let scenarios (pr: PrescriptionResult) =
+let createScenarios (pr: PrescriptionResult) =
     let getRules filter =
         { pr with Filter = filter } |> PrescriptionResult.getRules
 
-    [ for g in pr.Filter.Generics do
-          let pr, rules = { pr.Filter with Generic = Some g } |> getRules
+    [
+        for g in pr.Filter.Generics do
+            let pr, rules = { pr.Filter with Generic = Some g } |> getRules
 
-          if rules |> Array.isEmpty |> not then
-              printfn $"evaluting {g}..."
-              pr |> Api.evaluate
-          else
-              for i in pr.Filter.Indications do
-                  let pr, rules = { pr.Filter with Indication = Some i } |> getRules
+            if rules |> Array.isEmpty |> not then
+                printfn $"evaluting {g}..."
+                pr |> Api.evaluate
+            else
+                for i in pr.Filter.Indications do
+                    let pr, rules = { pr.Filter with Indication = Some i } |> getRules
 
-                  if rules |> Array.isEmpty |> not then
-                      printfn $"evaluting {g} {i}..."
-                      pr |> Api.evaluate
-                  else
-                      for r in pr.Filter.Routes do
-                          let pr, rules = { pr.Filter with Route = Some r } |> getRules
+                    if rules |> Array.isEmpty |> not then
+                        printfn $"evaluting {g} {i}..."
+                        pr |> Api.evaluate
+                    else
+                        for r in pr.Filter.Routes do
+                            let pr, rules = { pr.Filter with Route = Some r } |> getRules
 
-                          if rules |> Array.isEmpty |> not then
-                              printfn $"evaluting {g} {i} {r}..."
-                              pr |> Api.evaluate
+                            if rules |> Array.isEmpty |> not then
+                                printfn $"evaluting {g} {i} {r}..."
+                                pr |> Api.evaluate
+                            else
+                                for d in pr.Filter.DoseTypes do
+                                    let pr, rules = { pr.Filter with DoseType = Some d } |> getRules
 
-                          else
-                              for d in pr.Filter.DoseTypes do
-                                  let pr, rules = { pr.Filter with DoseType = Some d } |> getRules
+                                    if rules |> Array.isEmpty |> not then
+                                        printfn $"evaluting {g} {i} {r} {d}..."
+                                        pr |> Api.evaluate
+                                    else
+                                        let g = pr.Filter.Generic
+                                        let i = pr.Filter.Indication
+                                        let r = pr.Filter.Route
+                                        let d = pr.Filter.DoseType
+                                        printfn $"=== no evalution of {g} {i} {r} {d} ==="
+    ]
 
-                                  if rules |> Array.isEmpty |> not then
-                                      printfn $"evaluting {g} {i} {r} {d}..."
-                                      pr |> Api.evaluate ]
 
 
 let pr = Patient.infant |> PrescriptionResult.create
 
 
-pr |> scenarios
+{ pr with Filter = { pr.Filter with Generic = pr.Filter.Generics |> Array.tryItem 10 } }
+|> PrescriptionResult.getRules
+
+let scenarios =
+    pr |> createScenarios
 
 
 { pr with
