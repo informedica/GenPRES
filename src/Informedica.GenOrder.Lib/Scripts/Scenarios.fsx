@@ -17,113 +17,57 @@ open Informedica.GenOrder.Lib
 open Informedica.GenSolver.Lib.Variable.Operators
 
 
+let scenarios (pr: PrescriptionResult) =
+    let getRules filter =
+        { pr with Filter = filter } |> PrescriptionResult.getRules
 
-let getRule gen shp rte prescrs =
-    prescrs
-    |> Array.filter (fun prescr ->
-        prescr.DoseRule.Generic |> String.equalsCapInsens gen
-        && (shp |> String.isNullOrWhiteSpace
-            || prescr.DoseRule.Shape |> String.equalsCapInsens shp)
-        && (rte |> String.isNullOrWhiteSpace
-            || prescr.DoseRule.Route |> String.equalsCapInsens rte))
-    |> Array.tryItem 0
+    [ for g in pr.Filter.Generics do
+          let pr, rules = { pr.Filter with Generic = Some g } |> getRules
 
+          if rules |> Array.isEmpty |> not then
+              printfn $"evaluting {g}..."
+              pr |> Api.evaluate
+          else
+              for i in pr.Filter.Indications do
+                  let pr, rules = { pr.Filter with Indication = Some i } |> getRules
 
-let getPrescr gen shp rte prescrs =
-    getRule gen shp rte prescrs
-    |> function
-        | None -> failwith $"No prescription found for {gen} {shp} {rte}"
-        | Some p ->
-            p
-            |> Api.evaluateRule Logging.ignore
-            |> Array.head
-            |> function
-                | Ok(o, _) -> o
-                | Error(o, _, _) -> o
+                  if rules |> Array.isEmpty |> not then
+                      printfn $"evaluting {g} {i}..."
+                      pr |> Api.evaluate
+                  else
+                      for r in pr.Filter.Routes do
+                          let pr, rules = { pr.Filter with Route = Some r } |> getRules
 
+                          if rules |> Array.isEmpty |> not then
+                              printfn $"evaluting {g} {i} {r}..."
+                              pr |> Api.evaluate
 
-/// Get all possible prescriptions for a child
-let prescrs =
-    Patient.infant
-    |> fun p ->
-        { p with
-            Locations = [ CVL ]
-            Department = Some "ICK" }
-    |> PrescriptionRule.get
+                          else
+                              for d in pr.Filter.DoseTypes do
+                                  let pr, rules = { pr.Filter with DoseType = Some d } |> getRules
 
-prescrs |> getRule "propafenon" "" ""
+                                  if rules |> Array.isEmpty |> not then
+                                      printfn $"evaluting {g} {i} {r} {d}..."
+                                      pr |> Api.evaluate ]
 
 
-let naclIV = prescrs |> getPrescr "natriumchloride" "" "INTRAVENEUS"
-
-// oral solution for PCM
-let pcmOralSolution = prescrs |> getPrescr "paracetamol" "drank" ""
-
-let pcmOralTablet = prescrs |> getPrescr "paracetamol" "tablet" ""
-
-// rectal solution for PCM
-let pcmRect = prescrs |> getPrescr "paracetamol" "" "rectaal"
+let pr = Patient.infant |> PrescriptionResult.create
 
 
-let amoxyIv = prescrs |> getPrescr "amoxicilline" "" ""
-
-let adrenInf = prescrs |> getPrescr "adrenaline" "" "INTRAVENEUS"
-
-let cotrimIv = prescrs |> getPrescr "trimethoprim/sulfamethoxazol" "" "INTRAVENEUS"
-
-let tpn = prescrs |> getPrescr "Samenstelling D" "" ""
-
-let gentaIv = prescrs |> getPrescr "gentamicine" "" "intraveneus"
-
-let propafenon = prescrs |> getPrescr "propafenon" "" ""
+pr |> scenarios
 
 
+{ pr with
+    Filter =
+        { pr.Filter with
+            Generic = Some "natriumfosfaat" } }
+|> PrescriptionResult.getRules
+|> snd
+|> Array.head
+|> DrugOrder.fromRule
 
-pcmOralTablet |> Order.toString |> List.iter (printfn "%s")
-
-pcmRect
-|> Order.solve false true Logging.ignore
-|> Result.get
-|> Order.Print.printOrderToTableFormat true false [| "paracetamol" |]
-
-
-let w =
-    Patient.child.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
-
-open Informedica.GenSolver.Lib.Variable.ValueRange.Minimum
-
-[| naclIV |]
-|> Intake.calc w Units.Time.day
-|> fun intake ->
-    intake[0]
-    |> snd
-    |> Variable.getValueRange
-    |> Variable.ValueRange.getMin
-    |> Option.map (fun min ->
-        let _, vu = min |> toBoolValueUnit
-
-        let s = $"""{vu |> ValueUnit.toDelimitedString 3}"""
-
-        if false then
-            s
-        else
-            let u = vu |> ValueUnit.getUnit |> Units.toStringDutchShort |> String.removeBrackets
-
-            printfn $"{u}"
-            s |> String.replace $"|{u}|" "")
-
-adrenInf |> Order.Dto.toDto |> Array.singleton |> Api.getIntake w
-
-let shp = ""
-let rte = "INTRAVENEUS"
-
-prescrs
-|> Array.filter (fun prescr ->
-    prescr.DoseRule.Generic = "lorazepam"
-    && (shp |> String.isNullOrWhiteSpace || prescr.DoseRule.Shape = shp)
-    && (rte |> String.isNullOrWhiteSpace || prescr.DoseRule.Route = rte))
-|> Array.item 0
-|> fun r -> DrugOrder.fromRule r
-
-Informedica.GenForm.Lib.Product.get ()
-|> Array.filter (fun p -> p.GPK = "170976")
+{ pr with
+    Filter =
+        { pr.Filter with
+            Generic = Some "natriumfosfaat" } }
+|> Api.evaluate

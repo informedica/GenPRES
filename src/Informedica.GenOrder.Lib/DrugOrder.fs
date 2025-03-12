@@ -218,21 +218,30 @@ module DrugOrder =
                     |> Array.collect _.Substances
                     |> Array.groupBy _.Name
                     |> Array.map (fun (n, xs) ->
+                        let dl =
+                            dls
+                            |> Array.tryFind (fun l ->
+                                match l.DoseLimitTarget with
+                                | SubstanceLimitTarget s ->
+                                    s |> String.equalsCapInsens n
+                                | _ -> false
+                            )
+
                         {
                             Name = n
                             Concentrations =
-                                xs
-                                |> Array.choose _.Concentration
-                                |> Array.distinct
-                                |> ValueUnit.collect
-                            Dose =
-                                dls
-                                |> Array.tryFind (fun l ->
-                                    match l.DoseLimitTarget with
-                                    | SubstanceLimitTarget s ->
-                                        s |> String.equalsCapInsens n
-                                    | _ -> false
-                                )
+                                match dl with
+                                | Some dl when dl.DoseUnit |> ValueUnit.Group.eqsGroup Units.Molar.mole ->
+                                    xs
+                                    |> Array.choose _.MolarConcentration
+                                    |> Array.distinct
+                                    |> ValueUnit.collect
+                                | _ ->
+                                    xs
+                                    |> Array.choose _.Concentration
+                                    |> Array.distinct
+                                    |> ValueUnit.collect
+                            Dose = dl
                             Solution = None
                         }
                     )

@@ -178,6 +178,14 @@ module OrderVariable =
     let eqsName ovar1 ovar2 = (ovar1 |> getName) = (ovar2 |> getName)
 
 
+    let getNames ovars =
+        ovars
+        |> List.map _.Variable
+        |> List.map _.Name
+        |> List.map Name.toString
+        |> String.concat ", "
+
+
     /// <summary>
     /// Apply the constraints of an OrderVariable to the Variable
     /// of the OrderVariable.

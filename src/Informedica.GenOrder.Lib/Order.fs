@@ -2414,9 +2414,10 @@ module Order =
                 match eqMapping with
                 | SumMapping eqs -> eqs, OrderSumEquation
                 | ProductMapping eqs -> eqs, OrderProductEquation
+
             eqs
             |> List.map (String.replace "=" repl)
-            |> List.map (String.split repl >> List.map String.trim)
+            |> List.map (String.split repl >> List.map String.trim >> List.filter String.notEmpty)
             |> List.map (fun xs ->
                 match xs with
                 | h::rest ->
@@ -2424,14 +2425,18 @@ module Order =
                         try
                             ovars |> List.find (fun v -> v.Variable.Name |> Name.toString = h)
                         with
-                        | _ -> failwith $"cannot find {h} in {ovars}"
+                        | _ ->
+                            let h = if h |> String.isNullOrWhiteSpace then "'empty string'" else h
+                            failwith $"cannot find {h} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
                     let rest =
                         rest
                         |> List.map (fun s ->
                             try
                                 ovars |> List.find (fun v -> v.Variable.Name |> Name.toString = s)
                             with
-                            | _ -> failwith $"cannot find {s} in {ovars}"
+                            | _ ->
+                                let s = if s |> String.isNullOrWhiteSpace then "'empty string'" else s
+                                failwith $"cannot find {s} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
                         )
                     (h, rest) |> c
                 | _ -> failwith $"cannot map {eqs}"

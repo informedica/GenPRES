@@ -5,6 +5,7 @@ namespace Informedica.GenSolver.Lib
 module Variable =
 
     open System
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open MathNet.Numerics
 
     open Informedica.GenUnits.Lib
@@ -3322,11 +3323,13 @@ module Variable =
 
         with
         | Exceptions.SolverException errs ->
+            writeErrorMessage $"{var.Name |> Name.toString}: SoverException:{errs}"
+
             (var, vr)
             |> Exceptions.VariableCannotSetValueRange
             |> raiseExc errs
         | e ->
-            printfn $"{var.Name |> Name.toString}: couldn't catch exception:{e}"
+            writeErrorMessage $"{var.Name |> Name.toString}: couldn't catch exception:{e}"
             raise e
 
 
@@ -3721,4 +3724,3 @@ module Variable =
                 let dto = v |> toDto
                 let v2 = dto |> fromDto
                 v2 = v
-

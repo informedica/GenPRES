@@ -489,12 +489,16 @@ module Order =
         let showOrderName (ord : Order option) =
             match ord with
             | Some ord ->
-                $"{ord.Orderable.Name} {ord.Orderable.Components[0].Shape}"
+                let shape =
+                    ord.Orderable.Components
+                    |> Array.tryHead
+                    |> Option.map _.Shape
+                    |> Option.defaultValue ""
+                $"{ord.Orderable.Name} {shape}"
             | None -> "order is loading ..."
 
 
     open Elmish
-    open Shared
 
 
     [<JSX.Component>]

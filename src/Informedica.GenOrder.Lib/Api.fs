@@ -148,6 +148,7 @@ module OrderScenario =
 
 module PrescriptionResult =
 
+    open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
     open Informedica.Utils.Lib
@@ -159,7 +160,14 @@ module PrescriptionResult =
     /// <summary>
     /// Create an initial ScenarioResult for a Patient.
     /// </summary>
-    let create pat =
+    let create (pat : Patient) =
+        let pat =
+            { pat with
+                Weight =
+                    pat.Weight
+                    |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+            }
+
         let rules = pat |> PrescriptionRule.get
 
         let filter =
