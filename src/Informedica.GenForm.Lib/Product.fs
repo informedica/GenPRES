@@ -415,7 +415,9 @@ module Product =
                             |> BigRational.fromFloat
                             |> Option.map (ValueUnit.singleWithUnit su)
                         MolarConcentration =
-                            if mmol |> Option.isNone then None
+                            if mmol |> Option.isNone ||
+                               s.SubstanceName |> String.equalsCapInsens name |> not then None
+                            // only apply mmol to substance with the same name as the product
                             else
                                 let u = Units.Molar.milliMole |> Units.per shpUnit
                                 mmol.Value

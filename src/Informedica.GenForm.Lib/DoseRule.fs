@@ -915,7 +915,6 @@ cannot map {r}
         |> Array.sortBy String.toLower
 
 
-
     /// Extract all indications from the DoseRules.
     let indications = getMember _.Indication
 

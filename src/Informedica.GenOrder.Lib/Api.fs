@@ -1,6 +1,77 @@
 namespace Informedica.GenOrder.Lib
 
 
+module Filters =
+
+    open Informedica.GenForm.Lib
+
+
+    /// <summary>
+    /// Get all possible indications for a Patient
+    /// </summary>
+    let getIndications = PrescriptionRule.get >> PrescriptionRule.indications
+
+
+    /// <summary>
+    /// Get all possible generics for a Patient
+    /// </summary>
+    let getGenerics = PrescriptionRule.get >> PrescriptionRule.generics
+
+
+    /// <summary>
+    /// Get all possible routes for a Patient
+    /// </summary>
+    let getRoutes = PrescriptionRule.get >> PrescriptionRule.routes
+
+
+    /// <summary>
+    /// Get all possible shapes for a Patient
+    /// </summary>
+    let getShapes = PrescriptionRule.get >> PrescriptionRule.shapes
+
+
+    /// <summary>
+    /// Get all possible frequencies for a Patient
+    /// </summary>
+    let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.frequencies
+
+
+    /// <summary>
+    /// Filter the indications using a Informedica.GenForm.Lib.Filter
+    /// </summary>
+    let filterIndications = PrescriptionRule.filter >> PrescriptionRule.indications
+
+
+    /// <summary>
+    /// Filter the generics using a Informedica.GenForm.Lib.Filter
+    /// </summary>
+    let filterGenerics = PrescriptionRule.filter >> PrescriptionRule.generics
+
+
+    /// <summary>
+    /// Filter the routes using a Informedica.GenForm.Lib.Filter
+    /// </summary>
+    let filterRoutes = PrescriptionRule.filter >> PrescriptionRule.routes
+
+
+    /// <summary>
+    /// Filter the shapes using a Informedica.GenForm.Lib.Filter
+    /// </summary>
+    let filterShapes = PrescriptionRule.filter >> PrescriptionRule.shapes
+
+
+    let filterDoseTypes = PrescriptionRule.filter >> PrescriptionRule.doseTypes
+
+
+    let filterDiluents = PrescriptionRule.filter >> PrescriptionRule.diluents >> Array.map _.Generic
+
+    /// <summary>
+    /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
+    /// </summary>
+    let filterFrequencies =  PrescriptionRule.filter >> PrescriptionRule.shapes
+
+
+
 module OrderScenario =
 
     open Informedica.Utils.Lib.BCL
@@ -74,11 +145,13 @@ module OrderScenario =
         }
 
 
+
 module PrescriptionResult =
 
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
-
+    open Informedica.Utils.Lib
+    open Filters
 
     module Prescription = Order.Prescription
 
@@ -112,6 +185,101 @@ module PrescriptionResult =
         }
 
 
+    let getRules pr =
+
+        match pr.Patient.Weight, pr.Patient.Height, pr.Patient.Department with
+        | Some w, Some h, d when d |> Option.isSome ->
+
+            let ind =
+                if pr.Filter.Indication.IsSome then pr.Filter.Indication
+                else pr.Filter.Indications |> Array.someIfOne
+            let gen =
+                if pr.Filter.Generic.IsSome then pr.Filter.Generic
+                else pr.Filter.Generics |> Array.someIfOne
+            let rte =
+                if pr.Filter.Route.IsSome then pr.Filter.Route
+                else pr.Filter.Routes |> Array.someIfOne
+            let shp =
+                if pr.Filter.Shape.IsSome then pr.Filter.Shape
+                else pr.Filter.Shapes |> Array.someIfOne
+            let dst =
+                if pr.Filter.DoseType.IsSome then pr.Filter.DoseType
+                else pr.Filter.DoseTypes |> Array.someIfOne
+
+            let doseFilter =
+                {
+                    Indication = ind
+                    Generic = gen
+                    Route = rte
+                    Shape = shp
+                    DoseType = dst
+                    Diluent = None
+                    Patient = {
+                        Department = d
+                        Age = pr.Patient.Age
+                        GestAge = pr.Patient.GestAge
+                        PMAge = pr.Patient.PMAge
+                        Weight = Some w
+                        Height = Some h
+                        Diagnoses = [||]
+                        Gender = pr.Patient.Gender
+                        Locations = pr.Patient.Locations
+                        RenalFunction = pr.Patient.RenalFunction
+                    }
+                }
+
+            let inds = doseFilter |> filterIndications
+            let gens = doseFilter |> filterGenerics
+            let rtes = doseFilter |> filterRoutes
+            let shps = doseFilter |> filterShapes
+            let dsts = doseFilter |> filterDoseTypes
+            let dils = doseFilter |> filterDiluents
+
+            let ind = inds |> Array.someIfOne
+            let gen = gens |> Array.someIfOne
+            let rte = rtes |> Array.someIfOne
+            let shp = shps |> Array.someIfOne
+            let dst = dsts |> Array.someIfOne
+            let dil =
+                if pr.Filter.Diluent.IsSome then pr.Filter.Diluent
+                else
+                    dils |> Array.someIfOne
+
+            match ind, gen, rte, shp, dst with
+            | Some _, Some _, Some _, _,      Some _
+            | Some _, Some _, _,      Some _, Some _ ->
+
+                { pr with
+                    Filter =
+                        { pr.Filter with
+                            Indications = inds
+                            Generics = gens
+                            Routes = rtes
+                            Shapes = shps
+                            DoseTypes = dsts
+                            Diluents = dils
+                            Indication = ind
+                            Generic = gen
+                            Route = rte
+                            Shape = shp
+                            DoseType = dst
+                        }
+                },
+                { doseFilter with
+                    Indication = ind
+                    Generic = gen
+                    Route = rte
+                    Shape = shp
+                    DoseType = dst
+                    Diluent = dil
+                }
+                |> PrescriptionRule.filter
+            | _ -> pr, [||]
+        | _ ->
+            pr.Patient |> create
+            , [||]
+
+
 module Api =
 
     open MathNet.Numerics
@@ -121,73 +289,7 @@ module Api =
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
-
     module Prescription = Order.Prescription
-
-
-    /// <summary>
-    /// Get all possible indications for a Patient
-    /// </summary>
-    let getIndications = PrescriptionRule.get >> PrescriptionRule.indications
-
-
-    /// <summary>
-    /// Get all possible generics for a Patient
-    /// </summary>
-    let getGenerics = PrescriptionRule.get >> PrescriptionRule.generics
-
-
-    /// <summary>
-    /// Get all possible routes for a Patient
-    /// </summary>
-    let getRoutes = PrescriptionRule.get >> PrescriptionRule.routes
-
-
-    /// <summary>
-    /// Get all possible shapes for a Patient
-    /// </summary>
-    let getShapes = PrescriptionRule.get >> PrescriptionRule.shapes
-
-
-    /// <summary>
-    /// Get all possible frequencies for a Patient
-    /// </summary>
-    let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.frequencies
-
-
-    /// <summary>
-    /// Filter the indications using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterIndications = PrescriptionRule.filter >> PrescriptionRule.indications
-
-
-    /// <summary>
-    /// Filter the generics using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterGenerics = PrescriptionRule.filter >> PrescriptionRule.generics
-
-
-    /// <summary>
-    /// Filter the routes using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterRoutes = PrescriptionRule.filter >> PrescriptionRule.routes
-
-
-    /// <summary>
-    /// Filter the shapes using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterShapes = PrescriptionRule.filter >> PrescriptionRule.shapes
-
-
-    let filterDoseTypes = PrescriptionRule.filter >> PrescriptionRule.doseTypes
-
-
-    let filterDiluents = PrescriptionRule.filter >> PrescriptionRule.diluents >> Array.map _.Generic
-
-    /// <summary>
-    /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterFrequencies =  PrescriptionRule.filter >> PrescriptionRule.shapes
 
 
     /// <summary>
@@ -376,151 +478,54 @@ module Api =
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
-        match pr.Patient.Weight, pr.Patient.Height, pr.Patient.Department with
-        | Some w, Some h, d when d |> Option.isSome ->
+        let pr, rules = pr |> PrescriptionResult.getRules
 
-            let ind =
-                if pr.Filter.Indication.IsSome then pr.Filter.Indication
-                else pr.Filter.Indications |> Array.someIfOne
-            let gen =
-                if pr.Filter.Generic.IsSome then pr.Filter.Generic
-                else pr.Filter.Generics |> Array.someIfOne
-            let rte =
-                if pr.Filter.Route.IsSome then pr.Filter.Route
-                else pr.Filter.Routes |> Array.someIfOne
-            let shp =
-                if pr.Filter.Shape.IsSome then pr.Filter.Shape
-                else pr.Filter.Shapes |> Array.someIfOne
-            let dst =
-                if pr.Filter.DoseType.IsSome then pr.Filter.DoseType
-                else pr.Filter.DoseTypes |> Array.someIfOne
-
-            let doseFilter =
-                {
-                    Indication = ind
-                    Generic = gen
-                    Route = rte
-                    Shape = shp
-                    DoseType = dst
-                    Diluent = None
-                    Patient = {
-                        Department = d
-                        Age = pr.Patient.Age
-                        GestAge = pr.Patient.GestAge
-                        PMAge = pr.Patient.PMAge
-                        Weight = Some w
-                        Height = Some h
-                        Diagnoses = [||]
-                        Gender = pr.Patient.Gender
-                        Locations = pr.Patient.Locations
-                        RenalFunction = pr.Patient.RenalFunction
-                    }
-                }
-
-            let inds = doseFilter |> filterIndications
-            let gens = doseFilter |> filterGenerics
-            let rtes = doseFilter |> filterRoutes
-            let shps = doseFilter |> filterShapes
-            let dsts = doseFilter |> filterDoseTypes
-            let dils = doseFilter |> filterDiluents
-
-            let ind = inds |> Array.someIfOne
-            let gen = gens |> Array.someIfOne
-            let rte = rtes |> Array.someIfOne
-            let shp = shps |> Array.someIfOne
-            let dst = dsts |> Array.someIfOne
-            let dil =
-                if pr.Filter.Diluent.IsSome then pr.Filter.Diluent
-                else
-                    dils |> Array.someIfOne
-
+        if rules |> Array.isEmpty then pr
+        else
             { pr with
-                Filter =
-                    { pr.Filter with
-                        Indications = inds
-                        Generics = gens
-                        Routes = rtes
-                        Shapes = shps
-                        DoseTypes = dsts
-                        Diluents = dils
-                        Indication = ind
-                        Generic = gen
-                        Route = rte
-                        Shape = shp
-                        DoseType = dst
-                    }
-
                 Scenarios =
-                    match ind, gen, rte, shp, dst with
-                    | Some _, Some _, Some _, _,      Some _
-                    | Some _, Some _, _,      Some _, Some _ ->
-                        let rules =
-                            { doseFilter with
-                                Indication = ind
-                                Generic = gen
-                                Route = rte
-                                Shape = shp
-                                DoseType = dst
-                                Diluent = dil
-                            }
-                            |> PrescriptionRule.filter
-
+                    rules
+                    |> evaluateRules
+                    |> function
+                    | [||] ->
+                        // no valid results so evaluate again
+                        // with changed product divisibility
                         rules
+                        |> Array.map changeRuleProductsDivisible
                         |> evaluateRules
-                        |> function
-                        | [||] ->
-                            // no valid results so evaluate again
-                            // with changed product divisibility
-                            rules
-                            |> Array.map changeRuleProductsDivisible
-                            |> evaluateRules
-                            |> processEvaluationResults
-                        | results ->
-                            results
-                            |> processEvaluationResults
-                        |> Array.distinctBy (fun pr ->
-                            pr.DoseType,
-                            pr.Preparation,
-                            pr.Prescription,
-                            pr.Administration
-                        )
-                        |> function
-                            | prs when prs |> Array.length <= 1 -> prs
-                            // filter out prescriptions without preparation when not needed
-                            | prs ->
-                                let grouped = prs |> Array.groupBy _.DoseType
-                                [|
-                                    for _, prs in grouped do
-                                        if prs |> Array.length <= 1 then prs
+                        |> processEvaluationResults
+                    | results ->
+                        results
+                        |> processEvaluationResults
+                    |> Array.distinctBy (fun pr ->
+                        pr.DoseType,
+                        pr.Preparation,
+                        pr.Prescription,
+                        pr.Administration
+                    )
+                    |> function
+                        | prs when prs |> Array.length <= 1 -> prs
+                        // filter out prescriptions without preparation when not needed
+                        | prs ->
+                            let grouped = prs |> Array.groupBy _.DoseType
+                            [|
+                                for _, prs in grouped do
+                                    if prs |> Array.length <= 1 then prs
+                                    else
+                                        if prs
+                                           |> Array.filter (fun pr ->
+                                               pr.Preparation
+                                               |> Array.exists (Array.exists String.notEmpty))
+                                           |> Array.length = 0 then prs
                                         else
-                                            if prs
-                                               |> Array.filter (fun pr ->
-                                                   pr.Preparation
-                                                   |> Array.exists (Array.exists String.notEmpty))
-                                               |> Array.length = 0 then prs
-                                            else
-                                                prs
-                                                |> Array.filter (fun pr ->
-                                                   pr.Preparation
-                                                   |> Array.exists (Array.exists String.notEmpty)
-                                                )
+                                            prs
+                                            |> Array.filter (fun pr ->
+                                               pr.Preparation
+                                               |> Array.exists (Array.exists String.notEmpty)
+                                            )
 
-                                |]
-                                |> Array.collect id
-                    | _ -> [||]
-            }
-        | _ ->
-            { pr with
-                Filter =
-                    { pr.Filter with
-                        Indications = [||]
-                        Generics = [||]
-                        Routes = [||]
-                        Shapes = [||]
-                        DoseTypes = [||]
-
-                    }
-                Scenarios = [||]
+                            |]
+                            |> Array.collect id
             }
 
 
