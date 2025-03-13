@@ -1,6 +1,19 @@
 namespace Informedica.GenForm.Lib
 
 
+module VenousAccess =
+
+
+    let check location venousAccess =
+        match location, venousAccess with
+        | AnyAccess, _ -> true
+        | _, xs when xs |> List.isEmpty  -> true
+        | _ ->
+            venousAccess
+            |> List.exists ((=) location)
+
+
+
 module Gender =
 
     open Informedica.Utils.Lib.BCL
@@ -412,5 +425,3 @@ module Patient =
         |> List.filter String.notEmpty
         |> List.filter (String.isNullOrWhiteSpace >> not)
         |> String.concat ", "
-
-

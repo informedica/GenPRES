@@ -91,6 +91,13 @@ module DoseRule =
         let hasProducts (dl : DoseLimit) = dl.Products |> Array.isEmpty |> not
 
 
+        let hasNoLimits dl =
+            { limit with
+                Component = dl.Component
+                Products = dl.Products
+                DoseLimitTarget = dl.DoseLimitTarget
+            } = dl
+
 
     module Print =
 
@@ -858,6 +865,8 @@ cannot map {r}
                                 |> Array.append shapeLimits
                             else [| dl |]
                         | dls -> dls |> Array.append shapeLimits
+                    // filter out all empty dose limits
+                    |> Array.filter (DoseLimit.hasNoLimits >> not)
             }
         )
 

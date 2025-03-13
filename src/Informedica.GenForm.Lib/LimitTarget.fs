@@ -31,4 +31,3 @@ module LimitTarget =
         |> function
         | ShapeLimitTarget _ -> true
         | _ -> false
-

@@ -78,25 +78,56 @@ let createScenarios (pr: PrescriptionResult) =
 let pr = Patient.infant |> PrescriptionResult.create
 
 
-{ pr with Filter = { pr.Filter with Generic = pr.Filter.Generics |> Array.tryItem 10 } }
+{ pr with PrescriptionResult.Filter.Generic = pr.Filter.Generics |> Array.tryItem 10 }
 |> PrescriptionResult.getRules
 
 let scenarios =
     pr |> createScenarios
 
 
-{ pr with
-    Filter =
-        { pr.Filter with
-            Indication = pr.Filter.Indications |> Array.tryItem 0
-            Generic = Some "tacrolimus" } }
+scenarios
+|> List.filter (_.Scenarios >> Array.isEmpty)
+|> List.choose _.Filter.Generic
+|> List.distinct
+|> List.length
+
+// cidofovir
+{ pr with PrescriptionResult.Filter.Generic = Some "cidofovir" }
 |> PrescriptionResult.getRules
+|> fun (pr, _) ->
+    { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+    |> PrescriptionResult.getRules
+|> fun (pr, _) ->
+    { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+    |> PrescriptionResult.getRules
 |> snd
-|> Array.head
-|> DrugOrder.fromRule
+|> Array.tryHead
+|> Option.map DrugOrder.fromRule
+|> Option.defaultValue [||]
+|> Array.map DrugOrder.toOrderDto
+|> Array.map Order.Dto.fromDto
+|> Array.map Order.applyConstraints
+|> Array.iter (Order.toString >> String.concat "\n" >> printfn "%s")
+
+// cidofovir
+{ pr with PrescriptionResult.Filter.Indication = Some "TPV" }
+|> PrescriptionResult.getRules
+|> fun (pr, _) ->
+    { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+    |> PrescriptionResult.getRules
+|> fun (pr, _) ->
+    { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+    |> PrescriptionResult.getRules
+|> snd
+|> Array.tryHead
+|> Option.map DrugOrder.fromRule
+|> Option.defaultValue [||]
+|> Array.map DrugOrder.toOrderDto
+|> Array.map Order.Dto.fromDto
+|> Array.map Order.applyConstraints
+|> Array.iter (Order.toString >> String.concat "\n" >> printfn "%s")
+
 
 { pr with
-    Filter =
-        { pr.Filter with
-            Generic = Some "natriumfosfaat" } }
+    PrescriptionResult.Filter.Generic = Some "natriumfosfaat" }
 |> Api.evaluate

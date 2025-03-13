@@ -20,9 +20,6 @@
 #load "../Utils.fs"
 #load "../Logging.fs"
 #load "../Exceptions.fs"
-#load "../WrappedString.fs"
-#load "../ValueUnit.fs"
-#load "../Variable.fs"
 #load "../OrderVariable.fs"
 #load "../Solver.fs"
 #load "../Order.fs"
@@ -42,5 +39,3 @@ open Informedica.Utils.Lib
 
 let zindexPath = __SOURCE_DIRECTORY__ |> Path.combineWith "../../../"
 Environment.CurrentDirectory <- zindexPath
-
-

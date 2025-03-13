@@ -10,9 +10,6 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Logging.fs" />
     <Compile Include="Exceptions.fs" />
-    <Compile Include="WrappedString.fs" />
-    <Compile Include="ValueUnit.fs" />
-    <Compile Include="Variable.fs" />
     <Compile Include="OrderVariable.fs" />
     <Compile Include="Solver.fs" />
     <Compile Include="Order.fs" />

@@ -400,6 +400,7 @@ module Types =
                 /// the possible dose types
                 DoseTypes : DoseType []
                 Diluents : string []
+                //Components : string []
                 /// the selected indication
                 Indication: string option
                 /// the selected generic
@@ -411,6 +412,7 @@ module Types =
                 /// the DoseType
                 DoseType : DoseType option
                 Diluent : string option
+                // SelectedComponents : string []
             }
 
 
