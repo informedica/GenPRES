@@ -10,12 +10,6 @@
     <Compile Include="../Shared/Localization.fs" />
     <Compile Include="../Shared/Models.fs" />
     <Compile Include="../Shared/Api.fs" />
-    <Compile Include="Mappers.fs" />
-    <Compile Include="Formulary.fs" />
-    <Compile Include="Parenteralia.fs" />
-    <Compile Include="Order.fs" />
-    <Compile Include="PrescriptionResult.fs" />
-    <Compile Include="Message.fs" />
     <Compile Include="ServerApi.fs" />
     <Compile Include="Server.fs" />
     <None Include="Scripts\load.fsx" />

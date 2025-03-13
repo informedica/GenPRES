@@ -1,4 +1,4 @@
-module Server
+//module Server
 
 open System
 open Giraffe
@@ -7,6 +7,7 @@ open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
 open Shared
 open Shared.Api
+open ServerApi
 open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
 

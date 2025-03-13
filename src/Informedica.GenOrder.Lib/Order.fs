@@ -2335,6 +2335,7 @@ module Order =
     /// </summary>
     /// <param name="ord">The Order</param>
     let applyConstraints (ord : Order) =
+        // TODO: maybe choose which constraints to apply!
         try
             { ord with
                 Adjust = ord.Adjust |> Quantity.applyConstraints
