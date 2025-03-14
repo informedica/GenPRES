@@ -352,12 +352,14 @@ module Types =
             Routes: string[]
             DoseTypes: DoseType[]
             Diluents: string[]
+            Components: string []
             Indication: string option
             Medication: string option
             Shape: string option
             Route: string option
             DoseType: DoseType option
             Diluent: string option
+            SelectedComponents : string []
         }
 
 
@@ -404,7 +406,7 @@ module Types =
         }
 
 
-    type PrescriptionResult =
+    type PrescriptionContext =
         {
             DemoVersion: bool
             Filter: Filter

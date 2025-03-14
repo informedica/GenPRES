@@ -29,15 +29,10 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 open Informedica.GenForm.Lib
 
 
-open MathNet.Numerics
 open Informedica.Utils.Lib
-open Informedica.Utils.Lib.BCL
-open Informedica.GenCore.Lib.Ranges
-open Utils
 
 
 
-open Informedica.GenUnits.Lib
 
 
 RenalRule.get ()
@@ -46,5 +41,5 @@ Web.getDataFromSheet dataUrlId "RenalRules"
 
 Web.GoogleSheets.createUrl "RenalRules" (Web.getDataUrlIdGenPres ())
 
-open RenalRule
+
 

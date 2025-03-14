@@ -5,7 +5,6 @@ namespace Informedica.GenForm.Lib
 module PrescriptionRule =
 
     open MathNet.Numerics
-    open Informedica.Utils.Lib
     open Informedica.GenUnits.Lib
 
     module Limit = Informedica.GenCore.Lib.Ranges.Limit

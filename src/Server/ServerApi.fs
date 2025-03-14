@@ -18,7 +18,7 @@ module Mappers =
 
 
     let mapPatient
-        (sr: PrescriptionResult)
+        (sr: PrescriptionContext)
         =
         { Patient.patient with
             Department =
@@ -666,7 +666,7 @@ module PrescriptionResult =
     open Shared
     open Mappers
 
-    let toString stage (pr: PrescriptionResult)=
+    let toString stage (pr: PrescriptionContext)=
             $"""
     {stage}:
     Patient: {pr |> mapPatient |> Patient.toString}
@@ -682,7 +682,7 @@ module PrescriptionResult =
     """
 
 
-    let get (pr: PrescriptionResult) =
+    let get (pr: PrescriptionContext) =
         let pat =
             pr
             |> mapPatient
@@ -746,12 +746,14 @@ module PrescriptionResult =
                         Routes = newResult.Filter.Routes
                         DoseTypes = newResult.Filter.DoseTypes |> Array.map mapToSharedDoseType
                         Diluents = newResult.Filter.Diluents
+                        Components = newResult.Filter.Components
                         Indication = newResult.Filter.Indication
                         Medication = newResult.Filter.Generic
                         Shape = newResult.Filter.Shape
                         Route = newResult.Filter.Route
                         DoseType = newResult.Filter.DoseType |> Option.map mapToSharedDoseType
                         Diluent = newResult.Filter.Diluent
+                        SelectedComponents = newResult.Filter.SelectedComponents
                     }
 
                 Scenarios =
@@ -790,7 +792,7 @@ module PrescriptionResult =
             |> Ok
 
 
-    let print (pr: PrescriptionResult) =
+    let print (pr: PrescriptionContext) =
         { pr with
             Scenarios =
                 pr.Scenarios
@@ -838,7 +840,7 @@ module Message =
         pr
 
 
-    let processOrders (pr : PrescriptionResult) =
+    let processOrders (pr : PrescriptionContext) =
         let mutable errors = [||]
 
         let scenarios =
@@ -876,15 +878,11 @@ module Message =
         else errors |> Error
 
 
-    let checkDiluent (pr: PrescriptionResult) =
+    let checkDiluent (pr: PrescriptionContext) =
         pr.Scenarios
         |> Array.tryExactlyOne
         |> Option.map (fun sc ->
-            let ord =
-                match sc.Order with
-                | Constrained o
-                | Calculated o
-                | Solved o -> o
+            let ord = sc.Order |> Models.OrderState.getOrder
 
             match sc.Diluent with
             | None -> true
@@ -897,17 +895,36 @@ module Message =
         |> Option.defaultValue true
 
 
+    let checkComponents (pr: PrescriptionContext) =
+        pr.Scenarios
+        |> Array.tryExactlyOne
+        |> Option.map (fun sc ->
+            let ord = sc.Order |> Models.OrderState.getOrder
+
+            if pr.Filter.SelectedComponents |> Array.isEmpty then true
+            else
+                // check if there is a component that is used
+                // not in selected components
+                ord.Orderable.Components
+                |> Array.map _.Name
+                |> Array.sort
+                |> ((=) (pr.Filter.SelectedComponents |> Array.sort))
+        )
+        |> Option.defaultValue true
+
+
     let processMsg msg =
         match msg with
-        | PrescriptionResultMsg pr ->
-            pr |> printMsg "prescription result msg start" |> ignore
+        | PrescriptionContextMsg pr ->
+            pr |> printMsg "prescription context msg start" |> ignore
 
             if pr.Scenarios |> Array.isEmpty then
                 pr
                 |> PrescriptionResult.get
 
             else
-                if pr |> checkDiluent then
+                if pr |> checkDiluent ||
+                   pr |> checkComponents then
                     pr
                     |> processOrders
                     |> Result.map PrescriptionResult.print
@@ -924,14 +941,14 @@ module Message =
                         |> Order.getIntake w
                 }
             )
-            |> Result.map (printMsg "prescription result finish")
-            |> Result.map PrescriptionResultMsg
+            |> Result.map (printMsg "prescription context msg finish")
+            |> Result.map PrescriptionContextMsg
 
         | TreatmentPlanMsg tp ->
             match tp.Selected with
             | Some os ->
                 os
-                |> Models.PrescriptionResult.fromOrderScenario
+                |> Models.PrescriptionContext.fromOrderScenario
                 |> printMsg "TreatmentPlan started"
                 |> processOrders
                 |> Result.map PrescriptionResult.print

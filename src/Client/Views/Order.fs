@@ -42,7 +42,7 @@ module Order =
             | UpdateOrder of Order
 
 
-        let init (pr : Deferred<Types.PrescriptionResult>) =
+        let init (pr : Deferred<Types.PrescriptionContext>) =
             let ord, cmp, itm =
                 match pr with
                 | Resolved pr ->
@@ -99,7 +99,7 @@ module Order =
 
 
         let update
-            updateScenarioResult
+            updateContext
             (msg: Msg)
             (state : State) : State * Cmd<Msg>
             =
@@ -124,7 +124,7 @@ module Order =
             | UpdateOrder ord ->
 
                 OrderLoader.create state.SelectedComponent state.SelectedItem ord
-                |> updateScenarioResult
+                |> updateContext
 
                 { state with
                     Order = None
@@ -504,8 +504,8 @@ module Order =
     [<JSX.Component>]
     let View (props:
         {|
-            prescriptionResult: Deferred<Types.PrescriptionResult>
-            updatePrescriptionResult: Types.PrescriptionResult -> unit
+            prescriptionContext: Deferred<Types.PrescriptionContext>
+            updatePrescriptionContext: Types.PrescriptionContext -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -522,7 +522,7 @@ module Order =
             |> Deferred.defaultValue defVal
 
         let useAdjust =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved pr ->
                 pr.Scenarios
                 |> Array.tryExactlyOne
@@ -531,7 +531,7 @@ module Order =
             | _ -> false
 
         let updateScenarioResult (ol : OrderLoader) =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved pr ->
                 { pr with
                     Scenarios =
@@ -554,14 +554,14 @@ module Order =
                                 }
                         )
                 }
-                |> props.updatePrescriptionResult
+                |> props.updatePrescriptionContext
             | _ -> ()
 
         let state, dispatch =
             React.useElmish (
-                init props.prescriptionResult,
+                init props.prescriptionContext,
                 update updateScenarioResult,
-                [| box props.prescriptionResult |]
+                [| box props.prescriptionContext |]
             )
 
         let itms =
@@ -607,7 +607,7 @@ module Order =
                 |})
 
         let progress =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved _ -> JSX.jsx $"<></>"
             | _ ->
                 JSX.jsx

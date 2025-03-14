@@ -13,7 +13,6 @@ module SolutionRule =
 
     module SolutionLimit =
 
-        open Informedica.GenCore.Lib.Ranges
 
         /// An empty SolutionLimit.
         let limit =
@@ -513,5 +512,3 @@ module SolutionRule =
                 |> Array.sortBy _.Generic
                 |> toMarkdown ""
             )
-
-

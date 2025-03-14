@@ -8,7 +8,7 @@ module Api =
 
 
     type Message =
-        | PrescriptionResultMsg of PrescriptionResult
+        | PrescriptionContextMsg of PrescriptionContext
         | TreatmentPlanMsg of TreatmentPlan
         | FormularyMsg of Formulary
         | ParenteraliaMsg of Parenteralia

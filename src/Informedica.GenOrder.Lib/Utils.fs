@@ -10,9 +10,7 @@ module Utils =
 
     module Web =
 
-        open System
         open Informedica.Utils.Lib
-        open Informedica.ZIndex.Lib
 
 
         //https://docs.google.com/spreadsheets/d/1nny8rn9zWtP8TMawB3WeNWhl5d4ofbWKbGzGqKTd49g/edit?usp=sharing

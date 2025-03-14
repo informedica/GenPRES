@@ -1490,7 +1490,7 @@ module Models =
             ord1.Id = ord2.Id
 
 
-    module PrescriptionResult =
+    module PrescriptionContext =
 
 
         let doseTypeToDescription doseType =
@@ -1551,16 +1551,18 @@ module Models =
                 Routes = [||]
                 DoseTypes = [||]
                 Diluents = [||]
+                Components = [||]
                 Indication = None
                 Medication = None
                 Shape = None
                 Route = None
                 DoseType = None
                 Diluent = None
+                SelectedComponents = [||]
             }
 
 
-        let empty: PrescriptionResult =
+        let empty: PrescriptionContext =
             {
                 DemoVersion = true
                 Filter = filter
@@ -1569,13 +1571,13 @@ module Models =
                 Intake = Intake.empty
             }
 
-        let setPatient pat sr : PrescriptionResult = { sr with Patient = pat }
+        let setPatient pat sr : PrescriptionContext = { sr with Patient = pat }
 
 
-        let setScenarios srs sr : PrescriptionResult = { sr with Scenarios = srs }
+        let setScenarios srs sr : PrescriptionContext = { sr with Scenarios = srs }
 
 
-        let fromOrderScenario (os: OrderScenario) : PrescriptionResult =
+        let fromOrderScenario (os: OrderScenario) : PrescriptionContext =
             let ord = os.Order |> OrderState.getOrder
 
             {

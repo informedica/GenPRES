@@ -116,8 +116,8 @@ module GenPres =
             bolusMedication: Deferred<Intervention list>
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
-            prescriptionResult: Deferred<PrescriptionResult>
-            updatePrescriptionResult : PrescriptionResult -> unit
+            prescriptionContext: Deferred<PrescriptionContext>
+            updatePrescriptionContext : PrescriptionContext -> unit
             treatmentPlan: Deferred<TreatmentPlan>
             updateTreatmentPlan: TreatmentPlan -> unit
             formulary: Deferred<Formulary>
@@ -140,7 +140,7 @@ module GenPres =
                 box props.page
                 box props.updatePage
                 box lang
-                box props.prescriptionResult
+                box props.prescriptionContext
             |]
         let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
@@ -230,8 +230,8 @@ module GenPres =
                                 |}
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View {|
-                                    prescriptionResult = props.prescriptionResult
-                                    updatePrescriptionResult = props.updatePrescriptionResult
+                                    prescriptionContext = props.prescriptionContext
+                                    updatePrescriptionContext = props.updatePrescriptionContext
                                     treatmentPlan = props.treatmentPlan
                                     updateTreatmentPlan = props.updateTreatmentPlan
                                     localizationTerms = props.localizationTerms
@@ -263,7 +263,7 @@ module GenPres =
                             match props.page with
                             | Global.Pages.Prescribe
                             | Global.Pages.Nutrition ->
-                                match props.prescriptionResult with
+                                match props.prescriptionContext with
                                 | Resolved pr ->
                                     Views.Intake.View {| intake = pr.Intake |}
                                 | _ -> JSX.jsx "<></>"

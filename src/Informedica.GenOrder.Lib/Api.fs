@@ -176,12 +176,14 @@ module PrescriptionResult =
                 Shapes= rules |> PrescriptionRule.shapes
                 DoseTypes = rules |> PrescriptionRule.doseTypes
                 Diluents = rules |> PrescriptionRule.diluents |> Array.map _.Generic
+                Components = [||]
                 Indication = None
                 Generic = None
                 Route = None
                 Shape = None
                 DoseType = None
                 Diluent = None
+                SelectedComponents = [||]
             }
 
         {
@@ -284,6 +286,41 @@ module PrescriptionResult =
         | _ ->
             pr.Patient |> create
             , [||]
+        |> fun (pr, rules) ->
+            let singleRule = rules |> Array.tryExactlyOne
+
+            { pr with
+                Filter =
+                    { pr.Filter with
+                        Components =
+                            singleRule
+                            |> Option.map _.DoseRule
+                            |> Option.map (_.DoseLimits >> Array.map _.Component)
+                            |> Option.defaultValue [||]
+                            |> function
+                                | xs when xs |> Array.length > 0 -> xs |> Array.tail
+                                | _ -> [||]
+                    }
+            }
+            ,
+            // additional component selection mechanism
+            if singleRule.IsNone then rules
+            else
+                let r = singleRule.Value
+                [|
+                    { r with
+                        PrescriptionRule.DoseRule.DoseLimits =
+                                if r.DoseRule.DoseLimits |> Array.length < 2 then r.DoseRule.DoseLimits
+                                else
+                                    r.DoseRule.DoseLimits
+                                    |> Array.skip 1
+                                    |> Array.filter (fun dl ->
+                                        pr.Filter.SelectedComponents |> Array.isEmpty ||
+                                        pr.Filter.SelectedComponents |> Array.exists ((=) dl.Component)
+                                    )
+                                    |> Array.append [| r.DoseRule.DoseLimits[0] |]
+                    }
+                |]
 
 
 module Api =

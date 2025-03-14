@@ -246,35 +246,35 @@ module Types =
     type DoseRule =
         {
             Source : string
-            /// The Indication of the DoseRule
+            // The Indication of the DoseRule
             Indication : string
-            /// The Generic of the DoseRule
+            // The Generic of the DoseRule
             Generic : string
-            /// The pharmacological Shape of the DoseRule
+            // The pharmacological Shape of the DoseRule
             Shape : string
-            /// The brand of the doserule
+            // The brand of the doserule
             Brand : string option
-            /// Specific GPKs
+            // Specific GPKs
             GPKs : string array
-            /// The Route of administration of the DoseRule
+            // The Route of administration of the DoseRule
             Route : string
-            /// The PatientCategory of the DoseRule
+            // The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
             ScheduleText : string
-            /// The DoseType of the DoseRule
+            // The DoseType of the DoseRule
             DoseType : DoseType
-            /// The unit to adjust dosing with
+            // The unit to adjust dosing with
             AdjustUnit : Unit option
-            /// The possible Frequencies of the DoseRule
+            // The possible Frequencies of the DoseRule
             Frequencies : ValueUnit option
-            /// The MinMax Administration Time of the DoseRule
+            // The MinMax Administration Time of the DoseRule
             AdministrationTime : MinMax
-            /// The MinMax Interval Time of the DoseRule
+            // The MinMax Interval Time of the DoseRule
             IntervalTime : MinMax
-            /// The MinMax Duration of the DoseRule
+            // The MinMax Duration of the DoseRule
             Duration : MinMax
-            /// The list of associated DoseLimits of the DoseRule.
-            /// In principle for the Shape and each Substance .
+            // The list of associated DoseLimits of the DoseRule.
+            // In principle for the Shape and each Substance .
             DoseLimits : DoseLimit array
             RenalRule : string option
         }
@@ -386,19 +386,19 @@ module Types =
     /// A Filter to get the DoseRules for a specific Patient.
     type DoseFilter =
         {
-            /// The Indication to filter on
+            // The Indication to filter on
             Indication : string option
-            /// The Generic to filter on
+            // The Generic to filter on
             Generic : string option
-            /// The Shape to filter on
+            // The Shape to filter on
             Shape : string option
-            /// The Route to filter on
+            // The Route to filter on
             Route : string option
-            /// The DoseType to filter on
+            // The DoseType to filter on
             DoseType : DoseType option
-
+            // The diluent to use
             Diluent : string option
-            /// The patient to filter on
+            // The patient to filter on
             Patient : Patient
         }
 

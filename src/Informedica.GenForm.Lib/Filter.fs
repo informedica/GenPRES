@@ -4,7 +4,6 @@ namespace Informedica.GenForm.Lib
 
 module Filter =
 
-    open Informedica.GenCore.Lib.Ranges
 
     /// An empty Filter.
     let doseFilter =
@@ -57,5 +56,3 @@ module Filter =
                 filter.Patient
                 |> Patient.calcPMAge
         }
-
-

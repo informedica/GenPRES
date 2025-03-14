@@ -13,8 +13,8 @@ module Prescribe =
     [<JSX.Component>]
     let View (props:
         {|
-            prescriptionResult: Deferred<PrescriptionResult>
-            updatePrescriptionResult: PrescriptionResult -> unit
+            prescriptionContext: Deferred<PrescriptionContext>
+            updatePrescriptionContext: PrescriptionContext -> unit
             treatmentPlan : Deferred<TreatmentPlan>
             updateTreatmentPlan : TreatmentPlan -> unit
             localizationTerms : Deferred<string [] []>
@@ -33,7 +33,7 @@ module Prescribe =
             |> Deferred.defaultValue defVal
 
         let indicationChange s =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved pr ->
                 if s |> Option.isNone then
                     { pr with
@@ -53,11 +53,11 @@ module Prescribe =
                                 Indication = s
                             }
                     }
-                |> props.updatePrescriptionResult
+                |> props.updatePrescriptionContext
             | _ -> ()
 
         let medicationChange s =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved pr ->
                 if s |> Option.isNone then
                     { pr with
@@ -78,11 +78,11 @@ module Prescribe =
                                 Medication = s
                             }
                     }
-                |> props.updatePrescriptionResult
+                |> props.updatePrescriptionContext
             | _ -> ()
 
         let routeChange s =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved pr ->
                 if s |> Option.isNone then
                     { pr with
@@ -102,11 +102,11 @@ module Prescribe =
                                 Route = s
                             }
                     }
-                |> props.updatePrescriptionResult
+                |> props.updatePrescriptionContext
             | _ -> ()
 
         let diluentChange s =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved pr ->
                 { pr with
                     Filter = { pr.Filter with Diluent = s }
@@ -118,12 +118,12 @@ module Prescribe =
                             }
                         )
                 }
-                |> props.updatePrescriptionResult
+                |> props.updatePrescriptionContext
             | _ -> ()
 
         let doseTypeChange s =
-            let dt = s |> Option.map PrescriptionResult.doseTypeFromString
-            match props.prescriptionResult with
+            let dt = s |> Option.map PrescriptionContext.doseTypeFromString
+            match props.prescriptionContext with
             | Resolved pr ->
                 if dt |> Option.isNone then
                     { pr with
@@ -142,13 +142,13 @@ module Prescribe =
                                 DoseType = dt
                             }
                     }
-                |> props.updatePrescriptionResult
+                |> props.updatePrescriptionContext
             | _ -> ()
 
         let clear () =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved _ ->
-                PrescriptionResult.empty |> props.updatePrescriptionResult
+                PrescriptionContext.empty |> props.updatePrescriptionContext
             | _ -> ()
 
         let modalOpen, setModalOpen = React.useState false
@@ -173,7 +173,7 @@ module Prescribe =
             |})
 
         let progress =
-            match props.prescriptionResult with
+            match props.prescriptionContext with
             | Resolved _ -> JSX.jsx $"<></>"
             | HasNotStartedYet -> JSX.jsx $"<>Voer eerst patient gegevens in</>"
             | _ ->
@@ -245,7 +245,7 @@ module Prescribe =
             </Box>
             """
 
-        let displayScenario (pr : PrescriptionResult) med (sc : OrderScenario) =
+        let displayScenario (pr : PrescriptionContext) med (sc : OrderScenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
             else
                 let caption =
@@ -262,7 +262,7 @@ module Prescribe =
                         Filter = { pr.Filter with Shape = Some sc.Shape }
                         Scenarios = [| sc |]
                     }
-                    |> props.updatePrescriptionResult
+                    |> props.updatePrescriptionContext
 
                 let updateTreatmentPlan () =
                     match props.treatmentPlan with
@@ -422,7 +422,7 @@ module Prescribe =
                         {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
                     </Typography>
                     {
-                        match props.prescriptionResult with
+                        match props.prescriptionContext with
                         | Resolved pr -> false, pr.Filter.Indication, pr.Filter.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
@@ -438,7 +438,7 @@ module Prescribe =
                     }
                     <Stack direction={stackDirection} spacing={3} >
                         {
-                            match props.prescriptionResult with
+                            match props.prescriptionContext with
                             | Resolved pr -> false, pr.Filter.Medication, pr.Filter.Medications
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
@@ -454,7 +454,7 @@ module Prescribe =
 
                         }
                         {
-                            match props.prescriptionResult with
+                            match props.prescriptionContext with
                             | Resolved pr -> false, pr.Filter.Route, pr.Filter.Routes
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
@@ -470,7 +470,7 @@ module Prescribe =
 
                         }
                         {
-                            match props.prescriptionResult with
+                            match props.prescriptionContext with
                             | Resolved pr when pr.Filter.Indication.IsSome &&
                                                pr.Filter.Medication.IsSome &&
                                                pr.Filter.Route.IsSome &&
@@ -490,17 +490,37 @@ module Prescribe =
                             | _ -> JSX.jsx $"<></>"
                         }
                         {
-                            match props.prescriptionResult with
+                            match props.prescriptionContext with
+                            | Resolved pr when pr.Filter.Indication.IsSome &&
+                                               pr.Filter.Medication.IsSome &&
+                                               pr.Filter.Route.IsSome &&
+                                               pr.Filter.Components |> Array.length > 1 &&
+                                               pr.Scenarios |> Array.length = 1 ->
+
+                                    let sc = pr.Scenarios |> Array.head
+                                    let sel = None //sc.Diluent
+                                    let items = pr.Filter.Components
+                                    let lbl = "Componenten"
+                                    let sel = sel
+
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select false lbl sel ignore
+
+                            | _ -> JSX.jsx $"<></>"
+                        }
+                        {
+                            match props.prescriptionContext with
                             | Resolved pr when pr.Filter.Indication.IsSome &&
                                                pr.Filter.Medication.IsSome &&
                                                pr.Filter.Route.IsSome ->
                                 (false, pr.Filter.DoseType, pr.Filter.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
                                     let lbl = "Doseer types"
-                                    let sel = sel |> Option.map PrescriptionResult.doseTypeToString
+                                    let sel = sel |> Option.map PrescriptionContext.doseTypeToString
 
                                     items
-                                    |> Array.map (fun s -> s |> PrescriptionResult.doseTypeToString, s |> PrescriptionResult.doseTypeToDescription)
+                                    |> Array.map (fun s -> s |> PrescriptionContext.doseTypeToString, s |> PrescriptionContext.doseTypeToDescription)
                                     |> select isLoading lbl sel doseTypeChange
 
                             | _ -> JSX.jsx $"<></>"
@@ -515,7 +535,7 @@ module Prescribe =
                     </Stack>
                     <Stack direction="column" >
                         {
-                            match props.prescriptionResult with
+                            match props.prescriptionContext with
                             | Resolved pr ->
                                 pr.Scenarios
                                 |> Array.map (displayScenario pr pr.Filter.Medication)
@@ -553,8 +573,8 @@ module Prescribe =
                 <Box sx={modalStyle}>
                     {
                         Order.View {|
-                            prescriptionResult = props.prescriptionResult
-                            updatePrescriptionResult = props.updatePrescriptionResult
+                            prescriptionContext = props.prescriptionContext
+                            updatePrescriptionContext = props.updatePrescriptionContext
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}

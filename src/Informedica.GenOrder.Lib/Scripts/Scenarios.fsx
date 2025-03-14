@@ -109,7 +109,8 @@ scenarios
 |> Array.map Order.applyConstraints
 |> Array.iter (Order.toString >> String.concat "\n" >> printfn "%s")
 
-// cidofovir
+
+// TPV
 { pr with PrescriptionResult.Filter.Indication = Some "TPV" }
 |> PrescriptionResult.getRules
 |> fun (pr, _) ->
@@ -117,6 +118,9 @@ scenarios
     |> PrescriptionResult.getRules
 |> fun (pr, _) ->
     { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+    |> PrescriptionResult.getRules
+|> fun (pr, _) ->
+    { pr with PrescriptionResult.Filter.SelectedComponents = pr.Filter.Components |> Array.skip 1 }
     |> PrescriptionResult.getRules
 |> snd
 |> Array.tryHead
@@ -131,3 +135,38 @@ scenarios
 { pr with
     PrescriptionResult.Filter.Generic = Some "natriumfosfaat" }
 |> Api.evaluate
+
+
+let tpvRule =
+    { pr with PrescriptionResult.Filter.Indication = Some "TPV" }
+    |> PrescriptionResult.getRules
+    |> fun (pr, _) ->
+        { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+        |> PrescriptionResult.getRules
+    |> fun (pr, _) ->
+        { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+        |> PrescriptionResult.getRules
+    |> snd
+    |> Array.head
+
+
+tpvRule.DoseRule.DoseLimits
+|> Array.map _.Component
+
+let norRule =
+    { pr with PrescriptionResult.Filter.Generic = Some "noradrenaline" }
+    |> PrescriptionResult.getRules
+    |> fun (pr, _) ->
+        { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+        |> PrescriptionResult.getRules
+    |> fun (pr, _) ->
+        { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+        |> PrescriptionResult.getRules
+    |> snd
+    |> Array.head
+
+norRule.DoseRule.DoseLimits
+|> Array.map _.Component
+
+
+[| "a"; "b"; "c" |] = [| "a"; "b"; "c" |]
