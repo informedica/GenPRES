@@ -29,17 +29,20 @@ module MultipleSelect =
                 |> function
                 | s when s |> String.IsNullOrWhiteSpace -> [||]
                 | s ->
-                    s.Split ","
+                    props.values
+                    |> Array.map snd
+                    |> Array.filter s.Contains
+
                 |> props.updateSelected
 
         let clear = fun _ -> [||] |> props.updateSelected
 
         let items =
             props.values
-            |> Array.mapi (fun i (k, v) ->
+            |> Array.map (fun (k, v) ->
                 JSX.jsx
                     $"""
-                <MenuItem key={i} value={k} sx = { {| maxWidth = 400 |} }>
+                <MenuItem key={k} value={k} sx = { {| maxWidth = 400 |} }>
                     {v}
                 </MenuItem>
                 """

@@ -121,6 +121,16 @@ module Prescribe =
                 |> props.updatePrescriptionContext
             | _ -> ()
 
+        let componentsChange cs =
+            Logging.log "componentsChange" cs
+            match props.prescriptionContext with
+            | Resolved prctx ->
+                { prctx with
+                    Filter = { prctx.Filter with SelectedComponents = cs }
+                }
+                |> props.updatePrescriptionContext
+            | _ -> ()
+
         let doseTypeChange s =
             let dt = s |> Option.map PrescriptionContext.doseTypeFromString
             match props.prescriptionContext with
@@ -156,6 +166,15 @@ module Prescribe =
 
         let select isLoading lbl selected dispatch xs =
             Components.SimpleSelect.View({|
+                updateSelected = dispatch
+                label = lbl
+                selected = selected
+                values = xs
+                isLoading = isLoading
+            |})
+
+        let multiSelect isLoading lbl selected dispatch xs =
+            Components.MultipleSelect.View({|
                 updateSelected = dispatch
                 label = lbl
                 selected = selected
@@ -497,15 +516,15 @@ module Prescribe =
                                                pr.Filter.Components |> Array.length > 1 &&
                                                pr.Scenarios |> Array.length = 1 ->
 
-                                    let sc = pr.Scenarios |> Array.head
-                                    let sel = None //sc.Diluent
                                     let items = pr.Filter.Components
                                     let lbl = "Componenten"
-                                    let sel = sel
+                                    let sel =
+                                        if pr.Filter.SelectedComponents |> Array.isEmpty then items
+                                        else pr.Filter.SelectedComponents
 
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select false lbl sel ignore
+                                    |> multiSelect false lbl sel componentsChange
 
                             | _ -> JSX.jsx $"<></>"
                         }

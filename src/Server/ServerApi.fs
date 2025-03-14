@@ -734,6 +734,7 @@ module PrescriptionResult =
                             Route = pr.Filter.Route
                             DoseType = pr.Filter.DoseType |> Option.map mapFromSharedDoseType
                             Diluent = dil
+                            SelectedComponents = pr.Filter.SelectedComponents
                         }
                 }
                 |> Api.evaluate
@@ -901,14 +902,22 @@ module Message =
         |> Option.map (fun sc ->
             let ord = sc.Order |> Models.OrderState.getOrder
 
-            if pr.Filter.SelectedComponents |> Array.isEmpty then true
+            if pr.Filter.SelectedComponents |> Array.isEmpty ||
+               pr.Filter.Components |> Array.isEmpty then true
             else
-                // check if there is a component that is used
-                // not in selected components
-                ord.Orderable.Components
-                |> Array.map _.Name
-                |> Array.sort
-                |> ((=) (pr.Filter.SelectedComponents |> Array.sort))
+                if ord.Orderable.Components |> Array.length = 0 then true
+                else
+                    writeInfoMessage $"""
+                    {ord.Orderable.Components |> Array.skip 1 |> Array.map _.Name |> Array.sort |> Array.toList} =
+                    {pr.Filter.SelectedComponents |> Array.toList}
+                    """
+                    // check if there is a component that is used
+                    // not in selected components
+                    ord.Orderable.Components
+                    |> Array.skip 1
+                    |> Array.map _.Name
+                    |> Array.sort
+                    |> ((=) (pr.Filter.SelectedComponents |> Array.sort))
         )
         |> Option.defaultValue true
 
@@ -917,18 +926,19 @@ module Message =
         match msg with
         | PrescriptionContextMsg pr ->
             pr |> printMsg "prescription context msg start" |> ignore
+            writeInfoMessage $"filter: {pr.Filter}"
 
             if pr.Scenarios |> Array.isEmpty then
                 pr
                 |> PrescriptionResult.get
-
             else
-                if pr |> checkDiluent ||
+                if pr |> checkDiluent &&
                    pr |> checkComponents then
                     pr
                     |> processOrders
                     |> Result.map PrescriptionResult.print
                 else
+                    writeInfoMessage "Recalculating prescription context"
                     pr
                     |> PrescriptionResult.get
 
