@@ -144,7 +144,7 @@ module OrderScenario =
         }
 
 
-module PrescriptionResult =
+module PrescriptionContext =
 
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
@@ -521,13 +521,13 @@ module Api =
     /// <summary>
     /// Use a PrescriptionResult to create a new PrescriptionResult.
     /// </summary>
-    let evaluate (pr : PrescriptionResult) =
+    let evaluate (pr : PrescriptionContext) =
 
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
-        let pr, rules = pr |> PrescriptionResult.getRules
+        let pr, rules = pr |> PrescriptionContext.getRules
 
         if rules |> Array.isEmpty then pr
         else

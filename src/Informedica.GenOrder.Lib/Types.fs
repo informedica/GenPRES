@@ -420,7 +420,7 @@ module Types =
         /// results of the solver to the client. The fields
         /// are used to select the correct scenario.
         /// </summary>
-        type PrescriptionResult =
+        type PrescriptionContext =
             {
                 Filter : Filter
                 // the patient

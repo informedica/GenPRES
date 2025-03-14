@@ -690,7 +690,7 @@ module PrescriptionResult =
 
         try
             let newResult =
-                let patResult = PrescriptionResult.create pat
+                let patResult = PrescriptionContext.create pat
 
                 let dil =
                     if pr.Filter.Diluent.IsSome then pr.Filter.Diluent
