@@ -506,11 +506,21 @@ module Api =
                 | i, Ok (ord, pr) ->
                     OrderScenario.create i pr ord
                     |> Some
-                | _, Error (_, _, errs) ->
+                | _, Error (ord, prctx, errs) ->
                     errs
                     |> List.map string
                     |> String.concat "\n"
                     |> writeErrorMessage
+
+                    ord
+                    |> Order.toString
+                    |> String.concat "\n"
+                    |> writeWarningMessage
+
+                    prctx
+                    |> sprintf "%A"
+                    |> writeWarningMessage
+
                     None
             )
 

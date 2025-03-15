@@ -1691,7 +1691,7 @@ module Variable =
                 let incr = incrOpt |> Option.map (Increment.toString false) |> Option.defaultValue ""
                 let max = maxOpt |> Option.map (Maximum.toString false) |> Option.defaultValue ""
                 let vs = vs |> ValueUnit.toStringDutchShort
-                printfn $"filter with %s{min}, %s{incr}, %s{max} and %s{vs} gives empty set"
+                writeWarningMessage $"filter with min = '%s{min}', incr = '%s{incr}', max = '%s{max}' and vs = '%s{vs}' gives empty set"
                 raise e
 
 

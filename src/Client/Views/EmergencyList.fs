@@ -111,6 +111,8 @@ module EmergencyList =
             rowCreate = rowCreate
             height = "70vh"
             onRowClick = ignore
+            selectedRows = [||]
+            onSelectChange = ignore
         |})
 
 

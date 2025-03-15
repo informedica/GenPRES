@@ -420,7 +420,8 @@ module Types =
         {
             Patient: Patient
             Selected : OrderScenario option
-            Scenarios: OrderScenario[]
+            Filtered : OrderScenario []
+            Scenarios: OrderScenario []
             Intake: Intake
         }
 

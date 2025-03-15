@@ -12,7 +12,6 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 #load "../Types.fs"
 #load "../Utils.fs"
 #load "../Mapping.fs"
-#load "../VenousAccess.fs"
 #load "../Mapping.fs"
 #load "../Patient.fs"
 #load "../LimitTarget.fs"
@@ -40,6 +39,3 @@ RenalRule.get ()
 Web.getDataFromSheet dataUrlId "RenalRules"
 
 Web.GoogleSheets.createUrl "RenalRules" (Web.getDataUrlIdGenPres ())
-
-
-

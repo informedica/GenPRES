@@ -72,6 +72,8 @@ module Nutrion =
                         rowCreate = rowCreate
                         height = "50vh"
                         onRowClick = ignore
+                        selectedRows = [||]
+                        onSelectChange = ignore
                     |})
                 }
             </Box>

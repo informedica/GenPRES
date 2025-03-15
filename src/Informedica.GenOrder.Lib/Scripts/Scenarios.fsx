@@ -8,30 +8,27 @@ System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELR
 
 open MathNet.Numerics
 open Informedica.Utils.Lib
-open Informedica.Utils.Lib.BCL
-open Informedica.Utils.Lib.BCL
-open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
-open Informedica.GenSolver.Lib
+open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
-open Informedica.GenSolver.Lib.Variable.Operators
+
 
 // TODO: could be used to precalc all possible
 // prescriptions for a patient
-let createScenarios (pr: PrescriptionResult) =
+let createScenarios (pr: PrescriptionContext) =
     let getRules filter =
-        { pr with Filter = filter } |> PrescriptionResult.getRules
+        { pr with Filter = filter } |> PrescriptionContext.getRules
 
     let print pr =
         let g = pr.Filter.Generic
         let i = pr.Filter.Indication
         let r = pr.Filter.Route
         let d = pr.Filter.DoseType
-        printfn $"=== no evalution of {g} {i} {r} {d} ==="
+        printfn $"=== no evaluation of {g} {i} {r} {d} ==="
         pr
 
     let eval pr s =
-        printfn $"evaluting {s}..."
+        printfn $"evaluating {s}"
         try
             let pr = pr |> Api.evaluate
 
@@ -47,42 +44,44 @@ let createScenarios (pr: PrescriptionResult) =
             let pr, rules = { pr.Filter with Generic = Some g } |> getRules
 
             if rules |> Array.isEmpty |> not then
-                $"evaluting {g}..." |> eval pr
+                g |> eval pr
 
             else
                 for i in pr.Filter.Indications do
                     let pr, rules = { pr.Filter with Indication = Some i } |> getRules
 
                     if rules |> Array.isEmpty |> not then
-                        $"evaluting {g} {i}..." |> eval pr
+                        $"{g}, {i}" |> eval pr
 
                     else
                         for r in pr.Filter.Routes do
                             let pr, rules = { pr.Filter with Route = Some r } |> getRules
 
                             if rules |> Array.isEmpty |> not then
-                                $"evaluting {g} {i} {r}..." |> eval pr
+                                $"{g}, {i}, {r}" |> eval pr
 
                             else
                                 for d in pr.Filter.DoseTypes do
                                     let pr, rules = { pr.Filter with DoseType = Some d } |> getRules
 
                                     if rules |> Array.isEmpty |> not then
-                                        $"evaluting {g} {i} {r} {d}..." |> eval pr
+                                        $"{g}, {i}, {r}, {d}" |> eval pr
 
                                     else pr |> print
     ]
 
 
+let pr =
+    { Patient.infant with
+        Weight = Some ([| 10N |] |> ValueUnit.withUnit Units.Weight.kiloGram)
+    }|> PrescriptionContext.create
 
-let pr = Patient.infant |> PrescriptionResult.create
 
-
-{ pr with PrescriptionResult.Filter.Generic = pr.Filter.Generics |> Array.tryItem 10 }
-|> PrescriptionResult.getRules
+{ pr with PrescriptionContext.Filter.Generic = pr.Filter.Generics |> Array.tryItem 10 }
+|> PrescriptionContext.getRules
 
 let scenarios =
-    pr |> createScenarios
+    pr |> createScenarios |> ignore
 
 
 scenarios
@@ -92,14 +91,14 @@ scenarios
 |> List.length
 
 // cidofovir
-{ pr with PrescriptionResult.Filter.Generic = Some "cidofovir" }
-|> PrescriptionResult.getRules
+{ pr with PrescriptionContext.Filter.Generic = Some "cidofovir" }
+|> PrescriptionContext.getRules
 |> fun (pr, _) ->
-    { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+    |> PrescriptionContext.getRules
 |> fun (pr, _) ->
-    { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+    |> PrescriptionContext.getRules
 |> snd
 |> Array.tryHead
 |> Option.map DrugOrder.fromRule
@@ -111,17 +110,17 @@ scenarios
 
 
 // TPV
-{ pr with PrescriptionResult.Filter.Indication = Some "TPV" }
-|> PrescriptionResult.getRules
+{ pr with PrescriptionContext.Filter.Indication = Some "TPV" }
+|> PrescriptionContext.getRules
 |> fun (pr, _) ->
-    { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+    |> PrescriptionContext.getRules
 |> fun (pr, _) ->
-    { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+    |> PrescriptionContext.getRules
 |> fun (pr, _) ->
-    { pr with PrescriptionResult.Filter.SelectedComponents = pr.Filter.Components |> Array.skip 1 }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.SelectedComponents = pr.Filter.Components |> Array.skip 1 }
+    |> PrescriptionContext.getRules
 |> snd
 |> Array.tryHead
 |> Option.map DrugOrder.fromRule
@@ -133,19 +132,19 @@ scenarios
 
 
 { pr with
-    PrescriptionResult.Filter.Generic = Some "natriumfosfaat" }
+    PrescriptionContext.Filter.Generic = Some "natriumfosfaat" }
 |> Api.evaluate
 
 
 let tpvRule =
-    { pr with PrescriptionResult.Filter.Indication = Some "TPV" }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.Indication = Some "TPV" }
+    |> PrescriptionContext.getRules
     |> fun (pr, _) ->
-        { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-        |> PrescriptionResult.getRules
+        { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+        |> PrescriptionContext.getRules
     |> fun (pr, _) ->
-        { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-        |> PrescriptionResult.getRules
+        { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+        |> PrescriptionContext.getRules
     |> snd
     |> Array.head
 
@@ -154,19 +153,16 @@ tpvRule.DoseRule.DoseLimits
 |> Array.map _.Component
 
 let norRule =
-    { pr with PrescriptionResult.Filter.Generic = Some "noradrenaline" }
-    |> PrescriptionResult.getRules
+    { pr with PrescriptionContext.Filter.Generic = Some "noradrenaline" }
+    |> PrescriptionContext.getRules
     |> fun (pr, _) ->
-        { pr with PrescriptionResult.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-        |> PrescriptionResult.getRules
+        { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
+        |> PrescriptionContext.getRules
     |> fun (pr, _) ->
-        { pr with PrescriptionResult.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-        |> PrescriptionResult.getRules
+        { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
+        |> PrescriptionContext.getRules
     |> snd
     |> Array.head
 
 norRule.DoseRule.DoseLimits
 |> Array.map _.Component
-
-
-[| "a"; "b"; "c" |] = [| "a"; "b"; "c" |]

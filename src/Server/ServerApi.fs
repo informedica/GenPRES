@@ -986,7 +986,13 @@ module Message =
                     Intake =
                         let w = tp.Patient |> Models.Patient.getWeight
 
-                        tp.Scenarios
+                        let oscs =
+                            if tp.Filtered |> Array.isEmpty then tp.Scenarios
+                            else
+                                tp.Scenarios
+                                |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
+
+                        oscs
                         |> Array.map (_.Order >> Models.OrderState.getOrder)
                         |> Order.getIntake w
                 }

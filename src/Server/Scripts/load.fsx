@@ -22,12 +22,8 @@
 #load "../../Shared/Types.fs"
 #load "../../Shared/Data.fs"
 #load "../../Shared/Localization.fs"
-#load "../../Shared/Domain.fs"
+#load "../../Shared/Models.fs"
 #load "../../Shared/Api.fs"
-
-#load "../Formulary.fs"
-#load "../Parenteralia.fs"
-#load "../ScenarioResult.fs"
 #load "../ServerApi.fs"
 
 fsi.AddPrinter<System.DateTime> (fun dt -> dt.ToShortDateString())
@@ -39,4 +35,3 @@ open Informedica.Utils.Lib
 
 let zindexPath = __SOURCE_DIRECTORY__ |> Path.combineWith "../../../"
 Environment.CurrentDirectory <- zindexPath
-

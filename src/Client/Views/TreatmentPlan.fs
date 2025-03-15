@@ -197,6 +197,33 @@ module TreatmentPlan =
                     setModalOpen true
             | _ -> ()
 
+        let filterOrders ids =
+            match props.treatmentPlan with
+            | Resolved tp ->
+                { tp with
+                    Filtered =
+                        if ids |> Array.isEmpty then [||]
+                        else
+                            tp.Scenarios
+                            |> Array.filter (fun os ->
+                                os.Order
+                                |> OrderState.getOrder
+                                |> _.Id
+                                |> fun id -> ids |> Array.exists ((=) id)
+                            )
+                }
+                |> props.updateTreatmentPlan
+            | _ -> ()
+
+        let selectedRows =
+            match props.treatmentPlan with
+            | Resolved tp ->
+                tp.Filtered
+                |> Array.map _.Order
+                |> Array.map OrderState.getOrder
+                |> Array.map _.Id
+            | _ -> [||]
+
         let updatePrescriptionResult (pr : PrescriptionContext) =
             match props.treatmentPlan with
             | Resolved tp ->
@@ -204,7 +231,7 @@ module TreatmentPlan =
                 | None -> ()
                 | Some os ->
                     { tp with
-                        Selected = os |> Some
+                        Selected = Some os
                         Scenarios =
                             tp.Scenarios
                             |> Array.map (fun sc ->
@@ -229,6 +256,8 @@ module TreatmentPlan =
                     rowCreate = rowCreate
                     height = "50vh"
                     onRowClick = selectOrder
+                    selectedRows = selectedRows
+                    onSelectChange = filterOrders
                 |})
             }
             <Modal open={modalOpen} onClose={handleModalClose} >

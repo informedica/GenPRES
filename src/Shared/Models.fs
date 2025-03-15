@@ -1602,6 +1602,7 @@ module Models =
             {
                 Patient = pat
                 Selected = None
+                Filtered = [||]
                 Scenarios = srs
                 Intake = Intake.empty
             }

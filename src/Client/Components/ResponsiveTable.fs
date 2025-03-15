@@ -116,6 +116,8 @@ module ResponsiveTable =
             rowCreate : string[] -> obj
             height : string
             onRowClick : string -> unit
+            selectedRows : string []
+            onSelectChange: string [] -> unit
         |}) =
         let state, setState = React.useState [||]
 
@@ -156,6 +158,12 @@ module ResponsiveTable =
         let onRowClick =
             fun pars ->
                 pars?id |> string |> props.onRowClick
+
+        let onSelectionChange =
+            fun pars ->
+                (pars |> string).Split ","
+                |> Array.filter (String.IsNullOrWhiteSpace >> not)
+                |> props.onSelectChange
 
         let rows =
             props.rows
@@ -199,6 +207,9 @@ module ResponsiveTable =
                 </Box>
                 <div style={ {| height =props.height; width = "100%" |} }>
                     <DataGrid
+                        checkboxSelection
+                        rowSelectionModel = {props.selectedRows}
+                        onRowSelectionModelChange = {onSelectionChange}
                         rows={rows}
                         slots={ {| toolbar = toolbar |} }
                         onRowClick={onRowClick}
