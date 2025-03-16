@@ -120,6 +120,123 @@ module Product =
             ) rs
 
 
+    module Enteral =
+
+        open Informedica.GenUnits.Lib
+
+
+        let private get_ () =
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            Web.getDataFromSheet dataUrlId "EntFeeding"
+
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
+                data
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
+                    let toBrOpt = BigRational.toBrs >> Array.tryHead
+
+                    {|
+                        Name = get "Name"
+                        Unit = get "Eenheid"
+                        Substances =
+                            [|
+                                "volume mL", get "volume mL" |> toBrOpt
+                                "energie kCal", get "energie kCal" |> toBrOpt
+                                "eiwit g", get "eiwit g" |> toBrOpt
+                                "koolhydraat g", get "KH g" |> toBrOpt
+                                "vet g", get "vet g" |> toBrOpt
+                                "natrium mmol", get "Na mmol" |> toBrOpt
+                                "kalium mmol", get "K mmol" |> toBrOpt
+                                "calcium mmol", get "Ca mmol" |> toBrOpt
+                                "fosfaat mmol", get "P mmol" |> toBrOpt
+                                "magnesium mmol", get "Mg mmol" |> toBrOpt
+                                "ijzer mmol", get "Fe mmol" |> toBrOpt
+                                "VitD IE", get "VitD IE" |> toBrOpt
+                                "chloor mmol", get "Cl mmol" |> toBrOpt
+
+                            |]
+                    |}
+                )
+                |> Array.filter (_.Unit >> ((=) "mL"))
+                |> Array.map (fun r ->
+                    {
+                        GPK =  r.Name
+                        ATC = ""
+                        MainGroup = ""
+                        SubGroup = ""
+                        Generic = r.Name
+                        UseGenericName = false
+                        UseShape = false
+                        UseBrand = false
+                        TallMan = "" //r.TallMan
+                        Synonyms = [||]
+                        Product = r.Name
+                        Label = r.Name
+                        Shape = "voeding"
+                        Routes = [| "ORAAL" |]
+                        ShapeQuantities =
+                            Units.Volume.milliLiter
+                            |> ValueUnit.singleWithValue 1N
+                        ShapeUnit =
+                            Units.Volume.milliLiter
+                        RequiresReconstitution = false
+                        Reconstitution = [||]
+                        Divisible = Some 10N
+                        Substances =
+                            r.Substances
+                            |> Array.filter (fun (n, q) ->
+                                n |> String.equalsCapInsens "volume mL" |> not &&
+                                q
+                                |> Option.map (fun br -> br > 0N)
+                                |> Option.defaultValue false
+                            )
+                            |> Array.map (fun (s, q) ->
+                                let n, u =
+                                    match s |> String.split " " with
+                                    | [n; u] -> n |> String.trim, u |> String.trim
+                                    | _ -> failwith $"cannot parse substance {s}"
+                                {
+                                    Name = n
+                                    Concentration =
+                                        q
+                                        |> Option.bind (fun q ->
+                                            u
+                                            |> Mapping.mapUnit
+                                            |> function
+                                                | None ->
+                                                    writeErrorMessage $"cannot map unit: {u}"
+                                                    None
+                                                | Some u ->
+                                                    let u =
+                                                        u
+                                                        |> Units.per Units.Volume.milliLiter
+                                                    q
+                                                    |> ValueUnit.singleWithUnit u
+                                                    |> Some
+                                        )
+                                    MolarConcentration = None
+                                }
+                            )
+                            |> Array.filter (fun s ->
+                                s.Name |> String.notEmpty &&
+                                (s.Concentration |> Option.isSome ||
+                                s.MolarConcentration |> Option.isSome)
+                            )
+                    }
+                )
+
+
+        /// Get the Enteral feeding as a Product array.
+        let get : unit -> Product [] =
+            Memoization.memoize get_
+
+
 
     module Parenteral =
 
@@ -520,6 +637,7 @@ module Product =
                            r.mmol
                 )
                 |> Array.append (Parenteral.get ())
+                |> Array.append (Enteral.get ())
 
         |> StopWatch.clockFunc "created products"
 

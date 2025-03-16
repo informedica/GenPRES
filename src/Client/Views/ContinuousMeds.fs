@@ -88,6 +88,7 @@ module ContinuousMeds =
                     rowCreate = rowCreate
                     height = "70vh"
                     onRowClick = ignore
+                    checkboxSelection = false
                     selectedRows = [||]
                     onSelectChange = ignore
                 |})

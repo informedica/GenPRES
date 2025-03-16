@@ -12,6 +12,7 @@ open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
+Product.Enteral.get ()
 
 // TODO: could be used to precalc all possible
 // prescriptions for a patient

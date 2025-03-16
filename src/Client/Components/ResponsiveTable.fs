@@ -116,6 +116,7 @@ module ResponsiveTable =
             rowCreate : string[] -> obj
             height : string
             onRowClick : string -> unit
+            checkboxSelection : bool
             selectedRows : string []
             onSelectChange: string [] -> unit
         |}) =
@@ -207,7 +208,7 @@ module ResponsiveTable =
                 </Box>
                 <div style={ {| height =props.height; width = "100%" |} }>
                     <DataGrid
-                        checkboxSelection
+                        checkboxSelection={props.checkboxSelection}
                         rowSelectionModel = {props.selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         rows={rows}

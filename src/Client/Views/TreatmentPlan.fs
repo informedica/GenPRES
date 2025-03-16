@@ -224,6 +224,23 @@ module TreatmentPlan =
                 |> Array.map _.Id
             | _ -> [||]
 
+        let onDelete =
+            fun () ->
+                match props.treatmentPlan with
+                | Resolved tp ->
+                    { tp with
+                        Scenarios =
+                            tp.Scenarios
+                            |> Array.filter (fun sc ->
+                                tp.Filtered
+                                |> Array.exists ((=) sc)
+                                |> not
+                            )
+
+                    }
+                    |> props.updateTreatmentPlan
+                | _ -> ()
+
         let updatePrescriptionResult (pr : PrescriptionContext) =
             match props.treatmentPlan with
             | Resolved tp ->
@@ -242,12 +259,28 @@ module TreatmentPlan =
                     |> props.updateTreatmentPlan
             | _ -> ()
 
+        let deleteBtn =
+            match props.treatmentPlan with
+            | Resolved tp when tp.Filtered |> Array.length > 0 ->
+                JSX.jsx $"""
+                import Button from '@mui/material/Button';
+
+                <Box sx={ {| mt=2 |} }>
+                    <Button variant="text" onClick={onDelete} fullWidth startIcon={Mui.Icons.Delete} >
+                        {Delete |> getTerm "Verwijder Geselecteerde Voorschriften"}
+                    </Button>
+                </Box>
+                """
+            | _ -> JSX.jsx $"<></>"
+
+
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
         import Modal from '@mui/material/Modal';
 
         <Box sx={ {| height="100%" |} } >
+            {deleteBtn}
             {
                 Components.ResponsiveTable.View({|
                     hideFilter = true
@@ -256,6 +289,7 @@ module TreatmentPlan =
                     rowCreate = rowCreate
                     height = "50vh"
                     onRowClick = selectOrder
+                    checkboxSelection = true
                     selectedRows = selectedRows
                     onSelectChange = filterOrders
                 |})
