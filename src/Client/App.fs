@@ -114,7 +114,6 @@ module private Elmish =
     let loadParenteralia = Api.ParenteraliaMsg >> createApiMsg LoadParenteralia
 
 
-
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
     // * pg : el (emergency list) cm (continuous medication) pr (prescribe)
     // * ad: age in days
@@ -325,6 +324,7 @@ module private Elmish =
             SnackbarMsg = ""
             SnackbarOpen = false
         }
+
 
     let init () : State * Cmd<Msg> =
         let pat, page, lang, discl, med = Router.currentUrl () |> parseUrl
@@ -700,7 +700,6 @@ let private mobile : obj = jsNative
 
 // Entry point must be in a separate file
 // for Vite Hot Reload to work
-
 [<JSX.Component>]
 let View () =
     let state, dispatch = React.useElmish (init, update, [||])

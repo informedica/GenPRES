@@ -398,7 +398,9 @@ module Types =
                 Shapes: string []
                 // the possible dose types
                 DoseTypes : DoseType []
+                // the list of possible diluents that can be used
                 Diluents : string []
+                // the list of components that can be used
                 Components : string []
                 // the selected indication
                 Indication: string option
@@ -410,15 +412,17 @@ module Types =
                 Shape: string option
                 // the DoseType
                 DoseType : DoseType option
+                // the diluent to use
                 Diluent : string option
+                // the list of components that can be used
                 SelectedComponents : string []
             }
 
 
         /// <summary>
         /// The main communication object to transfer the
-        /// results of the solver to the client. The fields
-        /// are used to select the correct scenario.
+        /// results of the solver to the client. The Filter
+        /// is used to select the correct scenario.
         /// </summary>
         type PrescriptionContext =
             {

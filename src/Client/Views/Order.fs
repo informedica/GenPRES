@@ -659,7 +659,7 @@ module Order =
                     }
                     {
                         match state.Order with
-                        | Some ord ->
+                        | Some ord when ord.Orderable.Components |> Array.length > 1 ->
                             ord.Orderable.Components
                             |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || c.Name = state.SelectedComponent.Value)
                             |> Option.bind _.Dose.Quantity.Variable.Vals

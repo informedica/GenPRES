@@ -193,26 +193,26 @@ module PrescriptionContext =
         }
 
 
-    let getRules pr =
+    let getRules ctx =
 
-        match pr.Patient.Weight, pr.Patient.Height, pr.Patient.Department with
+        match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
         | Some w, Some h, d when d |> Option.isSome ->
 
             let ind =
-                if pr.Filter.Indication.IsSome then pr.Filter.Indication
-                else pr.Filter.Indications |> Array.someIfOne
+                if ctx.Filter.Indication.IsSome then ctx.Filter.Indication
+                else ctx.Filter.Indications |> Array.someIfOne
             let gen =
-                if pr.Filter.Generic.IsSome then pr.Filter.Generic
-                else pr.Filter.Generics |> Array.someIfOne
+                if ctx.Filter.Generic.IsSome then ctx.Filter.Generic
+                else ctx.Filter.Generics |> Array.someIfOne
             let rte =
-                if pr.Filter.Route.IsSome then pr.Filter.Route
-                else pr.Filter.Routes |> Array.someIfOne
+                if ctx.Filter.Route.IsSome then ctx.Filter.Route
+                else ctx.Filter.Routes |> Array.someIfOne
             let shp =
-                if pr.Filter.Shape.IsSome then pr.Filter.Shape
-                else pr.Filter.Shapes |> Array.someIfOne
+                if ctx.Filter.Shape.IsSome then ctx.Filter.Shape
+                else ctx.Filter.Shapes |> Array.someIfOne
             let dst =
-                if pr.Filter.DoseType.IsSome then pr.Filter.DoseType
-                else pr.Filter.DoseTypes |> Array.someIfOne
+                if ctx.Filter.DoseType.IsSome then ctx.Filter.DoseType
+                else ctx.Filter.DoseTypes |> Array.someIfOne
 
             let doseFilter =
                 {
@@ -224,15 +224,15 @@ module PrescriptionContext =
                     Diluent = None
                     Patient = {
                         Department = d
-                        Age = pr.Patient.Age
-                        GestAge = pr.Patient.GestAge
-                        PMAge = pr.Patient.PMAge
+                        Age = ctx.Patient.Age
+                        GestAge = ctx.Patient.GestAge
+                        PMAge = ctx.Patient.PMAge
                         Weight = Some w
                         Height = Some h
                         Diagnoses = [||]
-                        Gender = pr.Patient.Gender
-                        Locations = pr.Patient.Locations
-                        RenalFunction = pr.Patient.RenalFunction
+                        Gender = ctx.Patient.Gender
+                        Locations = ctx.Patient.Locations
+                        RenalFunction = ctx.Patient.RenalFunction
                     }
                 }
 
@@ -249,13 +249,13 @@ module PrescriptionContext =
             let shp = shps |> Array.someIfOne
             let dst = dsts |> Array.someIfOne
             let dil =
-                if pr.Filter.Diluent.IsSome then pr.Filter.Diluent
+                if ctx.Filter.Diluent.IsSome then ctx.Filter.Diluent
                 else
                     dils |> Array.someIfOne
 
-            { pr with
+            { ctx with
                 Filter =
-                    { pr.Filter with
+                    { ctx.Filter with
                         Indications = inds
                         Generics = gens
                         Routes = rtes
@@ -284,7 +284,7 @@ module PrescriptionContext =
                 |> PrescriptionRule.filter
             | _ -> [||]
         | _ ->
-            pr.Patient |> create
+            ctx.Patient |> create
             , [||]
         |> fun (pr, rules) ->
             let singleRule = rules |> Array.tryExactlyOne
@@ -321,6 +321,25 @@ module PrescriptionContext =
                                     |> Array.append [| r.DoseRule.DoseLimits[0] |]
                     }
                 |]
+
+
+    let setFilter filter ctx = { ctx with Filter = filter }
+
+
+    let setFilterGeneric gen ctx =
+        { ctx with PrescriptionContext.Filter.Generic = Some gen }
+
+
+    let setFilterRoute rte ctx =
+        { ctx with PrescriptionContext.Filter.Route = Some rte }
+
+
+    let setFilterIndication ind ctx =
+        { ctx with PrescriptionContext.Filter.Indication = Some ind }
+
+
+    let setFilterShape shp ctx =
+        { ctx with PrescriptionContext.Filter.Shape = Some shp }
 
 
 module Api =

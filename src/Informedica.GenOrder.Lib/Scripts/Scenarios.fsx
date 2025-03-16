@@ -72,98 +72,10 @@ let createScenarios (pr: PrescriptionContext) =
     ]
 
 
-let pr =
-    { Patient.infant with
-        Weight = Some ([| 10N |] |> ValueUnit.withUnit Units.Weight.kiloGram)
-    }|> PrescriptionContext.create
+open Patient.Optics
 
 
-{ pr with PrescriptionContext.Filter.Generic = pr.Filter.Generics |> Array.tryItem 10 }
-|> PrescriptionContext.getRules
-
-let scenarios =
-    pr |> createScenarios |> ignore
-
-
-scenarios
-|> List.filter (_.Scenarios >> Array.isEmpty)
-|> List.choose _.Filter.Generic
-|> List.distinct
-|> List.length
-
-// cidofovir
-{ pr with PrescriptionContext.Filter.Generic = Some "cidofovir" }
-|> PrescriptionContext.getRules
-|> fun (pr, _) ->
-    { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-    |> PrescriptionContext.getRules
-|> fun (pr, _) ->
-    { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-    |> PrescriptionContext.getRules
-|> snd
-|> Array.tryHead
-|> Option.map DrugOrder.fromRule
-|> Option.defaultValue [||]
-|> Array.map DrugOrder.toOrderDto
-|> Array.map Order.Dto.fromDto
-|> Array.map Order.applyConstraints
-|> Array.iter (Order.toString >> String.concat "\n" >> printfn "%s")
-
-
-// TPV
-{ pr with PrescriptionContext.Filter.Indication = Some "TPV" }
-|> PrescriptionContext.getRules
-|> fun (pr, _) ->
-    { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-    |> PrescriptionContext.getRules
-|> fun (pr, _) ->
-    { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-    |> PrescriptionContext.getRules
-|> fun (pr, _) ->
-    { pr with PrescriptionContext.Filter.SelectedComponents = pr.Filter.Components |> Array.skip 1 }
-    |> PrescriptionContext.getRules
-|> snd
-|> Array.tryHead
-|> Option.map DrugOrder.fromRule
-|> Option.defaultValue [||]
-|> Array.map DrugOrder.toOrderDto
-|> Array.map Order.Dto.fromDto
-|> Array.map Order.applyConstraints
-|> Array.iter (Order.toString >> String.concat "\n" >> printfn "%s")
-
-
-{ pr with
-    PrescriptionContext.Filter.Generic = Some "natriumfosfaat" }
-|> Api.evaluate
-
-
-let tpvRule =
-    { pr with PrescriptionContext.Filter.Indication = Some "TPV" }
-    |> PrescriptionContext.getRules
-    |> fun (pr, _) ->
-        { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-        |> PrescriptionContext.getRules
-    |> fun (pr, _) ->
-        { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-        |> PrescriptionContext.getRules
-    |> snd
-    |> Array.head
-
-
-tpvRule.DoseRule.DoseLimits
-|> Array.map _.Component
-
-let norRule =
-    { pr with PrescriptionContext.Filter.Generic = Some "noradrenaline" }
-    |> PrescriptionContext.getRules
-    |> fun (pr, _) ->
-        { pr with PrescriptionContext.Filter.Indication = pr.Filter.Indications |> Array.tryHead }
-        |> PrescriptionContext.getRules
-    |> fun (pr, _) ->
-        { pr with PrescriptionContext.Filter.DoseType = pr.Filter.DoseTypes |> Array.tryHead }
-        |> PrescriptionContext.getRules
-    |> snd
-    |> Array.head
-
-norRule.DoseRule.DoseLimits
-|> Array.map _.Component
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> PrescriptionContext.create
+|> PrescriptionContext.setFilterGeneric

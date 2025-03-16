@@ -267,7 +267,7 @@ module TreatmentPlan =
 
                 <Box sx={ {| mt=2 |} }>
                     <Button variant="text" onClick={onDelete} fullWidth startIcon={Mui.Icons.Delete} >
-                        {Delete |> getTerm "Verwijder Geselecteerde Voorschriften"}
+                        Verwijder Geselecteerde Voorschriften
                     </Button>
                 </Box>
                 """
