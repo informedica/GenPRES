@@ -737,7 +737,7 @@ module PrescriptionResult =
                             SelectedComponents = pr.Filter.SelectedComponents
                         }
                 }
-                |> Api.evaluate
+                |> PrescriptionContext.evaluate
 
             { pr with
                 Filter =

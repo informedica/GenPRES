@@ -2350,16 +2350,42 @@ module Order =
             reraise()
 
 
-    let isSolved (ord: Order) =
-        let qty =
-              ord.Orderable.Dose.Quantity
-              |> Quantity.toOrdVar
-              |> OrderVariable.isSolved
-        let rte =
-              ord.Orderable.Dose.Rate
-              |> Rate.toOrdVar
-              |> OrderVariable.isSolved
-        qty || rte
+    let checkOrder checker (ord: Order) =
+        match ord.Prescription with
+        | Continuous ->
+            ord.Orderable.Dose.Rate
+            |> Rate.toOrdVar
+            |> checker
+        | Discontinuous freq ->
+            freq |> Frequency.toOrdVar |> checker
+            &&
+            ord.Orderable.Dose.Quantity
+            |> Quantity.toOrdVar
+            |> checker
+        | Once ->
+            ord.Orderable.Dose.Quantity
+            |> Quantity.toOrdVar
+            |> checker
+        | Timed (freq, tme) ->
+            freq |> Frequency.toOrdVar |> checker
+            &&
+            tme |> Time.toOrdVar |> checker
+            &&
+            ord.Orderable.Dose.Quantity
+            |> Quantity.toOrdVar
+            |> checker
+        | OnceTimed tme ->
+            tme |> Time.toOrdVar |> checker
+            &&
+            ord.Orderable.Dose.Quantity
+            |> Quantity.toOrdVar
+            |> checker
+
+
+    let isSolved = checkOrder OrderVariable.isSolved
+
+
+    let hasValues = checkOrder OrderVariable.hasValues
 
 
     /// <summary>

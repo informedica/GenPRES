@@ -3346,6 +3346,12 @@ module Variable =
         v |> getValueRange |> ValueRange.cardinality
 
 
+    let hasValues var =
+        var
+        |> count
+        |> fun n -> n > 0
+
+
     /// Checks whether **v1** and **v2** have the
     /// same `Name`
     let eqName v1 v2 = v1 |> getName = (v2 |> getName)

@@ -564,6 +564,11 @@ module OrderVariable =
                 }
 
 
+    let hasValues (ovar: OrderVariable) =
+        ovar.Variable
+        |> Variable.hasValues
+
+
     /// <summary>
     /// Check whether a Variable is solved
     /// </summary>

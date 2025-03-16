@@ -73,7 +73,9 @@ module Filters =
 
 module OrderScenario =
 
+    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
+    open ConsoleWriter.NewLineNoTime
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
@@ -144,13 +146,255 @@ module OrderScenario =
         }
 
 
+    let calcOrderValues (sc : OrderScenario) =
+        { sc with
+            Order =
+                let ord = sc.Order
+                if ord |> Order.isSolved then
+                    let dto =
+                        ord
+                        |> Order.Dto.toDto
+                    dto |> Order.Dto.cleanDose
+
+                    dto
+                    |> Order.Dto.fromDto
+                    |> Order.applyConstraints
+                    |> fun o ->
+                        writeInfoMessage "== constraints reapplied"
+                        o
+                    |> Order.solveMinMax false OrderLogger.logger.Logger
+                    |> function
+                    | Ok ord ->
+                        ord
+                        |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+
+                    | Error msgs ->
+                        writeErrorMessage $"{msgs}"
+                        ord
+                else
+                    ord
+                    |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+        }
+
+
+    let solveOrder (sc : OrderScenario) =
+        { sc with
+            Order =
+                sc.Order
+                |> Order.solveOrder false OrderLogger.logger.Logger
+                |> Result.defaultValue sc.Order
+        }
+
+
 module PrescriptionContext =
+
+    open MathNet.Numerics
+    open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.BCL
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
+    open Informedica.GenForm.Lib
+    open Informedica.GenOrder.Lib
 
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
     open Informedica.Utils.Lib
     open Filters
+
+
+
+    module Helpers =
+
+
+        /// <summary>
+        /// Increase the Orderable Quantity and Rate Increment of an Order.
+        /// This allows speedy calculation by avoiding large amount
+        /// of possible values.
+        /// </summary>
+        /// <param name="logger">The OrderLogger to use</param>
+        /// <param name="ord">The Order to increase the increment of</param>
+        let increaseIncrements logger ord = Order.increaseIncrements logger 10N 50N ord
+
+
+        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
+
+
+        let changeRuleProductsDivisible rule =
+            { rule with
+                DoseRule =
+                    { rule.DoseRule with
+                        Shape = rule.DoseRule.Generic
+                        DoseLimits =
+                            rule.DoseRule.DoseLimits
+                            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                            |> Array.map (fun dl ->
+                                { dl with
+                                    Products =
+                                        if dl.Products |> Array.isEmpty then
+                                            [|
+                                                dl.DoseLimitTarget
+                                                |> DoseRule.DoseLimit.substanceDoseLimitTargetToString
+                                                |> Array.singleton
+                                                |> Array.filter String.notEmpty
+                                                |> Product.create
+                                                    rule.DoseRule.Generic
+                                                    rule.DoseRule.Route
+                                            |]
+                                        else
+                                            dl.Products
+                                            |> Array.map (fun p ->
+                                                { p with Divisible = None }
+                                            )
+                                }
+                            )
+                    }
+            }
+
+
+        /// <summary>
+        /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
+        /// multiple Orders, depending on the SolutionRules.
+        /// </summary>
+        /// <param name="logger"></param>
+        /// <param name="rule"></param>
+        /// <returns>
+        /// An array of Results, containing the Order and the PrescriptionRule.
+        /// </returns>
+        let evaluateRule logger (rule : PrescriptionRule) =
+            let eval rule drugOrder =
+                drugOrder
+                |> DrugOrder.toOrderDto
+                |> Order.Dto.fromDto
+                |> Order.solveMinMax false logger
+                |> Result.bind (increaseIncrements logger)
+                |> Result.bind (fun ord ->
+                    match rule.DoseRule |> DoseRule.getNormDose with
+                    | Some nd ->
+                        ord
+                        |> Order.minIncrMaxToValues logger
+                        |> setNormDose logger nd
+                    | None -> Ok ord
+                )
+                |> function
+                | Ok ord ->
+                    let ord =
+                        rule.DoseRule.DoseLimits
+                        |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                        |> Array.fold (fun acc dl ->
+                            let sn =
+                                dl.DoseLimitTarget
+                                |> DoseRule.DoseLimit.substanceDoseLimitTargetToString
+                            acc
+                            |> Order.setDoseUnit sn dl.DoseUnit
+                        ) ord
+
+                    let dto = ord |> Order.Dto.toDto
+
+                    let compItems =
+                        [
+                            for c in dto.Orderable.Components do
+                                    c.ComponentQuantity.Variable.ValsOpt
+                                    |> Option.map (fun v ->
+                                        {|
+                                            shapeQty = v.Value
+                                            substs =
+                                                [
+                                                    for i in c.Items do
+                                                        i.ComponentConcentration.Variable.ValsOpt
+                                                        |> Option.map (fun v ->
+                                                            {|
+                                                                name = i.Name
+                                                                qty = v.Value
+                                                            |}
+                                                        )
+                                                ]
+                                                |> List.choose id
+                                        |}
+                                    )
+                        ]
+                        |> List.choose id
+
+                    let shps =
+                        dto.Orderable.Components
+                        |> List.choose _.ComponentQuantity.Variable.ValsOpt
+                        |> List.toArray
+                        |> Array.collect _.Value
+
+                    let sbsts =
+                        dto.Orderable.Components
+                        |> List.toArray
+                        |> Array.collect (fun cDto ->
+                            cDto.Items
+                            |> List.toArray
+                            |> Array.choose (fun iDto ->
+                                iDto.ComponentConcentration.Variable.ValsOpt
+                                |> Option.map (fun v ->
+                                    iDto.Name,
+                                    v.Value
+                                    |> Array.tryHead
+                                )
+                            )
+                        )
+                        |> Array.distinct
+
+                    let pr =
+                        rule
+                        |> PrescriptionRule.filterProducts
+                            shps
+                            sbsts
+
+                    Ok (ord, pr)
+                | Error (ord, m) ->
+                    Error (ord, rule, m)
+
+            rule
+            |> DrugOrder.fromRule
+            |> Array.map (eval rule)
+
+
+        let evaluateRules rules =
+            rules
+            |> Array.map (fun pr ->
+                async {
+                    return
+                        pr
+                        |> evaluateRule OrderLogger.logger.Logger
+                }
+            )
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> Array.collect id
+            |> Array.filter Result.isOk
+
+
+        let processEvaluationResults rs =
+            rs
+            |> Array.mapi (fun i r -> (i, r))
+            |> Array.choose (function
+                | i, Ok (ord, pr) ->
+                    OrderScenario.create i pr ord
+                    |> Some
+                | _, Error (ord, prctx, errs) ->
+                    errs
+                    |> List.map string
+                    |> String.concat "\n"
+                    |> writeErrorMessage
+
+                    ord
+                    |> Order.toString
+                    |> String.concat "\n"
+                    |> writeWarningMessage
+
+                    prctx
+                    |> sprintf "%A"
+                    |> writeWarningMessage
+
+                    None
+            )
+
+
+    open Helpers
+
 
     module Prescription = Order.Prescription
 
@@ -340,6 +584,100 @@ module PrescriptionContext =
 
     let setFilterShape shp ctx =
         { ctx with PrescriptionContext.Filter.Shape = Some shp }
+
+
+    /// <summary>
+    /// Use a PrescriptionResult to create a new PrescriptionResult.
+    /// </summary>
+    let evaluate (ctx : PrescriptionContext) =
+
+        if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
+            let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+
+        let pr, rules = ctx |> getRules
+
+        if rules |> Array.isEmpty then pr
+        else
+            { pr with
+                Scenarios =
+                    rules
+                    |> evaluateRules
+                    |> function
+                    | [||] ->
+                        // no valid results so evaluate again
+                        // with changed product divisibility
+                        rules
+                        |> Array.map changeRuleProductsDivisible
+                        |> evaluateRules
+                        |> processEvaluationResults
+                    | results ->
+                        results
+                        |> processEvaluationResults
+                    |> Array.distinctBy (fun pr ->
+                        pr.DoseType,
+                        pr.Preparation,
+                        pr.Prescription,
+                        pr.Administration
+                    )
+                    |> function
+                        | prs when prs |> Array.length <= 1 -> prs
+                        // filter out prescriptions without preparation when not needed
+                        | prs ->
+                            let grouped = prs |> Array.groupBy _.DoseType
+                            [|
+                                for _, prs in grouped do
+                                    if prs |> Array.length <= 1 then prs
+                                    else
+                                        if prs
+                                           |> Array.filter (fun pr ->
+                                               pr.Preparation
+                                               |> Array.exists (Array.exists String.notEmpty))
+                                           |> Array.length = 0 then prs
+                                        else
+                                            prs
+                                            |> Array.filter (fun pr ->
+                                               pr.Preparation
+                                               |> Array.exists (Array.exists String.notEmpty)
+                                            )
+
+                            |]
+                            |> Array.collect id
+            }
+
+
+    let calcOrderValues (ctx : PrescriptionContext) =
+        { ctx with
+            Scenarios = ctx.Scenarios |> Array.map OrderScenario.calcOrderValues
+        }
+
+
+    let solveOrders (ctx : PrescriptionContext) =
+        { ctx with
+            Scenarios = ctx.Scenarios |> Array.map OrderScenario.solveOrder
+        }
+
+
+    let toString (pr : PrescriptionContext) =
+        let ords =
+            pr.Scenarios
+            |> Array.tryExactlyOne
+            |> Option.map (_.Order >> Order.toString >> String.concat "\n")
+            |> Option.defaultValue ""
+
+        $"""
+Patient: {pr.Patient |> Patient.toString}
+Indications: {pr.Filter.Indications |> Array.length}
+Medications: {pr.Filter.Generics |> Array.length}
+Routes: {pr.Filter.Routes |> Array.length}
+Indication: {pr.Filter.Indication |> Option.defaultValue ""}
+Medication: {pr.Filter.Generic |> Option.defaultValue ""}
+Route: {pr.Filter.Route |> Option.defaultValue ""}
+DoseType: {pr.Filter.DoseType}
+Diluent: {pr.Filter.Diluent}
+Scenarios: {pr.Scenarios |> Array.length}
+{ords}
+"""
 
 
 module Api =

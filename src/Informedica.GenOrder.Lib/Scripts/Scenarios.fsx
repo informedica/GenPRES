@@ -40,6 +40,8 @@ let createScenarios (pr: PrescriptionContext) =
             printfn $"\n=== ERROR\n{e}===\n"
             pr
 
+    let pr = eval pr ""
+
     [
         for g in pr.Filter.Generics do
             let pr, rules = { pr.Filter with Generic = Some g } |> getRules
@@ -75,7 +77,16 @@ let createScenarios (pr: PrescriptionContext) =
 open Patient.Optics
 
 
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
+Patient.child
+|> Patient.setWeight (20m |> Kilogram |> Some)
 |> PrescriptionContext.create
-|> PrescriptionContext.setFilterGeneric
+|> PrescriptionContext.setFilterGeneric "paracetamol"
+|> PrescriptionContext.setFilterRoute "rectaal"
+|> createScenarios
+|> List.item 0
+|> PrescriptionContext.calcOrderValues
+//|> PrescriptionContext.toString
+|> _.Scenarios
+|> Array.item 0
+|> _.Order
+|> Order.isSolved
