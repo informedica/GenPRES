@@ -6,11 +6,10 @@ System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELR
 
 #time
 
-open MathNet.Numerics
-open Informedica.Utils.Lib
-open Informedica.GenUnits.Lib
+open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
+
 
 Product.Enteral.get ()
 
@@ -77,16 +76,78 @@ let createScenarios (pr: PrescriptionContext) =
 open Patient.Optics
 
 
-Patient.child
-|> Patient.setWeight (20m |> Kilogram |> Some)
+let checkCtx msg ctx =
+    printfn $"\n\n=== {msg |> String.capitalize} ===\n"
+    ctx |> PrescriptionContext.changeDiluent |> printfn "changeDiluent: %b"
+    ctx |> PrescriptionContext.changeComponents |> printfn "changeComponents: %b"
+    ctx.Scenarios |> Array.length |> printfn "scenarios: %i"
+    ctx.Scenarios
+    |> Array.tryExactlyOne
+    |> Option.map _.Order
+    |> Option.iter (fun o ->
+            o |> Order.toString |> String.concat "\n" |> printfn "%s\n\n"
+            o |> Order.doseIsSolved |> printfn "order is solved: %b"
+            o |> Order.doseHasValues |> printfn "order has values: %b"
+
+        )
+    printfn $"\n===\n"
+
+    ctx
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
 |> PrescriptionContext.create
+|> PrescriptionContext.setFilterIndication "Chronische pijn"
 |> PrescriptionContext.setFilterGeneric "paracetamol"
-|> PrescriptionContext.setFilterRoute "rectaal"
-|> createScenarios
-|> List.item 0
-|> PrescriptionContext.calcOrderValues
-//|> PrescriptionContext.toString
-|> _.Scenarios
-|> Array.item 0
-|> _.Order
-|> Order.isSolved
+|> PrescriptionContext.setFilterShape "drank"
+|> PrescriptionContext.setFilterRoute "oraal"
+|> checkCtx "inital setup"
+|> Api.evaluate
+|> checkCtx "first evaluation" //|> ignore
+|> Api.evaluate //|> ignore
+|> checkCtx "second evaluation"
+|> fun ctx ->
+    let ctx =
+        { ctx with
+            Scenarios =
+                ctx.Scenarios
+                |> Array.map (fun s ->
+                    { s with
+                        Order =
+                            let dto = s.Order |> Order.Dto.toDto
+                            dto.Prescription.Frequency.Variable.ValsOpt.Value.Value <-
+                                dto.Prescription.Frequency.Variable.ValsOpt.Value.Value[0]
+                                |> Array.singleton
+
+                            dto |> Order.Dto.fromDto
+                    }
+                )
+        }
+    ctx
+|> checkCtx "frequency set"
+|> Api.evaluate
+|> checkCtx "frequency evaluated"
+|> Api.evaluate
+|> fun ctx ->
+    let ctx =
+        { ctx with
+            Scenarios =
+                ctx.Scenarios
+                |> Array.map (fun s ->
+                    { s with
+                        Order =
+                            let dto = s.Order |> Order.Dto.toDto
+                            dto.Orderable.Dose.Quantity.Variable.ValsOpt.Value.Value <-
+                                dto.Orderable.Dose.Quantity.Variable.ValsOpt.Value.Value[0]
+                                |> Array.singleton
+
+                            dto |> Order.Dto.fromDto
+                    }
+                )
+        }
+    ctx
+|> checkCtx "dose quantity set"
+|> Api.evaluate
+|> checkCtx "dose quantity evaluated"
+|> ignore

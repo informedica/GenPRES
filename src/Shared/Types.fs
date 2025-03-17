@@ -339,12 +339,6 @@ module Types =
         | NoDoseType
 
 
-    type OrderState =
-        | Constrained of Order
-        | Calculated of Order
-        | Solved of Order
-
-
     type Filter =
         {
             Indications: string[]
@@ -387,19 +381,21 @@ module Types =
 
     type OrderScenario =
         {
+            Name : string
             Indication: string
-            Diluents: string[]
-            Components: string[]
-            Items: string[]
             Shape: string
+            Route: string
+            DoseType: DoseType
             Diluent: string option
             Component: string option
             Item: string option
-            DoseType: DoseType
+            Diluents: string[]
+            Components: string[]
+            Items: string[]
             Prescription: TextItem[][][]
             Preparation: TextItem[][][]
             Administration: TextItem[][][]
-            Order: OrderState
+            Order: Order
             UseAdjust: bool
             UseRenalRule: bool
             RenalRule: string option

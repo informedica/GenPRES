@@ -3349,7 +3349,7 @@ module Variable =
     let hasValues var =
         var
         |> count
-        |> fun n -> n > 0
+        |> fun n -> n > 1
 
 
     /// Checks whether **v1** and **v2** have the

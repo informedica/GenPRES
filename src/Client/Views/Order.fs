@@ -49,9 +49,7 @@ module Order =
                     match pr.Scenarios with
                     | [| sc |] ->
 
-                        let ord =
-                            sc.Order
-                            |> OrderState.getOrder
+                        let ord = sc.Order
                         let cmp = sc.Component
                         let itm = sc.Item
 
@@ -537,20 +535,13 @@ module Order =
                     Scenarios =
                         pr.Scenarios
                         |> Array.map (fun sc ->
-                            if (sc.Order |> OrderState.getOrder).Id <> ol.Order.Id then sc
+                            if sc.Order.Id <> ol.Order.Id then sc
                             else
-                                let state o =
-                                    match sc.Order with
-                                    | Constrained _ -> o |> Constrained
-                                    | Solved _      -> o |> Solved
-                                    | Calculated _  -> o |> Calculated
                                 {
                                     sc with
                                         Component = ol.Component
                                         Item = ol.Item
-                                        Order =
-                                            ol.Order
-                                            |> state
+                                        Order = ol.Order
                                 }
                         )
                 }

@@ -185,9 +185,7 @@ module rec Types =
 
     module Logging =
 
-        type IMessage =
-            interface
-            end
+        type IMessage = interface end
 
 
         type TimeStamp = DateTime

@@ -2350,42 +2350,36 @@ module Order =
             reraise()
 
 
-    let checkOrder checker (ord: Order) =
+    let checkOrderDose pred cmp (ord: Order) : bool =
         match ord.Prescription with
         | Continuous ->
-            ord.Orderable.Dose.Rate
-            |> Rate.toOrdVar
-            |> checker
+            ord.Orderable.Dose.Rate |> Rate.toOrdVar |> pred
         | Discontinuous freq ->
-            freq |> Frequency.toOrdVar |> checker
-            &&
-            ord.Orderable.Dose.Quantity
-            |> Quantity.toOrdVar
-            |> checker
+            (freq |> Frequency.toOrdVar |> pred)
+            |> cmp <|
+            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
+            |> cmp <|
+            (ord.Orderable.Dose.PerTime |> PerTime.toOrdVar |> pred)
         | Once ->
-            ord.Orderable.Dose.Quantity
-            |> Quantity.toOrdVar
-            |> checker
+            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
         | Timed (freq, tme) ->
-            freq |> Frequency.toOrdVar |> checker
-            &&
-            tme |> Time.toOrdVar |> checker
-            &&
-            ord.Orderable.Dose.Quantity
-            |> Quantity.toOrdVar
-            |> checker
+            (freq |> Frequency.toOrdVar |> pred)
+            |> cmp <|
+            (tme |> Time.toOrdVar |> pred)
+            |> cmp <|
+            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
+            |> cmp <|
+            (ord.Orderable.Dose.PerTime |> PerTime.toOrdVar |> pred)
         | OnceTimed tme ->
-            tme |> Time.toOrdVar |> checker
-            &&
-            ord.Orderable.Dose.Quantity
-            |> Quantity.toOrdVar
-            |> checker
+            (tme |> Time.toOrdVar |> pred)
+            |> cmp <|
+            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
 
 
-    let isSolved = checkOrder OrderVariable.isSolved
+    let doseIsSolved = checkOrderDose OrderVariable.isSolved (&&)
 
 
-    let hasValues = checkOrder OrderVariable.hasValues
+    let doseHasValues = checkOrderDose OrderVariable.hasValues (||)
 
 
     /// <summary>

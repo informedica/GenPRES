@@ -350,25 +350,28 @@ module Types =
         type OrderScenario =
             {
                 No : int
-                // the indication for the order
-                Indication : string
-                // the dose type of the order
-                DoseType : DoseType
                 // the name of the order
                 Name : string
+                // the indication for the order
+                Indication : string
+                // the shape of the order
+                Shape : string
+                // the route of the order
+                Route : string
+                // the dose type of the order
+                DoseType : DoseType
+                // The diluent
+                Diluent : string option
+                // the component
+                Component : string option
+                // the substance
+                Item : string option
+                // the list of possible diluents
                 Diluents : string []
                 // The list of components to print out
                 Components : string []
                 // The list of substances to print out
                 Items : string []
-                // the shape of the order
-                Shape : string
-                // the route of the order
-                Route : string
-                // The diluent
-                Diluent : string option
-                Component : string option
-                Item : string option
                 // the prescription of the order
                 Prescription : string[][]
                 // the preparation of the order
@@ -377,11 +380,11 @@ module Types =
                 Administration : string[][]
                 // the order itself
                 Order : Order
-                // Whether to us adjust
+                // whether to us adjust
                 UseAdjust : bool
-                // Whether to use a renal rule
+                // whether to use a renal rule
                 UseRenalRule : bool
-                // Renal rule name
+                // renal rule name
                 RenalRule : string option
             }
 

@@ -1393,15 +1393,6 @@ module Models =
                 }
 
 
-    module OrderState =
-
-        let getOrder =
-            function
-            | Constrained o
-            | Calculated o
-            | Solved o -> o
-
-
     module Intake =
 
         let empty: Intake =
@@ -1462,17 +1453,19 @@ module Models =
             |> Seq.toArray
 
 
-        let create ind dils cmps sbs shp dil dst cmp itm prs prep adm o adj rr rn =
+        let create ind nme shp rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn =
             {
+                Name = nme
                 Indication = ind
-                Diluents = dils
-                Components = cmps
-                Items = sbs
                 Shape = shp
-                Diluent = dil
+                Route = rte
                 DoseType = dst
+                Diluent = dil
                 Component = cmp
                 Item = itm
+                Diluents = dils
+                Components = cmps
+                Items = itms
                 Prescription = prs |> Array.map (Array.map parseTextItem)
                 Preparation = prep |> Array.map (Array.map parseTextItem)
                 Administration = adm |> Array.map (Array.map parseTextItem)
@@ -1483,11 +1476,8 @@ module Models =
             }
 
 
-        let eqs os1 os2 =
-            let ord1 = os1.Order |> OrderState.getOrder
-            let ord2 = os2.Order |> OrderState.getOrder
-
-            ord1.Id = ord2.Id
+        let eqs (sc1 : OrderScenario) (sc2 : OrderScenario) =
+            sc1.Order.Id = sc2.Order.Id
 
 
     module PrescriptionContext =
@@ -1578,7 +1568,7 @@ module Models =
 
 
         let fromOrderScenario (os: OrderScenario) : PrescriptionContext =
-            let ord = os.Order |> OrderState.getOrder
+            let ord = os.Order
 
             {
                 DemoVersion = false

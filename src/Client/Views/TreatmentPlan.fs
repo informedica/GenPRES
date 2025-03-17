@@ -83,7 +83,6 @@ module TreatmentPlan =
             | Resolved tp ->
                 tp.Scenarios
                 |> Array.map _.Order
-                |> Array.map OrderState.getOrder
                 |> Array.mapi (fun i o ->
                     let freq =
                         if o.Prescription.IsDiscontinuous || o.Prescription.IsTimed then
@@ -185,7 +184,7 @@ module TreatmentPlan =
             match props.treatmentPlan with
             | Resolved tp ->
                 tp.Scenarios
-                |> Array.tryFind (fun sc -> (sc.Order |> OrderState.getOrder).Id = id)
+                |> Array.tryFind (fun sc -> sc.Order.Id = id)
                 |> function
                 | None ->
                     Logging.error "Order not found" id
@@ -207,7 +206,6 @@ module TreatmentPlan =
                             tp.Scenarios
                             |> Array.filter (fun os ->
                                 os.Order
-                                |> OrderState.getOrder
                                 |> _.Id
                                 |> fun id -> ids |> Array.exists ((=) id)
                             )
@@ -220,7 +218,6 @@ module TreatmentPlan =
             | Resolved tp ->
                 tp.Filtered
                 |> Array.map _.Order
-                |> Array.map OrderState.getOrder
                 |> Array.map _.Id
             | _ -> [||]
 
