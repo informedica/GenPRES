@@ -98,10 +98,10 @@ let checkCtx msg ctx =
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> PrescriptionContext.create
-|> PrescriptionContext.setFilterIndication "Chronische pijn"
-|> PrescriptionContext.setFilterGeneric "paracetamol"
-|> PrescriptionContext.setFilterShape "drank"
-|> PrescriptionContext.setFilterRoute "oraal"
+|> PrescriptionContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
+|> PrescriptionContext.setFilterGeneric "gentamicine"
+|> PrescriptionContext.setFilterShape "injectievloeistof"
+|> PrescriptionContext.setFilterRoute "intraveneus"
 |> checkCtx "inital setup"
 |> Api.evaluate
 |> checkCtx "first evaluation" //|> ignore
@@ -117,8 +117,8 @@ Patient.infant
                         Order =
                             let dto = s.Order |> Order.Dto.toDto
                             dto.Prescription.Frequency.Variable.ValsOpt.Value.Value <-
-                                dto.Prescription.Frequency.Variable.ValsOpt.Value.Value[0]
-                                |> Array.singleton
+                                dto.Prescription.Frequency.Variable.ValsOpt.Value.Value
+                                |> Array.take 1
 
                             dto |> Order.Dto.fromDto
                     }
@@ -138,10 +138,16 @@ Patient.infant
                     { s with
                         Order =
                             let dto = s.Order |> Order.Dto.toDto
-                            dto.Orderable.Dose.Quantity.Variable.ValsOpt.Value.Value <-
-                                dto.Orderable.Dose.Quantity.Variable.ValsOpt.Value.Value[0]
-                                |> Array.singleton
-
+                            dto.Orderable.Components <-
+                                dto.Orderable.Components
+                                |> List.mapi (fun i cmp ->
+                                    if i > 0 then cmp
+                                    else
+                                        cmp.Dose.Quantity.Variable.ValsOpt.Value.Value <-
+                                            cmp.Dose.Quantity.Variable.ValsOpt.Value.Value
+                                            |> Array.take 1
+                                        cmp
+                                )
                             dto |> Order.Dto.fromDto
                     }
                 )

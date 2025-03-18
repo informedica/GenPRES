@@ -2350,30 +2350,46 @@ module Order =
             reraise()
 
 
-    let checkOrderDose pred cmp (ord: Order) : bool =
+    let checkOrderDose pred op (ord: Order) : bool =
+        let checkRte rte = rte |> Rate.toOrdVar |> pred
+        let checkQty qty = qty |> Quantity.toOrdVar |> pred
+
+        let rates =
+            [
+                ord.Orderable.Dose.Rate
+                yield!
+                    ord.Orderable.Components
+                    |> List.map _.Dose
+                    |> List.map _.Rate
+            ]
+
+        let qtys =
+            [
+                ord.Orderable.Dose.Quantity
+                yield!
+                    ord.Orderable.Components
+                    |> List.map _.Dose
+                    |> List.map _.Quantity
+
+            ]
+
+        let isOr = true |> op <| false
+
         match ord.Prescription with
         | Continuous ->
-            ord.Orderable.Dose.Rate |> Rate.toOrdVar |> pred
+            if isOr then rates |> List.exists checkRte
+            else rates |> List.forall checkRte
+        | Timed (freq, _)
         | Discontinuous freq ->
             (freq |> Frequency.toOrdVar |> pred)
-            |> cmp <|
-            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
-            |> cmp <|
-            (ord.Orderable.Dose.PerTime |> PerTime.toOrdVar |> pred)
+            |> op <|
+            (if isOr then qtys |> List.exists checkQty else qtys |> List.forall checkQty)
         | Once ->
-            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
-        | Timed (freq, tme) ->
-            (freq |> Frequency.toOrdVar |> pred)
-            |> cmp <|
-            (tme |> Time.toOrdVar |> pred)
-            |> cmp <|
-            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
-            |> cmp <|
-            (ord.Orderable.Dose.PerTime |> PerTime.toOrdVar |> pred)
+            qtys |> List.forall checkQty
         | OnceTimed tme ->
             (tme |> Time.toOrdVar |> pred)
-            |> cmp <|
-            (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar |> pred)
+            |> op <|
+            (if isOr then qtys |> List.exists checkQty else qtys |> List.forall checkQty)
 
 
     let doseIsSolved = checkOrderDose OrderVariable.isSolved (&&)
