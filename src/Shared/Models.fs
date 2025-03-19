@@ -1453,17 +1453,17 @@ module Models =
             |> Seq.toArray
 
 
-        let create ind nme shp rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn =
+        let create ind nme shp rte dst cmp itm cmps itms prs prep adm o adj rr rn =
             {
                 Name = nme
                 Indication = ind
                 Shape = shp
                 Route = rte
                 DoseType = dst
-                Diluent = dil
+//                Diluent = dil
                 Component = cmp
                 Item = itm
-                Diluents = dils
+//                Diluents = dils
                 Components = cmps
                 Items = itms
                 Prescription = prs |> Array.map (Array.map parseTextItem)
@@ -1579,7 +1579,7 @@ module Models =
                         Shape = os.Shape |> Some
                         Route = ord.Route |> Some
                         DoseType = os.DoseType |> Some
-                        Diluent = os.Diluent
+//                        Diluent = os.Diluent
                     }
                 Patient = Patient.empty
                 Scenarios = [| os |]

@@ -89,7 +89,7 @@ module OrderScenario =
         |> String.replace ">" ""
 
 
-    let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl
+    let create no nm ind shp rte dst cmp itm cmps itms ord adj ren rrl : OrderScenario
         =
         {
             No = no
@@ -98,10 +98,10 @@ module OrderScenario =
             Shape = shp
             Route = rte
             DoseType = dst
-            Diluent = dil
+//            Diluent = dil
             Component = cmp
             Item = itm
-            Diluents = dils
+//            Diluents = dils
             Components = cmps
             Items = itms
             Prescription = [||]
@@ -175,10 +175,10 @@ module OrderScenario =
             pr.DoseRule.Shape
             pr.DoseRule.Route
             pr.DoseRule.DoseType
-            dil
+//            dil
             cmp
             itm
-            dils
+//            dils
             cmps
             itms
             ord
@@ -416,7 +416,7 @@ module PrescriptionContext =
                 | i, Ok (ord, pr) ->
                     OrderScenario.fromRule i pr ord
                     |> Some
-                | _, Error (ord, prctx, errs) ->
+                | _, Error (ord, ctx, errs) ->
                     errs
                     |> List.map string
                     |> String.concat "\n"
@@ -427,7 +427,7 @@ module PrescriptionContext =
                     |> String.concat "\n"
                     |> writeWarningMessage
 
-                    prctx
+                    ctx
                     |> sprintf "%A"
                     |> writeWarningMessage
 
@@ -652,7 +652,7 @@ module PrescriptionContext =
         |> Option.map (fun sc ->
             let ord = sc.Order
 
-            match sc.Diluent with
+            match ctx.Filter.Diluent with
             | None -> false
             | Some dil ->
                 // check if diluent is used in order
@@ -718,11 +718,11 @@ Scenarios: {pr.Scenarios |> Array.length}
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
-        let pr, rules = ctx |> getRules
+        let ctx, rules = ctx |> getRules
 
-        if rules |> Array.isEmpty then pr
+        if rules |> Array.isEmpty then ctx
         else
-            { pr with
+            { ctx with
                 Scenarios =
                     rules
                     |> evaluateRules

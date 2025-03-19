@@ -15,6 +15,7 @@ module Types =
 
         type Gender = Informedica.GenForm.Lib.Types.Gender
         type Patient = Informedica.GenForm.Lib.Types.Patient
+        type PrescriptionRule = Informedica.GenForm.Lib.Types.PrescriptionRule
 
 
         /// <summary>
@@ -360,14 +361,10 @@ module Types =
                 Route : string
                 // the dose type of the order
                 DoseType : DoseType
-                // The diluent
-                Diluent : string option
                 // the component
                 Component : string option
                 // the substance
                 Item : string option
-                // the list of possible diluents
-                Diluents : string []
                 // The list of components to print out
                 Components : string []
                 // The list of substances to print out
@@ -401,7 +398,7 @@ module Types =
                 Shapes: string []
                 // the possible dose types
                 DoseTypes : DoseType []
-                // the list of possible diluents that can be used
+                // the list of diluents to choose from
                 Diluents : string []
                 // the list of components that can be used
                 Components : string []
@@ -417,7 +414,7 @@ module Types =
                 DoseType : DoseType option
                 // the diluent to use
                 Diluent : string option
-                // the list of components that can be used
+                // the list of components that are used
                 SelectedComponents : string []
             }
 

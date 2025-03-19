@@ -326,13 +326,6 @@ module Mappers =
 
     let mapFromShared pat (ctx : PrescriptionContext)  : Informedica.GenOrder.Lib.Types.PrescriptionContext =
 
-        let dil =
-            if ctx.Filter.Diluent.IsSome then ctx.Filter.Diluent
-            else
-                ctx.Scenarios
-                |> Array.tryExactlyOne
-                |> Option.bind _.Diluent
-
         let mappedCtx = PrescriptionContext.create pat
 
         { mappedCtx with
@@ -351,10 +344,10 @@ module Mappers =
                         sc.Shape
                         sc.Route
                         (sc.DoseType |> mapFromSharedDoseTypeToOrderDoseType)
-                        sc.Diluent
+//                        sc.Diluent
                         sc.Component
                         sc.Item
-                        sc.Diluents
+//                        sc.Diluents
                         sc.Components
                         sc.Items
                         ord
@@ -396,7 +389,7 @@ module Mappers =
                     Shape = ctx.Filter.Shape
                     Route = ctx.Filter.Route
                     DoseType = ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType
-                    Diluent = dil
+                    Diluent = ctx.Filter.Diluent
                     SelectedComponents = ctx.Filter.SelectedComponents
                 }
         }
@@ -430,10 +423,10 @@ module Mappers =
                             sc.Shape
                             sc.Route
                             (sc.DoseType |> mapFromOrderDoseTypeToSharedDoseType)
-                            sc.Diluent
+//                            sc.Diluent
                             sc.Component
                             sc.Item
-                            sc.Diluents
+//                            sc.Diluents
                             sc.Components
                             sc.Items
                             sc.Prescription

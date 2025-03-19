@@ -157,3 +157,14 @@ Patient.infant
 |> Api.evaluate
 |> checkCtx "dose quantity evaluated"
 |> ignore
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> PrescriptionContext.create
+|> PrescriptionContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
+|> PrescriptionContext.setFilterGeneric "gentamicine"
+|> PrescriptionContext.setFilterShape "injectievloeistof"
+|> PrescriptionContext.setFilterRoute "intraveneus"
+|> PrescriptionContext.getRules
+|> fst

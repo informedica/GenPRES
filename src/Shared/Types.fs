@@ -386,10 +386,10 @@ module Types =
             Shape: string
             Route: string
             DoseType: DoseType
-            Diluent: string option
+//            Diluent: string option
             Component: string option
             Item: string option
-            Diluents: string[]
+//            Diluents: string[]
             Components: string[]
             Items: string[]
             Prescription: TextItem[][][]

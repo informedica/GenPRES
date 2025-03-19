@@ -110,13 +110,6 @@ module Prescribe =
             | Resolved pr ->
                 { pr with
                     Filter = { pr.Filter with Diluent = s }
-                    Scenarios =
-                        pr.Scenarios
-                        |> Array.map (fun sc ->
-                            { sc with
-                                Diluent = s
-                            }
-                        )
                 }
                 |> props.updatePrescriptionContext
             | _ -> ()
@@ -496,8 +489,7 @@ module Prescribe =
                                                pr.Filter.Diluents |> Array.length > 1 &&
                                                pr.Scenarios |> Array.length = 1 ->
 
-                                    let sc = pr.Scenarios |> Array.head
-                                    let sel = sc.Diluent
+                                    let sel = pr.Filter.Diluent
                                     let items = pr.Filter.Diluents
                                     let lbl = "Verdunningsvorm"
                                     let sel = sel
