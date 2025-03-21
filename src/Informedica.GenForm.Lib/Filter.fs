@@ -14,6 +14,7 @@ module Filter =
             Route = None
             DoseType = None
             Diluent = None
+            Components = []
             Patient = Patient.patient
         }
 

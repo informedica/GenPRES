@@ -32,9 +32,6 @@ module PrescriptionRule =
                 Patient = pat
                 DoseRule = dr
                 SolutionRules =
-                    let doseMinMax =
-                        dr.DoseLimits
-                        |> Array.map _.Quantity
                     let solFilter =
                         { Filter.solutionFilter dr.Generic with
                             Department = filter.Patient.Department
@@ -89,7 +86,21 @@ module PrescriptionRule =
                     DoseRule =
                         { pr.DoseRule with
                             DoseLimits =
-                                pr.DoseRule.DoseLimits
+                                // component selection mechanism
+                                if filter.Components |> List.isEmpty then pr.DoseRule.DoseLimits
+                                else
+                                    match pr.DoseRule.DoseLimits |> Array.toList with
+                                    | [dl] -> [| dl |]
+                                    | dl ::rest ->
+                                        rest
+                                        |> List.filter (fun dl ->
+                                            filter.Components
+                                            |> List.exists ((=) dl.Component)
+                                        )
+                                        |> List.toArray
+                                        |> Array.append [| dl |]
+                                    | _ -> pr.DoseRule.DoseLimits
+
                                 // applies to all targets?
                                 // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                                 |> Array.map(fun dl ->

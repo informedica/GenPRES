@@ -76,23 +76,8 @@ let createScenarios (pr: PrescriptionContext) =
 open Patient.Optics
 
 
-let checkCtx msg ctx =
-    printfn $"\n\n=== {msg |> String.capitalize} ===\n"
-    ctx |> PrescriptionContext.changeDiluent |> printfn "changeDiluent: %b"
-    ctx |> PrescriptionContext.changeComponents |> printfn "changeComponents: %b"
-    ctx.Scenarios |> Array.length |> printfn "scenarios: %i"
-    ctx.Scenarios
-    |> Array.tryExactlyOne
-    |> Option.map _.Order
-    |> Option.iter (fun o ->
-            o |> Order.toString |> String.concat "\n" |> printfn "%s\n\n"
-            o |> Order.doseIsSolved |> printfn "order is solved: %b"
-            o |> Order.doseHasValues |> printfn "order has values: %b"
+let printCtx = PrescriptionContext.printCtx
 
-        )
-    printfn $"\n===\n"
-
-    ctx
 
 
 Patient.infant
@@ -102,11 +87,40 @@ Patient.infant
 |> PrescriptionContext.setFilterGeneric "gentamicine"
 |> PrescriptionContext.setFilterShape "injectievloeistof"
 |> PrescriptionContext.setFilterRoute "intraveneus"
-|> checkCtx "inital setup"
+|> printCtx "inital setup"
 |> Api.evaluate
-|> checkCtx "first evaluation" //|> ignore
+|> printCtx "first evaluation"
+|> fun ctx ->
+    match ctx.Scenarios |> Array.tryExactlyOne with
+    | None -> ctx
+    | Some sc ->
+        { ctx with
+            PrescriptionContext.Filter.Components = sc.Components
+            PrescriptionContext.Filter.Diluents = sc.Diluents
+            PrescriptionContext.Filter.Diluent = sc.Diluent
+        }
+|> printCtx "one scenario"
+|> fun ctx ->
+    { ctx with
+        PrescriptionContext.Filter.Diluent = Some "NaCl 0,9%"
+    }
+|> Api.evaluate
+|> printCtx "after diluent change"
+|> ignore
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> PrescriptionContext.create
+|> PrescriptionContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
+|> PrescriptionContext.setFilterGeneric "gentamicine"
+|> PrescriptionContext.setFilterShape "injectievloeistof"
+|> PrescriptionContext.setFilterRoute "intraveneus"
+|> printCtx "inital setup"
+|> Api.evaluate
+|> printCtx "first evaluation" //|> ignore
 |> Api.evaluate //|> ignore
-|> checkCtx "second evaluation"
+|> printCtx "second evaluation"
 |> fun ctx ->
     let ctx =
         { ctx with
@@ -125,9 +139,9 @@ Patient.infant
                 )
         }
     ctx
-|> checkCtx "frequency set"
+|> printCtx "frequency set"
 |> Api.evaluate
-|> checkCtx "frequency evaluated"
+|> printCtx "frequency evaluated"
 |> Api.evaluate
 |> fun ctx ->
     let ctx =
@@ -153,9 +167,9 @@ Patient.infant
                 )
         }
     ctx
-|> checkCtx "dose quantity set"
+|> printCtx "dose quantity set"
 |> Api.evaluate
-|> checkCtx "dose quantity evaluated"
+|> printCtx "dose quantity evaluated"
 |> ignore
 
 
@@ -166,5 +180,54 @@ Patient.infant
 |> PrescriptionContext.setFilterGeneric "gentamicine"
 |> PrescriptionContext.setFilterShape "injectievloeistof"
 |> PrescriptionContext.setFilterRoute "intraveneus"
-|> PrescriptionContext.getRules
-|> fst
+//|> PrescriptionContext.getRules
+//|> fst
+|> Api.evaluate
+|> printCtx "first eval"
+|> ignore
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> PrescriptionContext.create
+|> PrescriptionContext.setFilterIndication "TPV"
+|> PrescriptionContext.setFilterRoute "intraveneus"
+|> fun ctx -> { ctx with PrescriptionContext.Filter.DoseType = ("dag 1" |> DoseType.Timed |> Some) }
+//|> PrescriptionContext.getRules
+//|> fst
+|> Api.evaluate
+|> printCtx "first eval"
+|> fun ctx  ->
+    { ctx with
+        PrescriptionContext.Filter.SelectedComponents =
+            ctx.Filter.Components |> Array.skip 1 |> Array.take 2
+    }
+|> printCtx "components selected"
+|> Api.evaluate
+|> printCtx "evaluated selected"
+|> ignore
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> PrescriptionContext.create
+|> PrescriptionContext.setFilterGeneric "noradrenaline"
+|> printCtx "init"
+|> Api.evaluate
+|> printCtx "first eval"
+|> fun ctx ->
+    ctx.Scenarios
+    |> Array.take 1
+    |> Array.collect _.Diluents
+    |> String.concat ","
+    |> printfn "Diluents: %s"
+
+    { ctx with Scenarios = ctx.Scenarios |> Array.take 1 }
+|> printCtx "one scenario selected"
+|> Api.evaluate
+|> printCtx "second eval"
+|> fun ctx ->
+    { ctx with PrescriptionContext.Filter.Diluent = ctx.Filter.Diluents |> Array.tryItem 1 }
+|> Api.evaluate
+|> printCtx "after diluent change"
+|> ignore

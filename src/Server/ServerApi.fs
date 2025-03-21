@@ -271,7 +271,7 @@ module Mappers =
             | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
-    let mapToOrderPatient
+    let mapFromSharedPatient
         (ctx: PrescriptionContext)
         =
         { Patient.patient with
@@ -344,10 +344,10 @@ module Mappers =
                         sc.Shape
                         sc.Route
                         (sc.DoseType |> mapFromSharedDoseTypeToOrderDoseType)
-//                        sc.Diluent
+                        sc.Diluent
                         sc.Component
                         sc.Item
-//                        sc.Diluents
+                        sc.Diluents
                         sc.Components
                         sc.Items
                         ord
@@ -368,22 +368,24 @@ module Mappers =
                             [| ctx.Filter.Medication |> Option.defaultValue "" |]
                         else
                             mappedCtx.Filter.Generics
-                    Shapes =
-                        if ctx.Filter.Shape |> Option.isSome then
-                            [| ctx.Filter.Shape |> Option.defaultValue "" |]
-                        else
-                            mappedCtx.Filter.Shapes
                     Routes =
                         if ctx.Filter.Route |> Option.isSome then
                             [| ctx.Filter.Route |> Option.defaultValue "" |]
                         else
                             mappedCtx.Filter.Routes
+                    Shapes =
+                        if ctx.Filter.Shape |> Option.isSome then
+                            [| ctx.Filter.Shape |> Option.defaultValue "" |]
+                        else
+                            mappedCtx.Filter.Shapes
                     DoseTypes =
                         if ctx.Filter.DoseType |> Option.isSome then
                             [| ctx.Filter.DoseType |> Option.defaultValue NoDoseType |]
                             |> Array.map mapFromSharedDoseTypeToOrderDoseType
                         else
                             mappedCtx.Filter.DoseTypes
+                    Diluents = ctx.Filter.Diluents
+                    Components = ctx.Filter.Components
                     Indication = ctx.Filter.Indication
                     Generic = ctx.Filter.Medication
                     Shape = ctx.Filter.Shape
@@ -402,6 +404,7 @@ module Mappers =
                         Indications = newCtx.Filter.Indications
                         Medications = newCtx.Filter.Generics
                         Routes = newCtx.Filter.Routes
+                        Shapes = newCtx.Filter.Shapes
                         DoseTypes = newCtx.Filter.DoseTypes |> Array.map mapFromOrderDoseTypeToSharedDoseType
                         Diluents = newCtx.Filter.Diluents
                         Components = newCtx.Filter.Components
@@ -423,10 +426,10 @@ module Mappers =
                             sc.Shape
                             sc.Route
                             (sc.DoseType |> mapFromOrderDoseTypeToSharedDoseType)
-//                            sc.Diluent
+                            sc.Diluent
                             sc.Component
                             sc.Item
-//                            sc.Diluents
+                            sc.Diluents
                             sc.Components
                             sc.Items
                             sc.Prescription
@@ -704,23 +707,20 @@ module PrescriptionContext =
         $"""
     === {stage} ===
 
-    Patient: {pr |> mapToOrderPatient |> Patient.toString}
-    Generic: {pr.Filter.Medication}
-    Shape: {pr.Filter.Shape}
-    Route: {pr.Filter.Route}
+    Patient: {pr |> mapFromSharedPatient |> Patient.toString}
+    Indication: {pr.Filter.Indication |> Option.defaultValue ""}
+    Medication: {pr.Filter.Medication |> Option.defaultValue ""}
+    Shape: {pr.Filter.Shape |> Option.defaultValue ""}
+    Route: {pr.Filter.Route |> Option.defaultValue ""}
+    DoseType: {pr.Filter.DoseType}
+    Diluent: {pr.Filter.Diluent |> Option.defaultValue ""}
+    SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
     Indications: {pr.Filter.Indications |> printArray}
     Medications: {pr.Filter.Medications |> printArray}
     Routes: {pr.Filter.Routes |> printArray}
     Diluents : {pr.Filter.Diluents |> printArray}
     Components: {pr.Filter.Components |> printArray}
     Items: {pr.Scenarios |> Array.collect _.Items |> printArray}
-    Indication: {pr.Filter.Indication |> Option.defaultValue ""}
-    Medication: {pr.Filter.Medication |> Option.defaultValue ""}
-    Shape: {pr.Filter.Shape |> Option.defaultValue ""}
-    Route: {pr.Filter.Route |> Option.defaultValue ""}
-    DoseType: {pr.Filter.DoseType}
-    Diluent: {pr.Filter.Diluent}
-    SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
     Scenarios: {scenarios}
 
     """
@@ -729,13 +729,15 @@ module PrescriptionContext =
     let evaluate (ctx: PrescriptionContext) =
         let pat =
             ctx
-            |> mapToOrderPatient
+            |> mapFromSharedPatient
             |> Patient.calcPMAge
 
         try
             ctx
             |> mapFromShared pat
+            |> PrescriptionContext.printCtx "start eval"
             |> Api.evaluate
+            |> PrescriptionContext.printCtx "finish eval"
             |> mapToShared ctx
 
         with
@@ -760,6 +762,7 @@ module Message =
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
     let printMsg msg ctx =
+        writeInfoMessage $"Filter: {ctx.Filter}\n"
         ctx
         |> PrescriptionContext.toString msg
         |> writeInfoMessage
@@ -770,7 +773,6 @@ module Message =
         match msg with
         | PrescriptionContextMsg ctx ->
             ctx
-            |> printMsg "START Prescription Context Message"
             |> PrescriptionContext.evaluate
             |> Result.map (fun ctx ->
                 { ctx with
@@ -782,7 +784,6 @@ module Message =
                         |> Order.getIntake w
                 }
             )
-            |> Result.map (printMsg "FINISH Prescription Context Message")
             |> Result.map PrescriptionContextMsg
 
         | TreatmentPlanMsg tp ->

@@ -7,6 +7,7 @@ module Types =
 
 
         open System
+        open Informedica.Utils.Lib.Csv
         open MathNet.Numerics
 
         open Informedica.GenUnits.Lib
@@ -361,10 +362,14 @@ module Types =
                 Route : string
                 // the dose type of the order
                 DoseType : DoseType
+                // an optional diluent
+                Diluent : string option
                 // the component
                 Component : string option
                 // the substance
                 Item : string option
+                // the list of diluents to choose from
+                Diluents : string []
                 // The list of components to print out
                 Components : string []
                 // The list of substances to print out

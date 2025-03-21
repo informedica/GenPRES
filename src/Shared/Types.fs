@@ -97,7 +97,7 @@ module Types =
 
     type ValueUnit =
         {
-            Value: (string * decimal)[]
+            Value: (string * decimal) []
             Unit: string
             Group: string
             Short: bool
@@ -188,7 +188,7 @@ module Types =
             OrderCount: OrderVariable
             DoseCount: OrderVariable
             Dose: Dose
-            Components: Component[]
+            Components: Component []
         }
 
 
@@ -341,11 +341,12 @@ module Types =
 
     type Filter =
         {
-            Indications: string[]
-            Medications: string[]
-            Routes: string[]
-            DoseTypes: DoseType[]
-            Diluents: string[]
+            Indications: string []
+            Medications: string []
+            Routes: string []
+            Shapes: string []
+            DoseTypes: DoseType []
+            Diluents: string []
             Components: string []
             Indication: string option
             Medication: string option
@@ -359,23 +360,23 @@ module Types =
 
     type Intake =
         {
-            Volume: TextItem[]
-            Energy: TextItem[]
-            Protein: TextItem[]
-            Carbohydrate: TextItem[]
-            Fat: TextItem[]
-            Sodium: TextItem[]
-            Potassium: TextItem[]
-            Chloride: TextItem[]
-            Calcium: TextItem[]
-            Phosphate: TextItem[]
-            Magnesium: TextItem[]
-            Iron: TextItem[]
-            VitaminD: TextItem[]
-            Ethanol: TextItem[]
-            Propyleenglycol: TextItem[]
-            BoricAcid: TextItem[]
-            BenzylAlcohol: TextItem[]
+            Volume: TextItem []
+            Energy: TextItem []
+            Protein: TextItem []
+            Carbohydrate: TextItem []
+            Fat: TextItem []
+            Sodium: TextItem []
+            Potassium: TextItem []
+            Chloride: TextItem []
+            Calcium: TextItem []
+            Phosphate: TextItem []
+            Magnesium: TextItem []
+            Iron: TextItem []
+            VitaminD: TextItem []
+            Ethanol: TextItem []
+            Propyleenglycol: TextItem []
+            BoricAcid: TextItem []
+            BenzylAlcohol: TextItem []
         }
 
 
@@ -386,15 +387,15 @@ module Types =
             Shape: string
             Route: string
             DoseType: DoseType
-//            Diluent: string option
+            Diluent : string option
             Component: string option
             Item: string option
-//            Diluents: string[]
-            Components: string[]
-            Items: string[]
-            Prescription: TextItem[][][]
-            Preparation: TextItem[][][]
-            Administration: TextItem[][][]
+            Diluents : string []
+            Components: string []
+            Items: string []
+            Prescription: TextItem [][][]
+            Preparation: TextItem [][][]
+            Administration: TextItem [][][]
             Order: Order
             UseAdjust: bool
             UseRenalRule: bool
@@ -407,7 +408,7 @@ module Types =
             DemoVersion: bool
             Filter: Filter
             Patient: Patient
-            Scenarios: OrderScenario[]
+            Scenarios: OrderScenario []
             Intake: Intake
         }
 
@@ -424,11 +425,11 @@ module Types =
 
     type Formulary =
         {
-            Generics: string[]
-            Indications: string[]
-            Routes: string[]
-            PatientCategories: string[]
-            Products: string[]
+            Generics: string []
+            Indications: string []
+            Routes: string []
+            PatientCategories: string []
+            Products: string []
             Generic: string option
             Indication: string option
             Route: string option
@@ -440,10 +441,10 @@ module Types =
 
     type Parenteralia =
         {
-            Generics: string[]
-            Shapes: string[]
-            Routes: string[]
-            PatientCategories: string[]
+            Generics: string []
+            Shapes: string []
+            Routes: string []
+            PatientCategories: string []
             Generic: string option
             Shape: string option
             Route: string option

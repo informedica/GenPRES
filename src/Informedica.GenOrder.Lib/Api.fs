@@ -89,7 +89,7 @@ module OrderScenario =
         |> String.replace ">" ""
 
 
-    let create no nm ind shp rte dst cmp itm cmps itms ord adj ren rrl : OrderScenario
+    let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl : OrderScenario
         =
         {
             No = no
@@ -98,10 +98,10 @@ module OrderScenario =
             Shape = shp
             Route = rte
             DoseType = dst
-//            Diluent = dil
+            Diluent = dil
             Component = cmp
             Item = itm
-//            Diluents = dils
+            Diluents = dils
             Components = cmps
             Items = itms
             Prescription = [||]
@@ -175,10 +175,10 @@ module OrderScenario =
             pr.DoseRule.Shape
             pr.DoseRule.Route
             pr.DoseRule.DoseType
-//            dil
+            dil
             cmp
             itm
-//            dils
+            dils
             cmps
             itms
             ord
@@ -507,7 +507,8 @@ module PrescriptionContext =
                     Route = rte
                     Shape = shp
                     DoseType = dst
-                    Diluent = None
+                    Diluent = ctx.Filter.Diluent
+                    Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
                     Patient = {
                         Department = d
                         Age = ctx.Patient.Age
@@ -527,17 +528,12 @@ module PrescriptionContext =
             let rtes = doseFilter |> filterRoutes
             let shps = doseFilter |> filterShapes
             let dsts = doseFilter |> filterDoseTypes
-            let dils = doseFilter |> filterDiluents
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
             let rte = rtes |> Array.someIfOne
             let shp = shps |> Array.someIfOne
             let dst = dsts |> Array.someIfOne
-            let dil =
-                if ctx.Filter.Diluent.IsSome then ctx.Filter.Diluent
-                else
-                    dils |> Array.someIfOne
 
             { ctx with
                 Filter =
@@ -564,55 +560,12 @@ module PrescriptionContext =
                     Route = rte
                     Shape = shp
                     DoseType = dst
-                    Diluent = dil
                 }
                 |> PrescriptionRule.filter
             | _ -> [||]
         | _ ->
             ctx.Patient |> create
             , [||]
-        |> fun (ctx, rules) ->
-            let singleRule = rules |> Array.tryExactlyOne
-            // with a single prescription rule we can set
-            // the diluents and components to choose or select
-            { ctx with
-                Filter =
-                    { ctx.Filter with
-                        Diluents =
-                            singleRule
-                            |> Option.map _.SolutionRules
-                            |> Option.map (Array.collect _.Diluents)
-                            |> Option.map (Array.map _.Generic)
-                            |> Option.defaultValue [||]
-                        Components =
-                            singleRule
-                            |> Option.map _.DoseRule
-                            |> Option.map (_.DoseLimits >> Array.map _.Component)
-                            |> Option.defaultValue [||]
-                            |> function
-                                | xs when xs |> Array.length > 0 -> xs |> Array.tail
-                                | _ -> [||]
-                    }
-            }
-            ,
-            // additional component selection mechanism
-            if singleRule.IsNone then rules
-            else
-                let r = singleRule.Value
-                [|
-                    { r with
-                        PrescriptionRule.DoseRule.DoseLimits =
-                                if r.DoseRule.DoseLimits |> Array.length < 2 then r.DoseRule.DoseLimits
-                                else
-                                    r.DoseRule.DoseLimits
-                                    |> Array.skip 1
-                                    |> Array.filter (fun dl ->
-                                        ctx.Filter.SelectedComponents |> Array.isEmpty ||
-                                        ctx.Filter.SelectedComponents |> Array.exists ((=) dl.Component)
-                                    )
-                                    |> Array.append [| r.DoseRule.DoseLimits[0] |]
-                    }
-                |]
 
 
     let setFilter filter ctx = { ctx with Filter = filter }
@@ -687,33 +640,99 @@ module PrescriptionContext =
         |> Option.defaultValue false
 
 
-    let toString (pr : PrescriptionContext) =
-        let ords =
-            pr.Scenarios
-            |> Array.tryExactlyOne
-            |> Option.map (_.Order >> Order.toString >> String.concat "\n")
-            |> Option.defaultValue ""
+    let toString stage (pr: PrescriptionContext) =
+        let printArray xs =
+            if pr.Scenarios |> Array.isEmpty ||
+               xs |> Array.isEmpty then $"{xs |> Array.length}"
+            else
+                xs
+                |> String.concat ", "
+
+        let scenarios =
+            match pr.Scenarios |> Array.tryExactlyOne with
+            | Some sc ->
+                sc.Order
+                |> Order.toString
+                |> String.concat "\n"
+                |> fun s -> $"\n{s}\n"
+            | _ -> $"{pr.Scenarios |> Array.length}"
 
         $"""
-Patient: {pr.Patient |> Patient.toString}
-Indications: {pr.Filter.Indications |> Array.length}
-Medications: {pr.Filter.Generics |> Array.length}
-Routes: {pr.Filter.Routes |> Array.length}
-Indication: {pr.Filter.Indication |> Option.defaultValue ""}
-Medication: {pr.Filter.Generic |> Option.defaultValue ""}
-Route: {pr.Filter.Route |> Option.defaultValue ""}
-DoseType: {pr.Filter.DoseType}
-Diluent: {pr.Filter.Diluent}
-Scenarios: {pr.Scenarios |> Array.length}
-{ords}
-"""
+    === {stage} ===
+
+    Patient: {pr.Patient |> Patient.toString}
+    Indication: {pr.Filter.Indication |> Option.defaultValue ""}
+    Generic: {pr.Filter.Generic |> Option.defaultValue ""}
+    Shape: {pr.Filter.Shape |> Option.defaultValue ""}
+    Route: {pr.Filter.Route |> Option.defaultValue ""}
+    DoseType: {pr.Filter.DoseType}
+    Diluent: {pr.Filter.Diluent |> Option.defaultValue ""}
+    SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
+    Indications: {pr.Filter.Indications |> printArray}
+    Medications: {pr.Filter.Generics |> printArray}
+    Routes: {pr.Filter.Routes |> printArray}
+    DoseTypes: {pr.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
+    Diluents : {pr.Filter.Diluents |> printArray}
+    Components: {pr.Filter.Components |> printArray}
+    Items: {pr.Scenarios |> Array.collect _.Items |> printArray}
+    Scenarios: {scenarios}
+
+    """
+
+
+    let filterScenariosByPreparation (scs : OrderScenario []) =
+        if scs |> Array.length <= 1 then
+                scs
+        else
+            // filter out prescriptions without preparation when not needed
+            let grouped = scs |> Array.groupBy _.DoseType
+            [|
+                for _, scs in grouped do
+                    if scs |> Array.length <= 1 then scs
+                    else
+                        if scs
+                           |> Array.filter (fun sc ->
+                               sc.Preparation
+                               |> Array.exists (Array.exists String.notEmpty))
+                           |> Array.length = 0 then scs
+                        else
+                            scs
+                            |> Array.filter (fun sc ->
+                               sc.Preparation
+                               |> Array.exists (Array.exists String.notEmpty)
+                            )
+
+            |]
+            |> Array.collect id
+
+
+    let updateFilterIfOneScenario ctx =
+        match ctx.Scenarios |> Array.tryExactlyOne with
+        | None -> ctx
+        | Some sc ->
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        Shape = Some sc.Shape
+                        Diluent = sc.Diluent
+                        // set once mechanism, so when a scenario has only
+                        // one diluent, the others are still available
+                        Diluents =
+                            if ctx.Filter.Diluents |> Array.isEmpty then sc.Diluents
+                            else ctx.Filter.Diluents
+                        // set once mechanism, so when a scenario has only
+                        // selected components, the others are still available
+                        Components =
+                            if ctx.Filter.Components |> Array.isEmpty then sc.Components
+                            else ctx.Filter.Components
+                    }
+            }
 
 
     /// <summary>
     /// Use a PrescriptionResult to create a new PrescriptionResult.
     /// </summary>
     let evaluate (ctx : PrescriptionContext) =
-
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
@@ -738,36 +757,17 @@ Scenarios: {pr.Scenarios |> Array.length}
                         results
                         |> processEvaluationResults
                     // TODO: shouldn't need to do this?
+                    (*
                     |> Array.distinctBy (fun sc ->
                         sc.DoseType,
                         sc.Preparation,
                         sc.Prescription,
                         sc.Administration
                     )
-                    |> function
-                        | scs when scs |> Array.length <= 1 -> scs
-                        // filter out prescriptions without preparation when not needed
-                        | scs ->
-                            let grouped = scs |> Array.groupBy _.DoseType
-                            [|
-                                for _, scs in grouped do
-                                    if scs |> Array.length <= 1 then scs
-                                    else
-                                        if scs
-                                           |> Array.filter (fun sc ->
-                                               sc.Preparation
-                                               |> Array.exists (Array.exists String.notEmpty))
-                                           |> Array.length = 0 then scs
-                                        else
-                                            scs
-                                            |> Array.filter (fun sc ->
-                                               sc.Preparation
-                                               |> Array.exists (Array.exists String.notEmpty)
-                                            )
-
-                            |]
-                            |> Array.collect id
+                    *)
+                    |> filterScenariosByPreparation
             }
+        |> updateFilterIfOneScenario
 
 
     let processOrders (ctx: PrescriptionContext) =
@@ -781,6 +781,27 @@ Scenarios: {pr.Scenarios |> Array.length}
                         else sc |> OrderScenario.calcOrderValues
                     |]
             }
+            |> updateFilterIfOneScenario
+
+
+    let printCtx msg ctx =
+        writeInfoMessage $"\n\n=== {msg |> String.capitalize} ===\n"
+
+        match ctx.Scenarios |> Array.tryExactlyOne with
+        | Some sc ->
+            writeInfoMessage $"Order dose is solved: {sc.Order |> Order.doseIsSolved}"
+            writeInfoMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}"
+        | _ -> ()
+
+        writeInfoMessage $"Components change: {ctx |> changeComponents}"
+        writeInfoMessage $"Diluent change: {ctx |> changeDiluent}"
+
+        ctx |> toString msg
+        |> writeInfoMessage
+
+        writeInfoMessage $"\n===\n"
+
+        ctx
 
 
 module Api =
@@ -795,12 +816,12 @@ module Api =
     /// <summary>
     /// Use a PrescriptionResult to create a new PrescriptionResult.
     /// </summary>
-    let evaluate (pr : PrescriptionContext) =
-        if pr.Scenarios |> Array.length <> 1 ||
-           pr |> PrescriptionContext.changeDiluent ||
-           pr |> PrescriptionContext.changeComponents then pr |> PrescriptionContext.evaluate
+    let evaluate (ctx : PrescriptionContext) =
+        if ctx.Scenarios |> Array.length <> 1 ||
+           ctx |> PrescriptionContext.changeDiluent ||
+           ctx |> PrescriptionContext.changeComponents then ctx |> PrescriptionContext.evaluate
         else
-            pr |> PrescriptionContext.processOrders
+            ctx |> PrescriptionContext.processOrders
 
 
     let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =
