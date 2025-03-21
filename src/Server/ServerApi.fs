@@ -272,7 +272,7 @@ module Mappers =
 
 
     let mapFromSharedPatient
-        (ctx: PrescriptionContext)
+        (ctx: OrderContext)
         =
         { Patient.patient with
             Department =
@@ -324,9 +324,9 @@ module Mappers =
         |> Patient.calcPMAge
 
 
-    let mapFromShared pat (ctx : PrescriptionContext)  : Informedica.GenOrder.Lib.Types.PrescriptionContext =
+    let mapFromShared pat (ctx : OrderContext)  : Informedica.GenOrder.Lib.Types.OrderContext =
 
-        let mappedCtx = PrescriptionContext.create pat
+        let mappedCtx = OrderContext.create pat
 
         { mappedCtx with
             Scenarios =
@@ -397,7 +397,7 @@ module Mappers =
         }
 
 
-    let mapToShared ctx (newCtx : Informedica.GenOrder.Lib.Types.PrescriptionContext) : PrescriptionContext =
+    let mapToShared ctx (newCtx : Informedica.GenOrder.Lib.Types.OrderContext) : OrderContext =
             { ctx with
                 Filter =
                     { ctx.Filter with
@@ -674,7 +674,7 @@ module Order =
         |> mapToIntake
 
 
-module PrescriptionContext =
+module OrderContext =
 
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineTime
@@ -685,16 +685,16 @@ module PrescriptionContext =
     open Shared.Types
     open Mappers
 
-    let toString stage (pr: PrescriptionContext) =
+    let toString stage (ctx: OrderContext) =
         let printArray xs =
-            if pr.Scenarios |> Array.isEmpty ||
+            if ctx.Scenarios |> Array.isEmpty ||
                xs |> Array.isEmpty then $"{xs |> Array.length}"
             else
                 xs
                 |> String.concat ", "
 
         let scenarios =
-            match pr.Scenarios |> Array.tryExactlyOne with
+            match ctx.Scenarios |> Array.tryExactlyOne with
             | Some sc ->
                 sc.Order
                 |> Order.mapFromSharedToOrder
@@ -702,31 +702,31 @@ module PrescriptionContext =
                 |> Order.toString
                 |> String.concat "\n"
                 |> fun s -> $"\n{s}\n"
-            | _ -> $"{pr.Scenarios |> Array.length}"
+            | _ -> $"{ctx.Scenarios |> Array.length}"
 
         $"""
     === {stage} ===
 
-    Patient: {pr |> mapFromSharedPatient |> Patient.toString}
-    Indication: {pr.Filter.Indication |> Option.defaultValue ""}
-    Medication: {pr.Filter.Medication |> Option.defaultValue ""}
-    Shape: {pr.Filter.Shape |> Option.defaultValue ""}
-    Route: {pr.Filter.Route |> Option.defaultValue ""}
-    DoseType: {pr.Filter.DoseType}
-    Diluent: {pr.Filter.Diluent |> Option.defaultValue ""}
-    SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
-    Indications: {pr.Filter.Indications |> printArray}
-    Medications: {pr.Filter.Medications |> printArray}
-    Routes: {pr.Filter.Routes |> printArray}
-    Diluents : {pr.Filter.Diluents |> printArray}
-    Components: {pr.Filter.Components |> printArray}
-    Items: {pr.Scenarios |> Array.collect _.Items |> printArray}
+    Patient: {ctx |> mapFromSharedPatient |> Patient.toString}
+    Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
+    Medication: {ctx.Filter.Medication |> Option.defaultValue ""}
+    Shape: {ctx.Filter.Shape |> Option.defaultValue ""}
+    Route: {ctx.Filter.Route |> Option.defaultValue ""}
+    DoseType: {ctx.Filter.DoseType}
+    Diluent: {ctx.Filter.Diluent |> Option.defaultValue ""}
+    SelectedComponents: {ctx.Filter.SelectedComponents |> printArray}
+    Indications: {ctx.Filter.Indications |> printArray}
+    Medications: {ctx.Filter.Medications |> printArray}
+    Routes: {ctx.Filter.Routes |> printArray}
+    Diluents : {ctx.Filter.Diluents |> printArray}
+    Components: {ctx.Filter.Components |> printArray}
+    Items: {ctx.Scenarios |> Array.collect _.Items |> printArray}
     Scenarios: {scenarios}
 
     """
 
 
-    let evaluate (ctx: PrescriptionContext) =
+    let evaluate (ctx: OrderContext) =
         let pat =
             ctx
             |> mapFromSharedPatient
@@ -735,9 +735,9 @@ module PrescriptionContext =
         try
             ctx
             |> mapFromShared pat
-            |> PrescriptionContext.printCtx "start eval"
+            |> OrderContext.printCtx "start eval"
             |> Api.evaluate
-            |> PrescriptionContext.printCtx "finish eval"
+            |> OrderContext.printCtx "finish eval"
             |> mapToShared ctx
 
         with
@@ -764,16 +764,16 @@ module Message =
     let printMsg msg ctx =
         writeInfoMessage $"Filter: {ctx.Filter}\n"
         ctx
-        |> PrescriptionContext.toString msg
+        |> OrderContext.toString msg
         |> writeInfoMessage
         ctx
 
 
     let processMsg msg =
         match msg with
-        | PrescriptionContextMsg ctx ->
+        | OrderContextMsg ctx ->
             ctx
-            |> PrescriptionContext.evaluate
+            |> OrderContext.evaluate
             |> Result.map (fun ctx ->
                 { ctx with
                     Intake =
@@ -784,15 +784,15 @@ module Message =
                         |> Order.getIntake w
                 }
             )
-            |> Result.map PrescriptionContextMsg
+            |> Result.map OrderContextMsg
 
         | TreatmentPlanMsg tp ->
             match tp.Selected with
             | Some os ->
                 os
-                |> Models.PrescriptionContext.fromOrderScenario
+                |> Models.OrderContext.fromOrderScenario
                 |> printMsg "TreatmentPlan started"
-                |> PrescriptionContext.evaluate
+                |> OrderContext.evaluate
                 |> Result.map (fun pr ->
                     pr |> printMsg "TreatmentPlan finished" |> ignore
                     let newOsc = pr.Scenarios |> Array.tryExactlyOne

@@ -403,7 +403,7 @@ module Types =
         }
 
 
-    type PrescriptionContext =
+    type OrderContext =
         {
             DemoVersion: bool
             Filter: Filter

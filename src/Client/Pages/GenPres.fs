@@ -116,8 +116,8 @@ module GenPres =
             bolusMedication: Deferred<Intervention list>
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
-            prescriptionContext: Deferred<PrescriptionContext>
-            updatePrescriptionContext : PrescriptionContext -> unit
+            orderContext: Deferred<OrderContext>
+            updateOrderContext : OrderContext -> unit
             treatmentPlan: Deferred<TreatmentPlan>
             updateTreatmentPlan: TreatmentPlan -> unit
             formulary: Deferred<Formulary>
@@ -140,7 +140,7 @@ module GenPres =
                 box props.page
                 box props.updatePage
                 box lang
-                box props.prescriptionContext
+                box props.orderContext
             |]
         let state, dispatch = React.useElmish (init lang props.localizationTerms props.page, update lang props.localizationTerms props.updatePage, deps)
 
@@ -230,8 +230,8 @@ module GenPres =
                                 |}
                             | Global.Pages.Prescribe ->
                                 Views.Prescribe.View {|
-                                    prescriptionContext = props.prescriptionContext
-                                    updatePrescriptionContext = props.updatePrescriptionContext
+                                    orderContext = props.orderContext
+                                    updateOrderContext = props.updateOrderContext
                                     treatmentPlan = props.treatmentPlan
                                     updateTreatmentPlan = props.updateTreatmentPlan
                                     localizationTerms = props.localizationTerms
@@ -263,7 +263,7 @@ module GenPres =
                             match props.page with
                             | Global.Pages.Prescribe
                             | Global.Pages.Nutrition ->
-                                match props.prescriptionContext with
+                                match props.orderContext with
                                 | Resolved pr ->
                                     Views.Intake.View {| intake = pr.Intake |}
                                 | _ -> JSX.jsx "<></>"

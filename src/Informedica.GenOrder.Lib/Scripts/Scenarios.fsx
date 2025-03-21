@@ -15,9 +15,9 @@ Product.Enteral.get ()
 
 // TODO: could be used to precalc all possible
 // prescriptions for a patient
-let createScenarios (pr: PrescriptionContext) =
+let createScenarios (pr: OrderContext) =
     let getRules filter =
-        { pr with Filter = filter } |> PrescriptionContext.getRules
+        { pr with Filter = filter } |> OrderContext.getRules
 
     let print pr =
         let g = pr.Filter.Generic
@@ -76,17 +76,17 @@ let createScenarios (pr: PrescriptionContext) =
 open Patient.Optics
 
 
-let printCtx = PrescriptionContext.printCtx
+let printCtx = OrderContext.printCtx
 
 
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
-|> PrescriptionContext.create
-|> PrescriptionContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
-|> PrescriptionContext.setFilterGeneric "gentamicine"
-|> PrescriptionContext.setFilterShape "injectievloeistof"
-|> PrescriptionContext.setFilterRoute "intraveneus"
+|> OrderContext.create
+|> OrderContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
+|> OrderContext.setFilterGeneric "gentamicine"
+|> OrderContext.setFilterShape "injectievloeistof"
+|> OrderContext.setFilterRoute "intraveneus"
 |> printCtx "inital setup"
 |> Api.evaluate
 |> printCtx "first evaluation"
@@ -95,14 +95,14 @@ Patient.infant
     | None -> ctx
     | Some sc ->
         { ctx with
-            PrescriptionContext.Filter.Components = sc.Components
-            PrescriptionContext.Filter.Diluents = sc.Diluents
-            PrescriptionContext.Filter.Diluent = sc.Diluent
+            OrderContext.Filter.Components = sc.Components
+            OrderContext.Filter.Diluents = sc.Diluents
+            OrderContext.Filter.Diluent = sc.Diluent
         }
 |> printCtx "one scenario"
 |> fun ctx ->
     { ctx with
-        PrescriptionContext.Filter.Diluent = Some "NaCl 0,9%"
+        OrderContext.Filter.Diluent = Some "NaCl 0,9%"
     }
 |> Api.evaluate
 |> printCtx "after diluent change"
@@ -111,11 +111,11 @@ Patient.infant
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
-|> PrescriptionContext.create
-|> PrescriptionContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
-|> PrescriptionContext.setFilterGeneric "gentamicine"
-|> PrescriptionContext.setFilterShape "injectievloeistof"
-|> PrescriptionContext.setFilterRoute "intraveneus"
+|> OrderContext.create
+|> OrderContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
+|> OrderContext.setFilterGeneric "gentamicine"
+|> OrderContext.setFilterShape "injectievloeistof"
+|> OrderContext.setFilterRoute "intraveneus"
 |> printCtx "inital setup"
 |> Api.evaluate
 |> printCtx "first evaluation" //|> ignore
@@ -175,12 +175,12 @@ Patient.infant
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
-|> PrescriptionContext.create
-|> PrescriptionContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
-|> PrescriptionContext.setFilterGeneric "gentamicine"
-|> PrescriptionContext.setFilterShape "injectievloeistof"
-|> PrescriptionContext.setFilterRoute "intraveneus"
-//|> PrescriptionContext.getRules
+|> OrderContext.create
+|> OrderContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
+|> OrderContext.setFilterGeneric "gentamicine"
+|> OrderContext.setFilterShape "injectievloeistof"
+|> OrderContext.setFilterRoute "intraveneus"
+//|> OrderContext.getRules
 //|> fst
 |> Api.evaluate
 |> printCtx "first eval"
@@ -189,17 +189,17 @@ Patient.infant
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
-|> PrescriptionContext.create
-|> PrescriptionContext.setFilterIndication "TPV"
-|> PrescriptionContext.setFilterRoute "intraveneus"
-|> fun ctx -> { ctx with PrescriptionContext.Filter.DoseType = ("dag 1" |> DoseType.Timed |> Some) }
-//|> PrescriptionContext.getRules
+|> OrderContext.create
+|> OrderContext.setFilterIndication "TPV"
+|> OrderContext.setFilterRoute "intraveneus"
+|> fun ctx -> { ctx with OrderContext.Filter.DoseType = ("dag 1" |> DoseType.Timed |> Some) }
+//|> OrderContext.getRules
 //|> fst
 |> Api.evaluate
 |> printCtx "first eval"
 |> fun ctx  ->
     { ctx with
-        PrescriptionContext.Filter.SelectedComponents =
+        OrderContext.Filter.SelectedComponents =
             ctx.Filter.Components |> Array.skip 1 |> Array.take 2
     }
 |> printCtx "components selected"
@@ -210,8 +210,8 @@ Patient.infant
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
-|> PrescriptionContext.create
-|> PrescriptionContext.setFilterGeneric "noradrenaline"
+|> OrderContext.create
+|> OrderContext.setFilterGeneric "noradrenaline"
 |> printCtx "init"
 |> Api.evaluate
 |> printCtx "first eval"
@@ -227,7 +227,7 @@ Patient.infant
 |> Api.evaluate
 |> printCtx "second eval"
 |> fun ctx ->
-    { ctx with PrescriptionContext.Filter.Diluent = ctx.Filter.Diluents |> Array.tryItem 1 }
+    { ctx with OrderContext.Filter.Diluent = ctx.Filter.Diluents |> Array.tryItem 1 }
 |> Api.evaluate
 |> printCtx "after diluent change"
 |> ignore

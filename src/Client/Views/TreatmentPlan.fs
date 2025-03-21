@@ -238,7 +238,7 @@ module TreatmentPlan =
                     |> props.updateTreatmentPlan
                 | _ -> ()
 
-        let updatePrescriptionResult (pr : PrescriptionContext) =
+        let updatePrescriptionResult (pr : OrderContext) =
             match props.treatmentPlan with
             | Resolved tp ->
                 match pr.Scenarios |> Array.tryExactlyOne with
@@ -295,14 +295,14 @@ module TreatmentPlan =
                 <Box sx={modalStyle}>
                     {
                         Order.View {|
-                            prescriptionContext =
+                            orderContext =
                                 match props.treatmentPlan with
                                 | Resolved tp ->
                                     tp.Selected
-                                    |> Option.map (PrescriptionContext.fromOrderScenario >> Resolved)
+                                    |> Option.map (OrderContext.fromOrderScenario >> Resolved)
                                     |> Option.defaultValue HasNotStartedYet
                                 | _ -> HasNotStartedYet
-                            updatePrescriptionContext = updatePrescriptionResult
+                            updateOrderContext = updatePrescriptionResult
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}

@@ -8,7 +8,6 @@ module Order =
     open Fable.React
     open Feliz
     open Shared.Types
-    open Shared.Models
     open Shared.Models.Order
     open Shared
     open Elmish
@@ -42,7 +41,7 @@ module Order =
             | UpdateOrder of Order
 
 
-        let init (pr : Deferred<Types.PrescriptionContext>) =
+        let init (pr : Deferred<Types.OrderContext>) =
             let ord, cmp, itm =
                 match pr with
                 | Resolved pr ->
@@ -502,8 +501,8 @@ module Order =
     [<JSX.Component>]
     let View (props:
         {|
-            prescriptionContext: Deferred<Types.PrescriptionContext>
-            updatePrescriptionContext: Types.PrescriptionContext -> unit
+            orderContext: Deferred<Types.OrderContext>
+            updateOrderContext: Types.OrderContext -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -520,7 +519,7 @@ module Order =
             |> Deferred.defaultValue defVal
 
         let useAdjust =
-            match props.prescriptionContext with
+            match props.orderContext with
             | Resolved pr ->
                 pr.Scenarios
                 |> Array.tryExactlyOne
@@ -529,7 +528,7 @@ module Order =
             | _ -> false
 
         let updateScenarioResult (ol : OrderLoader) =
-            match props.prescriptionContext with
+            match props.orderContext with
             | Resolved pr ->
                 { pr with
                     Scenarios =
@@ -545,14 +544,14 @@ module Order =
                                 }
                         )
                 }
-                |> props.updatePrescriptionContext
+                |> props.updateOrderContext
             | _ -> ()
 
         let state, dispatch =
             React.useElmish (
-                init props.prescriptionContext,
+                init props.orderContext,
                 update updateScenarioResult,
-                [| box props.prescriptionContext |]
+                [| box props.orderContext |]
             )
 
         let itms =
@@ -598,7 +597,7 @@ module Order =
                 |})
 
         let progress =
-            match props.prescriptionContext with
+            match props.orderContext with
             | Resolved _ -> JSX.jsx $"<></>"
             | _ ->
                 JSX.jsx

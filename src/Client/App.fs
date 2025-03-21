@@ -24,7 +24,7 @@ module private Elmish =
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
-            PrescriptionContext: Deferred<PrescriptionContext>
+            OrderContext: Deferred<OrderContext>
             TreatmentPlan : Deferred<TreatmentPlan>
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
@@ -49,8 +49,8 @@ module private Elmish =
         | LoadContinuousMedication of AsyncOperationStatus<Result<ContinuousMedication list, string>>
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
 
-        | UpdatePrescriptionContext of PrescriptionContext
-        | LoadPrescriptionContext of AsyncOperationStatus<Result<Api.Message, string []>>
+        | UpdateOrderContext of OrderContext
+        | LoadOrderContext of AsyncOperationStatus<Result<Api.Message, string []>>
 
         | UpdateTreatmentPlan of TreatmentPlan
         | LoadTreatmentPlan of AsyncOperationStatus<Result<Api.Message, string []>>
@@ -84,9 +84,9 @@ module private Elmish =
 
     let processApiMsg state msg =
         match msg with
-        | Api.PrescriptionContextMsg pr ->
+        | Api.OrderContextMsg pr ->
                 { state with
-                    PrescriptionContext = Resolved pr
+                    OrderContext = Resolved pr
                 }, Cmd.none
         | Api.TreatmentPlanMsg tp ->
             {  state with
@@ -102,7 +102,7 @@ module private Elmish =
             }, Cmd.none
 
 
-    let loadPresciptionContext = Api.PrescriptionContextMsg >> createApiMsg LoadPrescriptionContext
+    let loadPresciptionContext = Api.OrderContextMsg >> createApiMsg LoadOrderContext
 
 
     let loadTreatmentPlan = Api.TreatmentPlanMsg >> createApiMsg LoadTreatmentPlan
@@ -284,7 +284,7 @@ module private Elmish =
                     dosetype =
                         paramsMap
                         |> Map.tryFind "dt"
-                        |> Option.map PrescriptionContext.doseTypeFromString
+                        |> Option.map OrderContext.doseTypeFromString
                 |}
                 |> Some
 
@@ -306,7 +306,7 @@ module private Elmish =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
-            PrescriptionContext = HasNotStartedYet
+            OrderContext = HasNotStartedYet
             TreatmentPlan =
                 match pat with
                 | None -> HasNotStartedYet
@@ -384,12 +384,12 @@ module private Elmish =
         | UpdatePatient p ->
             { state with
                 Patient = p
-                PrescriptionContext =
+                OrderContext =
                     match p with
                     | None -> HasNotStartedYet
                     | Some p ->
-                        PrescriptionContext.empty
-                        |> PrescriptionContext.setPatient p
+                        OrderContext.empty
+                        |> OrderContext.setPatient p
                         |> Resolved
                 TreatmentPlan =
                     match p with
@@ -410,7 +410,7 @@ module private Elmish =
                     |> Resolved
             },
             Cmd.batch [
-                Cmd.ofMsg (LoadPrescriptionContext Started)
+                Cmd.ofMsg (LoadOrderContext Started)
                 Cmd.ofMsg (LoadTreatmentPlan Started)
                 Cmd.ofMsg (LoadFormulary Started)
                 Cmd.ofMsg (LoadParenteralia Started)
@@ -507,7 +507,7 @@ module private Elmish =
             state, Cmd.none
 
 
-        | UpdatePrescriptionContext pr ->
+        | UpdateOrderContext pr ->
             let pr =
                 { pr with
                     Patient =
@@ -516,7 +516,7 @@ module private Elmish =
                 }
 
             { state with
-                PrescriptionContext = Resolved pr
+                OrderContext = Resolved pr
                 Formulary =
                     state.Formulary
                     |> Deferred.map (fun form ->
@@ -537,7 +537,7 @@ module private Elmish =
                     )
             },
             Cmd.batch [
-                Cmd.ofMsg (LoadPrescriptionContext Started)
+                Cmd.ofMsg (LoadOrderContext Started)
                 Cmd.ofMsg (LoadFormulary Started)
                 Cmd.ofMsg (LoadParenteralia Started)
             ]
@@ -548,7 +548,7 @@ module private Elmish =
                     Cmd.ofMsg (LoadTreatmentPlan Started)
                 else
                     Cmd.batch [
-                        Cmd.ofMsg (UpdatePrescriptionContext PrescriptionContext.empty)
+                        Cmd.ofMsg (UpdateOrderContext OrderContext.empty)
                         Cmd.ofMsg (LoadTreatmentPlan Started)
                     ]
 
@@ -582,8 +582,8 @@ module private Elmish =
             let state =
                 { state with
                     Formulary = Resolved form
-                    PrescriptionContext =
-                        state.PrescriptionContext
+                    OrderContext =
+                        state.OrderContext
                         |> Deferred.map (fun scr ->
                             { scr with
                                 Filter =
@@ -598,7 +598,7 @@ module private Elmish =
             state,
             Cmd.batch [
                 Cmd.ofMsg (LoadFormulary Started)
-                Cmd.ofMsg (LoadPrescriptionContext Started)
+                Cmd.ofMsg (LoadOrderContext Started)
             ]
 
         | LoadParenteralia Started ->
@@ -623,25 +623,25 @@ module private Elmish =
                 }
             state, Cmd.ofMsg(LoadParenteralia Started)
 
-        | LoadPrescriptionContext Started ->
+        | LoadOrderContext Started ->
             match state.Patient with
-            | None -> { state with PrescriptionContext = HasNotStartedYet }, Cmd.none
+            | None -> { state with OrderContext = HasNotStartedYet }, Cmd.none
             | Some pat ->
-                match state.PrescriptionContext with
+                match state.OrderContext with
                 | HasNotStartedYet ->
-                        { state with PrescriptionContext = InProgress },
-                        PrescriptionContext.empty
-                        |> PrescriptionContext.setPatient pat
+                        { state with OrderContext = InProgress },
+                        OrderContext.empty
+                        |> OrderContext.setPatient pat
                         |> loadPresciptionContext
                 | InProgress -> state, Cmd.none
                 | Resolved pr ->
                     let pr = { pr with Patient = pat }
 
-                    { state with PrescriptionContext = InProgress },
+                    { state with OrderContext = InProgress },
                     pr |> loadPresciptionContext
 
-        | LoadPrescriptionContext (Finished (Ok msg)) -> msg |> processOk
-        | LoadPrescriptionContext (Finished (Error err)) -> err |> processError
+        | LoadOrderContext (Finished (Ok msg)) -> msg |> processOk
+        | LoadOrderContext (Finished (Error err)) -> err |> processError
 
         | LoadTreatmentPlan Started ->
             match state.Patient with
@@ -760,8 +760,8 @@ let View () =
                         bolusMedication = bm
                         continuousMedication = cm
                         products = state.Products
-                        prescriptionContext = state.PrescriptionContext
-                        updatePrescriptionContext = UpdatePrescriptionContext >> dispatch
+                        orderContext = state.OrderContext
+                        updateOrderContext = UpdateOrderContext >> dispatch
                         treatmentPlan = state.TreatmentPlan
                         updateTreatmentPlan = UpdateTreatmentPlan >> dispatch
                         formulary = state.Formulary

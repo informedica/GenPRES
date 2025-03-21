@@ -15,7 +15,7 @@ writeInfoMessage $"""
 === Initialized: ===
 - Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
 - Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
-- Scenarios {Models.PrescriptionContext.empty |> PrescriptionContext.evaluate |> ignore}
+- Scenarios {Models.OrderContext.empty |> OrderContext.evaluate |> ignore}
 """
 
 
