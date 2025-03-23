@@ -649,7 +649,8 @@ module Order =
                     }
                     {
                         match state.Order with
-                        | Some ord when ord.Orderable.Components |> Array.length > 1 ->
+                        | Some ord when ord.Orderable.Components |> Array.length > 1 &&
+                                        itms |> Array.isEmpty ->
                             ord.Orderable.Components
                             |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || c.Name = state.SelectedComponent.Value)
                             |> Option.bind _.Dose.Quantity.Variable.Vals
@@ -760,7 +761,7 @@ module Order =
                             ord.Orderable.Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None (ChangeOrderableDoseQuantity >> dispatch)
+                            |> select false "Totale Hoeveelheid" None (ChangeOrderableDoseQuantity >> dispatch)
                         | _ ->
                             [||]
                             |> select true "" None ignore
