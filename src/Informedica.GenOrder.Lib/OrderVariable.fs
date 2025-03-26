@@ -536,6 +536,13 @@ module OrderVariable =
         }
 
 
+    let clear (ovar : OrderVariable) =
+        { ovar with
+            Variable =
+                ovar.Variable |> Variable.setNonZeroOrNegative
+        }
+
+
     /// <summary>
     /// Set the unit of the Variable of an OrderVariable according to the unit
     /// of the Constraints of the OrderVariable.
@@ -1215,6 +1222,9 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        let clear = toOrdVar >> clear >> Rate
+
+
     /// Type and functions that represent a total
     module Total =
 
@@ -1507,6 +1517,9 @@ module OrderVariable =
 
         /// Check whether a RateAdjust is solved
         let isSolved = toOrdVar >> isSolved
+
+
+        let clear = toOrdVar >> clear >> Rate
 
 
     /// Type and functions that represent a adjusted quantity,

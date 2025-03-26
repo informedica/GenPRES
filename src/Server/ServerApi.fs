@@ -61,14 +61,19 @@ module Mappers =
 
         let mapFromVariable (var : Variable) : Informedica.GenSolver.Lib.Variable.Dto.Dto =
             let dto = Informedica.GenSolver.Lib.Variable.Dto.dto ()
-            dto.Name <- var.Name
-            dto.IsNonZeroNegative <- var.IsNonZeroNegative
-            dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
-            dto.MinIncl <- var.MinIncl
-            dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
-            dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
-            dto.MaxIncl <- var.MaxIncl
-            dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
+
+            if var.IsNonZeroNegative && var.Incr.IsNone then
+                dto.IsNonZeroNegative <- true
+
+            else
+                dto.Name <- var.Name
+                dto.IsNonZeroNegative <- var.IsNonZeroNegative
+                dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
+                dto.MinIncl <- var.MinIncl
+                dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit
+                dto.MaxOpt <- var.Max |> Option.map mapFromValueUnit
+                dto.MaxIncl <- var.MaxIncl
+                dto.ValsOpt <- var.Vals |> Option.map mapFromValueUnit
 
             dto
 
@@ -572,7 +577,7 @@ module Formulary =
                     Markdown =
                         match form.Generic, form.Indication, form.Route with
                         | Some _, Some _, Some _ ->
-                            writeInfoMessage $"start checking {dsrs |> Array.length} rules"
+                            writeDebugMessage $"start checking {dsrs |> Array.length} rules"
 
                             let s =
                                 dsrs
@@ -589,7 +594,7 @@ module Formulary =
                                 |> String.concat "\n"
                                 |> fun s -> if s |> String.isNullOrWhiteSpace then "Ok!" else s
 
-                            writeInfoMessage $"finished checking {dsrs |> Array.length} rules"
+                            writeDebugMessage $"finished checking {dsrs |> Array.length} rules"
 
                             dsrs
                             |> DoseRule.Print.toMarkdown
@@ -759,17 +764,26 @@ module Message =
     open Shared
     open Shared.Types
     open Shared.Api
+    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
+    module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
+
     let printMsg msg ctx =
-        writeInfoMessage $"Filter: {ctx.Filter}\n"
+        writeDebugMessage $"Filter: {ctx.Filter}\n"
+
         ctx
         |> OrderContext.toString msg
-        |> writeInfoMessage
+        |> writeDebugMessage
+
         ctx
 
 
     let processMsg msg =
+        if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
+            let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+
         match msg with
         | OrderContextMsg ctx ->
             ctx

@@ -1,6 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
 
+
 module Filters =
 
     open Informedica.GenForm.Lib
@@ -74,6 +75,7 @@ module Filters =
 
 module OrderScenario =
 
+    open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineNoTime
@@ -81,12 +83,31 @@ module OrderScenario =
     open Informedica.GenOrder.Lib
 
 
-    let replace s =
-        s
-        |> String.replace "[" ""
-        |> String.replace "]" ""
-        |> String.replace "<" ""
-        |> String.replace ">" ""
+    module Helpers =
+
+
+        /// <summary>
+        /// Increase the Orderable Quantity and Rate Increment of an Order.
+        /// This allows speedy calculation by avoiding large amount
+        /// of possible values.
+        /// </summary>
+        /// <param name="logger">The OrderLogger to use</param>
+        /// <param name="ord">The Order to increase the increment of</param>
+        let increaseIncrements logger ord = Order.increaseIncrements logger 10 10 ord
+
+
+        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
+
+
+        let replace s =
+            s
+            |> String.replace "[" ""
+            |> String.replace "]" ""
+            |> String.replace "<" ""
+            |> String.replace ">" ""
+
+
+    open Helpers
 
 
     let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl : OrderScenario
@@ -114,7 +135,7 @@ module OrderScenario =
         }
 
 
-    let print (sc : OrderScenario) =
+    let setOrderTableFormat (sc : OrderScenario) =
         let prs, prp, adm =
             sc.Order
             |> Order.Print.printOrderToTableFormat sc.UseAdjust true sc.Items
@@ -185,40 +206,16 @@ module OrderScenario =
             useAdjust
             useRenalRule
             pr.DoseRule.RenalRule
-        |> print
+        |> setOrderTableFormat
 
 
     let calcOrderValues (sc : OrderScenario) =
         { sc with
             Order =
-                let ord = sc.Order
-
-                if ord |> Order.doseIsSolved then
-                    let dto =
-                        ord
-                        |> Order.Dto.toDto
-                    dto |> Order.Dto.cleanDose
-
-                    dto
-                    |> Order.Dto.fromDto
-                    |> Order.applyConstraints
-                    |> fun o ->
-                        writeInfoMessage "== constraints reapplied"
-                        o
-                    |> Order.solveMinMax false OrderLogger.logger.Logger
-                    |> function
-                    | Ok ord ->
-                        ord
-                        |> Order.minIncrMaxToValues OrderLogger.logger.Logger
-
-                    | Error msgs ->
-                        writeErrorMessage $"{msgs}"
-                        ord
-                else
-                    ord
-                    |> Order.minIncrMaxToValues OrderLogger.logger.Logger
+                sc.Order
+                |> Order.minIncrMaxToValues true OrderLogger.logger.Logger
         }
-        |> print
+        |> setOrderTableFormat
 
 
     let solveOrder (sc : OrderScenario) =
@@ -228,12 +225,11 @@ module OrderScenario =
                 |> Order.solveOrder false OrderLogger.logger.Logger
                 |> Result.defaultValue sc.Order
         }
-        |> print
+        |> setOrderTableFormat
 
 
 module OrderContext =
 
-    open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
@@ -248,17 +244,7 @@ module OrderContext =
     module Helpers =
 
 
-        /// <summary>
-        /// Increase the Orderable Quantity and Rate Increment of an Order.
-        /// This allows speedy calculation by avoiding large amount
-        /// of possible values.
-        /// </summary>
-        /// <param name="logger">The OrderLogger to use</param>
-        /// <param name="ord">The Order to increase the increment of</param>
-        let increaseIncrements logger ord = Order.increaseIncrements logger 10N 50N ord
-
-
-        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
+        open OrderScenario.Helpers
 
 
         let changeRuleProductsDivisible pr =
@@ -313,7 +299,7 @@ module OrderContext =
                     match pr.DoseRule |> DoseRule.getNormDose with
                     | Some nd ->
                         ord
-                        |> Order.minIncrMaxToValues logger
+                        |> Order.minIncrMaxToValues true logger
                         |> setNormDose logger nd
                     | None -> Ok ord
                 )
@@ -723,7 +709,9 @@ module OrderContext =
                         // set once mechanism, so when a scenario has only
                         // selected components, the others are still available
                         Components =
-                            if ctx.Filter.Components |> Array.isEmpty then sc.Components
+                            if ctx.Filter.Components |> Array.isEmpty then
+                                sc.Components
+                                |> Array.skip 1
                             else ctx.Filter.Components
                     }
             }
@@ -777,29 +765,31 @@ module OrderContext =
             { ctx with
                 Scenarios =
                     [|
-                        if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
-                        else sc |> OrderScenario.calcOrderValues
+                        if sc.Order |> Order.isSolved then sc
+                        else
+                            if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
+                            else sc |> OrderScenario.calcOrderValues
                     |]
             }
             |> updateFilterIfOneScenario
 
 
     let printCtx msg ctx =
-        writeInfoMessage $"\n\n=== {msg |> String.capitalize} ===\n"
+        writeDebugMessage $"\n\n=== {msg |> String.capitalize} ===\n"
 
         match ctx.Scenarios |> Array.tryExactlyOne with
         | Some sc ->
-            writeInfoMessage $"Order dose is solved: {sc.Order |> Order.doseIsSolved}"
-            writeInfoMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}"
+            writeDebugMessage $"Order dose is solved: {sc.Order |> Order.doseIsSolved}"
+            writeDebugMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}"
         | _ -> ()
 
-        writeInfoMessage $"Components change: {ctx |> changeComponents}"
-        writeInfoMessage $"Diluent change: {ctx |> changeDiluent}"
+        writeDebugMessage $"Components change: {ctx |> changeComponents}"
+        writeDebugMessage $"Diluent change: {ctx |> changeDiluent}"
 
         ctx |> toString msg
-        |> writeInfoMessage
+        |> writeDebugMessage
 
-        writeInfoMessage $"\n===\n"
+        writeDebugMessage $"\n===\n"
 
         ctx
 

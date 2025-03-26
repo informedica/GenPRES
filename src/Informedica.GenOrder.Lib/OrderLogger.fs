@@ -262,7 +262,7 @@ messages: {msgs.Value.Count}
             Start =
                 fun path level ->
                     writeInfoMessage $"start logging at level {level}"
-                    if path.IsSome then writeInfoMessage $"file logging to {path}"
+                    if path.IsSome then writeInfoMessage $"file logging to {path.Value}"
 
                     (path, level)
                     |> Start

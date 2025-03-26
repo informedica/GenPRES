@@ -18,10 +18,10 @@ module Constants =
             "info", "&#8505;"
             "warning", "&#9888;"
             "question", "&#8265;"
+            "debug", "&#128295;"
         ]
         |> List.map (fun (k, v) -> k, v |> WebUtility.HtmlDecode)
         |> Map.ofList
-
 
 
     module Tests =

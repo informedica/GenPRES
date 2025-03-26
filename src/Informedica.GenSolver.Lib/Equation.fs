@@ -184,6 +184,20 @@ module Equation =
 
 
     /// <summary>
+    /// Get the string representation of an `Equation`
+    /// </summary>
+    let toStringShort eq =
+        let op = if eq |> isProduct then " * " else " + "
+        let varToString = Variable.toStringShort
+
+        match eq |> toVars with
+        | [] -> ""
+        | [ _ ] -> ""
+        | y::xs ->
+            $"""{y |> varToString} = {xs |> List.map varToString |> String.concat op}"""
+
+
+    /// <summary>
     /// Make sure that the `Variables` in the
     /// `Equation` can only contain positive
     /// non zero values.
@@ -315,7 +329,9 @@ module Equation =
     /// Get the string representation of a calculation
     /// </summary>
     let calculationToString b op1 op2 y xs =
-        let varToStr = Variable.toString b
+        let varToStr =
+            if b then Variable.toString b else Variable.toStringShort
+
         let opToStr op  = $" {op |> Variable.Operators.toString} "
         let cost = xs |> List.map Variable.count |> List.reduce (*)
         let x1 = xs |> List.head

@@ -63,9 +63,9 @@ let application = application {
 
 $"""
 === Environmental variables ===
-GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID"}
-GENPRES_LOG={tryGetEnv "GENPRES_LOG"}
-GENPRES_PROD={tryGetEnv "GENPRES_PROD"}
+GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID" |> Option.defaultValue ""}
+GENPRES_LOG={tryGetEnv "GENPRES_LOG" |> Option.defaultValue ""}
+GENPRES_PROD={tryGetEnv "GENPRES_PROD" |> Option.defaultValue ""}
 """
 |> writeInfoMessage
 

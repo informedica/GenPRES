@@ -38,8 +38,28 @@ module Variable =
 
 
         /// Return the `string` value of a `Name`.
-        let toString (Name s) = s
+        let toStringReplace replace (Name s) =
+            if replace |> not then s
+            else
+                let n =
+                    s
+                    |> String.split "."
+                    |> List.collect (String.split "]")
 
+                match n |> List.tryHead with
+                | None -> s
+                | Some g ->
+                    match
+                        g
+                        |> String.replace "[" ""
+                        |> Guid.TryParse with
+                    | false, _ -> s
+                    | true, _ ->
+                        s
+                        |> String.replace g "[ord"
+
+
+        let toString = toStringReplace false
 
 
     /// Functions and types to create and handle `ValueRange`.
@@ -2533,6 +2553,9 @@ module Variable =
             | _ -> vr
 
 
+        let clear var = { var with Values = Unrestricted }
+
+
         /// Check if ValueRange vr1 is equal to ValueRange vr2.
         let eqs vr1 vr2 =
             match vr1, vr2 with
@@ -3294,6 +3317,13 @@ module Variable =
         |> sprintf "%s %s" (n |> Name.toString)
 
 
+    /// Get the string representation of a `Variable`.
+    let toStringShort ({ Name = n; Values = vs }: Variable) =
+        vs
+        |> ValueRange.toString false
+        |> sprintf "%s %s" (n |> Name.toStringReplace true)
+
+
     /// Get the `Name` of a `Variable`.
     let getName v = (v |> get).Name
 
@@ -3492,7 +3522,7 @@ module Variable =
         { var with
             Values =
                 var.Values
-                |> ValueRange.setMinValue
+                |> ValueRange.setMaxValue
         }
 
 

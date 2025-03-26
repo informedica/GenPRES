@@ -2,7 +2,6 @@ namespace Informedica.GenOrder.Lib
 
 
 
-
 /// Types and functions that deal with an order.
 /// An `Order` models the `Prescription` of an
 /// `Orderable` with a `StartStop` start date and
@@ -392,6 +391,14 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            let clearDoseRate (dos: Dose) =
+                { dos with
+                    Rate =
+                        dos.Rate
+                        |> Rate.clear
+
+                }
+
 
             let setDoseUnit du (dos : Dose) =
                 let qty = dos.Quantity |> Quantity.setFirstUnit du
@@ -538,7 +545,6 @@ module Order =
                 let doseRateAdjustConstraints =
                     fun d -> d.RateAdjust |> RateAdjust.toOrdVar
                     |> doseConstraints
-
 
 
             /// Functions to create a Dose Dto and vice versa.
@@ -752,6 +758,10 @@ module Order =
                    |> not then itm
                 else
                     { itm with Dose = itm.Dose |> Dose.setNormDose nd }
+
+
+            let clearDoseRate (itm : Item) =
+                { itm with Dose = itm.Dose |> Dose.clearDoseRate }
 
 
             /// <summary>
@@ -1142,6 +1152,15 @@ module Order =
             let setNormDose sn nd cmp : Component =
                 { cmp with
                     Items = cmp.Items |> List.map (Item.setNormDose sn nd)
+                }
+
+
+            let clearDoseRate (cmp : Component) =
+                { cmp with
+                    Dose = cmp.Dose |> Dose.clearDoseRate
+                    Items =
+                        cmp.Items
+                        |> List.map Item.clearDoseRate
                 }
 
 
@@ -1543,22 +1562,18 @@ module Order =
         /// <param name="maxCount">The maximum count</param>
         /// <param name="incrs">The list of increments</param>
         /// <param name="orb">The Orderable</param>
-        let increaseQuantityIncrement maxCount incrs orb =
+        let increaseQuantityIncrement maxCount incrs (orb : Orderable) =
             // check if all relevant OrderVariables have an increment
             if
-                [
-                    orb.OrderableQuantity
-                    yield!
-                        orb.Components
-                        |> List.map _.OrderableQuantity
-                ]
+                orb.Components
+                |> List.map _.OrderableQuantity
                 |> List.forall Quantity.hasIncrement
                 |> not
                 then orb
             else
                 // first calculate the minimum increment increase for the orderable and components
-                let ord_qty = (orb |> get).OrderQuantity
-                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
+                let ord_qty = orb.OrderQuantity
+                let orb_qty = orb.OrderableQuantity
                 let ord_cnt = orb.OrderCount
                 let dos_cnt = orb.DoseCount
                 let dos = orb.Dose //|> Dose.increaseIncrement incr
@@ -1568,18 +1583,15 @@ module Order =
                 |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
                 |> fun newOrb ->
-                    [
-                        (newOrb.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
-                        yield! newOrb.Components
-                        |> List.map (fun c ->
-                            (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
-                        )
-                    ]
+                    newOrb.Components
+                    |> List.map (fun c ->
+                        (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+                    )
                     |> List.choose Variable.ValueRange.getIncr
                     |> function
                         | [] -> orb
                         | incrs ->
-                            if incrs |> List.length <> ((orb.Components |> List.length) + 1) then orb
+                            if incrs |> List.length <> (orb.Components |> List.length) then orb
                             else
                                 let incr =
                                     incrs
@@ -1589,9 +1601,10 @@ module Order =
                                         |> ValueUnit.getBaseValue
                                     )
 
+                                writeDebugMessage $"Increase increment to {incr |> Variable.ValueRange.Increment.toString false}"
                                 // apply the minimum increment increase to the orderable and components
-                                let ord_qty = (orb |> get).OrderQuantity
-                                let orb_qty = orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [incr]
+                                let ord_qty = orb.OrderQuantity
+                                let orb_qty = orb.OrderableQuantity
                                 let ord_cnt = orb.OrderCount
                                 let dos_cnt = orb.DoseCount
                                 let dos = orb.Dose //|> Dose.increaseIncrement incr
@@ -1628,6 +1641,15 @@ module Order =
         let setNormDose sn nd (orb : Orderable) =
             { orb with
                 Components = orb.Components |> List.map (Component.setNormDose sn nd)
+            }
+
+
+        let clearDoseRate (orb : Orderable) =
+            { orb with
+                Dose = orb.Dose |> Dose.clearDoseRate
+                Components =
+                    orb.Components
+                    |> List.map Component.clearDoseRate
             }
 
 
@@ -1880,7 +1902,6 @@ module Order =
         let hasFrequency pr =
             pr |> isDiscontinuous || pr |> isTimed
 
-
         let hasTime pr =
             pr |> isTimed || pr |> isOnceTimed
 
@@ -1956,6 +1977,26 @@ module Order =
                 | OnceTimed tme -> [tme |> Time.toString]
                 | Discontinuous frq -> [frq |> Frequency.toString]
                 | Timed(frq, tme)     -> [frq |> Frequency.toString; tme |> Time.toString]
+
+
+        let clearFrequency (prs : Prescription) =
+            let ovars =
+                match prs |> toOrdVars with
+                | Some frq, _ ->
+                    [ frq |> OrderVariable.clear ]
+                | _ -> []
+
+            prs |> fromOrdVars ovars
+
+
+        let clearTime (prs : Prescription) =
+            let ovars =
+                match prs |> toOrdVars with
+                | None, Some tme ->
+                    [ tme |> OrderVariable.clear ]
+                | _ -> []
+
+            prs |> fromOrdVars ovars
 
 
 
@@ -2350,6 +2391,12 @@ module Order =
             reraise()
 
 
+    let isSolved ord =
+        ord
+        |> toOrdVars
+        |> List.forall OrderVariable.isSolved
+
+
     let checkOrderDose pred op (ord: Order) : bool =
         let checkRte rte = rte |> Rate.toOrdVar |> pred
         let checkQty qty = qty |> Quantity.toOrdVar |> pred
@@ -2580,69 +2627,6 @@ module Order =
 
 
     /// <summary>
-    /// Loop through all the OrderVariables in an Order to
-    /// turn min incr max to values and subsequently solve the Order.
-    /// </summary>
-    /// <param name="logger">The logger</param>
-    /// <param name="ord">The Order</param>
-    let minIncrMaxToValues logger (ord: Order) =
-        let rec loop runAgain (ord : Order) =
-            if not runAgain then ord
-            else
-                let mutable flag = false
-                // set the max rate if timed prescription
-                let maxRte =
-                    match ord.Prescription |> Prescription.toOrdVars, ord.Orderable.Dose.Rate |> Rate.toOrdVar with
-                    | (_, Some _), rte ->
-                        rte
-                        |> OrderVariable.minIncrMaxToValues (Some 100)
-                        |> OrderVariable.setMaxValue
-                        |> Some
-                    | _ -> None
-
-                let ovars =
-                    ord
-                    |> toOrdVars
-                    // first check if max rate can be set
-                    |> List.map (fun ovar ->
-                        match maxRte with
-                        | Some rte ->
-                            if ovar.Variable.Name = rte.Variable.Name then rte
-                            else ovar
-                        | None -> ovar
-                    )
-                    |> List.map (fun ovar ->
-                        if flag ||
-                           ovar.Constraints.Incr |> Option.isNone ||
-                           ovar.Variable.Values |> ValueRange.isMinIncrMax |> not then ovar
-                        else
-                            flag <- true
-
-                            let n =
-                                match ord.Prescription with
-                                | Once -> 50
-                                | Continuous -> 100
-                                | Discontinuous _ -> 50
-                                | OnceTimed _
-                                | Timed _ -> 5
-                                |> Some
-
-                            ovar
-                            |> OrderVariable.minIncrMaxToValues n
-                    )
-                if not flag then ord
-                else
-                    ord
-                    |> fromOrdVars ovars
-                    |> solveOrder false logger // could possible restrict to solve variable
-                    |> function
-                        | Ok ord -> loop flag ord
-                        | Error _ -> ord
-
-        loop true ord
-
-
-    /// <summary>
     /// Increase the Orderable Quantity Increment of an Order.
     /// This allows speedy calculation by avoiding large amount
     /// of possible values.
@@ -2652,6 +2636,9 @@ module Order =
     /// <param name="maxRateCount">The maximum count of the Rate</param>
     /// <param name="ord">The Order to increase the increment of</param>
     let increaseIncrements logger maxQtyCount maxRateCount (ord : Order) =
+        let maxQtyCount = maxQtyCount |> BigRational.fromInt
+        let maxRateCount = maxRateCount |> BigRational.fromInt
+
         if ord.Prescription |> Prescription.isContinuous then ord
         else
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
@@ -2668,11 +2655,9 @@ module Order =
             else
                 ord
                 |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
-            (*
-            |> increaseRateIncrement
-                maxRateCount
-                (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
-            *)
+                |> increaseRateIncrement
+                    maxRateCount
+                    (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
             |> solveMinMax false logger
             |> function
             | Error (_, errs) ->
@@ -2697,6 +2682,95 @@ module Order =
         |> Ok
 
 
+    let maximizeRate logger (ord : Order) =
+        // only maximize for timed orders
+        if ord.Prescription |> Prescription.isTimed |> not then ord
+        else
+            match ord.Orderable.Dose.Rate |> Rate.toOrdVar with
+            | rte when rte |> OrderVariable.isSolved |> not ->
+                let maxRte =
+                    rte
+                    |> OrderVariable.minIncrMaxToValues (Some 100)
+                    |> OrderVariable.setMaxValue
+
+                let ovars =
+                    ord
+                    |> toOrdVars
+                    // first check if max rate can be set
+                    |> List.map (fun ovar ->
+                        if ovar.Variable.Name = rte.Variable.Name then maxRte
+                        else ovar
+                    )
+
+                ord
+                |> fromOrdVars ovars
+                |> solveOrder false logger
+                |> Result.map (fun ord ->
+                    writeDebugMessage $"max rate set to: {maxRte |> OrderVariable.toString true}"
+                    ord
+                )
+                |> Result.defaultValue ord
+            | _ -> ord
+
+
+    /// <summary>
+    /// Loop through all the OrderVariables in an Order to
+    /// turn min incr max to values
+    /// </summary>
+    /// <param name="logger">The logger</param>
+    /// <param name="ord">The Order</param>
+    let minIncrMaxToValues maxRate logger (ord: Order) =
+        let rec loop (ord : Order) =
+            // the flag makes sure that if one order variable
+            // is set to values, then the rest is skipped and
+            // proceed to solving the order
+            let mutable flag = false
+
+            let ovars =
+                ord
+                |> toOrdVars
+                |> List.map (fun ovar ->
+                    if flag ||
+                       ovar.Constraints.Incr |> Option.isNone ||
+                       ovar.Variable.Values |> ValueRange.isMinIncrMax |> not then ovar
+                    else
+                        flag <- true
+
+                        let n =
+                            match ord.Prescription with
+                            | Continuous -> 100
+                            | Once
+                            | Discontinuous _ -> 10
+                            | OnceTimed _
+                            | Timed _ ->
+                                if ord.Orderable.Components |> List.length > 2 then 5 else 10
+                            |> Some
+
+                        ovar
+                        |> OrderVariable.minIncrMaxToValues n
+                )
+
+            if not flag then ord
+            else
+                ord
+                |> fromOrdVars ovars
+                |> solveOrder false logger // could possible restrict to solve variable
+                |> function
+                    | Ok ord  -> loop ord
+                    | Error err ->
+                        err
+                        |> snd
+                        |> List.map (sprintf "%A")
+                        |> String.concat "\n"
+                        |> writeErrorMessage
+
+                        ord
+
+        if maxRate then ord |> maximizeRate logger
+        else ord
+        |> loop
+
+
     let solveNormDose logger normDose ord =
         match normDose with
         | Informedica.GenForm.Lib.Types.NormQuantityAdjust (Informedica.GenForm.Lib.Types.SubstanceLimitTarget sn, _)
@@ -2710,6 +2784,13 @@ module Order =
     let setDoseUnit sn du ord =
         { ord with Orderable = ord.Orderable |> Orderable.setDoseUnit sn du }
 
+
+    let clearFrequency (ord : Order) =
+        { ord with Prescription = ord.Prescription |> Prescription.clearFrequency }
+
+
+    let clearTime (ord : Order) =
+        { ord with Prescription = ord.Prescription |> Prescription.clearTime }
 
 
     module Print =

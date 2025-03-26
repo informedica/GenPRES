@@ -1,15 +1,19 @@
 // load demo or product cache
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA")
+System.Environment.SetEnvironmentVariable("GENPRES_LOG", "1")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
 
 #load "load.fsx"
 
 #time
 
+open MathNet.Numerics
+open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
+Informedica.Utils.Lib.Constants.Tests.printAllSymbols ()
 
 Product.Enteral.get ()
 
@@ -78,6 +82,56 @@ open Patient.Optics
 
 let printCtx = OrderContext.printCtx
 
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> OrderContext.create
+|> OrderContext.setFilterGeneric "samenstelling c"
+|> Api.evaluate
+|> printCtx "1 eval"
+|> fun ctx ->
+    { ctx with
+        OrderContext.Filter.DoseType = ctx.Filter.DoseTypes |> Array.tryItem 0
+    }
+|> Api.evaluate
+|> printCtx "2 eval" //|> ignore
+(*
+|> fun ctx ->
+    ctx.Scenarios |> Array.tryExactlyOne
+    |> function
+        | None -> ()
+        | Some sc ->
+            sc.Order
+            |> Order.increaseIncrements OrderLogger.noLogger 10 10
+            |> Result.defaultValue sc.Order
+            |> Order.toString
+            |> String.concat "\n"
+            |> printfn "%s"
+*)
+
+|> Api.evaluate
+|> printCtx "3 eval"//|> ignore
+|> Api.evaluate
+|> printCtx "4 eval"
+|> fun ctx ->
+    ctx.Scenarios |> Array.tryExactlyOne
+    |> function
+        | None -> ()
+        | Some sc ->
+            sc.Order
+            |> Order.Dto.toDto
+            |> fun dto ->
+                dto |> Order.Dto.cleanDose
+                dto
+            |> Order.Dto.fromDto
+            |> Order.applyConstraints
+            |> Order.solveMinMax false OrderLogger.noLogger
+            |> Result.map (Order.maximizeRate OrderLogger.noLogger)
+            |> Result.defaultValue sc.Order
+            |> Order.toString
+            |> String.concat "\n"
+            |> printfn "%s"
 
 
 Patient.infant

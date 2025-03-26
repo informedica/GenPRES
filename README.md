@@ -72,13 +72,14 @@ printed to the terminal. If no env is set, the default url will be used.
 This will create a production ready docker image:
 
 ```bash
-docker build -t [USERNAME]/genpres .
+docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t halcwb/genpres .
 ```
 **Note**: this will build using the local processor architecture.
 
 To build on a MacOs M1 and still want to publish for an ARM64
-```
-docker build --platform linux/amd64 -t halcwb/genpres .
+
+```bash
+docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" --platform linux/amd64 -t halcwb/genpres .
 ```
 
 To run the docker image locally:

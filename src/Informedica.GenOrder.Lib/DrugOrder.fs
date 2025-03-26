@@ -318,7 +318,7 @@ module DrugOrder =
                         |> createComponents None
                         |> List.append ps
                     | None ->
-                        writeInfoMessage "No diluents available"
+                        writeWarningMessage "No diluents available"
                         ps
             }
 

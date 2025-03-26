@@ -27,6 +27,7 @@ module Order =
 
         type Msg =
             | ChangeComponent of string option
+            | ChangeComponentDoseQuantity of string option
             | ChangeItem of string option
             | ChangeFrequency of string option
             | ChangeTime of string option
@@ -116,6 +117,20 @@ module Order =
                     } |> Some
                 | None -> None
 
+            let setVar (s : string option) (var : Variable) =
+                { var with
+                    IsNonZeroNegative = s.IsNone
+                    Vals =
+                        if s.IsNone then None
+                        else var.Vals |> setVu s
+                }
+
+            let setOvar s (ovar: OrderVariable) =
+                { ovar with Variable = ovar.Variable |> setVar s }
+                |> fun ovar ->
+                    Logging.log "ovar" ovar
+                    ovar
+
             match msg with
 
             | UpdateOrder ord ->
@@ -139,6 +154,35 @@ module Order =
                             else None
                     }, Cmd.none
 
+            | ChangeComponentDoseQuantity s ->
+                match state.Order with
+                | Some ord ->
+                    let msg =
+                        { ord with
+                            Orderable =
+                                { ord.Orderable with
+                                    Components =
+                                        ord.Orderable.Components
+                                        |> Array.map (fun cmp ->
+                                            match state.SelectedComponent with
+                                            | Some c when cmp.Name = c ->
+                                                { cmp with
+                                                    Dose =
+                                                        { cmp.Dose with
+                                                            Quantity =
+                                                                cmp.Dose.Quantity
+                                                                |> setOvar s
+                                                        }
+                                                }
+                                            | _ -> cmp
+                                        )
+                                }
+                        }
+                        |> UpdateOrder
+
+                    { state with Order = None }, Cmd.ofMsg msg
+                | _ -> state, Cmd.none
+
             | ChangeItem itm ->
                 match itm with
                 | None -> state, Cmd.none
@@ -152,12 +196,8 @@ module Order =
                             Prescription =
                                 { ord.Prescription with
                                     Frequency =
-                                        { ord.Prescription.Frequency with
-                                            Variable =
-                                                { ord.Prescription.Frequency.Variable with
-                                                    Vals = ord.Prescription.Frequency.Variable.Vals |> setVu s
-                                                }
-                                        }
+                                        ord.Prescription.Frequency
+                                        |> setOvar s
                                 }
                         }
                         |> UpdateOrder
@@ -172,12 +212,8 @@ module Order =
                             Prescription =
                                 { ord.Prescription with
                                     Time =
-                                        { ord.Prescription.Time with
-                                            Variable =
-                                                { ord.Prescription.Time.Variable with
-                                                    Vals = ord.Prescription.Time.Variable.Vals |> setVu s
-                                                }
-                                        }
+                                        ord.Prescription.Time
+                                        |> setOvar s
                                 }
                         }
                         |> UpdateOrder
@@ -194,7 +230,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -206,13 +242,8 @@ module Order =
                                                                     Dose =
                                                                         { itm.Dose with
                                                                             Quantity =
-                                                                                { itm.Dose.Quantity with
-                                                                                    Variable =
-                                                                                        { itm.Dose.Quantity.Variable with
-                                                                                            Vals = itm.Dose.Quantity.Variable.Vals |> setVu s
-                                                                                        }
-                                                                                }
-
+                                                                                itm.Dose.Quantity
+                                                                                |> setOvar s
                                                                         }
                                                                 }
                                                             | _ -> itm
@@ -236,7 +267,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -248,13 +279,8 @@ module Order =
                                                                     Dose =
                                                                         { itm.Dose with
                                                                             PerTime =
-                                                                                { itm.Dose.PerTime with
-                                                                                    Variable =
-                                                                                        { itm.Dose.PerTime.Variable with
-                                                                                            Vals = itm.Dose.PerTime.Variable.Vals |> setVu s
-                                                                                        }
-                                                                                }
-
+                                                                                itm.Dose.PerTime
+                                                                                |> setOvar s
                                                                         }
                                                                 }
                                                             | _ -> itm
@@ -278,7 +304,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -290,13 +316,8 @@ module Order =
                                                                     Dose =
                                                                         { itm.Dose with
                                                                             PerTimeAdjust =
-                                                                                { itm.Dose.PerTimeAdjust with
-                                                                                    Variable =
-                                                                                        { itm.Dose.PerTimeAdjust.Variable with
-                                                                                            Vals = itm.Dose.PerTimeAdjust.Variable.Vals |> setVu s
-                                                                                        }
-                                                                                }
-
+                                                                                itm.Dose.PerTimeAdjust
+                                                                                |> setOvar s
                                                                         }
                                                                 }
                                                             | _ -> itm
@@ -320,7 +341,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -332,13 +353,8 @@ module Order =
                                                                     Dose =
                                                                         { itm.Dose with
                                                                             Rate =
-                                                                                { itm.Dose.Rate with
-                                                                                    Variable =
-                                                                                        { itm.Dose.Rate.Variable with
-                                                                                            Vals = itm.Dose.Rate.Variable.Vals |> setVu s
-                                                                                        }
-                                                                                }
-
+                                                                                itm.Dose.Rate
+                                                                                |> setOvar s
                                                                         }
                                                                 }
                                                             | _ -> itm
@@ -362,7 +378,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -374,13 +390,8 @@ module Order =
                                                                     Dose =
                                                                         { itm.Dose with
                                                                             RateAdjust =
-                                                                                { itm.Dose.RateAdjust with
-                                                                                    Variable =
-                                                                                        { itm.Dose.RateAdjust.Variable with
-                                                                                            Vals = itm.Dose.RateAdjust.Variable.Vals |> setVu s
-                                                                                        }
-                                                                                }
-
+                                                                                itm.Dose.RateAdjust
+                                                                                |> setOvar s
                                                                         }
                                                                 }
                                                             | _ -> itm
@@ -404,7 +415,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -414,13 +425,8 @@ module Order =
                                                             | Some subst when subst = itm.Name ->
                                                                 { itm with
                                                                     ComponentConcentration =
-                                                                        { itm.ComponentConcentration with
-                                                                            Variable =
-                                                                                { itm.ComponentConcentration.Variable with
-                                                                                    Vals = itm.ComponentConcentration.Variable.Vals |> setVu s
-                                                                                }
-
-                                                                        }
+                                                                        itm.ComponentConcentration
+                                                                        |> setOvar s
                                                                 }
                                                             | _ -> itm
                                                         )
@@ -443,13 +449,8 @@ module Order =
                                     Dose =
                                         { ord.Orderable.Dose with
                                             Quantity =
-                                                { ord.Orderable.Dose.Quantity with
-                                                    Variable =
-                                                        { ord.Orderable.Dose.Quantity.Variable with
-                                                            Vals = ord.Orderable.Dose.Quantity.Variable.Vals |> setVu s
-                                                        }
-                                                }
-
+                                                ord.Orderable.Dose.Quantity
+                                                |> setOvar s
                                         }
                                 }
 
@@ -468,13 +469,8 @@ module Order =
                                     Dose =
                                         { ord.Orderable.Dose with
                                             Rate =
-                                                { ord.Orderable.Dose.Rate with
-                                                    Variable =
-                                                        { ord.Orderable.Dose.Rate.Variable with
-                                                            Vals = ord.Orderable.Dose.Rate.Variable.Vals |> setVu s
-                                                        }
-                                                }
-
+                                                ord.Orderable.Dose.Rate
+                                                |> setOvar s
                                         }
                                 }
 
@@ -656,7 +652,7 @@ module Order =
                             |> Option.bind _.Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None ignore //(ChangeOrderableDoseQuantity >> dispatch)
+                            |> select false (Terms.``Order Quantity`` |> getTerm "Hoeveelheid") None (ChangeComponentDoseQuantity >> dispatch)
                         | _ ->
                             [||]
                             |> select true "" None ignore
@@ -794,6 +790,7 @@ module Order =
                             ord.Prescription.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
                             |> Option.defaultValue [||]
+                            |> Array.distinctBy snd
                             |> select false (Terms.``Order Administration time`` |> getTerm "Inloop tijd") None (ChangeTime >> dispatch)
                         | _ ->
                             [||]

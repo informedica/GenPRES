@@ -22,11 +22,11 @@ module SolverLogging =
                 | Some v -> Some v.Name
                 | None -> None
             )
-        $"""{eqs |> List.map (Equation.toString false) |> String.concat "\n"}"""
+        $"""{eqs |> List.map (Equation.toStringShort) |> String.concat "\n"}"""
 
 
-    let private varsToStr b vars =
-        $"""{vars |> List.map (Variable.toString b) |> String.concat ", "}"""
+    let private varsToStr vars =
+        $"""{vars |> List.map (Variable.toStringShort) |> String.concat ", "}"""
 
 
     let rec printException = function
@@ -109,7 +109,7 @@ module SolverLogging =
     | SolverMessage m ->
         let toString eq =
             let op = if eq |> Equation.isProduct then " * " else " + "
-            let varName = Variable.getName >> Variable.Name.toString
+            let varName = Variable.getName >> Variable.Name.toStringReplace true
 
             match eq |> Equation.toVars with
             | [] -> ""
@@ -117,18 +117,17 @@ module SolverLogging =
             | y::xs ->
                 $"""{y |> varName } = {xs |> List.map varName |> String.concat op}"""
 
-
         match m with
         | EquationStartedSolving eq ->
             $"=== Start solving Equation ===\n{eq |> toString}"
 
         | EquationStartCalculation (op1, op2, y, xs) ->
-            $"start calculating: {Equation.calculationToString true op1 op2 y xs}"
+            $"start calculating: {Equation.calculationToString false op1 op2 y xs}"
 
         | EquationFinishedCalculation (xs, changed) ->
-            if not changed then "No Changes"
+            if not changed then "NO CHANGES"
             else
-                $"Changed: {xs |> varsToStr true}"
+                $"Changed: {xs |> varsToStr}"
 
         | EquationFinishedSolving (eq, b) ->
             $"""=== Equation Finished Solving ===

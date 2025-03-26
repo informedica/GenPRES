@@ -27,6 +27,7 @@ module ConsoleWriter =
         WarningMessageBackColor: ConsoleColor
     }
 
+
     let colors = {
         StandardFrontColor = ConsoleColor.White
         StandardBackColor = ConsoleColor.Black
@@ -46,6 +47,7 @@ module ConsoleWriter =
         WarningMessageBackColor = ConsoleColor.Black
     }
 
+
     let private lock f =
         let lockObj = obj()
 
@@ -58,13 +60,6 @@ module ConsoleWriter =
         Console.BackgroundColor <- backgroundColor
 
 
-    /// Write a seperator line
-    /// Example: '-' |> writeSeparator --------------------
-    let writeSeparator (character: char) =
-        let builder = StringBuilder()
-        for _ in 0 .. Console.BufferWidth - 1 do
-            builder.Append(character) |> ignore
-        Console.WriteLine(builder.ToString())
 
     let writeColoredText symbol (text: string) (frontColor: ConsoleColor) (backgroundColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
         fun () ->
@@ -103,11 +98,14 @@ module ConsoleWriter =
     let writeText (text: string) (writeLine: bool) (writeTime: bool) =
         writeColoredText None text colors.StandardFrontColor colors.StandardBackColor writeLine writeTime
 
+
     let writeSpace = fun () -> writeText " " false false
+
 
     let writeQuestionMessage (text: string) (writeLine: bool) (writeTime: bool) =
         let question = Constants.HTMLCodeSymbols.TryFind "question"
         writeColoredText question text colors.QuestionFrontColor colors.QuestionBackColor writeLine writeTime
+
 
     let writeInfoMessage (text: string) (writeLine: bool) (writeTime: bool) =
         let info = Constants.HTMLCodeSymbols.TryFind "info"
@@ -116,12 +114,14 @@ module ConsoleWriter =
         writeSpace ()
         writeColoredText None text colors.InfoMessageFrontColor colors.InfoMessageBackColor writeLine false
 
+
     let writeErrorMessage (text: string) (writeLine: bool) (writeTime: bool) =
         let error = Constants.HTMLCodeSymbols.TryFind "error"
 
         writeColoredText error "ERROR:" colors.ErrorFrontColor colors.ErrorBackColor false writeTime
         writeSpace ()
         writeColoredText None text colors.ErrorMessageFrontColor colors.ErrorMessageBackColor writeLine false
+
 
     let writeWarningMessage (text: string) (_: bool) (writeTime: bool) =
         let warning = Constants.HTMLCodeSymbols.TryFind "warning"
@@ -130,16 +130,28 @@ module ConsoleWriter =
         writeSpace ()
         writeColoredText None text colors.WarningMessageFrontColor colors.WarningMessageBackColor true false
 
+
+    let writeDebugMessage (text: string) (_: bool) (writeTime: bool) =
+        if Env.getItem "GENPRES_DEBUG" |> Option.isNone then ()
+        else
+            let debug = Constants.HTMLCodeSymbols.TryFind "debug"
+
+            writeColoredText debug "DEBUG:" colors.StandardFrontColor colors.StandardBackColor false writeTime
+            writeSpace ()
+            writeColoredText None text colors.StandardFrontColor colors.StandardBackColor true false
+
+
     let writeColoredTextWithStandardBackColor (text: string) (frontColor: ConsoleColor) (writeLine: bool) (writeCurrentTime: bool) =
         writeColoredText None text frontColor colors.StandardBackColor writeLine writeCurrentTime
 
 
     module Flip =
 
-
         let writeErrorMessage writeLine writeTime text = writeErrorMessage text writeLine writeTime
 
         let writeWarningMessage writeLine writeTime text = writeWarningMessage text writeLine writeTime
+
+        let writeDebugMessage writeLine writeTime text = writeDebugMessage text writeLine writeTime
 
         let writeInfoMessage writeLine writeTime text = writeInfoMessage text writeLine writeTime
 
@@ -150,6 +162,8 @@ module ConsoleWriter =
 
         let writeWarningMessage = Flip.writeWarningMessage true true
 
+        let writeDebugMessage = Flip.writeDebugMessage true true
+
         let writeInfoMessage = Flip.writeInfoMessage true true
 
 
@@ -158,5 +172,7 @@ module ConsoleWriter =
         let writeErrorMessage = Flip.writeErrorMessage true false
 
         let writeWarningMessage = Flip.writeWarningMessage true false
+
+        let writeDebugMessage = Flip.writeDebugMessage true false
 
         let writeInfoMessage = Flip.writeInfoMessage true false
