@@ -367,9 +367,11 @@ module Equation =
                     (op1, op2, y, xs)
                     |> Events.EquationStartCalculation
                     |> Logging.logInfo log
-
-                    xs
-                    |> calc op1 op2
+                    // skip calculation if variable is already solved
+                    if y |> Variable.isSolved then None
+                    else
+                        xs
+                        |> calc op1 op2
                     |> function
                         | None ->
                             // log finishing the calculation
