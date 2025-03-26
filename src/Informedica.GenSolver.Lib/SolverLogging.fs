@@ -131,7 +131,7 @@ module SolverLogging =
 
         | EquationFinishedSolving (eq, b) ->
             $"""=== Equation Finished Solving ===
-{eq |> Equation.toString false}
+{eq |> Equation.toStringShort}
 {b |> Equation.SolveResult.toString}
 """
 

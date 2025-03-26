@@ -30,7 +30,7 @@ module Equation =
             | Unchanged -> "Unchanged"
             | Changed cs ->
                 let toStr (var : Variable, props)  =
-                    $"""changes: {var.Name |> Variable.Name.toString}: {props |> Set.map (Property.toString true) |> String.concat ", "}"""
+                    $"""changes: {var.Name |> Variable.Name.toStringReplace true}: {props |> Set.map (Property.toString false) |> String.concat ", "}"""
                 if cs |> List.isEmpty then ""
                 else
                     cs
@@ -360,16 +360,17 @@ module Equation =
             else
                 match vars with
                 | _, []
-                | _, [ _ ]   -> acc
+                | _, [ _ ] -> acc
                 | i, y::xs ->
-                    let op2 = if i = 0 then op1 else op2
-                    // log starting the calculation
-                    (op1, op2, y, xs)
-                    |> Events.EquationStartCalculation
-                    |> Logging.logInfo log
                     // skip calculation if variable is already solved
                     if y |> Variable.isSolved then None
                     else
+                        let op2 = if i = 0 then op1 else op2
+                        // log starting the calculation
+                        (op1, op2, y, xs)
+                        |> Events.EquationStartCalculation
+                        |> Logging.logInfo log
+
                         xs
                         |> calc op1 op2
                     |> function
