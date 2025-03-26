@@ -75,10 +75,7 @@ module Filters =
 
 module OrderScenario =
 
-    open MathNet.Numerics
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-    open ConsoleWriter.NewLineNoTime
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
@@ -228,8 +225,43 @@ module OrderScenario =
         |> setOrderTableFormat
 
 
+    let solveOrderWithMinDose (sc : OrderScenario) =
+        { sc with
+            Order =
+                sc.Order
+                |> Order.setMinDose
+                |> Order.solveOrder false OrderLogger.logger.Logger
+                |> Result.defaultValue sc.Order
+        }
+        |> setOrderTableFormat
+
+
+    let solveOrderWithMaxDose (sc : OrderScenario) =
+        { sc with
+            Order =
+                sc.Order
+                |> Order.setMaxDose
+                |> Order.solveOrder false OrderLogger.logger.Logger
+                |> Result.defaultValue sc.Order
+        }
+        |> setOrderTableFormat
+
+
+    let solveOrderWithMedianDose (sc : OrderScenario) =
+        { sc with
+            Order =
+                sc.Order
+                |> Order.setMedianDose
+                |> Order.solveOrder false OrderLogger.logger.Logger
+                |> Result.defaultValue sc.Order
+        }
+        |> setOrderTableFormat
+
+
+
 module OrderContext =
 
+    open System
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
@@ -628,8 +660,7 @@ module OrderContext =
 
     let toString stage (pr: OrderContext) =
         let printArray xs =
-            if pr.Scenarios |> Array.isEmpty ||
-               xs |> Array.isEmpty then $"{xs |> Array.length}"
+            if pr.Filter.Generic.IsNone then $"{xs |> Array.length}"
             else
                 xs
                 |> String.concat ", "
@@ -716,13 +747,26 @@ module OrderContext =
                     }
             }
 
+    open System.Reflection
+    open System.IO
+
+    let getAssemblyPath () =
+        let assembly = Assembly.GetExecutingAssembly()
+        let location = assembly.Location
+        Path.GetDirectoryName(location)
+
 
     /// <summary>
     /// Use a PrescriptionResult to create a new PrescriptionResult.
     /// </summary>
     let evaluate (ctx : OrderContext) =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-            let path = $"{__SOURCE_DIRECTORY__}/log.txt"
+            let path =
+                if getAssemblyPath () |> String.isNullOrWhiteSpace then
+                    $"{Environment.CurrentDirectory}/log.txt"
+                else
+                    $"{getAssemblyPath ()}/log.txt"
+
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
         let ctx, prs = ctx |> getRules
@@ -744,18 +788,28 @@ module OrderContext =
                     | results ->
                         results
                         |> processEvaluationResults
-                    // TODO: shouldn't need to do this?
-                    (*
-                    |> Array.distinctBy (fun sc ->
-                        sc.DoseType,
-                        sc.Preparation,
-                        sc.Prescription,
-                        sc.Administration
-                    )
-                    *)
                     |> filterScenariosByPreparation
             }
         |> updateFilterIfOneScenario
+
+
+    let applyToOrderScenario scenarioF (ctx: OrderContext) =
+        match ctx.Scenarios |> Array.tryExactlyOne with
+        | None -> ctx
+        | Some _ ->
+            { ctx with
+                Scenarios = ctx.Scenarios |> Array.map scenarioF
+            }
+            |> updateFilterIfOneScenario
+
+
+    let minimizeDose = applyToOrderScenario OrderScenario.solveOrderWithMinDose
+
+
+    let maximizeDose = applyToOrderScenario OrderScenario.solveOrderWithMaxDose
+
+
+    let medianDose = applyToOrderScenario OrderScenario.solveOrderWithMedianDose
 
 
     let processOrders (ctx: OrderContext) =
@@ -768,7 +822,10 @@ module OrderContext =
                         if sc.Order |> Order.isSolved then sc
                         else
                             if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
-                            else sc |> OrderScenario.calcOrderValues
+                            else
+                                sc
+                                |> OrderScenario.calcOrderValues
+
                     |]
             }
             |> updateFilterIfOneScenario

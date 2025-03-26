@@ -536,6 +536,13 @@ module OrderVariable =
         }
 
 
+    let setMedianValue (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                ovar.Variable |> Variable.setMedianValue
+        }
+
+
     let clear (ovar : OrderVariable) =
         { ovar with
             Variable =
@@ -871,6 +878,18 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
+        /// Check whether Time is solved
+        let isSolved = toOrdVar >> isSolved
+
+
+        let setMinValue = toOrdVar >> setMinValue >> Time.Time //TODO strange syntax
+
+
+        let setMaxValue = toOrdVar >> setMaxValue >> Time.Time
+
+
+        let setMedianValue = toOrdVar >> setMedianValue >> Time.Time
+
 
     /// Type and functions that represent a frequency
     module Frequency =
@@ -1053,8 +1072,7 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
-        let hasIncrement =
-            toOrdVar >> hasIncrement
+        let hasIncrement = toOrdVar >> hasIncrement
 
 
         /// <summary>
@@ -1069,6 +1087,15 @@ module OrderVariable =
 
         /// Check whether a Quantity is solved
         let isSolved = toOrdVar >> isSolved
+
+
+        let setMinValue = toOrdVar >> setMinValue >> Quantity
+
+
+        let setMaxValue = toOrdVar >> setMaxValue >> Quantity
+
+
+        let setMedianValue = toOrdVar >> setMedianValue >> Quantity
 
 
 
@@ -1223,6 +1250,15 @@ module OrderVariable =
 
 
         let clear = toOrdVar >> clear >> Rate
+
+
+        let setMinValue = toOrdVar >> setMinValue >> Rate
+
+
+        let setMaxValue = toOrdVar >> setMaxValue >> Rate
+
+
+        let setMedianValue = toOrdVar >> setMedianValue >> Rate
 
 
     /// Type and functions that represent a total

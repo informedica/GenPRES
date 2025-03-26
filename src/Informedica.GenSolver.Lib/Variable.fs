@@ -959,6 +959,9 @@ module Variable =
         module ValueSet =
 
 
+            module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
+
+
             /// <summary>
             /// Create a `ValueSet` from a `ValueUnit`.
             /// </summary>
@@ -1030,6 +1033,14 @@ module Variable =
             /// Get the maximum value of a `ValueSet`.
             /// </summary>
             let getMax (ValueSet vu) = vu |> Maximum.maxElement
+
+
+            /// <summary>
+            /// Get the median value of a `ValueSet`.
+            /// </summary>
+            let getMedian =
+                fun vu -> vu |> ValueUnit.medianValue |> Option.defaultValue vu
+                |> map
 
 
             /// <summary>
@@ -2518,7 +2529,7 @@ module Variable =
                 let b, vu = min |> Minimum.toBoolValueUnit
                 if b then
                     ValueSet.create vu
-                    |> ValueRange.ValSet
+                    |> ValSet
                 else vr
 
             match vr with
@@ -2538,7 +2549,7 @@ module Variable =
                 let b, vu = max |> Maximum.toBoolValueUnit
                 if b then
                     ValueSet.create vu
-                    |> ValueRange.ValSet
+                    |> ValSet
                 else vr
 
             match vr with
@@ -2550,6 +2561,15 @@ module Variable =
                     |> ValueSet.getMax
                     |> Option.map toMax
                     |> Option.defaultValue vr
+            | _ -> vr
+
+
+        let setMedianValue vr =
+            match vr with
+            | ValSet vs ->
+                    vs
+                    |> ValueSet.getMedian
+                    |> ValSet
             | _ -> vr
 
 
@@ -3523,6 +3543,14 @@ module Variable =
             Values =
                 var.Values
                 |> ValueRange.setMaxValue
+        }
+
+
+    let setMedianValue var =
+        { var with
+            Values =
+                var.Values
+                |> ValueRange.setMedianValue
         }
 
 

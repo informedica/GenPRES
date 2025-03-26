@@ -391,12 +391,53 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            let setMinDose (dos: Dose) =
+
+                let qty = dos.Quantity |> Quantity.setMinValue
+                let ptm = dos.PerTime
+                let rte = dos.Rate |> Rate.setMinValue
+                let tot = dos.Total
+                let qty_adj = dos.QuantityAdjust
+                let ptm_adj = dos.PerTimeAdjust
+                let rte_adj = dos.RateAdjust
+                let tot_adj = dos.TotalAdjust
+
+                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+
+
+            let setMaxDose (dos: Dose) =
+
+                let qty = dos.Quantity |> Quantity.setMaxValue
+                let ptm = dos.PerTime
+                let rte = dos.Rate |> Rate.setMaxValue
+                let tot = dos.Total
+                let qty_adj = dos.QuantityAdjust
+                let ptm_adj = dos.PerTimeAdjust
+                let rte_adj = dos.RateAdjust
+                let tot_adj = dos.TotalAdjust
+
+                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+
+
+            let setMedianDose (dos: Dose) =
+
+                let qty = dos.Quantity |> Quantity.setMedianValue
+                let ptm = dos.PerTime
+                let rte = dos.Rate |> Rate.setMedianValue
+                let tot = dos.Total
+                let qty_adj = dos.QuantityAdjust
+                let ptm_adj = dos.PerTimeAdjust
+                let rte_adj = dos.RateAdjust
+                let tot_adj = dos.TotalAdjust
+
+                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+
+
             let clearDoseRate (dos: Dose) =
                 { dos with
                     Rate =
                         dos.Rate
                         |> Rate.clear
-
                 }
 
 
@@ -1998,6 +2039,19 @@ module Order =
 
             prs |> fromOrdVars ovars
 
+        
+        let setTime set prs =
+            match prs with
+                | Timed (frq, tme) ->
+                    (frq, tme |> set)
+                    |> Timed
+                | _ -> prs        
+
+        
+        let setMinTime = setTime Time.setMinValue
+
+        
+        let setMaxTime = setTime Time.setMinValue
 
 
         module Print =
@@ -2712,14 +2766,25 @@ module Order =
                 |> Result.defaultValue ord
             | _ -> ord
 
+    
+    let minimizeTime logger (ord: Order) =
+        if ord.Prescription |> Prescription.isTimed |> not then ord
+        else            
+            { ord with
+                Prescription = ord.Prescription |> Prescription.setMinTime
+            }
+            |> solveOrder false logger
+            |> Result.defaultValue ord
+            
 
+    
     /// <summary>
     /// Loop through all the OrderVariables in an Order to
     /// turn min incr max to values
     /// </summary>
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
-    let minIncrMaxToValues maxRate logger (ord: Order) =
+    let minIncrMaxToValues minTime logger (ord: Order) =
         let rec loop (ord : Order) =
             // the flag makes sure that if one order variable
             // is set to values, then the rest is skipped and
@@ -2766,7 +2831,7 @@ module Order =
 
                         ord
 
-        if maxRate then ord |> maximizeRate logger
+        if minTime then ord |> minimizeTime logger
         else ord
         |> loop
 
@@ -2791,6 +2856,30 @@ module Order =
 
     let clearTime (ord : Order) =
         { ord with Prescription = ord.Prescription |> Prescription.clearTime }
+
+
+    let setDose doseSet (ord : Order) =
+        { ord with
+            Order.Orderable.Dose = ord.Orderable.Dose |> doseSet
+        }
+
+
+    let setMinDose = setDose Dose.setMinDose
+
+
+    let setMaxDose = setDose Dose.setMaxDose
+
+
+    let setMedianDose = setDose Dose.setMedianDose
+
+
+    let solveMinDose logger = setMinDose >> (solveOrder false logger)
+
+
+    let solveMaxDose logger = setMaxDose >> (solveOrder false logger)
+
+
+    let solveMedianDose logger = setMedianDose >> (solveOrder false logger)
 
 
     module Print =

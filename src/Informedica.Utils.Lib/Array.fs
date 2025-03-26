@@ -137,6 +137,17 @@ module Array =
             )
             |> Array.choose id
 
+    let median xs =
+        match xs |> Array.sort with
+        | [||] -> invalidArg "xs" "Array cannot be empty to calculate median."
+        | sorted ->
+            let len = sorted.Length
+            if len % 2 = 0 then
+                // Average of the two middle elements for even length array
+                (float sorted.[len / 2 - 1] + float sorted.[len / 2]) / 2.0
+            else
+                // Middle element for odd length array
+                float sorted.[len / 2]
 
     module Tests =
 

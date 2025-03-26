@@ -125,7 +125,6 @@ and Operator =
 type ValueUnit = ValueUnit of BigRational [] * Unit
 
 
-
 module Group =
 
 
@@ -145,7 +144,6 @@ module Group =
         | BSAGroup
         | EnergyGroup
         | CombiGroup of (Group * Operator * Group)
-
 
 
 module Parser =
@@ -322,7 +320,6 @@ module Parser =
                 |> ValueUnit.create u
             )
         s |> run p
-
 
 
 module Units =
@@ -3362,6 +3359,20 @@ module ValueUnit =
             |> Some
 
 
+    let medianValue vu =
+        if vu |> isEmpty then None
+        else
+            vu
+            |> applyToValue (fun xs ->
+                let i = (xs |> Array.length) / 2
+                xs
+                |> Array.tryItem i
+                |> Option.map Array.singleton
+                |> Option.defaultValue xs
+            )
+            |> Some
+
+
     // Helper function to calculate the min or max value
     // that is inclusive or exclusive and is a multiple of
     // increment 'incr'.
@@ -3949,8 +3960,6 @@ module ValueUnit =
                 |> Some
 
 
-
-
 type ValueUnit with
 
     static member (*)(vu1, vu2) = ValueUnit.calc true (*) vu1 vu2
@@ -3977,7 +3986,6 @@ type ValueUnit with
     /// <param name="vu">The ValueUnit</param>
     /// <param name="u">The Unit to convert to</param>
     static member (==>)(vu, u) = vu |> ValueUnit.convertTo u
-
 
 
 module Tests =
@@ -4069,4 +4077,3 @@ module Tests =
             |> ValueUnit.build [Mass (KiloGram 1N)] [Mass (KiloGram 1N)]
         let exp = (true, Count (Times 1N))
         test <@ act = exp @>
-

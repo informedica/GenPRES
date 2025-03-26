@@ -66,7 +66,12 @@ module PrescriptionRule =
         )
         |> Array.filter (fun pr ->
             // filter out the dose rules that do not have a dose type
-            pr.DoseRule.DoseType <> DoseType.NoDoseType
+            pr.DoseRule.DoseType <> DoseType.NoDoseType &&
+            // also do filter out prescription rules for which
+            // there are no products
+            pr.DoseRule.DoseLimits
+            |> Array.collect _.Products
+            |> Array.length > 0
         )
         // recalculate adjusted dose limits
         |> Array.map (fun pr ->
