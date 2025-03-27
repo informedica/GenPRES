@@ -127,7 +127,8 @@ Patient.infant
 |> Api.evaluate
 |> printCtx "2 eval" //|> ignore
 |> pickScenario 0
-|> OrderContext.medianDose
+//|> Api.evaluate
+|> OrderContext.minimizeDose
 |> printCtx "3 eval" //|> ignore
 |> ignore
 
@@ -201,12 +202,9 @@ Patient.infant
     { ctx with Scenarios = ctx.Scenarios |> Array.take 1 }
 |> Api.evaluate
 |> printCtx "second eval"
-|> fun ctx ->
-    { ctx with
-        Scenarios =
-            ctx.Scenarios
-            |> Array.map OrderScenario.solveOrderWithMedianDose
-    }
+|> OrderContext.medianDose
 |> Api.evaluate
 |> printCtx "third eval"
+|> Api.evaluate
+|> printCtx "eval with solved dose"
 |> ignore

@@ -322,17 +322,24 @@ module OrderVariable =
     let applyConstraints (ovar : OrderVariable) =
         { ovar with
             Variable =
-                ovar.Variable.Values
-                |> ValueRange.setOptMin ovar.Constraints.Min
-                |> ValueRange.setOptMax ovar.Constraints.Max
-                |> ValueRange.setOptIncr ovar.Constraints.Incr
-                // only set a ValueSet if there is no increment
-                |> fun vr ->
-                    if ovar.Constraints.Incr.IsSome then vr
-                    else
-                        vr
-                        |> ValueRange.setOptVs ovar.Constraints.Values
-                |> Variable.setValueRange ovar.Variable
+                if ovar.Constraints.Incr.IsNone &&
+                   ovar.Constraints.Max.IsNone &&
+                   ovar.Constraints.Min.IsNone &&
+                   ovar.Constraints.Values.IsNone then ovar.Variable
+                else
+                    { ovar.Variable with
+                        Values =
+                        ValueRange.NonZeroNoneNegative
+                        |> ValueRange.setOptMin ovar.Constraints.Min
+                        |> ValueRange.setOptMax ovar.Constraints.Max
+                        |> ValueRange.setOptIncr ovar.Constraints.Incr
+                        // only set a ValueSet if there is no increment
+                        |> fun vr ->
+                            if ovar.Constraints.Incr.IsSome then vr
+                            else
+                                vr
+                                |> ValueRange.setOptVs ovar.Constraints.Values
+                    }
         }
 
 
@@ -546,7 +553,7 @@ module OrderVariable =
     let clear (ovar : OrderVariable) =
         { ovar with
             Variable =
-                ovar.Variable |> Variable.setNonZeroOrNegative
+                ovar.Variable |> Variable.clear
         }
 
 

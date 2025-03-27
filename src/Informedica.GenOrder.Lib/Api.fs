@@ -78,6 +78,7 @@ module OrderScenario =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
     module Helpers =
@@ -229,7 +230,7 @@ module OrderScenario =
         { sc with
             Order =
                 sc.Order
-                |> Order.setMinDose
+                |> Order.setMinDose sc.Item
                 |> Order.solveOrder false OrderLogger.logger.Logger
                 |> Result.defaultValue sc.Order
         }
@@ -240,7 +241,7 @@ module OrderScenario =
         { sc with
             Order =
                 sc.Order
-                |> Order.setMaxDose
+                |> Order.setMaxDose sc.Item
                 |> Order.solveOrder false OrderLogger.logger.Logger
                 |> Result.defaultValue sc.Order
         }
@@ -251,12 +252,24 @@ module OrderScenario =
         { sc with
             Order =
                 sc.Order
-                |> Order.setMedianDose
+                |> Order.setMedianDose sc.Item
                 |> Order.solveOrder false OrderLogger.logger.Logger
                 |> Result.defaultValue sc.Order
         }
         |> setOrderTableFormat
 
+
+    let applyDoseConstraints (sc: OrderScenario) =
+        writeDebugMessage "apply constraints to order scenario"
+        { sc with
+            Order =
+                sc.Order
+                |> Order.applyDoseConstraints
+                |> Order.solveMinMax false OrderLogger.noLogger
+                |> Result.map (Order.minIncrMaxToValues false OrderLogger.noLogger)
+                |> Result.defaultValue sc.Order
+        }
+        |> setOrderTableFormat
 
 
 module OrderContext =
@@ -671,30 +684,37 @@ module OrderContext =
                 sc.Order
                 |> Order.toString
                 |> String.concat "\n"
-                |> fun s -> $"\n{s}\n"
+                |> fun s ->
+                    $"""
+Diluent: {sc.Diluent |> Option.defaultValue ""}
+Component: {sc.Component |> Option.defaultValue ""}
+Item: {sc.Item |> Option.defaultValue ""}
+
+{s}
+"""
             | _ -> $"{pr.Scenarios |> Array.length}"
 
         $"""
-    === {stage} ===
+=== {stage} ===
 
-    Patient: {pr.Patient |> Patient.toString}
-    Indication: {pr.Filter.Indication |> Option.defaultValue ""}
-    Generic: {pr.Filter.Generic |> Option.defaultValue ""}
-    Shape: {pr.Filter.Shape |> Option.defaultValue ""}
-    Route: {pr.Filter.Route |> Option.defaultValue ""}
-    DoseType: {pr.Filter.DoseType}
-    Diluent: {pr.Filter.Diluent |> Option.defaultValue ""}
-    SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
-    Indications: {pr.Filter.Indications |> printArray}
-    Medications: {pr.Filter.Generics |> printArray}
-    Routes: {pr.Filter.Routes |> printArray}
-    DoseTypes: {pr.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
-    Diluents : {pr.Filter.Diluents |> printArray}
-    Components: {pr.Filter.Components |> printArray}
-    Items: {pr.Scenarios |> Array.collect _.Items |> printArray}
-    Scenarios: {scenarios}
+Patient: {pr.Patient |> Patient.toString}
+Indication: {pr.Filter.Indication |> Option.defaultValue ""}
+Generic: {pr.Filter.Generic |> Option.defaultValue ""}
+Shape: {pr.Filter.Shape |> Option.defaultValue ""}
+Route: {pr.Filter.Route |> Option.defaultValue ""}
+DoseType: {pr.Filter.DoseType}
+Diluent: {pr.Filter.Diluent |> Option.defaultValue ""}
+SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
+Indications: {pr.Filter.Indications |> printArray}
+Medications: {pr.Filter.Generics |> printArray}
+Routes: {pr.Filter.Routes |> printArray}
+DoseTypes: {pr.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
+Diluents : {pr.Filter.Diluents |> printArray}
+Components: {pr.Filter.Components |> printArray}
+Items: {pr.Scenarios |> Array.collect _.Items |> printArray}
+Scenarios: {scenarios}
 
-    """
+"""
 
 
     let filterScenariosByPreparation (scs : OrderScenario []) =
@@ -818,8 +838,12 @@ module OrderContext =
         | Some sc ->
             { ctx with
                 Scenarios =
+                    writeDebugMessage $"start recalc single scenario: {sc.Order |> Order.isSolved}"
                     [|
-                        if sc.Order |> Order.isSolved then sc
+                        if sc.Order |> Order.doseIsSolved then
+                            writeDebugMessage "reapply constraints in processing orders"
+                            sc
+                            |> OrderScenario.applyDoseConstraints
                         else
                             if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
                             else

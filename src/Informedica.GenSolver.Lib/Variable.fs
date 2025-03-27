@@ -3558,6 +3558,7 @@ module Variable =
     let getUnit var =
         var |> getValueRange |> ValueRange.getUnit
 
+
     let setUnit unt var =
         { var with
             Values =
@@ -3565,6 +3566,11 @@ module Variable =
                 |> getValueRange
                 |> ValueRange.setUnit unt
         }
+
+
+    let clear var =
+        { var with Values = Unrestricted }
+
 
     module Operators =
 

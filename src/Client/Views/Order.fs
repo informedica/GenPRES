@@ -127,9 +127,6 @@ module Order =
 
             let setOvar s (ovar: OrderVariable) =
                 { ovar with Variable = ovar.Variable |> setVar s }
-                |> fun ovar ->
-                    Logging.log "ovar" ovar
-                    ovar
 
             match msg with
 
@@ -230,7 +227,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
+                                            if i > 0 then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -267,7 +264,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
+                                            if i > 0 then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -304,7 +301,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
+                                            if i > 0 then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -341,7 +338,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
+                                            if i > 0 then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -378,7 +375,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
+                                            if i > 0 then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -415,7 +412,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 || state.SelectedComponent |> Option.map ((=) cmp.Name) |> Option.defaultValue false then cmp
+                                            if i > 0 then cmp
                                             else
                                                 { cmp with
                                                     Items =

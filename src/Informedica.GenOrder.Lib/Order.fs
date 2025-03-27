@@ -391,46 +391,41 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
-            let setMinDose (dos: Dose) =
+            let setDose set prs (dos : Dose) =
+                match prs with
+                | Once
+                | OnceTimed _ ->
+                    { dos with
+                        Quantity =
+                            dos.Quantity
+                            |> Quantity.toOrdVar
+                            |> set
+                            |> Quantity
+                    }
+                | Discontinuous _
+                | Timed _ ->
+                    { dos with
+                        PerTime =
+                            dos.PerTime
+                            |> PerTime.toOrdVar
+                            |> set
+                            |> PerTime
+                    }
+                | Continuous ->
+                    { dos with
+                        Rate =
+                            dos.Rate
+                            |> Rate.toOrdVar
+                            |> set
+                            |> Rate
+                    }
 
-                let qty = dos.Quantity |> Quantity.setMinValue
-                let ptm = dos.PerTime
-                let rte = dos.Rate |> Rate.setMinValue
-                let tot = dos.Total
-                let qty_adj = dos.QuantityAdjust
-                let ptm_adj = dos.PerTimeAdjust
-                let rte_adj = dos.RateAdjust
-                let tot_adj = dos.TotalAdjust
 
-                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+            let setMinDose = setDose OrderVariable.setMinValue
 
+            let setMaxDose = setDose OrderVariable.setMaxValue
 
-            let setMaxDose (dos: Dose) =
-
-                let qty = dos.Quantity |> Quantity.setMaxValue
-                let ptm = dos.PerTime
-                let rte = dos.Rate |> Rate.setMaxValue
-                let tot = dos.Total
-                let qty_adj = dos.QuantityAdjust
-                let ptm_adj = dos.PerTimeAdjust
-                let rte_adj = dos.RateAdjust
-                let tot_adj = dos.TotalAdjust
-
-                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
-
-
-            let setMedianDose (dos: Dose) =
-
-                let qty = dos.Quantity |> Quantity.setMedianValue
-                let ptm = dos.PerTime
-                let rte = dos.Rate |> Rate.setMedianValue
-                let tot = dos.Total
-                let qty_adj = dos.QuantityAdjust
-                let ptm_adj = dos.PerTimeAdjust
-                let rte_adj = dos.RateAdjust
-                let tot_adj = dos.TotalAdjust
-
-                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+            let setMedianDose = setDose OrderVariable.setMedianValue
 
 
             let clearDoseRate (dos: Dose) =
@@ -779,6 +774,12 @@ module Order =
                 let dos = itm.Dose |> Dose.applyConstraints
 
                 create itm.Name cmp_qty orb_qty cmp_cnc orb_cnc dos
+
+
+            let applyDoseConstraints (itm : Item) =
+                { itm with
+                    Dose = itm.Dose |> Dose.applyConstraints
+                }
 
 
             let setDoseUnit sn du itm =
@@ -1162,6 +1163,14 @@ module Order =
                 |> List.map Item.applyConstraints
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
+
+            let applyDoseConstraints (cmp : Component) =
+                { cmp with
+                    Dose = cmp.Dose |> Dose.applyConstraints
+                    Items =
+                        cmp.Items
+                        |> List.map Item.applyDoseConstraints
+                }
 
 
             /// <summary>
@@ -1587,6 +1596,15 @@ module Order =
             orb.Components
             |> List.map Component.applyConstraints
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+
+
+        let applyDoseConstraints (orb : Orderable) =
+            { orb with
+                Dose = orb.Dose |> Dose.applyConstraints
+                Components =
+                    orb.Components
+                    |> List.map Component.applyDoseConstraints
+            }
 
 
         /// <summary>
@@ -2039,18 +2057,18 @@ module Order =
 
             prs |> fromOrdVars ovars
 
-        
+
         let setTime set prs =
             match prs with
                 | Timed (frq, tme) ->
                     (frq, tme |> set)
                     |> Timed
-                | _ -> prs        
+                | _ -> prs
 
-        
+
         let setMinTime = setTime Time.setMinValue
 
-        
+
         let setMaxTime = setTime Time.setMinValue
 
 
@@ -2445,6 +2463,21 @@ module Order =
             reraise()
 
 
+    let applyDoseConstraints (ord : Order) =
+        // TODO: maybe choose which constraints to apply!
+        try
+            { ord with
+                Prescription = ord.Prescription |> Prescription.applyConstraints
+                Orderable = ord.Orderable |> Orderable.applyDoseConstraints
+            }
+        with
+        | _ ->
+            let s = ord |> toString |> String.concat "\n"
+            writeErrorMessage $"couldn't apply constraints:\n{s}"
+            reraise()
+
+
+
     let isSolved ord =
         ord
         |> toOrdVars
@@ -2766,18 +2799,18 @@ module Order =
                 |> Result.defaultValue ord
             | _ -> ord
 
-    
+
     let minimizeTime logger (ord: Order) =
         if ord.Prescription |> Prescription.isTimed |> not then ord
-        else            
+        else
             { ord with
                 Prescription = ord.Prescription |> Prescription.setMinTime
             }
             |> solveOrder false logger
             |> Result.defaultValue ord
-            
 
-    
+
+
     /// <summary>
     /// Loop through all the OrderVariables in an Order to
     /// turn min incr max to values
@@ -2858,10 +2891,30 @@ module Order =
         { ord with Prescription = ord.Prescription |> Prescription.clearTime }
 
 
-    let setDose doseSet (ord : Order) =
-        { ord with
-            Order.Orderable.Dose = ord.Orderable.Dose |> doseSet
-        }
+    let setDose doseSet itm (ord : Order) =
+        match itm with
+        | None ->
+            { ord with
+                Order.Orderable.Dose = ord.Orderable.Dose |> doseSet ord.Prescription
+            }
+        | Some n ->
+            { ord with
+                Order.Orderable.Components =
+                    ord.Orderable.Components
+                    |> List.map (fun cmp ->
+                        { cmp with
+                            Items =
+                                cmp.Items
+                                |> List.map (fun itm ->
+                                    if itm.Name |> Name.toString |> String.equalsCapInsens n then
+                                        { itm with
+                                            Dose = itm.Dose |> doseSet ord.Prescription
+                                        }
+                                    else itm
+                                )
+                        }
+                    )
+            }
 
 
     let setMinDose = setDose Dose.setMinDose
@@ -2873,13 +2926,13 @@ module Order =
     let setMedianDose = setDose Dose.setMedianDose
 
 
-    let solveMinDose logger = setMinDose >> (solveOrder false logger)
+    let solveMinDose logger itm = setMinDose itm >> (solveOrder false logger)
 
 
-    let solveMaxDose logger = setMaxDose >> (solveOrder false logger)
+    let solveMaxDose logger itm = setMaxDose itm >> (solveOrder false logger)
 
 
-    let solveMedianDose logger = setMedianDose >> (solveOrder false logger)
+    let solveMedianDose logger itm = setMedianDose itm >> (solveOrder false logger)
 
 
     module Print =
