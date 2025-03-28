@@ -11,6 +11,88 @@ module PrescriptionRule =
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
 
 
+    let adjustDoseLimitToPatient (freq : ValueUnit option) (pat : Patient) (dl : DoseLimit) =
+        if dl.AdjustUnit |> Option.isNone then dl
+        else
+            let adj =
+                if dl.AdjustUnit.Value |> Units.eqsUnit Units.Weight.kiloGram then
+                    pat.Weight
+                else
+                    pat |> Patient.calcBSA
+                |> Option.get
+            // recalculate the max dose per administration
+            match dl.Quantity.Max |> Option.map Limit.getValueUnit,
+                  dl.NormQuantityAdjust,
+                  dl.QuantityAdjust.Min |> Option.map Limit.getValueUnit with
+            | Some max, Some norm, _ ->
+                let norm = norm * adj
+                if norm <? max then dl
+                else
+                    { dl with
+                        NormQuantityAdjust = None
+                        Quantity.Min = dl.Quantity.Max
+                    }
+            | Some max, _, Some min ->
+                let min = min * adj
+                if min <? max then dl
+                else
+                    { dl with
+                        QuantityAdjust = MinMax.empty
+                        Quantity.Min = dl.Quantity.Max
+                    }
+            | _ -> dl
+            // recalculate the max dose per administration with the freq
+            |> fun dl ->
+                match dl.Quantity.Max |> Option.map Limit.getValueUnit,
+                      freq,
+                      dl.NormPerTimeAdjust with
+                | Some max, Some freq, Some norm ->
+                    let norm = adj * norm / freq
+                    if norm <? max then dl
+                    else
+                        { dl with
+                            NormPerTimeAdjust = None
+                            Quantity.Min = dl.Quantity.Max
+                        }
+                | _ -> dl
+            // recalculate the max dose per time
+            |> fun dl ->
+
+                match dl.PerTime.Max |> Option.map Limit.getValueUnit,
+                      dl.NormPerTimeAdjust,
+                      dl.PerTimeAdjust.Min |> Option.map Limit.getValueUnit with
+                | Some max, Some norm, _ ->
+                    let norm = norm * adj
+                    if norm <? max then dl
+                    else
+                        { dl with
+                            NormPerTimeAdjust = None
+                            PerTime.Min = dl.PerTime.Max
+                        }
+                | Some max, _, Some min ->
+                    let min = min * adj
+                    if min <? max then dl
+                    else
+                        { dl with
+                            PerTimeAdjust = MinMax.empty
+                            PerTime.Min = dl.PerTime.Max
+                        }
+                | _ -> dl
+            // recalculate the max dose rate
+            |> fun dl ->
+                match dl.Rate.Max |> Option.map Limit.getValueUnit,
+                      dl.RateAdjust.Min |> Option.map Limit.getValueUnit with
+                | Some max, Some min ->
+                    let min = min * adj
+                    if min <? max then dl
+                    else
+                        { dl with
+                            RateAdjust = MinMax.empty
+                            Rate.Min = dl.Rate.Max
+                        }
+                | _ -> dl
+
+
     /// Use a Filter to get matching PrescriptionRules.
     let filter (filter : DoseFilter) =
         let pat = filter.Patient
@@ -51,7 +133,7 @@ module PrescriptionRule =
                             Products =
                                 sr.Products
                                 |> Array.filter (fun sr_p ->
-                                    dr.DoseLimits
+                                    dr.ComponentLimits
                                     |> Array.collect _.Products
                                     |> Array.exists (fun dr_p ->
                                         sr_p.GPK = dr_p.GPK
@@ -69,7 +151,7 @@ module PrescriptionRule =
             pr.DoseRule.DoseType <> DoseType.NoDoseType &&
             // also do filter out prescription rules for which
             // there are no products
-            pr.DoseRule.DoseLimits
+            pr.DoseRule.ComponentLimits
             |> Array.collect _.Products
             |> Array.length > 0
         )
@@ -90,105 +172,31 @@ module PrescriptionRule =
                 { pr with
                     DoseRule =
                         { pr.DoseRule with
-                            DoseLimits =
+                            ComponentLimits =
                                 // component selection mechanism
-                                if filter.Components |> List.isEmpty then pr.DoseRule.DoseLimits
+                                if filter.Components |> List.isEmpty then pr.DoseRule.ComponentLimits
                                 else
-                                    match pr.DoseRule.DoseLimits |> Array.toList with
+                                    match pr.DoseRule.ComponentLimits |> Array.toList with
                                     | [dl] -> [| dl |]
                                     | dl ::rest ->
                                         rest
                                         |> List.filter (fun dl ->
                                             filter.Components
-                                            |> List.exists ((=) dl.Component)
+                                            |> List.exists ((=) dl.Name)
                                         )
                                         |> List.toArray
                                         |> Array.append [| dl |]
-                                    | _ -> pr.DoseRule.DoseLimits
+                                    | _ -> pr.DoseRule.ComponentLimits
 
                                 // applies to all targets?
                                 // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                                 |> Array.map(fun dl ->
-                                    if dl.AdjustUnit |> Option.isNone then dl
-                                    else
-                                        let adj =
-                                            if dl.AdjustUnit.Value |> Units.eqsUnit Units.Weight.kiloGram then
-                                                filter.Patient.Weight
-                                            else
-                                                filter.Patient |> Patient.calcBSA
-                                            |> Option.get
-                                        // recalculate the max dose per administration
-                                        match dl.Quantity.Max |> Option.map Limit.getValueUnit,
-                                              dl.NormQuantityAdjust,
-                                              dl.QuantityAdjust.Min |> Option.map Limit.getValueUnit with
-                                        | Some max, Some norm, _ ->
-                                            let norm = norm * adj
-                                            if norm <? max then dl
-                                            else
-                                                { dl with
-                                                    NormQuantityAdjust = None
-                                                    Quantity.Min = dl.Quantity.Max
-                                                }
-                                        | Some max, _, Some min ->
-                                            let min = min * adj
-                                            if min <? max then dl
-                                            else
-                                                { dl with
-                                                    QuantityAdjust = MinMax.empty
-                                                    Quantity.Min = dl.Quantity.Max
-                                                }
-                                        | _ -> dl
-                                        // recalculate the max dose per administration with the freq
-                                        |> fun dl ->
-                                            match dl.Quantity.Max |> Option.map Limit.getValueUnit,
-                                                  freq,
-                                                  dl.NormPerTimeAdjust with
-                                            | Some max, Some freq, Some norm ->
-                                                let norm = adj * norm / freq
-                                                if norm <? max then dl
-                                                else
-                                                    { dl with
-                                                        NormPerTimeAdjust = None
-                                                        Quantity.Min = dl.Quantity.Max
-                                                    }
-                                            | _ -> dl
-                                        // recalculate the max dose per time
-                                        |> fun dl ->
-
-                                            match dl.PerTime.Max |> Option.map Limit.getValueUnit,
-                                                  dl.NormPerTimeAdjust,
-                                                  dl.PerTimeAdjust.Min |> Option.map Limit.getValueUnit with
-                                            | Some max, Some norm, _ ->
-                                                let norm = norm * adj
-                                                if norm <? max then dl
-                                                else
-                                                    { dl with
-                                                        NormPerTimeAdjust = None
-                                                        PerTime.Min = dl.PerTime.Max
-                                                    }
-                                            | Some max, _, Some min ->
-                                                let min = min * adj
-                                                if min <? max then dl
-                                                else
-                                                    { dl with
-                                                        PerTimeAdjust = MinMax.empty
-                                                        PerTime.Min = dl.PerTime.Max
-                                                    }
-                                            | _ -> dl
-                                        // recalculate the max dose rate
-                                        |> fun dl ->
-                                            match dl.Rate.Max |> Option.map Limit.getValueUnit,
-                                                  dl.RateAdjust.Min |> Option.map Limit.getValueUnit with
-                                            | Some max, Some min ->
-                                                let min = min * adj
-                                                if min <? max then dl
-                                                else
-                                                    { dl with
-                                                        RateAdjust = MinMax.empty
-                                                        Rate.Min = dl.Rate.Max
-                                                    }
-                                            | _ -> dl
-
+                                    { dl with
+                                        Limit = dl.Limit |> Option.map (adjustDoseLimitToPatient freq filter.Patient)
+                                        SubstanceLimits =
+                                            dl.SubstanceLimits
+                                            |> Array.map (adjustDoseLimitToPatient freq filter.Patient)
+                                    }
                                 )
                     }
                 }
@@ -224,8 +232,8 @@ module PrescriptionRule =
         { pr with
             DoseRule =
                 { pr.DoseRule with
-                    DoseLimits =
-                        pr.DoseRule.DoseLimits
+                    ComponentLimits =
+                        pr.DoseRule.ComponentLimits
 
                         |> Array.map (fun dl ->
                             { dl with

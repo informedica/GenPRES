@@ -147,15 +147,12 @@ module OrderScenario =
 
     let fromRule no pr ord =
         let cmps =
-            pr.DoseRule.DoseLimits
-            |> Array.groupBy _.Component// use only main component items
-            |> Array.filter (fst >> String.isNullOrWhiteSpace >> not)
+            pr.DoseRule.ComponentLimits
+            |> Array.map _.Name
 
         let itms =
-            cmps
-            |> Array.map snd
-            |> Array.tryHead
-            |> Option.defaultValue [||]
+            pr.DoseRule.ComponentLimits
+            |> Array.collect _.SubstanceLimits
             |> Array.choose (fun dl ->
                 match dl.DoseLimitTarget with
                 | SubstanceLimitTarget s -> Some s
@@ -178,8 +175,6 @@ module OrderScenario =
                 |> List.map (_.Name >> Name.toString)
                 |> List.exists ((=) dil)
             )
-
-        let cmps = cmps |> Array.map fst
 
         let cmp = cmps |> Array.tryExactlyOne
 
@@ -297,24 +292,21 @@ module OrderContext =
                 DoseRule =
                     { pr.DoseRule with
                         Shape = pr.DoseRule.Generic
-                        DoseLimits =
-                            pr.DoseRule.DoseLimits
-                            |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
-                            |> Array.map (fun dl ->
-                                { dl with
+                        ComponentLimits =
+                            pr.DoseRule.ComponentLimits
+                            |> Array.map (fun cl ->
+                                { cl with
                                     Products =
-                                        if dl.Products |> Array.isEmpty then
+                                        if cl.Products |> Array.isEmpty then
                                             [|
-                                                dl.DoseLimitTarget
-                                                |> DoseRule.DoseLimit.substanceDoseLimitTargetToString
-                                                |> Array.singleton
-                                                |> Array.filter String.notEmpty
+                                                cl.SubstanceLimits
+                                                |> Array.map (_.DoseLimitTarget >> DoseRule.DoseLimit.substanceDoseLimitTargetToString)
                                                 |> Product.create
                                                     pr.DoseRule.Generic
                                                     pr.DoseRule.Route
                                             |]
                                         else
-                                            dl.Products
+                                            cl.Products
                                             |> Array.map (fun p ->
                                                 { p with Divisible = None }
                                             )
@@ -351,7 +343,8 @@ module OrderContext =
                 |> function
                 | Ok ord ->
                     let ord =
-                        pr.DoseRule.DoseLimits
+                        pr.DoseRule.ComponentLimits
+                        |> Array.collect _.SubstanceLimits
                         |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
                         |> Array.fold (fun acc dl ->
                             let sn =

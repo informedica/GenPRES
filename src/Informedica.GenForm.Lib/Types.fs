@@ -341,7 +341,6 @@ module Types =
             Duration : MinMax
             // The list of associated DoseLimits of the DoseRule.
             // In principle for the Shape and each Substance .
-            DoseLimits : DoseLimit array
             ShapeLimit : DoseLimit option
             ComponentLimits : ComponentLimit []
             RenalRule : string option

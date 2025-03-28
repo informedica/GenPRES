@@ -358,8 +358,8 @@ module Check =
                                         |> Some
                         |}
                     doseLimits =
-                        r.doseRule.DoseLimits
-                        |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
+                        r.doseRule.ComponentLimits
+                        |> Array.collect _.SubstanceLimits
                         |> Array.map (fun dl ->
                             {|
                                 genForm = dl

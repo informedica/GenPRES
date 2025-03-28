@@ -382,7 +382,7 @@ module RenalRule =
         ) renalRules
 
 
-    let adjustDoseRule (renalRule : RenalRule) (doseRule : DoseRule) =
+    let adjustDoseLimit (renalRule : RenalRule) (doseRule : DoseRule) (dl : DoseLimit) =
         let adjustVU dr vuNew vuOrig =
             match dr with
             | Relative ->
@@ -444,74 +444,86 @@ module RenalRule =
                     }
             | NoReduction -> mmOrig
 
+
+        renalRule.RenalLimits
+        |> Array.tryFind (fun rl -> rl.DoseLimitTarget = dl.DoseLimitTarget)
+        |> function
+            | None -> dl
+            | Some rl when rl.DoseReduction = NoReduction -> dl
+            | Some rl ->
+                let normQtyAdj =
+                    if dl.NormQuantityAdjust |> Option.isSome then dl.NormQuantityAdjust
+                    else
+                        dl.NormPerTimeAdjust
+                        |> Option.bind (fun vu ->
+                            doseRule.Frequencies
+                            |> Option.map (fun f -> vu / f)
+                        )
+                { dl with
+                    Quantity =
+                        dl.Quantity
+                        |> adjustMinMax
+                            rl.DoseReduction
+                            rl.Quantity
+                    NormQuantityAdjust =
+                        normQtyAdj
+                        |> adjustVU
+                            rl.DoseReduction
+                            rl.NormQuantityAdjust
+                    QuantityAdjust =
+                        dl.QuantityAdjust
+                        |> adjustMinMax
+                            rl.DoseReduction
+                            rl.QuantityAdjust
+                    PerTime =
+                        dl.PerTime
+                        |> adjustMinMax
+                            rl.DoseReduction
+                            rl.PerTime
+                    NormPerTimeAdjust =
+                        if rl.NormQuantityAdjust |> Option.isSome ||
+                           rl.QuantityAdjust <> MinMax.empty then None
+                        else
+                            dl.NormPerTimeAdjust
+                            |> adjustVU
+                                rl.DoseReduction
+                                rl.NormPerTimeAdjust
+                    PerTimeAdjust =
+                        dl.PerTimeAdjust
+                        |> adjustMinMax
+                            rl.DoseReduction
+                            rl.PerTimeAdjust
+                    Rate =
+                        dl.Rate
+                        |> adjustMinMax
+                            rl.DoseReduction
+                            rl.Rate
+                    RateAdjust =
+                        dl.RateAdjust
+                        |> adjustMinMax
+                            rl.DoseReduction
+                            rl.RateAdjust
+
+                }
+
+
+    let adjustDoseRule (renalRule : RenalRule) (doseRule : DoseRule) =
+
         { doseRule with
             RenalRule = Some renalRule.Source
             Frequencies =
                 if renalRule.Frequencies |> Option.isNone then doseRule.Frequencies
                 else
                     renalRule.Frequencies
-            DoseLimits =
-                doseRule.DoseLimits
+            ComponentLimits =
+                doseRule.ComponentLimits
                 |> Array.map (fun dl ->
-                    renalRule.RenalLimits
-                    |> Array.tryFind (fun rl -> rl.DoseLimitTarget = dl.DoseLimitTarget)
-                    |> function
-                        | None -> dl
-                        | Some rl when rl.DoseReduction = NoReduction -> dl
-                        | Some rl ->
-                            let normQtyAdj =
-                                if dl.NormQuantityAdjust |> Option.isSome then dl.NormQuantityAdjust
-                                else
-                                    dl.NormPerTimeAdjust
-                                    |> Option.bind (fun vu ->
-                                        doseRule.Frequencies
-                                        |> Option.map (fun f -> vu / f)
-                                    )
-                            { dl with
-                                Quantity =
-                                    dl.Quantity
-                                    |> adjustMinMax
-                                        rl.DoseReduction
-                                        rl.Quantity
-                                NormQuantityAdjust =
-                                    normQtyAdj
-                                    |> adjustVU
-                                        rl.DoseReduction
-                                        rl.NormQuantityAdjust
-                                QuantityAdjust =
-                                    dl.QuantityAdjust
-                                    |> adjustMinMax
-                                        rl.DoseReduction
-                                        rl.QuantityAdjust
-                                PerTime =
-                                    dl.PerTime
-                                    |> adjustMinMax
-                                        rl.DoseReduction
-                                        rl.PerTime
-                                NormPerTimeAdjust =
-                                    if rl.NormQuantityAdjust |> Option.isSome ||
-                                       rl.QuantityAdjust <> MinMax.empty then None
-                                    else
-                                        dl.NormPerTimeAdjust
-                                        |> adjustVU
-                                            rl.DoseReduction
-                                            rl.NormPerTimeAdjust
-                                PerTimeAdjust =
-                                    dl.PerTimeAdjust
-                                    |> adjustMinMax
-                                        rl.DoseReduction
-                                        rl.PerTimeAdjust
-                                Rate =
-                                    dl.Rate
-                                    |> adjustMinMax
-                                        rl.DoseReduction
-                                        rl.Rate
-                                RateAdjust =
-                                    dl.RateAdjust
-                                    |> adjustMinMax
-                                        rl.DoseReduction
-                                        rl.RateAdjust
-
-                            }
+                    { dl with
+                        SubstanceLimits =
+                            dl.SubstanceLimits
+                            |> Array.map (fun dl ->
+                                dl |> adjustDoseLimit renalRule doseRule
+                            )
+                    }
                 )
         }

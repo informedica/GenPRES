@@ -170,12 +170,12 @@ module DoseRule =
 
         let printDose wrap (dr : DoseRule) =
             let substDls =
-                    dr.DoseLimits
-                    |> Array.filter DoseLimit.isSubstanceLimit
+                    dr.ComponentLimits
+                    |> Array.collect _.SubstanceLimits
 
             let shapeDls =
-                dr.DoseLimits
-                |> Array.filter DoseLimit.isShapeLimit
+                dr.ComponentLimits
+                |> Array.choose _.Limit
 
             let useSubstDl = substDls |> Array.length > 0
             // only use shape dose limits if there are no substance dose limits
@@ -365,7 +365,7 @@ module DoseRule =
                                     ||> Array.fold (fun acc (route, rs) ->
                                         let prods =
                                             rs
-                                            |> Array.collect _.DoseLimits
+                                            |> Array.collect _.ComponentLimits
                                             |> Array.collect _.Products
                                             |> Array.sortBy (fun p ->
                                                 p.Substances
@@ -386,7 +386,7 @@ module DoseRule =
 
                                         let synonyms =
                                             rs
-                                            |> Array.collect _.DoseLimits
+                                            |> Array.collect _.ComponentLimits
                                             |> Array.collect _.Products
                                             |> Array.collect _.Synonyms
                                             |> Array.distinct
@@ -449,8 +449,8 @@ module DoseRule =
     /// <param name="dr">The DoseRule</param>
     let reconstitute dep loc (dr : DoseRule) =
         { dr with
-            DoseLimits =
-                dr.DoseLimits
+            ComponentLimits =
+                dr.ComponentLimits
                 |> Array.map (fun dl ->
                     { dl with
                         Products =
@@ -528,7 +528,6 @@ module DoseRule =
                 Duration =
                     (r.MinDur, r.MaxDur)
                     |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
-                DoseLimits = [||]
                 ShapeLimit = None
                 ComponentLimits = [||]
                 RenalRule = None
@@ -810,27 +809,6 @@ cannot map {r}
                             |> fun rs -> dr |> getDoseLimits rs
                     }
                 )
-
-            DoseLimits =
-                let shapeLimits =
-                    dr
-                    |> getShapeLimits (rs |> Array.collect _.Products)
-
-                dr
-                |> getDoseLimits rs
-
-                // check if there is only one dose limit, and it's
-                // a shape dose limit, then only use that shape
-                // dose limit
-                |> function
-                    | [| dl  |] ->
-                        if dl |> DoseLimit.isSubstanceLimit then
-                            [| dl |]
-                            |> Array.append shapeLimits
-                        else [| dl |]
-                    | dls -> dls |> Array.append shapeLimits
-                // filter out all empty dose limits
-                |> Array.filter (DoseLimit.hasNoLimits >> not)
         }
 
 
@@ -1020,14 +998,14 @@ cannot map {r}
 
 
     let useAdjust (dr : DoseRule) =
-        dr.DoseLimits
-        |> Array.filter DoseLimit.isSubstanceLimit
+        dr.ComponentLimits
+        |> Array.collect _.SubstanceLimits
         |> Array.exists DoseLimit.useAdjust
 
 
     let getNormDose (dr : DoseRule) =
-        dr.DoseLimits
-        |> Array.filter DoseLimit.isSubstanceLimit
+        dr.ComponentLimits
+        |> Array.collect _.SubstanceLimits
         |> Array.collect (fun dl ->
             [|
                 if dl.NormPerTimeAdjust |> Option.isSome then
