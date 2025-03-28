@@ -34,3 +34,13 @@ open Informedica.Utils.Lib.BCL
 DoseRule.get ()
 |> Array.tryFind (_.Generic >> String.equalsCapInsens "nutrilon pepti 1")
 |> Option.map _.ComponentLimits
+
+
+Web.getDataUrlIdGenPres ()
+|> DoseRule.get_
+|> Array.tryFind (fst >> _.Generic >> String.equalsCapInsens "nutrilon pepti 1")
+|> Option.map (fun (dr, rs) ->
+    dr
+    |> DoseRule.addDoseLimits rs
+)
+|> Option.get

@@ -152,8 +152,6 @@ module Types =
     type DoseLimit =
         {
             Component : string
-            // The list of associated Products of the DoseLimit.
-            Products : Product array
             DoseLimitTarget : LimitTarget
             // The unit to adjust dosing with
             AdjustUnit : Unit option

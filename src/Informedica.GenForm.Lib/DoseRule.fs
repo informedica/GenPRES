@@ -25,7 +25,6 @@ module DoseRule =
         let limit =
             {
                 Component = ""
-                Products = [||]
                 DoseLimitTarget = NoLimitTarget
                 AdjustUnit = None
                 DoseUnit = NoUnit
@@ -89,13 +88,9 @@ module DoseRule =
             | _ -> false
 
 
-        let hasProducts (dl : DoseLimit) = dl.Products |> Array.isEmpty |> not
-
-
         let hasNoLimits (dl : DoseLimit) =
             { limit with
                 Component = dl.Component
-                Products = dl.Products
                 DoseLimitTarget = dl.DoseLimitTarget
                 AdjustUnit = dl.AdjustUnit
                 DoseUnit = dl.DoseUnit
@@ -739,7 +734,6 @@ cannot map {r}
 
             {
                 Component = r.Component
-                Products = r.Products
                 DoseLimitTarget =
                     if r.Substance |> String.isNullOrWhiteSpace then
                         dr.Shape |> ShapeLimitTarget

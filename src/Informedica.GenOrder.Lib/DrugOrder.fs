@@ -195,8 +195,7 @@ module DrugOrder =
                         )
                 Dose = lim.Limit
                 Substances =
-                    lim.SubstanceLimits
-                    |> Array.collect _.Products
+                    lim.Products
                     |> Array.collect _.Substances
                     |> Array.groupBy _.Name
                     |> Array.map (fun (n, xs) ->
