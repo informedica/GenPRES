@@ -255,7 +255,7 @@ module Types =
                 // The name of the order
                 Name : string
                 // The list of drug products that can be used for the order
-                Products : ProductComponent list
+                Components : ProductComponent list
                 // The quantities of the drug order
                 Quantities :  ValueUnit option
                 // The route by which the order is applied

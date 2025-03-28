@@ -260,7 +260,7 @@ module OrderScenario =
 
 
     let applyDoseConstraints (sc: OrderScenario) =
-        writeDebugMessage "apply constraints to order scenario"
+        writeDebugMessage "reapply dose constraints to order scenario"
         { sc with
             Order =
                 sc.Order
@@ -838,10 +838,9 @@ Scenarios: {scenarios}
         | Some sc ->
             { ctx with
                 Scenarios =
-                    writeDebugMessage $"start recalc single scenario: {sc.Order |> Order.isSolved}"
                     [|
-                        if sc.Order |> Order.doseIsSolved then
-                            writeDebugMessage "reapply constraints in processing orders"
+                        if sc.Order |> Order.doseIsSolved &&
+                           sc.Order |> Order.hasValues |> not then
                             sc
                             |> OrderScenario.applyDoseConstraints
                         else

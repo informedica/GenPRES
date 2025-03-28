@@ -127,8 +127,8 @@ Patient.infant
 |> Api.evaluate
 |> printCtx "2 eval" //|> ignore
 |> pickScenario 0
-//|> Api.evaluate
-|> OrderContext.minimizeDose
+|> Api.evaluate
+//|> OrderContext.minimizeDose
 |> printCtx "3 eval" //|> ignore
 |> ignore
 
@@ -207,4 +207,44 @@ Patient.infant
 |> printCtx "third eval"
 |> Api.evaluate
 |> printCtx "eval with solved dose"
+|> fun ctx ->
+    ctx.Scenarios
+    |> Array.tryExactlyOne
+    |> function
+        | None -> ()
+        | Some sc ->
+            sc.Order
+            |> Order.toOrdVars
+            |> List.map (_.Variable >> _.Name >> Name.toString)
+            |> String.concat "\n"
+            |> printfn "%s"
+
+
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> OrderContext.create
+|> OrderContext.setFilterGeneric "Nutrilon Pepti 1"
+|> Api.evaluate //|> ignore
+|> printCtx "1 eval" //|> ignore
+|> fun ctx ->
+    { ctx with
+        OrderContext.Filter.DoseType = ctx.Filter.DoseTypes |> Array.tryItem 0
+    }
+|> Api.evaluate
+|> printCtx "2 eval" //|> ignore
 |> ignore
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> OrderContext.create
+|> OrderContext.setFilterGeneric "Nutrilon Pepti 1"
+|> OrderContext.getRules
+|> snd
+|> Array.head
+|> _.DoseRule
+|> _.DoseLimits
+|> Array.head
+|> DoseRule.DoseLimit.hasNoLimits

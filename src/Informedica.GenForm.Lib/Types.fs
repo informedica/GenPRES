@@ -241,6 +241,72 @@ module Types =
             (fun (p : Patient) -> p.Department), (fun d (p : Patient) -> { p with Department = d})
 
 
+    type DoseRuleDetails = {
+        AdjustUnit: string
+        Brand: string
+        Component: string
+        Department: string
+        DoseText: string
+        DoseType: string
+        DoseUnit: string
+        DurUnit: string
+        FreqUnit: string
+        Frequencies: BigRational array
+        GPKs: string array
+        Gender: Gender
+        Generic: string
+        Indication: string
+        IntervalUnit: string
+        MaxAge: BigRational option
+        MaxBSA: BigRational option
+        MaxDur: BigRational option
+        MaxGestAge: BigRational option
+        MaxInterval: BigRational option
+        MaxPMAge: BigRational option
+        MaxPerTime: BigRational option
+        MaxPerTimeAdj: BigRational option
+        MaxQty: BigRational option
+        MaxQtyAdj: BigRational option
+        MaxRate: BigRational option
+        MaxRateAdj: BigRational option
+        MaxTime: BigRational option
+        MaxWeight: BigRational option
+        MinAge: BigRational option
+        MinBSA: BigRational option
+        MinDur: BigRational option
+        MinGestAge: BigRational option
+        MinInterval: BigRational option
+        MinPMAge: BigRational option
+        MinPerTime: BigRational option
+        MinPerTimeAdj: BigRational option
+        MinQty: BigRational option
+        MinQtyAdj: BigRational option
+        MinRate: BigRational option
+        MinRateAdj: BigRational option
+        MinTime: BigRational option
+        MinWeight: BigRational option
+        NormPerTimeAdj: BigRational option
+        NormQtyAdj: BigRational option
+        RateUnit: string
+        Route: string
+        ScheduleText: string
+        Shape: string
+        Source: string
+        Substance: string
+        TimeUnit: string
+        Products : Product []
+    }
+
+
+    type ComponentLimit =
+        {
+            Name : string
+            Limit : DoseLimit option
+            Products : Product []
+            SubstanceLimits : DoseLimit []
+        }
+
+
     /// The DoseRule type. Identifies exactly one DoseRule
     /// for a specific PatientCategory, Indication, Generic, Shape, Route and DoseType.
     type DoseRule =
@@ -276,6 +342,8 @@ module Types =
             // The list of associated DoseLimits of the DoseRule.
             // In principle for the Shape and each Substance .
             DoseLimits : DoseLimit array
+            ShapeLimit : DoseLimit option
+            ComponentLimits : ComponentLimit []
             RenalRule : string option
         }
 

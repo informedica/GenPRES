@@ -1,6 +1,7 @@
 namespace Informedica.GenForm.Lib
 
 
+
 module DoseRule =
 
     open System
@@ -91,11 +92,13 @@ module DoseRule =
         let hasProducts (dl : DoseLimit) = dl.Products |> Array.isEmpty |> not
 
 
-        let hasNoLimits dl =
+        let hasNoLimits (dl : DoseLimit) =
             { limit with
                 Component = dl.Component
                 Products = dl.Products
                 DoseLimitTarget = dl.DoseLimitTarget
+                AdjustUnit = dl.AdjustUnit
+                DoseUnit = dl.DoseUnit
             } = dl
 
 
@@ -468,7 +471,7 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let mapToDoseRule (r : {| AdjustUnit: string; Brand : string; Component : string;  Department: string; ScheduleText: string; DoseText: string;  DoseType: DoseType; DoseUnit: string; DurUnit: string; FreqUnit: string; Frequencies: BigRational array; Gender: Gender; Generic: string; GPKs : string []; Indication: string; IntervalUnit: string; MaxAge: BigRational option; MaxBSA: BigRational option; MaxDur: BigRational option; MaxGestAge: BigRational option; MaxInterval: BigRational option; MaxPMAge: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MaxTime: BigRational option; MaxWeight: BigRational option; MinAge: BigRational option; MinBSA: BigRational option; MinDur: BigRational option; MinGestAge: BigRational option; MinInterval: BigRational option; MinPMAge: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; MinTime: BigRational option; MinWeight: BigRational option; NormPerTimeAdj: BigRational option; NormQtyAdj: BigRational option; Products : Product []; RateUnit: string; Route: string; Shape: string; Source: string; Substance: string; TimeUnit: string |}) =
+    let mapToDoseRule (r : DoseRuleDetails) =
         try
             {
                 Source = r.Source
@@ -505,7 +508,7 @@ module DoseRule =
                             |> fromTupleInclExcl (Some Utils.Units.day)
                         Location = AnyAccess
                     }
-                DoseType = r.DoseType
+                DoseType = r.DoseText |> DoseType.fromString r.DoseType
                 AdjustUnit = r.AdjustUnit |> Units.adjustUnit
                 Frequencies =
                     match r.FreqUnit |> Units.freqUnit with
@@ -526,6 +529,8 @@ module DoseRule =
                     (r.MinDur, r.MaxDur)
                     |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
                 DoseLimits = [||]
+                ShapeLimit = None
+                ComponentLimits = [||]
                 RenalRule = None
             }
             |> Some
@@ -553,7 +558,7 @@ cannot map {r}
                 let get = getColumn r
                 let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                {|
+                {
                     Source = get "Source"
                     Indication = get "Indication"
                     Generic = get "Generic"
@@ -615,8 +620,218 @@ cannot map {r}
                     MaxRate = get "MaxRate" |> toBrOpt
                     MinRateAdj = get "MinRateAdj" |> toBrOpt
                     MaxRateAdj = get "MaxRateAdj" |> toBrOpt
-                |}
+                    Products = [||]
+                }
             )
+
+
+    let getShapeLimits (prods : Product []) (dr : DoseRule) =
+        let droplets =
+            prods
+            |> Array.filter (fun p ->
+                p.Shape |> String.containsCapsInsens "druppel"
+            )
+            |> Array.choose _.Divisible
+            |> Array.distinct
+            |> Array.tryExactlyOne
+
+        let setDroplet vu =
+            let v, u = vu |> ValueUnit.get
+            match droplets with
+            | None -> vu
+            | Some m ->
+                u
+                |> Units.Volume.dropletSetDropsPerMl m
+                |> ValueUnit.withValue v
+
+        if dr.Shape |> String.isNullOrWhiteSpace then [||]
+        else
+            Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
+            |> Array.map (fun rsu ->
+                { DoseLimit.limit with
+                    DoseLimitTarget = dr.Shape |> ShapeLimitTarget
+                    Quantity =
+                        {
+                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
+                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
+                        }
+                }
+                |> fun dl ->
+                    if droplets |> Option.isNone then dl
+                    else
+                        { dl with
+                            DoseUnit =
+                                droplets
+                                |> Option.map Units.Volume.dropletWithDropsPerMl
+                                |> Option.defaultValue rsu.DoseUnit
+                            Quantity =
+                                {
+                                    Min =
+                                        dl.Quantity.Min
+                                        |> Option.map (
+                                            Limit.apply
+                                                setDroplet
+                                                setDroplet
+                                        )
+                                    Max =
+                                        dl.Quantity.Max
+                                        |> Option.map (
+                                            Limit.apply
+                                                setDroplet
+                                                setDroplet
+                                        )
+                                }
+
+                        }
+            )
+
+
+    let getDoseLimits (rs : DoseRuleDetails []) (dr: DoseRule) =
+        rs
+        |> Array.map (fun r ->
+            // the adjust unit
+            let adj = r.AdjustUnit |> Utils.Units.adjustUnit
+            // the dose unit
+            let du = r.DoseUnit |> Units.fromString
+            // the adjusted dose unit
+            let duAdj =
+                match adj, du with
+                | Some adj, Some du ->
+                    du
+                    |> Units.per adj
+                    |> Some
+                | _ -> None
+            // the time unit
+            let tu = r.FreqUnit |> Utils.Units.timeUnit
+            // the dose unit per time unit
+            let duTime =
+                match du, tu with
+                | Some du, Some tu ->
+                    du
+                    |> Units.per tu
+                    |> Some
+                | _ -> None
+            // the adjusted dose unit per time unit
+            let duAdjTime =
+                match duAdj, tu with
+                | Some duAdj, Some tu ->
+                    duAdj
+                    |> Units.per tu
+                    |> Some
+                | _ -> None
+            // the rate unit
+            let ru = r.RateUnit |> Units.fromString
+            // the dose unit per rate unit
+            let duRate =
+                match du, ru with
+                | Some du, Some ru ->
+                    du
+                    |> Units.per ru
+                    |> Some
+                | _ -> None
+            // the adjusted dose unit per rate unit
+            let duAdjRate =
+                match duAdj, ru with
+                | Some duAdj, Some ru ->
+                    duAdj
+                    |> Units.per ru
+                    |> Some
+                | _ -> None
+
+            {
+                Component = r.Component
+                Products = r.Products
+                DoseLimitTarget =
+                    if r.Substance |> String.isNullOrWhiteSpace then
+                        dr.Shape |> ShapeLimitTarget
+                    else
+                        r.Substance |> SubstanceLimitTarget
+                AdjustUnit = adj
+                DoseUnit = du |> Option.defaultValue NoUnit
+                Quantity =
+                    (r.MinQty, r.MaxQty)
+                    |> fromTupleInclIncl du
+                NormQuantityAdjust =
+                    r.NormQtyAdj
+                    |> ValueUnit.withOptSingleAndOptUnit duAdj
+                QuantityAdjust =
+                    (r.MinQtyAdj, r.MaxQtyAdj)
+                    |> fromTupleInclIncl duAdj
+                PerTime =
+                    (r.MinPerTime, r.MaxPerTime)
+                    |> fromTupleInclIncl duTime
+                NormPerTimeAdjust =
+                    r.NormPerTimeAdj
+                    |> ValueUnit.withOptSingleAndOptUnit duAdjTime
+                PerTimeAdjust =
+                    (r.MinPerTimeAdj, r.MaxPerTimeAdj)
+                    |> fromTupleInclIncl duAdjTime
+                Rate =
+                    (r.MinRate, r.MaxRate)
+                    |> fromTupleInclIncl duRate
+                RateAdjust =
+                    (r.MinRateAdj, r.MaxRateAdj)
+                    |> fromTupleInclIncl duAdjRate
+            }
+        )
+
+
+    let addDoseLimits (rs: DoseRuleDetails[]) (dr : DoseRule) =
+        { dr with
+            ShapeLimit =
+                dr
+                |> getShapeLimits (rs |> Array.collect _.Products)
+                |> Array.tryExactlyOne
+
+            ComponentLimits =
+                rs
+                |> Array.groupBy _.Component
+                |> Array.map (fun (cmp , rs) ->
+                    {
+                        Name = cmp
+                        Limit =
+                            rs
+                            // if no substance the dose limit is a component limit
+                            |> Array.filter (_.Substance >> String.isNullOrWhiteSpace)
+                            |> Array.tryExactlyOne
+                            |> Option.bind (fun r ->
+                                dr
+                                |> getDoseLimits [| r |]
+                                |> Array.tryExactlyOne
+                            )
+                        Products =
+                            rs
+                            |> Array.collect _.Products
+                            |> Array.distinct
+                        SubstanceLimits =
+                            rs
+                            // if a substance the limit is a substance limit
+                            |> Array.filter (_.Substance >> String.isNullOrWhiteSpace >> not)
+                            |> fun rs -> dr |> getDoseLimits rs
+                    }
+                )
+
+            DoseLimits =
+                let shapeLimits =
+                    dr
+                    |> getShapeLimits (rs |> Array.collect _.Products)
+
+                dr
+                |> getDoseLimits rs
+
+                // check if there is only one dose limit, and it's
+                // a shape dose limit, then only use that shape
+                // dose limit
+                |> function
+                    | [| dl  |] ->
+                        if dl |> DoseLimit.isSubstanceLimit then
+                            [| dl |]
+                            |> Array.append shapeLimits
+                        else [| dl |]
+                    | dls -> dls |> Array.append shapeLimits
+                // filter out all empty dose limits
+                |> Array.filter (DoseLimit.hasNoLimits >> not)
+        }
 
 
     let get_ dataUrl =
@@ -627,7 +842,7 @@ cannot map {r}
         |> getData
         |> Array.filter (fun dr ->
             dr.DoseType |> String.notEmpty &&
-            ((dr.Frequencies |> Array.length > 0 && dr.FreqUnit |> String.notEmpty) ||
+            (dr.Frequencies |> Array.length > 0 && dr.FreqUnit |> String.notEmpty ||
              dr.MaxQty |> Option.isSome ||
              dr.NormQtyAdj |> Option.isSome ||
              dr.MaxQtyAdj |> Option.isSome ||
@@ -667,7 +882,7 @@ cannot map {r}
                         writeWarningMessage $"no products for {key}"
 
                     [|
-                        {| r with
+                        { r with
                             Products =
                                 [|
                                     rs
@@ -676,12 +891,12 @@ cannot map {r}
                                     |> Array.distinct
                                     |> Product.create gen rte
                                 |]
-                        |}
+                        }
                     |]
                 else
                     filtered
                     |> Array.map (fun product ->
-                        {| r with
+                        { r with
                             Generic = gen
                             Shape = product.Shape |> String.toLower
                             Products =
@@ -694,181 +909,13 @@ cannot map {r}
                                          Shape = product.Shape |> Some
                                          Route = rte |> Some
                                      }
-                        |}
+                        }
                     )
             )
         )
-        |> Array.map (fun dr -> {| dr with DoseType = dr.DoseText |> DoseType.fromString dr.DoseType |})
         |> Array.groupBy mapToDoseRule
         |> Array.filter (fst >> Option.isSome)
         |> Array.map (fun (dr, rs) -> dr.Value, rs)
-        |> Array.map (fun (dr, rs) ->
-            { dr with
-                DoseLimits =
-                    let shapeLimits =
-                         let droplets =
-                             rs
-                             |> Array.collect _.Products
-                             |> Array.filter (fun p ->
-                                 p.Shape |> String.containsCapsInsens "druppel"
-                             )
-                             |> Array.choose _.Divisible
-                             |> Array.distinct
-                             |> Array.tryExactlyOne
-
-                         let setDroplet vu =
-                             let v, u = vu |> ValueUnit.get
-                             match droplets with
-                             | None -> vu
-                             | Some m ->
-                                 u
-                                 |> Units.Volume.dropletSetDropsPerMl m
-                                 |> ValueUnit.withValue v
-
-                         if dr.Shape |> String.isNullOrWhiteSpace then [||]
-                         else
-                             Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
-                             |> Array.map (fun rsu ->
-                                { DoseLimit.limit with
-                                    DoseLimitTarget = dr.Shape |> ShapeLimitTarget
-                                    Quantity =
-                                        {
-                                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
-                                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
-                                        }
-                                }
-                                |> fun dl ->
-                                    if droplets |> Option.isNone then dl
-                                    else
-                                        { dl with
-                                            DoseUnit =
-                                                droplets
-                                                |> Option.map Units.Volume.dropletWithDropsPerMl
-                                                |> Option.defaultValue rsu.DoseUnit
-                                            Quantity =
-                                                {
-                                                    Min =
-                                                        dl.Quantity.Min
-                                                        |> Option.map (
-                                                            Limit.apply
-                                                                setDroplet
-                                                                setDroplet
-                                                        )
-                                                    Max =
-                                                        dl.Quantity.Max
-                                                        |> Option.map (
-                                                            Limit.apply
-                                                                setDroplet
-                                                                setDroplet
-                                                        )
-                                                }
-
-                                        }
-                             )
-                             |> Array.distinct
-
-                    rs
-                    |> Array.map (fun r ->
-                        // the adjust unit
-                        let adj = r.AdjustUnit |> Utils.Units.adjustUnit
-                        // the dose unit
-                        let du = r.DoseUnit |> Units.fromString
-                        // the adjusted dose unit
-                        let duAdj =
-                            match adj, du with
-                            | Some adj, Some du ->
-                                du
-                                |> Units.per adj
-                                |> Some
-                            | _ -> None
-                        // the time unit
-                        let tu = r.FreqUnit |> Utils.Units.timeUnit
-                        // the dose unit per time unit
-                        let duTime =
-                            match du, tu with
-                            | Some du, Some tu ->
-                                du
-                                |> Units.per tu
-                                |> Some
-                            | _ -> None
-                        // the adjusted dose unit per time unit
-                        let duAdjTime =
-                            match duAdj, tu with
-                            | Some duAdj, Some tu ->
-                                duAdj
-                                |> Units.per tu
-                                |> Some
-                            | _ -> None
-                        // the rate unit
-                        let ru = r.RateUnit |> Units.fromString
-                        // the dose unit per rate unit
-                        let duRate =
-                            match du, ru with
-                            | Some du, Some ru ->
-                                du
-                                |> Units.per ru
-                                |> Some
-                            | _ -> None
-                        // the adjusted dose unit per rate unit
-                        let duAdjRate =
-                            match duAdj, ru with
-                            | Some duAdj, Some ru ->
-                                duAdj
-                                |> Units.per ru
-                                |> Some
-                            | _ -> None
-
-                        {
-                            Component = r.Component
-                            Products = r.Products
-                            DoseLimitTarget =
-                                if r.Substance |> String.isNullOrWhiteSpace then
-                                    dr.Shape |> ShapeLimitTarget
-                                else
-                                    r.Substance |> SubstanceLimitTarget
-                            AdjustUnit = adj
-                            DoseUnit = du |> Option.defaultValue NoUnit
-                            Quantity =
-                                (r.MinQty, r.MaxQty)
-                                |> fromTupleInclIncl du
-                            NormQuantityAdjust =
-                                r.NormQtyAdj
-                                |> ValueUnit.withOptSingleAndOptUnit duAdj
-                            QuantityAdjust =
-                                (r.MinQtyAdj, r.MaxQtyAdj)
-                                |> fromTupleInclIncl duAdj
-                            PerTime =
-                                (r.MinPerTime, r.MaxPerTime)
-                                |> fromTupleInclIncl duTime
-                            NormPerTimeAdjust =
-                                r.NormPerTimeAdj
-                                |> ValueUnit.withOptSingleAndOptUnit duAdjTime
-                            PerTimeAdjust =
-                                (r.MinPerTimeAdj, r.MaxPerTimeAdj)
-                                |> fromTupleInclIncl duAdjTime
-                            Rate =
-                                (r.MinRate, r.MaxRate)
-                                |> fromTupleInclIncl duRate
-                            RateAdjust =
-                                (r.MinRateAdj, r.MaxRateAdj)
-                                |> fromTupleInclIncl duAdjRate
-                        }
-                    )
-                    |> Array.distinct
-                    // check if there is only one dose limit, and it's
-                    // a shape dose limit, then only use that shape
-                    // dose limit
-                    |> function
-                        | [| dl  |] ->
-                            if dl |> DoseLimit.isSubstanceLimit then
-                                [| dl |]
-                                |> Array.append shapeLimits
-                            else [| dl |]
-                        | dls -> dls |> Array.append shapeLimits
-                    // filter out all empty dose limits
-                    |> Array.filter (DoseLimit.hasNoLimits >> not)
-            }
-        )
 
 
     /// <summary>
@@ -881,6 +928,8 @@ cannot map {r}
         fun () ->
             Web.getDataUrlIdGenPres ()
             |> get_
+            |> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
+
         |> Memoization.memoize
 
 

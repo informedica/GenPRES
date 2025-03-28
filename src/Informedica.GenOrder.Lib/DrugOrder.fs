@@ -103,7 +103,7 @@ module DrugOrder =
         {
             Id = ""
             Name = ""
-            Products = []
+            Components = []
             Quantities = None
             Route = ""
             OrderType = AnyOrder
@@ -156,16 +156,12 @@ module DrugOrder =
     /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
     let createComponents
         (solutionRule: SolutionRule option)
-        (doseLimits : DoseLimit []) =
+        (limits : ComponentLimit []) =
 
-        doseLimits
-        |> Array.groupBy _.Component
-        // only use components with names
-        |> Array.filter (fst >> String.isNullOrWhiteSpace >> not)
-        |> Array.map (fun (c, dls) ->
+        limits
+        |> Array.map (fun lim ->
             let shape =
-                dls
-                |> Array.collect _.Products
+                lim.Products
                 |> tryHead _.Shape
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
@@ -173,24 +169,18 @@ module DrugOrder =
 
             {
                 Name =
-                    dls
-                    |> Array.collect _.Products
-                    |> tryHead _.Generic
-                    |> fun s ->
-                        if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
-                        else s
+                    if lim.Name |> String.isNullOrWhiteSpace then "oplosvloeistof"
+                    else lim.Name
                 Shape = shape
                 Quantities =
                     // hack to prevent too many quantities
                     if solutionRule |> Option.isSome then None
                     else
-                        dls
-                        |> Array.collect _.Products
+                        lim.Products
                         |> Array.map _.ShapeQuantities
                         |> ValueUnit.collect
                 Divisible =
-                    dls
-                    |> Array.collect _.Products
+                    lim.Products
                     |> Array.choose _.Divisible
                     |> Array.tryHead
                 Solution =
@@ -203,23 +193,15 @@ module DrugOrder =
                             | ShapeLimitTarget s -> s |> String.equalsCapInsens shape
                             | _ -> false
                         )
-                Dose =
-                    doseLimits
-                    |> Array.filter DoseRule.DoseLimit.isShapeLimit
-                    // note: a shape limit can be component specific
-                    |> Array.filter (fun dl ->
-                        dl.Component |> String.isNullOrWhiteSpace ||
-                        dl.Component |> String.equalsCapInsens c
-                    )
-                    |> Array.tryExactlyOne
+                Dose = lim.Limit
                 Substances =
-                    dls
+                    lim.SubstanceLimits
                     |> Array.collect _.Products
                     |> Array.collect _.Substances
                     |> Array.groupBy _.Name
                     |> Array.map (fun (n, xs) ->
                         let dl =
-                            dls
+                            lim.SubstanceLimits
                             |> Array.tryFind (fun l ->
                                 match l.DoseLimitTarget with
                                 | SubstanceLimitTarget s ->
@@ -245,8 +227,7 @@ module DrugOrder =
                             Solution = None
                         }
                     )
-                    |> Array.toList
-            }
+                    |> Array.toList            }
         )
         |> Array.toList
 
@@ -292,9 +273,9 @@ module DrugOrder =
                         (Units.Count.times |> ValueUnit.one) / dc
                     )
 
-                Products =
+                Components =
                     let ps =
-                        dro.Products
+                        dro.Components
                         |> List.map (fun p ->
                             { p with
                                 Shape = p.Shape
@@ -309,10 +290,11 @@ module DrugOrder =
                     |> function
                     | Some p ->
                         [|
-                            { DoseLimit.limit with
-                                Component = "diluent"
-                                DoseLimitTarget = NoLimitTarget
+                            {
+                                Name = "diluent"
+                                Limit = None
                                 Products = [| p |]
+                                SubstanceLimits = [||]
                             }
                         |]
                         |> createComponents None
@@ -327,8 +309,8 @@ module DrugOrder =
         { drugOrder with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> String.toLower
-            Products =
-                dr.DoseLimits
+            Components =
+                dr.ComponentLimits
                 |> createComponents sr
             Quantities = None
             Frequencies = dr.Frequencies
@@ -367,10 +349,7 @@ module DrugOrder =
             pr.DoseRule.AdjustUnit
             |> Option.defaultValue Units.Weight.kiloGram
 
-        let dose =
-            pr.DoseRule.DoseLimits
-            |> Array.filter DoseRule.DoseLimit.isShapeLimit
-            |> Array.tryExactlyOne
+        let dose = pr.DoseRule.ShapeLimit
 
         let create = create pr.Patient au dose pr.DoseRule
 
@@ -396,7 +375,7 @@ module DrugOrder =
         let oru = Units.Volume.milliLiter |> Units.per Units.Time.hour
         // assumes the drugorder has products and these have quantities
         let ou =
-            d.Products
+            d.Components
             |> List.map (fun p ->
                 p.Quantities
                 |> Option.map (fun q -> q |> ValueUnit.getUnit)
@@ -511,7 +490,7 @@ module DrugOrder =
 
         orbDto.Components <-
             [
-                for p in d.Products do
+                for p in d.Components do
                     let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
                     let div =
                         p.Divisible
@@ -523,7 +502,7 @@ module DrugOrder =
                     cmpDto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> vuToDto
                     cmpDto.OrderableQuantity.Constraints.IncrOpt <- div
 
-                    if d.Products |> List.length = 1 then
+                    if d.Components |> List.length = 1 then
                         // if there is only one product, the concentration of that product in the
                         // Orderable will be by definition be 1.
                         cmpDto.OrderableConcentration.Constraints.ValsOpt <-
@@ -615,7 +594,7 @@ module DrugOrder =
                                 Order.Orderable.Item.Dto.dto d.Id d.Name p.Name s.Name
 
                             itmDto.ComponentConcentration.Constraints.ValsOpt <- s.Concentrations |> vuToDto
-                            if d.Products |> List.length = 1 then
+                            if d.Components |> List.length = 1 then
                                 // when only one product, the orderable concentration is the same as the component concentration
                                 itmDto.OrderableConcentration.Constraints.ValsOpt <- itmDto.ComponentConcentration.Constraints.ValsOpt
 

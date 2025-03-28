@@ -1660,7 +1660,7 @@ module Order =
                                         |> ValueUnit.getBaseValue
                                     )
 
-                                writeDebugMessage $"Increase increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                                writeDebugMessage $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
                                 // apply the minimum increment increase to the orderable and components
                                 let ord_qty = orb.OrderQuantity
                                 let orb_qty = orb.OrderableQuantity
@@ -2481,7 +2481,29 @@ module Order =
     let isSolved ord =
         ord
         |> toOrdVars
+        |> List.filter (fun ovar ->
+            let n =
+                ovar.Variable.Name
+                |> Name.toString
+
+            n |> String.contains "_cmp_qty" |> not &&
+            n |> String.contains "_orb_cnt" |> not
+        )
         |> List.forall OrderVariable.isSolved
+
+
+    let hasValues ord =
+        ord
+        |> toOrdVars
+        |> List.filter (fun ovar ->
+            let n =
+                ovar.Variable.Name
+                |> Name.toString
+
+            n |> String.contains "_cmp_qty" |> not &&
+            n |> String.contains "_orb_cnt" |> not
+        )
+        |> List.exists OrderVariable.hasValues
 
 
     let checkOrderDose pred op (ord: Order) : bool =
@@ -2742,30 +2764,30 @@ module Order =
             else
                 ord
                 |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
-                |> increaseRateIncrement
-                    maxRateCount
-                    (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
-            |> solveMinMax false logger
-            |> function
-            | Error (_, errs) ->
-                errs
-                |> List.iter (fun e ->
-                    writeErrorMessage $"{e}"
-                )
-                ord // original order
-            | Ok ord ->
-                ord // increased increment order
-                |> solveOrder false logger
-
+                |> solveMinMax false logger
                 |> function
                 | Error (_, errs) ->
                     errs
                     |> List.iter (fun e ->
                         writeErrorMessage $"{e}"
                     )
-                    ord // increased increment order
+                    ord // original order
                 | Ok ord ->
-                    ord // calculated order
+                    ord // increased increment order
+                    |> increaseRateIncrement
+                        maxRateCount
+                        (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
+                    |> solveOrder false logger
+
+                    |> function
+                    | Error (_, errs) ->
+                        errs
+                        |> List.iter (fun e ->
+                            writeErrorMessage $"{e}"
+                        )
+                        ord // increased increment order
+                    | Ok ord ->
+                        ord // calculated order
         |> Ok
 
 
