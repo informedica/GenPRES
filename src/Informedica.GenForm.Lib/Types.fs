@@ -152,7 +152,6 @@ module Types =
     /// A DoseLimit for a Shape or Substance.
     type DoseLimit =
         {
-            Component : string
             DoseLimitTarget : LimitTarget
             // The unit to adjust dosing with
             AdjustUnit : Unit option

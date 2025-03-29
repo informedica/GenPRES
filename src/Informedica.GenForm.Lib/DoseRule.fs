@@ -1,6 +1,66 @@
 namespace Informedica.GenForm.Lib
 
 
+module DoseLimit =
+
+
+    open Informedica.GenCore.Lib.Ranges
+    open Informedica.GenUnits.Lib
+
+
+    /// An empty DoseLimit.
+    let limit =
+        {
+            DoseLimitTarget = NoLimitTarget
+            AdjustUnit = None
+            DoseUnit = NoUnit
+            Quantity = MinMax.empty
+            NormQuantityAdjust = None
+            QuantityAdjust = MinMax.empty
+            PerTime = MinMax.empty
+            NormPerTimeAdjust = None
+            PerTimeAdjust = MinMax.empty
+            Rate = MinMax.empty
+            RateAdjust = MinMax.empty
+        }
+
+
+    /// <summary>
+    /// Check whether an adjust is used in
+    /// the DoseLimit.
+    /// </summary>
+    /// <remarks>
+    /// If any of the adjust values is not None
+    /// then an adjust is used.
+    /// </remarks>
+    let useAdjust (dl : DoseLimit) =
+        [
+            dl.NormQuantityAdjust = None
+            dl.QuantityAdjust = MinMax.empty
+            dl.NormPerTimeAdjust = None
+            dl.PerTimeAdjust = MinMax.empty
+            dl.RateAdjust = MinMax.empty
+        ]
+        |> List.forall id
+        |> not
+
+
+    let hasNoLimits (dl : DoseLimit) =
+        { limit with
+            DoseLimitTarget = dl.DoseLimitTarget
+            AdjustUnit = dl.AdjustUnit
+            DoseUnit = dl.DoseUnit
+        } = dl
+
+
+    let isSubstanceLimit (dl : DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isSubstanceTarget
+
+
+    let isComponentLimit (dl : DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isComponentTarget
+
+
+    let isShapeLimit (dl : DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isShapeTarget
+
 
 module DoseRule =
 
@@ -15,101 +75,6 @@ module DoseRule =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
     open Utils
-
-
-    module DoseLimit =
-
-        open Informedica.GenUnits.Lib
-
-        /// An empty DoseLimit.
-        let limit =
-            {
-                Component = ""
-                DoseLimitTarget = NoLimitTarget
-                AdjustUnit = None
-                DoseUnit = NoUnit
-                Quantity = MinMax.empty
-                NormQuantityAdjust = None
-                QuantityAdjust = MinMax.empty
-                PerTime = MinMax.empty
-                NormPerTimeAdjust = None
-                PerTimeAdjust = MinMax.empty
-                Rate = MinMax.empty
-                RateAdjust = MinMax.empty
-            }
-
-
-        /// <summary>
-        /// Check whether an adjust is used in
-        /// the DoseLimit.
-        /// </summary>
-        /// <remarks>
-        /// If any of the adjust values is not None
-        /// then an adjust is used.
-        /// </remarks>
-        let useAdjust (dl : DoseLimit) =
-            [
-                dl.NormQuantityAdjust = None
-                dl.QuantityAdjust = MinMax.empty
-                dl.NormPerTimeAdjust = None
-                dl.PerTimeAdjust = MinMax.empty
-                dl.RateAdjust = MinMax.empty
-            ]
-            |> List.forall id
-            |> not
-
-
-        /// Get the DoseLimitTarget as a string.
-        let doseLimitTargetToString = function
-            | NoLimitTarget -> ""
-            | ShapeLimitTarget s
-            | ComponentLimitTarget s
-            | SubstanceLimitTarget s -> s
-
-
-        /// Get the substance from the SubstanceDoseLimitTarget.
-        let substanceLimitTargetToString = function
-            | SubstanceLimitTarget s -> s
-            | _ -> ""
-
-
-        /// Get the substance from the SubstanceDoseLimitTarget.
-        let componentLimitTargetToString = function
-            | SubstanceLimitTarget s -> s
-            | _ -> ""
-
-
-        /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
-        let isSubstanceLimit (dl : DoseLimit) =
-            dl.DoseLimitTarget
-            |> function
-            | SubstanceLimitTarget _ -> true
-            | _ -> false
-
-
-        /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
-        let isComponentLimit (dl : DoseLimit) =
-            dl.DoseLimitTarget
-            |> function
-            | SubstanceLimitTarget _ -> true
-            | _ -> false
-
-
-        /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
-        let isShapeLimit (dl : DoseLimit) =
-            dl.DoseLimitTarget
-            |> function
-            | ShapeLimitTarget _ -> true
-            | _ -> false
-
-
-        let hasNoLimits (dl : DoseLimit) =
-            { limit with
-                Component = dl.Component
-                DoseLimitTarget = dl.DoseLimitTarget
-                AdjustUnit = dl.AdjustUnit
-                DoseUnit = dl.DoseUnit
-            } = dl
 
 
     module Print =
@@ -212,7 +177,7 @@ module DoseRule =
                 |> List.filter (String.IsNullOrEmpty >> not)
                 |> String.concat ", "
                 |> fun s ->
-                    $"%s{dl.DoseLimitTarget |> DoseLimit.doseLimitTargetToString} {wrap}{s}{wrap}"
+                    $"%s{dl.DoseLimitTarget |> LimitTarget.toString} {wrap}{s}{wrap}"
             )
 
 
@@ -748,7 +713,6 @@ cannot map {r}
                 | _ -> None
 
             {
-                Component = r.Component
                 DoseLimitTarget =
                     if r.Substance |> String.isNullOrWhiteSpace then
                         r.Component |> ComponentLimitTarget

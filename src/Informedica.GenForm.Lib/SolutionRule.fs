@@ -348,7 +348,7 @@ module SolutionRule =
                 else
                     $"* geef %s{p}%% van de bereiding"
 
-            $"\n{loc}{limit.SolutionLimitTarget |> LimitTarget.limitTargetToString}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
+            $"\n{loc}{limit.SolutionLimitTarget |> LimitTarget.toString}: {q}{qs}{vol}\n{conc}\n{dosePerc}"
 
 
         /// Get the markdown representation of the given SolutionRules.

@@ -11,7 +11,6 @@ module DrugOrder =
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
 
-    module DoseLimit = DoseRule.DoseLimit
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
 
@@ -259,7 +258,7 @@ module DrugOrder =
         | Some sr ->
             { dro with
                 Dose =
-                    { DoseRule.DoseLimit.limit with
+                    { DoseLimit.limit with
                         Rate = sr.DripRate
                         Quantity  = sr.Volume
                         DoseUnit = Units.Volume.milliLiter

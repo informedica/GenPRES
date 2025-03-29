@@ -367,7 +367,7 @@ module Check =
                                     r.zindex.dosages
                                     |> List.tryFind (fun g ->
                                         dl.DoseLimitTarget
-                                        |> DoseRule.DoseLimit.doseLimitTargetToString
+                                        |> LimitTarget.toString
                                         |> String.equalsCapInsens g.target
                                     )
                                     |> Option.bind _.dosage
@@ -382,7 +382,7 @@ module Check =
                                         {|
                                             doseLimitTarget =
                                                 dl.DoseLimitTarget
-                                                |> DoseRule.DoseLimit.doseLimitTargetToString
+                                                |> LimitTarget.toString
                                             quantityNorm =
                                                 if x.SingleDosage.Norm =
                                                    MinMax.empty then x.StartDosage.Norm
