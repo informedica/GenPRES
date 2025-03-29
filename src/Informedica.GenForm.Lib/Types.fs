@@ -145,6 +145,7 @@ module Types =
     type LimitTarget =
         | NoLimitTarget
         | SubstanceLimitTarget of string
+        | ComponentLimitTarget of string
         | ShapeLimitTarget of string
 
 
@@ -337,8 +338,6 @@ module Types =
             IntervalTime : MinMax
             // The MinMax Duration of the DoseRule
             Duration : MinMax
-            // The list of associated DoseLimits of the DoseRule.
-            // In principle for the Shape and each Substance .
             ShapeLimit : DoseLimit option
             ComponentLimits : ComponentLimit []
             RenalRule : string option

@@ -300,7 +300,7 @@ module OrderContext =
                                         if cl.Products |> Array.isEmpty then
                                             [|
                                                 cl.SubstanceLimits
-                                                |> Array.map (_.DoseLimitTarget >> DoseRule.DoseLimit.substanceDoseLimitTargetToString)
+                                                |> Array.map (_.DoseLimitTarget >> DoseRule.DoseLimit.substanceLimitTargetToString)
                                                 |> Product.create
                                                     pr.DoseRule.Generic
                                                     pr.DoseRule.Route
@@ -349,7 +349,7 @@ module OrderContext =
                         |> Array.fold (fun acc dl ->
                             let sn =
                                 dl.DoseLimitTarget
-                                |> DoseRule.DoseLimit.substanceDoseLimitTargetToString
+                                |> DoseRule.DoseLimit.substanceLimitTargetToString
                             acc
                             |> Order.setDoseUnit sn dl.DoseUnit
                         ) ord

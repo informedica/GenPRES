@@ -63,17 +63,32 @@ module DoseRule =
         let doseLimitTargetToString = function
             | NoLimitTarget -> ""
             | ShapeLimitTarget s
+            | ComponentLimitTarget s
             | SubstanceLimitTarget s -> s
 
 
         /// Get the substance from the SubstanceDoseLimitTarget.
-        let substanceDoseLimitTargetToString = function
+        let substanceLimitTargetToString = function
+            | SubstanceLimitTarget s -> s
+            | _ -> ""
+
+
+        /// Get the substance from the SubstanceDoseLimitTarget.
+        let componentLimitTargetToString = function
             | SubstanceLimitTarget s -> s
             | _ -> ""
 
 
         /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
         let isSubstanceLimit (dl : DoseLimit) =
+            dl.DoseLimitTarget
+            |> function
+            | SubstanceLimitTarget _ -> true
+            | _ -> false
+
+
+        /// Check whether the DoseLimitTarget is a SubstanceDoseLimitTarget.
+        let isComponentLimit (dl : DoseLimit) =
             dl.DoseLimitTarget
             |> function
             | SubstanceLimitTarget _ -> true
@@ -680,7 +695,7 @@ cannot map {r}
             )
 
 
-    let getDoseLimits (rs : DoseRuleDetails []) (dr: DoseRule) =
+    let getDoseLimits (rs : DoseRuleDetails []) =
         rs
         |> Array.map (fun r ->
             // the adjust unit
@@ -736,7 +751,7 @@ cannot map {r}
                 Component = r.Component
                 DoseLimitTarget =
                     if r.Substance |> String.isNullOrWhiteSpace then
-                        dr.Shape |> ShapeLimitTarget
+                        r.Component |> ComponentLimitTarget
                     else
                         r.Substance |> SubstanceLimitTarget
                 AdjustUnit = adj
@@ -786,12 +801,8 @@ cannot map {r}
                             rs
                             // if no substance the dose limit is a component limit
                             |> Array.filter (_.Substance >> String.isNullOrWhiteSpace)
+                            |> getDoseLimits
                             |> Array.tryExactlyOne
-                            |> Option.bind (fun r ->
-                                dr
-                                |> getDoseLimits [| r |]
-                                |> Array.tryExactlyOne
-                            )
                         Products =
                             rs
                             |> Array.collect _.Products
@@ -800,7 +811,7 @@ cannot map {r}
                             rs
                             // if a substance the limit is a substance limit
                             |> Array.filter (_.Substance >> String.isNullOrWhiteSpace >> not)
-                            |> fun rs -> dr |> getDoseLimits rs
+                            |> getDoseLimits
                     }
                 )
         }
