@@ -289,7 +289,7 @@ module DrugOrder =
                     | Some p ->
                         [|
                             {
-                                Name = "diluent"
+                                Name = p.Generic
                                 Limit = None
                                 Products = [| p |]
                                 SubstanceLimits = [||]

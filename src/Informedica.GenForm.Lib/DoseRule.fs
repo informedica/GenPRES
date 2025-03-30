@@ -597,6 +597,7 @@ cannot map {r}
                     Products = [||]
                 }
             )
+        |> Array.distinct
 
 
     let getShapeLimits (prods : Product []) (dr : DoseRule) =
@@ -781,24 +782,26 @@ cannot map {r}
         }
 
 
+    let doseDetailsIsValid (dd: DoseRuleDetails) =
+            dd.DoseType |> String.notEmpty &&
+            (dd.Frequencies |> Array.length > 0 && dd.FreqUnit |> String.notEmpty ||
+             dd.MaxQty |> Option.isSome ||
+             dd.NormQtyAdj |> Option.isSome ||
+             dd.MaxQtyAdj |> Option.isSome ||
+             dd.MaxPerTime |> Option.isSome ||
+             dd.NormPerTimeAdj |> Option.isSome ||
+             dd.MaxPerTime |> Option.isSome ||
+             dd.MaxRate |> Option.isSome ||
+             dd.MaxRateAdj |> Option.isSome)
+
+
     let get_ dataUrl =
         let prods = Product.get ()
         let warnings = System.Collections.Generic.Dictionary<_, _>()
 
         dataUrl
         |> getData
-        |> Array.filter (fun dr ->
-            dr.DoseType |> String.notEmpty &&
-            (dr.Frequencies |> Array.length > 0 && dr.FreqUnit |> String.notEmpty ||
-             dr.MaxQty |> Option.isSome ||
-             dr.NormQtyAdj |> Option.isSome ||
-             dr.MaxQtyAdj |> Option.isSome ||
-             dr.MaxPerTime |> Option.isSome ||
-             dr.NormPerTimeAdj |> Option.isSome ||
-             dr.MaxPerTime |> Option.isSome ||
-             dr.MaxRate |> Option.isSome ||
-             dr.MaxRateAdj |> Option.isSome)
-        )
+        |> Array.filter doseDetailsIsValid
         |> Array.groupBy (fun d ->
             match d.Shape, d.Brand with
             | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
@@ -858,6 +861,7 @@ cannot map {r}
                                      }
                         }
                     )
+                    |> Array.distinct
             )
         )
         |> Array.groupBy mapToDoseRule

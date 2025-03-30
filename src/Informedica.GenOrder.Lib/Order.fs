@@ -357,17 +357,10 @@ module Order =
             /// <param name="maxCount">The maximum count</param>
             /// <param name="incrs">The list of increments</param>
             /// <param name="dos">The Dose</param>
-            let increaseIncrement maxCount incrs (dos: Dose) =
-                let qty = dos.Quantity
-                let ptm = dos.PerTime
-                let rte = dos.Rate |> Rate.increaseIncrement maxCount incrs
-                let tot = dos.Total
-                let qty_adj = dos.QuantityAdjust
-                let ptm_adj = dos.PerTimeAdjust
-                let rte_adj = dos.RateAdjust
-                let tot_adj = dos.TotalAdjust
-
-                create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
+            let increaseRateIncrement maxCount incrs (dos: Dose) =
+                { dos with
+                    Rate =  dos.Rate |> Rate.increaseIncrement maxCount incrs
+                }
 
 
             let setNormDose nd (dos: Dose) =
@@ -1180,17 +1173,12 @@ module Order =
             /// <param name="maxCount">The maximum count</param>
             /// <param name="incrs">The list of increments</param>
             /// <param name="cmp">The Component</param>
-            let increaseIncrement maxCount incrs cmp =
-                let cmp_qty = (cmp |> get).ComponentQuantity
-                let orb_qty = cmp.OrderableQuantity |> Quantity.increaseIncrement maxCount incrs
-                let orb_cnt = cmp.OrderableCount
-                let orb_cnc = cmp.OrderableConcentration
-                let ord_qty = cmp.OrderQuantity
-                let ord_cnt = cmp.OrderCount
-                let dos = cmp.Dose
-
-                cmp.Items
-                |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+            let increaseQuantityIncrement maxCount incrs cmp =
+                { (cmp |> get) with
+                    OrderableQuantity =
+                        cmp.OrderableQuantity
+                        |> Quantity.increaseIncrement maxCount incrs
+                }
 
 
             let setDoseUnit sn du cmp : Component =
@@ -1631,46 +1619,38 @@ module Order =
                 then orb
             else
                 // first calculate the minimum increment increase for the orderable and components
-                let ord_qty = orb.OrderQuantity
-                let orb_qty = orb.OrderableQuantity
-                let ord_cnt = orb.OrderCount
-                let dos_cnt = orb.DoseCount
-                let dos = orb.Dose //|> Dose.increaseIncrement incr
+                { orb with
+                    Components =
+                        orb.Components
+                        |> List.map (Component.increaseQuantityIncrement maxCount incrs)
+                }
+                |> _.Components
+                |> List.map (fun c ->
+                    (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
+                )
+                |> List.choose Variable.ValueRange.getIncr
+                |> function
+                    | [] -> orb
+                    | incrs ->
+                        if incrs |> List.length <> (orb.Components |> List.length) then orb
+                        else
+                            let incr =
+                                incrs
+                                |> List.minBy (fun i ->
+                                    i
+                                    |> Variable.ValueRange.Increment.toValueUnit
+                                    |> ValueUnit.getBaseValue
+                                )
 
-                orb.Components
-                |> List.map (Component.increaseIncrement maxCount incrs)
-                |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
-
-                |> fun newOrb ->
-                    newOrb.Components
-                    |> List.map (fun c ->
-                        (c.OrderableQuantity |> Quantity.toOrdVar |> OrderVariable.getVar).Values
-                    )
-                    |> List.choose Variable.ValueRange.getIncr
-                    |> function
-                        | [] -> orb
-                        | incrs ->
-                            if incrs |> List.length <> (orb.Components |> List.length) then orb
-                            else
-                                let incr =
-                                    incrs
-                                    |> List.minBy (fun i ->
-                                        i
-                                        |> Variable.ValueRange.Increment.toValueUnit
-                                        |> ValueUnit.getBaseValue
-                                    )
-
-                                writeDebugMessage $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
-                                // apply the minimum increment increase to the orderable and components
-                                let ord_qty = orb.OrderQuantity
-                                let orb_qty = orb.OrderableQuantity
-                                let ord_cnt = orb.OrderCount
-                                let dos_cnt = orb.DoseCount
-                                let dos = orb.Dose //|> Dose.increaseIncrement incr
-
-                                orb.Components
-                                |> List.map (Component.increaseIncrement maxCount [incr])
-                                |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+                            writeDebugMessage $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                            // apply the minimum increment increase to the orderable and components
+                            { orb with
+                                OrderableQuantity =
+                                    orb.OrderableQuantity |> Quantity.increaseIncrement maxCount [incr]
+                                Components =
+                                    orb.Components
+                                    |> List.map (Component.increaseQuantityIncrement maxCount [incr])
+                            }
 
 
         /// <summary>
@@ -1681,14 +1661,9 @@ module Order =
         /// <param name="incrs">The list of increments</param>
         /// <param name="orb">The Orderable</param>
         let increaseRateIncrement maxCount incrs orb =
-            let ord_qty = (orb |> get).OrderQuantity
-            let orb_qty = orb.OrderableQuantity //|> Quantity.increaseIncrement incr
-            let ord_cnt = orb.OrderCount
-            let dos_cnt = orb.DoseCount
-            let dos = orb.Dose |> Dose.increaseIncrement maxCount incrs
-
-            orb.Components
-            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
+            { (orb |> get) with
+                Dose = orb.Dose |> Dose.increaseRateIncrement maxCount incrs
+            }
 
 
         let setDoseUnit sn du (orb : Orderable) =
@@ -2066,10 +2041,29 @@ module Order =
                 | _ -> prs
 
 
+        let setFrequency set prs =
+            match prs with
+                | Discontinuous frq ->
+                    frq |> set |> Discontinuous
+                | Timed (frq, tme) ->
+                    (frq |> set, tme)
+                    |> Timed
+                | _ -> prs
+
+
         let setMinTime = setTime Time.setMinValue
 
 
         let setMaxTime = setTime Time.setMinValue
+
+
+        let setMinFrequency = setFrequency Frequency.setMinValue
+
+
+        let setMaxFrequency = setFrequency Frequency.setMaxValue
+
+
+        let setMedianFrequency = setFrequency Frequency.setMedianValue
 
 
         module Print =
@@ -2522,11 +2516,10 @@ module Order =
         let qtys =
             [
                 ord.Orderable.Dose.Quantity
-                yield!
-                    ord.Orderable.Components
-                    |> List.map _.Dose
-                    |> List.map _.Quantity
-
+                for cmp in ord.Orderable.Components do
+                    cmp.Dose.Quantity
+                    for itm in cmp.Items do
+                        itm.Dose.Quantity
             ]
 
         let isOr = true |> op <| false
@@ -2672,9 +2665,6 @@ module Order =
     /// <returns>A Result with the Order or a list error messages</returns>
     /// <raises>Any exception raised by the solver</raises>
     let solve minMax printErr logger (ord: Order) =
-        let ord =
-            if minMax then ord |> applyConstraints
-            else ord
 
         let mapping =
             match ord.Prescription with
@@ -2764,7 +2754,7 @@ module Order =
             else
                 ord
                 |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
-                |> solveMinMax false logger
+                |> solveMinMax true logger
                 |> function
                 | Error (_, errs) ->
                     errs
@@ -2777,7 +2767,7 @@ module Order =
                     |> increaseRateIncrement
                         maxRateCount
                         (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
-                    |> solveOrder false logger
+                    |> solveMinMax false logger
 
                     |> function
                     | Error (_, errs) ->
@@ -2955,6 +2945,30 @@ module Order =
 
 
     let solveMedianDose logger itm = setMedianDose itm >> (solveOrder false logger)
+
+
+    let setFrequency set (ord : Order) =
+        { ord with
+            Prescription = ord.Prescription |> set
+        }
+
+
+    let setMinFrequency = setFrequency Prescription.setMinFrequency
+
+
+    let setMaxFrequency = setFrequency Prescription.setMaxFrequency
+
+
+    let setMedianFrequency = setFrequency Prescription.setMedianFrequency
+
+
+    let solveMinFrequency logger = setMinFrequency >> solveOrder false logger
+
+
+    let solveMaxFrequency logger = setMinFrequency >> solveOrder false logger
+
+
+    let solveMedianFrequency logger = setMinFrequency >> solveOrder false logger
 
 
     module Print =

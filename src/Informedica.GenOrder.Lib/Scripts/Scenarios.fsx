@@ -220,21 +220,17 @@ Patient.infant
             |> printfn "%s"
 
 
-
-
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
 |> OrderContext.setFilterGeneric "Nutrilon Pepti 1"
-|> Api.evaluate //|> ignore
+|> OrderContext.evaluate //|> ignore
 |> printCtx "1 eval" //|> ignore
-|> fun ctx ->
-    { ctx with
-        OrderContext.Filter.DoseType = ctx.Filter.DoseTypes |> Array.tryItem 0
-    }
-|> Api.evaluate
-|> printCtx "2 eval" //|> ignore
 |> ignore
+
+open MathNet.Numerics
+open Informedica.GenUnits.Lib
+open Informedica.GenSolver.Lib
 
 
 Patient.infant
@@ -242,9 +238,44 @@ Patient.infant
 |> OrderContext.create
 |> OrderContext.setFilterGeneric "Nutrilon Pepti 1"
 |> OrderContext.getRules
-|> snd
-|> Array.head
-|> _.DoseRule
-|> _.DoseLimits
-|> Array.head
-|> DoseRule.DoseLimit.hasNoLimits
+|> fun (ctx, prs) ->
+    let incrs u =
+        [ 1N/20N; 1N/10N; 1N/2N; 1N; 5N; 10N; 20N ]
+        |> List.map (ValueUnit.singleWithUnit u)
+        |> List.map Variable.ValueRange.Increment.create
+
+    let pr =
+        prs
+        |> Array.head
+    pr
+    |> DrugOrder.fromRule
+    |> Array.head
+    |> DrugOrder.toOrderDto
+    |> Order.Dto.fromDto
+    |> Order.applyConstraints
+    |> Order.solveMinMax true OrderLogger.logger.Logger
+    |> Result.map (Order.increaseQuantityIncrement 10N (incrs Units.Volume.milliLiter))
+//    |> OrderContext.Helpers.processOrderWithRule pr OrderLogger.logger.Logger
+    |> Result.bind (Order.solveMinMax true OrderLogger.logger.Logger)
+    |> Result.iter (Order.toString >> String.concat "\n" >> printfn "\n\n== final:\n\n%s")
+
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> OrderContext.create
+|> OrderContext.setFilterGeneric "paracetamol"
+|> Api.evaluate //|> ignore
+|> printCtx "1 eval" //|> ignore
+|> Api.evaluate
+|> printCtx "2 eval" //|> ignore
+|> fun ctx ->
+    match ctx.Scenarios |> Array.tryExactlyOne with
+    | None -> ()
+    | Some sc ->
+        sc.Order
+        |> Order.solveMaxFrequency OrderLogger.noLogger
+//        |> Result.bind (Order.solveMedianDose OrderLogger.noLogger (Some "paracetamol"))
+        |> Result.map (Order.toString >> String.concat "\n")
+        |> Result.defaultValue ""
+        |> printfn "%A"

@@ -81,31 +81,12 @@ module OrderScenario =
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
-    module Helpers =
-
-
-        /// <summary>
-        /// Increase the Orderable Quantity and Rate Increment of an Order.
-        /// This allows speedy calculation by avoiding large amount
-        /// of possible values.
-        /// </summary>
-        /// <param name="logger">The OrderLogger to use</param>
-        /// <param name="ord">The Order to increase the increment of</param>
-        let increaseIncrements logger ord = Order.increaseIncrements logger 10 10 ord
-
-
-        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
-
-
-        let replace s =
-            s
-            |> String.replace "[" ""
-            |> String.replace "]" ""
-            |> String.replace "<" ""
-            |> String.replace ">" ""
-
-
-    open Helpers
+    let replace s =
+        s
+        |> String.replace "[" ""
+        |> String.replace "]" ""
+        |> String.replace "<" ""
+        |> String.replace ">" ""
 
 
     let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl : OrderScenario
@@ -280,11 +261,20 @@ module OrderContext =
     open Filters
 
 
-
     module Helpers =
 
 
-        open OrderScenario.Helpers
+        /// <summary>
+        /// Increase the Orderable Quantity and Rate Increment of an Order.
+        /// This allows speedy calculation by avoiding large amount
+        /// of possible values.
+        /// </summary>
+        /// <param name="logger">The OrderLogger to use</param>
+        /// <param name="ord">The Order to increase the increment of</param>
+        let increaseIncrements logger ord = Order.increaseIncrements logger 10 10 ord
+
+
+        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
 
 
         let changeRuleProductsDivisible pr =
@@ -316,6 +306,21 @@ module OrderContext =
             }
 
 
+        let processOrderWithRule pr logger ord =
+            ord
+            |> Order.applyConstraints
+            |> Order.solveMinMax false logger
+            |> Result.bind (increaseIncrements logger)
+            |> Result.bind (fun ord ->
+                match pr.DoseRule |> DoseRule.getNormDose with
+                | Some nd ->
+                    ord
+                    |> Order.minIncrMaxToValues true logger
+                    |> setNormDose logger nd
+                | None -> Ok ord
+            )
+
+
         /// <summary>
         /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
         /// multiple Orders, depending on the SolutionRules.
@@ -330,16 +335,7 @@ module OrderContext =
                 drugOrder
                 |> DrugOrder.toOrderDto
                 |> Order.Dto.fromDto
-                |> Order.solveMinMax false logger
-                |> Result.bind (increaseIncrements logger)
-                |> Result.bind (fun ord ->
-                    match pr.DoseRule |> DoseRule.getNormDose with
-                    | Some nd ->
-                        ord
-                        |> Order.minIncrMaxToValues true logger
-                        |> setNormDose logger nd
-                    | None -> Ok ord
-                )
+                |> processOrderWithRule pr logger
                 |> function
                 | Ok ord ->
                     let ord =
@@ -415,6 +411,7 @@ module OrderContext =
 
             pr
             |> DrugOrder.fromRule
+            // Note: multiple solution rules can result in multiple drugorders
             |> Array.map (eval pr)
 
 
@@ -623,7 +620,7 @@ module OrderContext =
         }
 
 
-    let changeDiluent (ctx: OrderContext) =
+    let checkDiluentChange (ctx: OrderContext) =
         ctx.Scenarios
         |> Array.tryExactlyOne
         |> Option.map (fun sc ->
@@ -641,7 +638,7 @@ module OrderContext =
         |> Option.defaultValue false
 
 
-    let changeComponents (ctx: OrderContext) =
+    let checkComponentChange (ctx: OrderContext) =
         ctx.Scenarios
         |> Array.tryExactlyOne
         |> Option.map (fun sc ->
@@ -769,43 +766,6 @@ Scenarios: {scenarios}
         Path.GetDirectoryName(location)
 
 
-    /// <summary>
-    /// Use a PrescriptionResult to create a new PrescriptionResult.
-    /// </summary>
-    let evaluate (ctx : OrderContext) =
-        if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-            let path =
-                if getAssemblyPath () |> String.isNullOrWhiteSpace then
-                    $"{Environment.CurrentDirectory}/log.txt"
-                else
-                    $"{getAssemblyPath ()}/log.txt"
-
-            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
-
-        let ctx, prs = ctx |> getRules
-
-        if prs |> Array.isEmpty then ctx
-        else
-            { ctx with
-                Scenarios =
-                    prs
-                    |> evaluateRules
-                    |> function
-                    | [||] ->
-                        // no valid results so evaluate again
-                        // with changed product divisibility
-                        prs
-                        |> Array.map changeRuleProductsDivisible
-                        |> evaluateRules
-                        |> processEvaluationResults
-                    | results ->
-                        results
-                        |> processEvaluationResults
-                    |> filterScenariosByPreparation
-            }
-        |> updateFilterIfOneScenario
-
-
     let applyToOrderScenario scenarioF (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None -> ctx
@@ -827,7 +787,7 @@ Scenarios: {scenarios}
 
     let processOrders (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
-        | None -> ctx |> evaluate
+        | None -> ctx
         | Some sc ->
             { ctx with
                 Scenarios =
@@ -847,6 +807,61 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
+    let getScenarios ctx =
+        let ctx, prs = ctx |> getRules
+
+        if prs |> Array.isEmpty then ctx
+        else
+            { ctx with
+                Scenarios =
+                    // Note: different scenarios can exist based on multiple shapes
+                    // and multiple solution rules
+                    prs
+                    |> evaluateRules
+                    |> function
+                    | [||] ->
+                        // no valid results so evaluate again
+                        // with changed product divisibility
+                        prs
+                        |> Array.map changeRuleProductsDivisible
+                        |> evaluateRules
+                        |> processEvaluationResults
+                    | results ->
+                        results
+                        |> processEvaluationResults
+                    |> filterScenariosByPreparation
+            }
+        |> updateFilterIfOneScenario
+
+
+    let activateLogger () =
+        if Env.getItem "GENPRES_LOG"
+           |> Option.map (fun s -> s = "1")
+           |> Option.defaultValue false then
+
+            let path =
+                if getAssemblyPath () |> String.isNullOrWhiteSpace then
+                    $"{Environment.CurrentDirectory}/log.txt"
+                else
+                    $"{getAssemblyPath ()}/log.txt"
+
+            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+
+
+    /// <summary>
+    /// Use a PrescriptionResult to create a new PrescriptionResult.
+    /// </summary>
+    let evaluate (ctx : OrderContext) =
+        activateLogger ()
+
+        if ctx.Scenarios |> Array.length <> 1 ||
+           ctx |> checkDiluentChange ||
+           ctx |> checkComponentChange then ctx |> getScenarios
+
+        else ctx |> processOrders
+
+
+
     let printCtx msg ctx =
         writeDebugMessage $"\n\n=== {msg |> String.capitalize} ===\n"
 
@@ -856,8 +871,8 @@ Scenarios: {scenarios}
             writeDebugMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}"
         | _ -> ()
 
-        writeDebugMessage $"Components change: {ctx |> changeComponents}"
-        writeDebugMessage $"Diluent change: {ctx |> changeDiluent}"
+        writeDebugMessage $"Components change: {ctx |> checkComponentChange}"
+        writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}"
 
         ctx |> toString msg
         |> writeDebugMessage
@@ -879,12 +894,7 @@ module Api =
     /// <summary>
     /// Use a PrescriptionResult to create a new PrescriptionResult.
     /// </summary>
-    let evaluate (ctx : OrderContext) =
-        if ctx.Scenarios |> Array.length <> 1 ||
-           ctx |> OrderContext.changeDiluent ||
-           ctx |> OrderContext.changeComponents then ctx |> OrderContext.evaluate
-        else
-            ctx |> OrderContext.processOrders
+    let evaluate = OrderContext.evaluate
 
 
     let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =

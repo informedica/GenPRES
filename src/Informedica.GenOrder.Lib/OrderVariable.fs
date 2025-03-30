@@ -889,13 +889,13 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        let setMinValue = toOrdVar >> setMinValue >> Time.Time //TODO strange syntax
+        let setMinValue = toOrdVar >> setMinValue >> time
 
 
-        let setMaxValue = toOrdVar >> setMaxValue >> Time.Time
+        let setMaxValue = toOrdVar >> setMaxValue >> time
 
 
-        let setMedianValue = toOrdVar >> setMedianValue >> Time.Time
+        let setMedianValue = toOrdVar >> setMedianValue >> time
 
 
     /// Type and functions that represent a frequency
@@ -955,6 +955,15 @@ module OrderVariable =
 
         /// Apply the constraints of a Frequency to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Frequency
+
+
+        let setMinValue = toOrdVar >> setMinValue >> Frequency
+
+
+        let setMaxValue = toOrdVar >> setMaxValue >> Frequency
+
+
+        let setMedianValue = toOrdVar >> setMedianValue >> Frequency
 
 
 

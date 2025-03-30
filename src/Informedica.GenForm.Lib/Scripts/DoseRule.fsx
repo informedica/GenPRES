@@ -44,3 +44,9 @@ Web.getDataUrlIdGenPres ()
     |> DoseRule.addDoseLimits rs
 )
 |> Option.get
+
+
+DoseRule.get ()
+|> Array.tryFind (_.Generic >> String.equalsCapInsens "noradrenaline")
+//|> Option.map _.ComponentLimits
+

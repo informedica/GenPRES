@@ -324,6 +324,7 @@ module Types =
             Route : string
             // The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
+            // the original dose schedule text
             ScheduleText : string
             // The DoseType of the DoseRule
             DoseType : DoseType
@@ -337,8 +338,12 @@ module Types =
             IntervalTime : MinMax
             // The MinMax Duration of the DoseRule
             Duration : MinMax
+            // the limits based upon the shape and route
             ShapeLimit : DoseLimit option
+            // the limits for the component and substances
+            // in the component
             ComponentLimits : ComponentLimit []
+            // an optional renal rule
             RenalRule : string option
         }
 
