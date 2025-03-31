@@ -428,11 +428,15 @@ module Types =
             Generics: string []
             Indications: string []
             Routes: string []
+            Shapes : string []
+            DoseTypes: DoseType []
             PatientCategories: string []
             Products: string []
             Generic: string option
             Indication: string option
             Route: string option
+            Shape: string option
+            DoseType : DoseType option
             PatientCategory: string option
             Patient: Patient option
             Markdown: string

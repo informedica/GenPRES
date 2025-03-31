@@ -284,7 +284,7 @@ module private Elmish =
                     dosetype =
                         paramsMap
                         |> Map.tryFind "dt"
-                        |> Option.map OrderContext.doseTypeFromString
+                        |> Option.map DoseType.doseTypeFromString
                 |}
                 |> Some
 
@@ -403,7 +403,7 @@ module private Elmish =
                         |> Deferred.defaultValue tp
                         |> Resolved
                 Formulary =
-                    {Formulary.empty with Patient = p }
+                    { Formulary.empty with Patient = p }
                     |> Resolved
                 Parenteralia =
                     Parenteralia.empty
@@ -524,6 +524,8 @@ module private Elmish =
                             Indication = pr.Filter.Indication
                             Generic = pr.Filter.Medication
                             Route = pr.Filter.Route
+                            Shape = pr.Filter.Shape
+                            DoseType = pr.Filter.DoseType
                         }
                     )
                 Parenteralia =
@@ -590,8 +592,24 @@ module private Elmish =
                                     { scr.Filter with
                                         Indication = form.Indication
                                         Medication = form.Generic
+                                        Shape = form.Shape
                                         Route = form.Route
+                                        DoseType = form.DoseType
+                                        Diluent =
+                                            if form.Indication = scr.Filter.Indication &&
+                                               form.Generic = scr.Filter.Medication &&
+                                               form.Route = scr.Filter.Route &&
+                                               form.Shape = scr.Filter.Shape then scr.Filter.Diluent
+                                            else None
+                                        SelectedComponents =
+                                            if form.Indication = scr.Filter.Indication &&
+                                               form.Generic = scr.Filter.Medication &&
+                                               form.Route = scr.Filter.Route &&
+                                               form.Shape = scr.Filter.Shape then scr.Filter.SelectedComponents
+                                            else [||]
+
                                     }
+                                Scenarios = [||]
                             }
                         )
                 }

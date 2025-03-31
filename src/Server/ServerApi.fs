@@ -277,38 +277,41 @@ module Mappers =
 
 
     let mapFromSharedPatient
-        (ctx: OrderContext)
+        (pat: Shared.Types.Patient)
         =
         { Patient.patient with
             Department =
-                ctx.Patient.Department
+                pat.Department
                 |> Option.defaultValue "ICK"
                 |> Some
             Age =
-                ctx.Patient
+                pat
                 |> Models.Patient.getAgeInDays
                 |> Option.bind BigRational.fromFloat
                 |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
             GestAge =
-                ctx.Patient |> Models.Patient.getGestAgeInDays
+                pat
+                |> Models.Patient.getGestAgeInDays
                 |> Option.map BigRational.fromInt
                 |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
             Weight =
-                ctx.Patient |> Models.Patient.getWeight
+                pat
+                |> Models.Patient.getWeight
                 |> Option.map BigRational.fromInt
                 |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
                 |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
             Height =
-                ctx.Patient |> Models.Patient.getHeight
+                pat
+                |> Models.Patient.getHeight
                 |> Option.map BigRational.fromInt
                 |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
             Gender =
-                match ctx.Patient.Gender with
+                match pat.Gender with
                 | Male -> Informedica.GenForm.Lib.Types.Male
                 | Female -> Informedica.GenForm.Lib.Types.Female
                 | UnknownGender -> AnyGender
             Locations =
-                ctx.Patient.Access
+                pat.Access
                 // TODO make proper mapping
                 |> List.choose (fun a ->
                     match a with
@@ -317,7 +320,7 @@ module Mappers =
                     | _ -> None
                 )
             RenalFunction =
-                ctx.Patient.RenalFunction
+                pat.RenalFunction
                 |> Option.map (fun rf ->
                     match rf with
                     | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
@@ -495,27 +498,12 @@ module Formulary =
             Generic = form.Generic
             Indication = form.Indication
             Route = form.Route
+            Shape = form.Shape
+            DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
             Patient =
-                match form.Patient with
-                | Some pat ->
-                    { Patient.patient with
-                        Age =
-                            pat
-                            |> Models.Patient.getAgeInDays
-                            |> Option.bind BigRational.fromFloat
-                            |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-                        Weight =
-                            pat
-                            |> Models.Patient.getWeightInKg
-                            |> Option.bind BigRational.fromFloat
-                            |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram)
-                        GestAge =
-                            pat
-                            |> Models.Patient.getHeight
-                            |> Option.map BigRational.fromInt
-                            |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
-                    }
-                | None -> Patient.patient
+                form.Patient
+                |> Option.map Mappers.mapFromSharedPatient
+                |> Option.defaultValue Patient.patient
         }
         |> Filter.calcPMAge
 
@@ -555,14 +543,29 @@ module Formulary =
     let get (form : Formulary) =
         let filter = form |> mapFormularyToFilter
 
+        $"""
+
+Formulary filter:
+Patient: {filter.Patient |> Patient.toString}
+Indication: {filter.Indication |> Option.defaultValue ""}
+Generic: {filter.Generic |> Option.defaultValue ""}
+Route: {filter.Route |> Option.defaultValue ""}
+Shape: {filter.Shape |> Option.defaultValue ""}
+DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defaultValue ""}
+
+"""
+        |> writeInfoMessage
+
         let dsrs = Formulary.getDoseRules filter
 
-        printfn $"found: {dsrs |> Array.length} dose rules"
+        writeInfoMessage $"Found: {dsrs |> Array.length} formulary dose rules"
         let form =
             { form with
                 Generics = dsrs |> DoseRule.generics
                 Indications = dsrs |> DoseRule.indications
                 Routes = dsrs |> DoseRule.routes
+                Shapes = dsrs |> DoseRule.shapes
+                DoseTypes = dsrs |> DoseRule.doseTypes |> Array.map Mappers.mapFromOrderDoseTypeToSharedDoseType
                 PatientCategories = dsrs |> DoseRule.patientCategories
             }
             |> fun form ->
@@ -570,6 +573,8 @@ module Formulary =
                     Generic = form.Generics |> selectIfOne form.Generic
                     Indication = form.Indications |> selectIfOne form.Indication
                     Route = form.Routes |> selectIfOne form.Route
+                    Shape = form.Shapes |> selectIfOne form.Shape
+                    DoseType = form.DoseTypes |> selectIfOne form.DoseType
                     PatientCategory = form.PatientCategories |> selectIfOne form.PatientCategory
                 }
             |> fun form ->
@@ -603,6 +608,18 @@ module Formulary =
 
                         | _ -> ""
                 }
+        $"""
+
+Formulary:
+Patients: {form.PatientCategories |> Array.length}
+Indication: {form.Indications |> Array.length}
+Generic: {form.Generics |> Array.length}
+Route: {form.Routes |> Array.length}
+Shapes: {form.Shapes |> Array.length}
+DoseTypes: {form.DoseTypes |> Array.length}
+
+"""
+        |> writeInfoMessage
 
         Ok form
 
@@ -711,7 +728,7 @@ module OrderContext =
         $"""
     === {stage} ===
 
-    Patient: {ctx |> mapFromSharedPatient |> Patient.toString}
+    Patient: {ctx.Patient |> mapFromSharedPatient |> Patient.toString}
     Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
     Medication: {ctx.Filter.Medication |> Option.defaultValue ""}
     Shape: {ctx.Filter.Shape |> Option.defaultValue ""}
@@ -732,7 +749,7 @@ module OrderContext =
 
     let evaluate (ctx: OrderContext) =
         let pat =
-            ctx
+            ctx.Patient
             |> mapFromSharedPatient
             |> Patient.calcPMAge
 

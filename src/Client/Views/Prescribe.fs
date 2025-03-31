@@ -125,14 +125,13 @@ module Prescribe =
             | _ -> ()
 
         let doseTypeChange s =
-            let dt = s |> Option.map OrderContext.doseTypeFromString
+            let dt = s |> Option.map DoseType.doseTypeFromString
             match props.orderContext with
             | Resolved pr ->
                 if dt |> Option.isNone then
                     { pr with
                         Filter =
                             { pr.Filter with
-
                                 DoseTypes = [||]
                                 DoseType = None
                             }
@@ -528,10 +527,10 @@ module Prescribe =
                                 (false, pr.Filter.DoseType, pr.Filter.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
                                     let lbl = "Doseer types"
-                                    let sel = sel |> Option.map OrderContext.doseTypeToString
+                                    let sel = sel |> Option.map DoseType.doseTypeToString
 
                                     items
-                                    |> Array.map (fun s -> s |> OrderContext.doseTypeToString, s |> OrderContext.doseTypeToDescription)
+                                    |> Array.map (fun s -> s |> DoseType.doseTypeToString, s |> DoseType.doseTypeToDescription)
                                     |> select isLoading lbl sel doseTypeChange
 
                             | _ -> JSX.jsx $"<></>"

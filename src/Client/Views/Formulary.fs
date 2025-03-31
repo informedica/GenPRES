@@ -3,21 +3,17 @@ namespace Views
 
 module Formulary =
 
-
     open Fable.Core
     open Fable.React
     open Feliz
+    open Shared
+    open Shared.Models
     open Shared.Types
+    open Elmish
 
 
     module private Elmish =
 
-        open Feliz
-        open Feliz.UseElmish
-        open Elmish
-        open Shared
-        open Utils
-        open FSharp.Core
 
 
         type State =
@@ -25,6 +21,8 @@ module Formulary =
                 Generic: string option
                 Indication: string option
                 Route: string option
+                Shape : string option
+                DoseType: string option
             }
 
 
@@ -32,6 +30,8 @@ module Formulary =
             | GenericChange of string option
             | IndicationChange of string option
             | RouteChange of string option
+            | ShapeChange of string option
+            | DoseTypeChange of string option
             | Clear
 
 
@@ -40,6 +40,8 @@ module Formulary =
                 Generic = None
                 Indication = None
                 Route = None
+                Shape = None
+                DoseType = None
             }
 
 
@@ -51,6 +53,8 @@ module Formulary =
                         Generic = form.Generic //|> Option.orElse gen
                         Indication = form.Indication //|> Option.orElse ind
                         Route = form.Route //|> Option.orElse rte
+                        Shape = form.Shape
+                        DoseType = form.DoseType |> Option.map  DoseType.doseTypeToDescription
                     }
                 | _ -> empty
 
@@ -65,9 +69,17 @@ module Formulary =
             =
             let clear (form : Formulary) =
                 { form with
+                    Indications = [||]
                     Indication = None
+                    Generics = [||]
                     Generic = None
+                    Routes = [||]
                     Route = None
+                    Shapes = [||]
+                    Shape = None
+                    DoseTypes = [||]
+                    DoseType = None
+                    PatientCategories = [||]
                     PatientCategory = None
                 }
 
@@ -83,6 +95,7 @@ module Formulary =
                     Indication = None
                     Generic = None
                     Route = None
+                    DoseType = None
                 }, Cmd.none
 
             | IndicationChange s ->
@@ -109,6 +122,10 @@ module Formulary =
                             Generics = [||]
                             Indication = None
                             Indications = [||]
+                            Shape = None
+                            Shapes = [||]
+                            DoseType = None
+                            DoseTypes = [||]
                         }
                     else
                         { form with Generic = s }
@@ -121,6 +138,10 @@ module Formulary =
                 match formulary with
                 | Resolved form ->
                     { form with
+                        DoseType = None
+                        DoseTypes = [||]
+                        Shapes = [||]
+                        Shape = None
                         Route = s
                     }
                     |> updateFormulary
@@ -128,10 +149,31 @@ module Formulary =
 
                 { state with Route = s }, Cmd.none
 
+            | ShapeChange s ->
+                match formulary with
+                | Resolved form ->
+                    { form with
+                        DoseType = None
+                        DoseTypes = [||]
+                        Shape = s
+                    }
+                    |> updateFormulary
+                | _ -> ()
 
+                { state with Shape = s }, Cmd.none
+
+            | DoseTypeChange s ->
+                match formulary with
+                | Resolved form ->
+                    { form with
+                        DoseType = s |> Option.map DoseType.doseTypeFromString
+                    }
+                    |> updateFormulary
+                | _ -> ()
+
+                { state with DoseType = s }, Cmd.none
 
     open Elmish
-    open Shared
 
 
     [<JSX.Component>]
@@ -211,14 +253,14 @@ module Formulary =
                 <Stack direction="column" spacing={3}>
 
                     <Typography sx={ {| fontSize=14 |} } color="text.secondary" gutterBottom>
-                        {Terms.Formulary |> getTerm "Formularium"}
+                        {Formulary |> getTerm "Formularium"}
                     </Typography>
                     {
                         match props.formulary with
                         | Resolved form -> false, form.Indication, form.Indications
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
-                            let lbl = (Terms.``Formulary Indications`` |> getTerm "Indicaties")
+                            let lbl = Terms.``Formulary Indications`` |> getTerm "Indicaties"
                             if isMobile then
                                 items
                                 |> Array.map (fun s -> s, s)
@@ -234,7 +276,7 @@ module Formulary =
                             | Resolved form -> false, form.Generic, form.Generics
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
-                                let lbl = (Terms.``Formulary Medications`` |> getTerm "Medicatie")
+                                let lbl = Terms.``Formulary Medications`` |> getTerm "Medicatie"
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
@@ -248,7 +290,7 @@ module Formulary =
                             | Resolved form -> false, form.Route, form.Routes
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
-                                let lbl = (Terms.``Formulary Routes`` |> getTerm "Routes")
+                                let lbl = Terms.``Formulary Routes`` |> getTerm "Routes"
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
@@ -257,19 +299,42 @@ module Formulary =
                                     items
                                     |> autoComplete isLoading lbl sel (RouteChange >> dispatch)
                         }
+                        {
+                            match props.formulary with
+                            | Resolved form -> false, form.Shape, form.Shapes
+                            | _ -> true, None, [||]
+                            |> fun (isLoading, sel, items) ->
+                                let lbl = "Farmacologische Vorm"
+                                if isMobile then
+                                    items
+                                    |> Array.map (fun s -> s, s)
+                                    |> select isLoading lbl state.Route (ShapeChange >> dispatch)
+                                else
+                                    items
+                                    |> autoComplete isLoading lbl sel (ShapeChange >> dispatch)
+                        }
+                        {
+                            match props.formulary with
+                            | Resolved form ->
+                                (false, form.DoseType, form.DoseTypes)
+                                |> fun (isLoading, sel, items) ->
+                                        let lbl = "Doseer types"
+                                        let sel = sel |> Option.map DoseType.doseTypeToString
 
-                        <Box sx={ {| mt=2 |} }>
-                            <Button variant="text" onClick={fun _ -> Clear |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
-                                {Terms.Delete |> getTerm "Verwijder"}
-                            </Button>
-                        </Box>
+                                        items
+                                        |> Array.map (fun s -> s |> DoseType.doseTypeToString, s |> DoseType.doseTypeToDescription)
+                                        |> select isLoading lbl sel (DoseTypeChange >> dispatch)
 
-                        <Box sx={ {| mt=2 |} }>
-                            <Button variant="text" onClick={fun _ -> ignore } fullWidth startIcon={Mui.Icons.PsychologyIcon} >
-                                AI
-                            </Button>
-                        </Box>
+                            | _ -> JSX.jsx $"<></>"
+
+                        }
                     </Stack>
+
+                    <Box sx={ {| mt=2 |} }>
+                        <Button variant="text" onClick={fun _ -> Clear |> dispatch } fullWidth startIcon={Mui.Icons.Delete} >
+                            {Delete |> getTerm "Verwijder"}
+                        </Button>
+                    </Box>
                 </Stack>
 
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >

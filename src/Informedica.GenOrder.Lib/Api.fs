@@ -663,7 +663,7 @@ module OrderContext =
 
     let toString stage (pr: OrderContext) =
         let printArray xs =
-            if pr.Filter.Generic.IsNone then $"{xs |> Array.length}"
+            if pr.Filter.Generic.IsNone || pr.Filter.Route.IsNone then $"{xs |> Array.length}"
             else
                 xs
                 |> String.concat ", "

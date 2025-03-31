@@ -1480,7 +1480,7 @@ module Models =
             sc1.Order.Id = sc2.Order.Id
 
 
-    module OrderContext =
+    module DoseType =
 
 
         let doseTypeToDescription doseType =
@@ -1532,6 +1532,10 @@ module Models =
             | [ dt ] -> matchDoseType dt ""
             | dt :: rest -> rest |> String.concat " " |> matchDoseType dt
             | _ -> NoDoseType
+
+
+
+    module OrderContext =
 
 
         let filter =
@@ -1606,11 +1610,15 @@ module Models =
                 Generics = [||]
                 Indications = [||]
                 Routes = [||]
+                Shapes = [||]
+                DoseTypes = [||]
                 PatientCategories = [||]
                 Products = [||]
                 Generic = None
                 Indication = None
                 Route = None
+                Shape = None
+                DoseType = None
                 PatientCategory = None
                 Patient = None
                 Markdown = ""
