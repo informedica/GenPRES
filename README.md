@@ -60,10 +60,13 @@ A demo cache file with medication product data is include in this repository. Th
 Before starting the application set the following environmental variables for a demo version of GenPRES:
 
 ```batch
-set GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
-set GENPRES_LOG=0
-set GENPRES_PROD=0
+export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
+export GENPRES_LOG=0
+export GENPRES_PROD=0
+export GENPRES_DEBUG=1
 ```
+
+**NOTE** `GENPRES_PROD=0` is mandatory to run the demo version. Otherwise the application will look for production files (that do not exist on the repository version).
 
 ## Starting the application
 
