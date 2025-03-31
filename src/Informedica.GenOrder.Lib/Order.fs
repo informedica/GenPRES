@@ -2503,6 +2503,7 @@ module Order =
     let checkOrderDose pred op (ord: Order) : bool =
         let checkRte rte = rte |> Rate.toOrdVar |> pred
         let checkQty qty = qty |> Quantity.toOrdVar |> pred
+        let checkPtm ptm = ptm |> PerTime.toOrdVar |> pred
 
         let rates =
             [
@@ -2513,13 +2514,22 @@ module Order =
                     |> List.map _.Rate
             ]
 
-        let qtys =
+        let qty =
             [
                 ord.Orderable.Dose.Quantity
                 for cmp in ord.Orderable.Components do
                     cmp.Dose.Quantity
                     for itm in cmp.Items do
                         itm.Dose.Quantity
+            ]
+
+        let ptm =
+            [
+                ord.Orderable.Dose.PerTime
+                for cmp in ord.Orderable.Components do
+                    cmp.Dose.PerTime
+                    for itm in cmp.Items do
+                        itm.Dose.PerTime
             ]
 
         let isOr = true |> op <| false
@@ -2532,13 +2542,15 @@ module Order =
         | Discontinuous freq ->
             (freq |> Frequency.toOrdVar |> pred)
             |> op <|
-            (if isOr then qtys |> List.exists checkQty else qtys |> List.forall checkQty)
+            (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
+            |> op <|
+            (if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm)
         | Once ->
-            qtys |> List.forall checkQty
+            qty |> List.forall checkQty
         | OnceTimed tme ->
             (tme |> Time.toOrdVar |> pred)
             |> op <|
-            (if isOr then qtys |> List.exists checkQty else qtys |> List.forall checkQty)
+            (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
 
 
     let doseIsSolved = checkOrderDose OrderVariable.isSolved (&&)

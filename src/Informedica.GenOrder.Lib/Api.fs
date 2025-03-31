@@ -868,11 +868,13 @@ Scenarios: {scenarios}
         match ctx.Scenarios |> Array.tryExactlyOne with
         | Some sc ->
             writeDebugMessage $"Order dose is solved: {sc.Order |> Order.doseIsSolved}"
-            writeDebugMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}"
+            writeDebugMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}\n"
+            writeDebugMessage $"Order is solved: {sc.Order |> Order.isSolved}"
+            writeDebugMessage $"Order has values: {sc.Order |> Order.hasValues}\n"
         | _ -> ()
 
         writeDebugMessage $"Components change: {ctx |> checkComponentChange}"
-        writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}"
+        writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}\n"
 
         ctx |> toString msg
         |> writeDebugMessage
@@ -882,7 +884,7 @@ Scenarios: {scenarios}
         ctx
 
 
-module Api =
+module Formulary =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
@@ -890,47 +892,6 @@ module Api =
 
     module Prescription = Order.Prescription
 
-
-    /// <summary>
-    /// Use a PrescriptionResult to create a new PrescriptionResult.
-    /// </summary>
-    let evaluate = OrderContext.evaluate
-
-
-    let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =
-        let intake =
-            dto
-            |> Array.map Order.Dto.fromDto
-            |> Intake.calc wght Informedica.GenUnits.Lib.Units.Time.day
-
-        let get n =
-                intake
-                |> Array.tryFind (fst >> String.equalsCapInsens n)
-                |> Option.map (fun (_, var) ->
-                    var
-                    |> Informedica.GenSolver.Lib.Variable.getValueRange
-                    |> Informedica.GenSolver.Lib.Variable.ValueRange.toMarkdown 3
-                )
-
-        {
-            Volume = get "volume"
-            Energy = get "energie"
-            Protein = get "eiwit"
-            Carbohydrate = get "koolhydraat"
-            Fat = get "vet"
-            Sodium = get "natrium"
-            Potassium = get "kalium"
-            Chloride = get "chloor"
-            Calcium = get "calcium"
-            Phosphate = get "fosfaat"
-            Magnesium = get "magnesium"
-            Iron = get "ijzer"
-            VitaminD = get "VitD"
-            Ethanol = get "ethanol"
-            Propyleenglycol = get "propyleenglycol"
-            BenzylAlcohol = get "benzylalcohol"
-            BoricAcid = get "boorzuur"
-        }
 
 
     let getDoseRules filter =

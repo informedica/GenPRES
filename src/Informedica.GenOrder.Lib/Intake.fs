@@ -5,6 +5,7 @@ namespace Informedica.GenOrder.Lib
 module Intake =
 
 
+    open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib
     open Informedica.GenOrder.Lib
@@ -104,3 +105,39 @@ module Intake =
                     |> Some
             )
 
+
+
+    let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =
+        let intake =
+            dto
+            |> Array.map Order.Dto.fromDto
+            |> calc wght Informedica.GenUnits.Lib.Units.Time.day
+
+        let get n =
+                intake
+                |> Array.tryFind (fst >> String.equalsCapInsens n)
+                |> Option.map (fun (_, var) ->
+                    var
+                    |> Informedica.GenSolver.Lib.Variable.getValueRange
+                    |> Informedica.GenSolver.Lib.Variable.ValueRange.toMarkdown 3
+                )
+
+        {
+            Volume = get "volume"
+            Energy = get "energie"
+            Protein = get "eiwit"
+            Carbohydrate = get "koolhydraat"
+            Fat = get "vet"
+            Sodium = get "natrium"
+            Potassium = get "kalium"
+            Chloride = get "chloor"
+            Calcium = get "calcium"
+            Phosphate = get "fosfaat"
+            Magnesium = get "magnesium"
+            Iron = get "ijzer"
+            VitaminD = get "VitD"
+            Ethanol = get "ethanol"
+            Propyleenglycol = get "propyleenglycol"
+            BenzylAlcohol = get "benzylalcohol"
+            BoricAcid = get "boorzuur"
+        }

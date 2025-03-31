@@ -555,7 +555,7 @@ module Formulary =
     let get (form : Formulary) =
         let filter = form |> mapFormularyToFilter
 
-        let dsrs = Api.getDoseRules filter
+        let dsrs = Formulary.getDoseRules filter
 
         printfn $"found: {dsrs |> Array.length} dose rules"
         let form =
@@ -609,19 +609,18 @@ module Formulary =
 
 module Parenteralia =
 
+    open Informedica.GenOrder.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
     open Informedica.GenForm.Lib
 
     type Parenteralia = Shared.Types.Parenteralia
-
-    module Api = Informedica.GenOrder.Lib.Api
 
 
     let get (par : Parenteralia) : Result<Parenteralia, string> =
         writeInfoMessage $"getting parenteralia for {par.Generic}"
 
         let srs =
-            Api.getSolutionRules
+            Formulary.getSolutionRules
                 par.Generic
                 par.Shape
                 par.Route
@@ -675,7 +674,7 @@ module Order =
 
         ords
         |> Array.map Order.mapFromSharedToOrder
-        |> Api.getIntake wghtInKg
+        |> Intake.getIntake wghtInKg
         |> mapToIntake
 
 
@@ -741,7 +740,7 @@ module OrderContext =
             ctx
             |> mapFromShared pat
             |> OrderContext.printCtx "start eval"
-            |> Api.evaluate
+            |> OrderContext.evaluate
             |> OrderContext.printCtx "finish eval"
             |> mapToShared ctx
 
@@ -770,8 +769,6 @@ module Message =
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
 
     let printMsg msg ctx =
-        writeDebugMessage $"Filter: {ctx.Filter}\n"
-
         ctx
         |> OrderContext.toString msg
         |> writeDebugMessage

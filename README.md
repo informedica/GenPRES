@@ -57,6 +57,14 @@ For the full application to run a proprietary cache file is needed containing me
 
 A demo cache file with medication product data is include in this repository. This contains some sample medication data from a much larger drug formulary database.
 
+Before starting the application set the following environmental variables for a demo version of GenPRES:
+
+```batch
+set GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
+set GENPRES_LOG=0
+set GENPRES_PROD=0
+```
+
 ## Starting the application
 
 Starting the application in developper mode is now super easy, just `dotnet run` spins up the entire application. Look for different targets by `dotnet run list`.
