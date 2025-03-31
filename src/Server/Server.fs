@@ -11,18 +11,31 @@ open ServerApi
 open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
 
-writeInfoMessage $"""
-=== Initialized: ===
-- Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
-- Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
-- Scenarios {Models.OrderContext.empty |> OrderContext.evaluate |> ignore}
-"""
-
 
 let tryGetEnv key =
     match Environment.GetEnvironmentVariable key with
     | x when String.IsNullOrWhiteSpace x -> None
     | x -> Some x
+
+$"""
+
+=== Environmental variables ===
+GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID" |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"}
+GENPRES_LOG={tryGetEnv "GENPRES_LOG" |> Option.defaultValue "0"}
+GENPRES_PROD={tryGetEnv "GENPRES_PROD" |> Option.defaultValue "0"}
+
+"""
+|> writeInfoMessage
+
+
+writeInfoMessage $"""
+
+=== Initialized: ===
+- Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
+- Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
+- Scenarios {Models.OrderContext.empty |> OrderContext.evaluate |> ignore}
+
+"""
 
 
 let port =
@@ -59,15 +72,5 @@ let application = application {
     //service_config configureServices
     //host_config Env.configureHost
 }
-
-
-$"""
-=== Environmental variables ===
-GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID" |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"}
-GENPRES_LOG={tryGetEnv "GENPRES_LOG" |> Option.defaultValue "0"}
-GENPRES_PROD={tryGetEnv "GENPRES_PROD" |> Option.defaultValue "0"}
-"""
-|> writeInfoMessage
-
 
 run application
