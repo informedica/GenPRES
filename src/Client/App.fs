@@ -507,34 +507,34 @@ module private Elmish =
             state, Cmd.none
 
 
-        | UpdateOrderContext pr ->
-            let pr =
-                { pr with
+        | UpdateOrderContext ctx ->
+            let ctx =
+                { ctx with
                     Patient =
                         state.Patient
-                        |> Option.defaultValue pr.Patient
+                        |> Option.defaultValue ctx.Patient
                 }
 
             { state with
-                OrderContext = Resolved pr
+                OrderContext = Resolved ctx
                 Formulary =
                     state.Formulary
                     |> Deferred.map (fun form ->
                         { form with
-                            Indication = pr.Filter.Indication
-                            Generic = pr.Filter.Medication
-                            Route = pr.Filter.Route
-                            Shape = pr.Filter.Shape
-                            DoseType = pr.Filter.DoseType
+                            Indication = ctx.Filter.Indication
+                            Generic = ctx.Filter.Medication
+                            Route = ctx.Filter.Route
+                            Shape = ctx.Filter.Shape
+                            DoseType = ctx.Filter.DoseType
                         }
                     )
                 Parenteralia =
                     state.Parenteralia
                     |> Deferred.map (fun par ->
                         { par with
-                            Generic = pr.Filter.Medication
-                            Shape = pr.Filter.Shape
-                            Route = pr.Filter.Route
+                            Generic = ctx.Filter.Medication
+                            Shape = ctx.Filter.Shape
+                            Route = ctx.Filter.Route
                         }
                     )
             },
@@ -586,30 +586,39 @@ module private Elmish =
                     Formulary = Resolved form
                     OrderContext =
                         state.OrderContext
-                        |> Deferred.map (fun scr ->
-                            { scr with
+                        |> Deferred.map (fun ctx ->
+                            { ctx with
                                 Filter =
-                                    { scr.Filter with
+                                    { ctx.Filter with
                                         Indication = form.Indication
                                         Medication = form.Generic
                                         Shape = form.Shape
                                         Route = form.Route
                                         DoseType = form.DoseType
                                         Diluent =
-                                            if form.Indication = scr.Filter.Indication &&
-                                               form.Generic = scr.Filter.Medication &&
-                                               form.Route = scr.Filter.Route &&
-                                               form.Shape = scr.Filter.Shape then scr.Filter.Diluent
+                                            if form.Indication = ctx.Filter.Indication &&
+                                               form.Generic = ctx.Filter.Medication &&
+                                               form.Route = ctx.Filter.Route &&
+                                               form.Shape = ctx.Filter.Shape then ctx.Filter.Diluent
                                             else None
                                         SelectedComponents =
-                                            if form.Indication = scr.Filter.Indication &&
-                                               form.Generic = scr.Filter.Medication &&
-                                               form.Route = scr.Filter.Route &&
-                                               form.Shape = scr.Filter.Shape then scr.Filter.SelectedComponents
+                                            if form.Indication = ctx.Filter.Indication &&
+                                               form.Generic = ctx.Filter.Medication &&
+                                               form.Route = ctx.Filter.Route &&
+                                               form.Shape = ctx.Filter.Shape then ctx.Filter.SelectedComponents
                                             else [||]
 
                                     }
                                 Scenarios = [||]
+                            }
+                        )
+                    Parenteralia =
+                        state.Parenteralia
+                        |> Deferred.map (fun par ->
+                            { par with
+                                Generic = form.Generic
+                                Route = form.Route
+                                Shape = form.Shape
                             }
                         )
                 }
@@ -617,6 +626,7 @@ module private Elmish =
             Cmd.batch [
                 Cmd.ofMsg (LoadFormulary Started)
                 Cmd.ofMsg (LoadOrderContext Started)
+                Cmd.ofMsg (LoadParenteralia Started)
             ]
 
         | LoadParenteralia Started ->
@@ -635,11 +645,55 @@ module private Elmish =
             state, Cmd.none
 
         | UpdateParenteralia par ->
+            Logging.log "parenteralia" par
             let state =
                 { state with
                     Parenteralia = Resolved par
+                    Formulary =
+                        state.Formulary
+                        |> Deferred.map (fun form ->
+                            { form with
+                                Indication = None
+                                Generic = par.Generic
+                                Route = par.Route
+                                Shape = par.Shape
+                                DoseType = None
+                            }
+                        )
+                    OrderContext =
+                        state.OrderContext
+                        |> Deferred.map (fun ctx ->
+                            { ctx with
+                                Filter =
+                                    { ctx.Filter with
+                                        Indication = None
+                                        Medication = par.Generic
+                                        Shape = par.Shape
+                                        Route = par.Route
+                                        DoseType = None
+                                        Diluent =
+                                            if par.Generic = ctx.Filter.Medication &&
+                                               par.Route = ctx.Filter.Route &&
+                                               par.Shape = ctx.Filter.Shape then ctx.Filter.Diluent
+                                            else None
+                                        SelectedComponents =
+                                            if par.Generic = ctx.Filter.Medication &&
+                                               par.Route = ctx.Filter.Route &&
+                                               par.Shape = ctx.Filter.Shape then ctx.Filter.SelectedComponents
+                                            else [||]
+
+                                    }
+                                Scenarios = [||]
+                            }
+                        )
+
                 }
-            state, Cmd.ofMsg(LoadParenteralia Started)
+            state,
+            Cmd.batch [
+                Cmd.ofMsg (LoadFormulary Started)
+                Cmd.ofMsg (LoadOrderContext Started)
+                Cmd.ofMsg (LoadParenteralia Started)
+            ]
 
         | LoadOrderContext Started ->
             match state.Patient with

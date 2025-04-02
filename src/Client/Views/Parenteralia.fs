@@ -107,7 +107,6 @@ module Parenteralia =
 
 
     open Elmish
-    open Shared
 
 
     [<JSX.Component>]
@@ -117,7 +116,7 @@ module Parenteralia =
             updateParenteralia: Parenteralia -> unit
         |}) =
 
-        let context = React.useContext(Global.context)
+        let context = React.useContext Global.context
         let lang = context.Localization
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:900px)"
 
