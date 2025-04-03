@@ -237,6 +237,20 @@ module OrderScenario =
         |> setOrderTableFormat
 
 
+    let applyConstraints (sc: OrderScenario) =
+        writeDebugMessage "reapply constraints to order scenario"
+        { sc with
+            Order =
+                sc.Order
+                |> Order.applyConstraints
+                |> Order.solveMinMax true OrderLogger.noLogger
+                |> Result.map (Order.minIncrMaxToValues true OrderLogger.noLogger)
+                |> Result.bind (Order.solveOrder true OrderLogger.logger.Logger)
+                |> Result.defaultValue sc.Order
+        }
+        |> setOrderTableFormat
+
+
     let applyDoseConstraints (sc: OrderScenario) =
         writeDebugMessage "reapply dose constraints to order scenario"
         { sc with
@@ -701,9 +715,10 @@ module OrderContext =
                 |> String.concat "\n"
                 |> fun s ->
                     $"""
-Diluent: {sc.Diluent |> Option.defaultValue ""}
-Component: {sc.Component |> Option.defaultValue ""}
-Item: {sc.Item |> Option.defaultValue ""}
+
+Scenario Diluent: {sc.Diluent |> Option.defaultValue ""}
+Scenario Component: {sc.Component |> Option.defaultValue ""}
+Scenario Item: {sc.Item |> Option.defaultValue ""}
 
 {s}
 """
@@ -820,7 +835,7 @@ Scenarios: {scenarios}
                         if sc.Order |> Order.doseIsSolved &&
                            sc.Order |> Order.hasValues |> not then
                             sc
-                            |> OrderScenario.applyDoseConstraints
+                            |> OrderScenario.applyConstraints
                         else
                             if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
                             else

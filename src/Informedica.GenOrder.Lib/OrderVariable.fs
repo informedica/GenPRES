@@ -353,7 +353,9 @@ module OrderVariable =
     let applyConstraints (ovar : OrderVariable) =
         { ovar with
             Variable =
-                if ovar.Constraints |> Constraints.isEmpty then ovar.Variable
+                if ovar.Constraints |> Constraints.isEmpty then
+                    ovar.Variable
+                    |> Variable.setNonZeroOrNegative
                 else
                     { ovar.Variable with
                         Values = ovar.Constraints |> Constraints.toValueRange

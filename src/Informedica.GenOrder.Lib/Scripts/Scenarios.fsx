@@ -277,7 +277,12 @@ Patient.infant
 |> OrderContext.setFilterRoute "rectaal"
 |> OrderContext.evaluate //|> ignore
 |> printCtx "1 eval" //|> ignore
-|> OrderContext.setFilterItem (FilterItem.DoseType 1)
+|> OrderContext.setFilterItem (FilterItem.Indication 1)
 |> OrderContext.evaluate
 |> printCtx "2 eval" //|> ignore
+|> OrderContext.evaluate
+|> OrderContext.medianDose
+|> printCtx "3 eval" //|> ignore
+|> OrderContext.evaluate
+|> printCtx "4 eval" //|> ignore
 |> ignore
