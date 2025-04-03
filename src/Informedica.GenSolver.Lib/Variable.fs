@@ -1287,7 +1287,7 @@ module Variable =
         let map fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet vr =
             match vr with
             | Unrestricted -> vr
-            | NonZeroNoneNegative -> vr
+            | NonZeroAndPositive -> vr
             | Min min -> min |> fMin |> Min
             | Max max -> max |> fMax |> Max
             | MinMax (min, max) -> (min, max) |> fMinMax |> MinMax
@@ -1315,7 +1315,7 @@ module Variable =
         let apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
             function
             | Unrestricted -> unr
-            | NonZeroNoneNegative -> nonZero
+            | NonZeroAndPositive -> nonZero
             | Min min -> min |> fMin
             | Max max -> max |> fMax
             | MinMax (min, max) -> (min, max) |> fMinMax
@@ -1462,7 +1462,7 @@ module Variable =
                 returnFalse
 
         /// Checks whether a `ValueRange` is `Unrestricted`
-        let isNonZeroOrNegative =
+        let isNonZeroAndPositive =
             let returnFalse = Boolean.returnFalse
 
             apply
@@ -1833,7 +1833,7 @@ module Variable =
 
 
         /// A `ValueRange` that contains only non-zero, positive values.
-        let nonZeroOrNegative = NonZeroNoneNegative
+        let nonZeroOrNegative = NonZeroAndPositive
 
 
         /// <summary>
@@ -2208,7 +2208,7 @@ module Variable =
                       |> Minimum.minElement
                     with
                 | Some min -> (min, newIncr) |> MinIncr
-                | None -> NonZeroNoneNegative
+                | None -> NonZeroAndPositive
 
             let fMin min = minIncrToValueRange min newIncr
 
@@ -2395,7 +2395,7 @@ module Variable =
                       |> Minimum.minElement
                     with
                 | Some min -> (min, incr) |> MinIncr
-                | None -> NonZeroNoneNegative
+                | None -> NonZeroAndPositive
 
             let fMinIncr (min, incr) =
                 let min = min |> Minimum.nonZeroNonNeg
@@ -2419,8 +2419,8 @@ module Variable =
 
             vr
             |> apply
-                NonZeroNoneNegative
-                NonZeroNoneNegative
+                NonZeroAndPositive
+                NonZeroAndPositive
                 fMin
                 fMax
                 fMinMax
@@ -2580,7 +2580,7 @@ module Variable =
         let eqs vr1 vr2 =
             match vr1, vr2 with
             | Unrestricted, Unrestricted
-            | NonZeroNoneNegative, NonZeroNoneNegative -> true
+            | NonZeroAndPositive, NonZeroAndPositive -> true
             | Min m1, Min m2 -> m1 |> Minimum.eqs m2
             | Max m1, Max m2 -> m1 |> Maximum.eqs m2
             | MinMax (min1, max1), MinMax (min2, max2) ->
@@ -3432,6 +3432,22 @@ module Variable =
         getValueRange >> ValueRange.isUnrestricted
 
 
+    let isNonZeroAndPositive =
+        getValueRange >> ValueRange.isNonZeroAndPositive
+
+
+    let isMin = getValueRange >> ValueRange.isMin
+
+
+    let isMax = getValueRange >> ValueRange.isMax
+
+
+    let isMinMax = getValueRange >> ValueRange.isMinMax
+
+
+    let isMinIncr = getValueRange >> ValueRange.isMinIncr
+
+
     /// Checks whether the ValueRange of a Variable
     /// is a MinIncrMax
     let isMinIncrMax = getValueRange >> ValueRange.isMinIncrMax
@@ -3718,7 +3734,7 @@ module Variable =
 
             let vr =
                 if dto.IsNonZeroNegative then
-                    NonZeroNoneNegative
+                    NonZeroAndPositive
                 else
                     ValueRange.create minOpt incrOpt maxOpt vsOpt
 
@@ -3738,7 +3754,7 @@ module Variable =
 
             match v.Values with
             | Unrestricted -> dto
-            | NonZeroNoneNegative ->
+            | NonZeroAndPositive ->
                 dto.IsNonZeroNegative <- true
                 dto
             | _ ->

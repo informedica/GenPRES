@@ -4,7 +4,7 @@ namespace Informedica.GenForm.Lib
 
 module PrescriptionRule =
 
-    open MathNet.Numerics
+    open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
@@ -226,38 +226,35 @@ module PrescriptionRule =
     /// Filter the Products in a PrescriptionRule to match the
     /// the given ShapeQuantities and Substances.
     let filterProducts
-        shapeQuantities
-        (substs : (string * BigRational option) array)
+        (cmpItems: ComponentItem list)
         (pr : PrescriptionRule) =
         { pr with
             DoseRule =
                 { pr.DoseRule with
                     ComponentLimits =
                         pr.DoseRule.ComponentLimits
-
                         |> Array.map (fun dl ->
                             { dl with
                                 Products =
                                     dl.Products
                                     |> Array.filter (fun p ->
-                                        // TODO rewrite to compare valueunits
-                                        p.ShapeQuantities
-                                        |> ValueUnit.getValue
-                                        |> Array.exists (fun sq ->
-                                            shapeQuantities
-                                            |> Array.exists ((=) sq)
-                                        ) &&
+                                        cmpItems
+                                        |> List.map _.ComponentQuantity
+                                        |> List.exists (ValueUnit.eqs p.ShapeQuantities)
+                                        &&
                                         p.Substances
-                                        // TODO rewrite to compare valueunits
-                                        |> Array.map (fun s ->
-                                            s.Name.ToLower(),
-                                            s.Concentration
-                                            |> Option.map ValueUnit.getValue
-                                            |> Option.bind Array.tryHead
-                                        )
-                                        |> Array.forall (fun sq ->
-                                            substs
-                                            |> Array.exists((=) sq)
+                                        |> Array.forall (fun subst ->
+                                            cmpItems
+                                            |> List.exists(fun itm ->
+                                                itm.ItemName |> String.equalsCapInsens subst.Name &&
+                                                (subst.Concentration
+                                                |> Option.map (ValueUnit.eqs itm.ItemConcentration)
+                                                |> Option.defaultValue false ||
+                                                subst.MolarConcentration
+                                                |> Option.map (ValueUnit.eqs itm.ItemConcentration)
+                                                |> Option.defaultValue false)
+
+                                            )
                                         )
                                     )
                             }

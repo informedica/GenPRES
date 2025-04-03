@@ -2,7 +2,7 @@
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_LOG", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1yn6UC1OMJ0A2wAyX3r0AA2qlKJ7vEAB6OO0DjneiknE")
 
 #load "load.fsx"
 
@@ -32,7 +32,7 @@ let createScenarios (pr: OrderContext) =
     let eval pr s =
         printfn $"evaluating {s}"
         try
-            let pr = pr |> Api.evaluate
+            let pr = pr |> OrderContext.evaluate
 
             if pr.Scenarios |> Array.isEmpty |> not then pr
             else pr |> print
@@ -98,13 +98,13 @@ Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
 |> OrderContext.setFilterGeneric "remdesivir"
-|> Api.evaluate //|> ignore
+|> OrderContext.evaluate //|> ignore
 |> printCtx "1 eval" //|> ignore
 |> fun ctx ->
     { ctx with
         OrderContext.Filter.DoseType = ctx.Filter.DoseTypes |> Array.tryItem 0
     }
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "2 eval" //|> ignore
 |> ignore
 
@@ -113,7 +113,7 @@ Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
 |> OrderContext.setFilterGeneric "methylprednisolon"
-|> Api.evaluate //|> ignore
+|> OrderContext.evaluate //|> ignore
 |> printCtx "1 eval"  //|> ignore
 |> fun ctx ->
     { ctx with
@@ -124,10 +124,10 @@ Patient.infant
             ctx.Filter.DoseTypes
             |> Array.tryItem 0
     }
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "2 eval" //|> ignore
 |> pickScenario 0
-|> Api.evaluate
+|> OrderContext.evaluate
 //|> OrderContext.minimizeDose
 |> printCtx "3 eval" //|> ignore
 |> ignore
@@ -141,9 +141,9 @@ Patient.infant
 |> OrderContext.setFilterShape "injectievloeistof"
 |> OrderContext.setFilterRoute "intraveneus"
 |> printCtx "inital setup"
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "first evaluation" //|> ignore
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "second evaluation" //|> ignore
 |> ignore
 
@@ -159,7 +159,7 @@ Patient.infant
 |> OrderContext.setFilterRoute "intraveneus"
 //|> OrderContext.getRules
 //|> fst
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "first eval"
 |> ignore
 
@@ -172,7 +172,7 @@ Patient.infant
 |> fun ctx -> { ctx with OrderContext.Filter.DoseType = ("dag 1" |> DoseType.Timed |> Some) }
 //|> OrderContext.getRules
 //|> fst
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "first eval"
 |> fun ctx  ->
     { ctx with
@@ -180,7 +180,7 @@ Patient.infant
             ctx.Filter.Components |> Array.skip 1 |> Array.take 2
     }
 |> printCtx "components selected"
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "evaluated selected"
 |> ignore
 
@@ -190,7 +190,7 @@ Patient.infant
 |> OrderContext.create
 |> OrderContext.setFilterGeneric "noradrenaline"
 |> printCtx "init"
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "first eval"
 |> fun ctx ->
     ctx.Scenarios
@@ -200,12 +200,12 @@ Patient.infant
     |> printfn "Diluents: %s"
 
     { ctx with Scenarios = ctx.Scenarios |> Array.take 1 }
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "second eval"
 |> OrderContext.medianDose
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "third eval"
-|> Api.evaluate
+|> OrderContext.evaluate
 |> printCtx "eval with solved dose"
 |> fun ctx ->
     ctx.Scenarios
@@ -260,22 +260,24 @@ Patient.infant
     |> Result.iter (Order.toString >> String.concat "\n" >> printfn "\n\n== final:\n\n%s")
 
 
+type OrderState =
+    | Initiated
+    | IsConstrained
+    | HasValues
+    | FrequencyIsSolved
+    | TimeIsSolved
+    | DosesAreSolved
+    | IsSolved
+
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
 |> OrderContext.setFilterGeneric "paracetamol"
-|> Api.evaluate //|> ignore
+|> OrderContext.setFilterRoute "rectaal"
+|> OrderContext.evaluate //|> ignore
 |> printCtx "1 eval" //|> ignore
-|> Api.evaluate
+|> OrderContext.setFilterItem (FilterItem.DoseType 1)
+|> OrderContext.evaluate
 |> printCtx "2 eval" //|> ignore
-|> fun ctx ->
-    match ctx.Scenarios |> Array.tryExactlyOne with
-    | None -> ()
-    | Some sc ->
-        sc.Order
-        |> Order.solveMaxFrequency OrderLogger.noLogger
-//        |> Result.bind (Order.solveMedianDose OrderLogger.noLogger (Some "paracetamol"))
-        |> Result.map (Order.toString >> String.concat "\n")
-        |> Result.defaultValue ""
-        |> printfn "%A"
+|> ignore

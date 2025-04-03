@@ -68,7 +68,7 @@ module rec Types =
     /// </remarks>
     type ValueRange =
         | Unrestricted // <..>
-        | NonZeroNoneNegative // <0..>
+        | NonZeroAndPositive // <0..>
         | Min of Minimum // <min .. >
         | Max of Maximum // <..max >
         | MinMax of Minimum * Maximum // <min .. max>

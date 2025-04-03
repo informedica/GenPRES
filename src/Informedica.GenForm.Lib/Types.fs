@@ -142,6 +142,15 @@ module Types =
         }
 
 
+    type ComponentItem =
+        {
+            ComponentName: string
+            ComponentQuantity: ValueUnit
+            ItemName: string
+            ItemConcentration: ValueUnit
+        }
+
+
     type LimitTarget =
         | NoLimitTarget
         | SubstanceLimitTarget of string

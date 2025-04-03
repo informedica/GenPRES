@@ -194,7 +194,6 @@ module Order =
                 sumEqs, prodEqs
 
 
-
     /// Types and functions to deal
     /// with an `Orderable`, i.e. something
     /// that can be ordered.
@@ -416,9 +415,14 @@ module Order =
 
             let setMinDose = setDose OrderVariable.setMinValue
 
+
             let setMaxDose = setDose OrderVariable.setMaxValue
 
+
             let setMedianDose = setDose OrderVariable.setMedianValue
+
+
+            let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
 
 
             let clearDoseRate (dos: Dose) =
@@ -795,6 +799,12 @@ module Order =
                     { itm with Dose = itm.Dose |> Dose.setNormDose nd }
 
 
+            let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
+
+
+            let isDoseSolved = getDose >> Dose.isSolved
+
+
             let clearDoseRate (itm : Item) =
                 { itm with Dose = itm.Dose |> Dose.clearDoseRate }
 
@@ -996,10 +1006,6 @@ module Order =
                     |> toDto
 
 
-
-
-
-
         /// Types and functions to model a
         /// `Component` in an `Orderable`.
         /// A `Component` contains a list
@@ -1118,7 +1124,6 @@ module Order =
                 ]
 
 
-
             /// <summary>
             /// Create a new Component from a list of OrderVariables using
             /// an old Component.
@@ -1191,6 +1196,15 @@ module Order =
                 { cmp with
                     Items = cmp.Items |> List.map (Item.setNormDose sn nd)
                 }
+
+
+            let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
+
+
+            let getDose cmp = (cmp |> get).Dose
+
+
+            let isDoseSolved = getDose >> Dose.isSolved
 
 
             let clearDoseRate (cmp : Component) =
@@ -1455,8 +1469,6 @@ module Order =
                     |> toDto
 
 
-
-
         module Quantity = OrderVariable.Quantity
         module Concentration = OrderVariable.Concentration
         module Count = OrderVariable.Count
@@ -1602,6 +1614,9 @@ module Order =
         let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
+        let toStringWithConstraints = toOrdVars >> List.map (OrderVariable.toStringWithConstraints true false)
+
+
         /// <summary>
         /// Increase the Quantity increment of an Orderable to a maximum
         /// count using a list of increments.
@@ -1676,6 +1691,9 @@ module Order =
             { orb with
                 Components = orb.Components |> List.map (Component.setNormDose sn nd)
             }
+
+
+        let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
 
 
         let clearDoseRate (orb : Orderable) =
@@ -1936,6 +1954,7 @@ module Order =
         let hasFrequency pr =
             pr |> isDiscontinuous || pr |> isTimed
 
+
         let hasTime pr =
             pr |> isTimed || pr |> isOnceTimed
 
@@ -1954,7 +1973,8 @@ module Order =
             | Discontinuous frq ->
                 frq |> Frequency.toOrdVar |> Some, None
             | Timed(frq, tme)     ->
-                frq |> Frequency.toOrdVar |> Some, tme |> Time.toOrdVar |> Some
+                frq |> Frequency.toOrdVar |> Some,
+                tme |> Time.toOrdVar |> Some
 
 
         /// <summary>
@@ -2010,7 +2030,54 @@ module Order =
                 | Continuous -> ["continu"]
                 | OnceTimed tme -> [tme |> Time.toString]
                 | Discontinuous frq -> [frq |> Frequency.toString]
-                | Timed(frq, tme)     -> [frq |> Frequency.toString; tme |> Time.toString]
+                | Timed(frq, tme)   ->
+                    [frq |> Frequency.toString; tme |> Time.toString]
+
+
+        /// <summary>
+        /// Return a list of strings from a Prescription where each string is
+        /// a variable name with the value range and the Unit
+        /// </summary>
+        let toStringWithConstraints (prs: Prescription) =
+                match prs with
+                | Once -> ["eenmalig"]
+                | Continuous -> ["continu"]
+                | OnceTimed tme -> [tme |> Time.toStringWithConstraints]
+                | Discontinuous frq ->
+                    [frq |> Frequency.toStringWithConstraints]
+                | Timed(frq, tme) ->
+                    [
+                        frq |> Frequency.toStringWithConstraints
+                        tme |> Time.toStringWithConstraints
+                    ]
+
+
+        let isSolved (prs : Prescription) =
+            prs
+            |> toOrdVars
+            |> function
+                | Some ovar1, Some ovar2 ->
+                    ovar1 |> OrderVariable.isSolved &&
+                    ovar2 |> OrderVariable.isSolved
+                | None, Some ovar
+                | Some ovar, None -> ovar |> OrderVariable.isSolved
+                | None, None -> true
+
+
+        let frequencyIsSolved prs =
+            prs
+            |> toOrdVars
+            |> function
+                | Some ovar, _ -> ovar |> OrderVariable.isSolved
+                | _ -> true
+
+
+        let timeIsSolved prs =
+            prs
+            |> toOrdVars
+            |> function
+                | _, Some ovar -> ovar |> OrderVariable.isSolved
+                | _ -> true
 
 
         let clearFrequency (prs : Prescription) =
@@ -2255,7 +2322,6 @@ module Order =
                 dto
 
 
-
     /// Types and functions that
     /// model a start and stop date time
     /// of an `Order`
@@ -2395,8 +2461,20 @@ module Order =
     /// </summary>
     let toString (ord: Order) =
         [ ord.Adjust |> Quantity.toString ]
-        |> List.append (Orderable.Literals.orderable::(ord.Orderable |> Orderable.toString))
+        |> List.append ("Orderable"::(ord.Orderable |> Orderable.toString))
         |> List.append ("Prescription"::(ord.Prescription |> Prescription.toString))
+        |> List.append ("Route"::[ord.Route])
+        |> List.filter (String.isNullOrWhiteSpace >> not)
+
+
+    /// <summary>
+    /// Return an Order as a list of strings where each string is
+    /// a variable name with the value range and the Unit
+    /// </summary>
+    let toStringWithConstraints (ord: Order) =
+        [ ord.Adjust |> Quantity.toStringWithConstraints ]
+        |> List.append ("Orderable"::(ord.Orderable |> Orderable.toStringWithConstraints))
+        |> List.append ("Prescription"::(ord.Prescription |> Prescription.toStringWithConstraints))
         |> List.append ("Route"::[ord.Route])
         |> List.filter (String.isNullOrWhiteSpace >> not)
 
@@ -2471,19 +2549,10 @@ module Order =
             reraise()
 
 
+    let isEmpty = toOrdVars >> List.forall OrderVariable.isEmpty
 
-    let isSolved ord =
-        ord
-        |> toOrdVars
-        |> List.filter (fun ovar ->
-            let n =
-                ovar.Variable.Name
-                |> Name.toString
 
-            n |> String.contains "_cmp_qty" |> not &&
-            n |> String.contains "_orb_cnt" |> not
-        )
-        |> List.forall OrderVariable.isSolved
+    let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
 
 
     let hasValues ord =
@@ -2832,7 +2901,6 @@ module Order =
             }
             |> solveOrder false logger
             |> Result.defaultValue ord
-
 
 
     /// <summary>
@@ -3367,7 +3435,6 @@ module Order =
             printOrderTo
                 printAdj
                 true
-
 
 
     module Dto =

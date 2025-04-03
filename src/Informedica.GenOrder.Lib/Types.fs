@@ -7,7 +7,6 @@ module Types =
 
 
         open System
-        open Informedica.Utils.Lib.Csv
         open MathNet.Numerics
 
         open Informedica.GenUnits.Lib
@@ -422,6 +421,18 @@ module Types =
                 // the list of components that are used
                 SelectedComponents : string []
             }
+
+
+        module FilterItem =
+
+            type FilterItem =
+                | Indication of int
+                | Generic of int
+                | Route of int
+                | Shape of int
+                | DoseType of int
+                | Diluent of int
+                | Component of int list
 
 
         /// <summary>

@@ -1,5 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
+open Informedica.GenOrder.Lib.Order.Orderable.Item.Print
+
 
 
 module Filters =
@@ -350,60 +352,31 @@ module OrderContext =
                             |> Order.setDoseUnit sn dl.DoseUnit
                         ) ord
 
-                    let dto = ord |> Order.Dto.toDto
-
                     let compItems =
                         [
-                            for c in dto.Orderable.Components do
-                                    c.ComponentQuantity.Variable.ValsOpt
-                                    |> Option.map (fun v ->
-                                        {|
-                                            shapeQty = v.Value
-                                            substs =
-                                                [
-                                                    for i in c.Items do
-                                                        i.ComponentConcentration.Variable.ValsOpt
-                                                        |> Option.map (fun v ->
-                                                            {|
-                                                                name = i.Name
-                                                                qty = v.Value
-                                                            |}
-                                                        )
-                                                ]
-                                                |> List.choose id
-                                        |}
-                                    )
+                            for cmp in ord.Orderable.Components do
+                                    let cmpQty =
+                                        cmp.ComponentQuantity
+                                        |> OrderVariable.Quantity.toOrdVar
+                                        |> OrderVariable.getValueUnit
+                                    if cmpQty.IsSome then
+                                        for itm in cmp.Items do
+                                            let itmQty =
+                                                itm.ComponentConcentration
+                                                |> OrderVariable.Concentration.toOrdVar
+                                                |> OrderVariable.getValueUnit
+                                            if itmQty.IsSome then
+                                                {
+                                                    ComponentName = cmp.Name |> Name.toString
+                                                    ComponentQuantity = cmpQty.Value
+                                                    ItemName = itm.Name |> Name.toString
+                                                    ItemConcentration = itmQty.Value
+                                                }
                         ]
-                        |> List.choose id
-
-                    let shps =
-                        dto.Orderable.Components
-                        |> List.choose _.ComponentQuantity.Variable.ValsOpt
-                        |> List.toArray
-                        |> Array.collect _.Value
-
-                    let sbsts =
-                        dto.Orderable.Components
-                        |> List.toArray
-                        |> Array.collect (fun cDto ->
-                            cDto.Items
-                            |> List.toArray
-                            |> Array.choose (fun iDto ->
-                                iDto.ComponentConcentration.Variable.ValsOpt
-                                |> Option.map (fun v ->
-                                    iDto.Name,
-                                    v.Value
-                                    |> Array.tryHead
-                                )
-                            )
-                        )
-                        |> Array.distinct
 
                     let pr =
                         pr
-                        |> PrescriptionRule.filterProducts
-                            shps
-                            sbsts
+                        |> PrescriptionRule.filterProducts compItems
 
                     Ok (ord, pr)
                 | Error (ord, m) ->
@@ -592,6 +565,58 @@ module OrderContext =
     let setFilter filter ctx = { ctx with Filter = filter }
 
 
+    let setFilterItem item ctx =
+        let tryItem n xs =
+            xs
+            |> Array.tryItem n
+            |> Option.map Array.singleton
+            |> Option.defaultValue xs
+        {
+            ctx with
+                OrderContext.Filter.Indications =
+                    match item with
+                    | FilterItem.Indication n ->
+                        ctx.Filter.Indications |> tryItem n
+                    | _ -> ctx.Filter.Indications
+                OrderContext.Filter.Generics =
+                    match item with
+                    | FilterItem.Generic n ->
+                        ctx.Filter.Generics |> tryItem n
+                    | _ -> ctx.Filter.Generics
+                OrderContext.Filter.Routes =
+                    match item with
+                    | FilterItem.Route n ->
+                        ctx.Filter.Routes |> tryItem n
+                    | _ -> ctx.Filter.Routes
+                OrderContext.Filter.Shapes =
+                    match item with
+                    | FilterItem.Shape n ->
+                        ctx.Filter.Shapes |> tryItem n
+                    | _ -> ctx.Filter.Shapes
+                OrderContext.Filter.DoseTypes =
+                    match item with
+                    | FilterItem.DoseType n ->
+                        ctx.Filter.DoseTypes |> tryItem n
+                    | _ -> ctx.Filter.DoseTypes
+                OrderContext.Filter.Diluents =
+                    match item with
+                    | FilterItem.Diluent n ->
+                        ctx.Filter.Diluents |> tryItem n
+                    | _ -> ctx.Filter.Diluents
+                OrderContext.Filter.SelectedComponents =
+                    match item with
+                    | FilterItem.Component ns ->
+                        [|
+                            for i in ns do
+                                yield!
+                                    ctx.Filter.SelectedComponents
+                                    |> tryItem i
+                        |]
+
+                    | _ -> ctx.Filter.SelectedComponents
+        }
+
+
     let setFilterGeneric gen ctx =
         { ctx with OrderContext.Filter.Generic = Some gen }
 
@@ -672,7 +697,7 @@ module OrderContext =
             match pr.Scenarios |> Array.tryExactlyOne with
             | Some sc ->
                 sc.Order
-                |> Order.toString
+                |> Order.toStringWithConstraints
                 |> String.concat "\n"
                 |> fun s ->
                     $"""
@@ -814,7 +839,7 @@ Scenarios: {scenarios}
         else
             { ctx with
                 Scenarios =
-                    // Note: different scenarios can exist based on multiple shapes
+                    // Note: different prescription rules can exist based on multiple shapes
                     // and multiple solution rules
                     prs
                     |> evaluateRules
@@ -861,14 +886,13 @@ Scenarios: {scenarios}
         else ctx |> processOrders
 
 
-
     let printCtx msg ctx =
-        writeDebugMessage $"\n\n=== {msg |> String.capitalize} ===\n"
+        writeDebugMessage $"\n\n=== Order State {msg |> String.capitalize} ===\n"
 
         match ctx.Scenarios |> Array.tryExactlyOne with
         | Some sc ->
-            writeDebugMessage $"Order dose is solved: {sc.Order |> Order.doseIsSolved}"
-            writeDebugMessage $"Order dose has values: {sc.Order |> Order.doseHasValues}\n"
+            writeDebugMessage $"Doses are solved: {sc.Order |> Order.doseIsSolved}"
+            writeDebugMessage $"Doses have values: {sc.Order |> Order.doseHasValues}\n"
             writeDebugMessage $"Order is solved: {sc.Order |> Order.isSolved}"
             writeDebugMessage $"Order has values: {sc.Order |> Order.hasValues}\n"
         | _ -> ()
@@ -876,7 +900,8 @@ Scenarios: {scenarios}
         writeDebugMessage $"Components change: {ctx |> checkComponentChange}"
         writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}\n"
 
-        ctx |> toString msg
+        ctx
+        |> toString $"Order Context"
         |> writeDebugMessage
 
         writeDebugMessage $"\n===\n"
