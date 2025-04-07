@@ -1263,7 +1263,7 @@ module Models =
             let create n nonZ min minIncl incr max maxIncl vals =
                 {
                     Name = n
-                    IsNonZeroNegative = nonZ
+                    IsNonZeroPositive = nonZ
                     Min = min
                     MinIncl = minIncl
                     Incr = incr

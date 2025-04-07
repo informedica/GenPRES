@@ -600,6 +600,90 @@ cannot map {r}
         |> Array.distinct
 
 
+    let doseDetailsIsValid (dd: DoseRuleDetails) =
+            dd.DoseType |> String.notEmpty &&
+            (dd.Frequencies |> Array.length > 0 && dd.FreqUnit |> String.notEmpty ||
+             dd.MaxQty |> Option.isSome ||
+             dd.NormQtyAdj |> Option.isSome ||
+             dd.MaxQtyAdj |> Option.isSome ||
+             dd.MaxPerTime |> Option.isSome ||
+             dd.NormPerTimeAdj |> Option.isSome ||
+             dd.MaxPerTime |> Option.isSome ||
+             dd.MaxRate |> Option.isSome ||
+             dd.MaxRateAdj |> Option.isSome)
+
+
+    let getDoseRuleDetails dataUrl =
+        let prods = Product.get ()
+        let warnings = System.Collections.Generic.Dictionary<_, _>()
+
+        dataUrl
+        |> getData
+        |> Array.filter doseDetailsIsValid
+        |> Array.groupBy (fun d ->
+            match d.Shape, d.Brand with
+            | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
+            | _, s when s |> String.notEmpty -> $"{d.Generic} ({d.Brand |> String.toLower |> String.capitalize})"
+            | _ -> d.Generic
+            ,
+            d.Route
+        )
+        |> Array.collect (fun ((gen, rte), rs) ->
+            rs
+            |> Array.collect (fun r ->
+                let filtered =
+                    if r.GPKs |> Array.isEmpty then
+                        prods
+                        |> Product.filter
+                            { Filter.doseFilter with
+                                Generic = r.Component |> Some
+                                Route = rte |> Some
+                            }
+                    else
+                        prods
+                        |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
+
+                if filtered |> Array.length = 0 then
+                    let key = $"{gen} {rte}"
+                    if warnings.ContainsKey(key) |> not then
+                        warnings.Add(key, key)
+                        writeWarningMessage $"no products for {key}"
+
+                    [|
+                        { r with
+                            Products =
+                                [|
+                                    rs
+                                    |> Array.map _.Substance
+                                    |> Array.filter String.notEmpty
+                                    |> Array.distinct
+                                    |> Product.create gen rte
+                                |]
+                        }
+                    |]
+                else
+                    filtered
+                    |> Array.map (fun product ->
+                        { r with
+                            Generic = gen
+                            Shape = product.Shape |> String.toLower
+                            Products =
+                                if r.GPKs |> Array.length > 0 then filtered
+                                else
+                                    filtered
+                                    |> Product.filter
+                                     { Filter.doseFilter with
+                                         Generic = r.Component |> Some
+                                         Shape = product.Shape |> Some
+                                         Route = rte |> Some
+                                     }
+                        }
+                    )
+                    |> Array.distinct
+            )
+        )
+
+
     let getShapeLimits (prods : Product []) (dr : DoseRule) =
         let droplets =
             prods
@@ -782,88 +866,9 @@ cannot map {r}
         }
 
 
-    let doseDetailsIsValid (dd: DoseRuleDetails) =
-            dd.DoseType |> String.notEmpty &&
-            (dd.Frequencies |> Array.length > 0 && dd.FreqUnit |> String.notEmpty ||
-             dd.MaxQty |> Option.isSome ||
-             dd.NormQtyAdj |> Option.isSome ||
-             dd.MaxQtyAdj |> Option.isSome ||
-             dd.MaxPerTime |> Option.isSome ||
-             dd.NormPerTimeAdj |> Option.isSome ||
-             dd.MaxPerTime |> Option.isSome ||
-             dd.MaxRate |> Option.isSome ||
-             dd.MaxRateAdj |> Option.isSome)
-
-
     let get_ dataUrl =
-        let prods = Product.get ()
-        let warnings = System.Collections.Generic.Dictionary<_, _>()
-
         dataUrl
-        |> getData
-        |> Array.filter doseDetailsIsValid
-        |> Array.groupBy (fun d ->
-            match d.Shape, d.Brand with
-            | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
-            | _, s when s |> String.notEmpty -> $"{d.Generic} ({d.Brand |> String.toLower |> String.capitalize})"
-            | _ -> d.Generic
-            ,
-            d.Route
-        )
-        |> Array.collect (fun ((gen, rte), rs) ->
-            rs
-            |> Array.collect (fun r ->
-                let filtered =
-                    if r.GPKs |> Array.isEmpty then
-                        prods
-                        |> Product.filter
-                            { Filter.doseFilter with
-                                Generic = r.Component |> Some
-                                Route = rte |> Some
-                            }
-                    else
-                        prods
-                        |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
-
-                if filtered |> Array.length = 0 then
-                    let key = $"{gen} {rte}"
-                    if warnings.ContainsKey(key) |> not then
-                        warnings.Add(key, key)
-                        writeWarningMessage $"no products for {key}"
-
-                    [|
-                        { r with
-                            Products =
-                                [|
-                                    rs
-                                    |> Array.map _.Substance
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
-                                    |> Product.create gen rte
-                                |]
-                        }
-                    |]
-                else
-                    filtered
-                    |> Array.map (fun product ->
-                        { r with
-                            Generic = gen
-                            Shape = product.Shape |> String.toLower
-                            Products =
-                                if r.GPKs |> Array.length > 0 then filtered
-                                else
-                                    filtered
-                                    |> Product.filter
-                                     { Filter.doseFilter with
-                                         Generic = r.Component |> Some
-                                         Shape = product.Shape |> Some
-                                         Route = rte |> Some
-                                     }
-                        }
-                    )
-                    |> Array.distinct
-            )
-        )
+        |> getDoseRuleDetails
         |> Array.groupBy mapToDoseRule
         |> Array.filter (fst >> Option.isSome)
         |> Array.map (fun (dr, rs) -> dr.Value, rs)
@@ -993,3 +998,177 @@ cannot map {r}
         )
         |> Array.choose id
         |> Array.tryHead
+
+
+    module DataToCSV =
+
+
+        let headers =
+            [
+                "SortNo"
+                "Source"
+                "Generic"
+                "Shape"
+                "Brand"
+                "Route"
+                "GPKs"
+                "Indication"
+                "ScheduleText"
+                "Dep"
+                "Gender"
+                "MinAge"
+                "MaxAge"
+                "MinWeight"
+                "MaxWeight"
+                "MinBSA"
+                "MaxBSA"
+                "MinGestAge"
+                "MaxGestAge"
+                "MinPMAge"
+                "MaxPMAge"
+                "DoseType"
+                "DoseText"
+                "Component"
+                "UseGenericName"
+                "Substance"
+                "Freqs"
+                "DoseUnit"
+                "AdjustUnit"
+                "FreqUnit"
+                "RateUnit"
+                "MinTime"
+                "MaxTime"
+                "TimeUnit"
+                "MinInt"
+                "MaxInt"
+                "IntUnit"
+                "MinDur"
+                "MaxDur"
+                "DurUnit"
+                "MinQty"
+                "MaxQty"
+                "NormQtyAdj"
+                "MinQtyAdj"
+                "MaxQtyAdj"
+                "MinPerTime"
+                "MaxPerTime"
+                "NormPerTimeAdj"
+                "MinPerTimeAdj"
+                "MaxPerTimeAdj"
+                "MinRate"
+                "MaxRate"
+                "MinRateAdj"
+                "MaxRateAdj"
+            ]
+            |> String.concat "\t"
+            |> List.singleton
+
+
+        let distinctByDoseLimit (d : DoseRuleDetails) =
+                d.DoseType,
+                d.Substance |> String.isNullOrWhiteSpace,
+                d.AdjustUnit |> String.isNullOrWhiteSpace,
+                d.MinQty.IsSome,
+                d.MaxQty.IsSome,
+                d.MinQtyAdj.IsSome,
+                d.MaxQtyAdj.IsSome,
+                d.NormQtyAdj.IsSome,
+                d.MinPerTime.IsSome,
+                d.MaxPerTime.IsSome,
+                d.NormPerTimeAdj.IsSome,
+                d.MinPerTimeAdj.IsSome,
+                d.MaxPerTimeAdj.IsSome,
+                d.MinRate.IsSome,
+                d.MaxRate.IsSome,
+                d.MinRateAdj.IsSome,
+                d.MaxRateAdj.IsSome
+
+
+        let dataToCsv distBy dataUrlId =
+            let grouped =
+                dataUrlId
+                |> getDoseRuleDetails
+                |> Array.groupBy mapToDoseRule
+                |> Array.filter (fst >> Option.isSome)
+                |> Array.map (fun (dr, details) -> dr.Value, details)
+
+            let distinct =
+                grouped
+                |> Array.collect snd
+                |> Array.filter (_.Products >> Array.isEmpty >> not)
+                |> Array.filter (_.Shape >> String.notEmpty)
+                |> Array.distinctBy distBy
+
+            grouped
+            |> Array.filter (snd >> Array.exists(fun d -> distinct |> Array.exists ((=) d)))
+            |> Array.collect snd
+            |> Array.toList
+            |> List.mapi (fun i d ->
+                let bigRatToStringList =
+                    Array.map BigRational.toDouble
+                    >> Array.map string
+                    >> String.concat ";"
+
+                let bigRatOptToString =
+                    Option.map (BigRational.toDouble >> string)
+                    >> Option.defaultValue ""
+                [
+                    $"{i}"
+                    d.Source
+                    d.Generic
+                    d.Shape
+                    d.Brand
+                    d.Route
+                    (d.GPKs |> String.concat ";")
+                    d.Indication
+                    d.ScheduleText
+                    d.Department
+                    (d.Gender |> Gender.toString)
+                    (d.MinAge |> bigRatOptToString)
+                    (d.MaxAge |> bigRatOptToString)
+                    (d.MinWeight |> bigRatOptToString)
+                    (d.MaxWeight |> bigRatOptToString)
+                    (d.MinBSA |> bigRatOptToString)
+                    (d.MaxBSA |> bigRatOptToString)
+                    (d.MinGestAge |> bigRatOptToString)
+                    (d.MaxGestAge |> bigRatOptToString)
+                    (d.MinPMAge |> bigRatOptToString)
+                    (d.MaxPMAge |> bigRatOptToString)
+                    d.DoseType
+                    d.DoseText
+                    d.Component
+                    ""
+                    d.Substance
+                    (d.Frequencies |> bigRatToStringList)
+                    d.DoseUnit
+                    d.AdjustUnit
+                    d.FreqUnit
+                    d.RateUnit
+                    (d.MinTime |> bigRatOptToString)
+                    (d.MaxTime |> bigRatOptToString)
+                    d.TimeUnit
+                    "" //d.MinInt
+                    "" //d.MaxInt
+                    "" //d.IntUnit
+                    (d.MinDur |> bigRatOptToString)
+                    (d.MaxDur |> bigRatOptToString)
+                    d.DurUnit
+                    (d.MinQty |> bigRatOptToString)
+                    (d.MaxQty |> bigRatOptToString)
+                    (d.NormQtyAdj |> bigRatOptToString)
+                    (d.MinQtyAdj |> bigRatOptToString)
+                    (d.MaxQtyAdj |> bigRatOptToString)
+                    (d.MinPerTime |> bigRatOptToString)
+                    (d.MaxPerTime |> bigRatOptToString)
+                    (d.NormPerTimeAdj |> bigRatOptToString)
+                    (d.MinPerTimeAdj |> bigRatOptToString)
+                    (d.MaxPerTimeAdj |> bigRatOptToString)
+                    (d.MinRate |> bigRatOptToString)
+                    (d.MaxRate |> bigRatOptToString)
+                    (d.MinRateAdj |> bigRatOptToString)
+                    (d.MaxRateAdj |> bigRatOptToString)
+
+                ]
+                |> String.concat "\t"
+            )
+            |> List.append headers

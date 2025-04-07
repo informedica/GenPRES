@@ -93,6 +93,98 @@ open Patient.Optics
 let printCtx = OrderContext.printCtx
 
 
+module Orderable = Order.Orderable
+module Dose = Orderable.Dose
+
+
+let processClearedOrder itm (ord: Order) =
+    match ord.Prescription with
+    | Continuous ->
+        match ord.Orderable.Dose |> Dose.isRateCleared,
+              ord.Orderable |> Orderable.isOrderableConcentrationCleared,
+              ord.Orderable |> Orderable.isItemRateCleared with
+        | true, false, false -> ord |> Order.clearDoseRate
+        | _ -> ord
+
+
+
+
+type OrderState =
+    | Initiated
+    | IsConstrained
+    | HasValues
+    | FrequencyIsSolved
+    | TimeIsSolved
+    | DosesAreSolved
+    | IsSolved
+
+
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> OrderContext.create
+|> OrderContext.setFilterGeneric "paracetamol"
+|> OrderContext.setFilterRoute "rectaal"
+|> OrderContext.evaluate //|> ignore
+|> printCtx "1 eval" //|> ignore
+|> OrderContext.setFilterItem (FilterItem.Indication 1)
+|> OrderContext.evaluate
+|> printCtx "2 eval" //|> ignore
+|> OrderContext.evaluate
+|> OrderContext.medianDose
+|> printCtx "3 eval" //|> ignore
+|> fun ctx ->
+    { ctx with
+        Scenarios =
+            ctx.Scenarios
+            |> Array.tryExactlyOne
+            |> Option.map (fun sc ->
+                [|
+                    { sc with
+                        Order = sc.Order |> Order.clearFrequency
+                    }
+                |]
+            )
+            |> Option.defaultValue ctx.Scenarios
+    }
+
+|> fun ctx ->
+    { ctx with
+        Scenarios =
+            ctx.Scenarios
+            |> Array.tryExactlyOne
+            |> Option.map (fun sc ->
+                [|
+                    { sc with
+                        Order =
+                            if sc.Order |> Order.frequencyIsCleared |> not then sc.Order
+                            else
+                                sc.Order
+                                |> Order.setStandardFrequency
+                                |> Order.clearDosePerTime
+                                |> fun ord ->
+                                    printfn "--> setting standard freq\n\n"
+                                    ord
+                                    |> Order.toStringWithConstraints
+                                    |> String.concat "\n"
+                                    |> printfn "%s"
+                                    ord
+                                    |> Order.solveOrder true OrderLogger.noLogger
+                                    |> Result.defaultValue ord
+                                    |> fun ord ->
+                                        printfn "\n\n--> solved standard freq\n\n"
+                                        ord
+                                        |> Order.toStringWithConstraints
+                                        |> String.concat "\n"
+                                        |> printfn "%s"
+                                        ord
+
+                    }
+                |]
+            )
+            |> Option.defaultValue ctx.Scenarios
+    }
+|> ignore
+
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
@@ -258,31 +350,3 @@ Patient.infant
 //    |> OrderContext.Helpers.processOrderWithRule pr OrderLogger.logger.Logger
     |> Result.bind (Order.solveMinMax true OrderLogger.logger.Logger)
     |> Result.iter (Order.toString >> String.concat "\n" >> printfn "\n\n== final:\n\n%s")
-
-
-type OrderState =
-    | Initiated
-    | IsConstrained
-    | HasValues
-    | FrequencyIsSolved
-    | TimeIsSolved
-    | DosesAreSolved
-    | IsSolved
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterGeneric "paracetamol"
-|> OrderContext.setFilterRoute "rectaal"
-|> OrderContext.evaluate //|> ignore
-|> printCtx "1 eval" //|> ignore
-|> OrderContext.setFilterItem (FilterItem.Indication 1)
-|> OrderContext.evaluate
-|> printCtx "2 eval" //|> ignore
-|> OrderContext.evaluate
-|> OrderContext.medianDose
-|> printCtx "3 eval" //|> ignore
-|> OrderContext.evaluate
-|> printCtx "4 eval" //|> ignore
-|> ignore

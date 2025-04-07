@@ -238,7 +238,7 @@ module OrderScenario =
 
 
     let applyConstraints (sc: OrderScenario) =
-        writeDebugMessage "reapply constraints to order scenario"
+        writeDebugMessage "reapply all constraints to order scenario"
         { sc with
             Order =
                 sc.Order
@@ -322,13 +322,13 @@ module OrderContext =
             }
 
 
-        let processOrderWithRule pr logger ord =
+        let processOrderWithRule normDose logger ord =
             ord
             |> Order.applyConstraints
             |> Order.solveMinMax false logger
             |> Result.bind (increaseIncrements logger)
             |> Result.bind (fun ord ->
-                match pr.DoseRule |> DoseRule.getNormDose with
+                match normDose with
                 | Some nd ->
                     ord
                     |> Order.minIncrMaxToValues true logger
@@ -351,7 +351,7 @@ module OrderContext =
                 drugOrder
                 |> DrugOrder.toOrderDto
                 |> Order.Dto.fromDto
-                |> processOrderWithRule pr logger
+                |> processOrderWithRule (pr.DoseRule |> DoseRule.getNormDose) logger
                 |> function
                 | Ok ord ->
                     let ord =
@@ -441,6 +441,16 @@ module OrderContext =
 
                     None
             )
+
+
+        let printOrder ord =
+            ord
+            |> Order.toStringWithConstraints
+            |> String.concat "\n"
+            |> sprintf "\n%s\n"
+            |> writeDebugMessage
+
+            ord
 
 
     open Helpers
@@ -834,8 +844,17 @@ Scenarios: {scenarios}
                     [|
                         if sc.Order |> Order.doseIsSolved &&
                            sc.Order |> Order.hasValues |> not then
-                            sc
-                            |> OrderScenario.applyConstraints
+                            if sc.Order |> Order.isCleared |> not then
+                                sc
+                                |> OrderScenario.applyConstraints
+                            else
+                                { sc with
+                                    Order =
+                                        sc.Order
+                                        |> Order.processClearedOrder
+                                        |> printOrder
+                                }
+
                         else
                             if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
                             else

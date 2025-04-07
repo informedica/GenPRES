@@ -6,7 +6,7 @@ namespace Informedica.GenOrder.Lib
 /// `Informedica.GenUnits.Lib`
 module ValueUnit =
 
-
+    open MathNet.Numerics
     open Informedica.GenUnits.Lib
     open ValueUnit
 
@@ -65,6 +65,19 @@ module ValueUnit =
             |> toUnit
             |> Some
 
+
+    let toStandardFrequency u =
+        match u |> getUnits with
+        | [_; tu] ->
+            match tu with
+            | _ when tu |> Units.eqsUnit Units.Time.day   -> [| 1N .. 24N |] |> Some
+            | _ when tu |> Units.eqsUnit Units.Time.week  -> [| 1N .. 7N |]  |> Some
+            | _ when tu |> Units.eqsUnit Units.Time.month -> [| 1N .. 4N |]  |> Some
+            | _ when tu |> Units.eqsUnit Units.Time.year  -> [| 1N .. 12N |] |> Some
+            | _ -> None
+            |> Option.map (withUnit u)
+
+        | _ -> None
 
 
     module Units =
@@ -125,6 +138,19 @@ module Variable =
         let setOptVs vs vr = vr |> setOpt vs setValueSet
 
 
+    open Informedica.GenSolver.Lib
+    module ValueSet = Variable.ValueRange.ValueSet
+
+
+    let setValueUnitToValueSet vu (var : Variable) =
+        { var with
+            Values =
+                vu
+                |> ValueSet.create
+                |> ValueRange.ValSet
+        }
+
+
 /// Functions that deal with the `VariableUnit` type
 module OrderVariable =
 
@@ -177,7 +203,7 @@ module OrderVariable =
 
 
         let toValueRange (cs : Constraints) =
-            ValueRange.NonZeroAndPositive
+            ValueRange.NonZeroPositive
             |> ValueRange.setOptMin cs.Min
             |> ValueRange.setOptMax cs.Max
             |> ValueRange.setOptIncr cs.Incr
@@ -262,6 +288,12 @@ module OrderVariable =
             }
 
 
+        let getUnit (cs : Constraints) =
+            cs
+            |> toValueRange
+            |> ValueRange.getUnit
+
+
     /// <summary>
     /// Create an OrderVariable, an OrderVariable is a Variable with Constraints
     /// </summary>
@@ -317,6 +349,9 @@ module OrderVariable =
     let getVar { Variable = var } = var
 
 
+    let getConstraints { Constraints = cons } = cons
+
+
     let getValueUnit ovar =
         ovar
         |> getVar
@@ -341,6 +376,12 @@ module OrderVariable =
         |> String.concat ", "
 
 
+    let setConstraints cs (ovar :OrderVariable) =
+        { ovar with
+            Constraints = cs
+        }
+
+
     /// <summary>
     /// Apply the constraints of an OrderVariable to the Variable
     /// of the OrderVariable.
@@ -355,7 +396,7 @@ module OrderVariable =
             Variable =
                 if ovar.Constraints |> Constraints.isEmpty then
                     ovar.Variable
-                    |> Variable.setNonZeroOrNegative
+                    |> Variable.setNonZeroAndPositive
                 else
                     { ovar.Variable with
                         Values = ovar.Constraints |> Constraints.toValueRange
@@ -525,7 +566,6 @@ module OrderVariable =
         |> Option.map (ValueSet.toValueUnit >> ValueUnit.toStringDutchShort)
 
 
-
     /// Helper function to get a string representation of the ValueRange of
     /// the Variable of an OrderVariable
     let toValueUnitString get (_ : int) x =
@@ -595,11 +635,30 @@ module OrderVariable =
         }
 
 
+    let setValueSet vs (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                vs
+                |> Variable.setValueRange ovar.Variable
+        }
+
+
+    let setToNonZeroPositive (ovar: OrderVariable) =
+        { ovar with
+            Variable =
+                ovar.Variable |> Variable.setNonZeroAndPositive
+        }
+
+
     let clear (ovar : OrderVariable) =
         { ovar with
             Variable =
                 ovar.Variable |> Variable.clear
         }
+
+
+    let isCleared (ovar : OrderVariable) =
+        ovar.Variable |> Variable.isUnrestricted
 
 
     /// <summary>
@@ -823,7 +882,6 @@ module OrderVariable =
             dto
 
 
-
     /// Type and functions that represent a count
     module Count =
 
@@ -879,6 +937,17 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
 
+        let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> count
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> count
+
 
     /// Type and functions that represent a time
     module Time =
@@ -924,7 +993,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Time` as a value unit string list
@@ -947,6 +1016,9 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        let isCleared = toOrdVar >> isCleared
+
+
         let setMinValue = toOrdVar >> setMinValue >> time
 
 
@@ -954,6 +1026,12 @@ module OrderVariable =
 
 
         let setMedianValue = toOrdVar >> setMedianValue >> time
+
+
+        let clear = toOrdVar >> clear >> time
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> time
 
 
     /// Type and functions that represent a frequency
@@ -1000,7 +1078,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Frequency` as a value unit string list
@@ -1027,6 +1105,42 @@ module OrderVariable =
 
         let setMedianValue = toOrdVar >> setMedianValue >> Frequency
 
+
+        let setConstraints cs = toOrdVar >> setConstraints cs >> Frequency
+
+
+        let setStandardValues frq =
+            let oldCs =
+                frq
+                |> toOrdVar
+                |> getConstraints
+
+            let newCs =
+                oldCs
+                |> Constraints.getUnit
+                |> Option.bind (fun u ->
+                    u
+                    |> ValueUnit.toStandardFrequency
+                    |> Option.map Variable.ValueRange.ValueSet.create
+                )
+                |> Constraints.create None None None
+
+            frq
+            |> setConstraints newCs
+            |> applyConstraints
+            |> setConstraints oldCs
+
+
+        let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> Frequency
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Frequency
 
 
     /// Type and functions that represent a concentration,
@@ -1076,7 +1190,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Concentration` as a value unit string list
@@ -1094,6 +1208,17 @@ module OrderVariable =
         /// Apply the constraints of a Concentration to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
+
+        let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> Concentration
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Concentration
 
 
     /// Type and functions that represent a quantity
@@ -1139,7 +1264,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Quantity` as a value unit string list
@@ -1175,6 +1300,9 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        let isCleared = toOrdVar >> isCleared
+
+
         let setMinValue = toOrdVar >> setMinValue >> Quantity
 
 
@@ -1183,6 +1311,14 @@ module OrderVariable =
 
         let setMedianValue = toOrdVar >> setMedianValue >> Quantity
 
+
+        let clear = toOrdVar >> clear >> Quantity
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Quantity
+
+
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Quantity
 
 
     /// Type and functions that represent a quantity per time
@@ -1236,7 +1372,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `PerTime` as a value unit string list
@@ -1257,6 +1393,18 @@ module OrderVariable =
 
         /// Check whether a PerTime is solved
         let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> PerTime
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTime
+
+
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> PerTime
 
 
     module Rate =
@@ -1298,7 +1446,6 @@ module OrderVariable =
             |> Rate
 
 
-
         let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Rate
 
 
@@ -1310,7 +1457,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Rate` as a value unit string list
@@ -1329,6 +1476,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Rate
+
+
         /// <summary>
         /// Increase the increment of a Rate until the resulting ValueRange
         /// contains at most maxCount values.
@@ -1343,6 +1493,9 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        let isCleared = toOrdVar >> isCleared
+
+
         let clear = toOrdVar >> clear >> Rate
 
 
@@ -1353,6 +1506,9 @@ module OrderVariable =
 
 
         let setMedianValue = toOrdVar >> setMedianValue >> Rate
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Rate
 
 
     /// Type and functions that represent a total
@@ -1390,7 +1546,6 @@ module OrderVariable =
             |> Total
 
 
-
         let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Total
 
 
@@ -1417,6 +1572,20 @@ module OrderVariable =
         /// Apply the constraints of a Total to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
+
+        let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> Total
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Total
+
+
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total
 
 
     /// Type and functions that represent a adjusted quantity,
@@ -1472,7 +1641,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `QuantityAdjust` as a value unit string list
@@ -1493,6 +1662,15 @@ module OrderVariable =
 
         /// Check whether a QuantityAdjust is solved
         let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> QuantityAdjust
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> QuantityAdjust
 
 
     /// Type and functions that represent a adjusted total,
@@ -1546,7 +1724,6 @@ module OrderVariable =
             |> PerTimeAdjust
 
 
-
         let setFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTimeAdjust
 
 
@@ -1560,7 +1737,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         let toValueUnitStringList = toValueUnitStringList toOrdVar
@@ -1578,6 +1755,15 @@ module OrderVariable =
 
         /// Check whether a PerTimeAdjust is solved
         let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> PerTimeAdjust
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTimeAdjust
 
 
     /// Type and functions that represent a adjusted total,
@@ -1665,7 +1851,13 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
-        let clear = toOrdVar >> clear >> Rate
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> RateAdjust
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> RateAdjust
 
 
     /// Type and functions that represent a adjusted quantity,
@@ -1739,3 +1931,12 @@ module OrderVariable =
 
         /// Check whether a TotalAdjust is solved
         let isSolved = toOrdVar >> isSolved
+
+
+        let isCleared = toOrdVar >> isCleared
+
+
+        let clear = toOrdVar >> clear >> TotalAdjust
+
+
+        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> TotalAdjust

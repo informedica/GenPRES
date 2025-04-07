@@ -701,12 +701,13 @@ module DrugOrder =
         if d.AdjustUnit
            |> Option.map (ValueUnit.Group.eqsGroup Units.Weight.kiloGram)
            |> Option.defaultValue false then
+            // adjusted by weight
             dto.Adjust.Constraints.MinOpt <-
                 (200N /1000N) |> createSingleValueUnitDto d.AdjustUnit.Value
 
             dto.Adjust.Constraints.MaxOpt <-
                 150N |> createSingleValueUnitDto d.AdjustUnit.Value
-
+        // TODO add constraints for BSA
         dto.Adjust.Constraints.ValsOpt <- d.Adjust |> vuToDto
 
         dto

@@ -50,7 +50,7 @@ module Mappers =
 
 
         let mapToVariable (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) : Variable =
-            Models.Order.Variable.create dto.Name dto.IsNonZeroNegative
+            Models.Order.Variable.create dto.Name dto.IsNonZeroPositive
                 (dto.MinOpt |> Option.map mapToValueUnit)
                 dto.MinIncl
                 (dto.IncrOpt |> Option.map mapToValueUnit)
@@ -62,12 +62,12 @@ module Mappers =
         let mapFromVariable (var : Variable) : Informedica.GenSolver.Lib.Variable.Dto.Dto =
             let dto = Informedica.GenSolver.Lib.Variable.Dto.dto ()
 
-            if var.IsNonZeroNegative && var.Incr.IsNone then
-                dto.IsNonZeroNegative <- true
+            if var.IsNonZeroPositive && var.Incr.IsNone then
+                dto.IsNonZeroPositive <- true
 
             else
                 dto.Name <- var.Name
-                dto.IsNonZeroNegative <- var.IsNonZeroNegative
+                dto.IsNonZeroPositive <- var.IsNonZeroPositive
                 dto.MinOpt <- var.Min |> Option.map mapFromValueUnit
                 dto.MinIncl <- var.MinIncl
                 dto.IncrOpt <- var.Incr |> Option.map mapFromValueUnit

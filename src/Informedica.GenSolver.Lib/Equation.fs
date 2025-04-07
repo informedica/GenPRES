@@ -204,8 +204,8 @@ module Equation =
     /// </summary>
     let nonZeroOrNegative eq =
         let set c y xs =
-            let y = y |> Variable.setNonZeroOrNegative
-            let xs = xs |> List.map Variable.setNonZeroOrNegative
+            let y = y |> Variable.setNonZeroAndPositive
+            let xs = xs |> List.map Variable.setNonZeroAndPositive
             (y, xs) |> c
         let fp = set ProductEquation
         let fs = set SumEquation

@@ -119,7 +119,7 @@ module Order =
 
             let setVar (s : string option) (var : Variable) =
                 { var with
-                    IsNonZeroNegative = s.IsNone
+                    IsNonZeroPositive = s.IsNone
                     Vals =
                         if s.IsNone then None
                         else var.Vals |> setVu s

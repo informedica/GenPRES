@@ -109,7 +109,7 @@ module Types =
     type Variable =
         {
             Name: string
-            IsNonZeroNegative: bool
+            IsNonZeroPositive: bool
             Min: ValueUnit option
             MinIncl: bool
             Incr: ValueUnit option
