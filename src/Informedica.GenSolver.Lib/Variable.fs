@@ -69,7 +69,6 @@ module Variable =
         open Informedica.Utils.Lib.BCL
 
 
-
         module Increment =
 
 
@@ -249,6 +248,19 @@ module Variable =
                 incr |> ValueUnit.getValue |> Array.length
 
 
+            let isMultipleOf incr2 incr1 =
+                incr2
+                |> toValueUnit
+                |> ValueUnit.filter (fun i2 ->
+                    incr1
+                    |> toValueUnit
+                    |> ValueUnit.getBaseValue
+                    |> Array.forall (fun i1 -> i1 |> BigRational.isMultiple i2)
+                )
+                |> ValueUnit.isEmpty
+                |> not
+
+
             /// <summary>
             /// Restrict an oldIncr with a newIncr.
             /// </summary>
@@ -290,7 +302,6 @@ module Variable =
             /// </summary>
             /// <param name="exact">Print exact or not</param>
             let toString exact (Increment incr) = $"{incr |> ValueUnit.toStr exact}"
-
 
 
         module Minimum =
@@ -640,7 +651,6 @@ module Variable =
                     |> String.trim
 
 
-
         module Maximum =
 
 
@@ -955,7 +965,6 @@ module Variable =
                 $"""{vu |> ValueUnit.toDelimitedString prec}"""
 
 
-
         module ValueSet =
 
 
@@ -1212,7 +1221,6 @@ module Variable =
                     $"{first1} .. {last1 |> ValueUnit.toDelimitedString prec}"
 
 
-
         module Property =
 
 
@@ -1419,7 +1427,6 @@ module Variable =
         let convertToUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
-
         let getUnit vr =
             if vr |> checkEqualUnitGroup then
                 vr
@@ -1430,7 +1437,6 @@ module Variable =
         let setUnit unt vr =
             vr
             |> mapValueUnit (ValueUnit.setUnit unt)
-
 
 
         /// <summary>
@@ -1460,6 +1466,7 @@ module Variable =
                 returnFalse
                 returnFalse
                 returnFalse
+
 
         /// Checks whether a `ValueRange` is `Unrestricted`
         let isNonZeroAndPositive =
@@ -1612,7 +1619,6 @@ module Variable =
                 returnFalse
                 returnFalse
                 Boolean.returnTrue
-
 
 
         /// <summary>
@@ -1781,6 +1787,14 @@ module Variable =
         let minSTEmax max min = min |> minGTmax max |> not
 
 
+        let minIsMultipleOf incr min =
+            let b, vu = min |> Minimum.toBoolValueUnit
+
+            if not b then false
+            else
+                incr |> Increment.isMultipleOf (vu |> Increment.create)
+
+
         /// <summary>
         /// Create a `Minimum` that is a multiple of **incr**.
         /// </summary>
@@ -1803,6 +1817,14 @@ module Variable =
                 |> failwith
 
             min |> Minimum.multipleOf incr
+
+
+        let maxIsMultipleOf incr max =
+            let b, vu = max |> Maximum.toBoolValueUnit
+
+            if not b then false
+            else
+                incr |> Increment.isMultipleOf (vu |> Increment.create)
 
 
         /// <summary>
@@ -2132,6 +2154,13 @@ module Variable =
         /// Get an optional `ValueSet` in a `ValueRange`
         let getValSet =
             apply None None Option.none Option.none Option.none Option.none Option.none Option.none Option.none Some
+
+
+        let getMinIncrMaxOrValueSet vr =
+            vr |> getMin,
+            vr |> getIncr,
+            vr |> getMax,
+            vr |> getValSet
 
 
         let setNearestValue vu vr =
@@ -2661,7 +2690,6 @@ module Variable =
             |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
 
 
-
         /// Convert a `ValueRange` to a markdown `string`.
         let toMarkdown prec vr =
             let print prec isNonZero min max vs =
@@ -2710,7 +2738,6 @@ module Variable =
 
             vr
             |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
-
 
 
         /// Functions to calculate the `Minimum`
@@ -3154,10 +3181,27 @@ module Variable =
         /// vr2 |> isSubSetOf vr1 // returns true
         /// </code>
         /// </example>
-        let isSubSetOf vr2 vr1 =
+        let valueSetIsSubsetOf vr2 vr1 =
             match vr1, vr2 with
             | ValSet s1, ValSet s2 -> ValueSet.isSubset s1 s2
             | _ -> false
+
+
+        let isSubSetOf vr2 vr1 =
+            match vr1, vr2 with
+            | ValSet _, ValSet _ -> vr1 |> valueSetIsSubsetOf vr2
+            | ValSet _, _ -> false
+            | _ ->
+                let min1, incr1, max1, _ = vr1 |> getMinIncrMaxOrValueSet
+                let min2, incr2, max2, _ = vr2 |> getMinIncrMaxOrValueSet
+
+                min2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> Minimum.minGTEmin m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+                max2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> minSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+                max2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m1 |> Maximum.maxSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+                min2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m2 |> minSTEmax m1)  |> Option.defaultValue true) |> Option.defaultValue true &&
+                incr2 |> Option.map (fun i2 -> incr1 |> Option.map(fun i1 -> i1 |> Increment.isMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&
+                incr2 |> Option.map (fun i2 -> min1 |> Option.map(fun m1 -> m1 |> minIsMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&
+                incr2 |> Option.map (fun i2 -> max1 |> Option.map(fun m1 -> m1 |> maxIsMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true
 
 
         /// <summary>
@@ -3291,7 +3335,6 @@ module Variable =
             let inline (@-) vr1 vr2 = calc true (-) (vr1, vr2)
 
             let inline (@<-) vr1 vr2 = applyExpr vr1 vr2
-
 
 
     open ValueRange.Operators

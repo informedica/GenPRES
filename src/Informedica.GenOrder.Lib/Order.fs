@@ -837,12 +837,6 @@ module Order =
             let isOrderableQuantityCleared itm = (itm |> inf).OrderableQuantity |> Quantity.isCleared
 
 
-            let orderableQuantityMinIncrMaxToValues itm =
-                { (itm |> inf) with
-                    OrderableQuantity = itm.OrderableQuantity |> Quantity.minIncrMaxToValues
-                }
-
-
             /// Get the `Item` dose
             let getDose itm = (itm |> inf).Dose
 
@@ -885,25 +879,16 @@ module Order =
             let setDoseQuantityToNonZeroPositive = setDose Dose.setQuantityToNonZeroPositive
 
 
-            let doseQuantityMinIncrMaxToValues = setDose Dose.quantityMinIncrMaxToValues
-
-
             let isDoseRateCleared = getDose >> Dose.isRateCleared
 
 
             let setDoseRateToNonZeroPositive = setDose Dose.setRateToNonZeroPositive
 
 
-            let doseRateMinIncrMaxToValues = setDose Dose.rateMinIncrMaxToValues
-
-
             let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
 
 
             let setDosePerTimeToNonZeroPositive = setDose Dose.setPerTimeToNonZeroPositive
-
-
-            let dosePerTimeMinIncrMaxToValues = setDose Dose.perTimeMinIncrMaxToValues
 
 
             /// <summary>
@@ -1339,9 +1324,6 @@ module Order =
                 >> applyToItems Item.setDoseQuantityToNonZeroPositive
 
 
-            let doseQuantityMinIncrMaxToValues = setDose Dose.quantityMinIncrMaxToValues
-
-
             let isDoseRateCleared = getDose >> Dose.isRateCleared
 
 
@@ -1353,9 +1335,6 @@ module Order =
                 >> applyToItems Item.setDoseRateToNonZeroPositive
 
 
-            let doseRateMinIncrMaxToValues = setDose Dose.rateMinIncrMaxToValues
-
-
             let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
 
 
@@ -1365,9 +1344,6 @@ module Order =
             let setDosePerTimeToNonZeroPositive =
                 setDose Dose.setPerTimeToNonZeroPositive
                 >> applyToItems Item.setDosePerTimeToNonZeroPositive
-
-
-            let dosePerTimeMinIncrMaxToValues = setDose Dose.perTimeMinIncrMaxToValues
 
 
             /// <summary>
@@ -2800,6 +2776,12 @@ module Order =
 
 
     let isEmpty = toOrdVars >> List.forall OrderVariable.isEmpty
+
+
+    let hasConstraints = toOrdVars >> List.forall OrderVariable.hasConstraints
+
+
+    let areConstraintsApplied = toOrdVars >> List.forall OrderVariable.isWithinConstraints
 
 
     let isSolved = toOrdVars >> List.forall OrderVariable.isSolved

@@ -853,6 +853,8 @@ Scenarios: {scenarios}
                                         sc.Order
                                         |> Order.processClearedOrder
                                         |> printOrder
+                                        |> Order.solveOrder true OrderLogger.noLogger
+                                        |> Result.defaultValue (sc.Order |> Order.applyConstraints)
                                 }
 
                         else
@@ -860,7 +862,7 @@ Scenarios: {scenarios}
                             else
                                 sc
                                 |> OrderScenario.calcOrderValues
-
+                        |> OrderScenario.setOrderTableFormat
                     |]
             }
             |> updateFilterIfOneScenario

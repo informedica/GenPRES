@@ -309,7 +309,7 @@ module Equation =
 
                     let b =
                         y.Values
-                        |> ValueRange.isSubSetOf (xs |> List.reduce op).Values
+                        |> ValueRange.valueSetIsSubsetOf (xs |> List.reduce op).Values
                     if not b then
                         $"not a subset: {y.Values |> toStr} {(xs |> List.reduce op).Values |> toStr}"
                         |> writeErrorMessage

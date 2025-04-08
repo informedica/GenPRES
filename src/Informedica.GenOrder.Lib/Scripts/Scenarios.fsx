@@ -96,13 +96,55 @@ let printCtx = OrderContext.printCtx
 module Orderable = Order.Orderable
 module Dose = Orderable.Dose
 
+open Informedica.GenUnits.Lib
+
+
+Order.createNew
+    "1"
+    "test"
+    (Order.Prescription.continuous Units.Mass.milliGram Units.Time.hour)
+    "iv"
+|> Order.applyConstraints
+|> Order.toOrdVars
+|> List.filter (OrderVariable.isWithinConstraints >> not)
+
+open MathNet.Numerics
+open Informedica.GenSolver.Lib
+
+let vu = ValueUnit.create Unit.ZeroUnit [| 0N |]
+
+let min1 =
+    vu
+    |> Variable.ValueRange.Minimum.create false
+let min2 =
+    vu
+    |> Variable.ValueRange.Minimum.create false
+
+min2 |> Variable.ValueRange.Minimum.minGTEmin min1
+
+min1 |> Min |> Variable.ValueRange.isSubSetOf (min2 |> Min)
+
+open Informedica.GenSolver.Lib.Variable.ValueRange
+
+let min1, incr1, max1, _ = min1 |> Min |> getMinIncrMaxOrValueSet
+let min2, incr2, max2, _ = min2 |> Min |> getMinIncrMaxOrValueSet
+
+min2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> Minimum.minGTEmin m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+max2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> minSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+max2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m1 |> Maximum.maxSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+min2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m2 |> minSTEmax m1)  |> Option.defaultValue true) |> Option.defaultValue true &&
+incr2 |> Option.map (fun i2 -> incr1 |> Option.map(fun i1 -> i1 |> Increment.isMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&
+incr2 |> Option.map (fun i2 -> min1 |> Option.map(fun m1 -> m1 |> minIsMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&
+incr2 |> Option.map (fun i2 -> max1 |> Option.map(fun m1 -> m1 |> maxIsMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true
+
+
 
 let processClearedOrder itm (ord: Order) =
     match ord.Prescription with
     | Continuous ->
         match ord.Orderable.Dose |> Dose.isRateCleared,
-              ord.Orderable |> Orderable.isOrderableConcentrationCleared,
-              ord.Orderable |> Orderable.isItemRateCleared with
+              ord.Orderable |> Orderable.isItemOrderableConcentrationCleared,
+              ord.Orderable |> Orderable.isItemDoseRateCleared with
         | true, false, false -> ord |> Order.clearDoseRate
         | _ -> ord
 

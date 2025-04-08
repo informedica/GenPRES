@@ -349,9 +349,6 @@ module OrderVariable =
     let getVar { Variable = var } = var
 
 
-    let getConstraints { Constraints = cons } = cons
-
-
     let getValueUnit ovar =
         ovar
         |> getVar
@@ -374,6 +371,12 @@ module OrderVariable =
         |> List.map _.Name
         |> List.map Name.toString
         |> String.concat ", "
+
+
+    let getConstraints { Constraints = cons } = cons
+
+
+    let hasConstraints = getConstraints >> Constraints.isEmpty >> not
 
 
     let setConstraints cs (ovar :OrderVariable) =
@@ -402,6 +405,14 @@ module OrderVariable =
                         Values = ovar.Constraints |> Constraints.toValueRange
                     }
         }
+
+
+    let isWithinConstraints ovar =
+        if ovar |> hasConstraints |> not then true
+        else
+            let cs = ovar.Constraints |> Constraints.toValueRange
+            ovar.Variable.Values
+            |> ValueRange.isSubSetOf cs
 
 
     let hasIncrement (ovar: OrderVariable) =
@@ -933,6 +944,12 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
         /// Apply the constraints of a Count to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
@@ -1006,6 +1023,12 @@ module OrderVariable =
 
         /// Get a ValueUnit markdown representation of a Time
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a Time to the OrderVariable Variable
@@ -1093,8 +1116,17 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
         /// Apply the constraints of a Frequency to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Frequency
+
+
+        let setConstraints cs = toOrdVar >> setConstraints cs >> Frequency
 
 
         let setMinValue = toOrdVar >> setMinValue >> Frequency
@@ -1104,9 +1136,6 @@ module OrderVariable =
 
 
         let setMedianValue = toOrdVar >> setMedianValue >> Frequency
-
-
-        let setConstraints cs = toOrdVar >> setConstraints cs >> Frequency
 
 
         let setStandardValues frq =
@@ -1205,6 +1234,12 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
         /// Apply the constraints of a Concentration to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
@@ -1277,6 +1312,12 @@ module OrderVariable =
 
         /// Get a ValueUnit markdown representation of a Quantity
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
@@ -1387,6 +1428,12 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
         /// Apply the constraints of a PerTime to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
@@ -1470,6 +1517,12 @@ module OrderVariable =
 
         /// Get a ValueUnit markdown representation of a Rate
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a Rate to the OrderVariable Variable
@@ -1569,6 +1622,12 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
         /// Apply the constraints of a Total to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
@@ -1654,6 +1713,12 @@ module OrderVariable =
 
         /// Get a ValueUnit markdown representation of a QuantityAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
@@ -1749,6 +1814,11 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
 
         let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
 
@@ -1843,6 +1913,12 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
         /// Apply the constraints of a RateAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
@@ -1923,6 +1999,12 @@ module OrderVariable =
 
         /// Get a ValueUnit markdown representation of a TotalAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
+
+
+        let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
