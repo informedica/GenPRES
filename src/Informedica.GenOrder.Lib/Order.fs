@@ -3300,7 +3300,10 @@ module Order =
     let isCleared = toOrdVars >> List.exists OrderVariable.isCleared
 
 
-    let processClearedOrder ord =
+    type Status = Processed of Order | NotProcessed of Order
+
+
+    let processClearedOrder logger ord =
         match (ord |> inf).Prescription with
         | Continuous ->
             match ord.Orderable.Dose |> Dose.isRateCleared,
@@ -3313,11 +3316,65 @@ module Order =
                         |> Orderable.setDoseRateToNonZeroPositive
                         |> Orderable.applyDoseRateConstraints
                 }
-            | _ -> ord
+                |> solveOrder true logger
+            | _ -> ord |> Ok
         | Discontinuous frq ->
-            if frq |> Frequency.isCleared then ord |> clearFrequency
-            else ord
-        | _ -> ord
+            if frq |> Frequency.isCleared then
+                ord
+                |> clearFrequency
+                |> solveOrder true logger
+            else ord |>Ok
+        | _ -> ord |> Ok
+
+
+    let processPipeLine logger normDose ord =
+        let procIf pred procF ord =
+            match ord with
+            | Ok (Processed ord) -> ord |> Processed |> Ok
+            | Ok (NotProcessed ord) ->
+                if ord |> pred then
+                    ord |> procF |> Result.map Processed
+                else ord |> NotProcessed |> Ok
+            | Error _ -> ord
+
+        let calcMinMax recalc =
+            applyConstraints >> Ok
+            >> Result.bind (solveMinMax true logger)
+            >> Result.bind (fun ord ->
+                if recalc then ord |> Ok
+                else
+                    ord
+                    |> increaseIncrements logger 10 10
+            )
+            >> Result.bind (fun ord ->
+                match normDose with
+                | Some nd ->
+                    ord
+                    |> minIncrMaxToValues true logger
+                    |> solveNormDose logger nd
+                | None -> Ok ord
+            )
+
+        let calcValues = minIncrMaxToValues true logger >> Ok
+
+        let isSolvedNotCleared ord =
+            ord |> doseIsSolved &&
+            ord |> hasValues |> not &&
+            ord |> isCleared |> not
+
+        let isSolvedAndCleared ord =
+            ord |> doseIsSolved &&
+            ord |> hasValues |> not &&
+            ord |> isCleared
+
+        ord
+        |> (NotProcessed >> Ok)
+        |> procIf isEmpty (calcMinMax false)
+        |> procIf (doseHasValues >> not) calcValues
+        |> procIf doseHasValues (solveOrder true logger)
+        |> procIf isSolvedNotCleared (calcMinMax true >> Result.bind calcValues)
+        |> procIf isSolvedAndCleared (processClearedOrder logger)
+        |> Result.map (function | Processed ord | NotProcessed ord -> ord)
 
 
     module Print =

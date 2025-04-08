@@ -851,9 +851,8 @@ Scenarios: {scenarios}
                                 { sc with
                                     Order =
                                         sc.Order
-                                        |> Order.processClearedOrder
-                                        |> printOrder
-                                        |> Order.solveOrder true OrderLogger.noLogger
+                                        |> Order.processClearedOrder OrderLogger.logger.Logger
+                                        |> Result.map printOrder
                                         |> Result.defaultValue (sc.Order |> Order.applyConstraints)
                                 }
 

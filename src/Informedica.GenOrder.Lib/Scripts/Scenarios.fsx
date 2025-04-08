@@ -116,52 +116,6 @@ let order =
 
 
 
-open MathNet.Numerics
-open Informedica.GenSolver.Lib
-
-let vu = ValueUnit.create Unit.ZeroUnit [| 0N |]
-let vu2 = ValueUnit.create Units.Volume.milliLiter [| 0N |]
-
-let min1 =
-    vu2
-    |> Variable.ValueRange.Minimum.create false
-let min2 =
-    vu
-    |> Variable.ValueRange.Minimum.create false
-
-min2 |> Variable.ValueRange.Minimum.minGTEmin min1
-
-min1 |> Min |> Variable.ValueRange.isSubSetOf (min2 |> Min)
-
-open Informedica.GenSolver.Lib.Variable.ValueRange
-
-let vr1 =
-    create
-        (1N/2N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Minimum.create true |> Some)
-        (1N/10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Increment.create |> Some)
-        (60N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Maximum.create true |> Some)
-        None
-
-let vr2 =
-    create
-        (1N/10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Minimum.create true |> Some)
-        (1N/10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Increment.create |> Some)
-        (1000N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Maximum.create true |> Some)
-        None
-
-let min1, incr1, max1, _ = vr1 |> getMinIncrMaxOrValueSet
-let min2, incr2, max2, _ = vr2 |> getMinIncrMaxOrValueSet
-
-min2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> Minimum.minGTEmin m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
-max2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> minSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
-max2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m1 |> Maximum.maxSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
-min2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m2 |> minSTEmax m1)  |> Option.defaultValue true) |> Option.defaultValue true &&
-incr2 |> Option.map (fun i2 -> incr1 |> Option.map(fun i1 -> i1 |> Increment.isMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&
-incr2 |> Option.map (fun i2 -> min1 |> Option.map(fun m1 -> m1 |> minIsMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&
-incr2 |> Option.map (fun i2 -> max1 |> Option.map(fun m1 -> m1 |> maxIsMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true
-
-
-
 let processClearedOrder itm (ord: Order) =
     match ord.Prescription with
     | Continuous ->
