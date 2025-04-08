@@ -99,22 +99,31 @@ module Dose = Orderable.Dose
 open Informedica.GenUnits.Lib
 
 
-Order.createNew
-    "1"
-    "test"
-    (Order.Prescription.continuous Units.Mass.milliGram Units.Time.hour)
-    "iv"
-|> Order.applyConstraints
-|> Order.toOrdVars
-|> List.filter (OrderVariable.isWithinConstraints >> not)
+let order =
+    Patient.infant
+    |> Patient.setWeight (10m |> Kilogram |> Some)
+    |> OrderContext.create
+    |> OrderContext.setFilterGeneric "adrenaline"
+    |> OrderContext.setFilterRoute "intraveneus"
+    |> OrderContext.evaluate //|> ignore
+    |> printCtx "1 eval" //|> ignore
+    |> OrderContext.setFilterItem (FilterItem.Indication 0)
+    |> OrderContext.evaluate
+    |> fun ctx ->
+        ctx.Scenarios
+        |> Array.head
+        |> _.Order
+
+
 
 open MathNet.Numerics
 open Informedica.GenSolver.Lib
 
 let vu = ValueUnit.create Unit.ZeroUnit [| 0N |]
+let vu2 = ValueUnit.create Units.Volume.milliLiter [| 0N |]
 
 let min1 =
-    vu
+    vu2
     |> Variable.ValueRange.Minimum.create false
 let min2 =
     vu
@@ -126,8 +135,22 @@ min1 |> Min |> Variable.ValueRange.isSubSetOf (min2 |> Min)
 
 open Informedica.GenSolver.Lib.Variable.ValueRange
 
-let min1, incr1, max1, _ = min1 |> Min |> getMinIncrMaxOrValueSet
-let min2, incr2, max2, _ = min2 |> Min |> getMinIncrMaxOrValueSet
+let vr1 =
+    create
+        (1N/2N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Minimum.create true |> Some)
+        (1N/10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Increment.create |> Some)
+        (60N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Maximum.create true |> Some)
+        None
+
+let vr2 =
+    create
+        (1N/10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Minimum.create true |> Some)
+        (1N/10N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Increment.create |> Some)
+        (1000N |> ValueUnit.singleWithUnit Units.Volume.milliLiter |> Maximum.create true |> Some)
+        None
+
+let min1, incr1, max1, _ = vr1 |> getMinIncrMaxOrValueSet
+let min2, incr2, max2, _ = vr2 |> getMinIncrMaxOrValueSet
 
 min2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> Minimum.minGTEmin m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
 max2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> minSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&

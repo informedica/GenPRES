@@ -358,6 +358,41 @@ module Variable =
                     (ValueUnit.convertTo u)
 
 
+            /// Convert a `Minimum` to a `ValueUnit`.
+            let toValueUnit =
+                function
+                | MinIncl v
+                | MinExcl v -> v
+
+
+            /// <summary>
+            /// Checks whether the `Minimum` has a ZeroUnit.
+            /// </summary>
+            let hasZeroUnit =
+                toValueUnit >> ValueUnit.hasZeroUnit
+
+
+            /// Convert a `Minimum` to a `ValueUnit` and a `bool`
+            /// that signifies inclusive or exclusive
+            let toBoolValueUnit =
+                apply (fun vu -> true, vu) (fun vu -> false, vu)
+
+
+            /// <summary>
+            /// Check if 'min1' equals 'min2'
+            /// </summary>
+            /// <param name="min1">The first Minimum</param>
+            /// <param name="min2">The second Minimum</param>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram. Also
+            /// takes into account whether the Minimum is inclusive or exclusive.
+            /// </remarks>
+            let eqs min1 min2 =
+                let b1, vu1 = min1 |> toBoolValueUnit
+                let b2, vu2 = min2 |> toBoolValueUnit
+                (vu1 =? vu2) && (b1 = b2)
+
+
             /// <summary>
             /// Checks whether `Minimum` minLeft &gt; minRight
             /// </summary>
@@ -383,6 +418,7 @@ module Variable =
                 | MinIncl m2, MinExcl m1 -> m2 >? m1
                 | MinExcl m2, MinIncl m1 -> m2 >=? m1
 
+
             /// <summary>
             /// Checks whether `Minimum` minLeft &lt;= minRight
             /// </summary>
@@ -401,7 +437,9 @@ module Variable =
             /// min2 |> Minimum.minSTEmin min1 // returns false!
             /// </code>
             /// </example>
-            let minSTEmin minRight minLeft = minLeft |> minGTmin minRight |> not
+            let minSTEmin minRight minLeft =
+                minRight |> eqs minLeft ||
+                minLeft |> minGTmin minRight |> not
 
 
             /// <summary>
@@ -422,7 +460,9 @@ module Variable =
             /// min2 |> Minimum.minGTEmin min1 // returns false!
             /// </code>
             /// </example>
-            let minGTEmin minRight minLeft = minRight = minLeft || minGTmin minRight minLeft
+            let minGTEmin minRight minLeft =
+                minRight |> eqs minLeft ||
+                minGTmin minRight minLeft
 
 
             /// <summary>
@@ -464,13 +504,6 @@ module Variable =
             let minElement = ValueUnit.minValue >> Option.map MinIncl
 
 
-            /// Convert a `Minimum` to a `ValueUnit`.
-            let toValueUnit =
-                function
-                | MinIncl v
-                | MinExcl v -> v
-
-
             /// <summary>
             /// Convert the Unit of a `Minimum` to the Unit of the second `Minimum`.
             /// </summary>
@@ -487,34 +520,6 @@ module Variable =
                     min |> toValueUnit |> ValueUnit.getUnit
 
                 map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
-
-
-            /// <summary>
-            /// Checks whether the `Minimum` has a ZeroUnit.
-            /// </summary>
-            let hasZeroUnit =
-                toValueUnit >> ValueUnit.hasZeroUnit
-
-
-            /// Convert a `Minimum` to a `ValueUnit` and a `bool`
-            /// that signifies inclusive or exclusive
-            let toBoolValueUnit =
-                apply (fun vu -> true, vu) (fun vu -> false, vu)
-
-
-            /// <summary>
-            /// Check if 'min1' equals 'min2'
-            /// </summary>
-            /// <param name="min1">The first Minimum</param>
-            /// <param name="min2">The second Minimum</param>
-            /// <remarks>
-            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram. Also
-            /// takes into account whether the Minimum is inclusive or exclusive.
-            /// </remarks>
-            let eqs min1 min2 =
-                let b1, vu1 = min1 |> toBoolValueUnit
-                let b2, vu2 = min2 |> toBoolValueUnit
-                (vu1 =? vu2) && (b1 = b2)
 
 
             /// <summary>
@@ -705,6 +710,41 @@ module Variable =
                     (ValueUnit.convertTo u)
 
 
+            /// Convert a `Maximum` to a `ValueUnit`.
+            let toValueUnit =
+                function
+                | MaxIncl v
+                | MaxExcl v -> v
+
+
+            /// <summary>
+            /// Checks whether the `Maximum` has a ZeroUnit.
+            /// </summary>
+            let hasZeroUnit =
+                toValueUnit >> ValueUnit.hasZeroUnit
+
+
+            /// Convert a `Maximum` to a `ValueUnit` and a `bool`
+            /// that signifies inclusive or exclusive
+            let toBoolValueUnit =
+                apply (fun m -> true, m) (fun m -> false, m)
+
+
+            /// <summary>
+            /// Check if 'max1' equals 'max2'
+            /// </summary>
+            /// <param name="max1">The first Maximum</param>
+            /// <param name="max2">The second Maximum</param>
+            /// <remarks>
+            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram. Also
+            /// takes into account whether the Maximum is inclusive or exclusive.
+            /// </remarks>
+            let eqs max1 max2 =
+                let b1, vu1 = max1 |> toBoolValueUnit
+                let b2, vu2 = max2 |> toBoolValueUnit
+                (vu1 =? vu2) && (b1 = b2)
+
+
             /// <summary>
             /// Checks whether `Maximum` maxLeft &gt; maxRight
             /// </summary>
@@ -749,7 +789,9 @@ module Variable =
             /// max2 |> Maximum.maxSTEmax max1 // returns false!
             /// </code>
             /// </example>
-            let maxSTEmax maxRight maxLeft = maxLeft |> maxGTmax maxRight |> not
+            let maxSTEmax maxRight maxLeft =
+                maxLeft |> eqs maxRight ||
+                maxLeft |> maxGTmax maxRight |> not
 
 
             /// <summary>
@@ -770,7 +812,9 @@ module Variable =
             /// max2 |> Maximum.maxGTEmax max1 // returns false!
             /// </code>
             /// </example>
-            let maxGTEmax maxRight maxLeft = maxRight = maxLeft || maxGTmax maxRight maxLeft
+            let maxGTEmax maxRight maxLeft =
+                maxLeft |> eqs maxRight ||
+                maxLeft |> maxGTmax maxRight
 
 
             /// <summary>
@@ -810,13 +854,6 @@ module Variable =
             let maxElement = ValueUnit.maxValue >> Option.map MaxIncl
 
 
-            /// Convert a `Maximum` to a `ValueUnit`.
-            let toValueUnit =
-                function
-                | MaxIncl v
-                | MaxExcl v -> v
-
-
             /// <summary>
             /// Convert the Unit of a `Maximum` to the Unit of the second `Maximum`.
             /// </summary>
@@ -833,34 +870,6 @@ module Variable =
                     max |> toValueUnit |> ValueUnit.getUnit
 
                 map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
-
-
-            /// <summary>
-            /// Checks whether the `Maximum` has a ZeroUnit.
-            /// </summary>
-            let hasZeroUnit =
-                toValueUnit >> ValueUnit.hasZeroUnit
-
-
-            /// Convert a `Maximum` to a `ValueUnit` and a `bool`
-            /// that signifies inclusive or exclusive
-            let toBoolValueUnit =
-                apply (fun m -> true, m) (fun m -> false, m)
-
-
-            /// <summary>
-            /// Check if 'max1' equals 'max2'
-            /// </summary>
-            /// <param name="max1">The first Maximum</param>
-            /// <param name="max2">The second Maximum</param>
-            /// <remarks>
-            /// Uses ValueUnit equality, so 1000 milligram equals 1 gram. Also
-            /// takes into account whether the Maximum is inclusive or exclusive.
-            /// </remarks>
-            let eqs max1 max2 =
-                let b1, vu1 = max1 |> toBoolValueUnit
-                let b2, vu2 = max2 |> toBoolValueUnit
-                (vu1 =? vu2) && (b1 = b2)
 
 
             /// <summary>
@@ -1792,7 +1801,9 @@ module Variable =
 
             if not b then false
             else
-                incr |> Increment.isMultipleOf (vu |> Increment.create)
+                vu
+                |> Increment.create
+                |> Increment.isMultipleOf incr
 
 
         /// <summary>
@@ -1824,7 +1835,9 @@ module Variable =
 
             if not b then false
             else
-                incr |> Increment.isMultipleOf (vu |> Increment.create)
+                vu
+                |> Increment.create
+                |> Increment.isMultipleOf incr
 
 
         /// <summary>
@@ -3190,13 +3203,12 @@ module Variable =
         let isSubSetOf vr2 vr1 =
             match vr1, vr2 with
             | ValSet _, ValSet _ -> vr1 |> valueSetIsSubsetOf vr2
-            | ValSet _, _ -> false
             | _ ->
                 let min1, incr1, max1, _ = vr1 |> getMinIncrMaxOrValueSet
                 let min2, incr2, max2, _ = vr2 |> getMinIncrMaxOrValueSet
 
                 min2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> Minimum.minGTEmin m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
-                max2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> minSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
+                max2 |> Option.map (fun m2 -> min1 |> Option.map (fun m1 -> m1 |> minSTEmax m2)  |> Option.defaultValue true) |> Option.defaultValue true &&
                 max2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m1 |> Maximum.maxSTEmax m2)  |> Option.defaultValue false) |> Option.defaultValue true &&
                 min2 |> Option.map (fun m2 -> max1 |> Option.map (fun m1 -> m2 |> minSTEmax m1)  |> Option.defaultValue true) |> Option.defaultValue true &&
                 incr2 |> Option.map (fun i2 -> incr1 |> Option.map(fun i1 -> i1 |> Increment.isMultipleOf i2) |> Option.defaultValue true) |> Option.defaultValue true &&

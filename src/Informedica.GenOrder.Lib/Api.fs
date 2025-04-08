@@ -927,11 +927,30 @@ Scenarios: {scenarios}
 
         match ctx.Scenarios |> Array.tryExactlyOne with
         | Some sc ->
-            writeDebugMessage $"Doses are solved: {sc.Order |> Order.doseIsSolved}"
-            writeDebugMessage $"Doses have values: {sc.Order |> Order.doseHasValues}\n"
-            writeDebugMessage $"Order is solved: {sc.Order |> Order.isSolved}"
-            writeDebugMessage $"Order has values: {sc.Order |> Order.hasValues}\n"
+            [
+                $"Order is empty: {sc.Order |> Order.isEmpty}"
+                $"Order has constraints: {sc.Order |> Order.hasConstraints}"
+                $"Order within constraints: {sc.Order |> Order.isWithinConstraints}"
+                ""
+                $"Order has values: {sc.Order |> Order.hasValues}"
+                $"Order is solved: {sc.Order |> Order.isSolved}"
+                ""
+                $"Doses have values: {sc.Order |> Order.doseHasValues}"
+                $"Doses are solved: {sc.Order |> Order.doseIsSolved}"
+            ]
+            |> String.concat "\n"
+            |> writeDebugMessage
+
+            if sc.Order |> Order.isWithinConstraints |> not then
+                sc.Order
+                |> Order.checkConstraints
+                |> List.map (OrderVariable.toStringWithConstraints true false)
+                |> String.concat "\n"
+                |> sprintf "Variables outside constraints:\n%s"
+                |> writeDebugMessage
+
         | _ -> ()
+
 
         writeDebugMessage $"Components change: {ctx |> checkComponentChange}"
         writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}\n"

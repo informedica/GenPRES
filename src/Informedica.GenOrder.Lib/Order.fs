@@ -2781,7 +2781,10 @@ module Order =
     let hasConstraints = toOrdVars >> List.forall OrderVariable.hasConstraints
 
 
-    let areConstraintsApplied = toOrdVars >> List.forall OrderVariable.isWithinConstraints
+    let isWithinConstraints = toOrdVars >> List.forall OrderVariable.isWithinConstraints
+
+
+    let checkConstraints = toOrdVars >> List.filter (OrderVariable.isWithinConstraints >> not)
 
 
     let isSolved = toOrdVars >> List.forall OrderVariable.isSolved

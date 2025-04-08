@@ -3178,7 +3178,7 @@ module ValueUnit =
     /// </code>
     /// </example>
     let cmp cp vu1 vu2 =
-        // ToDo need better eqsGroup like mg/kg/day = (mg/kg)/day = (mg/kg*day) <> mg/(kg/day) = mg*day/kg
+        // TODO need better eqsGroup like mg/kg/day = (mg/kg)/day = (mg/kg*day) <> mg/(kg/day) = mg*day/kg
         if (vu1 |> hasZeroUnit |> not && vu2 |> hasZeroUnit |> not) &&
            (vu1 |> hasNoUnit |> not && vu2 |> hasNoUnit |> not) &&
            (vu1 |> eqsGroup vu2 |> not) then
@@ -3198,6 +3198,12 @@ module ValueUnit =
     /// <param name="vu1">The first ValueUnit</param>
     /// <param name="vu2">The second ValueUnit</param>
     let eqs vu1 vu2 =
+        // TODO need better eqsGroup like mg/kg/day = (mg/kg)/day = (mg/kg*day) <> mg/(kg/day) = mg*day/kg
+        if (vu1 |> hasZeroUnit |> not && vu2 |> hasZeroUnit |> not) &&
+           (vu1 |> hasNoUnit |> not && vu2 |> hasNoUnit |> not) &&
+           (vu1 |> eqsGroup vu2 |> not) then
+            failwith $"cannot compare {vu1} with {vu2}"
+
         let vs1 =
             vu1 |> toBaseValue |> Array.distinct |> Array.sort
 
