@@ -1453,7 +1453,7 @@ module Models =
             |> Seq.toArray
 
 
-        let create ind nme shp rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn =
+        let create ind nme shp rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn ids =
             {
                 Name = nme
                 Indication = ind
@@ -1473,6 +1473,7 @@ module Models =
                 UseAdjust = adj
                 UseRenalRule = rr
                 RenalRule = rn
+                ProductIds = ids
             }
 
 

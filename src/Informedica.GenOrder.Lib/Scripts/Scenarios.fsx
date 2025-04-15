@@ -87,6 +87,7 @@ let pickScenario n (ctx : OrderContext) =
             |> Option.defaultValue ctx.Scenarios
     }
 
+
 open Patient.Optics
 
 
@@ -99,273 +100,54 @@ module Dose = Orderable.Dose
 open Informedica.GenUnits.Lib
 
 
-let order =
-    Patient.infant
-    |> Patient.setWeight (10m |> Kilogram |> Some)
-    |> OrderContext.create
-    |> OrderContext.setFilterGeneric "adrenaline"
-    |> OrderContext.setFilterRoute "intraveneus"
-    |> OrderContext.evaluate //|> ignore
-    |> printCtx "1 eval" //|> ignore
-    |> OrderContext.setFilterItem (FilterItem.Indication 0)
-    |> OrderContext.evaluate
-    |> fun ctx ->
-        ctx.Scenarios
-        |> Array.head
-        |> _.Order
+let mutable value : Order Option = None
 
 
-
-let processClearedOrder itm (ord: Order) =
-    match ord.Prescription with
-    | Continuous ->
-        match ord.Orderable.Dose |> Dose.isRateCleared,
-              ord.Orderable |> Orderable.isItemOrderableConcentrationCleared,
-              ord.Orderable |> Orderable.isItemDoseRateCleared with
-        | true, false, false -> ord |> Order.clearDoseRate
-        | _ -> ord
-
-
-
-
-type OrderState =
-    | Initiated
-    | IsConstrained
-    | HasValues
-    | FrequencyIsSolved
-    | TimeIsSolved
-    | DosesAreSolved
-    | IsSolved
+let pipeline ord =
+    ord
+    |> Order.print
+    |> Order.processPipeLine OrderLogger.noLogger None
 
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
-|> OrderContext.setFilterGeneric "paracetamol"
-|> OrderContext.setFilterRoute "rectaal"
+|> OrderContext.setFilterGeneric "amoxicilline/clavulaanzuur"
+|> OrderContext.setFilterRoute "oraal"
 |> OrderContext.evaluate //|> ignore
-|> printCtx "1 eval" //|> ignore
-|> OrderContext.setFilterItem (FilterItem.Indication 1)
+|> OrderContext.printCtx "1 eval" //|> ignore
+|> OrderContext.setFilterItem (FilterItem.Indication 0)
 |> OrderContext.evaluate
-|> printCtx "2 eval" //|> ignore
-|> OrderContext.evaluate
-|> OrderContext.medianDose
-|> printCtx "3 eval" //|> ignore
 |> fun ctx ->
-    { ctx with
-        Scenarios =
-            ctx.Scenarios
-            |> Array.tryExactlyOne
-            |> Option.map (fun sc ->
-                [|
-                    { sc with
-                        Order = sc.Order |> Order.clearFrequency
-                    }
-                |]
-            )
-            |> Option.defaultValue ctx.Scenarios
-    }
+    ctx |> OrderContext.printCtx "2 eval" |> ignore
 
-|> fun ctx ->
-    { ctx with
-        Scenarios =
-            ctx.Scenarios
-            |> Array.tryExactlyOne
-            |> Option.map (fun sc ->
-                [|
-                    { sc with
-                        Order =
-                            if sc.Order |> Order.frequencyIsCleared |> not then sc.Order
-                            else
-                                sc.Order
-                                |> Order.setStandardFrequency
-                                |> Order.clearDosePerTime
-                                |> fun ord ->
-                                    printfn "--> setting standard freq\n\n"
-                                    ord
-                                    |> Order.toStringWithConstraints
-                                    |> String.concat "\n"
-                                    |> printfn "%s"
-                                    ord
-                                    |> Order.solveOrder true OrderLogger.noLogger
-                                    |> Result.defaultValue ord
-                                    |> fun ord ->
-                                        printfn "\n\n--> solved standard freq\n\n"
-                                        ord
-                                        |> Order.toStringWithConstraints
-                                        |> String.concat "\n"
-                                        |> printfn "%s"
-                                        ord
-
-                    }
-                |]
-            )
-            |> Option.defaultValue ctx.Scenarios
-    }
-|> ignore
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterGeneric "remdesivir"
-|> OrderContext.evaluate //|> ignore
-|> printCtx "1 eval" //|> ignore
-|> fun ctx ->
-    { ctx with
-        OrderContext.Filter.DoseType = ctx.Filter.DoseTypes |> Array.tryItem 0
-    }
-|> OrderContext.evaluate
-|> printCtx "2 eval" //|> ignore
-|> ignore
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterGeneric "methylprednisolon"
-|> OrderContext.evaluate //|> ignore
-|> printCtx "1 eval"  //|> ignore
-|> fun ctx ->
-    { ctx with
-        OrderContext.Filter.Indication =
-            ctx.Filter.Indications
-            |> Array.tryItem 2
-        OrderContext.Filter.DoseType =
-            ctx.Filter.DoseTypes
-            |> Array.tryItem 0
-    }
-|> OrderContext.evaluate
-|> printCtx "2 eval" //|> ignore
-|> pickScenario 0
-|> OrderContext.evaluate
-//|> OrderContext.minimizeDose
-|> printCtx "3 eval" //|> ignore
-|> ignore
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
-|> OrderContext.setFilterGeneric "gentamicine"
-|> OrderContext.setFilterShape "injectievloeistof"
-|> OrderContext.setFilterRoute "intraveneus"
-|> printCtx "inital setup"
-|> OrderContext.evaluate
-|> printCtx "first evaluation" //|> ignore
-|> OrderContext.evaluate
-|> printCtx "second evaluation" //|> ignore
-|> ignore
-
-
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterIndication "Ernstige infectie, gram negatieve microorganismen"
-|> OrderContext.setFilterGeneric "gentamicine"
-|> OrderContext.setFilterShape "injectievloeistof"
-|> OrderContext.setFilterRoute "intraveneus"
-//|> OrderContext.getRules
-//|> fst
-|> OrderContext.evaluate
-|> printCtx "first eval"
-|> ignore
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterIndication "TPV"
-|> OrderContext.setFilterRoute "intraveneus"
-|> fun ctx -> { ctx with OrderContext.Filter.DoseType = ("dag 1" |> DoseType.Timed |> Some) }
-//|> OrderContext.getRules
-//|> fst
-|> OrderContext.evaluate
-|> printCtx "first eval"
-|> fun ctx  ->
-    { ctx with
-        OrderContext.Filter.SelectedComponents =
-            ctx.Filter.Components |> Array.skip 1 |> Array.take 2
-    }
-|> printCtx "components selected"
-|> OrderContext.evaluate
-|> printCtx "evaluated selected"
-|> ignore
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterGeneric "noradrenaline"
-|> printCtx "init"
-|> OrderContext.evaluate
-|> printCtx "first eval"
-|> fun ctx ->
     ctx.Scenarios
-    |> Array.take 1
-    |> Array.collect _.Diluents
-    |> String.concat ","
-    |> printfn "Diluents: %s"
-
-    { ctx with Scenarios = ctx.Scenarios |> Array.take 1 }
-|> OrderContext.evaluate
-|> printCtx "second eval"
-|> OrderContext.medianDose
-|> OrderContext.evaluate
-|> printCtx "third eval"
-|> OrderContext.evaluate
-|> printCtx "eval with solved dose"
-|> fun ctx ->
-    ctx.Scenarios
-    |> Array.tryExactlyOne
-    |> function
-        | None -> ()
-        | Some sc ->
-            sc.Order
-            |> Order.toOrdVars
-            |> List.map (_.Variable >> _.Name >> Name.toString)
-            |> String.concat "\n"
-            |> printfn "%s"
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterGeneric "Nutrilon Pepti 1"
-|> OrderContext.evaluate //|> ignore
-|> printCtx "1 eval" //|> ignore
-|> ignore
-
-open MathNet.Numerics
-open Informedica.GenUnits.Lib
-open Informedica.GenSolver.Lib
-
-
-Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
-|> OrderContext.create
-|> OrderContext.setFilterGeneric "Nutrilon Pepti 1"
-|> OrderContext.getRules
-|> fun (ctx, prs) ->
-    let incrs u =
-        [ 1N/20N; 1N/10N; 1N/2N; 1N; 5N; 10N; 20N ]
-        |> List.map (ValueUnit.singleWithUnit u)
-        |> List.map Variable.ValueRange.Increment.create
-
-    let pr =
-        prs
-        |> Array.head
-    pr
-    |> DrugOrder.fromRule
     |> Array.head
-    |> DrugOrder.toOrderDto
-    |> Order.Dto.fromDto
-    |> Order.applyConstraints
-    |> Order.solveMinMax true OrderLogger.logger.Logger
-    |> Result.map (Order.increaseQuantityIncrement 10N (incrs Units.Volume.milliLiter))
-//    |> OrderContext.Helpers.processOrderWithRule pr OrderLogger.logger.Logger
-    |> Result.bind (Order.solveMinMax true OrderLogger.logger.Logger)
-    |> Result.iter (Order.toString >> String.concat "\n" >> printfn "\n\n== final:\n\n%s")
+    |> _.Order
+    |> pipeline
+    |> Result.bind pipeline
+    |> Result.map (Order.setMedianDose (Some "amoxicilline"))
+    |> Result.bind pipeline
+    |> Result.map (Order.clearItemDoseQuantity "amoxicilline")
+    |> Result. map (fun ord ->
+        let ord2 =
+            ord
+
+
+        value <- Some ord2
+        ord2 |> Order.printState |> printfn "\n\nThe state of the order = %s\n"
+        ord
+    )
+    |> Result.bind pipeline
+    |> Result.map Order.toStringWithConstraints
+    |> Result.defaultValue []
+    |> String.concat "\n"
+    |> printfn "%s"
+
+
+value.Value
+|> Order.print
+|> (fun ord ->
+    ord
+    |> Order.doseIsSolved
+)

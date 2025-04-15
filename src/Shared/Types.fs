@@ -400,6 +400,7 @@ module Types =
             UseAdjust: bool
             UseRenalRule: bool
             RenalRule: string option
+            ProductIds: string []
         }
 
 

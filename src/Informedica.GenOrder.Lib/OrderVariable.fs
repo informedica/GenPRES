@@ -202,8 +202,17 @@ module OrderVariable =
             cs.Values.IsNone
 
 
+        let isNonZeroPositive (cs: Constraints) =
+            cs.Max.IsNone &&
+            cs.Incr.IsNone &&
+            cs.Values.IsNone &&
+            cs.Min
+            |> Option.map Minimum.isNonZeroPositive
+            |> Option.defaultValue false
+
+
         let toValueRange (cs : Constraints) =
-            ValueRange.NonZeroPositive
+            ValueRange.unrestricted
             |> ValueRange.setOptMin cs.Min
             |> ValueRange.setOptMax cs.Max
             |> ValueRange.setOptIncr cs.Incr
@@ -376,7 +385,12 @@ module OrderVariable =
     let getConstraints { Constraints = cons } = cons
 
 
-    let hasConstraints = getConstraints >> Constraints.isEmpty >> not
+    let hasConstraints =
+        getConstraints
+        >> (fun cs ->
+            cs |> Constraints.isNonZeroPositive |> not &&
+            cs |> Constraints.isEmpty |> not
+        )
 
 
     let setConstraints cs (ovar :OrderVariable) =
@@ -654,10 +668,28 @@ module OrderVariable =
         }
 
 
+    let isNonZeroPositive (ovar: OrderVariable) =
+        ovar.Variable
+        |> Variable.isNonZeroPositive   ||
+        ovar.Variable
+        |> Variable.isMinExclusiveZero
+
+
     let setToNonZeroPositive (ovar: OrderVariable) =
         { ovar with
-            Variable =
+            OrderVariable.Variable.Values =
+                match  ovar.Variable.Values |> ValueRange.getUnit with
+                | None -> ValueRange.nonZeroPositive
+                | Some u ->
+                    u
+                    |> ValueUnit.zero
+                    |> ValueRange.Minimum.create false
+                    |> Min
+
+            (* this doesn't work when not empty?
+            Variable = Variable
                 ovar.Variable |> Variable.setNonZeroAndPositive
+            *)
         }
 
 
@@ -704,7 +736,9 @@ module OrderVariable =
         ovar.Variable
         |> Variable.isUnrestricted ||
         ovar.Variable
-        |> Variable.isNonZeroAndPositive
+        |> Variable.isNonZeroPositive ||
+        ovar.Variable
+        |> Variable.isMinExclusiveZero
 
 
     let hasValues (ovar: OrderVariable) =
@@ -722,7 +756,7 @@ module OrderVariable =
         ovar.Variable
         |> Variable.isUnrestricted ||
         ovar.Variable
-        |> Variable.isNonZeroAndPositive
+        |> Variable.isNonZeroPositive
 
 
     module Dto =
@@ -954,6 +988,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
 
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
+
+
         let isSolved = toOrdVar >> isSolved
 
 
@@ -1035,6 +1072,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
+
+
         /// Check whether Time is solved
         let isSolved = toOrdVar >> isSolved
 
@@ -1081,6 +1121,9 @@ module OrderVariable =
         let fromOrdVar = fromOrdVar toOrdVar Frequency
 
 
+        let apply f = toOrdVar >> f >> Frequency
+
+
         /// <summary>
         /// Create a Frequency
         /// </summary>
@@ -1123,19 +1166,22 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Frequency to the OrderVariable Variable
-        let applyConstraints = toOrdVar >> applyConstraints >> Frequency
+        let applyConstraints = apply applyConstraints
 
 
-        let setConstraints cs = toOrdVar >> setConstraints cs >> Frequency
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
-        let setMinValue = toOrdVar >> setMinValue >> Frequency
+        let setConstraints cs = apply (setConstraints cs)
 
 
-        let setMaxValue = toOrdVar >> setMaxValue >> Frequency
+        let setMinValue = apply setMinValue
 
 
-        let setMedianValue = toOrdVar >> setMedianValue >> Frequency
+        let setMaxValue = apply setMaxValue
+
+
+        let setMedianValue = apply setMedianValue
 
 
         let setStandardValues frq =
@@ -1166,10 +1212,10 @@ module OrderVariable =
         let isCleared = toOrdVar >> isCleared
 
 
-        let clear = toOrdVar >> clear >> Frequency
+        let clear = apply clear
 
 
-        let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Frequency
+        let setToNonZeroPositive = apply setToNonZeroPositive
 
 
     /// Type and functions that represent a concentration,
@@ -1244,6 +1290,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
+
+
         let isSolved = toOrdVar >> isSolved
 
 
@@ -1251,6 +1300,15 @@ module OrderVariable =
 
 
         let clear = toOrdVar >> clear >> Concentration
+
+
+        let setMinValue = toOrdVar >> setMinValue >> Concentration
+
+
+        let setMaxValue = toOrdVar >> setMaxValue >> Concentration
+
+
+        let setMedianValue = toOrdVar >> setMedianValue >> Concentration
 
 
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Concentration
@@ -1322,6 +1380,9 @@ module OrderVariable =
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
+
+
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
         let hasIncrement = toOrdVar >> hasIncrement
@@ -1438,6 +1499,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
+
+
         /// Check whether a PerTime is solved
         let isSolved = toOrdVar >> isSolved
 
@@ -1527,6 +1591,9 @@ module OrderVariable =
 
         /// Apply the constraints of a Rate to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
+
+
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
         let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Rate
@@ -1632,6 +1699,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
 
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
+
+
         let isSolved = toOrdVar >> isSolved
 
 
@@ -1723,6 +1793,9 @@ module OrderVariable =
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
+
+
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
         /// Check whether a QuantityAdjust is solved
@@ -1821,6 +1894,9 @@ module OrderVariable =
 
 
         let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
+
+
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
         /// Check whether a PerTimeAdjust is solved
@@ -1923,6 +1999,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
 
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
+
+
         /// Check whether a RateAdjust is solved
         let isSolved = toOrdVar >> isSolved
 
@@ -2009,6 +2088,9 @@ module OrderVariable =
 
         /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
+
+
+        let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
         /// Check whether a TotalAdjust is solved

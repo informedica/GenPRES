@@ -37,6 +37,7 @@ module Order =
             | ChangeSubstanceRate of string option
             | ChangeSubstanceRateAdjust of string option
             | ChangeSubstanceComponentConcentration of string option
+            | ChangeSubstanceOrderableConcentration of string option
             | ChangeOrderableDoseQuantity of string option
             | ChangeOrderableDoseRate of string option
             | UpdateOrder of Order
@@ -436,6 +437,40 @@ module Order =
                     { state with Order = None }, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
+            | ChangeSubstanceOrderableConcentration s ->
+                match state.Order with
+                | Some ord ->
+                    let msg =
+                        { ord with
+                            Orderable =
+                                { ord.Orderable with
+                                    Components =
+                                        ord.Orderable.Components
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
+                                            else
+                                                { cmp with
+                                                    Items =
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
+                                                            match state.SelectedItem with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
+                                                                    OrderableConcentration =
+                                                                        itm.OrderableConcentration
+                                                                        |> setOvar s
+                                                                }
+                                                            | _ -> itm
+                                                        )
+                                                }
+                                        )
+                                }
+
+                        }
+                        |> UpdateOrder
+                    { state with Order = None }, Cmd.ofMsg msg
+                | _ -> state, Cmd.none
+
             | ChangeOrderableDoseQuantity s ->
                 match state.Order with
                 | Some ord ->
@@ -765,7 +800,18 @@ module Order =
                             itms[i].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false (Terms.``Order Concentration`` |> getTerm "Sterkte") None (ChangeSubstanceComponentConcentration >> dispatch)
+                            |> select false "Product Sterkte" None (ChangeSubstanceComponentConcentration >> dispatch)
+                        | _ ->
+                            [||]
+                            |> select true "" None ignore
+                    }
+                    {
+                        match substIndx, state.Order with
+                        | Some i, Some _ when itms |> Array.length > 0 ->
+                            itms[i].OrderableConcentration.Variable.Vals
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                            |> Option.defaultValue [||]
+                            |> select false $"{itms[i].Name} Concentratie" None (ChangeSubstanceOrderableConcentration >> dispatch)
                         | _ ->
                             [||]
                             |> select true "" None ignore

@@ -499,6 +499,12 @@ module Variable =
             let isIncl = isExcl >> not
 
 
+            let isNonZeroPositive =
+                function
+                | MinExcl vu -> vu |> ValueUnit.isZero
+                | _ -> false
+
+
             /// Creates a `Minimum` from a `ValueUnit`.
             /// Returns `None` if an empty set.
             let minElement = ValueUnit.minValue >> Option.map MinIncl
@@ -1477,8 +1483,8 @@ module Variable =
                 returnFalse
 
 
-        /// Checks whether a `ValueRange` is `Unrestricted`
-        let isNonZeroAndPositive =
+        /// Checks whether a `ValueRange` is `NonZeroPositive`
+        let isNonZeroPositive =
             let returnFalse = Boolean.returnFalse
 
             apply
@@ -2174,6 +2180,16 @@ module Variable =
             vr |> getIncr,
             vr |> getMax,
             vr |> getValSet
+
+
+        let isMinExclusiveZero vr =
+            match vr |> getMinIncrMaxOrValueSet with
+            | Some min, None, None, None  ->
+                match min |> Minimum.toBoolValueUnit with
+                | false, vu ->
+                    vu |> ValueUnit.isZero
+                | _ -> false
+            | _ -> false
 
 
         let setNearestValue vu vr =
@@ -3454,7 +3470,7 @@ module Variable =
     let hasValues var =
         var
         |> count
-        |> fun n -> n > 1
+        |> fun n -> n > 0
 
 
     /// Checks whether **v1** and **v2** have the
@@ -3487,8 +3503,8 @@ module Variable =
         getValueRange >> ValueRange.isUnrestricted
 
 
-    let isNonZeroAndPositive =
-        getValueRange >> ValueRange.isNonZeroAndPositive
+    let isNonZeroPositive =
+        getValueRange >> ValueRange.isNonZeroPositive
 
 
     let isMin = getValueRange >> ValueRange.isMin
@@ -3506,6 +3522,9 @@ module Variable =
     /// Checks whether the ValueRange of a Variable
     /// is a MinIncrMax
     let isMinIncrMax = getValueRange >> ValueRange.isMinIncrMax
+
+
+    let isMinExclusiveZero = getValueRange >> ValueRange.isMinExclusiveZero
 
 
     /// Apply the operator **op** to **v1** and **v2**

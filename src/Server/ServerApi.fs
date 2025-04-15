@@ -277,7 +277,7 @@ module Mappers =
 
 
     let mapFromSharedPatient
-        (pat: Shared.Types.Patient)
+        (pat: Types.Patient)
         =
         { Patient.patient with
             Department =
@@ -362,6 +362,7 @@ module Mappers =
                         sc.UseAdjust
                         sc.UseRenalRule
                         sc.RenalRule
+                        sc.ProductIds
                 )
 
             Filter =
@@ -447,6 +448,7 @@ module Mappers =
                             sc.UseAdjust
                             sc.UseRenalRule
                             sc.RenalRule
+                            sc.ProductsIds
                     )
             }
 

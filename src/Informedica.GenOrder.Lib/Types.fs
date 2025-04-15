@@ -235,6 +235,27 @@ module Types =
             | TimedOrder
 
 
+        type OrderPropertyChange =
+            | PrescriptionFrequency of (Frequency -> Frequency)
+            | PrescriptionTime of (Time -> Time)
+
+            | OrderableQuantity of (Quantity -> Quantity)
+            | OrderableDoseCount of (Count -> Count)
+            | OrderableDose of (Dose -> Dose)
+
+            | ComponentQuantity of string * (Quantity -> Quantity)
+            | ComponentOrderableQuantity of string * (Quantity -> Quantity)
+            | ComponentOrderableCount of string * (Count -> Count)
+            | ComponentOrderableConcentration of string * (Concentration -> Concentration)
+            | ComponentDose of string * (Dose -> Dose)
+
+            | ItemComponentQuantity of string * string * (Quantity -> Quantity)
+            | ItemComponentConcentration of string * string * (Concentration -> Concentration)
+            | ItemOrderableQuantity of string * string * (Quantity -> Quantity)
+            | ItemOrderableConcentration of string * string * (Concentration -> Concentration)
+            | ItemDose of string * string * (Dose -> Dose)
+
+
         /// Shorthand for a Informedica.GenForm.Lib.Types.MinMax
         type MinMax = Informedica.GenForm.Lib.Types.MinMax
         /// Shorthand for a Informedica.GenForm.Lib.Types.DoseLimit
@@ -339,6 +360,9 @@ module Types =
         type NormDose = Informedica.GenForm.Lib.Types.NormDose
 
 
+        type Product = Informedica.GenForm.Lib.Types.Product
+
+
         /// <summary>
         /// The representation of an order with a
         /// <list type="bullet">
@@ -387,6 +411,8 @@ module Types =
                 UseRenalRule : bool
                 // renal rule name
                 RenalRule : string option
+                // associated products
+                ProductsIds : string []
             }
 
 

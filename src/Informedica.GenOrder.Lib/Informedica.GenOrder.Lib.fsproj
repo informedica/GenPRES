@@ -23,6 +23,7 @@
     <None Include="Scripts\OrderVariable.fsx" />
     <None Include="Scripts\Agent.fsx" />
     <None Include="Scripts\Scenarios.fsx" />
+    <None Include="Scripts\Properties.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenCore.Lib\Informedica.GenCore.Lib.fsproj" />

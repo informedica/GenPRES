@@ -91,7 +91,7 @@ module OrderScenario =
         |> String.replace ">" ""
 
 
-    let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl : OrderScenario
+    let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl ids : OrderScenario
         =
         {
             No = no
@@ -113,6 +113,7 @@ module OrderScenario =
             UseAdjust = adj
             UseRenalRule = ren
             RenalRule = rrl
+            ProductsIds = ids
         }
 
 
@@ -165,7 +166,10 @@ module OrderScenario =
 
         let useRenalRule = pr.RenalRules |> Array.isEmpty |> not
 
-        create
+        pr.DoseRule.ComponentLimits
+        |> Array.collect _.Products
+        |> Array.map _.GPK
+        |> create
             no
             pr.DoseRule.Generic
             pr.DoseRule.Indication
@@ -182,85 +186,6 @@ module OrderScenario =
             useAdjust
             useRenalRule
             pr.DoseRule.RenalRule
-        |> setOrderTableFormat
-
-
-    let calcOrderValues (sc : OrderScenario) =
-        { sc with
-            Order =
-                sc.Order
-                |> Order.minIncrMaxToValues true OrderLogger.logger.Logger
-        }
-        |> setOrderTableFormat
-
-
-    let solveOrder (sc : OrderScenario) =
-        { sc with
-            Order =
-                sc.Order
-                |> Order.solveOrder false OrderLogger.logger.Logger
-                |> Result.defaultValue sc.Order
-        }
-        |> setOrderTableFormat
-
-
-    let solveOrderWithMinDose (sc : OrderScenario) =
-        { sc with
-            Order =
-                sc.Order
-                |> Order.setMinDose sc.Item
-                |> Order.solveOrder false OrderLogger.logger.Logger
-                |> Result.defaultValue sc.Order
-        }
-        |> setOrderTableFormat
-
-
-    let solveOrderWithMaxDose (sc : OrderScenario) =
-        { sc with
-            Order =
-                sc.Order
-                |> Order.setMaxDose sc.Item
-                |> Order.solveOrder false OrderLogger.logger.Logger
-                |> Result.defaultValue sc.Order
-        }
-        |> setOrderTableFormat
-
-
-    let solveOrderWithMedianDose (sc : OrderScenario) =
-        { sc with
-            Order =
-                sc.Order
-                |> Order.setMedianDose sc.Item
-                |> Order.solveOrder false OrderLogger.logger.Logger
-                |> Result.defaultValue sc.Order
-        }
-        |> setOrderTableFormat
-
-
-    let applyConstraints (sc: OrderScenario) =
-        writeDebugMessage "reapply all constraints to order scenario"
-        { sc with
-            Order =
-                sc.Order
-                |> Order.applyConstraints
-                |> Order.solveMinMax true OrderLogger.noLogger
-                |> Result.map (Order.minIncrMaxToValues true OrderLogger.noLogger)
-                |> Result.bind (Order.solveOrder true OrderLogger.logger.Logger)
-                |> Result.defaultValue sc.Order
-        }
-        |> setOrderTableFormat
-
-
-    let applyDoseConstraints (sc: OrderScenario) =
-        writeDebugMessage "reapply dose constraints to order scenario"
-        { sc with
-            Order =
-                sc.Order
-                |> Order.applyDoseConstraints
-                |> Order.solveMinMax false OrderLogger.noLogger
-                |> Result.map (Order.minIncrMaxToValues false OrderLogger.noLogger)
-                |> Result.defaultValue sc.Order
-        }
         |> setOrderTableFormat
 
 
@@ -322,21 +247,6 @@ module OrderContext =
             }
 
 
-        let processOrderWithRule normDose logger ord =
-            ord
-            |> Order.applyConstraints
-            |> Order.solveMinMax false logger
-            |> Result.bind (increaseIncrements logger)
-            |> Result.bind (fun ord ->
-                match normDose with
-                | Some nd ->
-                    ord
-                    |> Order.minIncrMaxToValues true logger
-                    |> setNormDose logger nd
-                | None -> Ok ord
-            )
-
-
         /// <summary>
         /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
         /// multiple Orders, depending on the SolutionRules.
@@ -351,7 +261,7 @@ module OrderContext =
                 drugOrder
                 |> DrugOrder.toOrderDto
                 |> Order.Dto.fromDto
-                |> processOrderWithRule (pr.DoseRule |> DoseRule.getNormDose) logger
+                |> Order.processPipeLine logger (pr.DoseRule |> DoseRule.getNormDose)
                 |> function
                 | Ok ord ->
                     let ord =
@@ -657,18 +567,6 @@ module OrderContext =
         { ctx with OrderContext.Filter.Shape = Some shp }
 
 
-    let calcOrderValues (ctx : OrderContext) =
-        { ctx with
-            Scenarios = ctx.Scenarios |> Array.map OrderScenario.calcOrderValues
-        }
-
-
-    let solveOrders (ctx : OrderContext) =
-        { ctx with
-            Scenarios = ctx.Scenarios |> Array.map OrderScenario.solveOrder
-        }
-
-
     let checkDiluentChange (ctx: OrderContext) =
         ctx.Scenarios
         |> Array.tryExactlyOne
@@ -729,12 +627,14 @@ module OrderContext =
 Scenario Diluent: {sc.Diluent |> Option.defaultValue ""}
 Scenario Component: {sc.Component |> Option.defaultValue ""}
 Scenario Item: {sc.Item |> Option.defaultValue ""}
+Order State: {sc.Order |> Order.printState}
 
 {s}
 """
             | _ -> $"{pr.Scenarios |> Array.length}"
 
         $"""
+
 === {stage} ===
 
 Patient: {pr.Patient |> Patient.toString}
@@ -826,15 +726,6 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let minimizeDose = applyToOrderScenario OrderScenario.solveOrderWithMinDose
-
-
-    let maximizeDose = applyToOrderScenario OrderScenario.solveOrderWithMaxDose
-
-
-    let medianDose = applyToOrderScenario OrderScenario.solveOrderWithMedianDose
-
-
     let processOrders (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None -> ctx
@@ -842,6 +733,7 @@ Scenarios: {scenarios}
             { ctx with
                 Scenarios =
                     [|
+                        (*
                         if sc.Order |> Order.doseIsSolved &&
                            sc.Order |> Order.hasValues |> not then
                             if sc.Order |> Order.isCleared |> not then
@@ -861,6 +753,13 @@ Scenarios: {scenarios}
                             else
                                 sc
                                 |> OrderScenario.calcOrderValues
+                        *)
+                        { sc with
+                            Order =
+                                sc.Order
+                                |> Order.processPipeLine OrderLogger.noLogger None
+                                |> Result.defaultValue sc.Order
+                        }
                         |> OrderScenario.setOrderTableFormat
                     |]
             }
