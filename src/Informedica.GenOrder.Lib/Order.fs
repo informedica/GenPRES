@@ -902,60 +902,11 @@ module Order =
             let isOrderableConcentrationCleared itm = (itm |> inf).OrderableConcentration |> Concentration.isCleared
 
 
-            let setOrderableQuantConcToNonZeroPositive itm =
-                { (itm |> inf) with
-                    OrderableQuantity = itm.OrderableQuantity |> Quantity.setToNonZeroPositive
-                    OrderableConcentration = itm.OrderableConcentration |>  Concentration.setToNonZeroPositive
-                }
-
-
             let isOrderableQuantityCleared itm = (itm |> inf).OrderableQuantity |> Quantity.isCleared
-
-
-            let clearOrderableConcentration itm =
-                { (itm |> inf) with
-                    OrderableConcentration =
-                        itm.OrderableConcentration
-                        |> Concentration.clear
-                }
-
-
-            let clearDoseQuantity itm =
-                { (itm |> inf) with
-                    Dose = itm.Dose |> Dose.clearQuantity
-                }
-
-
-            let setOrderableConcentration setConc itm =
-                { (itm |> inf) with
-                    OrderableConcentration =
-                        itm.OrderableConcentration
-                        |> setConc
-                }
-
-
-            let setComponentConcentration setConc itm =
-                { (itm |> inf) with
-                    ComponentConcentration =
-                        itm.ComponentConcentration
-                        |> setConc
-                }
 
 
             /// Get the `Item` dose
             let getDose itm = (itm |> inf).Dose
-
-
-            let setDose set itm = { (itm |> inf) with Dose = itm.Dose |> set  }
-
-
-            let applyDoseConstraints = setDose Dose.applyConstraints
-
-
-            let applyDoseQuantityConstraints = setDose Dose.applyDoseQuantityConstraints
-
-
-            let applyDosePerTimeConstraints = setDose Dose.applyDosePerTimeConstraints
 
 
             let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
@@ -987,19 +938,10 @@ module Order =
             let isDoseQuantityCleared = getDose >> Dose.isQuantityCleared
 
 
-            let setDoseQuantityToNonZeroPositive = setDose Dose.setQuantityToNonZeroPositive
-
-
             let isDoseRateCleared = getDose >> Dose.isRateCleared
 
 
-            let setDoseRateToNonZeroPositive = setDose Dose.setRateToNonZeroPositive
-
-
             let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
-
-
-            let setDosePerTimeToNonZeroPositive = setDose Dose.setPerTimeToNonZeroPositive
 
 
             /// <summary>
@@ -1373,121 +1315,17 @@ module Order =
                 |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
-            /// <summary>
-            /// Apply constraints to a Component
-            /// </summary>
-            /// <param name="cmp">The Component</param>
-            let applyComponentConstraints cmp =
-                let cmp_qty = (cmp |> inf).ComponentQuantity |> Quantity.applyConstraints
-                let orb_qty = cmp.OrderableQuantity          |> Quantity.applyConstraints
-                let orb_cnt = cmp.OrderableCount             |> Count.applyConstraints
-                let orb_cnc = cmp.OrderableConcentration     |> Concentration.applyConstraints
-                let ord_qty = cmp.OrderQuantity              |> Quantity.applyConstraints
-                let ord_cnt = cmp.OrderCount                 |> Count.applyConstraints
-                let dos = cmp.Dose |> Dose.applyConstraints
-
-                cmp.Items
-                |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
-
-
             let isOrderableConcentrationCleared cmp = (cmp |> inf).OrderableConcentration |> Concentration.isCleared
 
 
             let isItemOrderableConcentrationCleared = getItems >> List.exists Item.isOrderableConcentrationCleared
 
 
-            let clearItemOrderableConcentration itm cmp =
-                { (cmp |> inf) with
-                    Items =
-                        cmp.Items
-                        |> List.map (fun i ->
-                            if i.Name |> Name.toString |> String.equalsCapInsens itm then
-                                i |> Item.clearOrderableConcentration
-                            else i
-                        )
-                }
-
-
-            let clearItemDoseQuantity itm cmp =
-                { (cmp |> inf) with
-                    Items =
-                        cmp.Items
-                        |> List.map (fun i ->
-                            if i.Name |> Name.toString |> String.equalsCapInsens itm then
-                                i |> Item.clearDoseQuantity
-                            else i
-                        )
-                }
-
-
-            let setOrderableQuantConcToNonZeroPositive cmp =
-                { (cmp |> inf) with
-                    OrderableCount = cmp.OrderableCount |> Count.setToNonZeroPositive
-                    OrderableQuantity = cmp.OrderableQuantity |> Quantity.setToNonZeroPositive
-                    OrderableConcentration = cmp.OrderableConcentration |>  Concentration.setToNonZeroPositive
-                }
-                |> applyToAllItems Item.setOrderableQuantConcToNonZeroPositive
-
-
-            let setItemOrderableConcentration setConc itm cmp =
-                { (cmp |> inf) with
-                    Items =
-                        cmp.Items
-                        |> List.map (fun i ->
-                            if i.Name |> Name.toString |> String.equalsCapInsens itm then
-                                i |> Item.setOrderableConcentration setConc
-                            else i
-                        )
-                }
-
-
-            let setItemComponentConcentration setConc itm cmp =
-                { (cmp |> inf) with
-                    Items =
-                        cmp.Items
-                        |> List.map (fun i ->
-                            if i.Name |> Name.toString |> String.equalsCapInsens itm then
-                                i |> Item.setComponentConcentration setConc
-                            else i
-                        )
-                }
-
-
             let isOrderableQuantityCleared cmp = (cmp |> inf).OrderableQuantity |> Quantity.isCleared
-
-
-            let applyOrderableQuantityConstraints cmp =
-                { (cmp |> inf) with
-                    OrderableQuantity = cmp.OrderableQuantity |> Quantity.applyConstraints
-                }
-
-
-            let orderableQuantityMinIncrMaxToValues cmp =
-                { (cmp |> inf) with
-                    OrderableQuantity = cmp.OrderableQuantity |> Quantity.minIncrMaxToValues
-                }
 
 
             /// Get the Component dose
             let getDose cmp = (cmp |> inf).Dose
-
-
-            let setDose set cmp = { (cmp |> inf) with Dose = cmp.Dose |> set  }
-
-
-            let applyDoseConstraints =
-                setDose Dose.applyConstraints
-                >> applyToAllItems Item.applyDoseConstraints
-
-
-            let applyDoseQuantityConstraints =
-                setDose Dose.applyDoseQuantityConstraints
-                >> applyToAllItems Item.applyDoseQuantityConstraints
-
-
-            let applyDosePerTimeConstraints =
-                setDose Dose.applyDosePerTimeConstraints
-                >> applyToAllItems Item.applyDosePerTimeConstraints
 
 
             let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
@@ -1526,31 +1364,16 @@ module Order =
             let isItemDoseQuantityCleared = getItems >> List.exists Item.isDoseQuantityCleared
 
 
-            let setDoseQuantityToNonZeroPositive =
-                setDose Dose.setQuantityToNonZeroPositive
-                >> applyToAllItems Item.setDoseQuantityToNonZeroPositive
-
-
             let isDoseRateCleared = getDose >> Dose.isRateCleared
 
 
             let isItemDoseRateCleared = getItems >> List.exists Item.isDoseRateCleared
 
 
-            let setDoseRateToNonZeroPositive =
-                setDose Dose.setRateToNonZeroPositive
-                >> applyToAllItems Item.setDoseRateToNonZeroPositive
-
-
             let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
 
 
             let isItemDosePerTimeCleared = getItems >> List.exists Item.isDosePerTimeCleared
-
-
-            let setDosePerTimeToNonZeroPositive =
-                setDose Dose.setPerTimeToNonZeroPositive
-                >> applyToAllItems Item.setDosePerTimeToNonZeroPositive
 
 
             /// <summary>
@@ -1958,25 +1781,6 @@ module Order =
             |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
 
 
-        /// <summary>
-        /// Apply constraints to an Orderable
-        /// </summary>
-        /// <param name="orb">The Orderable</param>
-        let applyOrderableConstraints orb =
-            let ord_qty = (orb |> inf).OrderQuantity |> Quantity.applyConstraints
-            let orb_qty = orb.OrderableQuantity      |> Quantity.applyConstraints
-            let ord_cnt = orb.OrderCount             |> Count.applyConstraints
-            let dos_cnt = orb.DoseCount              |> Count.applyConstraints
-            let dos = orb.Dose |> Dose.applyConstraints
-
-            orb.Components
-            |> create orb.Name orb_qty ord_qty ord_cnt dos_cnt dos
-
-
-        let applyComponentConstraints =
-            applyToAllComponents Component.applyComponentConstraints
-
-
         let isComponentOrderableConcentrationCleared =
             getComponents
             >> List.exists Component.isOrderableConcentrationCleared
@@ -1988,65 +1792,11 @@ module Order =
             >> List.exists Item.isOrderableConcentrationCleared
 
 
-        let setOrderableQuantConcToNonZeroPositive orb =
-            { (orb |> inf) with
-                OrderableQuantity = orb.OrderableQuantity |> Quantity.setToNonZeroPositive
-            }
-            |> applyToAllComponents Component.setOrderableQuantConcToNonZeroPositive
-
-
-        let setComponentOrderableQuantityToNonZeroPositive =
-            applyToAllComponents Component.setOrderableQuantConcToNonZeroPositive
-
-
-        let applyOrderableQuantityConstraints orb =
-            { (orb |> inf) with
-                OrderableQuantity = orb.OrderableQuantity |> Quantity.applyConstraints
-            }
-
-
-        let applyComponentOrderableQuantityConstraints =
-            applyToAllComponents Component.applyOrderableQuantityConstraints
-
-
         let isOrderableQuantityCleared orb = (orb |> inf).OrderableQuantity |> Quantity.isCleared
-
-
-        let orderableQuantityMinIncrMaxToValues orb =
-            { (orb |> inf) with
-                OrderableQuantity = orb.OrderableQuantity |> Quantity.minIncrMaxToValues
-            }
-            |> applyToAllComponents Component.orderableQuantityMinIncrMaxToValues
 
 
         /// Get the `Orderable` dose
         let getDose orb = (orb |> inf).Dose
-
-
-        let setDose setDose orb = { (orb |> inf) with Dose = orb.Dose |> setDose  }
-
-
-        let applyDoseConstraints =
-            setDose Dose.applyConstraints
-            >> applyToAllComponents Component.applyDoseConstraints
-
-
-        let applyDoseRateConstraints =
-            setDose Dose.applyConstraints
-            >> applyToAllComponents Component.applyDoseConstraints
-
-
-        let applyDoseQuantityConstraints =
-            setDose Dose.applyDoseQuantityConstraints
-            >> applyToAllComponents Component.applyDoseQuantityConstraints
-
-
-        let applyDosePerTimeConstraints =
-            setDose Dose.applyDosePerTimeConstraints
-            >> applyToAllComponents Component.applyDosePerTimeConstraints
-
-
-        let applyItemDoseRateConstraints = applyToAllComponents Component.applyDoseConstraints
 
 
         let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
@@ -2146,51 +1896,12 @@ module Order =
         let isItemDoseQuantityCleared = getComponents >> List.exists Component.isItemDoseQuantityCleared
 
 
-        let setDoseQuantityToNonZeroPositive =
-            setDose Dose.setQuantityToNonZeroPositive
-            >> applyToAllComponents Component.setDoseQuantityToNonZeroPositive
-
-
-        let doseQuantityMinIncrMaxToValues = setDose Dose.quantityMinIncrMaxToValues
-
-
         let isDoseRateCleared = getDose >> Dose.isRateCleared
-
-
-        let clearDoseRate orb =
-            { (orb |> inf) with
-                Dose = orb |> getDose |> Dose.clearRate
-            }
-
-
-        let clearItemDoseQuantity itm orb =
-            { (orb |> inf) with
-                Components =
-                    orb.Components
-                    |> List.map (Component.clearItemDoseQuantity itm)
-            }
-
-
-        let isComponentDoseRateCleared =
-            getComponents
-            >> List.exists Component.isDoseRateCleared
 
 
         let isItemDoseRateCleared =
             getComponents
             >> List.exists Component.isItemDoseRateCleared
-
-
-        let setDoseRateToNonZeroPositive =
-            setDose Dose.setRateToNonZeroPositive
-            >> applyToAllComponents Component.setDoseRateToNonZeroPositive
-
-
-        let setItemDoseRateToNonZeroPositive =
-            applyToAllComponents Component.setDoseRateToNonZeroPositive
-
-
-        let doseRateMinIncrMaxToValues = setDose Dose.rateMinIncrMaxToValues
 
 
         let isDosePerTimeCleared = getDose >> Dose.isPerTimeCleared
@@ -2200,14 +1911,6 @@ module Order =
 
 
         let isItemDosePerTimeCleared = getComponents >> List.exists Component.isItemDosePerTimeCleared
-
-
-        let setDosePerTimeToNonZeroPositive =
-            setDose Dose.setPerTimeToNonZeroPositive
-            >> applyToAllComponents Component.setDosePerTimeToNonZeroPositive
-
-
-        let dosePerTimeMinIncrMaxToValues = setDose Dose.perTimeMinIncrMaxToValues
 
 
         module Print =
@@ -2584,26 +2287,10 @@ module Order =
             | _ -> prs
 
 
-        let clearFrequency = applyToFrequency Frequency.clear
-
-
-        let setFrequencyNonZeroPositive = applyToFrequency Frequency.setToNonZeroPositive
-
-
         let frequencyIsCleared (prs: Prescription) =
             match prs |> toOrdVars with
             | Some frq, _ -> frq |> OrderVariable.isCleared
             | _ -> false
-
-
-        let clearTime (prs : Prescription) =
-            let ovars =
-                match prs |> toOrdVars with
-                | None, Some tme ->
-                    [ tme |> OrderVariable.clear ]
-                | _ -> []
-
-            prs |> fromOrdVars ovars
 
 
         let applyToTime f prs =
@@ -2615,21 +2302,6 @@ module Order =
 
 
         let setMinTime = applyToTime Time.setMinValue
-
-
-        let setMaxTime = applyToTime Time.setMinValue
-
-
-        let setMinFrequency = applyToFrequency Frequency.setMinValue
-
-
-        let setMaxFrequency = applyToFrequency Frequency.setMaxValue
-
-
-        let setMedianFrequency = applyToFrequency Frequency.setMedianValue
-
-
-        let setStandardFrequency = applyToFrequency Frequency.setStandardValues
 
 
         module Print =
@@ -3212,55 +2884,6 @@ module Order =
         }
 
 
-    let applyOrderableConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyOrderableConstraints
-        }
-
-
-    let applyComponentConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyComponentConstraints
-        }
-
-
-    let applyDoseConstraints ord =
-        { (ord |> inf) with
-            Prescription = ord.Prescription |> Prescription.applyConstraints
-            Orderable = ord.Orderable |> Orderable.applyDoseConstraints
-        }
-
-
-    let applyDoseRateConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyDoseRateConstraints
-        }
-
-
-    let applyDoseQuantityConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyDoseQuantityConstraints
-        }
-
-
-    let applyDosePerTimeConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyDosePerTimeConstraints
-        }
-
-
-    let applyOrderableQuantityConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyOrderableQuantityConstraints
-        }
-
-
-    let applyComponentOrderableQuantityConstraints ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.applyComponentOrderableQuantityConstraints
-        }
-
-
     let isEmpty = toOrdVars >> List.forall OrderVariable.isEmpty
 
 
@@ -3706,157 +3329,6 @@ module Order =
         { (ord |> inf) with Orderable = ord.Orderable |> Orderable.setDoseUnit sn du }
 
 
-    let clearFrequency ord =
-        { (ord |> inf) with Prescription = ord.Prescription |> Prescription.clearFrequency }
-
-
-    let setFrequencyNonZeroPositive ord =
-        { (ord |> inf) with Prescription = ord.Prescription |> Prescription.setFrequencyNonZeroPositive }
-
-
-    let clearTime ord =
-        { (ord |> inf) with Prescription = ord.Prescription |> Prescription.clearTime }
-
-
-    let setDoseQuantityNonZeroPositive ord =
-        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.setDoseQuantityToNonZeroPositive }
-
-
-    let setDosePerTimeNonZeroPositive ord =
-        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.setDosePerTimeToNonZeroPositive }
-
-
-    let setDoseRateNonZeroPositive ord =
-        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.setDoseRateToNonZeroPositive }
-
-
-    let setDose doseSet itm ord =
-        match itm with
-        | None ->
-            { (ord |> inf) with
-                Order.Orderable.Dose = ord.Orderable.Dose |> doseSet ord.Prescription
-            }
-        | Some n ->
-            { (ord |> inf) with
-                Order.Orderable.Components =
-                    ord.Orderable.Components
-                    |> List.map (fun cmp ->
-                        { cmp with
-                            Items =
-                                cmp.Items
-                                |> List.map (fun itm ->
-                                    if itm.Name |> Name.toString |> String.equalsCapInsens n then
-                                        { itm with
-                                            Dose = itm.Dose |> doseSet ord.Prescription
-                                        }
-                                    else itm
-                                )
-                        }
-                    )
-            }
-
-
-    let setMinDose = setDose Dose.setMinDose
-
-
-    let setMaxDose = setDose Dose.setMaxDose
-
-
-    let setMedianDose = setDose Dose.setMedianDose
-
-
-    let solveMinDose logger itm = setMinDose itm >> (solveOrder false logger)
-
-
-    let solveMaxDose logger itm = setMaxDose itm >> (solveOrder false logger)
-
-
-    let solveMedianDose logger itm = setMedianDose itm >> (solveOrder false logger)
-
-
-    let setFrequency set ord =
-        { (ord |> inf) with
-            Prescription = ord.Prescription |> set
-        }
-
-
-    let setMinFrequency = setFrequency Prescription.setMinFrequency
-
-
-    let setMaxFrequency = setFrequency Prescription.setMaxFrequency
-
-
-    let setMedianFrequency = setFrequency Prescription.setMedianFrequency
-
-
-    let setStandardFrequency = setFrequency Prescription.setStandardFrequency
-
-
-    let solveMinFrequency logger = setMinFrequency >> solveOrder false logger
-
-
-    let solveMaxFrequency logger = setMinFrequency >> solveOrder false logger
-
-
-    let solveMedianFrequency logger = setMinFrequency >> solveOrder false logger
-
-
-    let clearOrderableDoseRate ord =
-        { (ord |> inf) with
-            Orderable = ord.Orderable |> Orderable.clearDoseRate
-        }
-
-
-    let clearItemDoseQuantity itm ord =
-        { (ord |> inf) with
-            Orderable =
-                ord.Orderable
-                |> Orderable.clearItemDoseQuantity itm
-        }
-
-
-    let clearItemOrderableConcentration itm ord =
-        { (ord |> inf) with
-            Order.Orderable.Components =
-                ord.Orderable.Components
-                |> List.map (Orderable.Component.clearItemOrderableConcentration itm)
-        }
-
-
-    let setItemOrderableConcentration concSet itm ord =
-        { (ord |> inf) with
-            Order.Orderable.Components =
-                ord.Orderable.Components
-                |> List.map (Orderable.Component.setItemOrderableConcentration concSet itm)
-        }
-
-
-    let setMinOrderableConcentration = setItemOrderableConcentration Concentration.setMinValue
-
-
-    let setMaxOrderableConcentration = setItemOrderableConcentration Concentration.setMaxValue
-
-
-    let setMedianOrderableConcentration = setItemOrderableConcentration Concentration.setMedianValue
-
-
-    let setComponentConcentration concSet itm ord =
-        { (ord |> inf) with
-            Order.Orderable.Components =
-                ord.Orderable.Components
-                |> List.map (Orderable.Component.setItemComponentConcentration concSet itm)
-        }
-
-
-    let setMinComponentConcentration = setComponentConcentration Concentration.setMinValue
-
-
-    let setMaxComponentConcentration = setComponentConcentration Concentration.setMaxValue
-
-
-    let setMedianComponentConcentration = setComponentConcentration Concentration.setMedianValue
-
-
     let isCleared = toOrdVars >> List.exists OrderVariable.isCleared
 
 
@@ -3916,16 +3388,19 @@ module Order =
                   ord.Orderable |> Orderable.isItemDoseQuantityCleared,
                   ord.Orderable |> Orderable.isItemDosePerTimeCleared with
             | true, false, false ->
-                ord
+                ord |> Ok
+                (*
                 |> setFrequencyNonZeroPositive
                 |> setDoseQuantityNonZeroPositive
                 |> setDosePerTimeNonZeroPositive
                 |> applyDosePerTimeConstraints
                 |> setStandardFrequency
                 |> solveOrder true logger
+                *)
 
             | false, true, false ->
-                ord
+                ord |> Ok
+                (*
                 |> setFrequencyNonZeroPositive
                 |> setStandardFrequency
                 |> setDoseQuantityNonZeroPositive
@@ -3934,6 +3409,7 @@ module Order =
                 |> setDosePerTimeNonZeroPositive
                 |> applyDosePerTimeConstraints
                 |> solveOrder true logger
+                *)
 
             | b ->
                 $"""===> no match for discontinuous cleared {b}""" |> writeDebugMessage
