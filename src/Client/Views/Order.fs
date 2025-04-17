@@ -43,11 +43,11 @@ module Order =
             | UpdateOrder of Order
 
 
-        let init (pr : Deferred<Types.OrderContext>) =
+        let init (ctx : Deferred<Types.OrderContext>) =
             let ord, cmp, itm =
-                match pr with
-                | Resolved pr ->
-                    match pr.Scenarios with
+                match ctx with
+                | Resolved ctx ->
+                    match ctx.Scenarios with
                     | [| sc |] ->
 
                         let ord = sc.Order
@@ -534,7 +534,6 @@ module Order =
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
-
         let context = React.useContext Global.context
         let lang = context.Localization
 
@@ -796,10 +795,11 @@ module Order =
                     }
                     {
                         match substIndx, state.Order with
-                        | Some i, Some _ when itms |> Array.length > 0 ->
+                        | Some i, Some ord when itms |> Array.length > 0 ->
                             itms[i].ComponentConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
+                            |> fun xs -> if xs |> Array.length <= 1 then [||] else xs
                             |> select false "Product Sterkte" None (ChangeSubstanceComponentConcentration >> dispatch)
                         | _ ->
                             [||]
@@ -807,7 +807,8 @@ module Order =
                     }
                     {
                         match substIndx, state.Order with
-                        | Some i, Some _ when itms |> Array.length > 0 ->
+                        | Some i, Some ord when itms |> Array.length > 0 &&
+                                                ord.Orderable.Components |> Array.length > 1 ->
                             itms[i].OrderableConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]

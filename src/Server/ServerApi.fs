@@ -820,7 +820,7 @@ module Message =
             match tp.Selected with
             | Some os ->
                 os
-                |> Models.OrderContext.fromOrderScenario
+                |> Models.OrderContext.fromOrderScenario tp.Patient
                 |> printMsg "TreatmentPlan started"
                 |> OrderContext.evaluate
                 |> Result.map (fun pr ->
@@ -847,13 +847,13 @@ module Message =
                     Intake =
                         let w = tp.Patient |> Models.Patient.getWeight
 
-                        let oscs =
+                        let scs =
                             if tp.Filtered |> Array.isEmpty then tp.Scenarios
                             else
                                 tp.Scenarios
                                 |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
 
-                        oscs
+                        scs
                         |> Array.map _.Order
                         |> Order.getIntake w
                 }

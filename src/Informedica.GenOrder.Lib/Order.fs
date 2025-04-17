@@ -354,21 +354,21 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
-            let applyDoseQuantityConstraints dos =
+            let applyQuantityConstraints dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.applyConstraints
                     QuantityAdjust = dos.QuantityAdjust |> QuantityAdjust.applyConstraints
                 }
 
 
-            let applyDosePerTimeConstraints dos =
+            let applyPerTimeConstraints dos =
                 { (dos |> inf) with
                     PerTime = dos.PerTime |> PerTime.applyConstraints
                     PerTimeAdjust = dos.PerTimeAdjust |> PerTimeAdjust.applyConstraints
                 }
 
 
-            let applyDoseRateConstraints dos =
+            let applyRateConstraints dos =
                 { (dos |> inf) with
                     Rate = dos.Rate |> Rate.applyConstraints
                     RateAdjust = dos.RateAdjust |> RateAdjust.applyConstraints
@@ -2924,10 +2924,15 @@ module Order =
         let rates =
             [
                 ord.Orderable.Dose.Rate
-
+                // only look at item dose rates
                 yield!
                     ord.Orderable.Components
+                    |> List.collect _.Items
                     |> List.map _.Dose
+                    |> List.filter (fun d ->
+                        d.Rate |> Rate.isNonZeroPositive |> not &&
+                        (d.Rate |> Rate.hasConstraints || (d.RateAdjust |> RateAdjust.hasConstraints))
+                    )
                     |> List.map _.Rate
             ]
 
@@ -2963,7 +2968,7 @@ module Order =
             else rates |> List.forall checkRte
         | Timed (freq, _)
         | Discontinuous freq ->
-            (freq |> Frequency.toOrdVar |> pred) &&
+            (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred) &&
             (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
             |> op <|
             (if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm)
@@ -3351,9 +3356,9 @@ module Order =
                         ComponentDose ("", Dose.setRateToNonZeroPositive)
                         ItemDose ("", "", Dose.setRateToNonZeroPositive)
                         // apply dose rate constraints again
-                        OrderableDose Dose.applyDoseRateConstraints
-                        ComponentDose ("", Dose.applyDoseRateConstraints)
-                        ItemDose ("", "", Dose.applyDoseRateConstraints)
+                        OrderableDose Dose.applyRateConstraints
+                        ComponentDose ("", Dose.applyRateConstraints)
+                        ItemDose ("", "", Dose.applyRateConstraints)
                     ]
                 |> solveMinMax true logger
                 |> Result.map (minIncrMaxToValues true true logger)
@@ -3363,10 +3368,10 @@ module Order =
                     [
                         // clear all item dose rates
                         ComponentDose ("", Dose.setRateToNonZeroPositive)
-                        ComponentDose ("", Dose.applyDoseRateConstraints)
+                        ComponentDose ("", Dose.applyRateConstraints)
 
                         ItemDose ("", "", Dose.setRateToNonZeroPositive)
-                        ItemDose ("", "", Dose.applyDoseRateConstraints)
+                        ItemDose ("", "", Dose.applyRateConstraints)
                         // clear the item and component orderable quantities
                         // causing these to be recalculated
                         ComponentOrderableConcentration ("", Concentration.setToNonZeroPositive)
@@ -3388,28 +3393,60 @@ module Order =
                   ord.Orderable |> Orderable.isItemDoseQuantityCleared,
                   ord.Orderable |> Orderable.isItemDosePerTimeCleared with
             | true, false, false ->
-                ord |> Ok
-                (*
-                |> setFrequencyNonZeroPositive
-                |> setDoseQuantityNonZeroPositive
-                |> setDosePerTimeNonZeroPositive
-                |> applyDosePerTimeConstraints
-                |> setStandardFrequency
-                |> solveOrder true logger
-                *)
+                ord
+                |> OrderPropertyChange.proc
+                    [
+                        PrescriptionFrequency Frequency.setToNonZeroPositive
 
-            | false, true, false ->
-                ord |> Ok
-                (*
-                |> setFrequencyNonZeroPositive
-                |> setStandardFrequency
-                |> setDoseQuantityNonZeroPositive
-                |> applyOrderableConstraints
-                |> applyComponentConstraints
-                |> setDosePerTimeNonZeroPositive
-                |> applyDosePerTimeConstraints
+                        OrderableDose Dose.setQuantityToNonZeroPositive
+                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
+                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
+
+                        OrderableDose Dose.setQuantityToNonZeroPositive
+                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
+                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
+
+                        OrderableDose Dose.setPerTimeToNonZeroPositive
+                        ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
+                        ItemDose ("", "", Dose.setPerTimeToNonZeroPositive)
+                    ]
+                |> OrderPropertyChange.proc
+                    [
+                        PrescriptionFrequency Frequency.setStandardValues
+                        OrderableDose Dose.applyQuantityConstraints
+                        OrderableDose Dose.applyPerTimeConstraints
+                        ComponentDose ("", Dose.applyPerTimeConstraints)
+                    ]
+
                 |> solveOrder true logger
-                *)
+            | false, false, true
+            | false, true, false ->
+                ord
+                |> OrderPropertyChange.proc
+                    [
+                        PrescriptionFrequency Frequency.setToNonZeroPositive
+
+                        OrderableDose Dose.setQuantityToNonZeroPositive
+                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
+                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
+
+                        OrderableDose Dose.setQuantityToNonZeroPositive
+                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
+                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
+
+                        OrderableDose Dose.setPerTimeToNonZeroPositive
+                        ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
+                        ItemDose ("", "", Dose.setPerTimeToNonZeroPositive)
+                    ]
+                |> OrderPropertyChange.proc
+                    [
+                        PrescriptionFrequency Frequency.setStandardValues
+                        OrderableDose Dose.applyQuantityConstraints
+                        OrderableDose Dose.applyPerTimeConstraints
+                        ComponentDose ("", Dose.applyPerTimeConstraints)
+                        ItemDose ("", "", Dose.applyPerTimeConstraints)
+                    ]
+                |> solveOrder true logger
 
             | b ->
                 $"""===> no match for discontinuous cleared {b}""" |> writeDebugMessage

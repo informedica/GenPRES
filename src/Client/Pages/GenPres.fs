@@ -120,6 +120,7 @@ module GenPres =
             updateOrderContext : OrderContext -> unit
             treatmentPlan: Deferred<TreatmentPlan>
             updateTreatmentPlan: TreatmentPlan -> unit
+            filterTreatmentPlan: TreatmentPlan -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
             parenteralia : Deferred<Parenteralia>
@@ -243,6 +244,7 @@ module GenPres =
                                 Views.TreatmentPlan.View {|
                                     treatmentPlan = props.treatmentPlan
                                     updateTreatmentPlan = props.updateTreatmentPlan
+                                    filterTreatmentPlan = props.filterTreatmentPlan
                                     localizationTerms = props.localizationTerms
                                 |}
                             | Global.Pages.Formulary ->

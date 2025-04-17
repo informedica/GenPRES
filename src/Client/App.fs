@@ -53,6 +53,7 @@ module private Elmish =
         | LoadOrderContext of AsyncOperationStatus<Result<Api.Message, string []>>
 
         | UpdateTreatmentPlan of TreatmentPlan
+        | FilterTreatmentPlan of TreatmentPlan
         | LoadTreatmentPlan of AsyncOperationStatus<Result<Api.Message, string []>>
 
         | UpdateFormulary of Formulary
@@ -84,11 +85,13 @@ module private Elmish =
 
     let processApiMsg state msg =
         match msg with
-        | Api.OrderContextMsg pr ->
-                { state with
-                    OrderContext = Resolved pr
-                }, Cmd.none
+        | Api.OrderContextMsg ctx ->
+            Logging.log "processed context" ctx
+            { state with
+                OrderContext = Resolved ctx
+            }, Cmd.none
         | Api.TreatmentPlanMsg tp ->
+            Logging.log "processed treatmentplan" tp
             {  state with
                 TreatmentPlan = Resolved tp
             }, Cmd.none
@@ -508,6 +511,7 @@ module private Elmish =
 
 
         | UpdateOrderContext ctx ->
+            Logging.log "update order context" ctx
             let ctx =
                 { ctx with
                     Patient =
@@ -545,9 +549,14 @@ module private Elmish =
             ]
 
         | UpdateTreatmentPlan tp ->
+            let onlySetOrderContext =
+                state.TreatmentPlan
+                |> Deferred.map (fun st -> st.Selected.IsNone && tp.Selected.IsSome)
+                |> Deferred.defaultValue false
+
             let cmd =
                 if state.Page = TreatmentPlan then
-                    Cmd.ofMsg (LoadTreatmentPlan Started)
+                    if onlySetOrderContext then Cmd.none else Cmd.ofMsg (LoadTreatmentPlan Started)
                 else
                     Cmd.batch [
                         Cmd.ofMsg (UpdateOrderContext OrderContext.empty)
@@ -558,6 +567,12 @@ module private Elmish =
                 Page = TreatmentPlan
                 TreatmentPlan = Resolved tp
             }, cmd
+
+
+        | FilterTreatmentPlan tp ->
+            { state with
+                TreatmentPlan = Resolved tp
+            }, Cmd.ofMsg (LoadTreatmentPlan Started)
 
         | LoadFormulary Started ->
             let form =
@@ -836,6 +851,7 @@ let View () =
                         updateOrderContext = UpdateOrderContext >> dispatch
                         treatmentPlan = state.TreatmentPlan
                         updateTreatmentPlan = UpdateTreatmentPlan >> dispatch
+                        filterTreatmentPlan = FilterTreatmentPlan >> dispatch
                         formulary = state.Formulary
                         updateFormulary = UpdateFormulary >> dispatch
                         parenteralia = state.Parenteralia

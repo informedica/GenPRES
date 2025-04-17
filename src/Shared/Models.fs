@@ -1573,7 +1573,7 @@ module Models =
         let setScenarios srs sr : OrderContext = { sr with Scenarios = srs }
 
 
-        let fromOrderScenario (sc: OrderScenario) : OrderContext =
+        let fromOrderScenario pat (sc: OrderScenario) : OrderContext =
             let ord = sc.Order
 
             {
@@ -1586,7 +1586,7 @@ module Models =
                         Route = ord.Route |> Some
                         DoseType = sc.DoseType |> Some
                     }
-                Patient = Patient.empty
+                Patient = pat
                 Scenarios = [| sc |]
                 Intake = Intake.empty
             }

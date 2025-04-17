@@ -209,6 +209,7 @@ module ResponsiveTable =
                 <div style={ {| height =props.height; width = "100%" |} }>
                     <DataGrid
                         checkboxSelection={props.checkboxSelection}
+                        disableRowSelectionOnClick
                         rowSelectionModel = {props.selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         rows={rows}

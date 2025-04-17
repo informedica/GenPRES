@@ -15,6 +15,7 @@ module TreatmentPlan =
     let View (props : {|
         treatmentPlan: Deferred<TreatmentPlan>
         updateTreatmentPlan: TreatmentPlan -> unit
+        filterTreatmentPlan: TreatmentPlan -> unit
         localizationTerms : Deferred<string [] []>
         |}) =
 
@@ -190,7 +191,7 @@ module TreatmentPlan =
                     Logging.error "Order not found" id
                     ()
                 | Some sc ->
-                    { tp with Selected = Some sc }
+                    { tp with Filtered = [||]; Selected = Some sc }
                     |> props.updateTreatmentPlan
 
                     setModalOpen true
@@ -200,6 +201,7 @@ module TreatmentPlan =
             match props.treatmentPlan with
             | Resolved tp ->
                 { tp with
+                    Selected = None
                     Filtered =
                         if ids |> Array.isEmpty then [||]
                         else
@@ -210,7 +212,7 @@ module TreatmentPlan =
                                 |> fun id -> ids |> Array.exists ((=) id)
                             )
                 }
-                |> props.updateTreatmentPlan
+                |> props.filterTreatmentPlan
             | _ -> ()
 
         let selectedRows =
@@ -238,10 +240,10 @@ module TreatmentPlan =
                     |> props.updateTreatmentPlan
                 | _ -> ()
 
-        let updatePrescriptionResult (pr : OrderContext) =
+        let updateOrderContext (ctx : OrderContext) =
             match props.treatmentPlan with
             | Resolved tp ->
-                match pr.Scenarios |> Array.tryExactlyOne with
+                match ctx.Scenarios |> Array.tryExactlyOne with
                 | None -> ()
                 | Some os ->
                     { tp with
@@ -299,10 +301,13 @@ module TreatmentPlan =
                                 match props.treatmentPlan with
                                 | Resolved tp ->
                                     tp.Selected
-                                    |> Option.map (OrderContext.fromOrderScenario >> Resolved)
+                                    |> Option.map (fun sc ->
+                                        OrderContext.fromOrderScenario tp.Patient sc
+                                        |> Resolved
+                                    )
                                     |> Option.defaultValue HasNotStartedYet
                                 | _ -> HasNotStartedYet
-                            updateOrderContext = updatePrescriptionResult
+                            updateOrderContext = updateOrderContext
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}
