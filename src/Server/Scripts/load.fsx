@@ -26,7 +26,7 @@
 #load "../../Shared/Api.fs"
 #load "../ServerApi.fs"
 
-fsi.AddPrinter<System.DateTime> (fun dt -> dt.ToShortDateString())
+fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 
 
 open System

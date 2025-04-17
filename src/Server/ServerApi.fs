@@ -749,7 +749,7 @@ module OrderContext =
     """
 
 
-    let evaluate (ctx: OrderContext) =
+    let evaluate (ctx: OrderContext) : Result<OrderContext,  string []> =
         let pat =
             ctx.Patient
             |> mapFromSharedPatient

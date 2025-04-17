@@ -86,12 +86,10 @@ module private Elmish =
     let processApiMsg state msg =
         match msg with
         | Api.OrderContextMsg ctx ->
-            Logging.log "processed context" ctx
             { state with
                 OrderContext = Resolved ctx
             }, Cmd.none
         | Api.TreatmentPlanMsg tp ->
-            Logging.log "processed treatmentplan" tp
             {  state with
                 TreatmentPlan = Resolved tp
             }, Cmd.none
@@ -511,7 +509,6 @@ module private Elmish =
 
 
         | UpdateOrderContext ctx ->
-            Logging.log "update order context" ctx
             let ctx =
                 { ctx with
                     Patient =
@@ -660,7 +657,6 @@ module private Elmish =
             state, Cmd.none
 
         | UpdateParenteralia par ->
-            Logging.log "parenteralia" par
             let state =
                 { state with
                     Parenteralia = Resolved par
@@ -721,11 +717,11 @@ module private Elmish =
                         |> OrderContext.setPatient pat
                         |> loadPresciptionContext
                 | InProgress -> state, Cmd.none
-                | Resolved pr ->
-                    let pr = { pr with Patient = pat }
+                | Resolved ctx ->
+                    let ctx = { ctx with Patient = pat }
 
                     { state with OrderContext = InProgress },
-                    pr |> loadPresciptionContext
+                    ctx |> loadPresciptionContext
 
         | LoadOrderContext (Finished (Ok msg)) -> msg |> processOk
         | LoadOrderContext (Finished (Error err)) -> err |> processError

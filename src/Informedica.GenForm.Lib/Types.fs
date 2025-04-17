@@ -460,6 +460,15 @@ module Types =
         }
 
 
+    type ProductFilter =
+        {
+            Generic: string
+            Shape: string option
+            Route: string
+            ShapeUnit: Unit option
+        }
+
+
     /// A Filter to get the DoseRules for a specific Patient.
     type DoseFilter =
         {

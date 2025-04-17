@@ -112,42 +112,10 @@ let pipeline ord =
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
-|> OrderContext.setFilterGeneric "amoxicilline/clavulaanzuur"
-|> OrderContext.setFilterRoute "oraal"
-|> OrderContext.evaluate //|> ignore
-|> OrderContext.printCtx "1 eval" //|> ignore
-|> OrderContext.setFilterItem (FilterItem.Indication 0)
 |> OrderContext.evaluate
 |> fun ctx ->
-    ctx |> OrderContext.printCtx "2 eval" |> ignore
-
     ctx.Scenarios
-    |> Array.head
+    |> Array.item 0
     |> _.Order
-    |> pipeline
-    |> Result.bind pipeline
-    |> Result.map (Order.setMedianDose (Some "amoxicilline"))
-    |> Result.bind pipeline
-    |> Result.map (Order.clearItemDoseQuantity "amoxicilline")
-    |> Result. map (fun ord ->
-        let ord2 =
-            ord
-
-
-        value <- Some ord2
-        ord2 |> Order.printState |> printfn "\n\nThe state of the order = %s\n"
-        ord
-    )
-    |> Result.bind pipeline
-    |> Result.map Order.toStringWithConstraints
-    |> Result.defaultValue []
-    |> String.concat "\n"
-    |> printfn "%s"
-
-
-value.Value
-|> Order.print
-|> (fun ord ->
-    ord
-    |> Order.doseIsSolved
-)
+    |> Order.print
+    |> ignore

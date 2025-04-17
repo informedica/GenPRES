@@ -821,7 +821,7 @@ Scenarios: {scenarios}
 
 
     let printCtx msg ctx =
-        writeDebugMessage $"\n\n=== Order State {msg |> String.capitalize} ===\n"
+        writeDebugMessage $"\n\n=== ORDER STATE: {msg |> String.toUpper} ===\n"
 
         match ctx.Scenarios |> Array.tryExactlyOne with
         | Some sc ->

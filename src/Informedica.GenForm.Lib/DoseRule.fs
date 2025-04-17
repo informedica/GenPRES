@@ -844,17 +844,26 @@ cannot map {r}
                 rs
                 |> Array.groupBy _.Component
                 |> Array.map (fun (cmp , rs) ->
-                    {
-                        Name = cmp
-                        Limit =
+                    let lim =
                             rs
                             // if no substance the dose limit is a component limit
                             |> Array.filter (_.Substance >> String.isNullOrWhiteSpace)
                             |> getDoseLimits
                             |> Array.tryExactlyOne
+
+                    {
+                        Name = cmp
+                        Limit = lim
                         Products =
                             rs
                             |> Array.collect _.Products
+                            |> Array.filter (fun p ->
+                                match lim with
+                                | None -> true
+                                | Some l ->
+                                    l.DoseUnit
+                                    |> ValueUnit.Group.eqsGroup p.ShapeUnit
+                            )
                             |> Array.distinct
                         SubstanceLimits =
                             rs
