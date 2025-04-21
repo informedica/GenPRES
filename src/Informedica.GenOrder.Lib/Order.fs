@@ -1,7 +1,6 @@
 namespace Informedica.GenOrder.Lib
 
 
-
 /// Types and functions that deal with an order.
 /// An `Order` models the `Prescription` of an
 /// `Orderable` with a `StartStop` start date and
@@ -3267,6 +3266,8 @@ module Order =
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
     let minIncrMaxToValues useAll minTime logger ord =
+        let mutable isSolved = false
+
         let rec loop ord =
             // the flag makes sure that if one order variable
             // is set to values, then the rest is skipped and
@@ -3305,7 +3306,9 @@ module Order =
                 |> fromOrdVars ovars
                 |> solveOrder false logger // could possible restrict to solve variable
                 |> function
-                    | Ok ord  -> loop ord
+                    | Ok ord  ->
+                        isSolved <- true
+                        loop ord
                     | Error err ->
                         err
                         |> snd
@@ -3318,6 +3321,13 @@ module Order =
         if minTime then ord |> minimizeTime logger
         else ord
         |> loop
+        |> fun ord ->
+            // make sure that an order is solved at least once
+            if not isSolved then
+                ord
+                |> solveOrder true logger
+                |> Result.defaultValue ord
+            else ord
 
 
     let solveNormDose logger normDose ord =
@@ -3335,6 +3345,25 @@ module Order =
 
 
     let isCleared = toOrdVars >> List.exists OrderVariable.isCleared
+
+
+    let calcMinMax logger normDose increaseIncrement =
+        applyConstraints
+        >> solveMinMax true logger
+        >> Result.bind (fun ord ->
+            if increaseIncrement then ord |> Ok
+            else
+                ord
+                |> increaseIncrements logger 10 10
+        )
+        >> Result.bind (fun ord ->
+            match normDose with
+            | Some nd ->
+                ord
+                |> minIncrMaxToValues false true logger
+                |> solveNormDose logger nd
+            | None -> Ok ord
+        )
 
 
     type Status = Processed of Order | NotProcessed of Order
@@ -3454,32 +3483,24 @@ module Order =
         | _ -> ord |> solveOrder true logger
 
 
-    let (|IsEmpty|NoDoseValues|HasDoseValues|DoseSolvedNotCleared|DoseSolvedAndCleared|) ord =
+    let (|IsEmpty|NoValues|HasValues|DoseSolvedNotCleared|DoseSolvedAndCleared|) ord =
         match ord with
         | _ when ord |> isEmpty -> IsEmpty
-        | _ when ord |> doseHasValues |> not -> NoDoseValues
-        | _ when ord |> doseHasValues && ord |> doseIsSolved |> not -> HasDoseValues
+        | _ when ord |> hasValues -> HasValues
         | _ when ord |> doseIsSolved && ord |> isCleared |> not -> DoseSolvedNotCleared
         | _ when ord |> doseIsSolved && ord |> isCleared -> DoseSolvedAndCleared
-        | _ ->
-            $"""
-
-Order is in an unknown state:
-{ord |> print |> ignore}
-
-            """
-            |> failwith
+        | _ -> NoValues
 
 
     let printState = function
         | IsEmpty -> "IsEmpty"
-        | NoDoseValues -> "NoDoseValues"
-        | HasDoseValues -> "HasDoseValues"
+        | NoValues -> "NoValues"
+        | HasValues -> "HasValues"
         | DoseSolvedNotCleared -> "DoseSolvedNotCleared"
         | DoseSolvedAndCleared -> "DoseSolvedAndCleared"
 
 
-    let processPipeLine logger normDose ord =
+    let processPipeLine logger normDose cmd =
         let procIf msg pred procF ord =
 
             match ord with
@@ -3499,43 +3520,43 @@ Order is in an unknown state:
                 else ord |> NotProcessed |> Ok
             | Error _ -> ord
 
-        let calcMinMax recalc =
-            applyConstraints >> Ok
-            >> Result.bind (solveMinMax true logger)
-            >> Result.bind (fun ord ->
-                if recalc then ord |> Ok
-                else
-                    ord
-                    |> increaseIncrements logger 10 10
-            )
-            >> Result.bind (fun ord ->
-                match normDose with
-                | Some nd ->
-                    ord
-                    |> minIncrMaxToValues false true logger
-                    |> solveNormDose logger nd
-                | None -> Ok ord
-            )
+        let calcMinMax = calcMinMax logger normDose
 
         let calcValues = minIncrMaxToValues false true logger >> Ok
 
         let isEmpty = function | IsEmpty -> true | _ -> false
 
-        let notSolveNoValues = function | NoDoseValues -> true | _ -> false
+        let noValues = function | NoValues -> true | _ -> false
 
-        let solvedHasValues = function | HasDoseValues -> true | _ -> false
+        let hasValues = function | HasValues -> true | _ -> false
 
-        let solvedNotCleared = function | DoseSolvedNotCleared -> true | _ -> false
+        let doseSolvedNotCleared = function | DoseSolvedNotCleared -> true | _ -> false
 
-        let solvedAndCleared = function | DoseSolvedAndCleared -> true | _ -> false
+        let doseSolvedAndCleared = function | DoseSolvedAndCleared -> true | _ -> false
 
-        ord
-        |> (NotProcessed >> Ok)
-        |> procIf "order is empty: calc minmax" isEmpty (calcMinMax false)
-        |> procIf "order not solved has no values: calc values" notSolveNoValues calcValues
-        |> procIf "order not solved has values: solve order" solvedHasValues (solveOrder true logger)
-        |> procIf "order is solved and not cleared: recalc order" solvedNotCleared (calcMinMax true >> Result.bind calcValues)
-        |> procIf "order is solved and has cleared prop: process cleared order" solvedAndCleared (processClearedOrder logger)
+        match cmd with
+        | CalcMinMax ord ->
+            ord
+            |> (NotProcessed >> Ok)
+            |> procIf "order is empty: calc minmax" isEmpty (calcMinMax false)
+        | CalcValues ord ->
+            ord
+            |> (NotProcessed >> Ok)
+            |> procIf "order has no values: calc values" noValues calcValues
+        | SolveOrder ord ->
+            ord
+            |> (NotProcessed >> Ok)
+            |> procIf "order has no values: calc values" noValues calcValues
+            |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
+            |> procIf "order has values: solve order" hasValues (solveOrder true logger)
+            |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared (processClearedOrder logger)
+        | ReCalcValues ord ->
+            ord
+            |> (NotProcessed >> Ok)
+            |> procIf "order is solved and not cleared: recalc order" doseSolvedNotCleared (calcMinMax true >> Result.bind calcValues)
+            |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
+            |> procIf "order not solved has no values: calc values" noValues calcValues
+
         |> Result.map (function | Processed ord | NotProcessed ord -> ord)
 
 

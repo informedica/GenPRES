@@ -430,11 +430,11 @@ module DoseRule =
                     { dl with
                         Products =
                             if dl.Products
-                               |> Array.exists _.RequiresReconstitution
-                               |> not then dl.Products
+                               |> Array.forall (_.Reconstitution >> Array.isEmpty)
+                               then dl.Products
                             else
                                 dl.Products
-                                |> Array.choose (Product.reconstitute dr.Route dr.DoseType dep loc)
+                                |> Array.collect (Product.reconstitute dr.Route dr.DoseType dep loc)
                     }
                 )
         }

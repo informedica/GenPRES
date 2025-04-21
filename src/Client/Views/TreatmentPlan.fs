@@ -240,7 +240,25 @@ module TreatmentPlan =
                     |> props.updateTreatmentPlan
                 | _ -> ()
 
-        let updateOrderContext (ctx : OrderContext) =
+        let updateOrderScenario (ctx : OrderContext) =
+            match props.treatmentPlan with
+            | Resolved tp ->
+                match ctx.Scenarios |> Array.tryExactlyOne with
+                | None -> ()
+                | Some os ->
+                    { tp with
+                        Selected = Some os
+                        Scenarios =
+                            tp.Scenarios
+                            |> Array.map (fun sc ->
+                                if sc |> OrderScenario.eqs os then os else sc
+                            )
+
+                    }
+                    |> props.updateTreatmentPlan
+            | _ -> ()
+
+        let refreshOrderScenario (ctx : OrderContext) =
             match props.treatmentPlan with
             | Resolved tp ->
                 match ctx.Scenarios |> Array.tryExactlyOne with
@@ -307,7 +325,8 @@ module TreatmentPlan =
                                     )
                                     |> Option.defaultValue HasNotStartedYet
                                 | _ -> HasNotStartedYet
-                            updateOrderContext = updateOrderContext
+                            updateOrderScenario = updateOrderScenario
+                            refreshOrderScenario = refreshOrderScenario
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}

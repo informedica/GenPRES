@@ -14,7 +14,7 @@ module Prescribe =
     let View (props:
         {|
             orderContext: Deferred<OrderContext>
-            updateOrderContext: OrderContext -> unit
+            updateOrderContext: Api.OrderContextCommand -> unit
             treatmentPlan : Deferred<TreatmentPlan>
             updateTreatmentPlan : TreatmentPlan -> unit
             localizationTerms : Deferred<string [] []>
@@ -31,6 +31,8 @@ module Prescribe =
                 |> Option.defaultValue defVal
             )
             |> Deferred.defaultValue defVal
+
+        let updateOrderContext = Api.UpdateOrderContext >> props.updateOrderContext
 
         let indicationChange s =
             match props.orderContext with
@@ -53,7 +55,7 @@ module Prescribe =
                                 Indication = s
                             }
                     }
-                |> props.updateOrderContext
+                |> updateOrderContext
             | _ -> ()
 
         let medicationChange s =
@@ -78,7 +80,7 @@ module Prescribe =
                                 Medication = s
                             }
                     }
-                |> props.updateOrderContext
+                |> updateOrderContext
             | _ -> ()
 
         let routeChange s =
@@ -102,7 +104,7 @@ module Prescribe =
                                 Route = s
                             }
                     }
-                |> props.updateOrderContext
+                |> updateOrderContext
             | _ -> ()
 
         let diluentChange s =
@@ -111,7 +113,7 @@ module Prescribe =
                 { pr with
                     Filter = { pr.Filter with Diluent = s }
                 }
-                |> props.updateOrderContext
+                |> updateOrderContext
             | _ -> ()
 
         let componentsChange cs =
@@ -121,7 +123,7 @@ module Prescribe =
                 { prctx with
                     Filter = { prctx.Filter with SelectedComponents = cs }
                 }
-                |> props.updateOrderContext
+                |> updateOrderContext
             | _ -> ()
 
         let doseTypeChange s =
@@ -144,13 +146,13 @@ module Prescribe =
                                 DoseType = dt
                             }
                     }
-                |> props.updateOrderContext
+                |> updateOrderContext
             | _ -> ()
 
         let clear () =
             match props.orderContext with
             | Resolved _ ->
-                OrderContext.empty |> props.updateOrderContext
+                OrderContext.empty |> updateOrderContext
             | _ -> ()
 
         let modalOpen, setModalOpen = React.useState false
@@ -273,6 +275,7 @@ module Prescribe =
                         Filter = { pr.Filter with Shape = Some sc.Shape }
                         Scenarios = [| sc |]
                     }
+                    |> Api.SelectOrderScenario
                     |> props.updateOrderContext
 
                 let updateTreatmentPlan () =
@@ -584,7 +587,8 @@ module Prescribe =
                     {
                         Order.View {|
                             orderContext = props.orderContext
-                            updateOrderContext = props.updateOrderContext
+                            updateOrderScenario = Api.UpdateOrderScenario >> props.updateOrderContext
+                            refreshOrderScenario = Api.ResetOrderScenario >> props.updateOrderContext
                             closeOrder = handleModalClose
                             localizationTerms = props.localizationTerms
                         |}
@@ -593,5 +597,3 @@ module Prescribe =
             </Modal>
         </div>
         """
-
-

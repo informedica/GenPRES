@@ -705,171 +705,171 @@ module OrderContext =
     open Informedica.GenOrder.Lib
 
 
+    open Shared
     open Shared.Types
     open Mappers
 
-    let toString stage (ctx: OrderContext) =
-        let printArray xs =
-            if ctx.Scenarios |> Array.isEmpty ||
-               xs |> Array.isEmpty then $"{xs |> Array.length}"
-            else
-                xs
-                |> String.concat ", "
 
-        let scenarios =
-            match ctx.Scenarios |> Array.tryExactlyOne with
-            | Some sc ->
-                sc.Order
-                |> Order.mapFromSharedToOrder
-                |> Order.Dto.fromDto
-                |> Order.toString
-                |> String.concat "\n"
-                |> fun s -> $"\n{s}\n"
-            | _ -> $"{ctx.Scenarios |> Array.length}"
-
-        $"""
-    === {stage} ===
-
-    Patient: {ctx.Patient |> mapFromSharedPatient |> Patient.toString}
-    Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
-    Medication: {ctx.Filter.Medication |> Option.defaultValue ""}
-    Shape: {ctx.Filter.Shape |> Option.defaultValue ""}
-    Route: {ctx.Filter.Route |> Option.defaultValue ""}
-    DoseType: {ctx.Filter.DoseType}
-    Diluent: {ctx.Filter.Diluent |> Option.defaultValue ""}
-    SelectedComponents: {ctx.Filter.SelectedComponents |> printArray}
-    Indications: {ctx.Filter.Indications |> printArray}
-    Medications: {ctx.Filter.Medications |> printArray}
-    Routes: {ctx.Filter.Routes |> printArray}
-    Diluents : {ctx.Filter.Diluents |> printArray}
-    Components: {ctx.Filter.Components |> printArray}
-    Items: {ctx.Scenarios |> Array.collect _.Items |> printArray}
-    Scenarios: {scenarios}
-
-    """
+    let setDemoVersion ctx =
+        { ctx with
+            DemoVersion =
+                Env.getItem "GENPRES_PROD"
+                |> Option.map (fun v -> v <> "1")
+                |> Option.defaultValue true
+        }
 
 
-    let evaluate (ctx: OrderContext) : Result<OrderContext,  string []> =
-        let pat =
-            ctx.Patient
-            |> mapFromSharedPatient
-            |> Patient.calcPMAge
+    let updateIntake (ctx : OrderContext) =
+        { ctx with
+            Intake =
+                let w = ctx.Patient |> Models.Patient.getWeight
 
-        try
-            ctx
-            |> mapFromShared pat
+                ctx.Scenarios
+                |> Array.map _.Order
+                |> Order.getIntake w
+        }
+
+
+    let evaluate cmd : Result<OrderContext,  string []> =
+        let eval ctx =
+            cmd
+            |> function
+                | Api.UpdateOrderContext _ -> ctx |> OrderContext.UpdateOrderContext
+                | Api.SelectOrderScenario _ -> ctx |> OrderContext.SelectOrderScenario
+                | Api.UpdateOrderScenario _ -> ctx |> OrderContext.UpdateOrderScenario
+                | Api.ResetOrderScenario _ -> ctx |> OrderContext.ResetOrderScenario
             |> OrderContext.printCtx "start eval"
             |> OrderContext.evaluate
             |> OrderContext.printCtx "finish eval"
-            |> mapToShared ctx
 
-        with
-        | e ->
-            writeErrorMessage $"errored:\n{e}"
-            ctx //|> Ok
-        |> fun sc ->
-            { sc with
-                DemoVersion =
-                    Env.getItem "GENPRES_PROD"
-                    |> Option.map (fun v -> v <> "1")
-                    |> Option.defaultValue true
-            }
+        match cmd with
+        | Api.UpdateOrderContext ctx
+        | Api.SelectOrderScenario ctx
+        | Api.UpdateOrderScenario ctx
+        | Api.ResetOrderScenario ctx ->
+            let map = mapToShared ctx >> updateIntake >> setDemoVersion
+
+            let pat =
+                ctx.Patient
+                |> mapFromSharedPatient
+                |> Patient.calcPMAge
+
+            try
+                ctx
+                |> mapFromShared pat
+                |> eval
+                |> function
+                    | OrderContext.UpdateOrderContext newCtx   -> newCtx |> map
+                    | OrderContext.SelectOrderScenario newCtx  -> newCtx |> map
+                    | OrderContext.UpdateOrderScenario newCtx  -> newCtx |> map
+                    | OrderContext.ResetOrderScenario newCtx -> newCtx |> map
+            with
+            | e ->
+                writeErrorMessage $"errored:\n{e}"
+                ctx
             |> Ok
 
 
-module Message =
+module TreatmentPlan =
 
     open Shared
     open Shared.Types
-    open Shared.Api
-    open Informedica.Utils.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
 
-    let printMsg msg ctx =
-        ctx
-        |> OrderContext.toString msg
-        |> writeDebugMessage
 
-        ctx
+    let updateTreatmentPlan (tp : TreatmentPlan) =
+        match tp.Selected with
+        | Some os ->
+            os
+            |> Models.OrderContext.fromOrderScenario tp.Patient
+            |> Api.UpdateOrderScenario
+            |> OrderContext.evaluate
+            |> Result.map (fun pr ->
+                let newOsc = pr.Scenarios |> Array.tryExactlyOne
+
+                { tp with
+                    Selected = newOsc
+                    Scenarios =
+                        match newOsc with
+                        | None -> tp.Scenarios
+                        | Some newOsc ->
+                            tp.Scenarios
+                            |> Array.map (fun sc ->
+                                if sc |> Models.OrderScenario.eqs newOsc then newOsc
+                                else sc
+                            )
+                }
+            )
+            |> Result.defaultValue tp
+        | None -> tp
 
 
-    let processMsg msg =
+    let calculateIntake (tp : TreatmentPlan) =
+        { tp with
+            Intake =
+                let w = tp.Patient |> Models.Patient.getWeight
+
+                let scs =
+                    if tp.Filtered |> Array.isEmpty then tp.Scenarios
+                    else
+                        tp.Scenarios
+                        |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
+
+                scs
+                |> Array.map _.Order
+                |> Order.getIntake w
+        }
+
+
+
+module Command =
+
+    open Shared.Api
+    open Informedica.Utils.Lib
+
+    module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
+
+
+    let processCmd cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
-        match msg with
-        | OrderContextMsg ctx ->
-            ctx
+        match cmd with
+        | OrderContextCmd ctxCmd
+        | OrderContextCmd ctxCmd
+        | OrderContextCmd ctxCmd
+        | OrderContextCmd ctxCmd ->
+            ctxCmd
             |> OrderContext.evaluate
-            |> Result.map (fun ctx ->
-                { ctx with
-                    Intake =
-                        let w = ctx.Patient |> Models.Patient.getWeight
+            |> Result.map (OrderContextUpdated >> OrderContextResp)
 
-                        ctx.Scenarios
-                        |> Array.map _.Order
-                        |> Order.getIntake w
-                }
-            )
-            |> Result.map OrderContextMsg
-
-        | TreatmentPlanMsg tp ->
-            match tp.Selected with
-            | Some os ->
-                os
-                |> Models.OrderContext.fromOrderScenario tp.Patient
-                |> printMsg "TreatmentPlan started"
-                |> OrderContext.evaluate
-                |> Result.map (fun pr ->
-                    pr |> printMsg "TreatmentPlan finished" |> ignore
-                    let newOsc = pr.Scenarios |> Array.tryExactlyOne
-
-                    { tp with
-                        Selected = newOsc
-                        Scenarios =
-                            match newOsc with
-                            | None -> tp.Scenarios
-                            | Some newOsc ->
-                                tp.Scenarios
-                                |> Array.map (fun sc ->
-                                    if sc |> Models.OrderScenario.eqs newOsc then newOsc
-                                    else sc
-                                )
-                    }
-                )
-                |> Result.defaultValue tp
-            | None -> tp
-            |> fun tp ->
-                { tp with
-                    Intake =
-                        let w = tp.Patient |> Models.Patient.getWeight
-
-                        let scs =
-                            if tp.Filtered |> Array.isEmpty then tp.Scenarios
-                            else
-                                tp.Scenarios
-                                |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
-
-                        scs
-                        |> Array.map _.Order
-                        |> Order.getIntake w
-                }
-                |> TreatmentPlanMsg
+        | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
+                tp
+                |> TreatmentPlan.updateTreatmentPlan
+                |> TreatmentPlan.calculateIntake
+                |> TreatmentPlanUpdated
+                |> TreatmentPlanResp
                 |> Ok
 
-        | FormularyMsg form ->
+        | TreatmentPlanCmd (FilterTreatmentPlan tp) ->
+            tp
+            |> TreatmentPlan.calculateIntake
+            |> TreatmentPlanFiltered
+            |> TreatmentPlanResp
+            |> Ok
+
+        | FormularyCmd form ->
             form
             |> Formulary.get
-            |> Result.map FormularyMsg
+            |> Result.map FormularyResp
 
-        | ParenteraliaMsg par ->
+        | ParenteraliaCmd par ->
             par
             |> Parenteralia.get
             |> Result.mapError Array.singleton
-            |> Result.map ParenteraliaMsg
+            |> Result.map ParentaraliaResp
 
 
 [<AutoOpen>]
@@ -884,7 +884,7 @@ module ApiImpl =
             processMessage =
                 fun msg ->
                     async {
-                        return msg |> Message.processMsg
+                        return msg |> Command.processCmd
                     }
 
             testApi =

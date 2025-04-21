@@ -1,9 +1,5 @@
 namespace Informedica.GenOrder.Lib
 
-open Informedica.GenOrder.Lib.Order.Orderable.Item.Print
-
-
-
 module Filters =
 
     open Informedica.GenForm.Lib
@@ -80,7 +76,6 @@ module OrderScenario =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
     let replace s =
@@ -202,6 +197,50 @@ module OrderContext =
     open Filters
 
 
+    type Command =
+        | UpdateOrderContext of OrderContext
+        | SelectOrderScenario of OrderContext
+        | UpdateOrderScenario of OrderContext
+        | ResetOrderScenario of OrderContext
+
+
+    module Command =
+
+
+        let get = function
+            | UpdateOrderContext ctx -> ctx
+            | SelectOrderScenario ctx -> ctx
+            | UpdateOrderScenario ctx -> ctx
+            | ResetOrderScenario ctx -> ctx
+
+
+        let toString = function
+            | UpdateOrderContext _ -> "UpdateOrderContext"
+            | SelectOrderScenario _ -> "SelectOrderScenario"
+            | UpdateOrderScenario _ -> "UpdateOrderScenario"
+            | ResetOrderScenario _ -> "ResetOrderScenario"
+
+
+        let apply f cmd =
+            match cmd with
+            | UpdateOrderContext ctx -> f ctx
+            | SelectOrderScenario ctx -> f ctx
+            | UpdateOrderScenario ctx -> f ctx
+            | ResetOrderScenario ctx -> f ctx
+
+
+        let map f cmd =
+            match cmd with
+            | UpdateOrderContext ctx -> UpdateOrderContext (f ctx)
+            | SelectOrderScenario ctx -> SelectOrderScenario (f ctx)
+            | UpdateOrderScenario ctx -> UpdateOrderScenario (f ctx)
+            | ResetOrderScenario ctx -> ResetOrderScenario (f ctx)
+
+
+        let mapInv cmd f = map f cmd
+
+
+
     module Helpers =
 
 
@@ -261,6 +300,7 @@ module OrderContext =
                 drugOrder
                 |> DrugOrder.toOrderDto
                 |> Order.Dto.fromDto
+                |> CalcMinMax
                 |> Order.processPipeLine logger (pr.DoseRule |> DoseRule.getNormDose)
                 |> function
                 | Ok ord ->
@@ -726,37 +766,19 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let processOrders (ctx: OrderContext) =
+    let processOrders cmd (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
-        | None -> ctx
+        | None ->
+            writeErrorMessage "No orders to proces in order context"
+            ctx
         | Some sc ->
             { ctx with
                 Scenarios =
                     [|
-                        (*
-                        if sc.Order |> Order.doseIsSolved &&
-                           sc.Order |> Order.hasValues |> not then
-                            if sc.Order |> Order.isCleared |> not then
-                                sc
-                                |> OrderScenario.applyConstraints
-                            else
-                                { sc with
-                                    Order =
-                                        sc.Order
-                                        |> Order.processClearedOrder OrderLogger.logger.Logger
-                                        |> Result.map printOrder
-                                        |> Result.defaultValue (sc.Order |> Order.applyConstraints)
-                                }
-
-                        else
-                            if sc.Order |> Order.doseHasValues then sc |> OrderScenario.solveOrder
-                            else
-                                sc
-                                |> OrderScenario.calcOrderValues
-                        *)
                         { sc with
                             Order =
                                 sc.Order
+                                |> cmd
                                 |> Order.processPipeLine OrderLogger.noLogger None
                                 |> Result.defaultValue sc.Order
                         }
@@ -808,20 +830,19 @@ Scenarios: {scenarios}
 
 
     /// <summary>
-    /// Use a PrescriptionResult to create a new PrescriptionResult.
     /// </summary>
-    let evaluate (ctx : OrderContext) =
+    let evaluate cmd =
         activateLogger ()
 
-        if ctx.Scenarios |> Array.length <> 1 ||
-           ctx |> checkDiluentChange ||
-           ctx |> checkComponentChange then ctx |> getScenarios
+        match cmd with
+        | UpdateOrderContext ctx -> ctx |> getScenarios |> UpdateOrderContext
+        | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario
+        | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario
+        | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario
 
-        else ctx |> processOrders
-
-
-    let printCtx msg ctx =
-        writeDebugMessage $"\n\n=== ORDER STATE: {msg |> String.toUpper} ===\n"
+    let printCtx msg cmd =
+        writeDebugMessage $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
+        let ctx = cmd |> Command.get
 
         match ctx.Scenarios |> Array.tryExactlyOne with
         | Some sc ->
@@ -849,7 +870,6 @@ Scenarios: {scenarios}
 
         | _ -> ()
 
-
         writeDebugMessage $"Components change: {ctx |> checkComponentChange}"
         writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}\n"
 
@@ -859,7 +879,7 @@ Scenarios: {scenarios}
 
         writeDebugMessage $"\n===\n"
 
-        ctx
+        cmd
 
 
 module Formulary =

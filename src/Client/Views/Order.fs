@@ -40,7 +40,8 @@ module Order =
             | ChangeSubstanceOrderableConcentration of string option
             | ChangeOrderableDoseQuantity of string option
             | ChangeOrderableDoseRate of string option
-            | UpdateOrder of Order
+            | UpdateOrderScenario of Order
+            | ResetOrderScenario
 
 
         let init (ctx : Deferred<Types.OrderContext>) =
@@ -98,7 +99,8 @@ module Order =
 
 
         let update
-            updateContext
+            updateOrderScenario
+            resetOrderScenario
             (msg: Msg)
             (state : State) : State * Cmd<Msg>
             =
@@ -131,10 +133,22 @@ module Order =
 
             match msg with
 
-            | UpdateOrder ord ->
+            | UpdateOrderScenario ord ->
 
                 OrderLoader.create state.SelectedComponent state.SelectedItem ord
-                |> updateContext
+                |> updateOrderScenario
+
+                { state with
+                    Order = None
+                }
+                , Cmd.none
+
+            | ResetOrderScenario ->
+                match state.Order with
+                | Some ord ->
+                    OrderLoader.create state.SelectedComponent state.SelectedItem ord
+                    |> resetOrderScenario
+                | None -> ()
 
                 { state with
                     Order = None
@@ -176,7 +190,7 @@ module Order =
                                         )
                                 }
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
 
                     { state with Order = None }, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
@@ -198,7 +212,7 @@ module Order =
                                         |> setOvar s
                                 }
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -214,7 +228,7 @@ module Order =
                                         |> setOvar s
                                 }
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -251,7 +265,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -288,7 +302,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -325,7 +339,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -362,7 +376,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -399,7 +413,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -433,7 +447,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None }, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -467,7 +481,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None }, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -487,7 +501,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -507,7 +521,7 @@ module Order =
                                 }
 
                         }
-                        |> UpdateOrder
+                        |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
@@ -530,7 +544,8 @@ module Order =
     let View (props:
         {|
             orderContext: Deferred<Types.OrderContext>
-            updateOrderContext: Types.OrderContext -> unit
+            updateOrderScenario: Types.OrderContext -> unit
+            refreshOrderScenario : Types.OrderContext -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -554,12 +569,12 @@ module Order =
                 |> Option.defaultValue false
             | _ -> false
 
-        let updateScenarioResult (ol : OrderLoader) =
+        let updateOrderScenario (ol : OrderLoader) =
             match props.orderContext with
-            | Resolved pr ->
-                { pr with
+            | Resolved ctx ->
+                { ctx with
                     Scenarios =
-                        pr.Scenarios
+                        ctx.Scenarios
                         |> Array.map (fun sc ->
                             if sc.Order.Id <> ol.Order.Id then sc
                             else
@@ -571,13 +586,33 @@ module Order =
                                 }
                         )
                 }
-                |> props.updateOrderContext
+                |> props.updateOrderScenario
+            | _ -> ()
+
+        let resetOrderScenario (ol : OrderLoader) =
+            match props.orderContext with
+            | Resolved ctx ->
+                { ctx with
+                    Scenarios =
+                        ctx.Scenarios
+                        |> Array.map (fun sc ->
+                            if sc.Order.Id <> ol.Order.Id then sc
+                            else
+                                {
+                                    sc with
+                                        Component = ol.Component
+                                        Item = ol.Item
+                                        Order = ol.Order
+                                }
+                        )
+                }
+                |> props.refreshOrderScenario
             | _ -> ()
 
         let state, dispatch =
             React.useElmish (
                 init props.orderContext,
-                update updateScenarioResult,
+                update updateOrderScenario resetOrderScenario,
                 [| box props.orderContext |]
             )
 
@@ -643,6 +678,11 @@ module Order =
 
         let onClickOk =
             fun () -> props.closeOrder ()
+
+
+        let onClickReset =
+            fun () ->
+                ResetOrderScenario |> dispatch
 
         let content =
             JSX.jsx
@@ -846,6 +886,9 @@ module Order =
             <CardActions>
                     <Button onClick={onClickOk}>
                         {Terms.``Ok `` |> getTerm "Ok"}
+                    </Button>
+                    <Button onClick={onClickReset} startIcon={Mui.Icons.RefreshIcon}>
+                        Reset
                     </Button>
             </CardActions>
             </div>

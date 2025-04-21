@@ -264,6 +264,13 @@ module Types =
         type SolutionLimit = Informedica.GenForm.Lib.Types.SolutionLimit
 
 
+        type OrderCommand =
+            | CalcMinMax of Order
+            | CalcValues of Order
+            | ReCalcValues of Order
+            | SolveOrder of Order
+
+
         /// The representation of a drug order that
         /// can be derived by a drug product inventory
         /// and the related dose rule. A DrugOrder maps

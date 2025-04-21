@@ -117,10 +117,9 @@ module GenPres =
             continuousMedication: Deferred<Intervention list>
             products: Deferred<Product list>
             orderContext: Deferred<OrderContext>
-            updateOrderContext : OrderContext -> unit
+            updateOrderContext : Api.OrderContextCommand -> unit
             treatmentPlan: Deferred<TreatmentPlan>
-            updateTreatmentPlan: TreatmentPlan -> unit
-            filterTreatmentPlan: TreatmentPlan -> unit
+            treatmentPlanCommand: Api.TreatmentPlanCommand -> unit
             formulary: Deferred<Formulary>
             updateFormulary : Formulary -> unit
             parenteralia : Deferred<Parenteralia>
@@ -234,7 +233,7 @@ module GenPres =
                                     orderContext = props.orderContext
                                     updateOrderContext = props.updateOrderContext
                                     treatmentPlan = props.treatmentPlan
-                                    updateTreatmentPlan = props.updateTreatmentPlan
+                                    updateTreatmentPlan = Api.UpdateTreatmentPlan >> props.treatmentPlanCommand
                                     localizationTerms = props.localizationTerms
                                 |}
                             | Global.Pages.Nutrition ->
@@ -243,8 +242,8 @@ module GenPres =
                             | Global.Pages.TreatmentPlan ->
                                 Views.TreatmentPlan.View {|
                                     treatmentPlan = props.treatmentPlan
-                                    updateTreatmentPlan = props.updateTreatmentPlan
-                                    filterTreatmentPlan = props.filterTreatmentPlan
+                                    updateTreatmentPlan = Api.UpdateTreatmentPlan >> props.treatmentPlanCommand
+                                    filterTreatmentPlan = Api.FilterTreatmentPlan >> props.treatmentPlanCommand
                                     localizationTerms = props.localizationTerms
                                 |}
                             | Global.Pages.Formulary ->

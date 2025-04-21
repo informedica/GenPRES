@@ -292,6 +292,10 @@ module Icons =
         <LocalDiningIcon/>
     """
 
+    let RefreshIcon = JSX.jsx $"""
+     import RefreshIcon from '@mui/icons-material/Refresh';
+     <RefreshIcon/>
+    """
 
 type Color = {|
     ``50`` : string;

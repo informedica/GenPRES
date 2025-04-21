@@ -465,32 +465,30 @@ module Product =
             ShapeUnit = shpUnit
             RequiresReconstitution = reqReconst
             Reconstitution =
-                if not reqReconst then [||]
-                else
-                    Reconstitution.get ()
-                    |> Array.filter (fun r ->
-                        r.GPK = $"{gp.Id}" &&
-                        r.DiluentVol |> Option.isSome
-                    )
-                    |> Array.map (fun r ->
-                        {
-                            Route = r.Route
-                            Department = r.Dep
-                            DiluentVolume =
-                                r.DiluentVol.Value
+                Reconstitution.get ()
+                |> Array.filter (fun r ->
+                    r.GPK = $"{gp.Id}" &&
+                    r.DiluentVol |> Option.isSome
+                )
+                |> Array.map (fun r ->
+                    {
+                        Route = r.Route
+                        Department = r.Dep
+                        DiluentVolume =
+                            r.DiluentVol.Value
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                        ExpansionVolume =
+                            r.ExpansionVol
+                            |> Option.map (fun v ->
+                                v
                                 |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                            ExpansionVolume =
-                                r.ExpansionVol
-                                |> Option.map (fun v ->
-                                    v
-                                    |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                                )
-                            Diluents =
-                                r.Diluents
-                                |> String.splitAt ';'
-                                |> Array.map String.trim
-                        }
-                    )
+                            )
+                        Diluents =
+                            r.Diluents
+                            |> String.splitAt ';'
+                            |> Array.map String.trim
+                    }
+                )
             Divisible =
                 match divisible with
                 | Some d -> d |> BigRational.fromInt |> Some
@@ -666,8 +664,11 @@ module Product =
     /// does not require reconstitution.
     /// </returns>
     let reconstitute rte dtp dep loc (prod : Product) =
-        if prod.RequiresReconstitution |> not then None
-        else
+        [|
+            // if reconstitution is not required, the
+            // original product is returned as well
+            if prod.RequiresReconstitution |> not then [| prod |]
+            // calculate the reconstituted products
             prod.Reconstitution
             |> Array.filter (fun r ->
                 (rte |> String.isNullOrWhiteSpace || r.Route |> Mapping.eqsRoute (Some rte)) &&
@@ -700,9 +701,8 @@ module Product =
                         )
                 }
             )
-            |> function
-            | [| p |] -> Some p
-            | _       -> None
+        |]
+        |> Array.collect id
 
 
     /// <summary>
