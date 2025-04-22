@@ -1593,6 +1593,9 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
+        let setConstraints cons = toOrdVar >> setConstraints cons >> Rate
+
+
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 

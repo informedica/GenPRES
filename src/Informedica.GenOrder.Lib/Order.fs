@@ -10,6 +10,7 @@ module Order =
 
 
     open System
+    open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineNoTime
@@ -199,6 +200,7 @@ module Order =
     [<RequireQualifiedAccess>]
     module Orderable =
 
+
         open Informedica.GenSolver.Lib
 
 
@@ -365,6 +367,22 @@ module Order =
                     PerTime = dos.PerTime |> PerTime.applyConstraints
                     PerTimeAdjust = dos.PerTimeAdjust |> PerTimeAdjust.applyConstraints
                 }
+
+
+            let setRateConstraints cons dos =
+                { (dos |> inf) with
+                    Rate = dos.Rate |> Rate.setConstraints cons
+                }
+
+
+            let setStandardRateConstraints dos =
+                let rates =
+                    [| 1N / 10N .. 1N / 10N .. 1_000N |]
+                    |> ValueUnit.withUnit (Units.Volume.milliLiter |> Units.per Units.Time.hour)
+                    |> Variable.ValueRange.ValueSet.create
+                    |> Some
+                    |> OrderVariable.Constraints.create None None None
+                dos |> setRateConstraints rates
 
 
             let applyRateConstraints dos =
@@ -2718,8 +2736,6 @@ module Order =
             |> List.fold apply ord
 
 
-    open MathNet.Numerics
-
     module Variable = Informedica.GenSolver.Lib.Variable
     module ValueRange = Variable.ValueRange
     module Equation = Informedica.GenSolver.Lib.Equation
@@ -3385,6 +3401,7 @@ module Order =
                         ComponentDose ("", Dose.setRateToNonZeroPositive)
                         ItemDose ("", "", Dose.setRateToNonZeroPositive)
                         // apply dose rate constraints again
+                        OrderableDose Dose.setStandardRateConstraints
                         OrderableDose Dose.applyRateConstraints
                         ComponentDose ("", Dose.applyRateConstraints)
                         ItemDose ("", "", Dose.applyRateConstraints)
