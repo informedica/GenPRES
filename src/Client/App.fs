@@ -462,7 +462,9 @@ module private Elmish =
                     match p with
                     | None -> HasNotStartedYet
                     | Some p ->
-                        OrderContext.empty
+                        match state.OrderContext with
+                        | Resolved ctx -> ctx
+                        | _ -> OrderContext.empty
                         |> OrderContext.setPatient p
                         |> Resolved
                 TreatmentPlan =

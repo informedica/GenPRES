@@ -881,7 +881,7 @@ module Order =
                             |> select true "" None ignore
                     }
                 </Stack>
-
+                {progress}
             </CardContent>
             <CardActions>
                     <Button onClick={onClickOk}>
@@ -905,7 +905,6 @@ module Order =
 
         <Card variant="outlined">
                 {content}
-                {progress}
         </Card>
         """
 
