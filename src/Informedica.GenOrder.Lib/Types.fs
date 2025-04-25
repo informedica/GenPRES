@@ -300,7 +300,7 @@ module Types =
                 // The dose limits for an DrugOrder
                 Dose : DoseLimit option
                 // The amount of orderable that will be given each time
-                DoseCount : ValueUnit option
+                DoseCount : MinMax
                 // The adjust quantity for the adjusted dose calculations
                 Adjust : ValueUnit option
             }

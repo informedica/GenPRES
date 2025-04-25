@@ -642,6 +642,12 @@ cannot map {r}
                     else
                         prods
                         |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
+                    // make sure that all products have the same unit group
+                    (*
+                    |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
+                    |> Array.head
+                    |> snd
+                    *)
 
                 if filtered |> Array.length = 0 then
                     let key = $"{gen} {rte}"
@@ -663,23 +669,55 @@ cannot map {r}
                     |]
                 else
                     filtered
-                    |> Array.map (fun product ->
-                        { r with
-                            Generic = gen
-                            Shape = product.Shape |> String.toLower
-                            Products =
-                                if r.GPKs |> Array.length > 0 then filtered
-                                else
-                                    filtered
-                                    |> Product.filter
-                                     { Filter.doseFilter with
-                                         Generic = r.Component |> Some
-                                         Shape = product.Shape |> Some
-                                         Route = rte |> Some
-                                     }
-                        }
-                    )
-                    |> Array.distinct
+                    // make sure that all products have the same unit group
+                    |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
+                    |> function
+                        | [|(_, ps)|] ->
+                            ps
+                            |> Array.map (fun product ->
+                                { r with
+                                    Generic = gen
+                                    Shape = product.Shape |> String.toLower
+                                    Products =
+                                        if r.GPKs |> Array.length > 0 then ps
+                                        else
+                                            ps
+                                            |> Product.filter
+                                             { Filter.doseFilter with
+                                                 Generic = r.Component |> Some
+                                                 Shape = product.Shape |> Some
+                                                 Route = rte |> Some
+                                             }
+                                }
+                            )
+                            |> Array.distinct
+                        | xs ->
+                            xs
+                            |> Array.collect (fun (g, ps) ->
+                                ps
+                                |> Array.map (fun product ->
+                                    let g =
+                                        g
+                                        |> ValueUnit.Group.toStringDutch
+
+                                    { r with
+                                        Generic = gen
+                                        Shape =
+                                            $"{product.Shape |> String.toLower} {g}"
+                                        Products =
+                                            if r.GPKs |> Array.length > 0 then ps
+                                            else
+                                                ps
+                                                |> Product.filter
+                                                 { Filter.doseFilter with
+                                                     Generic = r.Component |> Some
+                                                     Shape = product.Shape |> Some
+                                                     Route = rte |> Some
+                                                 }
+                                    }
+                                )
+                                |> Array.distinct
+                            )
             )
         )
 

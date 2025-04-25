@@ -31,6 +31,11 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
+Product.get ()
+|> Array.filter (fun p ->
+    p.Generic = "midazolam" &&
+    p.Routes |> Array.exists (String.equalsCapInsens "nasaal")
+)
 
 SolutionRule.get ()
 |> Array.filter (fun sr -> sr.SolutionLimits |> Array.isEmpty)

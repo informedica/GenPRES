@@ -3385,6 +3385,74 @@ module Order =
     type Status = Processed of Order | NotProcessed of Order
 
 
+    let orderPropertyChangeFrequency ord =
+        ord
+        |> OrderPropertyChange.proc
+            [
+                PrescriptionFrequency Frequency.setToNonZeroPositive
+
+                OrderableDose Dose.setQuantityToNonZeroPositive
+                ComponentDose ("", Dose.setQuantityToNonZeroPositive)
+                ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
+
+                OrderableDose Dose.setPerTimeToNonZeroPositive
+                ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
+                ItemDose ("", "", Dose.setPerTimeToNonZeroPositive)
+            ]
+        |> OrderPropertyChange.proc
+            [
+                PrescriptionFrequency Frequency.setStandardValues
+                OrderableDose Dose.applyQuantityConstraints
+                OrderableDose Dose.applyPerTimeConstraints
+                ComponentDose ("", Dose.applyPerTimeConstraints)
+            ]
+        |> print
+
+
+    let orderPropertyChangeItemDoseQuantity ord =
+        ord
+        |> OrderPropertyChange.proc
+            [
+                PrescriptionFrequency Frequency.setToNonZeroPositive
+
+                OrderableDose Dose.setQuantityToNonZeroPositive
+                ComponentDose ("", Dose.setQuantityToNonZeroPositive)
+                ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
+
+                OrderableDose Dose.setPerTimeToNonZeroPositive
+                ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
+                ItemDose ("", "", Dose.setPerTimeToNonZeroPositive)
+            ]
+        |> OrderPropertyChange.proc
+            [
+                PrescriptionFrequency Frequency.setStandardValues
+                OrderableDose Dose.applyQuantityConstraints
+                OrderableDose Dose.applyPerTimeConstraints
+                ComponentDose ("", Dose.applyPerTimeConstraints)
+                ItemDose ("", "", Dose.applyPerTimeConstraints)
+            ]
+
+
+    let orderPropertyChangeRate ord =
+        ord
+        |> OrderPropertyChange.proc
+            [
+                // clear all dose rates
+                OrderableDose Dose.setRateToNonZeroPositive
+                ComponentDose ("", Dose.setRateToNonZeroPositive)
+                ItemDose ("", "", Dose.setRateToNonZeroPositive)
+                PrescriptionTime Time.setToNonZeroPositive
+            ]
+        |> OrderPropertyChange.proc
+            [
+                // apply dose rate constraints again
+                OrderableDose Dose.setStandardRateConstraints
+                OrderableDose Dose.applyRateConstraints
+                ComponentDose ("", Dose.applyRateConstraints)
+                ItemDose ("", "", Dose.applyRateConstraints)
+            ]
+
+
     let processClearedOrder logger ord =
         match (ord |> inf).Prescription with
         | Continuous ->
@@ -3394,18 +3462,7 @@ module Order =
             | false, false, true
             | true, false, false ->
                 ord
-                |> OrderPropertyChange.proc
-                    [
-                        // clear all dose rates
-                        OrderableDose Dose.setRateToNonZeroPositive
-                        ComponentDose ("", Dose.setRateToNonZeroPositive)
-                        ItemDose ("", "", Dose.setRateToNonZeroPositive)
-                        // apply dose rate constraints again
-                        OrderableDose Dose.setStandardRateConstraints
-                        OrderableDose Dose.applyRateConstraints
-                        ComponentDose ("", Dose.applyRateConstraints)
-                        ItemDose ("", "", Dose.applyRateConstraints)
-                    ]
+                |> orderPropertyChangeRate
                 |> solveMinMax true logger
                 |> Result.map (minIncrMaxToValues true true logger)
             | false, true, false ->
@@ -3428,7 +3485,6 @@ module Order =
                         ItemOrderableConcentration ("", "", Concentration.setToNonZeroPositive)
                         ItemOrderableQuantity ("", "", Quantity.setToNonZeroPositive)
                     ]
-                |> print
                 |> solveMinMax true logger
                 |> Result.map (minIncrMaxToValues true true logger)
             | b ->
@@ -3440,63 +3496,41 @@ module Order =
                   ord.Orderable |> Orderable.isItemDosePerTimeCleared with
             | true, false, false ->
                 ord
-                |> OrderPropertyChange.proc
-                    [
-                        PrescriptionFrequency Frequency.setToNonZeroPositive
-
-                        OrderableDose Dose.setQuantityToNonZeroPositive
-                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
-                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
-
-                        OrderableDose Dose.setQuantityToNonZeroPositive
-                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
-                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
-
-                        OrderableDose Dose.setPerTimeToNonZeroPositive
-                        ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
-                        ItemDose ("", "", Dose.setPerTimeToNonZeroPositive)
-                    ]
-                |> OrderPropertyChange.proc
-                    [
-                        PrescriptionFrequency Frequency.setStandardValues
-                        OrderableDose Dose.applyQuantityConstraints
-                        OrderableDose Dose.applyPerTimeConstraints
-                        ComponentDose ("", Dose.applyPerTimeConstraints)
-                    ]
-
+                |> orderPropertyChangeFrequency
                 |> solveOrder true logger
             | false, false, true
             | false, true, false ->
                 ord
-                |> OrderPropertyChange.proc
-                    [
-                        PrescriptionFrequency Frequency.setToNonZeroPositive
-
-                        OrderableDose Dose.setQuantityToNonZeroPositive
-                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
-                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
-
-                        OrderableDose Dose.setQuantityToNonZeroPositive
-                        ComponentDose ("", Dose.setQuantityToNonZeroPositive)
-                        ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
-
-                        OrderableDose Dose.setPerTimeToNonZeroPositive
-                        ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
-                        ItemDose ("", "", Dose.setPerTimeToNonZeroPositive)
-                    ]
-                |> OrderPropertyChange.proc
-                    [
-                        PrescriptionFrequency Frequency.setStandardValues
-                        OrderableDose Dose.applyQuantityConstraints
-                        OrderableDose Dose.applyPerTimeConstraints
-                        ComponentDose ("", Dose.applyPerTimeConstraints)
-                        ItemDose ("", "", Dose.applyPerTimeConstraints)
-                    ]
+                |> orderPropertyChangeItemDoseQuantity
                 |> solveOrder true logger
 
             | b ->
                 $"""===> no match for discontinuous cleared {b}""" |> writeDebugMessage
                 ord |> solveOrder true logger
+        | Timed (frq, tme) ->
+            match frq |> Frequency.isCleared,
+                  ord.Orderable.Dose |> Dose.isRateCleared,
+                  tme |> Time.isCleared,
+                  ord.Orderable |> Orderable.isItemDoseQuantityCleared,
+                  ord.Orderable |> Orderable.isItemDosePerTimeCleared with
+            | true, false, false, false, false ->
+                ord
+                |> orderPropertyChangeFrequency
+                |> solveOrder true logger
+            | false, true, false, false, false ->
+                ord
+                |> orderPropertyChangeRate
+                |> solveMinMax true logger
+                |> Result.map (minIncrMaxToValues true true logger)
+            | false, false, false, true, false ->
+                ord
+                |> orderPropertyChangeItemDoseQuantity
+                |> solveOrder true logger
+
+            | b ->
+                $"""===> no match for discontinuous cleared {b}""" |> writeDebugMessage
+                ord |> solveOrder true logger
+
         | _ -> ord |> solveOrder true logger
 
 
@@ -3537,7 +3571,14 @@ module Order =
                 else ord |> NotProcessed |> Ok
             | Error _ -> ord
 
-        let calcMinMax = calcMinMax logger normDose
+        let calcMinMax b ord =
+            ord
+            |> calcMinMax logger normDose b
+            |> function
+            | Ok res -> res |> Ok
+            | Error (_, errs) ->
+                (ord |> print, errs)
+                |> Error
 
         let calcValues = minIncrMaxToValues false true logger >> Ok
 
@@ -3550,6 +3591,14 @@ module Order =
         let doseSolvedNotCleared = function | DoseSolvedNotCleared -> true | _ -> false
 
         let doseSolvedAndCleared = function | DoseSolvedAndCleared -> true | _ -> false
+
+        let procCleared ord =
+            ord
+            |> processClearedOrder logger
+            |> function
+            | Ok res -> res |> Ok
+            | Error _ -> ord |> solveOrder true logger
+
 
         match cmd with
         | CalcMinMax ord ->
@@ -3566,7 +3615,7 @@ module Order =
             |> procIf "order has no values: calc values" noValues calcValues
             |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
             |> procIf "order has values: solve order" hasValues (solveOrder true logger)
-            |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared (processClearedOrder logger)
+            |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared procCleared
         | ReCalcValues ord ->
             ord
             |> (NotProcessed >> Ok)

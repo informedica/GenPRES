@@ -2249,6 +2249,32 @@ module ValueUnit =
             str g ""
 
 
+        let toStringDutch g =
+            let rec str g s =
+                match g with
+                | Group.NoGroup -> ""
+                | Group.ZeroGroup -> "Zero"
+                | Group.GeneralGroup s -> s
+                | Group.CountGroup -> "Aantal"
+                | Group.MassGroup -> "Massa"
+                | Group.DistanceGroup -> "Afstand"
+                | Group.VolumeGroup -> "Volume"
+                | Group.TimeGroup -> "Tijd"
+                | Group.MolarGroup -> "Molair"
+                | Group.InterNatUnitGroup -> "InternationalUnit"
+                | Group.WeightGroup -> "Gewicht"
+                | Group.HeightGroup -> "Lengte"
+                | Group.BSAGroup -> "BSA"
+                | Group.EnergyGroup -> "Energie"
+                | Group.CombiGroup (gl, op, gr) ->
+                    let gls = str gl s
+                    let grs = str gr s
+
+                    gls + (op |> opToStr) + grs
+
+            str g ""
+
+
         /// Get all the units that belong to a group in a list.
         /// Example: getGroupUnits MassGroup = [Mass (KiloGram 1N); Mass (Gram 1N); ...]
         let getGroupUnits =

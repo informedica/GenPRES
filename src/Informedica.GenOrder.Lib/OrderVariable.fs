@@ -1198,7 +1198,12 @@ module OrderVariable =
                     |> ValueUnit.toStandardFrequency
                     |> Option.map Variable.ValueRange.ValueSet.create
                 )
-                |> Constraints.create None None None
+                |> function
+                | Some vu ->
+                    vu
+                    |> Some
+                    |> Constraints.create None None None
+                | None -> oldCs
 
             frq
             |> setConstraints newCs

@@ -10,6 +10,7 @@ module DrugOrder =
     open ConsoleWriter.NewLineNoTime
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
+    open Informedica.GenCore.Lib.Ranges
 
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
@@ -111,7 +112,7 @@ module DrugOrder =
             Rates = None
             Time = MinMax.empty
             Dose = None
-            DoseCount = None
+            DoseCount = MinMax.empty
             Adjust = None
         }
 
@@ -264,13 +265,7 @@ module DrugOrder =
                         DoseUnit = Units.Volume.milliLiter
                     } |> Some
                 Quantities = sr.Volumes
-                DoseCount =
-                    sr.DosePerc.Max
-                    |> Option.map Limit.getValueUnit
-                    |> Option.map (fun dc ->
-                        (Units.Count.times |> ValueUnit.one) / dc
-                    )
-
+                DoseCount = sr.DosePerc
                 Components =
                     let ps =
                         dro.Components
@@ -315,11 +310,11 @@ module DrugOrder =
             Time = dr.AdministrationTime
             Route = dr.Route
             DoseCount =
-                if sr.IsSome then None // note: dose count will be set in the addSolution
+                if sr.IsSome then MinMax.empty // note: dose count will be set in the addSolution
                 else
-                    Units.Count.times
-                    |> ValueUnit.singleWithValue 1N
-                    |> Some
+                    let u = Units.Count.times |> Some
+                    MinMax.fromTuple Inclusive Inclusive u (Some 1N, Some 1N)
+
             OrderType =
                 match dr.DoseType with
                 | Continuous _ -> ContinuousOrder
@@ -391,9 +386,8 @@ module DrugOrder =
 
         let orbDto = Order.Orderable.Dto.dto d.Id d.Name
 
-        orbDto.DoseCount.Constraints.ValsOpt <-
-            d.DoseCount
-            |> vuToDto
+        orbDto.DoseCount.Constraints
+        |>  MinMax.setConstraints None d.DoseCount
 
         orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
 
