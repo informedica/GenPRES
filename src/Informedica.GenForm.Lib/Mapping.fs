@@ -122,6 +122,22 @@ module Mapping =
                             getFlt "MaxDoseQty"
                             |> Option.bind BigRational.fromFloat
                             |> Option.map (ValueUnit.singleWithUnit un)
+                    MinDoseQtyPerKg =
+                        if un = NoUnit then None
+                        else
+                            let un = un |> Units.per Units.Weight.kiloGram
+
+                            getFlt "MinDoseQtyKg"
+                            |> Option.bind BigRational.fromFloat
+                            |> Option.map (ValueUnit.singleWithUnit un)
+                    MaxDoseQtyPerKg =
+                        if un = NoUnit then None
+                        else
+                            let un = un |> Units.per Units.Weight.kiloGram
+
+                            getFlt "MaxDoseQtyKg"
+                            |> Option.bind BigRational.fromFloat
+                            |> Option.map (ValueUnit.singleWithUnit un)
                     Divisibility =
                         getFlt "Divisible"
                         |> Option.bind BigRational.fromFloat

@@ -2920,6 +2920,7 @@ module Order =
     let hasValues ord =
         ord
         |> toOrdVars
+        // TODO flesh out exact filtering criteria
         |> List.filter OrderVariable.hasConstraints
         |> List.filter (fun ovar ->
             let n =

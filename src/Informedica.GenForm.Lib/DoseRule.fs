@@ -731,7 +731,11 @@ cannot map {r}
         )
 
 
-    let getShapeLimits (prods : Product []) (dr : DoseRule) =
+    let addShapeLimits (dr : DoseRule) =
+        let prods =
+            dr.ComponentLimits
+            |> Array.collect _.Products
+
         let droplets =
             prods
             |> Array.filter (fun p ->
@@ -750,9 +754,13 @@ cannot map {r}
                 |> Units.Volume.dropletSetDropsPerMl m
                 |> ValueUnit.withValue v
 
-        if dr.Shape |> String.isNullOrWhiteSpace then [||]
+        if dr.Shape |> String.isNullOrWhiteSpace then dr
         else
-            Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
+            prods
+            |> Array.map _.ShapeUnit
+            |> Array.tryExactlyOne
+            |> Option.defaultValue NoUnit
+            |> Mapping.filterRouteShapeUnit dr.Route dr.Shape
             |> Array.map (fun rsu ->
                 { DoseLimit.limit with
                     DoseLimitTarget = dr.Shape |> ShapeLimitTarget
@@ -760,6 +768,11 @@ cannot map {r}
                         {
                             Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
                             Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
+                        }
+                    QuantityAdjust =
+                        {
+                            Min = rsu.MinDoseQtyPerKg |> Option.map Limit.Inclusive
+                            Max = rsu.MaxDoseQtyPerKg |> Option.map Limit.Inclusive
                         }
                 }
                 |> fun dl ->
@@ -790,6 +803,12 @@ cannot map {r}
 
                         }
             )
+            |> Array.distinct
+            |> Array.tryExactlyOne
+            |> function
+                | None -> dr
+                | Some shapeLimit ->
+                    { dr with ShapeLimit = Some shapeLimit }
 
 
     let getDoseLimits (rs : DoseRuleDetails []) =
@@ -882,11 +901,6 @@ cannot map {r}
 
     let addDoseLimits (rs: DoseRuleDetails[]) (dr : DoseRule) =
         { dr with
-            ShapeLimit =
-                dr
-                |> getShapeLimits (rs |> Array.collect _.Products)
-                |> Array.tryExactlyOne
-
             ComponentLimits =
                 rs
                 |> Array.groupBy _.Component
@@ -922,6 +936,7 @@ cannot map {r}
                     }
                 )
         }
+        |> addShapeLimits
 
 
     let get_ dataUrl =

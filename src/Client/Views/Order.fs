@@ -734,7 +734,8 @@ module Order =
                     {
                         match state.Order with
                         | Some ord ->
-                            if ord.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
+                            if ord.Orderable.Components |> Array.isEmpty ||
+                               itms |> Array.length <= 1 then JSX.jsx $"<></>"
                             else
                                 itms
                                 |> Array.map _.Name

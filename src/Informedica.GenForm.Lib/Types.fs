@@ -25,6 +25,10 @@ module Types =
             MinDoseQty : ValueUnit option
             // The maximum Dose quantity
             MaxDoseQty : ValueUnit option
+            // The minimum Adjusted Dose quantity
+            MinDoseQtyPerKg : ValueUnit option
+            // The maximum Adjusted Dose quantity
+            MaxDoseQtyPerKg : ValueUnit option
             // The divisibility of a shape
             Divisibility: BigRational option
             // Whether a Dose runs over a Time

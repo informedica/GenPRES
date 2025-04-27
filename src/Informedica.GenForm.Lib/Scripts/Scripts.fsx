@@ -34,30 +34,136 @@ open Informedica.GenForm.Lib
 
 Product.get ()
 |> Array.filter (fun p ->
-    p.Generic = "amikacine" &&
-    p.Routes |> Array.exists (String.equalsCapInsens "intraveneus")
+    p.Generic = "abacavir" &&
+    p.Routes |> Array.exists (String.equalsCapInsens "oraal")
 )
 
 
-DoseRule.get ()
-|> DoseRule.filter
-    { Filter.doseFilter with
-        Patient =
-            { Patient.patient with
-                Locations =  [ CVL ]
-                Department = Some "ICK"
-                Age =
-                    Units.Time.year
-                    |> ValueUnit.singleWithValue 10N
-                    |> Some
-                Weight =
-                  Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (40N)
-                  |> Some
-            }
-        Generic = Some "amikacine"
-        Route = Some "intraveneus"
-    }
+
+module DoseRule =
+
+    open DoseRule
+
+    open System
+    open MathNet.Numerics
+
+    open FSharp.Data
+    open FSharp.Data.JsonExtensions
+
+    open Informedica.Utils.Lib
+    open ConsoleWriter.NewLineNoTime
+    open Informedica.Utils.Lib.BCL
+    open Informedica.GenCore.Lib.Ranges
+    open Utils
+
+
+    let addShapeLimits (dr : DoseRule) =
+        let prods =
+            dr.ComponentLimits
+            |> Array.collect _.Products
+
+        let droplets =
+            prods
+            |> Array.filter (fun p ->
+                p.Shape |> String.containsCapsInsens "druppel"
+            )
+            |> Array.choose _.Divisible
+            |> Array.distinct
+            |> Array.tryExactlyOne
+
+        let setDroplet vu =
+            let v, u = vu |> ValueUnit.get
+            match droplets with
+            | None -> vu
+            | Some m ->
+                u
+                |> Units.Volume.dropletSetDropsPerMl m
+                |> ValueUnit.withValue v
+
+        if dr.Shape |> String.isNullOrWhiteSpace then dr
+        else
+            prods
+            |> Array.map _.ShapeUnit
+            |> Array.tryExactlyOne
+            |> Option.defaultValue NoUnit
+            |> Mapping.filterRouteShapeUnit dr.Route dr.Shape
+            |> Array.map (fun rsu ->
+                { DoseLimit.limit with
+                    DoseLimitTarget = dr.Shape |> ShapeLimitTarget
+                    Quantity =
+                        {
+                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
+                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
+                        }
+                    QuantityAdjust =
+                        {
+                            Min = rsu.MinDoseQtyPerKg |> Option.map Limit.Inclusive
+                            Max = rsu.MaxDoseQtyPerKg |> Option.map Limit.Inclusive
+                        }
+                }
+                |> fun dl ->
+                    if droplets |> Option.isNone then dl
+                    else
+                        { dl with
+                            DoseUnit =
+                                droplets
+                                |> Option.map Units.Volume.dropletWithDropsPerMl
+                                |> Option.defaultValue rsu.DoseUnit
+                            Quantity =
+                                {
+                                    Min =
+                                        dl.Quantity.Min
+                                        |> Option.map (
+                                            Limit.apply
+                                                setDroplet
+                                                setDroplet
+                                        )
+                                    Max =
+                                        dl.Quantity.Max
+                                        |> Option.map (
+                                            Limit.apply
+                                                setDroplet
+                                                setDroplet
+                                        )
+                                }
+
+                        }
+            )
+            |> Array.distinct
+            |> Array.tryExactlyOne
+            |> function
+                | None -> dr
+                | Some shapeLimit ->
+                    { dr with ShapeLimit = Some shapeLimit }
+
+
+let dr =
+    DoseRule.get ()
+    |> DoseRule.filter
+        { Filter.doseFilter with
+            Patient =
+                { Patient.patient with
+                    Locations =  [ CVL ]
+                    Department = Some "ICK"
+                    Age =
+                        Units.Time.year
+                        |> ValueUnit.singleWithValue 10N
+                        |> Some
+                    Weight =
+                      Units.Weight.kiloGram
+                      |> ValueUnit.singleWithValue (40N)
+                      |> Some
+                }
+            Generic = Some "abacavir"
+            Shape = Some "drank"
+            Route = Some "oraal"
+        }
+    |> Array.head
+
+dr
+|> DoseRule.addShapeLimits
+
+Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
 
 
 SolutionRule.get ()
