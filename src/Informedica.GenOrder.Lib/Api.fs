@@ -648,15 +648,18 @@ module OrderContext =
         |> Option.defaultValue false
 
 
-    let toString stage (pr: OrderContext) =
+    let toString stage (ctx: OrderContext) =
         let printArray xs =
-            if pr.Filter.Generic.IsNone || pr.Filter.Route.IsNone then $"{xs |> Array.length}"
+            if ctx.Filter.Generic.IsNone ||
+               ctx.Filter.Route.IsNone ||
+               xs |> Array.length > 10
+                then $"{xs |> Array.length}"
             else
                 xs
                 |> String.concat ", "
 
         let scenarios =
-            match pr.Scenarios |> Array.tryExactlyOne with
+            match ctx.Scenarios |> Array.tryExactlyOne with
             | Some sc ->
                 sc.Order
                 |> Order.toStringWithConstraints
@@ -671,27 +674,27 @@ Order State: {sc.Order |> Order.printState}
 
 {s}
 """
-            | _ -> $"{pr.Scenarios |> Array.length}"
+            | _ -> $"{ctx.Scenarios |> Array.length}"
 
         $"""
 
 === {stage} ===
 
-Patient: {pr.Patient |> Patient.toString}
-Indication: {pr.Filter.Indication |> Option.defaultValue ""}
-Generic: {pr.Filter.Generic |> Option.defaultValue ""}
-Shape: {pr.Filter.Shape |> Option.defaultValue ""}
-Route: {pr.Filter.Route |> Option.defaultValue ""}
-DoseType: {pr.Filter.DoseType}
-Diluent: {pr.Filter.Diluent |> Option.defaultValue ""}
-SelectedComponents: {pr.Filter.SelectedComponents |> printArray}
-Indications: {pr.Filter.Indications |> printArray}
-Medications: {pr.Filter.Generics |> printArray}
-Routes: {pr.Filter.Routes |> printArray}
-DoseTypes: {pr.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
-Diluents : {pr.Filter.Diluents |> printArray}
-Components: {pr.Filter.Components |> printArray}
-Items: {pr.Scenarios |> Array.collect _.Items |> printArray}
+Patient: {ctx.Patient |> Patient.toString}
+Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
+Generic: {ctx.Filter.Generic |> Option.defaultValue ""}
+Shape: {ctx.Filter.Shape |> Option.defaultValue ""}
+Route: {ctx.Filter.Route |> Option.defaultValue ""}
+DoseType: {ctx.Filter.DoseType}
+Diluent: {ctx.Filter.Diluent |> Option.defaultValue ""}
+SelectedComponents: {ctx.Filter.SelectedComponents |> printArray}
+Indications: {ctx.Filter.Indications |> printArray}
+Medications: {ctx.Filter.Generics |> printArray}
+Routes: {ctx.Filter.Routes |> printArray}
+DoseTypes: {ctx.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
+Diluents : {ctx.Filter.Diluents |> printArray}
+Components: {ctx.Filter.Components |> printArray}
+Items: {ctx.Scenarios |> Array.collect _.Items |> printArray}
 Scenarios: {scenarios}
 
 """

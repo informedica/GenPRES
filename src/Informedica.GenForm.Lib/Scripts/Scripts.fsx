@@ -5,7 +5,7 @@
 #load "load.fsx"
 
 open System
-let dataUrlId = "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+let dataUrlId = "1yn6UC1OMJ0A2wAyX3r0AA2qlKJ7vEAB6OO0DjneiknE"
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 
@@ -31,31 +31,59 @@ open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
+
 Product.get ()
 |> Array.filter (fun p ->
-    p.Generic = "midazolam" &&
-    p.Routes |> Array.exists (String.equalsCapInsens "nasaal")
+    p.Generic = "amikacine" &&
+    p.Routes |> Array.exists (String.equalsCapInsens "intraveneus")
 )
 
-SolutionRule.get ()
-|> Array.filter (fun sr -> sr.SolutionLimits |> Array.isEmpty)
 
-
-let pr =
+DoseRule.get ()
+|> DoseRule.filter
     { Filter.doseFilter with
-        Generic = Some "samenstelling D"
-        DoseType = "dag 3" |> DoseType.Timed |> Some
         Patient =
             { Patient.patient with
                 Locations =  [ CVL ]
                 Department = Some "ICK"
                 Age =
                     Units.Time.year
-                    |> ValueUnit.singleWithValue 6N
+                    |> ValueUnit.singleWithValue 10N
                     |> Some
                 Weight =
                   Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (22N)
+                  |> ValueUnit.singleWithValue (40N)
+                  |> Some
+            }
+        Generic = Some "amikacine"
+        Route = Some "intraveneus"
+    }
+
+
+SolutionRule.get ()
+|> Array.filter (fun sr ->
+    sr.Generic = "amikacine" &&
+    sr.Route =  "intraveneus" &&
+    sr.Department = Some "ICK"
+)
+
+
+let pr =
+    { Filter.doseFilter with
+        Generic = Some "amikacine"
+        Route = Some "intraveneus"
+        Shape = Some "injectievloeistof"
+        Patient =
+            { Patient.patient with
+                Locations =  [ CVL ]
+                Department = Some "ICK"
+                Age =
+                    Units.Time.year
+                    |> ValueUnit.singleWithValue 10N
+                    |> Some
+                Weight =
+                  Units.Weight.kiloGram
+                  |> ValueUnit.singleWithValue (40N)
                   |> Some
 //                RenalFunction = EGFR(Some 5, Some 5) |> Some
             }

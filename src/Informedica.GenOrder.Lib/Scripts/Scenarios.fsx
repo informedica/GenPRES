@@ -17,31 +17,35 @@ open Informedica.GenOrder.Lib
 
 // TODO: could be used to precalc all possible
 // prescriptions for a patient
-let createScenarios (pr: OrderContext) =
+let createScenarios (ctx: OrderContext) =
     let getRules filter =
-        { pr with Filter = filter } |> OrderContext.getRules
+        { ctx with Filter = filter } |> OrderContext.getRules
 
-    let print pr =
-        let g = pr.Filter.Generic
-        let i = pr.Filter.Indication
-        let r = pr.Filter.Route
-        let d = pr.Filter.DoseType
+    let print ctx =
+        let g = ctx.Filter.Generic
+        let i = ctx.Filter.Indication
+        let r = ctx.Filter.Route
+        let d = ctx.Filter.DoseType
         printfn $"=== no evaluation of {g} {i} {r} {d} ==="
-        pr
+        ctx
 
-    let eval pr s =
+    let eval ctx s =
         printfn $"evaluating {s}"
         try
-            let pr = pr |> OrderContext.evaluate
+            let ctx =
+                ctx
+                |> OrderContext.UpdateOrderContext
+                |> OrderContext.evaluate
+                |> OrderContext.Command.get
 
-            if pr.Scenarios |> Array.isEmpty |> not then pr
-            else pr |> print
+            if ctx.Scenarios |> Array.isEmpty |> not then ctx
+            else ctx |> print
         with
         | e ->
             printfn $"\n=== ERROR\n{e}===\n"
-            pr
+            ctx
 
-    let pr = eval pr ""
+    let pr = eval ctx ""
 
     [
         for g in pr.Filter.Generics do
@@ -103,17 +107,26 @@ open Informedica.GenUnits.Lib
 let mutable value : Order Option = None
 
 
-let pipeline ord =
-    ord
-    |> Order.print
-    |> Order.processPipeLine OrderLogger.noLogger None
+Patient.infant
+|> Patient.setWeight (10m |> Kilogram |> Some)
+|> PrescriptionRule.get
+|> Array.head
+|> DrugOrder.fromRule
+|> Array.head
+|> DrugOrder.toOrderDto
+|> Order.Dto.fromDto
+|> Order.print
+|> ignore
+
 
 
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> OrderContext.create
+|> OrderContext.UpdateOrderContext
 |> OrderContext.evaluate
-|> fun ctx ->
+|> fun cmd ->
+    let ctx = cmd |> OrderContext.Command.get
     ctx.Scenarios
     |> Array.item 0
     |> _.Order

@@ -684,6 +684,8 @@ module Order =
             fun () ->
                 ResetOrderScenario |> dispatch
 
+        let headerSx = {| backgroundColor = Mui.Colors.Blue.``50`` |}
+
         let content =
             JSX.jsx
                 $"""
@@ -696,6 +698,7 @@ module Order =
             <div>
 
             <CardHeader
+                sx = {headerSx}
                 title={state.Order |> showOrderName}
                 titleTypographyProps={ {| variant = "h6" |} }
             ></CardHeader>
@@ -704,7 +707,7 @@ module Order =
                     {
                         match state.Order with
                         | Some ord ->
-                            if ord.Orderable.Components |> Array.isEmpty then JSX.jsx $"<></>"
+                            if ord.Orderable.Components |> Array.length <= 1 then JSX.jsx $"<></>"
                             else
                                 ord.Orderable.Components
                                 |> Array.map _.Name
@@ -883,7 +886,7 @@ module Order =
                 </Stack>
                 {progress}
             </CardContent>
-            <CardActions>
+            <CardActions >
                     <Button onClick={onClickOk}>
                         {Terms.``Ok `` |> getTerm "Ok"}
                     </Button>
@@ -903,7 +906,7 @@ module Order =
         import Button from '@mui/material/Button';
         import Typography from '@mui/material/Typography';
 
-        <Card variant="outlined">
+        <Card variant="outlined" raised={true}>
                 {content}
         </Card>
         """

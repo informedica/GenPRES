@@ -2920,13 +2920,16 @@ module Order =
     let hasValues ord =
         ord
         |> toOrdVars
+        |> List.filter OrderVariable.hasConstraints
         |> List.filter (fun ovar ->
             let n =
                 ovar.Variable.Name
                 |> Name.toString
 
             n |> String.contains "_cmp_qty" |> not &&
-            n |> String.contains "_orb_cnt" |> not
+            n |> String.contains "_cmp_cnc" |> not &&
+            n |> String.contains "_orb_cnt" |> not &&
+            n |> String.contains "_orb_cnc" |> not
         )
         |> List.exists OrderVariable.hasValues
 

@@ -265,7 +265,12 @@ module DrugOrder =
                         DoseUnit = Units.Volume.milliLiter
                     } |> Some
                 Quantities = sr.Volumes
-                DoseCount = sr.DosePerc
+                DoseCount = //sr.DosePerc
+                    // change percentage to count!
+                    { MinMax.empty with
+                        Min = sr.DosePerc.Max
+                        Max = sr.DosePerc.Min
+                    }
                 Components =
                     let ps =
                         dro.Components
@@ -465,14 +470,16 @@ module DrugOrder =
         | TimedOrder ->
             orbDto |> standDoseRate oru
             // assume timed order always solution
-            orbDto.Dose.Quantity.Constraints.IncrOpt <-
-                1N/10N
-                |> createSingleValueUnitDto
-                    Units.Volume.milliLiter
-            orbDto.OrderableQuantity.Constraints.IncrOpt <-
-                1N/10N
-                |> createSingleValueUnitDto
-                    Units.Volume.milliLiter
+            if orbDto.Dose.Quantity.Constraints.ValsOpt.IsNone then
+                orbDto.Dose.Quantity.Constraints.IncrOpt <-
+                    1N/10N
+                    |> createSingleValueUnitDto
+                        Units.Volume.milliLiter
+            if orbDto.OrderableQuantity.Constraints.ValsOpt.IsNone then
+                orbDto.OrderableQuantity.Constraints.IncrOpt <-
+                    1N/10N
+                    |> createSingleValueUnitDto
+                        Units.Volume.milliLiter
 
             match d.Dose with
             | Some dl ->

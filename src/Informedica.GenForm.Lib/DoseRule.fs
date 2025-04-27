@@ -669,41 +669,19 @@ cannot map {r}
                     |]
                 else
                     filtered
-                    // make sure that all products have the same unit group
-                    |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
-                    |> function
-                        | [|(_, ps)|] ->
-                            ps
-                            |> Array.map (fun product ->
-                                { r with
-                                    Generic = gen
-                                    Shape = product.Shape |> String.toLower
-                                    Products =
-                                        if r.GPKs |> Array.length > 0 then ps
-                                        else
-                                            ps
-                                            |> Product.filter
-                                             { Filter.doseFilter with
-                                                 Generic = r.Component |> Some
-                                                 Shape = product.Shape |> Some
-                                                 Route = rte |> Some
-                                             }
-                                }
-                            )
-                            |> Array.distinct
-                        | xs ->
-                            xs
-                            |> Array.collect (fun (g, ps) ->
+                    // create doserule per shape
+                    |> Array.groupBy _.Shape
+                    |> Array.collect (fun (_, ps) ->
+                        // make sure that all products have the same unit group
+                        ps
+                        |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
+                        |> function
+                            | [|(_, ps)|] ->
                                 ps
                                 |> Array.map (fun product ->
-                                    let g =
-                                        g
-                                        |> ValueUnit.Group.toStringDutch
-
                                     { r with
                                         Generic = gen
-                                        Shape =
-                                            $"{product.Shape |> String.toLower} {g}"
+                                        Shape = product.Shape |> String.toLower
                                         Products =
                                             if r.GPKs |> Array.length > 0 then ps
                                             else
@@ -717,7 +695,38 @@ cannot map {r}
                                     }
                                 )
                                 |> Array.distinct
-                            )
+                            | xs ->
+                                xs
+                                |> Array.collect (fun (_, ps) ->
+                                    ps
+                                    |> Array.map (fun product ->
+                                        let u =
+                                            product.ShapeUnit
+                                            |> Units.toString Units.Dutch Units.Short
+                                            |> String.removeTextBetweenBrackets
+                                            |> String.removeBrackets
+
+                                        { r with
+                                            Generic = gen
+                                            Shape =
+                                                $"{product.Shape |> String.toLower} ({u})"
+                                            Products =
+                                                if r.GPKs |> Array.length > 0 then ps
+                                                else
+                                                    ps
+                                                    |> Product.filter
+                                                     { Filter.doseFilter with
+                                                         Generic = r.Component |> Some
+                                                         Shape = product.Shape |> Some
+                                                         Route = rte |> Some
+                                                     }
+                                        }
+                                    )
+                                    |> Array.distinct
+                                )
+
+                    )
+
             )
         )
 
@@ -899,6 +908,8 @@ cannot map {r}
                                 match lim with
                                 | None -> true
                                 | Some l ->
+                                    l.DoseUnit
+                                    |> ValueUnit.Group.eqsGroup Units.Count.times ||
                                     l.DoseUnit
                                     |> ValueUnit.Group.eqsGroup p.ShapeUnit
                             )

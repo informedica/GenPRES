@@ -107,6 +107,30 @@ module Prescribe =
                 |> updateOrderContext
             | _ -> ()
 
+        let shapeChange s =
+            match props.orderContext with
+            | Resolved ctx ->
+                if s |> Option.isNone then
+                    { ctx with
+                        Filter =
+                            { ctx.Filter with
+                                Shapes = [||]
+                                Shape = None
+                                DoseTypes = [||]
+                                DoseType = None
+                            }
+                        Scenarios = [||]
+                    }
+                else
+                    { ctx with
+                        Filter =
+                            { ctx.Filter with
+                                Shape = s
+                            }
+                    }
+                |> updateOrderContext
+            | _ -> ()
+
         let diluentChange s =
             match props.orderContext with
             | Resolved pr ->
@@ -485,6 +509,26 @@ module Prescribe =
                         }
                         {
                             match props.orderContext with
+                            | Resolved ctx when ctx.Filter.Shapes |> Array.length > 1 &&
+                                                ctx.Scenarios |> Array.isEmpty ->
+                                false, ctx.Filter.Shape, ctx.Filter.Shapes
+                            | Resolved _ -> false, None, [||]
+                            | _ -> true, None, [||]
+                            |> fun (isLoading, sel, items) ->
+                                let lbl = "Vorm"
+
+                                if items |> Array.isEmpty then JSX.jsx $"<></>"
+                                else
+                                    if isMobile then
+                                        items
+                                        |> Array.map (fun s -> s, s)
+                                        |> select isLoading lbl sel shapeChange
+                                    else
+                                        items
+                                        |> autoComplete isLoading lbl sel shapeChange
+                        }
+                        {
+                            match props.orderContext with
                             | Resolved pr when pr.Filter.Indication.IsSome &&
                                                pr.Filter.Medication.IsSome &&
                                                pr.Filter.Route.IsSome &&
@@ -538,14 +582,12 @@ module Prescribe =
 
                             | _ -> JSX.jsx $"<></>"
                         }
-
-                        <Box sx={ {| mt=2 |} }>
-                            <Button variant="text" onClick={clear} fullWidth startIcon={Mui.Icons.Delete} >
-                                {Delete |> getTerm "Verwijder"}
-                            </Button>
-                        </Box>
-
                     </Stack>
+                    <Box sx={ {| mt=2 |} }>
+                        <Button variant="text" onClick={clear} fullWidth startIcon={Mui.Icons.Delete} >
+                            {Delete |> getTerm "Verwijder"}
+                        </Button>
+                    </Box>
                     <Stack direction="column" >
                         {
                             match props.orderContext with
@@ -570,6 +612,7 @@ module Prescribe =
                 width= 400
                 bgcolor= "background.paper"
                 boxShadow= 24
+                borderRadius = "16px"
             |}
 
         JSX.jsx

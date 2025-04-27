@@ -759,9 +759,9 @@ module OrderContext =
                 |> mapFromShared pat
                 |> eval
                 |> function
-                    | OrderContext.UpdateOrderContext newCtx   -> newCtx |> map
-                    | OrderContext.SelectOrderScenario newCtx  -> newCtx |> map
-                    | OrderContext.UpdateOrderScenario newCtx  -> newCtx |> map
+                    | OrderContext.UpdateOrderContext newCtx -> newCtx |> map
+                    | OrderContext.SelectOrderScenario newCtx -> newCtx |> map
+                    | OrderContext.UpdateOrderScenario newCtx -> newCtx |> map
                     | OrderContext.ResetOrderScenario newCtx -> newCtx |> map
             with
             | e ->
