@@ -453,7 +453,7 @@ module Mappers =
             }
 
 
-    let mapToIntake (intake : Informedica.GenOrder.Lib.Types.Intake) : Intake =
+    let mapToIntake (intake : Informedica.GenOrder.Lib.Types.Totals) : Totals =
         let toTextItem =
             Option.map Models.OrderScenario.parseTextItem
             >> (Option.defaultValue [||])
@@ -693,7 +693,7 @@ module Order =
 
         ords
         |> Array.map Order.mapFromSharedToOrder
-        |> Intake.getIntake wghtInKg
+        |> Totals.getTotals wghtInKg
         |> mapToIntake
 
 
@@ -805,9 +805,9 @@ module TreatmentPlan =
         | None -> tp
 
 
-    let calculateIntake (tp : TreatmentPlan) =
+    let calculateTotals (tp : TreatmentPlan) =
         { tp with
-            Intake =
+            Totals =
                 let w = tp.Patient |> Models.Patient.getWeight
 
                 let scs =
@@ -820,7 +820,6 @@ module TreatmentPlan =
                 |> Array.map _.Order
                 |> Order.getIntake w
         }
-
 
 
 module Command =
@@ -848,14 +847,14 @@ module Command =
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
                 tp
                 |> TreatmentPlan.updateTreatmentPlan
-                |> TreatmentPlan.calculateIntake
+                |> TreatmentPlan.calculateTotals
                 |> TreatmentPlanUpdated
                 |> TreatmentPlanResp
                 |> Ok
 
         | TreatmentPlanCmd (FilterTreatmentPlan tp) ->
             tp
-            |> TreatmentPlan.calculateIntake
+            |> TreatmentPlan.calculateTotals
             |> TreatmentPlanFiltered
             |> TreatmentPlanResp
             |> Ok

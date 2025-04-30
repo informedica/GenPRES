@@ -2,7 +2,7 @@ namespace Informedica.GenOrder.Lib
 
 
 
-module Intake =
+module Totals =
 
 
     open Informedica.Utils.Lib.BCL
@@ -29,7 +29,7 @@ module Intake =
             |> OrderVariable.PerTime.setTimeUnit tu
             |> OrderVariable.PerTime.toOrdVar
             |> OrderVariable.getVar
-        | Continuous ->
+        | Continuous _ ->
             dose.Rate
             |> OrderVariable.Rate.setTimeUnit tu
             |> OrderVariable.Rate.toOrdVar
@@ -107,7 +107,7 @@ module Intake =
 
 
 
-    let getIntake (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Intake =
+    let getTotals (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Totals =
         let intake =
             dto
             |> Array.map Order.Dto.fromDto

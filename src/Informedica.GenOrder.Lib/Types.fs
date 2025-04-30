@@ -211,7 +211,7 @@ module Types =
         and Prescription =
             | Once
             | OnceTimed of Time
-            | Continuous
+            | Continuous of Time
             // A discontinuous prescription with a frequency
             | Discontinuous of Frequency
             // A discontinuous prescription with both frequency and time
@@ -339,7 +339,7 @@ module Types =
             }
 
 
-        type Intake =
+        type Totals =
             {
                 Volume : string option
                 Energy : string option

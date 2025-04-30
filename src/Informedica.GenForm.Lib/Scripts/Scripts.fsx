@@ -5,7 +5,7 @@
 #load "load.fsx"
 
 open System
-let dataUrlId = "1yn6UC1OMJ0A2wAyX3r0AA2qlKJ7vEAB6OO0DjneiknE"
+let dataUrlId = "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 
@@ -39,104 +39,6 @@ Product.get ()
 )
 
 
-
-module DoseRule =
-
-    open DoseRule
-
-    open System
-    open MathNet.Numerics
-
-    open FSharp.Data
-    open FSharp.Data.JsonExtensions
-
-    open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
-    open Informedica.Utils.Lib.BCL
-    open Informedica.GenCore.Lib.Ranges
-    open Utils
-
-
-    let addShapeLimits (dr : DoseRule) =
-        let prods =
-            dr.ComponentLimits
-            |> Array.collect _.Products
-
-        let droplets =
-            prods
-            |> Array.filter (fun p ->
-                p.Shape |> String.containsCapsInsens "druppel"
-            )
-            |> Array.choose _.Divisible
-            |> Array.distinct
-            |> Array.tryExactlyOne
-
-        let setDroplet vu =
-            let v, u = vu |> ValueUnit.get
-            match droplets with
-            | None -> vu
-            | Some m ->
-                u
-                |> Units.Volume.dropletSetDropsPerMl m
-                |> ValueUnit.withValue v
-
-        if dr.Shape |> String.isNullOrWhiteSpace then dr
-        else
-            prods
-            |> Array.map _.ShapeUnit
-            |> Array.tryExactlyOne
-            |> Option.defaultValue NoUnit
-            |> Mapping.filterRouteShapeUnit dr.Route dr.Shape
-            |> Array.map (fun rsu ->
-                { DoseLimit.limit with
-                    DoseLimitTarget = dr.Shape |> ShapeLimitTarget
-                    Quantity =
-                        {
-                            Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
-                            Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
-                        }
-                    QuantityAdjust =
-                        {
-                            Min = rsu.MinDoseQtyPerKg |> Option.map Limit.Inclusive
-                            Max = rsu.MaxDoseQtyPerKg |> Option.map Limit.Inclusive
-                        }
-                }
-                |> fun dl ->
-                    if droplets |> Option.isNone then dl
-                    else
-                        { dl with
-                            DoseUnit =
-                                droplets
-                                |> Option.map Units.Volume.dropletWithDropsPerMl
-                                |> Option.defaultValue rsu.DoseUnit
-                            Quantity =
-                                {
-                                    Min =
-                                        dl.Quantity.Min
-                                        |> Option.map (
-                                            Limit.apply
-                                                setDroplet
-                                                setDroplet
-                                        )
-                                    Max =
-                                        dl.Quantity.Max
-                                        |> Option.map (
-                                            Limit.apply
-                                                setDroplet
-                                                setDroplet
-                                        )
-                                }
-
-                        }
-            )
-            |> Array.distinct
-            |> Array.tryExactlyOne
-            |> function
-                | None -> dr
-                | Some shapeLimit ->
-                    { dr with ShapeLimit = Some shapeLimit }
-
-
 let dr =
     DoseRule.get ()
     |> DoseRule.filter
@@ -154,9 +56,9 @@ let dr =
                       |> ValueUnit.singleWithValue (40N)
                       |> Some
                 }
-            Generic = Some "abacavir"
-            Shape = Some "drank"
-            Route = Some "oraal"
+            Generic = Some "vancomycine"
+            Shape = Some ""
+            Route = Some "intraveneus"
         }
     |> Array.head
 
@@ -176,12 +78,11 @@ SolutionRule.get ()
 
 let pr =
     { Filter.doseFilter with
-        Generic = Some "amikacine"
+        Generic = Some "vancomycine"
         Route = Some "intraveneus"
-        Shape = Some "injectievloeistof"
+        DoseType = Continuous "" |> Some
         Patient =
             { Patient.patient with
-                Locations =  [ CVL ]
                 Department = Some "ICK"
                 Age =
                     Units.Time.year

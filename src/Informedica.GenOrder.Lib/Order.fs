@@ -446,7 +446,7 @@ module Order =
                             |> set
                             |> PerTime
                     }
-                | Continuous ->
+                | Continuous _ ->
                     { dos with
                         Rate =
                             dos.Rate
@@ -2141,7 +2141,7 @@ module Order =
 
         /// Create a Continuous `Prescription`
         let continuous tu1 tu2 n =
-            let _, _ = n |> freqTime tu1 tu2 in Continuous
+            let _, tme = n |> freqTime tu1 tu2 in tme |> Continuous
 
 
         /// Create a Discontinuous `Prescription`
@@ -2167,7 +2167,7 @@ module Order =
 
 
         /// Check whether a `Prescription` is Continuous
-        let isContinuous = function | Continuous -> true | _ -> false
+        let isContinuous = function | Continuous _ -> true | _ -> false
 
 
         /// Check whether a `Prescription` is Timed
@@ -2179,7 +2179,7 @@ module Order =
 
 
         let hasTime pr =
-            pr |> isTimed || pr |> isOnceTimed
+            pr |> isTimed || pr |> isOnceTimed || pr |> isContinuous
 
 
         /// <summary>
@@ -2189,8 +2189,8 @@ module Order =
         /// <param name="prs">The Prescription</param>
         let toOrdVars prs =
             match prs with
-            | Once
-            | Continuous -> None, None
+            | Once -> None, None
+            | Continuous tme
             | OnceTimed tme ->
                 None, tme |> Time.toOrdVar |> Some
             | Discontinuous frq ->
@@ -2208,8 +2208,9 @@ module Order =
         /// <param name="prs">The old Prescription</param>
         let fromOrdVars ovars prs =
             match prs with
-            | Once
-            | Continuous -> prs
+            | Once -> prs
+            | Continuous tme ->
+                tme |> Time.fromOrdVar ovars |> Continuous
             | OnceTimed tme ->
                 tme |> Time.fromOrdVar ovars |> OnceTimed
             | Discontinuous frq ->
@@ -2225,8 +2226,9 @@ module Order =
         /// </summary>
         let applyConstraints prs =
             match prs with
-            | Once
-            | Continuous -> prs
+            | Once -> prs
+            | Continuous tme ->
+                tme |> Time.applyConstraints |> Continuous
             | OnceTimed tme ->
                 tme |> Time.applyConstraints |> OnceTimed
             | Discontinuous frq ->
@@ -2244,7 +2246,7 @@ module Order =
         let toString (prs: Prescription) =
                 match prs with
                 | Once -> ["eenmalig"]
-                | Continuous -> ["continu"]
+                | Continuous tme -> [ tme |> Time.toString  ]
                 | OnceTimed tme -> [tme |> Time.toString]
                 | Discontinuous frq -> [frq |> Frequency.toString]
                 | Timed(frq, tme)   ->
@@ -2258,7 +2260,7 @@ module Order =
         let toStringWithConstraints (prs: Prescription) =
                 match prs with
                 | Once -> ["eenmalig"]
-                | Continuous -> ["continu"]
+                | Continuous tme -> [ tme |> Time.toStringWithConstraints ]
                 | OnceTimed tme -> [tme |> Time.toStringWithConstraints]
                 | Discontinuous frq ->
                     [frq |> Frequency.toStringWithConstraints]
@@ -2312,6 +2314,10 @@ module Order =
 
         let applyToTime f prs =
             match prs with
+            | OnceTimed tme ->
+                tme |> f |> OnceTimed
+            | Continuous tme ->
+                tme |> f |> OnceTimed
             | Timed (frq, tme) ->
                 (frq, tme |> f)
                 |> Timed
@@ -2345,6 +2351,7 @@ module Order =
                         if md then Time.toValueUnitMarkdown prec
                         else Time.toValueUnitMarkdown prec
                     match p with
+                    | Continuous tme -> tme |> toStr
                     | OnceTimed tme -> tme |> toStr
                     | Timed (_, tme) -> tme |> toStr
                     | _ -> ""
@@ -2359,7 +2366,7 @@ module Order =
                 let prescriptionTo md (p : Prescription) =
                     match p with
                     | Once -> "eenmalig"
-                    | Continuous -> "continu"
+                    | Continuous _ -> $"continu {p |> timeTo md -1}"
                     | OnceTimed _ -> p |> timeTo md -1
                     | Discontinuous _ -> p |> frequencyToString
                     | Timed _     -> $"{p |> frequencyToString} {p |> timeTo md -1}"
@@ -2397,7 +2404,10 @@ module Order =
                       dto.IsContinuous,
                       dto.IsDiscontinuous,
                       dto.IsTimed with
-                | false, false, true,  false, false -> Continuous
+                | false, false, true,  false, false ->
+                    dto.Time
+                    |> Time.fromDto
+                    |> Continuous
                 | false, false, false, true,  false ->
                     dto.Frequency
                     |> Frequency.fromDto
@@ -2419,7 +2429,9 @@ module Order =
 
                 match pres with
                 | Once -> dto.IsOnce <- true
-                | Continuous -> dto.IsContinuous <- true
+                | Continuous time ->
+                    dto.IsContinuous <- true
+                    dto.Time <- time |> Time.toDto
                 | OnceTimed time ->
                     dto.IsOnceTimed <- true
                     dto.Time <- time |> Time.toDto
@@ -2918,21 +2930,91 @@ module Order =
 
 
     let hasValues ord =
-        ord
-        |> toOrdVars
-        // TODO flesh out exact filtering criteria
-        |> List.filter OrderVariable.hasConstraints
-        |> List.filter (fun ovar ->
-            let n =
-                ovar.Variable.Name
-                |> Name.toString
+        match (ord |> inf).Prescription with
+        | Continuous tme ->
+            [
+                // drip rate
+                ord.Orderable.Dose.Rate |> Rate.toOrdVar
+                // item dose rate
+                yield!
+                    ord.Orderable.Components
+                    |> List.tryHead
+                    |> Option.bind (_.Items >> List.tryHead)
+                    |> Option.map (_.Dose.Rate >> Rate.toOrdVar >> List.singleton)
+                    |> Option.defaultValue []
+                // item orderable concentration
+                yield!
+                    ord.Orderable.Components
+                    |> List.tryHead
+                    |> Option.bind (_.Items >> List.tryHead)
+                    |> Option.map (_.OrderableConcentration >> Concentration.toOrdVar >> List.singleton)
+                    |> Option.defaultValue []
+            ]
+            |> List.exists OrderVariable.hasValues
+        | Discontinuous _ ->
+            ord
+            |> toOrdVars
+            // TODO flesh out exact filtering criteria
+            |> List.filter OrderVariable.hasConstraints
+            |> List.filter (fun ovar ->
+                let n =
+                    ovar.Variable.Name
+                    |> Name.toString
 
-            n |> String.contains "_cmp_qty" |> not &&
-            n |> String.contains "_cmp_cnc" |> not &&
-            n |> String.contains "_orb_cnt" |> not &&
-            n |> String.contains "_orb_cnc" |> not
-        )
-        |> List.exists OrderVariable.hasValues
+                n |> String.contains "_cmp_qty" |> not &&
+                n |> String.contains "_cmp_cnc" |> not &&
+                n |> String.contains "_orb_cnt" |> not &&
+                n |> String.contains "_orb_cnc" |> not
+            )
+            |> List.exists OrderVariable.hasValues
+        | Timed _ ->
+            ord
+            |> toOrdVars
+            // TODO flesh out exact filtering criteria
+            |> List.filter OrderVariable.hasConstraints
+            |> List.filter (fun ovar ->
+                let n =
+                    ovar.Variable.Name
+                    |> Name.toString
+
+                n |> String.contains "_cmp_qty" |> not &&
+                n |> String.contains "_cmp_cnc" |> not &&
+                n |> String.contains "_orb_cnt" |> not &&
+                n |> String.contains "_orb_cnc" |> not
+            )
+            |> List.exists OrderVariable.hasValues
+        | Once ->
+            ord
+            |> toOrdVars
+            // TODO flesh out exact filtering criteria
+            |> List.filter OrderVariable.hasConstraints
+            |> List.filter (fun ovar ->
+                let n =
+                    ovar.Variable.Name
+                    |> Name.toString
+
+                n |> String.contains "_cmp_qty" |> not &&
+                n |> String.contains "_cmp_cnc" |> not &&
+                n |> String.contains "_orb_cnt" |> not &&
+                n |> String.contains "_orb_cnc" |> not
+            )
+            |> List.exists OrderVariable.hasValues
+        | OnceTimed _ ->
+            ord
+            |> toOrdVars
+            // TODO flesh out exact filtering criteria
+            |> List.filter OrderVariable.hasConstraints
+            |> List.filter (fun ovar ->
+                let n =
+                    ovar.Variable.Name
+                    |> Name.toString
+
+                n |> String.contains "_cmp_qty" |> not &&
+                n |> String.contains "_cmp_cnc" |> not &&
+                n |> String.contains "_orb_cnt" |> not &&
+                n |> String.contains "_orb_cnc" |> not
+            )
+            |> List.exists OrderVariable.hasValues
 
 
     let checkOrderDose pred op ord : bool =
@@ -2982,7 +3064,7 @@ module Order =
         let isOr = true |> op <| false
 
         match ord.Prescription with
-        | Continuous ->
+        | Continuous tme ->
             if isOr then rates |> List.exists checkRte
             else rates |> List.forall checkRte
         | Timed (freq, _)
@@ -3126,7 +3208,7 @@ module Order =
         let mapping =
             match ord.Prescription with
             | Once -> Mapping.once
-            | Continuous -> Mapping.continuous
+            | Continuous _ -> Mapping.continuous
             | OnceTimed _ -> Mapping.onceTimed
             | Discontinuous _ -> Mapping.discontinuous
             | Timed _ -> Mapping.timed
@@ -3308,7 +3390,7 @@ module Order =
                             if useAll then None
                             else
                                 match ord.Prescription with
-                                | Continuous -> 100
+                                | Continuous _ -> 100
                                 | Once
                                 | Discontinuous _ -> 10
                                 | OnceTimed _
@@ -3367,6 +3449,45 @@ module Order =
     let isCleared = toOrdVars >> List.exists OrderVariable.isCleared
 
 
+    let (|RateCleared|FrequencyCleared|TimeCleared|ConcentrationCleared|DoseQuantityCleared|DosePerTimeCleared|NotCleared|) (ord: Order) =
+        match (ord |> inf).Prescription with
+        | Continuous _ ->
+            if
+                [
+                    ord.Orderable.Dose |> Dose.isRateCleared
+                    yield!
+                        ord.Orderable.Components
+                        |> List.collect (_.Items >> List.map (_.Dose >> Dose.isRateCleared))
+                ]
+                |> List.exists ((=) true)
+            then RateCleared
+            else
+                if ord.Orderable |> Orderable.isItemOrderableConcentrationCleared then
+                    ConcentrationCleared
+                else NotCleared
+        | Discontinuous frq ->
+            match frq |> Frequency.isCleared,
+                  ord.Orderable |> Orderable.isDoseQuantityCleared,
+                  ord.Orderable |> Orderable.isDosePerTimeCleared with
+            | true, false, false -> FrequencyCleared
+            | false, true, false -> DoseQuantityCleared
+            | false, false, true -> DosePerTimeCleared
+            | _ -> NotCleared
+        | Timed (frq, tme) ->
+            match frq |> Frequency.isCleared,
+                  ord.Orderable.Dose |> Dose.isRateCleared,
+                  tme |> Time.isCleared,
+                  ord.Orderable |> Orderable.isItemDoseQuantityCleared,
+                  ord.Orderable |> Orderable.isItemDosePerTimeCleared with
+            | true, false, false, false, false -> FrequencyCleared
+            | false, true, false, false, false -> RateCleared
+            | false, false, true, false, false -> TimeCleared
+            | false, false, false, true, false -> DoseQuantityCleared
+            | false, false, false, false, true -> DosePerTimeCleared
+            | _ -> NotCleared
+        | _ -> NotCleared
+
+
     let calcMinMax logger normDose increaseIncrement =
         applyConstraints
         >> solveMinMax true logger
@@ -3384,9 +3505,6 @@ module Order =
                 |> solveNormDose logger nd
             | None -> Ok ord
         )
-
-
-    type Status = Processed of Order | NotProcessed of Order
 
 
     let orderPropertyChangeFrequency ord =
@@ -3445,6 +3563,7 @@ module Order =
                 OrderableDose Dose.setRateToNonZeroPositive
                 ComponentDose ("", Dose.setRateToNonZeroPositive)
                 ItemDose ("", "", Dose.setRateToNonZeroPositive)
+                // clear time
                 PrescriptionTime Time.setToNonZeroPositive
             ]
         |> OrderPropertyChange.proc
@@ -3459,17 +3578,14 @@ module Order =
 
     let processClearedOrder logger ord =
         match (ord |> inf).Prescription with
-        | Continuous ->
-            match ord.Orderable.Dose |> Dose.isRateCleared,
-                  ord.Orderable |> Orderable.isItemOrderableConcentrationCleared,
-                  ord.Orderable |> Orderable.isItemDoseRateCleared with
-            | false, false, true
-            | true, false, false ->
+        | Continuous _ ->
+            match ord with
+            | RateCleared ->
                 ord
                 |> orderPropertyChangeRate
                 |> solveMinMax true logger
                 |> Result.map (minIncrMaxToValues true true logger)
-            | false, true, false ->
+            | ConcentrationCleared ->
                 ord
                 |> OrderPropertyChange.proc
                     [
@@ -3479,7 +3595,7 @@ module Order =
 
                         ItemDose ("", "", Dose.setRateToNonZeroPositive)
                         ItemDose ("", "", Dose.applyRateConstraints)
-                        // clear the item and component orderable quantities
+                        // clear the item- and component-orderable quantities
                         // causing these to be recalculated
                         ComponentOrderableConcentration ("", Concentration.setToNonZeroPositive)
                         ComponentOrderableCount ("", OrderVariable.Count.setToNonZeroPositive)
@@ -3491,19 +3607,17 @@ module Order =
                     ]
                 |> solveMinMax true logger
                 |> Result.map (minIncrMaxToValues true true logger)
-            | b ->
-                $"""===> no match for continuous cleared {b}""" |> writeDebugMessage
+            | _ ->
+                """===> no match for continuous cleared """ |> writeWarningMessage
                 ord |> solveOrder true logger
         | Discontinuous frq ->
-            match frq |> Frequency.isCleared,
-                  ord.Orderable |> Orderable.isItemDoseQuantityCleared,
-                  ord.Orderable |> Orderable.isItemDosePerTimeCleared with
-            | true, false, false ->
+            match ord with
+            | FrequencyCleared ->
                 ord
                 |> orderPropertyChangeFrequency
                 |> solveOrder true logger
-            | false, false, true
-            | false, true, false ->
+            | DoseQuantityCleared
+            | DosePerTimeCleared ->
                 ord
                 |> orderPropertyChangeItemDoseQuantity
                 |> solveOrder true logger
@@ -3511,28 +3625,25 @@ module Order =
             | b ->
                 $"""===> no match for discontinuous cleared {b}""" |> writeDebugMessage
                 ord |> solveOrder true logger
-        | Timed (frq, tme) ->
-            match frq |> Frequency.isCleared,
-                  ord.Orderable.Dose |> Dose.isRateCleared,
-                  tme |> Time.isCleared,
-                  ord.Orderable |> Orderable.isItemDoseQuantityCleared,
-                  ord.Orderable |> Orderable.isItemDosePerTimeCleared with
-            | true, false, false, false, false ->
+        | Timed _ ->
+            match ord with
+            | FrequencyCleared ->
                 ord
                 |> orderPropertyChangeFrequency
                 |> solveOrder true logger
-            | false, true, false, false, false ->
+            | RateCleared
+            | TimeCleared ->
                 ord
                 |> orderPropertyChangeRate
                 |> solveMinMax true logger
                 |> Result.map (minIncrMaxToValues true true logger)
-            | false, false, false, true, false ->
+            | DoseQuantityCleared ->
                 ord
                 |> orderPropertyChangeItemDoseQuantity
                 |> solveOrder true logger
 
-            | b ->
-                $"""===> no match for discontinuous cleared {b}""" |> writeDebugMessage
+            | _ ->
+                """===> no match for timed cleared """ |> writeWarningMessage
                 ord |> solveOrder true logger
 
         | _ -> ord |> solveOrder true logger
@@ -3553,6 +3664,9 @@ module Order =
         | HasValues -> "HasValues"
         | DoseSolvedNotCleared -> "DoseSolvedNotCleared"
         | DoseSolvedAndCleared -> "DoseSolvedAndCleared"
+
+
+    type Status = Processed of Order | NotProcessed of Order
 
 
     let processPipeLine logger normDose cmd =
@@ -3666,7 +3780,7 @@ module Order =
 
                 let pres =
                     match ord.Prescription with
-                    | Continuous ->
+                    | Continuous _ ->
                         if itms |> Array.isEmpty then
                             [|
                                 [|
@@ -3937,8 +4051,13 @@ module Order =
                                             ""
                                 |]
                             )
-                    | Continuous ->
+                    | Continuous _ ->
+                        let tme =
+                            ord.Prescription
+                            |> Prescription.Print.timeToString 2
+
                         let orbQty = ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
+
                         if itms |> Array.isEmpty then
                             [|
                                 [|
@@ -3959,6 +4078,9 @@ module Order =
                                             ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
                                             "="
                                         ord.Orderable |> Orderable.Print.doseRateTo printMd -1
+                                        tme //ord.Prescription |> Prescription.Print.timeToMd -1
+                                        |> withBrackets
+
                                     else
                                         if orbQty |> String.notEmpty then
                                             ""

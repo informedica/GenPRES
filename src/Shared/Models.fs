@@ -35,10 +35,65 @@ module Utils =
         let toLower s = (s |> get).ToLower()
 
 
+        let toUpper s = (s |> get).ToUpper()
+
+
         let replace (s1: string) (s2: string) s = (s |> get).Replace(s1, s2)
 
 
         let trim (s: string) = s.Trim()
+
+
+        /// Get a substring starting at `start` with length `length`
+        let subString start length s =
+            if start < 0 || s |> String.length < start + length || start + length < 0  then ""
+            else
+                let s' = if length < 0 then start + length else start
+                let l' = if length < 0 then -1 * length else length
+                s.Substring(s', l')
+
+
+        /// Get the first character of a string
+        /// as a string
+        let firstStringChar = subString 0 1
+
+
+        /// Get the length of s
+        let length s =
+            (s |> get).Length
+
+
+        /// Return the rest of a string as a string
+        let restString s =
+            if s = "" then ""
+            else
+                subString 1 ((s |> length) - 1) s
+
+
+        /// Removes the last 'n' characters from the input string 's'.
+        /// If the resulting string length is less than 0, an empty string is returned.
+        ///
+        /// Parameters:
+        ///   - n: Number of characters to remove from the end of the string.
+        ///   - s: Input string.
+        ///
+        /// Returns:
+        ///   - Modified string with the last 'n' characters removed.
+        let remove n s =
+            let l = String.length s - n
+            if l < 0 then "" else s |> subString 0 l
+
+
+        /// Make the first char of a string upper case
+        let firstToUpper = firstStringChar >> toUpper
+
+
+        /// Make the first character upper and the rest lower of a string
+        let capitalize s =
+            if s = "" then ""
+            else
+                (s |> firstToUpper) + (s |> restString |> toLower)
+
 
 
     module Math =
@@ -1395,7 +1450,7 @@ module Models =
 
     module Intake =
 
-        let empty: Intake =
+        let empty: Totals =
             {
                 Volume = [||]
                 Energy = [||]
@@ -1600,7 +1655,7 @@ module Models =
                 Selected = None
                 Filtered = [||]
                 Scenarios = srs
-                Intake = Intake.empty
+                Totals = Intake.empty
             }
 
 

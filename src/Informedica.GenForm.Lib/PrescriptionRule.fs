@@ -283,13 +283,16 @@ module PrescriptionRule =
     /// Get the DoseRule of a PrescriptionRule.
     let getDoseRule (pr : PrescriptionRule) = pr.DoseRule
 
+
     let getSolutionRules (pr: PrescriptionRule) = pr.SolutionRules
 
 
     /// Get all DoseRules of an array of PrescriptionRules.
     let getDoseRules = Array.map getDoseRule
 
+
     let collectSolutionRules = Array.collect getSolutionRules
+
 
     /// Get all indications of an array of PrescriptionRules.
     let indications = getDoseRules >> DoseRule.indications

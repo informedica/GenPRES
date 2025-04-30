@@ -84,8 +84,8 @@ module Intake =
 
 
     [<JSX.Component>]
-    let View(props: {| intake : Intake |}) =
-        let mapRow (intake: Intake) row =
+    let View(props: {| intake : Totals |}) =
+        let mapRow (intake: Totals) row =
             let print n itms =
                 if itms |> Array.length < 2 then [||]
                 else

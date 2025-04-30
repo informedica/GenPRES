@@ -184,6 +184,10 @@ module DoseRule =
         // get all medications from Kinderformularium
         let kinderFormUrl = "https://www.kinderformularium.nl/geneesmiddelen.json"
 
+
+        let farmocoTherapeutischKompas = "https://www.farmacotherapeutischkompas.nl/bladeren/preparaatteksten/n/GENERIEK#doseringen"
+
+
         let private _medications () =
             let replace =
                 [
@@ -206,7 +210,7 @@ module DoseRule =
         let getKFMedications = Memoization.memoize _medications
 
 
-        let getLink gen =
+        let getLink source gen =
             getKFMedications ()
             |> List.tryFind (fun m ->
                 m.generic
@@ -215,9 +219,16 @@ module DoseRule =
                 |> String.concat "/"
                 |> String.equalsCapInsens gen
             )
-            |> Option.map (fun m ->
+            |> Option.bind (fun m ->
                 let gen = gen |> String.replace "/" "-"
-                $"[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/{m.id}/{gen})"
+                match source with
+                | _ when source = "NKF" ->
+                    $"[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/{m.id}/{gen})"
+                    |> Some
+                | _ when source = "FK" ->
+                    $"[Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/bladeren/preparaatteksten/n/{gen}#doseringen)"
+                    |> Some
+                | _ -> None
             )
 
 
@@ -283,9 +294,9 @@ module DoseRule =
                             ds
                             |> Array.tryHead
                             |> Option.bind (fun dr ->
-                                dr.Generic |> getLink
+                                dr.Generic |> getLink dr.Source
                             )
-                            |> Option.defaultValue "*Kinderformularium*"
+                            |> Option.defaultValue "*Lokaal*"
 
                         ds
                         |> Array.map _.ScheduleText

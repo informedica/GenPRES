@@ -856,7 +856,7 @@ module Order =
                             itms[i].OrderableConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false $"{itms[i].Name} Concentratie" None (ChangeSubstanceOrderableConcentration >> dispatch)
+                            |> select false $"{itms[i].Name |> String.capitalize} Concentratie" None (ChangeSubstanceOrderableConcentration >> dispatch)
                         | _ ->
                             [||]
                             |> select true "" None ignore

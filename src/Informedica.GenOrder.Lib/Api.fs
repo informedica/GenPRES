@@ -782,7 +782,7 @@ Scenarios: {scenarios}
                             Order =
                                 sc.Order
                                 |> cmd
-                                |> Order.processPipeLine OrderLogger.noLogger None
+                                |> Order.processPipeLine OrderLogger.logger.Logger None
                                 |> Result.defaultValue sc.Order
                         }
                         |> OrderScenario.setOrderTableFormat

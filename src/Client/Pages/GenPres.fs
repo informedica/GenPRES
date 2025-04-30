@@ -271,7 +271,7 @@ module GenPres =
                             | Global.Pages.TreatmentPlan ->
                                 match props.treatmentPlan with
                                 | Resolved tp ->
-                                    Views.Intake.View {| intake = tp.Intake |}
+                                    Views.Intake.View {| intake = tp.Totals |}
                                 | _ -> JSX.jsx "<></>"
                             | _ -> JSX.jsx "<></>"
                         }

@@ -358,7 +358,7 @@ module Types =
         }
 
 
-    type Intake =
+    type Totals =
         {
             Volume: TextItem []
             Energy: TextItem []
@@ -410,7 +410,7 @@ module Types =
             Filter: Filter
             Patient: Patient
             Scenarios: OrderScenario []
-            Intake: Intake
+            Intake: Totals
         }
 
 
@@ -420,7 +420,7 @@ module Types =
             Selected : OrderScenario option
             Filtered : OrderScenario []
             Scenarios: OrderScenario []
-            Intake: Intake
+            Totals: Totals
         }
 
 
