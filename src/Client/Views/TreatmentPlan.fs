@@ -179,6 +179,7 @@ module TreatmentPlan =
                 width= 400
                 bgcolor= "background.paper"
                 boxShadow= 24
+                borderRadius = "16px"
             |}
 
         let selectOrder id =
