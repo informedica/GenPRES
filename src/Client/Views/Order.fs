@@ -758,11 +758,13 @@ module Order =
                     }
                     {
                         match substIndx, state.Order with
-                        | Some i, Some _ when itms |> Array.length > 0->
+                        | Some i, Some ord when ord.Prescription.IsContinuous |> not &&
+                                                itms |> Array.length > 0 ->
+                            Logging.log "prescription" ord.Prescription
                             let label, vals =
                                 itms[i].Dose.Quantity.Variable.Vals
                                 |> Option.map (fun v ->
-                                    (Terms.``Continuous Medication Dose``
+                                    (Terms.``Order Dose``
                                     |> getTerm "Keer Dosis"
                                     |> fun s -> $"{s} ({v.Unit})"),
                                     v.Value

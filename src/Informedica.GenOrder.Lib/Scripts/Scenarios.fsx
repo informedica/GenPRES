@@ -107,9 +107,18 @@ open Informedica.GenUnits.Lib
 let mutable value : Order Option = None
 
 
+SolutionRule.get ()
+|> Array.filter (fun sr ->
+    sr.Generic |> String.equalsCapInsens "propofol"
+)
+
+
 Patient.infant
 |> Patient.setWeight (10m |> Kilogram |> Some)
 |> PrescriptionRule.get
+|> Array.filter (fun pr ->
+    pr.DoseRule.Generic |> String.equalsCapInsens "propofol"
+)
 |> Array.head
 |> DrugOrder.fromRule
 |> Array.head

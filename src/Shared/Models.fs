@@ -1340,13 +1340,13 @@ module Models =
 
         module Prescription =
 
-            let create isOnce isOnceTimed isC isD isT f t =
+            let create isOnce isOnceTimed isCont isDisc isTimed f t =
                 {
                     IsOnce = isOnce
                     IsOnceTimed = isOnceTimed
-                    IsContinuous = isC
-                    IsDiscontinuous = isD
-                    IsTimed = isT
+                    IsContinuous = isCont
+                    IsDiscontinuous = isDisc
+                    IsTimed = isTimed
                     Frequency = f
                     Time = t
                 }

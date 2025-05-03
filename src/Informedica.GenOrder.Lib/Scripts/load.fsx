@@ -23,14 +23,14 @@
 #load "../OrderVariable.fs"
 #load "../Solver.fs"
 #load "../Order.fs"
-#load "../Intake.fs"
+#load "../Totals.fs"
 #load "../OrderLogger.fs"
 #load "../DrugOrder.fs"
 #load "../Patient.fs"
 #load "../Api.fs"
 
 
-fsi.AddPrinter<System.DateTime> (fun dt -> dt.ToShortDateString())
+fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 
 
 open System

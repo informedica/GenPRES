@@ -188,7 +188,6 @@ module SolutionRule =
 
                 }
             )
-            |> Array.filter (fun sr -> sr.SolutionLimits |> Array.isEmpty |> not)
 
 
     /// <summary>

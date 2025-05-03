@@ -195,6 +195,13 @@ module OrderVariable =
             }
 
 
+        let get (cs : Constraints) =
+            cs.Min,
+            cs.Incr,
+            cs.Max,
+            cs.Values
+
+
         let isEmpty (cs: Constraints) =
             cs.Incr.IsNone &&
             cs.Max.IsNone &&
@@ -391,6 +398,16 @@ module OrderVariable =
             cs |> Constraints.isNonZeroPositive |> not &&
             cs |> Constraints.isEmpty |> not
         )
+
+
+    let hasMaxConstraint ovar =
+        ovar
+        |> getConstraints
+        |> Constraints.get
+        |> function
+            | _, _, Some _, _
+            | _, _, _, Some _ -> true
+            | _ -> false
 
 
     let setConstraints cs (ovar :OrderVariable) =
@@ -1393,6 +1410,9 @@ module OrderVariable =
         let hasIncrement = toOrdVar >> hasIncrement
 
 
+        let hasMaxConstraint = toOrdVar >> hasMaxConstraint
+
+
         /// <summary>
         /// Increase the increment of a Quantity until the resulting ValueRange
         /// contains at most maxCount values.
@@ -1794,6 +1814,9 @@ module OrderVariable =
 
 
         let hasConstraints = toOrdVar >> hasConstraints
+
+
+        let hasMaxConstraint = toOrdVar >> hasMaxConstraint
 
 
         let isWithinConstraints = toOrdVar >> isWithinConstraints
