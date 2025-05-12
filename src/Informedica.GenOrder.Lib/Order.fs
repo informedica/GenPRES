@@ -355,6 +355,13 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            let applyQuantityMaxConstraints dos =
+                { (dos |> inf) with
+                    Quantity = dos.Quantity |> Quantity.applyOnlyMaxConstraints
+                    QuantityAdjust = dos.QuantityAdjust |> QuantityAdjust.applyOnlyMaxConstraints
+                }
+
+
             let applyQuantityConstraints dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.applyConstraints
@@ -3096,7 +3103,12 @@ module Order =
         | Continuous tme ->
             if isOr then rates |> List.exists checkRte
             else rates |> List.forall checkRte
-        | Timed (freq, _)
+        | Timed (freq, tme) ->
+            (tme |> Time.toOrdVar |> pred) &&
+            (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred) &&
+            (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
+            |> op <|
+            (if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm)
         | Discontinuous freq ->
             (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred) &&
             (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
@@ -3486,7 +3498,7 @@ module Order =
               ord.Orderable.Dose |> Dose.isRateCleared,
               tme |> Option.map Time.isCleared |> Option.defaultValue false,
               ord.Orderable |> Orderable.isConcentrationCleared,
-              ord.Orderable |> Orderable.isItemDoseQuantityCleared,
+              ord.Orderable |> Orderable.isDoseQuantityCleared,
               ord.Orderable |> Orderable.isItemDosePerTimeCleared with
         | true, false, false, false, false, false -> FrequencyCleared
         | false, true, false, false, false, false -> RateCleared
@@ -3540,6 +3552,7 @@ module Order =
         |> OrderPropertyChange.proc
             [
                 PrescriptionTime OrderVariable.Time.setToNonZeroPositive
+                OrderableDose Dose.setRateToNonZeroPositive
                 OrderableDose Dose.setQuantityToNonZeroPositive
                 ComponentDose ("", Dose.setQuantityToNonZeroPositive)
                 ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
@@ -3560,6 +3573,11 @@ module Order =
                 ComponentOrderableQuantity ("", Quantity.applyConstraints)
                 ItemOrderableQuantity ("", "", Quantity.applyConstraints)
                 OrderableDose Dose.applyQuantityConstraints
+                ComponentDose ("", Dose.applyQuantityMaxConstraints)
+                OrderableDoseCount OrderVariable.Count.applyConstraints
+
+                PrescriptionTime OrderVariable.Time.applyConstraints
+                OrderableDose Dose.setStandardRateConstraints
 
                 // if the orderable doesn't have a max constraint, then
                 // use the per-time constraints

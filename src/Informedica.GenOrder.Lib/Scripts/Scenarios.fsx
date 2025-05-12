@@ -1,12 +1,13 @@
+
+#time
+
 // load demo or product cache
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_LOG", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1yn6UC1OMJ0A2wAyX3r0AA2qlKJ7vEAB6OO0DjneiknE")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
 
 #load "load.fsx"
-
-#time
 
 open MathNet.Numerics
 open Informedica.Utils.Lib
@@ -109,15 +110,15 @@ let mutable value : Order Option = None
 
 SolutionRule.get ()
 |> Array.filter (fun sr ->
-    sr.Generic |> String.equalsCapInsens "propofol"
+    sr.Generic |> String.equalsCapInsens "Samenstelling B"
 )
 
 
 Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
+|> Patient.setWeight (6m |> Kilogram |> Some)
 |> PrescriptionRule.get
 |> Array.filter (fun pr ->
-    pr.DoseRule.Generic |> String.equalsCapInsens "propofol"
+    pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling B"
 )
 |> Array.head
 |> DrugOrder.fromRule
@@ -127,6 +128,36 @@ Patient.infant
 |> Order.print
 |> ignore
 
+
+Patient.teenager
+|> Patient.setWeight (33m |> Kilogram |> Some)
+|> PrescriptionRule.get
+|> Array.filter (fun pr ->
+    pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling E"
+)
+|> Array.head
+|> DrugOrder.fromRule
+|> Array.head
+|> DrugOrder.toOrderDto
+|> Order.Dto.fromDto
+|> Order.print
+|> ignore
+
+
+
+Patient.teenager
+|> Patient.setWeight (33m |> Kilogram |> Some)
+|> PrescriptionRule.get
+|> Array.filter (fun pr ->
+    pr.DoseRule.Generic |> String.equalsCapInsens "noradrenaline"
+)
+|> Array.head
+|> DrugOrder.fromRule
+|> Array.head
+|> DrugOrder.toOrderDto
+|> Order.Dto.fromDto
+|> Order.print
+|> ignore
 
 
 Patient.infant

@@ -218,6 +218,12 @@ module OrderVariable =
             |> Option.defaultValue false
 
 
+        let toIncrMaxRange (cs : Constraints) =
+            ValueRange.unrestricted
+            |> ValueRange.setOptMax cs.Max
+            |> ValueRange.setOptIncr cs.Incr
+
+
         let toValueRange (cs : Constraints) =
             ValueRange.unrestricted
             |> ValueRange.setOptMin cs.Min
@@ -414,6 +420,20 @@ module OrderVariable =
         { ovar with
             Constraints = cs
         }
+
+
+    let applyOnlyMaxConstraints (ovar : OrderVariable) =
+        { ovar with
+            Variable =
+                if ovar.Constraints |> Constraints.isEmpty then
+                    ovar.Variable
+                    |> Variable.setNonZeroAndPositive
+                else
+                    { ovar.Variable with
+                        Values = ovar.Constraints |> Constraints.toIncrMaxRange
+                    }
+        }
+
 
 
     /// <summary>
@@ -1400,6 +1420,9 @@ module OrderVariable =
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
+        let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> Quantity
+
+
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
@@ -1820,6 +1843,9 @@ module OrderVariable =
 
 
         let isWithinConstraints = toOrdVar >> isWithinConstraints
+
+
+        let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> QuantityAdjust
 
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
