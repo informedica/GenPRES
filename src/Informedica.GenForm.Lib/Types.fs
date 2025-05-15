@@ -41,7 +41,7 @@ module Types =
 
 
     /// The types for VenousAccess.
-    type Locations =
+    type Location =
         // Peripheral Venous Access
         | PVL
         // Central Venous Access
@@ -193,7 +193,7 @@ module Types =
         }
 
 
-    /// A PatientCategory to which a DoseRule applies.
+    /// A PatientCategory to which a Rule applies.
     type PatientCategory =
         {
             Department : string option
@@ -203,7 +203,7 @@ module Types =
             BSA : MinMax
             GestAge : MinMax
             PMAge : MinMax
-            Location : Locations
+            Location : Location
         }
 
 
@@ -227,7 +227,7 @@ module Types =
             // The Post Menstrual Age in days of the Patient
             PMAge : ValueUnit option
             // The Venous Access of the Patient
-            Locations : Locations list
+            Locations : Location list
             RenalFunction : RenalFunction option
         }
         static member Gender_ =
@@ -387,14 +387,8 @@ module Types =
             Route : string
             // The DoseType of the SolutionRule
             DoseType : DoseType
-            // The Department of the SolutionRule
-            Department : string option
-            // The Venous Access Location of the SolutionRule
-            Location : Locations
-            // The MinMax Age range of the SolutionRule
-            Age : MinMax
-            // The MinMax Weight range of the SolutionRule
-            Weight : MinMax
+            // The PatientCategory of the DoseRule
+            PatientCategory : PatientCategory
             // The MinMax Dose range of the SolutionRule
             Dose : MinMax
             // The Products the SolutionRule applies to
@@ -405,6 +399,8 @@ module Types =
             Volumes : ValueUnit option
             // A MinMax Volume range to use
             Volume : MinMax
+            // A MinMax adjusted Volume range to use
+            VolumeAdjust : MinMax
             DripRate : MinMax
             // The percentage to be used as a DoseQuantity
             DosePerc : MinMax
@@ -504,16 +500,10 @@ module Types =
             Route : string option
             // The DoseType of the SolutionRule
             DoseType : DoseType option
+            // the patient
+            Patient : Patient
             // the diluent to dilute the component
             Diluent : string option
-            // The Department of the SolutionRule
-            Department : string option
-            // The Venous Access Location of the SolutionRule
-            Locations : Locations list
-            // The MinMax Age range of the SolutionRule
-            Age : ValueUnit option
-            // The MinMax Weight range of the SolutionRule
-            Weight : ValueUnit option
             // The MinMax Dose range of the SolutionRule
             Dose : ValueUnit option
         }

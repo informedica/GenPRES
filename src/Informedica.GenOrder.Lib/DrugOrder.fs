@@ -265,6 +265,7 @@ module DrugOrder =
                     { DoseLimit.limit with
                         Rate = sr.DripRate
                         Quantity  = sr.Volume
+                        QuantityAdjust = sr.VolumeAdjust
                         DoseUnit = Units.Volume.milliLiter
                     } |> Some
                 Quantities =

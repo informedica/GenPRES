@@ -2,6 +2,86 @@ namespace Informedica.GenForm.Tests
 
 
 
+
+/// Create the necessary test generators
+module Generators =
+
+
+    open Expecto
+    open FsCheck
+    open MathNet.Numerics
+
+    open Informedica.Utils.Lib.BCL
+
+
+    let bigRGen (n, d) =
+        let d = if d = 0 then 1 else d
+        let n = abs(n) |> BigRational.FromInt
+        let d = abs(d) |> BigRational.FromInt
+        n / d
+
+
+    let bigRGenOpt (n, _) = bigRGen (n, 1) |> Some
+
+
+    let bigRGenerator =
+        gen {
+            let! n = Arb.generate<int>
+            let! d = Arb.generate<int>
+            return bigRGen(n, d)
+        }
+
+
+    type BigRGenerator () =
+        static member BigRational () =
+            { new Arbitrary<BigRational>() with
+                override x.Generator = bigRGenerator
+            }
+
+
+
+    type MinMax = MinMax of BigRational * BigRational
+
+    let minMaxArb () =
+        bigRGenerator
+        |> Gen.map abs
+        |> Gen.two
+        |> Gen.map (fun (br1, br2) ->
+            let br1 = br1.Numerator |> BigRational.FromBigInt
+            let br2 = br2.Numerator |> BigRational.FromBigInt
+            if br1 >= br2 then br2, br1 else br1, br2
+            |> fun (br1, br2) ->
+                if br1 = br2 then br1, br2 + 1N else br1, br2
+        )
+        |> Arb.fromGen
+        |> Arb.convert MinMax (fun (MinMax (min, max)) -> min, max)
+
+
+    type ListOf37<'a> = ListOf37 of 'a List
+    let listOf37Arb () =
+        Gen.listOfLength 37 Arb.generate
+        |> Arb.fromGen
+        |> Arb.convert ListOf37 (fun (ListOf37 xs) -> xs)
+
+
+    let config = {
+        FsCheckConfig.defaultConfig with
+            arbitrary = [
+                typeof<BigRGenerator>
+                typeof<ListOf37<_>>.DeclaringType
+                typeof<MinMax>.DeclaringType
+            ] @ FsCheckConfig.defaultConfig.arbitrary
+            maxTest = 1000
+        }
+
+
+    let testProp testName prop =
+        prop |> testPropertyWithConfig config testName
+
+
+
+
+
 module Tests =
 
 
@@ -47,10 +127,7 @@ module Tests =
                 { patCat with Gender = Female }
                 |> PatientCategory.filter
                        { filter with
-                            Patient =
-                                { filter.Patient with
-                                    Gender = Female
-                                }
+                            DoseFilter.Patient.Gender = Female
                        }
                 |> Expect.isTrue "should return true"
             }
@@ -59,10 +136,7 @@ module Tests =
                 { patCat with Gender = AnyGender }
                 |> PatientCategory.filter
                        { filter with
-                            Patient =
-                                { filter.Patient with
-                                    Gender = Female
-                                }
+                            DoseFilter.Patient.Gender = Female
                        }
                 |> Expect.isTrue "should return true"
             }
@@ -723,6 +797,112 @@ module Tests =
                 |> Expect.isFalse "should return false"
             }
 
+            test "an empty patient category is a match with another empty patient category" {
+                PatientCategory.empty
+                |> PatientCategory.isMatch PatientCategory.empty
+                |> Expect.isTrue "should return true"
+            }
+
+            testList "patient category tests" [
+
+                    fun minAge maxAge ->
+                        let minAge = if minAge < 0N then None else Some minAge
+                        let maxAge = if maxAge < 0N then None else Some maxAge
+                        let minAge, maxAge =
+                            if minAge > maxAge then
+                                maxAge, minAge
+                            else
+                                minAge, maxAge
+
+                        let patCatToMatch =
+                            { PatientCategory.empty with
+                                Age =
+                                    {
+                                        Min =
+                                            minAge
+                                            |> Option.map (ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive)
+                                        Max =
+                                            maxAge
+                                            |> Option.map (ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive)
+                                    }
+                            }
+
+                        let emptyPatCat = PatientCategory.empty
+                        emptyPatCat |> PatientCategory.isMatch patCatToMatch
+                    |> Generators.testProp "a patient cat with age should always match an empty patient category"
+
+                    fun minWeight maxWeight ->
+                        let minWeight = if minWeight < 0N then None else Some minWeight
+                        let maxWeight = if maxWeight < 0N then None else Some maxWeight
+                        let minWeight, maxWeight =
+                            if minWeight > maxWeight then
+                                maxWeight, minWeight
+                            else
+                                minWeight, maxWeight
+
+                        let patCatToMatch =
+                            { PatientCategory.empty with
+                                Weight =
+                                    {
+                                        Min =
+                                            minWeight
+                                            |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram >> Limit.Inclusive)
+                                        Max =
+                                            maxWeight
+                                            |> Option.map (ValueUnit.singleWithUnit Units.Weight.kiloGram >> Limit.Inclusive)
+                                    }
+                            }
+
+                        let emptyPatCat = PatientCategory.empty
+                        emptyPatCat |> PatientCategory.isMatch patCatToMatch
+                    |> Generators.testProp "a patient cat with weight should always match an empty patient category"
+
+                    fun gender ->
+                        let patCatToMatch =
+                            { PatientCategory.empty with
+                                Gender = gender
+                            }
+                        let emptyPatCat = PatientCategory.empty
+                        emptyPatCat |> PatientCategory.isMatch patCatToMatch
+                    |> Generators.testProp "a patient cat with a gender should always match an empty patient category"
+
+                    fun location ->
+                        let patCatToMatch =
+                            { PatientCategory.empty with
+                                Location = location
+                            }
+                        let emptyPatCat = PatientCategory.empty
+                        emptyPatCat |> PatientCategory.isMatch patCatToMatch
+                    |> Generators.testProp "a patient cat with a location should always match an empty patient category"
+
+                    fun minAge maxAge ->
+                        let minAge = if minAge < 0N then Some 0N else Some minAge
+                        let maxAge = if maxAge < 0N then Some 0N else Some maxAge
+                        let minAge, maxAge =
+                            if minAge > maxAge then
+                                maxAge, minAge
+                            else
+                                minAge, maxAge
+
+                        let notEmptyPatCat =
+                            { PatientCategory.empty with
+                                Age =
+                                    {
+                                        Min =
+                                            minAge
+                                            |> Option.map (ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive)
+                                        Max =
+                                            maxAge
+                                            |> Option.map (ValueUnit.singleWithUnit Units.Time.day >> Limit.Inclusive)
+                                    }
+                            }
+
+                        let patCatToWatch = PatientCategory.empty
+                        notEmptyPatCat |> PatientCategory.isMatch patCatToWatch
+                        |> not
+                    |> Generators.testProp "an empty pat cat should never match an patient category with age"
+
+                ]
         ]
 
 
@@ -730,5 +910,3 @@ module Tests =
     let tests = testList "GenForm Tests" [
         PatientCategoryTests.tests
     ]
-
-

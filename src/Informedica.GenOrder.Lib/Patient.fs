@@ -14,7 +14,7 @@ module Patient =
     open Informedica.GenUnits.Lib
 
     type Patient =Types.Patient
-    type Access = Locations
+    type Access = Location
 
 
     /// <summary>

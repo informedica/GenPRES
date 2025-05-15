@@ -26,10 +26,7 @@ module Filter =
             Route = None
             DoseType = None
             Diluent = None
-            Department = None
-            Locations = []
-            Age = None
-            Weight = None
+            Patient = Patient.patient
             Dose = None
         }
 

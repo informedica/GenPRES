@@ -67,6 +67,8 @@ module SolutionRule =
                     Volumes = get "Volumes" |> BigRational.toBrs
                     MinVol = get "MinVol" |> toBrOpt
                     MaxVol = get "MaxVol" |> toBrOpt
+                    MinVolAdj = get "MinVolAdj" |> toBrOpt
+                    MaxVolAdj = get "MaxVolAdj" |> toBrOpt
                     MinPerc = get "MinPerc" |> toBrOpt
                     MaxPerc = get "MaxPerc" |> toBrOpt
                     // solution limit section
@@ -89,21 +91,24 @@ module SolutionRule =
                         if r.Shape |> String.isNullOrWhiteSpace then None
                         else r.Shape |> Some
                     Route = r.Route
-                    Department =
-                        if r.Department |> String.isNullOrWhiteSpace then None
-                        else r.Department |> Some
-                    Location =
-                        if r.CVL = "x" then CVL
-                        else
-                            if r.PVL = "x" then PVL
-                            else
-                                AnyAccess
-                    Age =
-                        (r.MinAge, r.MaxAge)
-                        |> fromTupleInclExcl (Some Utils.Units.day)
-                    Weight =
-                        (r.MinWeight, r.MaxWeight)
-                        |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                    PatientCategory =
+                        { PatientCategory.empty with
+                            Department =
+                                if r.Department |> String.isNullOrWhiteSpace then None
+                                else r.Department |> Some
+                            Location =
+                                if r.CVL = "x" then CVL
+                                else
+                                    if r.PVL = "x" then PVL
+                                    else
+                                        AnyAccess
+                            Age =
+                                (r.MinAge, r.MaxAge)
+                                |> fromTupleInclExcl (Some Utils.Units.day)
+                            Weight =
+                                (r.MinWeight, r.MaxWeight)
+                                |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                        }
                     Dose =
                         (r.MinDose, r.MaxDose)
                         |> fromTupleInclIncl du
@@ -127,6 +132,9 @@ module SolutionRule =
                     Volume =
                         (r.MinVol, r.MaxVol)
                         |> fromTupleInclIncl (Some Units.mL)
+                    VolumeAdjust =
+                        (r.MinVol, r.MaxVol)
+                        |> fromTupleInclIncl (Units.mL |> Units.per Units.Weight.kiloGram |> Some)
                     DripRate =
                         (r.MinDrip, r.MaxDrip)
                         |> fromTupleInclIncl (Some (Units.Volume.milliLiter |> Units.per Units.Time.hour))
@@ -214,22 +222,14 @@ module SolutionRule =
 
         [|
             fun (sr : SolutionRule) -> sr.Generic |> String.equalsCapInsens filter.Generic
-            fun (sr : SolutionRule) ->
-                PatientCategory.checkAgeWeightMinMax filter.Age filter.Weight sr.Age sr.Weight
+            fun (sr : SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
             fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
-            fun (sr : SolutionRule) -> sr.Department |> Option.map  (eqs filter.Department) |> Option.defaultValue true
             fun (sr : SolutionRule) ->
                 sr.DoseType = NoDoseType ||
                 filter.DoseType
                 |> Option.map (DoseType.eqsType sr.DoseType)
                 |> Option.defaultValue true
-            fun (sr : SolutionRule) -> filter.Weight |> Utils.MinMax.inRange sr.Weight
-            fun (sr : SolutionRule) ->
-                match sr.Location with
-                | CVL -> filter.Locations |> List.exists ((=) CVL)
-                | PVL //-> filter.Location = PVL
-                | AnyAccess -> true
         |]
         |> Array.fold (fun (acc : SolutionRule[]) pred ->
             acc |> Array.filter pred
@@ -278,7 +278,7 @@ module SolutionRule =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
 
             let loc =
-                match sr.Location with
+                match sr.PatientCategory.Location with
                 | CVL -> "###### centraal: \n* "
                 | PVL -> "###### perifeer: \n* "
                 | AnyAccess -> "* "
@@ -408,7 +408,7 @@ module SolutionRule =
                 |> fun r ->
                     if r.rules = Array.empty then r
                     else
-                        (r, r.rules |> Array.groupBy _.Department)
+                        (r, r.rules |> Array.groupBy _.PatientCategory.Department)
                         ||> Array.fold (fun acc (dep, rs) ->
                             let dep = dep |> Option.defaultValue ""
                             {| acc with
@@ -422,8 +422,8 @@ module SolutionRule =
                                      r.rules
                                      |> Array.groupBy (fun r ->
                                         {|
-                                            Age = r.Age
-                                            Weight = r.Weight
+                                            Age = r.PatientCategory.Age
+                                            Weight = r.PatientCategory.Weight
                                             Dose = r.Dose
                                             DoseType = r.DoseType
                                         |}
@@ -432,7 +432,7 @@ module SolutionRule =
                                     ||> Array.fold (fun acc (sel, rs) ->
                                         let sol =
                                             rs
-                                            |> Array.groupBy _.Location
+                                            |> Array.groupBy _.PatientCategory.Location
                                             |> Array.collect (fun (_, rs) ->
                                                 rs
                                                 |> Array.tryHead

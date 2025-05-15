@@ -116,10 +116,7 @@ module PrescriptionRule =
                 SolutionRules =
                     let solFilter =
                         { Filter.solutionFilter dr.Generic with
-                            Department = filter.Patient.Department
-                            Locations = filter.Patient.Locations
-                            Age = filter.Patient.Age
-                            Weight  = filter.Patient.Weight
+                            Patient = filter.Patient
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
                             Diluent = filter.Diluent

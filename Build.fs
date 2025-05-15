@@ -77,7 +77,7 @@ Target.create
     )
 
 
-Target.create "ServerTests" (fun _ -> run dotnet [ "test"; sln; "--no-build"; "--no-restore" ] ".")
+Target.create "ServerTests" (fun _ -> run dotnet [ "test"; sln; "--no-restore" ] ".")
 
 
 Target.create
