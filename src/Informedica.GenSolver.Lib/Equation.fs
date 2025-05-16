@@ -354,16 +354,24 @@ module Equation =
                 y |> op2 <| (xs |> List.reduce op1)
                 |> Some
 
+        // optimization to skip the most expensive calculation
+        let c = (vars |> List.length)
+
         vars
-        |> List.fold (fun acc vars ->
-            if acc |> Option.isSome then acc
+        |> List.fold (fun (n, acc) vars ->
+            let n = n + 1
+
+            if acc |> Option.isSome then (n, acc)
             else
                 match vars with
                 | _, []
-                | _, [ _ ] -> acc
+                | _, [ _ ] -> n, acc
                 | i, y::xs ->
                     // skip calculation if variable is already solved
-                    if y |> Variable.isSolved then None
+                    // or if this is the last calculation (i.e. previous calculations
+                    // where unchanged)
+                    if y |> Variable.isSolved ||
+                       (n = c && y |> Variable.hasValues) then None
                     else
                         let op2 = if i = 0 then op1 else op2
                         // log starting the calculation
@@ -380,7 +388,7 @@ module Equation =
                             |> Events.EquationFinishedCalculation
                             |> Logging.logInfo log
 
-                            None
+                            n, None
                         | Some var ->
                             let yNew = y @<- var
 
@@ -390,15 +398,16 @@ module Equation =
                                 |> Events.EquationFinishedCalculation
                                 |> Logging.logInfo log
 
-                                Some yNew
+                                n, Some yNew
                             else
                                 // log finishing the calculation
                                 ([], false)
                                 |> Events.EquationFinishedCalculation
                                 |> Logging.logInfo log
 
-                                None
-        ) None
+                                n, None
+        ) (0, None)
+        |> snd
 
 
     // loop until no changes are detected, i.e.
@@ -443,8 +452,6 @@ module Equation =
 
     // The actual solving function
     let private solve_ onlyMinIncrMax log eq =
-        // orders a list of vars such that most expensive calculations
-        // will be performed last (i.e. possibly prevented)
         let reorder = List.reorder >> List.mapi (fun i x -> (i, x))
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list

@@ -8,7 +8,7 @@ module Utils =
     module List =
 
         /// <summary>
-        /// Reorder a liat according to a permutation. Such that a list
+        /// Reorder a list according to a permutation. Such that a list
         /// of lists is returned such that [a1; a2; a3; ..; an] becomes
         /// [|
         ///     [ a1; a2; a3; ..; an ]
