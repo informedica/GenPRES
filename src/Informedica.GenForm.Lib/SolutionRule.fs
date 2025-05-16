@@ -53,6 +53,7 @@ module SolutionRule =
                     Generic = get "Generic"
                     Shape = get "Shape"
                     Route = get "Route"
+                    Indication = get "Indication"
                     Department = get "Dep"
                     CVL = get "CVL"
                     PVL = get "PVL"
@@ -60,6 +61,8 @@ module SolutionRule =
                     MaxAge = get "MaxAge" |> toBrOpt
                     MinWeight = get "MinWeight" |> toBrOpt
                     MaxWeight = get "MaxWeight" |> toBrOpt
+                    MinGestAge = get "MinGestAge" |> toBrOpt
+                    MaxGestAge = get "MaxGestAge" |> toBrOpt
                     MinDose = get "MinDose" |> toBrOpt
                     MaxDose = get "MaxDose" |> toBrOpt
                     DoseType = get "DoseType"
@@ -91,6 +94,9 @@ module SolutionRule =
                         if r.Shape |> String.isNullOrWhiteSpace then None
                         else r.Shape |> Some
                     Route = r.Route
+                    Indication =
+                        if r.Indication |> String.isNullOrWhiteSpace then None
+                        else r.Indication |> Some
                     PatientCategory =
                         { PatientCategory.empty with
                             Department =
@@ -108,6 +114,9 @@ module SolutionRule =
                             Weight =
                                 (r.MinWeight, r.MaxWeight)
                                 |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                            GestAge =
+                                (r.MinGestAge, r.MaxGestAge)
+                                |> fromTupleInclExcl (Some Utils.Units.day)
                         }
                     Dose =
                         (r.MinDose, r.MaxDose)
@@ -133,7 +142,7 @@ module SolutionRule =
                         (r.MinVol, r.MaxVol)
                         |> fromTupleInclIncl (Some Units.mL)
                     VolumeAdjust =
-                        (r.MinVol, r.MaxVol)
+                        (r.MinVolAdj, r.MaxVolAdj)
                         |> fromTupleInclIncl (Units.mL |> Units.per Units.Weight.kiloGram |> Some)
                     DripRate =
                         (r.MinDrip, r.MaxDrip)
@@ -224,6 +233,7 @@ module SolutionRule =
             fun (sr : SolutionRule) -> sr.Generic |> String.equalsCapInsens filter.Generic
             fun (sr : SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
             fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
+            fun (sr : SolutionRule) -> sr.Indication |> Option.map (eqs filter.Indication) |> Option.defaultValue true
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
             fun (sr : SolutionRule) ->
                 sr.DoseType = NoDoseType ||

@@ -2,6 +2,9 @@
 #time
 
 // load demo or product cache
+
+open Informedica.GenOrder.Lib.Types.FilterItem
+
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_LOG", "1")
@@ -114,8 +117,17 @@ SolutionRule.get ()
 )
 
 
-Patient.infant
-|> Patient.setWeight (6m |> Kilogram |> Some)
+SolutionRule.get ()
+|> SolutionRule.filter {
+    Filter.solutionFilter "Samenstelling B" with
+        Patient =
+            Patient.premature
+            |> Patient.setWeight ((750m/1000m) |> Kilogram |> Some)
+}
+
+
+
+Patient.newBorn
 |> PrescriptionRule.get
 |> Array.filter (fun pr ->
     pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling B"
@@ -161,8 +173,12 @@ Patient.teenager
 
 
 Patient.infant
-|> Patient.setWeight (10m |> Kilogram |> Some)
+|> Patient.setWeight (6m |> Kilogram |> Some)
 |> OrderContext.create
+|> fun ctx ->
+    { ctx with
+        OrderContext.Filter.Generic = Some "Samenstelling B"
+    }
 |> OrderContext.UpdateOrderContext
 |> OrderContext.evaluate
 |> fun cmd ->
@@ -172,3 +188,13 @@ Patient.infant
     |> _.Order
     |> Order.print
     |> ignore
+
+
+Patient.infant
+|> Patient.setWeight (6m |> Kilogram |> Some)
+|> OrderContext.create
+|> fun ctx ->
+    { ctx with
+        OrderContext.Filter.Generic = Some "Samenstelling B"
+    }
+|> OrderContext.getRules

@@ -116,13 +116,15 @@ module PrescriptionRule =
                 SolutionRules =
                     let solFilter =
                         { Filter.solutionFilter dr.Generic with
-                            Patient = filter.Patient
+                            Patient = pat
                             Shape = dr.Shape |> Some
                             Route = dr.Route |> Some
+                            Indication = dr.Indication |> Some
                             Diluent = filter.Diluent
                             DoseType = dr.DoseType |> Some
                             Dose = None
                         }
+
                     SolutionRule.get ()
                     |> SolutionRule.filter solFilter
                     |> Array.map (fun sr ->

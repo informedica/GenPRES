@@ -24,6 +24,7 @@ module Filter =
             Generic = gen
             Shape = None
             Route = None
+            Indication = None
             DoseType = None
             Diluent = None
             Patient = Patient.patient

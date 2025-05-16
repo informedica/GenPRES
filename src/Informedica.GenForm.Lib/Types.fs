@@ -386,6 +386,7 @@ module Types =
             // The Route of the SolutionRule
             Route : string
             // The DoseType of the SolutionRule
+            Indication : string option
             DoseType : DoseType
             // The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
@@ -499,6 +500,7 @@ module Types =
             // The Route of the SolutionRule
             Route : string option
             // The DoseType of the SolutionRule
+            Indication : string option
             DoseType : DoseType option
             // the patient
             Patient : Patient

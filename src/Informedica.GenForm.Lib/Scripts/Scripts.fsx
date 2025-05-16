@@ -72,7 +72,7 @@ SolutionRule.get ()
 |> Array.filter (fun sr ->
     sr.Generic = "amikacine" &&
     sr.Route =  "intraveneus" &&
-    sr.Department = Some "ICK"
+    sr.PatientCategory.Department = Some "ICK"
 )
 
 

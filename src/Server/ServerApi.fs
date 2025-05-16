@@ -836,9 +836,6 @@ module Command =
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
         match cmd with
-        | OrderContextCmd ctxCmd
-        | OrderContextCmd ctxCmd
-        | OrderContextCmd ctxCmd
         | OrderContextCmd ctxCmd ->
             ctxCmd
             |> OrderContext.evaluate
