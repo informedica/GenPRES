@@ -449,8 +449,11 @@ module OrderVariable =
         { ovar with
             Variable =
                 if ovar.Constraints |> Constraints.isEmpty then
-                    ovar.Variable
-                    |> Variable.setNonZeroAndPositive
+                    { ovar.Variable with
+                        Values =
+                            ValueRange.unrestricted
+                            |> ValueRange.nonZeroAndPositive
+                    }
                 else
                     { ovar.Variable with
                         Values = ovar.Constraints |> Constraints.toValueRange

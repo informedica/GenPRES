@@ -370,6 +370,9 @@ module Equation =
                     // skip calculation if variable is already solved
                     // or if this is the last calculation (i.e. previous calculations
                     // where unchanged)
+                    (*
+                    if y |> Variable.isSolved then None
+                    *)
                     if y |> Variable.isSolved ||
                        (n = c && y |> Variable.hasValues) then None
                     else

@@ -3447,7 +3447,7 @@ module Order =
             else
                 ord
                 |> fromOrdVars ovars
-                |> solveOrder false logger // could possible restrict to solve variable
+                |> solveOrder true logger // could possibly restrict to solve variable
                 |> function
                     | Ok ord  ->
                         isSolved <- true
@@ -3551,8 +3551,10 @@ module Order =
         ord
         |> OrderPropertyChange.proc
             [
-                PrescriptionTime OrderVariable.Time.setToNonZeroPositive
-                OrderableDose Dose.setRateToNonZeroPositive
+                if ord.Prescription |> Prescription.hasTime then
+                    PrescriptionTime OrderVariable.Time.setToNonZeroPositive
+                    OrderableDose Dose.setRateToNonZeroPositive
+
                 OrderableDose Dose.setQuantityToNonZeroPositive
                 ComponentDose ("", Dose.setQuantityToNonZeroPositive)
                 ItemDose ("", "", Dose.setQuantityToNonZeroPositive)
@@ -3576,8 +3578,9 @@ module Order =
                 ComponentDose ("", Dose.applyQuantityMaxConstraints)
                 OrderableDoseCount OrderVariable.Count.applyConstraints
 
-                PrescriptionTime OrderVariable.Time.applyConstraints
-                OrderableDose Dose.setStandardRateConstraints
+                if ord.Prescription |> Prescription.hasTime then
+                    PrescriptionTime OrderVariable.Time.applyConstraints
+                    OrderableDose Dose.setStandardRateConstraints
 
                 // if the orderable doesn't have a max constraint, then
                 // use the per-time constraints
@@ -3789,10 +3792,9 @@ module Order =
             |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared procCleared
         | ReCalcValues ord ->
             ord
+            |> applyConstraints
             |> (NotProcessed >> Ok)
-            |> procIf "order is solved and not cleared: recalc order" doseSolvedNotCleared (calcMinMax true >> Result.bind calcValues)
-            |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
-            |> procIf "order not solved has no values: calc values" noValues calcValues
+            |> procIf "recalc requested: recalc order" (fun _ -> true) (calcMinMax false >> Result.bind calcValues)
 
         |> Result.map (function | Processed ord | NotProcessed ord -> ord)
 
