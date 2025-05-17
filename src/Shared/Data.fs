@@ -75,6 +75,7 @@ module NormalValues =
 
     let ageHeight =
         [
+            0., 50.
             0.6792, 52.95
             3., 52.95
             6., 60.5
