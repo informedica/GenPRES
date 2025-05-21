@@ -1375,6 +1375,33 @@ module Order =
                 }
 
 
+            let harmonizeItemConcentrations cmp =
+                if (cmp |> inf).Items |> List.length <= 1 then false, cmp
+                else
+                    match
+                        cmp.Items
+                        |> List.map _.ComponentConcentration
+                        |> List.map (Concentration.toOrdVar >> OrderVariable.getIndices)
+                        |> List.distinct with
+                    | []
+                    | [ _ ] -> false, cmp
+                    | xs ->
+                        let indices = xs |> List.sortBy Array.length |> List.head
+                        writeWarningMessage $"applying indices {indices |> Array.toList} to items in {cmp.Name}"
+                        true,
+                        { cmp with
+                            Items =
+                                cmp.Items
+                                |> List.map (fun itm ->
+                                    { itm with
+                                        ComponentConcentration =
+                                            itm.ComponentConcentration
+                                            |> Concentration.applyIndices indices
+                                    }
+                                )
+                        }
+
+
             let setDoseUnit sn du = applyToAllItems (Item.setDoseUnit sn du)
 
 
@@ -1743,6 +1770,25 @@ module Order =
 
 
         let applyToComponent s = applyToComponents (_.Name >> Name.toString >> String.equalsCapInsens s)
+
+
+        let harmonizeItemConcentrations orb =
+            let mutable isHarmonized = false
+
+            let orb =
+                { (orb |> inf) with
+                    Components =
+                        orb.Components
+                        |> List.map (fun cmp ->
+                            let b, cmp = cmp |> Component.harmonizeItemConcentrations
+                            if b then
+                                writeWarningMessage $"Component indices harmonized for {cmp.Name}"
+                                isHarmonized <- true
+                            cmp
+                        )
+                }
+
+            isHarmonized, orb
 
 
         /// <summary>
@@ -3244,7 +3290,15 @@ module Order =
     /// <param name="ord">The Order</param>
     /// <returns>A Result with the Order or a list error messages</returns>
     /// <raises>Any exception raised by the solver</raises>
-    let solve minMax printErr logger (ord: Order) =
+    let rec solve minMax printErr logger (ord: Order) =
+        let harmonize ord =
+            ord.Orderable
+            |> Orderable.harmonizeItemConcentrations
+            |> function
+                | false, _ -> ord |> Ok
+                | true, orb ->
+                    { ord with Order.Orderable = orb }
+                    |> solve minMax true logger
 
         let mapping =
             match ord.Prescription with
@@ -3271,19 +3325,27 @@ module Order =
                 eqs
                 |> Solver.mapToOrderEqs oEqs
                 |> mapFromOrderEquations ord
-                |> Ok
+                |> harmonize
             | Error (eqs, m) ->
                 eqs
                 |> Solver.mapToOrderEqs oEqs
                 |> mapFromOrderEquations ord
-                |> fun ord -> Error (ord, m)
+                |> fun ord ->
+                    if printErr then
+                        ord
+                        |> toString
+                        |> List.mapi (sprintf "%i. %s")
+                        |> List.iter writeErrorMessage
+
+                    Error (ord, m)
         with
         | e ->
             if printErr then
                 oEqs
                 |> mapFromOrderEquations ord
                 |> toString
-                |> List.iteri (printfn "%i. %s")
+                |> List.mapi (sprintf "%i. %s")
+                |> List.iter writeErrorMessage
 
             let msg = [ e |> Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException ]
             Error (ord, msg)
@@ -3748,7 +3810,6 @@ module Order =
 
 === PIPELINE ===
 {msg}
-=== END PIPELINE ===
 
                     """
                     |> writeDebugMessage
@@ -3790,6 +3851,7 @@ module Order =
             |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
             |> procIf "order has values: solve order" hasValues (solveOrder true logger)
             |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared procCleared
+            |> procIf "order is solved no cleared prop: just solve" (fun _ -> true) (solveOrder true logger)
         | ReCalcValues ord ->
             ord
             |> applyConstraints
@@ -3797,6 +3859,7 @@ module Order =
             |> procIf "recalc requested: recalc order" (fun _ -> true) (calcMinMax false >> Result.bind calcValues)
 
         |> Result.map (function | Processed ord | NotProcessed ord -> ord)
+        |> Result.map (fun ord -> "\n=== END PIPELINE ===\n" |> writeDebugMessage ;ord)
 
 
     module Print =

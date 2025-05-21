@@ -102,30 +102,6 @@ open Patient.Optics
 let printCtx = OrderContext.printCtx
 
 
-module Orderable = Order.Orderable
-module Dose = Orderable.Dose
-
-open Informedica.GenUnits.Lib
-
-
-let mutable value : Order Option = None
-
-
-SolutionRule.get ()
-|> Array.filter (fun sr ->
-    sr.Generic |> String.equalsCapInsens "Samenstelling B"
-)
-
-
-SolutionRule.get ()
-|> SolutionRule.filter {
-    Filter.solutionFilter "Samenstelling B" with
-        Patient =
-            Patient.premature
-            |> Patient.setWeight ((750m/1000m) |> Kilogram |> Some)
-}
-
-
 
 Patient.newBorn
 |> PrescriptionRule.get

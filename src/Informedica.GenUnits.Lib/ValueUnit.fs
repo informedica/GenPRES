@@ -2511,7 +2511,6 @@ module ValueUnit =
     /// <summary>
     /// Create a ValueUnit from a value v
     /// (a bigrational array) and a unit u
-    /// Makes sure there are nog duplicates and sorts the result.
     /// </summary>
     /// <example>
     /// create (Mass (KiloGram 1N)) [| 1N; 2N; 3N |] = ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N))
@@ -2521,7 +2520,7 @@ module ValueUnit =
         | NoUnit when v = [| 0N |] -> ([| 0N |], ZeroUnit) |> ValueUnit
         | ZeroUnit -> ([| 0N |], ZeroUnit) |> ValueUnit
         | _ ->
-            (v |> Array.distinct |> Array.sort, u)
+            (v, u)
             |> ValueUnit
 
 
@@ -2954,6 +2953,23 @@ module ValueUnit =
             else
                 vu |> setValue [| 0N |]
 
+
+    /// Get the indices of the values in vu1 that are also in vu2
+    let getIndices vu1 vu2 =
+        let vals1, vals2 =
+            vu1 |> getBaseValue
+            , vu2 |> getBaseValue
+
+        let pred x = vals2 |> Array.exists ((=) x)
+        vals1 |> Array.indices pred
+
+
+    let pickIndices indices vu=
+        let vals = vu |> getValue
+
+        indices
+        |> Array.choose (fun i -> vals |> Array.tryItem i)
+        |> create (vu |> getUnit)
 
 
     module private UnitItem =
@@ -3398,6 +3414,7 @@ module ValueUnit =
             |> applyToValue (fun xs ->
                 let i = (xs |> Array.length) / 2
                 xs
+                |> Array.sort
                 |> Array.tryItem i
                 |> Option.map Array.singleton
                 |> Option.defaultValue xs

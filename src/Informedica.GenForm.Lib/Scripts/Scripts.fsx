@@ -34,8 +34,7 @@ open Informedica.GenForm.Lib
 
 Product.get ()
 |> Array.filter (fun p ->
-    p.Generic = "abacavir" &&
-    p.Routes |> Array.exists (String.equalsCapInsens "oraal")
+    p.Generic = "glucose"
 )
 
 
@@ -49,14 +48,14 @@ let dr =
                     Department = Some "ICK"
                     Age =
                         Units.Time.year
-                        |> ValueUnit.singleWithValue 10N
+                        |> ValueUnit.singleWithValue 1N
                         |> Some
                     Weight =
                       Units.Weight.kiloGram
-                      |> ValueUnit.singleWithValue (40N)
+                      |> ValueUnit.singleWithValue (10N)
                       |> Some
                 }
-            Generic = Some "vancomycine"
+            Generic = Some "Samenstelling C"
             Shape = Some ""
             Route = Some "intraveneus"
         }
@@ -64,6 +63,16 @@ let dr =
 
 dr
 |> DoseRule.addShapeLimits
+
+let details = DoseRule.getDoseRuleDetails dataUrlId
+
+details
+|> Array.filter (fun dr ->
+    dr.Generic = "Samenstelling C" &&
+    dr.DoseType = "timed" &&
+    dr.DoseText = "dag 1"
+)
+
 
 Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
 

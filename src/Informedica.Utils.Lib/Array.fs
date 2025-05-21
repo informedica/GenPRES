@@ -12,6 +12,12 @@ module Array =
     let prepend xs1 xs2 = xs1 |> Array.append xs2
 
 
+    let indices pred xs =
+        xs
+        |> Array.mapi (fun i x -> if pred x then Some i else None)
+        |> Array.choose id
+
+
     /// Pick elements from an array
     /// using a list of indices `pl`0
     let pickArray pl xs =

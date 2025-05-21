@@ -36,7 +36,7 @@ module Order =
             | ChangeSubstancePerTimeAdjust of string option
             | ChangeSubstanceRate of string option
             | ChangeSubstanceRateAdjust of string option
-            | ChangeSubstanceComponentConcentration of string option
+            | ChangeSubstanceComponentConcentration of string * string * string option
             | ChangeSubstanceOrderableConcentration of string option
             | ChangeOrderableDoseQuantity of string option
             | ChangeOrderableDoseRate of string option
@@ -417,7 +417,8 @@ module Order =
                     { state with Order = None}, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-            | ChangeSubstanceComponentConcentration s ->
+            | ChangeSubstanceComponentConcentration (cname, iname, s) ->
+                Logging.log "ChangeSubstanceComponentConcentration" (cname, iname, s)
                 match state.Order with
                 | Some ord ->
                     let msg =
@@ -427,7 +428,7 @@ module Order =
                                     Components =
                                         ord.Orderable.Components
                                         |> Array.mapi (fun i cmp ->
-                                            if i > 0 then cmp
+                                            if i > 0 && cmp.Name <> cname then cmp
                                             else
                                                 { cmp with
                                                     Items =
@@ -440,7 +441,15 @@ module Order =
                                                                         itm.ComponentConcentration
                                                                         |> setOvar s
                                                                 }
-                                                            | _ -> itm
+                                                            | _ -> 
+                                                                if itm.Name <> iname then itm
+                                                                else
+                                                                    { itm with
+                                                                        ComponentConcentration =
+                                                                            itm.ComponentConcentration
+                                                                            |> setOvar s
+                                                                    }
+
                                                         )
                                                 }
                                         )
@@ -450,6 +459,7 @@ module Order =
                         |> UpdateOrderScenario
                     { state with Order = None }, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
+
 
             | ChangeSubstanceOrderableConcentration s ->
                 match state.Order with
@@ -760,7 +770,6 @@ module Order =
                         match substIndx, state.Order with
                         | Some i, Some ord when ord.Prescription.IsContinuous |> not &&
                                                 itms |> Array.length > 0 ->
-                            Logging.log "prescription" ord.Prescription
                             let label, vals =
                                 itms[i].Dose.Quantity.Variable.Vals
                                 |> Option.map (fun v ->
@@ -841,15 +850,44 @@ module Order =
                     }
                     {
                         match substIndx, state.Order with
-                        | Some i, Some ord when itms |> Array.length > 0 ->
-                            itms[i].ComponentConcentration.Variable.Vals
-                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
-                            |> Option.defaultValue [||]
-                            |> fun xs -> if xs |> Array.length <= 1 then [||] else xs
-                            |> select false "Product Sterkte" None (ChangeSubstanceComponentConcentration >> dispatch)
+                        | Some i, Some ord ->
+                            match itms |> Array.tryItem i with
+                            | Some itm ->
+                                let cname, iname = 
+                                    ord.Orderable.Components |> Array.tryHead |> Option.map _.Name |> Option.defaultValue ""
+                                    , itm.Name
+
+                                let change = fun s -> (cname, iname, s) |> ChangeSubstanceComponentConcentration
+
+                                itm.ComponentConcentration.Variable.Vals
+                                |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                                |> Option.defaultValue [||]
+                                |> fun xs -> if xs |> Array.length <= 1 then [||] else xs
+                                |> select false "Product Sterkte" None (change >> dispatch)
+                            | None ->
+                                match 
+                                    ord.Orderable.Components
+                                    |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || c.Name = state.SelectedComponent.Value) with
+                                | Some cmp ->
+                                    match cmp.Items |> Array.tryFind (fun i -> i.Name = cmp.Name) with
+                                    | Some itm -> 
+                                        let change = fun s -> (cmp.Name, itm.Name, s) |> ChangeSubstanceComponentConcentration
+
+                                        itm.ComponentConcentration.Variable.Vals
+                                        |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
+                                        |> Option.defaultValue [||]
+                                        |> select false "Product Sterkte" None (change >> dispatch)
+                                    | None -> 
+                                        [||]
+                                        |> select true "" None ignore
+                                | None -> 
+                                    [||]
+                                    |> select true "" None ignore
+
                         | _ ->
                             [||]
                             |> select true "" None ignore
+
                     }
                     {
                         match substIndx, state.Order with

@@ -259,10 +259,12 @@ module Product =
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                     {|
+                        GPK = get "GPK"
                         Name = get "Name"
                         Substances =
                             [|
                                 "volume mL", get "volume mL" |> toBrOpt
+                                "glucose g", get "glucose g" |> toBrOpt
                                 "energie kCal", get "energie kCal" |> toBrOpt
                                 "eiwit g", get "eiwit g" |> toBrOpt
                                 "koolhydraat g", get "koolhydraat g" |> toBrOpt
@@ -284,8 +286,9 @@ module Product =
                     |}
                 )
                 |> Array.map (fun r ->
+
                     {
-                        GPK =  r.Name
+                        GPK =  r.GPK
                         ATC = ""
                         MainGroup = ""
                         SubGroup = ""

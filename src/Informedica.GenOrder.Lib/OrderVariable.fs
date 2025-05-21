@@ -708,6 +708,21 @@ module OrderVariable =
         }
 
 
+    let getIndices (ovar: OrderVariable) =
+        ovar.Variable
+        |> Variable.getValueRange
+        |> ValueRange.getIndices (ovar.Constraints |> Constraints.toValueRange)
+
+
+    let applyIndices (indices: int[]) (ovar: OrderVariable) =
+        { ovar with
+            OrderVariable.Variable.Values =
+                ovar.Constraints
+                |> Constraints.toValueRange
+                |> ValueRange.pickIndices indices
+        }
+
+
     let isNonZeroPositive (ovar: OrderVariable) =
         ovar.Variable
         |> Variable.isNonZeroPositive   ||
@@ -1335,6 +1350,10 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
+        let applyIndices indices =
+            toOrdVar >> applyIndices indices >> Concentration
+
+
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
@@ -1428,6 +1447,10 @@ module OrderVariable =
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
+
+
+        let applyIndices indices =
+            toOrdVar >> applyIndices indices >> Quantity
 
 
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive

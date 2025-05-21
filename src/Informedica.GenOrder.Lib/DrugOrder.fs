@@ -297,6 +297,7 @@ module DrugOrder =
                         [|
                             {
                                 Name = p.Generic
+                                GPKs = [| p.GPK |]
                                 Limit = None
                                 Products = [| p |]
                                 SubstanceLimits = [||]

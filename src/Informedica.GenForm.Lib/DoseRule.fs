@@ -467,7 +467,7 @@ module DoseRule =
                 Brand =
                     if r.Brand |> String.isNullOrWhiteSpace then None
                     else r.Brand |> Some
-                GPKs = r.GPKs
+//                GPKs = r.GPKs
                 Route = r.Route
                 ScheduleText = r.ScheduleText
                 PatientCategory =
@@ -626,6 +626,7 @@ cannot map {r}
 
     let getDoseRuleDetails dataUrl =
         let prods = Product.get ()
+
         let warnings = System.Collections.Generic.Dictionary<_, _>()
 
         dataUrl
@@ -925,6 +926,7 @@ cannot map {r}
 
                     {
                         Name = cmp
+                        GPKs = rs |> Array.collect _.GPKs
                         Limit = lim
                         Products =
                             rs

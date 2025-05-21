@@ -1132,6 +1132,24 @@ module Variable =
 
 
             /// <summary>
+            /// Get the indices of the values in the first `ValueSet` that are also in the second `ValueSet`.
+            /// </summary>
+            let getIndices vs1 vs2 =
+                let ValueSet vu1, ValueSet vu2 = vs1, vs2
+
+                ValueUnit.getIndices vu1 vu2
+
+
+            let pickIndices indices =
+                function
+                | ValueSet vu ->
+                    vu
+                    |> ValueUnit.pickIndices indices
+                    |> ValueSet
+
+
+
+            /// <summary>
             /// Apply a binary operator to two `ValueSet`s.
             /// </summary>
             /// <param name="op">The operator to apply</param>
@@ -2631,6 +2649,23 @@ module Variable =
             | _ -> vr
 
 
+        /// Get the indices of the values in a ValueRange vr1
+        /// that are also in a ValueRange vr2.
+        let getIndices vr1 vr2 =
+            match vr1, vr2 with
+            | ValSet vs1, ValSet vs2 -> ValueSet.getIndices vs1 vs2
+            | _ -> [||]
+
+
+        let pickIndices indices vr =
+            match vr with
+            | ValSet vs ->
+                vs
+                |> ValueSet.pickIndices indices
+                |> ValSet
+            | _ -> vr
+
+
         let clear var = { var with Values = Unrestricted }
 
 
@@ -3368,6 +3403,7 @@ module Variable =
     open ValueRange.Operators
 
     module Minimum = ValueRange.Minimum
+
     module Maximum = ValueRange.Maximum
 
 

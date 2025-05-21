@@ -312,6 +312,8 @@ module Types =
     type ComponentLimit =
         {
             Name : string
+            // Specific GPKs
+            GPKs : string array
             Limit : DoseLimit option
             Products : Product []
             SubstanceLimits : DoseLimit []
@@ -331,8 +333,6 @@ module Types =
             Shape : string
             // The brand of the doserule
             Brand : string option
-            // Specific GPKs
-            GPKs : string array
             // The Route of administration of the DoseRule
             Route : string
             // The PatientCategory of the DoseRule

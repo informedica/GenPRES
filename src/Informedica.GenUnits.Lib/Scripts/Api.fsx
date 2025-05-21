@@ -15,6 +15,11 @@ open Swensen.Unquote
 open FParsec
 
 
+[| 1N .. 10N |]
+|> ValueUnit.withUnit Units.Mass.gram
+|> ValueUnit.pickIndices [| 0; 2; 4; 6; 8 |]
+
+
 "piece[General]"
 |> run Parser.parseUnit
 
