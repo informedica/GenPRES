@@ -22,7 +22,7 @@ module Intake =
         [| "natrium"; ""; "mmol/kg/dag" |]
         [| "kalium"; ""; "mmol/kg/dag" |]
         [| "chloride"; ""; "mmol/kg/dag" |]
-        [| "caldium"; ""; "mmol/kg/dag" |]
+        [| "calcium"; ""; "mmol/kg/dag" |]
         [| "magnesium"; ""; "mmol/kg/dag" |]
     |]
 

@@ -101,51 +101,19 @@ open Patient.Optics
 let printCtx = OrderContext.printCtx
 
 
-#r "nuget: ConsoleTables, 2.4.2"
-
 
 
 let ord =
     Patient.newBorn
     |> PrescriptionRule.get
     |> Array.filter (fun pr ->
-        pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling B"
+        pr.DoseRule.Generic |> String.equalsCapInsens "calcium/magnesium"
     )
     |> Array.head
     |> DrugOrder.fromRule
     |> Array.head
     |> DrugOrder.toOrderDto
     |> Order.Dto.fromDto
-
-
-module ConsoleTables =
-
-    open ConsoleTables
-
-    let from<'T> rows =
-        ConsoleTable.From<'T>(rows)
-
-
-ord
-|> Order.toStringWithConstraints
-|> List.map (fun s ->
-    s
-    |> String.replace "[" ""
-    |> String.replace "]_" "|"
-    |> String.split "|"
-)
-|> List.filter (List.length >> (=) 3)
-|> List.map (fun xs ->
-    let v =
-        xs[1] |> String.split " "
-    {|
-        ``1 - NAME`` = xs.[0] |> String.trim
-        ``2 - VARIABLE`` = v[0] |> String.trim
-        ``3 - VALUE`` = v[1] |> String.trim
-        ``4 - CONSTRAINTS`` = xs.[2] |> String.trim
-    |}
-)
-|> ConsoleTables.from
 
 
 Patient.teenager

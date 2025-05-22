@@ -13,6 +13,8 @@ fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 #r "nuget: Markdig"
 #r "nuget: ClosedXML"
 
+#r "nuget: ConsoleTables, 2.4.2"
+
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
 #r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"

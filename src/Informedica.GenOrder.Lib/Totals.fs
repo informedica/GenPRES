@@ -111,7 +111,7 @@ module Totals =
         let intake =
             dto
             |> Array.map Order.Dto.fromDto
-            |> calc wght Informedica.GenUnits.Lib.Units.Time.day
+            |> calc wght Units.Time.day
 
         let get n =
                 intake
