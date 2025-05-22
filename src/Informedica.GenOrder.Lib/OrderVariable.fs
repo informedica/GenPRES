@@ -598,6 +598,7 @@ module OrderVariable =
                     |> List.skip 1
                     |> String.concat "."
                     |> sprintf "[%s"
+
         let vs =
             ovar.Variable
             |> Variable.getValueRange
@@ -1751,7 +1752,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Total` as a value unit string list
@@ -2057,7 +2058,7 @@ module OrderVariable =
 
 
         /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
+        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `RateAdjust` as a value unit string list

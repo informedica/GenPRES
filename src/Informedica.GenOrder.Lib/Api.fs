@@ -187,6 +187,7 @@ module OrderScenario =
 module OrderContext =
 
     open System
+    open ConsoleTables
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
@@ -395,10 +396,7 @@ module OrderContext =
 
         let printOrder ord =
             ord
-            |> Order.toStringWithConstraints
-            |> String.concat "\n"
-            |> sprintf "\n%s\n"
-            |> writeDebugMessage
+            |> Order.printTable
 
             ord
 
@@ -661,18 +659,12 @@ module OrderContext =
         let scenarios =
             match ctx.Scenarios |> Array.tryExactlyOne with
             | Some sc ->
-                sc.Order
-                |> Order.toStringWithConstraints
-                |> String.concat "\n"
-                |> fun s ->
                     $"""
 
 Scenario Diluent: {sc.Diluent |> Option.defaultValue ""}
 Scenario Component: {sc.Component |> Option.defaultValue ""}
 Scenario Item: {sc.Item |> Option.defaultValue ""}
 Order State: {sc.Order |> Order.printState}
-
-{s}
 """
             | _ -> $"{ctx.Scenarios |> Array.length}"
 
@@ -879,6 +871,10 @@ Scenarios: {scenarios}
         ctx
         |> toString $"Order Context"
         |> writeDebugMessage
+
+        ctx.Scenarios
+        |> Array.tryExactlyOne
+        |> Option.iter (_.Order >> Order.printTable Format.Minimal)
 
         writeDebugMessage $"\n===\n"
 

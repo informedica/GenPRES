@@ -40,6 +40,7 @@ nuget YoloDev.Expecto.TestSdk
 nuget Markdig
 nuget Aether
 nuget ClosedXML = 0.97
+nuget ConsoleTables
 
 nuget Unquote
 nuget Expecto ~> 9

@@ -3,7 +3,6 @@
 
 // load demo or product cache
 
-open Informedica.GenOrder.Lib.Types.FilterItem
 
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
@@ -102,19 +101,51 @@ open Patient.Optics
 let printCtx = OrderContext.printCtx
 
 
+#r "nuget: ConsoleTables, 2.4.2"
 
-Patient.newBorn
-|> PrescriptionRule.get
-|> Array.filter (fun pr ->
-    pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling B"
+
+
+let ord =
+    Patient.newBorn
+    |> PrescriptionRule.get
+    |> Array.filter (fun pr ->
+        pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling B"
+    )
+    |> Array.head
+    |> DrugOrder.fromRule
+    |> Array.head
+    |> DrugOrder.toOrderDto
+    |> Order.Dto.fromDto
+
+
+module ConsoleTables =
+
+    open ConsoleTables
+
+    let from<'T> rows =
+        ConsoleTable.From<'T>(rows)
+
+
+ord
+|> Order.toStringWithConstraints
+|> List.map (fun s ->
+    s
+    |> String.replace "[" ""
+    |> String.replace "]_" "|"
+    |> String.split "|"
 )
-|> Array.head
-|> DrugOrder.fromRule
-|> Array.head
-|> DrugOrder.toOrderDto
-|> Order.Dto.fromDto
-|> Order.print
-|> ignore
+|> List.filter (List.length >> (=) 3)
+|> List.map (fun xs ->
+    let v =
+        xs[1] |> String.split " "
+    {|
+        ``1 - NAME`` = xs.[0] |> String.trim
+        ``2 - VARIABLE`` = v[0] |> String.trim
+        ``3 - VALUE`` = v[1] |> String.trim
+        ``4 - CONSTRAINTS`` = xs.[2] |> String.trim
+    |}
+)
+|> ConsoleTables.from
 
 
 Patient.teenager

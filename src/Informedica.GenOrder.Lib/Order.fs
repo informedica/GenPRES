@@ -11,6 +11,7 @@ module Order =
 
     open System
     open MathNet.Numerics
+    open ConsoleTables
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineNoTime
@@ -2944,6 +2945,30 @@ module Order =
         ord
 
 
+    let printTable format ord =
+        ord
+        |> toStringWithConstraints
+        |> List.map (fun s ->
+            s
+            |> String.replace "[" ""
+            |> String.replace "]_" "|"
+            |> String.split "|"
+        )
+        |> List.filter (List.length >> (=) 3)
+        |> List.map (fun xs ->
+            let v =
+                xs[1] |> String.split " "
+            {|
+                ``1 - NAME`` = xs[0] |> String.trim
+                ``2 - VARIABLE`` = v[0] |> String.trim
+                ``3 - VALUE`` = v[1..] |> String.concat " " |> String.trim |> String.replace "]" ""
+                ``4 - CONSTRAINTS`` = xs[2] |> String.trim |> String.replace "]" ""
+            |}
+        )
+        |> ConsoleTables.from
+        |> ConsoleTables.write format
+
+
     /// <summary>
     /// Return an Order as a list of OrderVariables
     /// </summary>
@@ -3606,7 +3631,6 @@ module Order =
             [
                 PrescriptionFrequency Frequency.setStandardValues
             ]
-        |> print
 
 
     let orderPropertyChangeDoseQuantity ord =
@@ -3674,7 +3698,6 @@ module Order =
                 // apply time constraints again
                 PrescriptionTime Time.applyConstraints
             ]
-        |> print
 
 
     let processClearedOrder logger ord =
@@ -3750,7 +3773,6 @@ module Order =
             | DoseQuantityCleared ->
                 ord
                 |> orderPropertyChangeDoseQuantity
-                |> print
                 |> solveMinMax true logger
                 |> Result.bind (increaseIncrements logger 100 100)
                 |> Result.map (minIncrMaxToValues true false logger)
@@ -3829,7 +3851,9 @@ module Order =
             |> function
             | Ok res -> res |> Ok
             | Error (_, errs) ->
-                (ord |> print, errs)
+                ord |> printTable Format.Minimal
+
+                (ord , errs)
                 |> Error
 
         match cmd with
