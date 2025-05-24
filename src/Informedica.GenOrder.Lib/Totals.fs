@@ -4,12 +4,13 @@ namespace Informedica.GenOrder.Lib
 
 module Totals =
 
-
+    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib
     open Informedica.GenOrder.Lib
     open Informedica.GenSolver.Lib.Variable.Operators
+    open Informedica.GenForm.Lib.Utils
 
 
     let isVolume (var : Variable) =
@@ -21,25 +22,29 @@ module Totals =
         |> Option.defaultValue false
 
 
-    let getDose tu pres (dose: Dose) =
+    let getDosePerTime u tu pres (dose: Dose) =
         match pres with
         | Timed _
         | Discontinuous _ ->
             dose.PerTime
-            |> OrderVariable.PerTime.setTimeUnit tu
+            |> OrderVariable.PerTime.convertFirstUnit u
+            |> OrderVariable.PerTime.convertTimeUnit tu
             |> OrderVariable.PerTime.toOrdVar
             |> OrderVariable.getVar
         | Continuous _ ->
             dose.Rate
-            |> OrderVariable.Rate.setTimeUnit tu
+            |> OrderVariable.Rate.convertFirstUnit u
+            |> OrderVariable.Rate.convertTimeUnit tu
             |> OrderVariable.Rate.toOrdVar
             |> OrderVariable.getVar
         | Once
         | OnceTimed _ ->
             let var =
                 dose.Quantity
+                |> OrderVariable.Quantity.convertFirstUnit u
                 |> OrderVariable.Quantity.toOrdVar
                 |> OrderVariable.getVar
+
             let unt =
                 var
                 |> Variable.getUnit
@@ -54,13 +59,13 @@ module Totals =
 
 
     let getVolume tu pres (dose: Dose) =
-        let ovar = getDose tu pres dose
+        let ovar = getDosePerTime Units.Volume.milliLiter tu pres dose
 
         if ovar |> isVolume then Some ovar
         else None
 
 
-    let calc wght tu (ords : Order[]) =
+    let calc (ords : Order[]) wght name fu tu =
         match wght with
         | None -> [||]
         | Some w ->
@@ -80,7 +85,8 @@ module Totals =
 
                     for cmp in o.Orderable.Components do
                         for itm in cmp.Items do
-                            itm.Name |> Name.toString, getDose tu o.Prescription itm.Dose
+                            if itm.Name |> Name.toString = name then
+                                itm.Name |> Name.toString, getDosePerTime fu tu o.Prescription itm.Dose
             |]
             |> Array.groupBy fst
             |> Array.map (fun (item, xs) ->
@@ -99,6 +105,7 @@ module Totals =
                         |> List.head
                         |> Units.per Units.Weight.kiloGram
                         |> Units.per tu
+
                     (n,
                     tot ^/ w
                     |> Variable.setUnit u)
@@ -106,21 +113,118 @@ module Totals =
             )
 
 
+    let totals =
+        Web.GoogleSheets.getDataFromSheet
+            "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+            "Totals"
 
-    let getTotals (wght : Informedica.GenUnits.Lib.ValueUnit option) (dto: Order.Dto.Dto []) : Totals =
-        let intake =
-            dto
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
+                data
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
+                    let toBrOpt = BigRational.toBrs >> Array.tryHead
+
+                    {|
+                        Name = get "Name"
+                        MinAge = get "MinAge" |> toBrOpt
+                        MaxAge = get "MaxAge" |> toBrOpt
+                        MinWeight = get "MinWeight" |> toBrOpt
+                        MaxWeight = get "MaxWeight" |> toBrOpt
+                        Unit = get "Unit" |> Units.fromString
+                        Adj = get "Adj" |> Units.fromString
+                        TimeUnit = get "TimeUnit" |> Units.fromString
+                        MinPerTime = get "MinPerTime" |> toBrOpt
+                        MaxPerTime = get "MaxPerTime" |> toBrOpt
+                        MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
+                        MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
+                    |}
+                )
+
+
+
+    let getTotals (age: Informedica.GenUnits.Lib.ValueUnit option) (wght : Informedica.GenUnits.Lib.ValueUnit option) (dtos: Order.Dto.Dto []) : Totals =
+        let ords =
+            dtos
             |> Array.map Order.Dto.fromDto
-            |> calc wght Units.Time.day
+
+        let calc = calc ords wght
+
+        let totals =
+            totals
+            |> Array.filter (fun t ->
+                if wght.IsNone then true
+                else
+                    let w =
+                        wght.Value
+                        |> ValueUnit.convertTo Units.Weight.gram
+                        |> ValueUnit.getValue
+                        |> Array.head
+
+                    match t.MinWeight, t.MaxWeight with
+                    | Some min, Some max ->
+                        min <= w && w < max
+                    | Some min, None ->
+                        min <= w
+                    | None, Some max ->
+                        max > w
+                    | None, None -> true
+            )
+            |> Array.filter (fun t ->
+                if age.IsNone then true
+                else
+                    let a =
+                        age.Value
+                        |> ValueUnit.convertTo Units.Time.day
+                        |> ValueUnit.getValue
+                        |> Array.head
+
+                    match t.MinAge, t.MaxAge with
+                    | Some min, Some max ->
+                        min <= a && a < max
+                    | Some min, None ->
+                        min <= a
+                    | None, Some max ->
+                        max > a
+                    | None, None -> true
+            )
+
+        let calculated =
+            totals
+            |> Array.collect (fun t ->
+                match t.Unit, t.TimeUnit with
+                | Some fu, Some tu ->
+                    calc t.Name fu tu
+                | _ -> [||]
+            )
 
         let get n =
-                intake
-                |> Array.tryFind (fst >> String.equalsCapInsens n)
-                |> Option.map (fun (_, var) ->
+            calculated
+            |> Array.tryFind (fst >> String.equalsCapInsens n)
+            |> Option.map (fun (n, var) ->
+                let s =
                     var
                     |> Informedica.GenSolver.Lib.Variable.getValueRange
                     |> Informedica.GenSolver.Lib.Variable.ValueRange.toMarkdown 3
-                )
+
+                match totals |> Array.tryFind (fun t -> t.Name |> String.equalsCapInsens n) with
+                | None -> s
+                | Some tot ->
+                    match tot.MinPerTimeAdj, tot.MaxPerTimeAdj with
+                    | Some minAdj, Some maxAdj ->
+                        let norm = $"{minAdj |> BigRational.toDouble} - {maxAdj |> BigRational.toDouble}"
+                        s + $" ({norm})"
+                    | None, Some maxAdj ->
+                        let norm = $"{maxAdj |> BigRational.toDouble}"
+                        s + $" (max {norm})"
+                    | _ -> s
+
+            )
 
         {
             Volume = get "volume"

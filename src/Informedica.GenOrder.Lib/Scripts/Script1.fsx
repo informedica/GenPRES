@@ -4,19 +4,65 @@
 
 #time
 
+
 open Informedica.GenOrder.Lib
 
-module Orderable = Order.Orderable
 
-let ord =
-    [
-        "paracetamol", "suppository", ["paracetamol"]
-    ]
-    |> Order.Dto.discontinuous
-        "1"
-        "PCM"
-        "rect"
-    |> Order.Dto.fromDto
+open MathNet.Numerics
+open Informedica.Utils.Lib
+open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
+open Informedica.GenForm.Lib.Utils
 
-ord.Orderable.Components[0].Items[0]
-|> Orderable.Item.toString
+
+type TotalItem =
+    {
+        Name : string
+        Age : MinMax
+        GestAge : MinMax
+        Unit : Unit
+        Adj : Unit
+        TimeUnit : Unit
+        PerTime : PerTime
+        PerTimeAdj : PerTimeAdjust
+    }
+
+
+OrderVariable.PerTime.create
+
+let totals =
+    Web.GoogleSheets.getDataFromSheet
+        "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+        "Totals"
+
+        |> fun data ->
+            let getColumn =
+                data
+                |> Array.head
+                |> Csv.getStringColumn
+
+            data
+            |> Array.tail
+            |> Array.map (fun r ->
+                let get = getColumn r
+                let toBrOpt = BigRational.toBrs >> Array.tryHead
+
+                {|
+                    Name = get "Name"
+                    MinAge = get "MinAge" |> toBrOpt
+                    MaxAge = get "MaxAge" |> toBrOpt
+                    MinGestAge = get "MinGestAge" |> toBrOpt
+                    MaxGestAge = get "MaxGestAge" |> toBrOpt
+                    Unit = get "Unit"
+                    Adj = get "Adj"
+                    TimeUnit = get "TimeUnit"
+                    MinPerTime = get "MinPerTime" |> toBrOpt
+                    MaxPerTime = get "MaxPerTime" |> toBrOpt
+                    MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
+                    MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
+                |}
+            )
+
+
+totals
+|> Array.filter (_.Name >> String.notEmpty)

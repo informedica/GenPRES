@@ -594,14 +594,14 @@ module Order =
 
 
             let setDoseUnit du dos =
-                let qty = (dos |> inf).Quantity |> Quantity.setFirstUnit du
-                let ptm = dos.PerTime |> PerTime.setFirstUnit du
-                let rte = dos.Rate |> Rate.setFirstUnit du
-                let tot = dos.Total |> Total.setFirstUnit du
-                let qty_adj = dos.QuantityAdjust |> QuantityAdjust.setFirstUnit du
-                let ptm_adj = dos.PerTimeAdjust |> PerTimeAdjust.setFirstUnit du
-                let rte_adj = dos.RateAdjust |> RateAdjust.setFirstUnit du
-                let tot_adj = dos.TotalAdjust |> TotalAdjust.setFirstUnit du
+                let qty = (dos |> inf).Quantity |> Quantity.convertFirstUnit du
+                let ptm = dos.PerTime |> PerTime.convertFirstUnit du
+                let rte = dos.Rate |> Rate.convertFirstUnit du
+                let tot = dos.Total |> Total.convertFirstUnit du
+                let qty_adj = dos.QuantityAdjust |> QuantityAdjust.convertFirstUnit du
+                let ptm_adj = dos.PerTimeAdjust |> PerTimeAdjust.convertFirstUnit du
+                let rte_adj = dos.RateAdjust |> RateAdjust.convertFirstUnit du
+                let tot_adj = dos.TotalAdjust |> TotalAdjust.convertFirstUnit du
 
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 

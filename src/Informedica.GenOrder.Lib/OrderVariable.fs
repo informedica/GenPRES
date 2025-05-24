@@ -371,6 +371,12 @@ module OrderVariable =
     let getVar { Variable = var } = var
 
 
+    let setVar var (ovar : OrderVariable) =
+        { ovar with
+            Variable = var
+        }
+
+
     let getValueUnit ovar =
         ovar
         |> getVar
@@ -1414,7 +1420,7 @@ module OrderVariable =
             |> Quantity
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Quantity
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> Quantity
 
 
         /// Turn a `Quantity` to a string
@@ -1538,10 +1544,10 @@ module OrderVariable =
             |> PerTime
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTime
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTime
 
 
-        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTime
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTime
 
 
         /// Turn a `PerTime` to a string
@@ -1632,10 +1638,10 @@ module OrderVariable =
             |> Rate
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Rate
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> Rate
 
 
-        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> Rate
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> Rate
 
 
         /// Turn a `Rate` to a string
@@ -1744,7 +1750,7 @@ module OrderVariable =
             |> Total
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> Total
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> Total
 
 
         /// Turn a `Total` to a string
@@ -1837,7 +1843,7 @@ module OrderVariable =
             |> QuantityAdjust
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> QuantityAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> QuantityAdjust
 
 
         let setNearestValue vu = toOrdVar >> setNormDose vu >> QuantityAdjust
@@ -1946,10 +1952,10 @@ module OrderVariable =
             |> PerTimeAdjust
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTimeAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTimeAdjust
 
 
-        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTimeAdjust
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTimeAdjust
 
 
         let setNearestValue vu = toOrdVar >> setNormDose vu >> PerTimeAdjust
@@ -2047,10 +2053,10 @@ module OrderVariable =
             |> RateAdjust
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> RateAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> RateAdjust
 
 
-        let setTimeUnit u = toOrdVar >> convertTimeUnit u >> RateAdjust
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> RateAdjust
 
 
         /// Turn a `RateAdjust` to a string
@@ -2141,7 +2147,7 @@ module OrderVariable =
             |> TotalAdjust
 
 
-        let setFirstUnit u = toOrdVar >> convertFirstUnit u >> TotalAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> TotalAdjust
 
 
         /// Turn a `TotalAdjust` to a string

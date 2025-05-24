@@ -684,16 +684,21 @@ module Order =
     open Mappers
 
 
-    let getIntake wghtInGram (ords: Order []) =
+    let getIntake age wghtInGram (ords: Order []) =
         let wghtInKg =
             wghtInGram
             |> Option.map BigRational.fromInt
             |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
             |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
+        let age =
+            age
+            |> Option.map BigRational.fromInt
+            |> Option.map (ValueUnit.singleWithUnit Units.Time.day)
+
         ords
         |> Array.map Order.mapFromSharedToOrder
-        |> Totals.getTotals wghtInKg
+        |> Totals.getTotals age wghtInKg
         |> mapToIntake
 
 
@@ -723,10 +728,14 @@ module OrderContext =
         { ctx with
             Intake =
                 let w = ctx.Patient |> Models.Patient.getWeight
+                let a =
+                    ctx.Patient
+                    |> Models.Patient.getAgeInDays
+                    |> Option.map int
 
                 ctx.Scenarios
                 |> Array.map _.Order
-                |> Order.getIntake w
+                |> Order.getIntake a w
         }
 
 
@@ -809,6 +818,7 @@ module TreatmentPlan =
         { tp with
             Totals =
                 let w = tp.Patient |> Models.Patient.getWeight
+                let a = tp.Patient |> Models.Patient.getAgeInDays |> Option.map int
 
                 let scs =
                     if tp.Filtered |> Array.isEmpty then tp.Scenarios
@@ -818,7 +828,7 @@ module TreatmentPlan =
 
                 scs
                 |> Array.map _.Order
-                |> Order.getIntake w
+                |> Order.getIntake a w
         }
 
 
