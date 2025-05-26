@@ -5,8 +5,8 @@
     "private": true,
     "type": "module",
     "engines": {
-        "node": "~18 || ~22",
-        "npm": "~9 || ~10 || ~11"
+        "node": "~18 || ~22 || ~23",
+        "npm": "~9 || ~10 || ~11 || ~18 || ~22"
     },
     "devDependencies": {
         "@types/node": "^20.12.7",
