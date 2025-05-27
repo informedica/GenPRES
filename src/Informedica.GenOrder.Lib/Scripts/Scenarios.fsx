@@ -101,13 +101,13 @@ open Patient.Optics
 let printCtx = OrderContext.printCtx
 
 
-
+Product.Enteral.get ()
 
 let ord =
     Patient.newBorn
     |> PrescriptionRule.get
     |> Array.filter (fun pr ->
-        pr.DoseRule.Generic |> String.equalsCapInsens "calcium/magnesium"
+        pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
     |> Array.head
     |> DrugOrder.fromRule

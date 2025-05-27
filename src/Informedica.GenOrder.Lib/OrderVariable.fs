@@ -385,6 +385,11 @@ module OrderVariable =
         |> Option.map Variable.ValueRange.ValueSet.toValueUnit
 
 
+    let eqsUnitGroup ovar1 ovar2 =
+        let var1, var2 = ovar1 |> getVar, ovar2 |> getVar
+        var1 |> Variable.eqsUnitGroup var2
+
+
     /// Get the `Variable.Name` from an OrderVariable
     let getName ovar = (ovar |> getVar).Name
 

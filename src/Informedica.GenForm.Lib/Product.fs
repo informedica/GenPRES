@@ -163,8 +163,11 @@ module Product =
                             |]
                     |}
                 )
-                |> Array.filter (_.Unit >> ((=) "mL"))
                 |> Array.map (fun r ->
+                    let shapeUnit =
+                        r.Unit
+                        |> Units.fromString
+                        |> Option.defaultValue Units.Volume.milliLiter
                     {
                         GPK =  r.Name
                         ATC = ""
@@ -181,10 +184,9 @@ module Product =
                         Shape = "voeding"
                         Routes = [| "ORAAL" |]
                         ShapeQuantities =
-                            Units.Volume.milliLiter
+                            shapeUnit
                             |> ValueUnit.singleWithValue 1N
-                        ShapeUnit =
-                            Units.Volume.milliLiter
+                        ShapeUnit = shapeUnit
                         RequiresReconstitution = false
                         Reconstitution = [||]
                         Divisible = Some 10N
@@ -215,7 +217,7 @@ module Product =
                                                 | Some u ->
                                                     let u =
                                                         u
-                                                        |> Units.per Units.Volume.milliLiter
+                                                        |> Units.per shapeUnit
                                                     q
                                                     |> ValueUnit.singleWithUnit u
                                                     |> Some

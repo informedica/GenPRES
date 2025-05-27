@@ -27,8 +27,8 @@ module Solver =
         eqs
         |> List.map (fun eq ->
             match eq with
-            | OrderProductEquation (y, xs) -> (y.Variable, xs |> List.map (fun v -> v.Variable)) |> ProductEquation
-            | OrderSumEquation     (y, xs) -> (y.Variable, xs |> List.map (fun v -> v.Variable)) |> SumEquation
+            | OrderProductEquation (y, xs) -> (y.Variable, xs |> List.map _.Variable) |> ProductEquation
+            | OrderSumEquation     (y, xs) -> (y.Variable, xs |> List.map _.Variable) |> SumEquation
         )
         |> List.map Equation.nonZeroOrNegative
 

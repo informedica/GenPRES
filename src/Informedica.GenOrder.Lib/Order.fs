@@ -3275,7 +3275,14 @@ module Order =
                                 let s = if s |> String.isNullOrWhiteSpace then "'empty string'" else s
                                 failwith $"cannot find {s} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
                         )
-                    (h, rest) |> c
+                        |> fun rest ->
+                            if repl <> "+" then rest
+                            else
+                                rest
+                                |> List.filter (OrderVariable.eqsUnitGroup h)
+
+                    (h, rest)
+                    |> c
                 | _ -> failwith $"cannot map {eqs}"
             )
 

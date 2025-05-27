@@ -381,14 +381,11 @@ module DrugOrder =
 
         let oru = Units.Volume.milliLiter |> Units.per Units.Time.hour
         // assumes the drugorder has products and these have quantities
+        // note the first component determines the drug unit
         let ou =
             d.Components
-            |> List.map (fun p ->
-                p.Quantities
-                |> Option.map (fun q -> q |> ValueUnit.getUnit)
-            )
-            |> List.choose id
             |> List.tryHead
+            |> Option.bind (_.Quantities >> Option.map ValueUnit.getUnit)
             |> Option.defaultValue NoUnit
 
         let standDoseRate un (orbDto : Order.Orderable.Dto.Dto) =
@@ -503,6 +500,10 @@ module DrugOrder =
                     let div =
                         p.Divisible
                         |> Option.bind (fun d ->
+                            let ou =
+                                p.Quantities
+                                |> Option.map ValueUnit.getUnit
+                                |> Option.defaultValue NoUnit
                             (1N / d)
                             |> createSingleValueUnitDto ou
                         )

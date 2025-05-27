@@ -1467,6 +1467,13 @@ module Variable =
             else None
 
 
+        let eqsUnitGroup vr1 vr2 =
+            match vr1 |> getUnit, vr2 |> getUnit with
+            | Some un1, Some un2 ->
+                un1 |> ValueUnit.Group.eqsGroup un2
+            | _ -> true
+
+
         let setUnit unt vr =
             vr
             |> mapValueUnit (ValueUnit.setUnit unt)
@@ -3518,6 +3525,11 @@ module Variable =
     /// and **v2** are equal.
     let eqValues var1 var2 =
         var1 |> getValueRange = (var2 |> getValueRange)
+
+
+    let eqsUnitGroup var1 var2 =
+        let vr1, vr2 = var1 |> getValueRange, var2 |> getValueRange
+        vr1 |> ValueRange.eqsUnitGroup vr2
 
 
     /// Checks whether a `Variable` **v** is solved,
