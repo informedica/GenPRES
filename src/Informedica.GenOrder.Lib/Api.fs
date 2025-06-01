@@ -396,7 +396,7 @@ module OrderContext =
 
         let printOrder ord =
             ord
-            |> Order.printTable
+            |> Order.printTable Format.Minimal
 
             ord
 

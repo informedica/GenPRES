@@ -3500,6 +3500,8 @@ module Order =
     /// Loop through all the OrderVariables in an Order to
     /// turn min incr max to values
     /// </summary>
+    /// <param name="useAll">Whether to use all values or restrict the number of values</param>
+    /// <param name="minTime">Whether to minimize the time before processing</param>
     /// <param name="logger">The logger</param>
     /// <param name="ord">The Order</param>
     let minIncrMaxToValues useAll minTime logger ord =
