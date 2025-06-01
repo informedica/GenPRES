@@ -37,8 +37,7 @@ Some more background information can be found at:
 
 |                                                                        GitHub Actions                                                                        |
 |:------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| [![GitHub Actions](https://github.com/halcwb/GenPRES/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPRES/actions?query=branch%3Amaster) |
-|          [![Build History](https://buildstats.info/github/chart/halcwb/GenPRES)](https://github.com/halcwb/GenPRES/actions?query=branch%3Amaster)          |
+| [![GitHub Actions](https://github.com/halcwb/GenPRES2/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPRES2/actions?query=branch%3Amaster) |
 
 
 
