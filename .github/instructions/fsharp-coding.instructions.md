@@ -109,11 +109,153 @@ let validateDosage dose maxDose =
 - Test both success and failure paths
 - Create test utilities for common setup operations
 
+#### Testing Framework and Structure
+- Use Expecto as the primary testing framework
+- Use `runTestsInAssemblyWithCLIArgs [] argv` in Main.fs for test discovery
+- Organize tests in nested modules that mirror the library structure
+- Use `[<Tests>]` attribute to mark test collections
+- Use `testList` to group related tests together
+
 ```fsharp
-[<Test>]
-let ``calculateDosage should return correct dose for paracetamol`` () =
-    let result = calculateDosage 10.0<kg> Paracetamol
-    result |> should equal 100.0<mg>
+// Test project structure
+[<EntryPoint>]
+let main argv =
+    runTestsInAssemblyWithCLIArgs [] argv
+
+module Tests =
+    module DomainTests =
+        let tests = testList "Domain" [
+            // tests here
+        ]
+
+    [<Tests>]
+    let tests = testList "LibraryName Tests" [
+        DomainTests.tests
+    ]
+```
+
+#### Test Naming and Documentation
+- Use descriptive test names with backticks for complex scenarios
+- Include expected behavior in test names
+- Use both `test` and `testCase` syntax consistently
+- Write tests that clearly express intent and expected outcomes
+
+```fsharp
+test "substance nacl to mmol" {
+    // test implementation
+}
+
+test "``calculateDosage should return correct dose for paracetamol``" {
+    // test implementation
+}
+```
+
+#### Property-Based Testing
+- Use FsCheck integration through Expecto for property-based tests
+- Configure custom generators for domain-specific types
+- Set appropriate test counts for thorough coverage
+- Use `testPropertyWithConfig` for custom FsCheck configurations
+
+```fsharp
+let config = {
+    FsCheckConfig.defaultConfig with
+        maxTest = 10000
+        arbitrary = [ typeof<Generators.BigRGenerator> ]
+}
+
+testPropertyWithConfig config "property description" <| fun input ->
+    // property test implementation
+```
+
+#### Assertion Patterns
+- Use `Expect.equal` with descriptive failure messages
+- Use `Expect.isTrue` and `Expect.isFalse` for boolean assertions
+- Use `Expect.throws` for exception testing
+- Prefer pipeline syntax with `|>` for readability
+- Use Unquote for complex assertions when needed
+
+```fsharp
+result
+|> Expect.equal "should be equal" expected
+
+someCondition
+|> Expect.isTrue "condition should be true"
+
+(fun () -> dangerousOperation())
+|> Expect.throws "should throw an exception"
+```
+
+#### Data-Driven Testing
+- Use lists or arrays of test cases for parameterized testing
+- Create helper functions for common test patterns
+- Use `for` loops in testList for generating multiple similar tests
+
+```fsharp
+let testCases = [
+    input1, expected1
+    input2, expected2
+]
+
+testList "parameterized tests" [
+    for input, expected in testCases do
+        test $"test with {input}" {
+            processInput input
+            |> Expect.equal "should match expected" expected
+        }
+]
+```
+
+#### Testing Complex Scenarios
+- Test "there and back again" scenarios for serialization/deserialization
+- Test boundary conditions and edge cases explicitly
+- Create specific tests for error conditions and validation
+- Test both positive and negative cases for business rules
+
+```fsharp
+test "there and back again, simple dto" {
+    let original = createTestData()
+
+    original
+    |> serialize
+    |> deserialize
+    |> Expect.equal "should roundtrip correctly" original
+}
+```
+
+#### Test Utilities and Helpers
+- Create reusable helper functions for common test setup
+- Use consistent patterns for test data creation
+- Create custom generators for complex domain types
+- Share common test utilities across test projects
+
+```fsharp
+let equals expected message actual =
+    Expect.equal actual expected message
+
+let createTestPatient name age =
+    { Name = name; Age = age; /* other fields */ }
+```
+
+#### Integration and System Testing
+- Separate unit tests from integration tests
+- Use TestServer for API testing when applicable
+- Mock external dependencies appropriately
+- Test configuration and environment setup
+
+#### Performance and Mathematical Testing
+- Use appropriate precision for floating-point comparisons
+- Test mathematical operations with edge cases (zero, negative, infinity)
+- Include performance benchmarks for critical algorithms
+- Test with large datasets when relevant
+
+```fsharp
+test "floating point comparison with tolerance" {
+    let result = complexCalculation()
+    let expected = 1.23456789
+
+    Accuracy.areClose Accuracy.veryHigh result expected
+    |> Expect.isTrue "should be within tolerance"
+}
 ```
 
 ### Documentation
