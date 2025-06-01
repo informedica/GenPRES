@@ -127,3 +127,5 @@ Some specifics:
     - fix: a bug fix, or otherwise
     - docs: documentation
     - tests: testing code
+
+For detailed commit message guidelines and conventions, see [commit-message.instructions.md](.github/instructions/commit-message.instructions.md).
