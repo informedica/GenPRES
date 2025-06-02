@@ -256,7 +256,7 @@ module Tests =
                             r |> List.min,
                             r
                             |> List.toArray
-                            |> Informedica.GenUnits.Lib.Array.removeBigRationalMultiples
+                            |> Array.removeBigRationalMultiples
                             |> Array.toList,
                             r |> List.max
 
@@ -265,37 +265,40 @@ module Tests =
                         let calcIncrAdd = calcIncr (+)
                         let calcIncrSub = calcIncr (-)
 
-                        test "actual set is subset of min, calculated incr from mult and max" {
+                        test "actual set is subset of min, calculated incr from MULT and max" {
                             let x = [3N..3N..6N]
                             let y = [2N..2N..6N]
                             let exp = calc (*) x y
+                            let s = exp |> List.map string |> String.concat "; "
                             let act =
                                 calcIncrMul x y
                                 |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
                                 |> Seq.toList
                             (exp <> act &&
                             Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
-                            |> Expect.isTrue "should be a subset"
+                            |> Expect.isTrue $"{s} should be a subset of {act |> Seq.toList}"
                         }
 
-                        test "actual set is subset of min, calculated incr from division and max" {
+                        test "actual set is subset of min, calculated incr from DIVISION and max" {
                             let x = [3N..3N..12N]
                             let y = [2N..2N..10N]
                             let exp = calc (/) x y
+                            let s = exp |> List.map string |> String.concat "; "
                             let act = calcIncrDiv x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
-                            (exp <> (Seq.toList act) &&
+                            (exp <> Seq.toList act &&
                             Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
-                            |> Expect.isTrue "should be a subset"
+                            |> Expect.isTrue $"{s} should be a subset of {act |> Seq.toList}"
                         }
 
-                        test "actual set is subset of min, calculated incr from addition and max" {
+                        test "actual set is subset of min, calculated incr from ADDITION and max" {
                             let x = [3N..3N..12N]
                             let y = [2N..2N..10N]
                             let exp = calc (+) x y
+                            let s = exp |> List.map string |> String.concat "; "
                             let act = calcIncrAdd x y |> fun (min, incr, max) -> minIncrMaxToSeq min incr max
                             (exp <> (Seq.toList act) &&
                             Set.isSubset (exp |> Set.ofList) (act |> Set.ofSeq))
-                            |> Expect.isTrue "should be a subset"
+                            |> Expect.isTrue $"{s} should be a subset of {act |> Seq.toList}"
                         }
                     ]
 

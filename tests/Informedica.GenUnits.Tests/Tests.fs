@@ -13,16 +13,83 @@ module Unquote =
 
 
     // Test Array.removeBigRationalMultiples
-    let testRemoveBigRationalMultiples () =
+    let testRemoveBigRationalMultiples removeF =
         let test (act : BigRational[]) (exp : BigRational[]) =
-            let act = act |> Array.removeBigRationalMultiples
-            test <@ act = exp @>
+            let testName = $"removeBigRationalMultiples [|{act |> Array.toList}|]"
+            let act = act |> removeF
+            try
+                test <@ act = exp @>
+            with
+            | ex ->
+                printfn $"FAILED: {testName}"
+                printfn $"  Expected: [|{exp |> Array.toList}|]"
+                printfn $"  Actual:   [|{act |> Array.toList}|]"
+                reraise()
 
+        // Basic tests - existing
         test [| 1N; 2N; 3N; 4N; 5N |] [| 1N |]
         test [| 2N; 3N; 4N; 5N |] [|2N; 3N; 5N|]
         test [| 2N; 3N |] [| 2N; 3N |]
         test [| 2N; 3N; 4N |] [| 2N; 3N |]
         test [| |] [|  |]
+
+        // Edge cases
+        test [| 1N |] [| 1N |]  // Single element with 1N
+        test [| 2N |] [| 2N |]  // Single element not 1N
+        test [| 4N; 2N |] [| 2N |]  // Out of order
+        test [| 6N; 4N; 3N; 2N |] [| 2N; 3N |]  // Reverse order
+
+        // Prime numbers (should remain unchanged)
+        test [| 2N; 3N; 5N; 7N; 11N; 13N |] [| 2N; 3N; 5N; 7N; 11N; 13N |]
+
+        // Powers of 2
+        test [| 2N; 4N; 8N; 16N; 32N |] [| 2N |]
+
+        // Powers of 3
+        test [| 3N; 9N; 27N |] [| 3N |]
+
+        // Mixed multiples
+        test [| 6N; 12N; 18N; 24N |] [| 6N |]  // All multiples of 6
+        test [| 2N; 3N; 6N; 12N; 18N |] [| 2N; 3N |]  // 6, 12, 18 are multiples of 2 and 3
+
+        // Complex case with multiple prime factors
+        test [| 2N; 3N; 4N; 6N; 8N; 9N; 12N; 18N |] [| 2N; 3N |]
+
+        // Fractional BigRationals
+        test [| 1N/2N; 1N/4N; 1N/8N |] [| 1N/8N |]  // Powers of 1/2
+        test [| 1N/3N; 1N/6N; 1N/12N |] [| 1N/12N |]  // 1/6 = (1/3) * (1/2), 1/12 = (1/3) * (1/4)
+        test [| 1N/2N; 1N/3N; 1N/6N |] [| 1N/6N |]  // 1/6 is multiple of both 1/2 and 1/3
+
+        // Mixed integers and fractions
+        test [| 1N; 1N/2N; 1N/3N |] [| 1N/3N; 1N/2N |]  // 1N makes everything else irrelevant
+        test [| 2N; 1N; 3N |] [| 1N |]  // 1N in the middle
+
+        // Negative numbers (should be filtered out by the function)
+        test [| -2N; -4N; 2N; 4N |] [| 2N |]
+        test [| -1N; 1N; 2N |] [| 1N |]
+
+        // Zero (should be filtered out as it's not > 0N)
+        test [| 0N; 2N; 4N |] [| 2N |]
+
+        // Duplicates (should be handled by Array.distinct)
+        test [| 2N; 2N; 4N; 4N |] [| 2N |]
+        test [| 3N; 6N; 3N; 9N; 6N |] [| 3N |]
+
+        // Large numbers
+        test [| 100N; 200N; 300N; 400N; 500N |] [| 100N |]
+        test [| 7N; 14N; 21N; 28N; 35N |] [| 7N |]
+
+        // Non-obvious multiples
+        test [| 15N; 30N; 45N; 3N; 5N |] [| 3N; 5N |]  // 15=3*5, 30=3*5*2, 45=3*5*3
+        test [| 12N; 18N; 24N; 36N; 2N; 3N |] [| 2N; 3N |]  // All others are multiples
+
+        // Special fractional cases
+        test [| 3N/4N; 3N/8N; 3N/12N |] [| 3N/12N; 3N/8N |]  // 3/4 = 3 × (1/4), but 3/8 is not an integer multiple of 1/4
+        test [| 5N/6N; 5N/12N; 5N/18N |] [| 5N/18N; 5N/12N |]  // 5/6 = 3 × (5/18) and 2 × (5/12), but 5/12 ≠ integer × (5/18)
+
+        // Co-prime numbers (no multiples)
+        test [| 3N; 5N; 7N; 11N |] [| 3N; 5N; 7N; 11N |]
+        test [| 2N; 3N; 5N; 7N; 11N; 13N; 17N; 19N |] [| 2N; 3N; 5N; 7N; 11N; 13N; 17N; 19N |]
 
 
     let x = create Units.Count.times
@@ -504,6 +571,29 @@ module Tests =
 
     [<Tests>]
     let tests =
+
+        let removeBigRationalMultiples2 xs =
+            if xs |> Array.isEmpty then
+                xs
+            else
+                let xs =
+                    xs
+                    |> Array.filter (fun x -> x > 0N)
+                    |> Array.sort
+                    |> Array.distinct
+
+                xs
+                |> Array.fold
+                    (fun acc x1 ->
+                        acc
+                        |> Array.filter (fun x2 ->
+                            x1 = x2 ||
+                            x2 |> BigRational.isMultiple x1
+                            |> not
+                        )
+                    )
+                    xs
+
         testList "ValueUnit Tests" [
             stringTests
             calculationTests
@@ -516,12 +606,30 @@ module Tests =
             test "Unquote tests" {
                 try
                     Unquote.tests () |> ignore
-                    Unquote.testRemoveBigRationalMultiples()
                     true
                 with
                 | _ -> false
                 |> Expect.isTrue "should all be true"
             }
+
+            test "Remove bigrational multiples reference tests" {
+                try
+                    Unquote.testRemoveBigRationalMultiples removeBigRationalMultiples2
+                    true
+                with
+                | _ -> false
+                |> Expect.isTrue "should all be true"
+            }
+
+            test "Remove bigrational multiples implementation tests" {
+                try
+                    Unquote.testRemoveBigRationalMultiples Array.removeBigRationalMultiples
+                    true
+                with
+                | _ -> false
+                |> Expect.isTrue "should all be true"
+            }
+
         ]
 
 
