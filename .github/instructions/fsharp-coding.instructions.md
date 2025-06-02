@@ -12,6 +12,48 @@
   - camelCase for local bindings and private members
   - Use descriptive names over abbreviations
 
+### Documentation and Comments
+- Use `///` for XML documentation comments that appear in IntelliSense popups
+- Use `//` for regular comments that document code internally but don't appear in popups
+- XML documentation should be used for:
+  - Type definitions and their purpose
+  - Public functions and their behavior
+  - Module-level documentation
+- Regular comments should be used for:
+  - Record fields and discriminated union cases
+  - Private implementation details
+  - Code clarifications and explanations
+- Format XML documentation consistently:
+  - Use `<summary>` tags for multi-line descriptions
+  - Use single-line `///` for simple descriptions
+  - Include parameter and return value documentation when helpful
+
+```fsharp
+// Good - XML documentation for types and public APIs
+/// <summary>
+/// Represents a patient with their medical information
+/// </summary>
+type Patient =
+    {
+        // The unique identifier for the patient
+        Id: PatientId
+        // The patient's full name
+        Name: string
+        // Optional date of birth
+        DateOfBirth: DateTime option
+    }
+
+/// Calculates the appropriate dosage for a patient
+let calculateDosage bodyWeight medication = ...
+
+// Good - Regular comments for implementation details
+let private processData input =
+    // Convert input to internal format first
+    let normalized = normalizeInput input
+    // Apply business rules
+    applyRules normalized
+```
+
 ### Type Definitions
 - Define types at the module level before functions that use them
 - Use discriminated unions for modeling domain concepts
