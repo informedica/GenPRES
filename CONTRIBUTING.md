@@ -71,7 +71,7 @@ This project follows specific organizational patterns:
 - **Library Structure**: Use the `Informedica.{Domain}.Lib` naming convention
 - **Domain Libraries**: GenSolver, GenOrder, GenUnits, ZIndex, Utils
 - **Separate Test Projects**: Each library has its own test project
-- **Opt-in .gitignore**: You must explicitly define what should be included
+- **Opt-in .gitignore**: *You must explicitly define what should be included!!*
 
 ### Coding Standards
 
@@ -99,7 +99,7 @@ Use conventional commits format:
 [optional footer(s)]
 ```
 
-**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+**Types**: `feat`, `fix`, `docs`, `style`, `refact`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
 **Scopes for GenPRES**:
 - Library scopes: `gensolver`, `genorder`, `genunits`, `zindex`, `utils`
