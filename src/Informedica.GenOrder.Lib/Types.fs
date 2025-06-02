@@ -306,6 +306,9 @@ module Types =
             }
         /// The product components that are used by the drug order.
         /// A product component maps to a Component in an Orderable.
+        /// The first component in the list is the main component. 
+        /// The drugorder quatities unit is the same as the unit used 
+        /// for the main component.
         and ProductComponent =
             {
                 // The name of the product
@@ -313,7 +316,7 @@ module Types =
                 // The shape of the product
                 Shape : string
                 // The quantities of the product
-                // Note: measured in the same unit as
+                // Note: the first (main) component has the same unit as
                 // the `DrugOrder` unit
                 Quantities : ValueUnit option
                 // The "divisibility" of the products
