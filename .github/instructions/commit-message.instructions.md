@@ -256,7 +256,7 @@ Use this template for consistent commit messages:
 # Type can be 
 #    feat     (new feature)
 #    fix      (bug fix)
-#    refactor (refactoring production code)
+#    refact   (refactoring production code)
 #    style    (formatting, missing semi colons, etc; no code change)
 #    docs     (changes to documentation)
 #    test     (adding or refactoring tests; no production code change)

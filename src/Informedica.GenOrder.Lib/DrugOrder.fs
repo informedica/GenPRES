@@ -153,7 +153,7 @@ module DrugOrder =
     /// The freqUnit is used to set the TimeUnit for the Frequencies.
     /// </summary>
     /// <param name="solutionRule">The SolutionRule for the ProductComponent</param>
-    /// <param name="doseLimits">The DoseLimits for the ProductComponent</param>
+    /// <param name="limits">The ComponentLimits for the ProductComponent</param>
     let createComponents
         (solutionRule: SolutionRule option)
         (limits : ComponentLimit []) =
