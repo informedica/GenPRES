@@ -49,15 +49,14 @@ module DrugOrder =
     module MinMax =
 
         /// <summary>
-        /// </summary>
-        /// <param name="norm">A sequence of big rationals.</param>
-        /// <param name="minMax">The MinMax record.</param>
-        /// <param name="dto">The Variable dto.</param>
-        /// <remarks>
+        /// Set constraints on a Variable dto based on norm values and MinMax record.
         /// A min or max value is set only if the MinMax record is not None or
         /// the sequence of big rationals has a single value. In that case the
         /// min or max value is set to the big rational minus or plus 10%.
-        /// </remarks>
+        /// </summary>
+        /// <param name="norm">A sequence of big rationals for normalization.</param>
+        /// <param name="minMax">The MinMax record containing constraints.</param>
+        /// <param name="dto">The Variable dto to apply constraints to.</param>
         let setConstraints
             (norm : ValueUnit option)
             (minMax : MinMax)
@@ -94,8 +93,6 @@ module DrugOrder =
             | Some _ ->
                 dto.MaxIncl <- true
                 dto.MaxOpt <- max
-
-            //dto
 
 
     /// An empty DrugOrder record.
@@ -135,15 +132,13 @@ module DrugOrder =
         {
             Name = ""
             Concentrations = None
-            Dose = None //DoseLimit.limit
+            Dose = None
             Solution = None
         }
 
 
-    /// Shorthand for Units.stringWithGroup to
-    /// append the unit group to a unit.
+    /// Shorthand for Units.stringWithGroup to append the unit group to a unit.
     let unitGroup = Units.stringWithGroup
-
 
 
     /// <summary>
@@ -173,7 +168,7 @@ module DrugOrder =
                     else lim.Name
                 Shape = shape
                 Quantities =
-                    // hack to prevent too many quantities
+                    // Hack to prevent too many quantities
                     if solutionRule |> Option.isSome then
                         1N
                         |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -255,8 +250,8 @@ module DrugOrder =
         )
 
 
+    /// Add an optional solution rule to a DrugOrder
     let addSolution sr dro =
-        // add an optional solution rule
         match sr with
         | None -> dro
         | Some sr ->
@@ -272,8 +267,8 @@ module DrugOrder =
                     if sr.Volumes.IsNone then dro.Quantities
                     else
                         sr.Volumes
-                DoseCount = //sr.DosePerc
-                    // change percentage to count!
+                DoseCount =
+                    // Change percentage to count!
                     { MinMax.empty with
                         Min = sr.DosePerc.Max
                         Max = sr.DosePerc.Min
@@ -311,6 +306,7 @@ module DrugOrder =
             }
 
 
+    /// Create a DrugOrder from patient information and dose rules
     let create (pat : Patient) au dose (dr : DoseRule) (sr: SolutionRule option) =
         { drugOrder with
             Id = Guid.NewGuid().ToString()
@@ -323,9 +319,9 @@ module DrugOrder =
             Time = dr.AdministrationTime
             Route = dr.Route
             DoseCount =
-                if sr.IsSome then MinMax.empty // note: dose count will be set in the addSolution
+                if sr.IsSome then MinMax.empty // Note: dose count will be set in the addSolution
                 else
-                    // no solution rule, set it to 1
+                    // No solution rule, set it to 1
                     let u = Units.Count.times |> Some
                     MinMax.fromTuple Inclusive Inclusive u (Some 1N, Some 1N)
 
@@ -367,21 +363,19 @@ module DrugOrder =
             |> Array.map create
 
 
-
     /// <summary>
     /// Map a DrugOrder record to a DrugOrderDto record.
-    /// </summary>
-    /// <remarks>
     /// The DrugOrder will map the constraints of the DrugOrderDto.
-    /// </remarks>
+    /// </summary>
+    /// <param name="d">The DrugOrder to convert</param>
     let toOrderDto (d : DrugOrder) =
         let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
 
         let limToDto = Option.map Limit.getValueUnit >> vuToDto
 
         let oru = Units.Volume.milliLiter |> Units.per Units.Time.hour
-        // assumes the drugorder has products and these have quantities
-        // note the first component determines the drug unit
+        // Assumes the drugorder has products and these have quantities
+        // Note: the first component determines the drug unit
         let ou =
             d.Components
             |> List.tryHead
@@ -460,7 +454,7 @@ module DrugOrder =
             | Some dl ->
                 dl |> setOrbDoseRate
                 dl |> setOrbDoseQty true
-                // assume timed order always solution
+                // Assume timed order always solution
                 orbDto.Dose.Quantity.Constraints.IncrOpt <-
                     1N/10N
                     |> createSingleValueUnitDto
@@ -475,7 +469,7 @@ module DrugOrder =
 
         | TimedOrder ->
             orbDto |> standDoseRate oru
-            // assume timed order always solution
+            // Assume timed order always solution
             if orbDto.Dose.Quantity.Constraints.ValsOpt.IsNone then
                 orbDto.Dose.Quantity.Constraints.IncrOpt <-
                     1N/10N
@@ -512,7 +506,7 @@ module DrugOrder =
                     cmpDto.OrderableQuantity.Constraints.IncrOpt <- div
 
                     if d.Components |> List.length = 1 then
-                        // if there is only one product, the concentration of that product in the
+                        // If there is only one product, the concentration of that product in the
                         // Orderable will be by definition be 1.
                         cmpDto.OrderableConcentration.Constraints.ValsOpt <-
                             1N
@@ -604,7 +598,7 @@ module DrugOrder =
 
                             itmDto.ComponentConcentration.Constraints.ValsOpt <- s.Concentrations |> vuToDto
                             if d.Components |> List.length = 1 then
-                                // when only one product, the orderable concentration is the same as the component concentration
+                                // When only one product, the orderable concentration is the same as the component concentration
                                 itmDto.OrderableConcentration.Constraints.ValsOpt <- itmDto.ComponentConcentration.Constraints.ValsOpt
 
                             match s.Solution with
@@ -683,10 +677,10 @@ module DrugOrder =
         let dto =
             match d.OrderType with
             | AnyOrder ->
-                "the order type cannot by 'Any'"
+                "the order type cannot be 'Any'"
                 |> failwith
             | ProcessOrder ->
-                "the order type cannot by 'Any'"
+                "the order type cannot be 'Process'"
                 |> failwith
             | OnceOrder ->
                 Order.Dto.once d.Id d.Name d.Route []
@@ -711,13 +705,13 @@ module DrugOrder =
         if d.AdjustUnit
            |> Option.map (ValueUnit.Group.eqsGroup Units.Weight.kiloGram)
            |> Option.defaultValue false then
-            // adjusted by weight
+            // Adjusted by weight
             dto.Adjust.Constraints.MinOpt <-
                 (200N /1000N) |> createSingleValueUnitDto d.AdjustUnit.Value
 
             dto.Adjust.Constraints.MaxOpt <-
                 150N |> createSingleValueUnitDto d.AdjustUnit.Value
-        // TODO add constraints for BSA
+        // TODO: add constraints for BSA
         dto.Adjust.Constraints.ValsOpt <- d.Adjust |> vuToDto
 
         dto
