@@ -50,11 +50,6 @@
 
 # Add github folder
 !/.github
-!/.github/*
-!/.github/ISSUE_TEMPLATE/
-!/.github/ISSUE_TEMPLATE/*
-!/.github/workflows/
-!/.github/workflows/*
 
 # Add devcontainer
 !/.devcontainer/

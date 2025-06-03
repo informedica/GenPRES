@@ -374,13 +374,6 @@ module DrugOrder =
         let limToDto = Option.map Limit.getValueUnit >> vuToDto
 
         let oru = Units.Volume.milliLiter |> Units.per Units.Time.hour
-        // Assumes the drugorder has products and these have quantities
-        // Note: the first component determines the drug unit
-        let ou =
-            d.Components
-            |> List.tryHead
-            |> Option.bind (_.Quantities >> Option.map ValueUnit.getUnit)
-            |> Option.defaultValue NoUnit
 
         let standDoseRate un (orbDto : Order.Orderable.Dto.Dto) =
             orbDto.Dose.Rate.Constraints.IncrOpt <- 1N/10N |> createSingleValueUnitDto un
@@ -487,6 +480,22 @@ module DrugOrder =
                 dl |> setOrbDoseQty false
             | None -> ()
 
+        // TODO: not good, can vary per product!!
+        orbDto.Dose.Quantity.Constraints.IncrOpt <- 
+            d.Components
+            |> List.tryHead
+            |> Option.bind (fun p ->
+                p.Divisible
+                |> Option.bind (fun d ->
+                    let ou =
+                        p.Quantities
+                        |> Option.map ValueUnit.getUnit
+                        |> Option.defaultValue NoUnit
+                    (1N / d)
+                    |> createSingleValueUnitDto ou
+                )
+            )
+
         orbDto.Components <-
             [
                 for p in d.Components do
@@ -512,9 +521,6 @@ module DrugOrder =
                             1N
                             |> createSingleValueUnitDto Units.Count.times
                         cmpDto.Dose.Quantity.Constraints.IncrOpt <- div
-
-                    // TODO: not good, can vary per product!!
-                    orbDto.Dose.Quantity.Constraints.IncrOpt <- div
 
                     match p.Solution with
                     | Some sl ->

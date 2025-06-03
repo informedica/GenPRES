@@ -103,6 +103,18 @@ let printCtx = OrderContext.printCtx
 
 Product.Enteral.get ()
 
+let dro =
+    Patient.newBorn
+    |> PrescriptionRule.get
+    |> Array.filter (fun pr ->
+        pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
+    )
+    |> Array.head
+    |> DrugOrder.fromRule
+    |> Array.head
+
+dro.Dose
+
 let ord =
     Patient.newBorn
     |> PrescriptionRule.get
@@ -115,6 +127,7 @@ let ord =
     |> DrugOrder.toOrderDto
     |> Order.Dto.fromDto
 
+ord |> Order.printTable ConsoleTables.Format.Minimal
 
 Patient.teenager
 |> Patient.setWeight (33m |> Kilogram |> Some)
