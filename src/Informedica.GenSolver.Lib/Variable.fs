@@ -3535,8 +3535,8 @@ module Variable =
     /// Checks whether a `Variable` **v** is solved,
     /// i.e. there is but one possible value left.
     let isSolved var =
-        (var |> getValueRange |> ValueRange.isValueSet)
-        && (var |> count = 1)
+        var |> getValueRange |> ValueRange.isValueSet
+        && var |> count = 1
 
 
     /// Checks whether a `Variable` is *solvable*

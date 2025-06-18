@@ -19,7 +19,8 @@ module Utils =
         /// </summary>
         let reorder xs =
             let n = xs |> List.length
-            if n <= 2 then [ xs ]
+            if n <= 1 then [ xs ]
+            elif n = 2 then [ [xs[0]; xs[1] ]; [xs[1]; xs[0]] ]
             else
                 let y = xs[0]
                 let xs = xs |> List.tail

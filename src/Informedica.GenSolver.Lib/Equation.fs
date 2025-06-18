@@ -355,13 +355,13 @@ module Equation =
                 |> Some
 
         // optimization to skip the most expensive calculation
-        let c = (vars |> List.length)
+        let c = vars |> List.length
 
         vars
         |> List.fold (fun (n, acc) vars ->
             let n = n + 1
 
-            if acc |> Option.isSome then (n, acc)
+            if acc |> Option.isSome then n, acc
             else
                 match vars with
                 | _, []
@@ -374,7 +374,7 @@ module Equation =
                     if y |> Variable.isSolved then None
                     *)
                     if y |> Variable.isSolved ||
-                       (n = c && y |> Variable.hasValues) then None
+                       n = c && c > 2 && y |> Variable.hasValues then None
                     else
                         let op2 = if i = 0 then op1 else op2
                         // log starting the calculation
@@ -455,7 +455,7 @@ module Equation =
 
     // The actual solving function
     let private solve_ onlyMinIncrMax log eq =
-        let reorder = List.reorder >> List.mapi (fun i x -> (i, x))
+        let reorder = List.reorder >> List.mapi (fun i x -> i, x)
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list
         // i.e. a = b + c + d -> b = a - (c + d)

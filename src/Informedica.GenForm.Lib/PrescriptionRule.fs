@@ -237,6 +237,10 @@ module PrescriptionRule =
                                 Products =
                                     dl.Products
                                     |> Array.filter (fun p ->
+                                        let cmpItems = 
+                                            cmpItems 
+                                            |> List.filter (fun itm -> itm.ComponentName = p.Generic)
+                                        
                                         cmpItems
                                         |> List.map _.ComponentQuantity
                                         |> List.exists (ValueUnit.eqs p.ShapeQuantities)
@@ -257,7 +261,6 @@ module PrescriptionRule =
                                         )
                                     )
                             }
-
                         )
                 }
         }

@@ -22,7 +22,7 @@ module SolverLogging =
                 | Some v -> Some v.Name
                 | None -> None
             )
-        $"""{eqs |> List.map (Equation.toStringShort) |> String.concat "\n"}"""
+        $"""{eqs |> List.map Equation.toStringShort |> String.concat "\n"}"""
 
 
     let private varsToStr vars =
@@ -92,12 +92,11 @@ module SolverLogging =
         $"""=== Constraint Variable not found ===
         {c
         |> sprintf "Constraint %A cannot be set"
-        |> (fun s ->
-            eqs
-            |> List.map (Equation.toString true)
-            |> String.concat "\n"
-            |> sprintf "%s\In equations:\%s" s
-        )
+        |> fun s ->
+           eqs
+           |> List.map (Equation.toString true)
+           |> String.concat "\n"
+           |> sprintf "%s\In equations:\%s" s
         }
         """
     | _ -> "not a recognized msg"
@@ -119,7 +118,7 @@ module SolverLogging =
 
         match m with
         | EquationStartedSolving eq ->
-            $"=== Start solving Equation ===\n{eq |> toString}"
+            $"=== Start solving Equation ===\n{eq |> Equation.toStringShort}"
 
         | EquationStartCalculation (op1, op2, y, xs) ->
             $"start calculating: {Equation.calculationToString false op1 op2 y xs}"

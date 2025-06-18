@@ -384,6 +384,22 @@ module DrugOrder =
 
         let orbDto = Order.Orderable.Dto.dto d.Id d.Name
 
+        // make sure the orderable quantity has a unit
+        d.Components
+        |> List.tryHead
+        |> Option.map (fun p ->
+            p.Quantities
+            |> Option.map ValueUnit.getUnit
+            , 
+            p.Divisible
+        )
+        |> function
+        | Some (Some u, Some d) ->
+            orbDto.OrderableQuantity.Constraints.IncrOpt <-
+                1N/d
+                |> createSingleValueUnitDto u
+        | _ -> ()
+            
         orbDto.DoseCount.Constraints
         |>  MinMax.setConstraints None d.DoseCount
 
@@ -491,7 +507,7 @@ module DrugOrder =
                         p.Quantities
                         |> Option.map ValueUnit.getUnit
                         |> Option.defaultValue NoUnit
-                    (1N / d)
+                    1N / d
                     |> createSingleValueUnitDto ou
                 )
             )
