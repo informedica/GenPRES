@@ -11,6 +11,41 @@
   - PascalCase for types, modules, and public members
   - camelCase for local bindings and private members
   - Use descriptive names over abbreviations
+  - Avoid using reserved keywords as identifiers, reserved keywords are:
+
+The following tokens are reserved in F# because they are keywords in the OCaml language:
+
+- asr
+- land
+- lor
+- lsl
+- lsr
+- lxor
+- mod
+- sig
+
+If you use the `--mlcompatibility` compiler option, the above keywords are available for use as identifiers.
+
+The following tokens are reserved as keywords for future expansion of F#:
+
+- break
+- checked
+- component
+- const
+- constraint
+- continue
+- event
+- external
+- include
+- mixin
+- parallel
+- process
+- protected
+- pure
+- sealed
+- tailcall
+- trait
+- virtual   
 
 ### Documentation and Comments
 - Use `///` for XML documentation comments that appear in IntelliSense popups
