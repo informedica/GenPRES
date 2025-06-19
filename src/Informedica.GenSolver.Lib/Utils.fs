@@ -8,16 +8,28 @@ module Utils =
     module List =
 
         /// <summary>
-        /// Reorder a list according to a permutation. Such that a list
-        /// of lists is returned such that [a1; a2; a3; ..; an] becomes
-        /// [|
-        ///     [ a1; a2; a3; ..; an ]
-        ///     [ a2; a1; a3; ..; an ]
-        ///     ...
-        ///     [ an; a1; a2; ..; an-1 ]
-        /// |]
+        /// Generate all possible cyclic rotations of a list. Each rotation moves 
+        /// one element from its current position to the front, creating n different 
+        /// arrangements where n is the length of the list.
         /// </summary>
-        let reorder xs =
+        /// <param name="xs">The input list to rotate</param>
+        /// <returns>An array of lists containing all possible rotations</returns>
+        /// <example>
+        /// <code>
+        /// rotations [1; 2; 3]
+        /// // Returns: [| [1; 2; 3]; [2; 1; 3]; [3; 1; 2] |]
+        /// 
+        /// rotations ["A"; "B"]
+        /// // Returns: [| ["A"; "B"]; ["B"; "A"] |]
+        /// 
+        /// rotations [42]
+        /// // Returns: [| [42] |]
+        /// 
+        /// rotations []
+        /// // Returns: [| |]
+        /// </code>
+        /// </example>
+        let rotations xs =
             let n = xs |> List.length
             if n <= 1 then [ xs ]
             elif n = 2 then [ [xs[0]; xs[1] ]; [xs[1]; xs[0]] ]

@@ -455,7 +455,7 @@ module Equation =
 
     // The actual solving function
     let private solve_ onlyMinIncrMax log eq =
-        let reorder = List.reorder >> List.mapi (fun i x -> i, x)
+        let reorder = List.rotations >> List.mapi (fun i x -> i, x)
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list
         // i.e. a = b + c + d -> b = a - (c + d)
