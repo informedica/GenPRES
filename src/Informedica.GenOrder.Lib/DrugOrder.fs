@@ -12,8 +12,8 @@ module DrugOrder =
     open Informedica.GenForm.Lib
     open Informedica.GenCore.Lib.Ranges
 
-    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
-    module Limit = Informedica.GenCore.Lib.Ranges.Limit
+    module MinMax = MinMax
+    module Limit = Limit
 
 
     let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
@@ -530,19 +530,55 @@ module DrugOrder =
 
         /// Set basic orderable-level constraints
         let setOrderableConstraints (orbDto : Order.Orderable.Dto.Dto) (d : DrugOrder) =
+            let zero =
+                d.Components
+                |> List.tryHead
+                |> Option.bind (fun p ->
+                    p.Quantities 
+                    |> Option.map ValueUnit.getUnit
+                    |> Option.bind (fun u ->
+                        0N |> createSingleValueUnitDto u
+                    )
+                )
+
             orbDto.DoseCount.Constraints |> MinMax.setConstraints None d.DoseCount
-            orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
+
+            match d.Quantities with
+            | None ->
+                orbDto.OrderableQuantity.Constraints.MinOpt <- zero
+                orbDto.OrderableQuantity.Constraints.MinIncl <- false
+
+            | Some _ ->
+                orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
 
         /// Set dose constraints on orderable based on order type
         let setOrderableDoseConstraints (orbDto : Order.Orderable.Dto.Dto) (d : DrugOrder) =
-            let oru = Units.Volume.milliLiter |> Units.per Units.Time.hour
+            let orderableUnit =
+                d.Components
+                |> List.tryHead
+                |> Option.bind (fun p ->
+                    p.Quantities 
+                    |> Option.map ValueUnit.getUnit
+                )
+
+            let rateUnit = orderableUnit |> Option.map (Units.per Units.Time.hour)
+
+            let freqTimeUnit =
+                d.Frequencies
+                |> Option.map (ValueUnit.getUnit >> ValueUnit.getUnits)
+                |> function
+                | Some [ _; tu ] -> Some tu
+                | _ -> None
         
-            let setStandardDoseRate() =
-                orbDto.Dose.Rate.Constraints.IncrOpt <- 1N/10N |> createSingleValueUnitDto oru
-                orbDto.Dose.Rate.Constraints.MinIncl <- true
-                orbDto.Dose.Rate.Constraints.MinOpt <- 1N/10N |> createSingleValueUnitDto oru
-                orbDto.Dose.Rate.Constraints.MaxIncl <- true
-                orbDto.Dose.Rate.Constraints.MaxOpt <- 1000N |> createSingleValueUnitDto oru
+            let setStandardDoseRate () =
+                match rateUnit with
+                | None -> ()
+                | Some u ->
+                    orbDto.Dose.Rate.Constraints.IncrOpt <- 1N/10N |> createSingleValueUnitDto u
+                    orbDto.Dose.Rate.Constraints.MinIncl <- true
+                    orbDto.Dose.Rate.Constraints.MinOpt <- 1N/10N |> createSingleValueUnitDto u
+                    orbDto.Dose.Rate.Constraints.MaxIncl <- true
+                    orbDto.Dose.Rate.Constraints.MaxOpt <- 1000N |> createSingleValueUnitDto u
         
             let setOrbDoseRate (dl : DoseLimit) =
                 orbDto.Dose.Rate.Constraints |> MinMax.setConstraints None dl.Rate
@@ -554,6 +590,15 @@ module DrugOrder =
             
                 if not isOnce then
                     orbDto.Dose.PerTime.Constraints |> MinMax.setConstraints None dl.PerTime
+                    // make sure that orderable dose per time has constraints with a unit
+                    if dl.PerTime |> MinMax.isEmpty then
+                        match orderableUnit, freqTimeUnit with
+                        | Some u, Some tu ->
+                            orbDto.Dose.PerTime.Constraints.MinOpt <-
+                                0N |> createSingleValueUnitDto (u |> Units.per tu)
+                            orbDto.Dose.PerTime.Constraints.MinIncl <- false
+                        | _ -> ()
+
                     orbDto.Dose.PerTimeAdjust.Constraints |> MinMax.setConstraints dl.NormPerTimeAdjust dl.PerTimeAdjust
         
             match d.OrderType with

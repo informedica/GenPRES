@@ -5,9 +5,9 @@
 #r "nuget: Expecto.FsCheck"
 #r "nuget: Unquote"
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net6.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net6.0/Informedica.GenUnits.Lib.dll"
-#r "../../Informedica.GenSolver.Lib/bin/Debug/net6.0/Informedica.GenSolver.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
+#r "../../Informedica.GenSolver.Lib/bin/Debug/net9.0/Informedica.GenSolver.Lib.dll"
 
 #load "load.fsx"
 
@@ -112,10 +112,10 @@ module Tests =
             }
 
             test "productComponent default values" {
-                let component = DrugOrder.productComponent
-                component.Name |> Expect.equal "should be empty" ""
-                component.Shape |> Expect.equal "should be empty" ""
-                component.Substances |> Expect.isEmpty "should be empty"
+                let cmp = DrugOrder.productComponent
+                cmp.Name |> Expect.equal "should be empty" ""
+                cmp.Shape |> Expect.equal "should be empty" ""
+                cmp.Substances |> Expect.isEmpty "should be empty"
             }
 
             test "substanceItem default values" {
@@ -137,7 +137,7 @@ module Tests =
                     Incr = None
                     Values = None
                 }
-                let variable = Variable.create "test" // Assuming this exists
+                let variable = Variable.create id (Name "test") ValueRange.Unrestricted // Assuming this exists
                 let orderVariable = {
                     Constraints = constraints
                     Variable = variable
