@@ -16,10 +16,12 @@ module Tests
             Id = "DO1"
             Name = "Test Drug Order 1"
             OrderType = DiscontinuousOrder
+            Frequencies = ValueUnit.create Units.Time.day [| 1N .. 4N |] |> Some
             Components = [
                 { DrugOrder.productComponent with
                     Name = "Component A"
-                    Shape = "Tablet"
+                    Shape = "injectievloeistof"
+                    Quantities = Some (ValueUnit.create Units.Volume.milliLiter [| 2N |])
                     Substances = [
                         { DrugOrder.substanceItem with
                             Name = "Substance A1"
@@ -38,7 +40,7 @@ module Tests
                 
                 { DrugOrder.productComponent with
                     Name = "Component B"
-                    Shape = "Capsule"
+                    Shape = "injectievloeistof"
                     Substances = [
                         { DrugOrder.substanceItem with
                             Name = "Substance B1"
@@ -513,10 +515,15 @@ module Tests
                     |> Expect.equal "should be equal" ord2.Prescription
                     ord1.Orderable.Name
                     |> Expect.equal "should be equal" ord2.Orderable.Name
+
                     // this is fix: https://github.com/halcwb/GenPres2/commit/43d58ab1e123fd3217061d191226c5f074cdfad3
                     ord1.Orderable.OrderableQuantity
                     |> Expect.notEqual "should NOT be equal" ord2.Orderable.OrderableQuantity
-                }
+
+                    printfn $"{drugOrder.Components[0].Dose}"
+                    ord1.Orderable.Dose.Quantity
+                    |> Expect.notEqual "should NOT be equal" ord2.Orderable.Dose.Quantity
+                }   
 
             ]
         ]

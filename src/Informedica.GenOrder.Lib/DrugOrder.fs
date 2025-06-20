@@ -580,52 +580,77 @@ module DrugOrder =
                     orbDto.Dose.Rate.Constraints.MaxIncl <- true
                     orbDto.Dose.Rate.Constraints.MaxOpt <- 1000N |> createSingleValueUnitDto u
         
-            let setOrbDoseRate (dl : DoseLimit) =
-                orbDto.Dose.Rate.Constraints |> MinMax.setConstraints None dl.Rate
-                orbDto.Dose.RateAdjust.Constraints |> MinMax.setConstraints None dl.RateAdjust
+            let setOrbDoseRate (dl : DoseLimit option) =
+                match dl with
+                | None -> ()
+                | Some dl ->
+                    orbDto.Dose.Rate.Constraints |> MinMax.setConstraints None dl.Rate
+                    orbDto.Dose.RateAdjust.Constraints |> MinMax.setConstraints None dl.RateAdjust
         
-            let setOrbDoseQty isOnce (dl : DoseLimit) =
-                orbDto.Dose.Quantity.Constraints |> MinMax.setConstraints None dl.Quantity
-                orbDto.Dose.QuantityAdjust.Constraints |> MinMax.setConstraints dl.NormQuantityAdjust dl.QuantityAdjust
-            
-                if not isOnce then
-                    orbDto.Dose.PerTime.Constraints |> MinMax.setConstraints None dl.PerTime
-                    // make sure that orderable dose per time has constraints with a unit
-                    if dl.PerTime |> MinMax.isEmpty then
-                        match orderableUnit, freqTimeUnit with
-                        | Some u, Some tu ->
-                            orbDto.Dose.PerTime.Constraints.MinOpt <-
-                                0N |> createSingleValueUnitDto (u |> Units.per tu)
-                            orbDto.Dose.PerTime.Constraints.MinIncl <- false
-                        | _ -> ()
+            let setOrbDoseQty isOnce (dl : DoseLimit option) =
+                match dl with
+                | None -> 
+                    match orderableUnit with
+                    | Some u ->
+                        orbDto.Dose.Quantity.Constraints.MinOpt <-
+                            0N |> createSingleValueUnitDto u
+                        orbDto.Dose.Quantity.Constraints.MinIncl <- false
+                    | None -> ()
 
-                    orbDto.Dose.PerTimeAdjust.Constraints |> MinMax.setConstraints dl.NormPerTimeAdjust dl.PerTimeAdjust
+                    match orderableUnit, freqTimeUnit with
+                    | Some u, Some tu ->
+                        orbDto.Dose.PerTime.Constraints.MinOpt <-
+                            0N |> createSingleValueUnitDto (u |> Units.per tu)
+                        orbDto.Dose.PerTime.Constraints.MinIncl <- false
+                    | _ -> ()
+
+                | Some dl ->
+                    orbDto.Dose.Quantity.Constraints |> MinMax.setConstraints None dl.Quantity
+                    orbDto.Dose.QuantityAdjust.Constraints |> MinMax.setConstraints dl.NormQuantityAdjust dl.QuantityAdjust
+
+                    // make sure that orderable dose quantity has constraints with a unit
+                    if dl.Quantity |> MinMax.isEmpty then
+                        match orderableUnit with
+                        | Some u ->
+                            orbDto.Dose.Quantity.Constraints.MinOpt <-
+                                0N |> createSingleValueUnitDto u
+                            orbDto.Dose.Quantity.Constraints.MinIncl <- false
+                        | None -> ()
+                
+                    if not isOnce then
+                        orbDto.Dose.PerTime.Constraints |> MinMax.setConstraints None dl.PerTime
+                        // make sure that orderable dose per time has constraints with a unit
+                        if dl.PerTime |> MinMax.isEmpty then
+                            match orderableUnit, freqTimeUnit with
+                            | Some u, Some tu ->
+                                orbDto.Dose.PerTime.Constraints.MinOpt <-
+                                    0N |> createSingleValueUnitDto (u |> Units.per tu)
+                                orbDto.Dose.PerTime.Constraints.MinIncl <- false
+                            | _ -> ()
+
+                        orbDto.Dose.PerTimeAdjust.Constraints |> MinMax.setConstraints dl.NormPerTimeAdjust dl.PerTimeAdjust
         
             match d.OrderType with
             | AnyOrder | ProcessOrder -> ()
             | ContinuousOrder ->
                 setStandardDoseRate()
-                d.Dose |> Option.iter setOrbDoseRate
+                d.Dose |> setOrbDoseRate
             | OnceOrder ->
-                d.Dose |> Option.iter (setOrbDoseQty true)
+                d.Dose |> setOrbDoseQty true
             | OnceTimedOrder ->
                 setStandardDoseRate()
-                d.Dose |> Option.iter (fun dl ->
-                    setOrbDoseRate dl
-                    setOrbDoseQty true dl
-                    // Assume timed order always solution
-                    orbDto.Dose.Quantity.Constraints.IncrOpt <- 
-                        1N/10N |> createSingleValueUnitDto Units.Volume.milliLiter
-                )
+                d.Dose |> setOrbDoseRate
+                d.Dose |> setOrbDoseQty true
+                // Assume timed order always solution
+                orbDto.Dose.Quantity.Constraints.IncrOpt <- 
+                    1N/10N |> createSingleValueUnitDto Units.Volume.milliLiter
             | DiscontinuousOrder ->
-                d.Dose |> Option.iter (setOrbDoseQty false)
+                d.Dose |> setOrbDoseQty false
             | TimedOrder ->
                 setStandardDoseRate()
                 setTimedOrderConstraints orbDto
-                d.Dose |> Option.iter (fun dl ->
-                    setOrbDoseRate dl
-                    setOrbDoseQty false dl
-                )
+                d.Dose |> setOrbDoseRate
+                d.Dose |> setOrbDoseQty false
 
         /// Create and configure the Orderable DTO with all constraints
         let createOrderableDto (d : DrugOrder) =
