@@ -16,7 +16,7 @@ module DrugOrder =
     module Limit = Limit
 
 
-    let private tryHead m = (Array.map m) >> Array.tryHead >> (Option.defaultValue "")
+    let private tryHead m = (Array.map m) >> Array.tryHead >> Option.defaultValue ""
 
 
     /// <summary>
@@ -363,7 +363,7 @@ module DrugOrder =
             |> Array.map create
 
 
-    module private ToOrderDtoHelpers =
+    module ToOrderDtoHelpers =
     
         let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
         let limToDto = Option.map Limit.getValueUnit >> vuToDto
