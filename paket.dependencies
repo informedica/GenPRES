@@ -43,7 +43,7 @@ nuget ClosedXML = 0.97
 nuget ConsoleTables
 
 nuget Unquote
-nuget Expecto ~> 9
+nuget Expecto ~> 10
 nuget Expecto.FsCheck
 nuget Expecto.Hopac
 
