@@ -22,9 +22,9 @@
         "@emotion/react": "^11.11.4",
         "@emotion/styled": "^11.11.5",
         "@fontsource/roboto": "^4.5.8",
-        "@mui/icons-material": "^6.1.6",
-        "@mui/material": "^6.4.3",
-        "@mui/x-data-grid": "^7.22.2",
+        "@mui/icons-material": "^7.1.2",
+        "@mui/material": "^7.1.2",
+        "@mui/x-data-grid": "^7.29.6",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "react-markdown": "^9.0.1"
