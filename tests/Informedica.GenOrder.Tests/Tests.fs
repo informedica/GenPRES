@@ -488,9 +488,34 @@ module Tests
                     let dto = DrugOrder.toOrderDto drugOrder
 
                     dto.Id |> Expect.equal "should match Id" drugOrder.Id
+                    dto.Prescription.IsDiscontinuous |> Expect.isTrue "should be discontinuous"
                     dto.Orderable.Name |> Expect.equal "should match Name" drugOrder.Name
                     dto.Orderable.Components |> Expect.hasLength "should have 2 components" 2
                     dto.Orderable.Components[0].Items |> Expect.hasLength "should have 3 items in first component" 2
+                }
+
+                test "ToDto reference function to OrderDto" {
+                    let drugOrder = testDrugOrders |> List.head
+                    let ord1 = DrugOrder.toOrderDto drugOrder |> Order.Dto.fromDto
+
+                    // Check if the dto the same as ToOrderDto.toOrderDto
+                    let ord2 = ToOrderDto.toOrderDto drugOrder |> Order.Dto.fromDto
+
+                    ord1.Adjust
+                    |> Expect.equal "should be equal" ord2.Adjust
+                    ord1.Duration
+                    |> Expect.equal "should be equal" ord2.Duration
+                    ord1.Id
+                    |> Expect.equal "should be equal" ord2.Id
+                    ord1.Route
+                    |> Expect.equal "should be equal" ord2.Route
+                    ord1.Prescription 
+                    |> Expect.equal "should be equal" ord2.Prescription
+                    ord1.Orderable.Name
+                    |> Expect.equal "should be equal" ord2.Orderable.Name
+                    // this is fix: https://github.com/halcwb/GenPres2/commit/43d58ab1e123fd3217061d191226c5f074cdfad3
+                    ord1.Orderable.OrderableQuantity
+                    |> Expect.notEqual "should NOT be equal" ord2.Orderable.OrderableQuantity
                 }
 
             ]
