@@ -18,7 +18,7 @@ Use the conventional commits format for all commit messages:
 
 ### Types
 - **feat**: A new feature for the user
-- **fix**: A bug fix
+- **fix**: A bug fix, note that this should not be used for documentation fixes or refactoring
 - **docs**: Documentation only changes
 - **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
 - **refact**: A code change that neither fixes a bug nor adds a feature
