@@ -5,6 +5,9 @@
 ### Code Style and Formatting
 - Use 4 spaces for indentation (no tabs)
 - Keep lines under 120 characters when possible
+- Use 2 newlines to separate top-level constructs (types, modules, functions)
+- Use 2 newlines to separate function definitions within a module
+- Use single blank lines to separate logical sections within a function
 - Use meaningful names for functions, types, and variables:
     - Make variable names short when used in function bodies or functions not intended for public use
 - Follow F# naming conventions:
