@@ -21,6 +21,7 @@ module Tests
                 { DrugOrder.productComponent with
                     Name = "Component A"
                     Shape = "injectievloeistof"
+                    Divisible = Some 1N
                     Quantities = Some (ValueUnit.create Units.Volume.milliLiter [| 2N |])
                     Substances = [
                         { DrugOrder.substanceItem with
@@ -515,6 +516,9 @@ module Tests
                     |> Expect.equal "should be equal" ord2.Prescription
                     ord1.Orderable.Name
                     |> Expect.equal "should be equal" ord2.Orderable.Name
+
+                    ord1.Orderable.Components[0].OrderableQuantity
+                    |> Expect.equal "should be equal" ord2.Orderable.Components[0].OrderableQuantity
 
                     // this is fix: https://github.com/halcwb/GenPres2/commit/43d58ab1e123fd3217061d191226c5f074cdfad3
                     ord1.Orderable.OrderableQuantity
