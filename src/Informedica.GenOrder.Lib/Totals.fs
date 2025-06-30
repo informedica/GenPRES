@@ -59,9 +59,12 @@ module Totals =
 
 
     let getVolume tu pres (dose: Dose) =
-        let ovar = getDosePerTime Units.Volume.milliLiter tu pres dose
-
-        if ovar |> isVolume then Some ovar
+        if dose 
+           |> Order.Orderable.Dose.toOrdVars
+           |> List.map _.Variable
+           |> List.exists isVolume then
+            getDosePerTime Units.Volume.milliLiter tu pres dose
+            |> Some
         else None
 
 
