@@ -97,11 +97,21 @@
 
 # Add documentation source files
 !/docsSrc/
-!/docsSrc/**
+!/docsSrc/*.md
 
 # Add documentation
 !/docs/
-!/docs/**
+!/docs/*.xlsx
+!/docs/code-reviews/
+!/docs/mdr/
+!/docs/mdr/design-history/
+!/docs/mdr/post-market/
+!/docs/mdr/requirements/
+!/docs/mdr/requirements/*.xlsx
+!/docs/mdr/risk-analysis/
+!/docs/mdr/risk-analysis/*.xlsx
+!docs/mdr/usability/
+!/docs/mdr/validation/
 
 # Add source files
 !/scripts/
