@@ -87,7 +87,6 @@ module Nutrion =
         import Stack from '@mui/material/Stack';
         import Box from '@mui/material/Box';
         import Button from '@mui/material/Button';
-        import Grid from '@mui/material/Grid';
         import Accordion from '@mui/material/Accordion';
         import AccordionDetails from '@mui/material/AccordionDetails';
         import AccordionSummary from '@mui/material/AccordionSummary';

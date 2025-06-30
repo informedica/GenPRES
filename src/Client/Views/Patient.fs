@@ -513,7 +513,7 @@ module Patient =
             |> Array.map (fun el ->
                 JSX.jsx
                     $"""
-                <Grid item xs={6} md={3} lg={2}>{el}</Grid>
+                <Grid size = { {| xs = 6; lg = 2 |} }>{el}</Grid>
                 """
             )
 
@@ -559,7 +559,7 @@ module Patient =
             |> Array.map (fun el ->
                 JSX.jsx
                     $"""
-                <Grid item xs={6} md={4} lg={4}>{el}</Grid>
+                <Grid size = { {| xs = 6; md = 4; lg = 4 |} }>{el}</Grid>
                 """
             )
 
@@ -592,7 +592,7 @@ module Patient =
                     <Grid container spacing={2}>
                         {React.fragment (items1 |> unbox)}
                     </Grid>
-                    <Grid container spacing={2}sx={ {| mt=2 |} } >
+                    <Grid container spacing={2} sx={ {| mt=2 |} } >
                         {React.fragment (items2 |> unbox)}
                     </Grid>
                     <Box sx={ {| mt=2 |} }>
