@@ -152,7 +152,7 @@ module Patient =
                     (p |> Patient.getAgeWeeks)
                     (p |> Patient.getAgeDays)
                     (s |> Option.bind tryParse)
-                    (p |> Patient.getHeight)
+                    (p |> Patient.getHeight |> Option.map int)
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
                     p.Gender
@@ -174,7 +174,7 @@ module Patient =
                     (p |> Patient.getAgeMonths)
                     (p |> Patient.getAgeWeeks)
                     (p |> Patient.getAgeDays)
-                    (p |> Patient.getWeight)
+                    (p |> Patient.getWeight |> Option.map int)
                     (s |> Option.bind tryParse)
                     (p |> Patient.getGAWeeks)
                     (p |> Patient.getGADays)
@@ -384,11 +384,11 @@ module Patient =
             | None -> None
 
         let weightToNone = function
-            | Some v -> wghts |> Array.tryFind ((=) v)
+            | Some v -> wghts |> Array.tryFind ((=) (int v))
             | None -> None
 
         let heightToNone = function
-            | Some v -> hghts |> Array.tryFind ((=) v)
+            | Some v -> hghts |> Array.tryFind ((=) (int v))
             | None -> None
 
         let checkBox item ev =

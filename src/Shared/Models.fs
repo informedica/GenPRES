@@ -4,6 +4,14 @@ namespace Shared
 module Utils =
 
     open System
+    open Shared.Types
+
+
+    module Measures =
+
+        let toGram (x: int) = x * 1<gram>
+
+        let toCm (x: int) = x * 1<cm>
 
 
     module String =
@@ -593,13 +601,13 @@ module Models =
                     GestationalAge = ga
                     Weight =
                         {
-                            Estimated = ew |> Option.map int
-                            Measured = weight
+                            Estimated = ew |> Option.map (int >> Measures.toGram)
+                            Measured = weight |> Option.map Measures.toGram
                         }
                     Height =
                         {
-                            Estimated = eh |> Option.map int
-                            Measured = height
+                            Estimated = eh |> Option.map (int >> Measures.toCm)
+                            Measured = height |> Option.map Measures.toCm
                         }
                     Gender = gend
                     Access = cvl
@@ -688,7 +696,7 @@ module Models =
             match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
             | Some w, _, Some h, _
             | None, Some w, None, Some h ->
-                if h > 0 then
+                if h > 0<cm> then
                     float w / 1000. / float h ** 2. |> Some
                 else
                     None

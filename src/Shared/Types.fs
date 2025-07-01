@@ -8,6 +8,16 @@ module Types =
     open System
 
 
+    [<Measure>] type gram 
+    [<Measure>] type cm
+    [<Measure>] type m
+    [<Measure>] type kg
+    [<Measure>] type day
+    [<Measure>] type week
+    [<Measure>] type month
+    [<Measure>] type year
+
+
     type DataType =
         | StringData
         | FloatData
@@ -77,15 +87,15 @@ module Types =
     /// Weight in gram!!
     and Weight =
         {
-            Estimated: int option
-            Measured: int option
+            Estimated: int<gram> option
+            Measured: int<gram> option
         }
 
     /// Length in cm
     and Height =
         {
-            Estimated: int option
-            Measured: int option
+            Estimated: int<cm> option
+            Measured: int<cm> option
         }
 
     and Gender =
