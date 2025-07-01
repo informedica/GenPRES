@@ -474,6 +474,16 @@ module private Elmish =
             }, Cmd.none
 
         | UpdatePatient p ->
+            let p =
+                p
+                |> Option.map (
+                    Patient.applyNormalValues 
+                        (state.NormalWeights |> Deferred.toOption)
+                        (state.NormalHeights |> Deferred.toOption)
+                        (state.loadNormalNeoWeights |> Deferred.toOption)
+                        (state.loadNormalNeoHeights |> Deferred.toOption)
+                )
+                
             { state with
                 Patient = p
                 OrderContext =
@@ -485,6 +495,7 @@ module private Elmish =
                         | _ -> OrderContext.empty
                         |> OrderContext.setPatient p
                         |> Resolved
+
                 TreatmentPlan =
                     match p with
                     | None -> HasNotStartedYet
@@ -549,8 +560,16 @@ module private Elmish =
             Cmd.fromAsync (GoogleDocs.loadNormalWeight LoadNormalWeights)
 
         | LoadNormalWeights (Finished (Ok weights)) ->
-
             { state with
+                Patient =
+                    state.Patient
+                    |> Option.map (
+                        Patient.applyNormalValues 
+                            (Some weights)
+                            (state.NormalHeights |> Deferred.toOption)
+                            (state.loadNormalNeoWeights |> Deferred.toOption)
+                            (state.loadNormalNeoHeights |> Deferred.toOption)
+                    )
                 NormalWeights = weights |> Resolved
             },
             Cmd.none

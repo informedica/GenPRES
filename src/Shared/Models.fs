@@ -103,7 +103,6 @@ module Utils =
                 (s |> firstToUpper) + (s |> restString |> toLower)
 
 
-
     module Math =
 
 
@@ -198,6 +197,18 @@ module Utils =
                         [ x ] |> List.append xs
                 )
                 []
+
+
+        /// Get the nearest index in an list to a target value.
+        /// Returns the index of the element that has the smallest absolute difference from the target.
+        /// Throws an exception if the list is empty.
+        let inline nearestIndex x xs =
+            match xs with
+            | [] -> invalidArg "xs" "Array cannot be empty to calculate nearest value."
+            | _ ->
+                let deltas = xs |> List.map ((-) x) |> List.map abs
+                let minDelta = deltas |> List.min
+                deltas |> List.findIndex ((=) minDelta)
 
 
     module DateTime =
@@ -713,6 +724,64 @@ module Models =
             | None, Some w, Some h, _
             | None, Some w, None, Some h -> sqrt (float w * (h |> float) / 3600.) |> Math.fixPrecision 2 |> Some
 
+
+        let applyNormalValues 
+            (normalWeights : NormalValue list option) 
+            (normalHeights : NormalValue list option) 
+            (normalNeoWeights : NormalValue list option) 
+            (normalNeoHeights: NormalValue list option) 
+            (pat: Patient) =
+
+            let nearest ageInYears (nvs : NormalValue list option) =
+                match nvs with
+                | None -> None
+                | Some nvs ->
+                    match pat.Gender with
+                    | UnknownGender -> None
+                    | _ ->
+                        let gend = if pat.Gender = Female then "F" else "M"
+                        nvs
+                        |> List.filter (fun nv -> nv.Sex = gend)
+                        |> List.map _.Age
+                        |> List.nearestIndex ageInYears
+                        |> fun idx ->
+                        if idx < 0 || idx >=nvs.Length then
+                            None
+                        else
+                            nvs[idx].Mean
+                            |> Some
+
+            let ew, eh =
+                match pat.Age with
+                | None -> None, None
+                | Some age ->
+                    let ageInYears = Age.calcYears age
+
+                    let weight = 
+                        normalWeights 
+                        |> nearest ageInYears
+                        |> Option.map (fun w -> w * 1000.)
+                        |> Option.map (int >> Measures.toGram)                        
+
+                    let height = 
+                        normalHeights 
+                        |> nearest ageInYears
+                        |> Option.map (int >> Measures.toCm)
+
+                    weight, height
+
+            { pat with 
+                Weight = 
+                    { pat.Weight with 
+                        Estimated = ew
+                        Measured = pat.Weight.Measured |> Option.orElse ew
+                    }
+                Height = 
+                    { pat.Height with 
+                        Estimated = eh 
+                        Measured = pat.Height.Measured |> Option.orElse eh
+                    } 
+            }
 
 
         let toString terms lang markDown (pat: Patient) =

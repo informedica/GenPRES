@@ -297,13 +297,13 @@ module Mappers =
             Weight =
                 pat
                 |> Models.Patient.getWeight
-                |> Option.map BigRational.fromInt
+                |> Option.map (int >> BigRational.fromInt)
                 |> Option.map (ValueUnit.singleWithUnit Units.Weight.gram)
                 |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
             Height =
                 pat
                 |> Models.Patient.getHeight
-                |> Option.map BigRational.fromInt
+                |> Option.map (int >> BigRational.fromInt)
                 |> Option.map (ValueUnit.singleWithUnit Units.Height.centiMeter)
             Gender =
                 match pat.Gender with
@@ -727,7 +727,7 @@ module OrderContext =
     let updateIntake (ctx : OrderContext) =
         { ctx with
             Intake =
-                let w = ctx.Patient |> Models.Patient.getWeight
+                let w = ctx.Patient |> Models.Patient.getWeight |> Option.map int
                 let a =
                     ctx.Patient
                     |> Models.Patient.getAgeInDays
@@ -817,7 +817,7 @@ module TreatmentPlan =
     let calculateTotals (tp : TreatmentPlan) =
         { tp with
             Totals =
-                let w = tp.Patient |> Models.Patient.getWeight
+                let w = tp.Patient |> Models.Patient.getWeight |> Option.map int
                 let a = tp.Patient |> Models.Patient.getAgeInDays |> Option.map int
 
                 let scs =

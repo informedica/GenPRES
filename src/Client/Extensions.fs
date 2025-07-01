@@ -51,11 +51,15 @@ module Deferred =
         | InProgress -> InProgress
         | Resolved value -> transform value
 
-
     let defaultValue defVal = function
         | HasNotStartedYet
         | InProgress -> defVal
         | Resolved value -> value
+
+    let toOption = function
+        | HasNotStartedYet
+        | InProgress -> None
+        | Resolved value -> Some value
 
 
 type AsyncOperationStatus<'t> =
