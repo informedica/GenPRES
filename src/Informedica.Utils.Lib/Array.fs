@@ -155,6 +155,19 @@ module Array =
                 // Middle element for odd length array
                 float sorted.[len / 2]
 
+
+    /// Get the nearest index in an array to a target value.
+    /// Returns the index of the element that has the smallest absolute difference from the target.
+    /// Throws an exception if the array is empty.
+    let inline nearestIndex x xs =
+        match xs with
+        | [||] -> invalidArg "xs" "Array cannot be empty to calculate nearest value."
+        | _ ->
+            let deltas = xs |> Array.map ((-) x) |> Array.map abs
+            let minDelta = deltas |> Array.min
+            deltas |> Array.findIndex ((=) minDelta)
+
+
     module Tests =
 
         open Swensen.Unquote

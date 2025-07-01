@@ -202,7 +202,7 @@ module private Elmish =
                             gaWeeks
                             gaDays
                             UnknownGender
-                            [ CVL ]
+                            [ if cvl then CVL ]
                             None
                             dep
 

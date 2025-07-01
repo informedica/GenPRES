@@ -132,3 +132,9 @@ module GoogleDocs =
         dataGPUrlId
         |> createUrl "Localization"
         |> getUrl id msg
+
+
+    let loadNormalWeight msg =
+        dataEMLUrlId
+        |> createUrl "normalweight"
+        |> getUrl NormalWeight.parse msg

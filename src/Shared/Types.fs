@@ -26,6 +26,16 @@ module Types =
         }
 
 
+    type NormalValue =
+        {
+            Sex : string
+            Age : float
+            P3 : float
+            Mean : float
+            P97 : float
+        }
+
+
     type Ranges =
         {
             Years: int list
