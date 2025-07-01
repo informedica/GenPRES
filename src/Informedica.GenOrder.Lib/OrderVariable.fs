@@ -590,6 +590,8 @@ module OrderVariable =
     /// </summary>
     /// <param name="exact">Whether to use the exact representation of the ValueRange</param>
     /// <param name="ovar">The OrderVariable</param>
+    /// <param name="withConstraints"></param>
+    /// <returns></returns>
     let toStringWithConstraints withConstraints exact ovar =
         let ns =
             ovar
@@ -627,8 +629,6 @@ module OrderVariable =
     /// <summary>
     /// Get the string representation of an OrderVariable.
     /// </summary>
-    /// <param name="exact">Whether to use the exact representation of the ValueRange</param>
-    /// <param name="ovar">The OrderVariable</param>
     let toString = toStringWithConstraints false
 
 
@@ -2110,8 +2110,8 @@ module OrderVariable =
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> RateAdjust
 
 
-    /// Type and functions that represent a adjusted quantity,
-    /// and a adjusted quantity is a quantity per time
+    /// Type and functions that represent a adjusted total,
+    /// and a adjusted total is a quantity per time
     module TotalAdjust =
 
 
