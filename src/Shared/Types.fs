@@ -251,6 +251,8 @@ module Types =
             Hospital: string
             Indication: string
             Generic: string
+            MinWeight: float
+            MaxWeight: float
             NormDose: float
             MinDose: float
             MaxDose: float
@@ -287,6 +289,11 @@ module Types =
             Indication: string
             // Name of the intervantion
             Name: string
+            // == Patient --
+            // minWeight
+            MinWeightKg: float option
+            // maxWeight
+            MaxWeightKg: float option
             // == Product ==
             // Substance quantity
             Quantity: float option

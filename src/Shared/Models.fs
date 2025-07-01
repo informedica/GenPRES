@@ -874,6 +874,8 @@ module Models =
                 Hospital = ""
                 Indication = ""
                 Name = ""
+                MinWeightKg = None
+                MaxWeightKg = None
                 Quantity = None
                 QuantityUnit = ""
                 Solution = ""
@@ -903,12 +905,13 @@ module Models =
 
         let calcDoseVol kg doserPerKg conc min max =
             let d =
-                kg * doserPerKg
-                |> (fun d ->
+                if min = max && min > 0. then min
+                else
+                    kg * doserPerKg
+                    |> fun d ->
                     if max > 0. && d > max then max
                     else if min > 0. && d < min then min
                     else d
-                )
 
             let v =
                 d / conc
@@ -920,7 +923,7 @@ module Models =
                 )
                 |> Math.fixPrecision 2
 
-            (v * conc |> Math.fixPrecision 2, v)
+            v * conc |> Math.fixPrecision 2, v
 
 
         let ageInMoToYrs ageInMo = (ageInMo |> float) / 12.
@@ -977,7 +980,7 @@ module Models =
                 SubstanceDose = Some d
                 SubstanceDoseUnit = "ml"
                 SubstanceMaxDose = Some 500.
-                SubstanceDoseText = (sprintf "%A ml NaCl 0.9%%" d)
+                SubstanceDoseText = $"%A{d} ml NaCl 0.9%%"
                 SubstanceDoseAdjust = d / wght |> Math.fixPrecision 1 |> Some
                 SubstanceDoseAdjustUnit = "ml/kg"
                 Text = "10 ml/kg (max 500 ml)"
@@ -1010,29 +1013,31 @@ module Models =
                     calcDoseVol wght bolus.NormDose bolus.Concentration bolus.MinDose bolus.MaxDose
 
                 if d > 0. then
-                    (d, v, bolus.Concentration)
+                    d, v, bolus.Concentration
                 else
                     calcDoseVol wght bolus.NormDose (bolus.Concentration / 10.) bolus.MinDose bolus.MaxDose
-                    |> fun (d, v) -> d, v, (bolus.Concentration / 10.)
+                    |> fun (d, v) -> d, v, bolus.Concentration / 10.
 
             let adv s =
                 if s <> "" then
                     s
                 else
-                    let minmax =
-                        match (bolus.MinDose = 0., bolus.MaxDose = 0.) with
-                        | true, true -> ""
-                        | true, false -> $"(max %A{bolus.MaxDose} %s{bolus.Unit})"
-                        | false, true -> $"(min %A{bolus.MinDose} %s{bolus.Unit})"
-                        | false, false -> $"(%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
+                    match bolus.MinDose = 0., bolus.MaxDose = 0. with
+                    | true, true -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg"
 
-                    $"%A{bolus.NormDose} %s{bolus.Unit}/kg %s{minmax}"
+                    | true, false -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg (max %A{bolus.MaxDose} %s{bolus.Unit})"
+                    | false, true -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg (min %A{bolus.MinDose} %s{bolus.Unit})"
+                    | false, false -> 
+                        if bolus.MinDose = bolus.MaxDose then
+                            $"%A{bolus.MinDose} %s{bolus.Unit}"
+                        else
+                            $"%A{bolus.NormDose} %s{bolus.Unit}/kg (%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
 
             { Intervention.emptyIntervention with
                 Hospital = bolus.Hospital
                 Indication = bolus.Indication
                 Name = bolus.Generic
-                Quantity = Some(c)
+                Quantity = Some c
                 QuantityUnit = bolus.Unit
                 TotalUnit = "ml"
                 InterventionDose = Some v
@@ -1042,19 +1047,31 @@ module Models =
                 SubstanceMinDose = if bolus.MinDose = 0. then None else Some bolus.MinDose
                 SubstanceMaxDose = if bolus.MaxDose = 0. then None else Some bolus.MaxDose
                 SubstanceDoseUnit = bolus.Unit
-                SubstanceDoseAdjust = Some(d / wght |> Math.fixPrecision 1)
-                SubstanceNormDoseAdjust = Some bolus.NormDose
-                SubstanceDoseAdjustUnit = $"{bolus.Unit}/kg"
-                SubstanceDoseText = $"{d} {bolus.Unit} ({d / wght |> Math.fixPrecision 1} {bolus.Unit}/kg)"
+                SubstanceDoseAdjust = 
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then None 
+                    else Some(d / wght |> Math.fixPrecision 1)
+                SubstanceNormDoseAdjust = 
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then None 
+                    else Some bolus.NormDose
+                SubstanceDoseAdjustUnit = 
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then "" 
+                    else $"{bolus.Unit}/kg"
+                SubstanceDoseText =
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then
+                        $"{d} {bolus.Unit}"
+                    else
+                        $"{d} {bolus.Unit} ({d / wght |> Math.fixPrecision 1} {bolus.Unit}/kg)"
                 Text = adv bolus.Remark
             }
 
 
-        let createBolus hosp indication medication dose min max conc unit remark =
+        let createBolus hosp indication medication minWght maxWght dose min max conc unit remark =
             {
                 Hospital = hosp
                 Indication = indication
                 Generic = medication
+                MinWeight = minWght
+                MaxWeight = maxWght
                 NormDose = dose
                 MinDose = min
                 MaxDose = max
@@ -1081,6 +1098,8 @@ module Models =
                         (getString "hospital")
                         (getString "indication")
                         (getString "medication")
+                        (getFloat "minWeight")
+                        (getFloat "maxWeight")
                         (getFloat "dose")
                         (getFloat "min")
                         (getFloat "max")
@@ -1196,6 +1215,7 @@ module Models =
                     else
                         bolusMed
                         |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
+                        |> List.filter (fun m -> m.MinWeight <= weight.Value && (weight.Value < m.MaxWeight || m.MaxWeight = 0.))
                         |> List.map (calcBolusMedication weight.Value)
                     |> List.append xs
                     |> List.distinct
