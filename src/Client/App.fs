@@ -23,8 +23,8 @@ module private Elmish =
             Patient: Patient option
             NormalWeights : Deferred<NormalValue list>
             NormalHeights : Deferred<NormalValue list>
-            loadNormalNeoWeights : Deferred<NormalValue list>
-            loadNormalNeoHeights : Deferred<NormalValue list>
+            NormalNeoWeights : Deferred<NormalValue list>
+            NormalNeoHeights : Deferred<NormalValue list>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
@@ -265,7 +265,7 @@ module private Elmish =
 
                     Logging.log "parsed: " patient
                     patient
-
+                    
                 | _ ->
                     Logging.warning "could not parse url to patient" sl
                     None
@@ -324,8 +324,8 @@ module private Elmish =
             Patient = pat
             NormalWeights = HasNotStartedYet
             NormalHeights = HasNotStartedYet
-            loadNormalNeoWeights = HasNotStartedYet
-            loadNormalNeoHeights = HasNotStartedYet
+            NormalNeoWeights = HasNotStartedYet
+            NormalNeoHeights = HasNotStartedYet
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
@@ -480,10 +480,10 @@ module private Elmish =
                     Patient.applyNormalValues 
                         (state.NormalWeights |> Deferred.toOption)
                         (state.NormalHeights |> Deferred.toOption)
-                        (state.loadNormalNeoWeights |> Deferred.toOption)
-                        (state.loadNormalNeoHeights |> Deferred.toOption)
+                        (state.NormalNeoWeights |> Deferred.toOption)
+                        (state.NormalNeoHeights |> Deferred.toOption)
                 )
-                
+
             { state with
                 Patient = p
                 OrderContext =
@@ -567,8 +567,8 @@ module private Elmish =
                         Patient.applyNormalValues 
                             (Some weights)
                             (state.NormalHeights |> Deferred.toOption)
-                            (state.loadNormalNeoWeights |> Deferred.toOption)
-                            (state.loadNormalNeoHeights |> Deferred.toOption)
+                            (state.NormalNeoWeights |> Deferred.toOption)
+                            (state.NormalNeoHeights |> Deferred.toOption)
                     )
                 NormalWeights = weights |> Resolved
             },
@@ -597,14 +597,14 @@ module private Elmish =
 
         | LoadNormalNeoWeights Started ->
             { state with
-                loadNormalNeoWeights = InProgress
+                NormalNeoWeights = InProgress
             },
             Cmd.fromAsync (GoogleDocs.loadNormalNeoWeight LoadNormalNeoWeights)
 
         | LoadNormalNeoWeights (Finished (Ok weights)) ->
 
             { state with
-                loadNormalNeoWeights = weights |> Resolved
+                NormalNeoWeights = weights |> Resolved
             },
             Cmd.none
 
@@ -614,14 +614,14 @@ module private Elmish =
 
         | LoadNormalNeoHeights Started ->
             { state with
-                loadNormalNeoHeights = InProgress
+                NormalNeoHeights = InProgress
             },
             Cmd.fromAsync (GoogleDocs.loadNeoHeight LoadNormalNeoHeights)
 
         | LoadNormalNeoHeights (Finished (Ok heights)) ->
 
             { state with
-                loadNormalNeoHeights = heights |> Resolved
+                NormalNeoHeights = heights |> Resolved
             },
             Cmd.none    
 
@@ -1058,6 +1058,10 @@ let View () =
                         isDemo = state.IsDemo
                         acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
                         patient = state.Patient
+                        normalWeights = state.NormalWeights |> Deferred.toOption
+                        normalHeights = state.NormalHeights |> Deferred.toOption
+                        normalNeoWeights = state.NormalNeoWeights |> Deferred.toOption
+                        normalNeoHeights = state.NormalNeoHeights |> Deferred.toOption
                         updatePage = UpdatePage >> dispatch
                         updatePatient = UpdatePatient >> dispatch
                         bolusMedication = bm

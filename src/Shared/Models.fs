@@ -541,91 +541,47 @@ module Models =
 
 
         let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
-            if
-                [ years; months; weeks; days; (weight |> Option.map int) ]
-                |> List.forall Option.isNone
-            then
-                None
-            else
-                let a =
-                    if [ years; months; weeks; days ] |> List.forall Option.isNone then
-                        None
-                    else
-                        { Age.ageZero with
-                            Age.Years = years |> Option.defaultValue 0
-                            Months = months |> Option.defaultValue 0
-                            Weeks = weeks |> Option.defaultValue 0
-                            Days = days |> Option.defaultValue 0
-                        }
-                        |> Some
+            let a =
+                if [ years; months; weeks; days ] |> List.forall Option.isNone then
+                    None
+                else
+                    { Age.ageZero with
+                        Age.Years = years |> Option.defaultValue 0
+                        Months = months |> Option.defaultValue 0
+                        Weeks = weeks |> Option.defaultValue 0
+                        Days = days |> Option.defaultValue 0
+                    }
+                    |> Some
 
-                let ga =
-                    if [ gw; gd ] |> List.forall Option.isNone then
-                        None
-                    else
-                        {
-                            Patient.GestationalAge.Weeks = gw |> Option.defaultValue 37
-                            Patient.GestationalAge.Days = gd |> Option.defaultValue 0
-                        }
-                        |> Some
+            let ga =
+                if [ gw; gd ] |> List.forall Option.isNone then
+                    None
+                else
+                    {
+                        Patient.GestationalAge.Weeks = gw |> Option.defaultValue 37
+                        Patient.GestationalAge.Days = gd |> Option.defaultValue 0
+                    }
+                    |> Some
 
-                let ew, eh =
-                    if a |> Option.isNone || gw |> Option.defaultValue 37 < 37 then
-                        None, None
-                    else
-                        let a =
-                            (years |> Option.defaultValue 0 |> float) * 12.
-                            + (months |> Option.defaultValue 0 |> float) / 1.
-                            + (weeks |> Option.defaultValue 0 |> float) / 4.
-                            + (days |> Option.defaultValue 0 |> float) / 30.
-
-                        let w =
-                            NormalValues.ageWeight
-                            |> List.rev
-                            |> List.tryFind (fun (x, _) -> x <= a)
-                            |> Option.map snd
-                            |> Option.map (Math.fixPrecision 2)
-                            |> Option.map (fun x -> x * 1000.)
-
-                        let h =
-                            NormalValues.ageHeight
-                            |> List.rev
-                            |> List.tryFind (fun (x, _) -> x <= a)
-                            |> Option.map snd
-
-                        w, h
-
-                let weight =
-                    if weight |> Option.isSome then
-                        weight
-                    else
-                        ew |> Option.map (Math.fixPrecision 2) |> Option.map int
-
-                let height =
-                    if height |> Option.isSome then
-                        height
-                    else
-                        eh |> Option.map (Math.fixPrecision 0) |> Option.map int
-
-                {
-                    Age = a
-                    GestationalAge = ga
-                    Weight =
-                        {
-                            Estimated = ew |> Option.map (int >> Measures.toGram)
-                            Measured = weight |> Option.map Measures.toGram
-                        }
-                    Height =
-                        {
-                            Estimated = eh |> Option.map (int >> Measures.toCm)
-                            Measured = height |> Option.map Measures.toCm
-                        }
-                    Gender = gend
-                    Access = cvl
-                    RenalFunction = gfr
-                    Department = dep
-                }
-                |> Some
+            {
+                Age = a
+                GestationalAge = ga
+                Weight =
+                    {
+                        Estimated = None
+                        Measured = weight |> Option.map Measures.toGram
+                    }
+                Height =
+                    {
+                        Estimated = None
+                        Measured = height |> Option.map Measures.toCm
+                    }
+                Gender = gend
+                Access = cvl
+                RenalFunction = gfr
+                Department = dep
+            }
+            |> Some
 
 
         let getAgeInYears p =
@@ -669,6 +625,14 @@ module Models =
 
         let getGestAgeInDays (p: Patient) =
             p.GestationalAge |> Option.map (fun ga -> ga.Weeks * 7 + ga.Days)
+
+
+        let getPostConceptionalAgeInDays (p: Patient) =
+            match p.GestationalAge, p |> getAgeInDays with
+            | Some ga, Some age ->
+                let gaDays = ga.Weeks * 7 + ga.Days
+                int age + gaDays |> Some
+            | _ -> None
 
 
         /// Get either the measured weight or the
@@ -732,7 +696,15 @@ module Models =
             (normalNeoHeights: NormalValue list option) 
             (pat: Patient) =
 
-            let nearest ageInYears (nvs : NormalValue list option) =
+            let wghts =
+                [ 21000..1000..100000 ]
+                |> List.append [ 10500..500..20000 ]
+                |> List.append [ 2000..100..10000 ]
+                |> List.append [ 400..50..1950 ]
+
+            let hghts = [ 40..220 ]
+
+            let nearest age (nvs : NormalValue list option) =
                 match nvs with
                 | None -> None
                 | Some nvs ->
@@ -740,10 +712,13 @@ module Models =
                     | UnknownGender -> None
                     | _ ->
                         let gend = if pat.Gender = Female then "F" else "M"
+                        let nvs =
+                            nvs
+                            |> List.filter (fun nv -> nv.Sex = gend)
+
                         nvs
-                        |> List.filter (fun nv -> nv.Sex = gend)
                         |> List.map _.Age
-                        |> List.nearestIndex ageInYears
+                        |> List.nearestIndex age
                         |> fun idx ->
                         if idx < 0 || idx >=nvs.Length then
                             None
@@ -755,20 +730,56 @@ module Models =
                 match pat.Age with
                 | None -> None, None
                 | Some age ->
-                    let ageInYears = Age.calcYears age
+                    match pat |> getPostConceptionalAgeInDays with
+                    | Some days -> 
+                        let pcAgeInWeeks = (days |> float) / 7.
 
-                    let weight = 
-                        normalWeights 
-                        |> nearest ageInYears
-                        |> Option.map (fun w -> w * 1000.)
-                        |> Option.map (int >> Measures.toGram)                        
+                        let weight = 
+                            normalNeoWeights 
+                            |> nearest pcAgeInWeeks
+                            |> Option.map (fun w ->
+                                wghts
+                                |> List.nearestIndex (int w)
+                                |> fun idx -> wghts[idx]
+                                |> Measures.toGram
+                            )
 
-                    let height = 
-                        normalHeights 
-                        |> nearest ageInYears
-                        |> Option.map (int >> Measures.toCm)
+                        let height =
+                            normalNeoHeights 
+                            |> nearest pcAgeInWeeks
+                            |> Option.map (fun h ->
+                                hghts
+                                |> List.nearestIndex (int h)
+                                |> fun idx -> hghts[idx]
+                                |> Measures.toCm
+                            )
 
-                    weight, height
+                        weight, height
+                    | None -> 
+                        let ageInYears = age |> Age.calcYears
+
+                        let weight = 
+                            normalWeights 
+                            |> nearest ageInYears
+                            |> Option.map (fun w -> w * 1000.)
+                            |> Option.map (fun w ->
+                                wghts
+                                |> List.nearestIndex (int w)
+                                |> fun idx -> wghts[idx]
+                                |> Measures.toGram
+                            )                        
+
+                        let height = 
+                            normalHeights 
+                            |> nearest ageInYears
+                            |> Option.map (fun h ->
+                                hghts
+                                |> List.nearestIndex (int h)
+                                |> fun idx -> hghts[idx]
+                                |> Measures.toCm
+                            )                       
+
+                        weight, height
 
             { pat with 
                 Weight = 
@@ -786,7 +797,7 @@ module Models =
 
         let toString terms lang markDown (pat: Patient) =
             let getTerm = Localization.getTerm terms lang
-            let toStr s n = n |> Option.map (sprintf "%s%.1f" s)
+            let toStr s n = n |> Option.map (Math.fixPrecision 3 >> string >> (fun s' -> $"{s}{s'}"))
 
             let bold s =
                 s |> Option.map (fun s -> if markDown then $"**{s}**" else s)

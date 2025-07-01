@@ -61,8 +61,8 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     None
                     None
-                    (p |> Patient.getGAWeeks)
-                    (p |> Patient.getGADays)
+                    None
+                    None
                     p.Gender
                     p.Access
                     p.RenalFunction
@@ -84,8 +84,8 @@ module Patient =
                     (p |> Patient.getAgeDays)
                     None
                     None
-                    (p |> Patient.getGAWeeks)
-                    (p |> Patient.getGADays)
+                    None
+                    None
                     p.Gender
                     p.Access
                     p.RenalFunction
@@ -289,8 +289,15 @@ module Patient =
                 | UpdateRenal s  -> state |> setRenal s
                 | UpdateGender s ->
                     state
-                    |> Option.map (fun p ->
+                    |> Option.defaultValue Patient.empty
+                    |> (fun p ->
                         { p with
+                            Patient.Weight.Measured = None
+                            Patient.Height.Measured = None
+
+                            Patient.Weight.Estimated = None
+                            Patient.Height.Estimated = None
+
                             Gender =
                                 match s with
                                 | "male" -> Male
@@ -298,6 +305,7 @@ module Patient =
                                 | _ -> UnknownGender
                         }
                     )
+                    |> Some
                 | ToggleCVL      -> state |> toggleCVL
                 | TogglePVL      -> state |> togglePVL
                 | ToggleET       -> state |> toggleET
@@ -335,8 +343,8 @@ module Patient =
     [<JSX.Component>]
     let View (props :
             {|
-                patient : Types.Patient option
-                updatePatient : Types.Patient option -> unit
+                patient : Patient option
+                updatePatient : Patient option -> unit
                 localizationTerms : Deferred<string [] []>
             |}
         ) =
