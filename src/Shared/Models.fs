@@ -706,10 +706,6 @@ module Models =
             | None, Some w, None, Some h -> sqrt (float w * (h |> float) / 3600.) |> Math.fixPrecision 2 |> Some
 
 
-        let calcNormalFluid pat =
-            let a = pat |> getAge
-            a
-
 
         let toString terms lang markDown (pat: Patient) =
             let getTerm = Localization.getTerm terms lang
@@ -1296,9 +1292,40 @@ module Models =
             | _ -> []
 
 
-    let NormalValues =
+    module NormalValues =
 
-        let create 
+
+        open Utils
+        open Shared
+
+
+        let create sex age p3 mean p97 =
+            {
+                Sex = sex
+                Age = age
+                P3 = p3
+                Mean = mean
+                P97 = p97
+            }
+
+
+        let parse (data: string[][]) =
+            match data with
+            | data when data |> Array.length > 1 ->
+                let cms = data |> Array.head
+
+                data
+                |> Array.skip 1
+                |> Array.map (fun sl ->
+                    let getString n =
+                        Csv.getStringColumn cms sl n |> String.trim
+
+                    let getFloat = Csv.getFloatColumn cms sl
+
+                    create (getString "sex") (getFloat "age") (getFloat "p3") (getFloat "mean") (getFloat "p97")
+                )
+                |> Array.toList
+            | _ -> []
 
 
     module Order =

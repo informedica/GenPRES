@@ -136,5 +136,23 @@ module GoogleDocs =
 
     let loadNormalWeight msg =
         dataEMLUrlId
-        |> createUrl "normalweight"
-        |> getUrl NormalWeight.parse msg
+        |> createUrl "weight"
+        |> getUrl NormalValues.parse msg
+
+
+    let loadNormalHeight msg =
+        dataEMLUrlId
+        |> createUrl "height"
+        |> getUrl NormalValues.parse msg
+
+
+    let loadNormalNeoWeight msg =
+        dataEMLUrlId
+        |> createUrl "weight neo"
+        |> getUrl NormalValues.parse msg
+
+
+    let loadNeoHeight msg =
+        dataEMLUrlId
+        |> createUrl "height neo"
+        |> getUrl NormalValues.parse msg

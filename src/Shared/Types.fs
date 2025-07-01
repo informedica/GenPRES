@@ -74,7 +74,7 @@ module Types =
             Department: string option
         }
 
-    /// Weight in kg
+    /// Weight in gram!!
     and Weight =
         {
             Estimated: int option

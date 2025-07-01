@@ -341,7 +341,7 @@ module Patient =
             |}
         ) =
 
-        let context = React.useContext(Global.context)
+        let context = React.useContext Global.context
         let lang = context.Localization
 
         let isExpanded, setExpanded = React.useState true

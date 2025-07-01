@@ -21,6 +21,10 @@ module private Elmish =
         {
             Page : Global.Pages
             Patient: Patient option
+            NormalWeights : Deferred<NormalValue list>
+            NormalHeights : Deferred<NormalValue list>
+            loadNormalNeoWeights : Deferred<NormalValue list>
+            loadNormalNeoHeights : Deferred<NormalValue list>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
@@ -44,6 +48,12 @@ module private Elmish =
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
+
+        | LoadNormalWeights of AsyncOperationStatus<Result<NormalValue list, string>>
+        | LoadNormalHeights of AsyncOperationStatus<Result<NormalValue list, string>>
+        | LoadNormalNeoWeights of AsyncOperationStatus<Result<NormalValue list, string>>
+        | LoadNormalNeoHeights of AsyncOperationStatus<Result<NormalValue list, string>>
+
 
         | LoadBolusMedication of AsyncOperationStatus<Result<BolusMedication list, string>>
         | LoadContinuousMedication of AsyncOperationStatus<Result<ContinuousMedication list, string>>
@@ -312,6 +322,10 @@ module private Elmish =
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue Global.LifeSupport
             Patient = pat
+            NormalWeights = HasNotStartedYet
+            NormalHeights = HasNotStartedYet
+            loadNormalNeoWeights = HasNotStartedYet
+            loadNormalNeoHeights = HasNotStartedYet
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
@@ -341,6 +355,10 @@ module private Elmish =
         let cmds =
             Cmd.batch [
                 Cmd.ofMsg (pat |> UpdatePatient)
+                Cmd.ofMsg (LoadNormalWeights Started)
+                Cmd.ofMsg (LoadNormalHeights Started)
+                Cmd.ofMsg (LoadNormalNeoWeights Started)
+                Cmd.ofMsg (LoadNormalNeoHeights Started)
                 Cmd.ofMsg (LoadBolusMedication Started)
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
@@ -522,6 +540,74 @@ module private Elmish =
 
         | LoadLocalization (Finished (Error s)) ->
             Logging.error "cannot load localization" s
+            state, Cmd.none
+
+        | LoadNormalWeights Started ->
+            { state with
+                NormalWeights = InProgress
+            },
+            Cmd.fromAsync (GoogleDocs.loadNormalWeight LoadNormalWeights)
+
+        | LoadNormalWeights (Finished (Ok weights)) ->
+
+            { state with
+                NormalWeights = weights |> Resolved
+            },
+            Cmd.none
+
+        | LoadNormalWeights (Finished (Error s)) ->
+            Logging.error "cannot load normal weights" s
+            state, Cmd.none
+
+        | LoadNormalHeights Started ->
+            { state with
+                NormalHeights = InProgress
+            },
+            Cmd.fromAsync (GoogleDocs.loadNormalHeight LoadNormalHeights)
+
+        | LoadNormalHeights (Finished (Ok heights)) ->
+
+            { state with
+                NormalHeights = heights |> Resolved
+            },
+            Cmd.none
+
+        | LoadNormalHeights (Finished (Error s)) ->
+            Logging.error "cannot load normal heights" s
+            state, Cmd.none
+
+        | LoadNormalNeoWeights Started ->
+            { state with
+                loadNormalNeoWeights = InProgress
+            },
+            Cmd.fromAsync (GoogleDocs.loadNormalNeoWeight LoadNormalNeoWeights)
+
+        | LoadNormalNeoWeights (Finished (Ok weights)) ->
+
+            { state with
+                loadNormalNeoWeights = weights |> Resolved
+            },
+            Cmd.none
+
+        | LoadNormalNeoWeights (Finished (Error s)) ->
+            Logging.error "cannot load normal neo weights" s
+            state, Cmd.none
+
+        | LoadNormalNeoHeights Started ->
+            { state with
+                loadNormalNeoHeights = InProgress
+            },
+            Cmd.fromAsync (GoogleDocs.loadNeoHeight LoadNormalNeoHeights)
+
+        | LoadNormalNeoHeights (Finished (Ok heights)) ->
+
+            { state with
+                loadNormalNeoHeights = heights |> Resolved
+            },
+            Cmd.none    
+
+        | LoadNormalNeoHeights (Finished (Error s)) ->
+            Logging.error "cannot load normal neo heights" s
             state, Cmd.none
 
         | LoadBolusMedication Started ->
