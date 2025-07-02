@@ -9,9 +9,9 @@ module ContinuousMeds =
 
 
     [<JSX.Component>]
-    let View (props : {| interventions: Deferred<Types.Intervention list>; localizationTerms : Deferred<string [] []> |}) =
+    let View (props : {| interventions: Deferred<Types.Intervention list>; localizationTerms : Deferred<string [] []>; onSelectItem: string -> unit  |}) =
 
-        let context = React.useContext(Global.context)
+        let context = React.useContext Global.context
         let lang = context.Localization
         let hosp = context.Hospital
 
@@ -47,7 +47,7 @@ module ContinuousMeds =
                     {|
                         cells =
                             [|
-                                {| field = "id"; value = $"{i + 1}" |}
+                                {| field = "id"; value = $"{i + 1}.{m.Name}" |}
                                 {| field = "indication"; value = $"{m.Indication}" |}
                                 {| field = "medication"; value = $"**{m.Name}**" |}
                                 {| field = "quantity"; value = $"{m.Quantity} {m.QuantityUnit}" |}
@@ -87,7 +87,7 @@ module ContinuousMeds =
                     rows = rows
                     rowCreate = rowCreate
                     height = "70vh"
-                    onRowClick = ignore
+                    onRowClick = props.onSelectItem
                     checkboxSelection = false
                     selectedRows = [||]
                     onSelectChange = ignore

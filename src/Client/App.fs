@@ -58,6 +58,7 @@ module private Elmish =
         | LoadBolusMedication of AsyncOperationStatus<Result<BolusMedication list, string>>
         | LoadContinuousMedication of AsyncOperationStatus<Result<ContinuousMedication list, string>>
         | LoadProducts of AsyncOperationStatus<Result<Product list, string>>
+        | OnSelectContinuousMedicationItem of string
 
         | OrderContextCommand of Api.OrderContextCommand
         | LoadUpdatedOrderContext of ApiResponse
@@ -672,6 +673,31 @@ module private Elmish =
             Logging.error "cannot load continuous medication" s
             state, Cmd.none
 
+        | OnSelectContinuousMedicationItem item ->
+            Logging.log $"selected continuous medication item" item
+            match state.ContinuousMedication with
+            | Resolved meds ->
+                match meds |> List.tryFind (fun m -> item.Contains m.Generic) with
+                | None ->
+                    Logging.warning $"could not find continuous medication with item: {item}" item
+                    state, Cmd.none
+                | Some selected ->
+                    let ctx =
+                        match state.OrderContext with
+                        | HasNotStartedYet -> OrderContext.empty
+                        | InProgress -> OrderContext.empty
+                        | Resolved ctx -> ctx
+                        |> fun ctx ->
+                            { ctx with
+                                OrderContext.Filter.Medication = Some selected.Generic
+                                OrderContext.Filter.Route = Some "INTRAVENEUS"
+                            }
+                    { state with
+                        Page = Prescribe
+                        OrderContext = ctx |> Resolved
+                    }, Cmd.ofMsg (OrderContextCommand (Api.UpdateOrderContext ctx))
+            | _ -> state, Cmd.none
+
         | LoadProducts Started ->
             { state with Products = InProgress },
             Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
@@ -1066,6 +1092,7 @@ let View () =
                         updatePatient = UpdatePatient >> dispatch
                         bolusMedication = bm
                         continuousMedication = cm
+                        onSelectContinuousMedicationItem = OnSelectContinuousMedicationItem >> dispatch
                         products = state.Products
                         orderContext = state.OrderContext
                         updateOrderContext = OrderContextCommand >> dispatch
