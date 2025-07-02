@@ -64,11 +64,13 @@ module EmergencyList =
             match props.interventions with
             | Resolved items ->
                 items
-                |> List.filter (fun i ->
+                |> List.filter (fun item ->
                     hosp |> String.isNullOrWhiteSpace ||
-                    i.Hospital |> String.isNullOrWhiteSpace ||
-                    hosp = i.Hospital
+                    item.Hospital |> String.isNullOrWhiteSpace ||
+                    hosp = item.Hospital
                 )
+                |> List.distinctBy (fun item -> 
+                    item.Indication, item.Name, item.InterventionDoseText)
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
@@ -81,8 +83,8 @@ module EmergencyList =
                                 {| field = "id"; value = $"{i + 1}" |}
                                 {| field = "indication"; value = $"{m.Indication}" |}
                                 {| field = "intervention"; value = $"**{m.Name}**" |}
-                                {| field = "calculated"; value = (if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText)  |}
-                                {| field = "preparation"; value =  (if b then "" else $"*{m.InterventionDoseText}*") |}
+                                {| field = "calculated"; value = if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText  |}
+                                {| field = "preparation"; value =  if b then "" else $"*{m.InterventionDoseText}*" |}
                                 {| field = "advice"; value = $"{m.Text}" |}
                             |]
                         actions = sentence |> speakAct

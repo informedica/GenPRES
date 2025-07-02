@@ -704,27 +704,40 @@ module Models =
 
             let hghts = [ 40..220 ]
 
+            let forGender age nvs gend =
+                let nvs =
+                    nvs
+                    |> List.filter (fun nv -> nv.Sex = gend)
+
+                nvs
+                |> List.map _.Age
+                |> List.nearestIndex age
+                |> fun idx ->
+                if idx < 0 || idx >=nvs.Length then
+                    None
+                else
+                    nvs[idx].Mean
+                    |> Some
+
             let nearest age (nvs : NormalValue list option) =
                 match nvs with
                 | None -> None
                 | Some nvs ->
-                    match pat.Gender with
-                    | UnknownGender -> None
-                    | _ ->
-                        let gend = if pat.Gender = Female then "F" else "M"
-                        let nvs =
-                            nvs
-                            |> List.filter (fun nv -> nv.Sex = gend)
+                    let forGender = forGender age nvs
 
-                        nvs
-                        |> List.map _.Age
-                        |> List.nearestIndex age
-                        |> fun idx ->
-                        if idx < 0 || idx >=nvs.Length then
-                            None
-                        else
-                            nvs[idx].Mean
-                            |> Some
+                    match pat.Gender with
+                    | UnknownGender -> 
+                        let mw = "M" |> forGender
+                        let fw = "F" |> forGender
+                        // take the average of two genders
+                        mw
+                        |> Option.bind (fun mw -> 
+                            fw 
+                            |> Option.map (fun fw -> (fw + mw) / 2.)
+                        )
+                    | _ ->
+                        if pat.Gender = Female then "F" else "M"
+                        |> forGender
 
             let ew, eh =
                 match pat.Age with
