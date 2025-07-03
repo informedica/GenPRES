@@ -1244,6 +1244,7 @@ module Models =
             hospital
             indication
             medication
+            generic
             unit
             doseunit
             minweight
@@ -1260,7 +1261,8 @@ module Models =
             {
                 Hospital = hospital
                 Indication = indication
-                Generic = medication
+                Medication = medication
+                Generic = generic
                 Unit = unit
                 DoseUnit = doseunit
                 MinWeight = minweight
@@ -1293,6 +1295,7 @@ module Models =
                         (getString "hospital")
                         (getString "indication")
                         (getString "medication")
+                        (getString "generic")
                         (getString "unit")
                         (getString "doseunit")
                         (getFloat "minweight")
@@ -1339,13 +1342,13 @@ module Models =
 
             contMeds
             |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
-            |> List.sortBy (fun med -> med.Indication, med.Generic)
+            |> List.sortBy (fun med -> med.Indication, med.Medication)
             |> List.collect (fun med ->
                 let vol = med.Total
                 // TODO: really ugly hack to meet specific dose calc
                 // need to create a config structure for this
                 let qty =
-                    if med.Quantity = 0. && med.Hospital = "Radboud UMC" && med.Generic = "morfine" then
+                    if med.Quantity = 0. && med.Hospital = "Radboud UMC" && med.Medication = "morfine" then
                         wght / 2. |> int |> float
                     else
                         med.Quantity
@@ -1359,7 +1362,7 @@ module Models =
                         { Intervention.emptyIntervention with
                             Hospital = med.Hospital
                             Indication = med.Indication
-                            Name = med.Generic
+                            Name = med.Medication
                             Quantity = Some qty
                             QuantityUnit = med.Unit
                             Total = Some vol

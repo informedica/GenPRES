@@ -470,9 +470,19 @@ module private Elmish =
             }, Cmd.none
 
         | UpdatePage p ->
-            { state with
-                Page = p
-            }, Cmd.none
+            // make sure that the order context is not in use
+            // i.e. the order context should be "fresh"
+            if p = ContinuousMeds && 
+               state.OrderContext |> Deferred.map(fun ctx -> ctx.Filter.Medication |> Option.isSome) |> Deferred.defaultValue true
+                then
+                { state with
+                    Page = p
+                    OrderContext = HasNotStartedYet
+                }, Cmd.ofMsg (LoadUpdatedOrderContext Started)
+            else
+                { state with
+                    Page = p
+                }, Cmd.none
 
         | UpdatePatient p ->
             let p =
@@ -677,7 +687,7 @@ module private Elmish =
             Logging.log $"selected continuous medication item" item
             match state.ContinuousMedication with
             | Resolved meds ->
-                match meds |> List.tryFind (fun m -> item.Contains m.Generic) with
+                match meds |> List.tryFind (fun m -> item.Contains m.Medication) with
                 | None ->
                     Logging.warning $"could not find continuous medication with item: {item}" item
                     state, Cmd.none

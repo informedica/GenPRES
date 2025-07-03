@@ -265,6 +265,7 @@ module Types =
         {
             Hospital: string
             Indication: string
+            Medication: string
             Generic: string
             Unit: string
             Quantity: float
