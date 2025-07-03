@@ -66,11 +66,14 @@ let dr =
                       |> ValueUnit.singleWithValue (10N)
                       |> Some
                 }
-            Generic = Some "nitroprusside"
-            Shape = Some ""
-            Route = Some "intraveneus"
+            Indication = Some "Sedatie op de IC"
+            Generic = Some "midazolam"
+            Shape = None
+            Route = Some "INTRAVENEUS"
         }
     |> Array.head
+
+
 
 dr
 |> DoseRule.addShapeLimits
@@ -98,7 +101,8 @@ SolutionRule.get ()
 
 let pr =
     { Filter.doseFilter with
-        Generic = Some "vancomycine"
+        Indication = Some "Sedatie op de IC"
+        Generic = Some "midazolam"
         Route = Some "intraveneus"
         DoseType = Continuous "" |> Some
         Patient =
@@ -116,6 +120,9 @@ let pr =
             }
     }
     |> PrescriptionRule.filter
+    |> Array.head
+
+pr.SolutionRules
 
 
 { Patient.patient with

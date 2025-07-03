@@ -104,6 +104,7 @@ module PrescriptionRule =
 
             let filter =
                 { filter with
+                    Indication = dr.Indication |> Some
                     Generic = dr.Generic |> Some
                     Shape = dr.Shape |> Some
                     Route = dr.Route |> Some
