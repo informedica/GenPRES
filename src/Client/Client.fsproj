@@ -40,8 +40,8 @@
     <Compile Include="./Views/TreatmentPlan.fs" />
     <Compile Include="./Views/Formulary.fs" />
     <Compile Include="./Views/Parenteralia.fs" />
-    <Compile Include="./Pages/GenPres.fs" />
-    <Compile Include="App.fs" />
+    <Compile Include="./Pages/GenPres.fs" /><Compile Include="App.fs" />
+    
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -27,7 +27,7 @@ module EmergencyList =
 
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |}
-            {|  field = "indication"; headerName = Terms.``Emergency List Indication`` |> getTerm "Indicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "catagory"; headerName = Terms.``Emergency List Catagory`` |> getTerm "Category"; width = 200; filterable = true; sortable = true |}
             {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 200; filterable = true; sortable = true |}
             {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 200; filterable = false; sortable = false |}
             {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
@@ -70,7 +70,7 @@ module EmergencyList =
                     hosp = item.Hospital
                 )
                 |> List.distinctBy (fun item -> 
-                    item.Indication, item.Name, item.InterventionDoseText)
+                    item.Catagory, item.Name, item.InterventionDoseText)
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
@@ -81,7 +81,7 @@ module EmergencyList =
                         cells =
                             [|
                                 {| field = "id"; value = $"{i + 1}" |}
-                                {| field = "indication"; value = $"{m.Indication}" |}
+                                {| field = "catagory"; value = $"{m.Catagory}" |}
                                 {| field = "intervention"; value = $"**{m.Name}**" |}
                                 {| field = "calculated"; value = if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText  |}
                                 {| field = "preparation"; value =  if b then "" else $"*{m.InterventionDoseText}*" |}
@@ -98,7 +98,7 @@ module EmergencyList =
             else
                 {|
                     id = cells[0]
-                    indication = cells[1].Replace("*", "")
+                    catagory = cells[1].Replace("*", "")
                     intervention = cells[2].Replace("*", "")
                     calculated = cells[3].Replace("*", "")
                     preparation = cells[4].Replace("*", "")

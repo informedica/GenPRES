@@ -249,7 +249,7 @@ module Types =
     and BolusMedication =
         {
             Hospital: string
-            Indication: string
+            Catagory: string
             Generic: string
             MinWeight: float
             MaxWeight: float
@@ -264,7 +264,9 @@ module Types =
     and ContinuousMedication =
         {
             Hospital: string
+            Catagory: string
             Indication: string
+            DoseType: string
             Medication: string
             Generic: string
             Unit: string
@@ -285,9 +287,10 @@ module Types =
     type Intervention =
         {
             Hospital: string
+            // The intervention catagory
             // == Intervention ==
             // Indication for the intervention
-            Indication: string
+            Catagory: string
             // Name of the intervantion
             Name: string
             // == Patient --

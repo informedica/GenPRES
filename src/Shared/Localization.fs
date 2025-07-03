@@ -23,14 +23,14 @@ type Terms =
     | ``Patient remove patient data``
     | ``Emergency List``
     | ``Emergency List show when patient data``
-    | ``Emergency List Indication``
+    | ``Emergency List Catagory``
     | ``Emergency List Intervention``
     | ``Emergency List Calculated``
     | ``Emergency List Preparation``
     | ``Emergency List Advice``
     | ``Continuous Medication List``
     | ``Continuous Medication List show when patient data``
-    | ``Continuous Medication Indication``
+    | ``Continuous Medication Catagory``
     | ``Continuous Medication Medication``
     | ``Continuous Medication Quantity``
     | ``Continuous Medication Solution``

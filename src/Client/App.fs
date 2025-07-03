@@ -699,8 +699,13 @@ module private Elmish =
                         | Resolved ctx -> ctx
                         |> fun ctx ->
                             { ctx with
+                                OrderContext.Filter.Indication = 
+                                    if selected.Indication = "" then None else Some selected.Indication
                                 OrderContext.Filter.Medication = Some selected.Generic
                                 OrderContext.Filter.Route = Some "INTRAVENEUS"
+                                OrderContext.Filter.DoseType =
+                                    if selected.DoseType = "" then None
+                                    else Some (DoseType.doseTypeFromString selected.DoseType)
                             }
                     { state with
                         Page = Prescribe

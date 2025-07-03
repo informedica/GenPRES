@@ -25,7 +25,7 @@ module ContinuousMeds =
 
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
-            {|  field = "indication"; headerName = Terms.``Continuous Medication Indication`` |> getTerm "Indicatie"; width = 200; filterable = true; sortable = true |}
+            {|  field = "catagory"; headerName = Terms.``Continuous Medication Catagory`` |> getTerm "Categorie"; width = 200; filterable = true; sortable = true |}
             {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |}
             {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
             {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
@@ -48,7 +48,7 @@ module ContinuousMeds =
                         cells =
                             [|
                                 {| field = "id"; value = $"{i + 1}.{m.Name}" |}
-                                {| field = "indication"; value = $"{m.Indication}" |}
+                                {| field = "catagory"; value = $"{m.Catagory}" |}
                                 {| field = "medication"; value = $"**{m.Name}**" |}
                                 {| field = "quantity"; value = $"{m.Quantity} {m.QuantityUnit}" |}
                                 {| field = "solution"; value = $"{m.Total} ml {m.Solution}" |}
@@ -66,7 +66,7 @@ module ContinuousMeds =
             else
                 {|
                     id = cells[0]
-                    indication = cells[1].Replace("*", "")
+                    catagory = cells[1].Replace("*", "")
                     medication = cells[2].Replace("*", "")
                     quantity = cells[3].Replace("*", "")
                     solution = cells[4].Replace("*", "")

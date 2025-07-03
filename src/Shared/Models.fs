@@ -885,7 +885,7 @@ module Models =
         let emptyIntervention =
             {
                 Hospital = ""
-                Indication = ""
+                Catagory = ""
                 Name = ""
                 MinWeightKg = None
                 MaxWeightKg = None
@@ -947,7 +947,7 @@ module Models =
 
             { Intervention.emptyIntervention with
                 Hospital = hosp
-                Indication = indication
+                Catagory = indication
                 Name = name
                 InterventionDose = Some m
                 SubstanceDoseText = doseTextFn m
@@ -988,7 +988,7 @@ module Models =
             let d, _ = calcDoseVol wght 10. 1. 0. 500.
 
             { Intervention.emptyIntervention with
-                Indication = "reanimatie"
+                Catagory = "reanimatie"
                 Name = "vaatvulling"
                 SubstanceDose = Some d
                 SubstanceDoseUnit = "ml"
@@ -1048,7 +1048,7 @@ module Models =
 
             { Intervention.emptyIntervention with
                 Hospital = bolus.Hospital
-                Indication = bolus.Indication
+                Catagory = bolus.Catagory
                 Name = bolus.Generic
                 Quantity = Some c
                 QuantityUnit = bolus.Unit
@@ -1081,7 +1081,7 @@ module Models =
         let createBolus hosp indication medication minWght maxWght dose min max conc unit remark =
             {
                 Hospital = hosp
-                Indication = indication
+                Catagory = indication
                 Generic = medication
                 MinWeight = minWght
                 MaxWeight = maxWght
@@ -1242,7 +1242,9 @@ module Models =
 
         let create
             hospital
+            catagory
             indication
+            dosetype
             medication
             generic
             unit
@@ -1260,7 +1262,9 @@ module Models =
             =
             {
                 Hospital = hospital
+                Catagory = catagory
                 Indication = indication
+                DoseType = dosetype
                 Medication = medication
                 Generic = generic
                 Unit = unit
@@ -1293,7 +1297,9 @@ module Models =
 
                     create
                         (getString "hospital")
+                        (getString "catagory")
                         (getString "indication")
+                        (getString "dosetype")
                         (getString "medication")
                         (getString "generic")
                         (getString "unit")
@@ -1342,7 +1348,7 @@ module Models =
 
             contMeds
             |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
-            |> List.sortBy (fun med -> med.Indication, med.Medication)
+            |> List.sortBy (fun med -> med.Catagory, med.Medication)
             |> List.collect (fun med ->
                 let vol = med.Total
                 // TODO: really ugly hack to meet specific dose calc
@@ -1361,7 +1367,7 @@ module Models =
                     [
                         { Intervention.emptyIntervention with
                             Hospital = med.Hospital
-                            Indication = med.Indication
+                            Catagory = med.Catagory
                             Name = med.Medication
                             Quantity = Some qty
                             QuantityUnit = med.Unit
@@ -1744,7 +1750,6 @@ module Models =
             | [ dt ] -> matchDoseType dt ""
             | dt :: rest -> rest |> String.concat " " |> matchDoseType dt
             | _ -> NoDoseType
-
 
 
     module OrderContext =
