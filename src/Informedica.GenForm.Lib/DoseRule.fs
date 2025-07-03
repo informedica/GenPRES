@@ -440,12 +440,8 @@ module DoseRule =
                 |> Array.map (fun dl ->
                     { dl with
                         Products =
-                            if dl.Products
-                               |> Array.forall (_.Reconstitution >> Array.isEmpty)
-                               then dl.Products
-                            else
-                                dl.Products
-                                |> Array.collect (Product.reconstitute dr.Route dr.DoseType dep loc)
+                            dl.Products
+                            |> Array.collect (Product.reconstitute dr.Route dr.DoseType dep loc)
                     }
                 )
         }

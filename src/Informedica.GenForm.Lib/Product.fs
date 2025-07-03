@@ -673,39 +673,43 @@ module Product =
             // if reconstitution is not required, the
             // original product is returned as well
             if prod.RequiresReconstitution |> not then [| prod |]
-            // calculate the reconstituted products
-            prod.Reconstitution
-            |> Array.filter (fun r ->
-                (rte |> String.isNullOrWhiteSpace || r.Route |> Mapping.eqsRoute (Some rte)) &&
-                (dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true)
-            )
-            |> Array.map (fun r ->
-                let v =
-                    r.ExpansionVolume
-                    |> Option.map (fun v -> v + r.DiluentVolume)
-                    |> Option.defaultValue r.DiluentVolume
+            else
+                // calculate the reconstituted products
+                prod.Reconstitution
+                |> Array.filter (fun r ->
+                    (rte |> String.isNullOrWhiteSpace || r.Route |> Mapping.eqsRoute (Some rte)) &&
+                    dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true
+                )
+                |> fun xs -> 
+                    if xs |> Array.isEmpty then writeWarningMessage $"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}"
+                    xs
+                |> Array.map (fun r ->
+                    let v =
+                        r.ExpansionVolume
+                        |> Option.map (fun v -> v + r.DiluentVolume)
+                        |> Option.defaultValue r.DiluentVolume
 
-                { prod with
-                    ShapeUnit =
-                        Units.Volume.milliLiter
-                    ShapeQuantities = v
-                    Substances =
-                        prod.Substances
-                        |> Array.map (fun s ->
-                            { s with
-                                Concentration =
-                                    s.Concentration
-                                    |> Option.map (fun q ->
-                                        // replace the old shapeunit with the new one
-                                        let one =
-                                            Units.Volume.milliLiter
-                                            |> ValueUnit.singleWithValue 1N
-                                        (one * q) / v
-                                    )
-                            }
-                        )
-                }
-            )
+                    { prod with
+                        ShapeUnit =
+                            Units.Volume.milliLiter
+                        ShapeQuantities = v
+                        Substances =
+                            prod.Substances
+                            |> Array.map (fun s ->
+                                { s with
+                                    Concentration =
+                                        s.Concentration
+                                        |> Option.map (fun q ->
+                                            // replace the old shapeunit with the new one
+                                            let one =
+                                                Units.Volume.milliLiter
+                                                |> ValueUnit.singleWithValue 1N
+                                            one * q / v
+                                        )
+                                }
+                            )
+                    }
+                )
         |]
         |> Array.collect id
 

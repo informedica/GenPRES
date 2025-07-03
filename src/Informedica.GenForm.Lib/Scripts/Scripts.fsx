@@ -32,9 +32,20 @@ open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
 
+Informedica.ZIndex.Lib.GenericProduct.get []
+|> Array.filter (fun gp ->
+    gp.Name |> String.startsWithCapsInsens "nitroprusside"
+)
+
+Informedica.ZIndex.Lib.GenericProduct.get []
+|> Array.filter (fun gp ->
+    gp.Id = 141658
+)
+
+
 Product.get ()
 |> Array.filter (fun p ->
-    p.Generic = "glucose"
+    p.Generic = "nitroprusside"
 )
 
 
@@ -55,7 +66,7 @@ let dr =
                       |> ValueUnit.singleWithValue (10N)
                       |> Some
                 }
-            Generic = Some "Samenstelling C"
+            Generic = Some "nitroprusside"
             Shape = Some ""
             Route = Some "intraveneus"
         }
