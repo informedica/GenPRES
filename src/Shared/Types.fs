@@ -87,14 +87,18 @@ module Types =
     /// Weight in gram!!
     and Weight =
         {
+            EstimatedP3: int<gram> option
             Estimated: int<gram> option
+            EstimatedP97: int<gram> option
             Measured: int<gram> option
         }
 
     /// Length in cm
     and Height =
         {
+            EstimatedP3: int<cm> option
             Estimated: int<cm> option
+            EstimatedP97: int<cm> option
             Measured: int<cm> option
         }
 

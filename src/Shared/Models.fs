@@ -500,8 +500,8 @@ module Models =
             {
                 Age = None
                 GestationalAge = None
-                Weight = { Estimated = None; Measured = None }
-                Height = { Estimated = None; Measured = None }
+                Weight = { EstimatedP3 = None; Estimated = None; EstimatedP97 = None; Measured = None }
+                Height = { EstimatedP3 = None; Estimated = None; EstimatedP97 = None; Measured = None }
                 Gender = UnknownGender
                 Access = []
                 RenalFunction = None
@@ -568,12 +568,16 @@ module Models =
                 GestationalAge = ga
                 Weight =
                     {
+                        EstimatedP3 = None
                         Estimated = None
+                        EstimatedP97 = None
                         Measured = weight |> Option.map Measures.toGram
                     }
                 Height =
                     {
+                        EstimatedP3 = None
                         Estimated = None
+                        EstimatedP97 = None
                         Measured = height |> Option.map Measures.toCm
                     }
                 Gender = gend
@@ -716,7 +720,7 @@ module Models =
                 if idx < 0 || idx >=nvs.Length then
                     None
                 else
-                    nvs[idx].Mean
+                    (nvs[idx].P3, nvs[idx].Mean, nvs[idx].P97)
                     |> Some
 
             let nearest age (nvs : NormalValue list option) =
@@ -731,9 +735,13 @@ module Models =
                         let fw = "F" |> forGender
                         // take the average of two genders
                         mw
-                        |> Option.bind (fun mw -> 
+                        |> Option.bind (fun (mp3, mm, mp97) -> 
                             fw 
-                            |> Option.map (fun fw -> (fw + mw) / 2.)
+                            |> Option.map (fun (fp3, fm, fp97) -> 
+                                (fp3 + mp3) / 2.
+                                , (fm + mm) / 2.
+                                , (fp97 + mp97) / 2.
+                            )   
                         )
                     | _ ->
                         if pat.Gender = Female then "F" else "M"
@@ -750,21 +758,29 @@ module Models =
                         let weight = 
                             normalNeoWeights 
                             |> nearest pcAgeInWeeks
-                            |> Option.map (fun w ->
-                                wghts
-                                |> List.nearestIndex (int w)
-                                |> fun idx -> wghts[idx]
-                                |> Measures.toGram
+                            |> Option.map (fun (p3, m, p97) ->
+                                let m = 
+                                    wghts
+                                    |> List.nearestIndex (int m)
+                                    |> fun idx -> wghts[idx]
+                                    |> Measures.toGram
+                                int p3 * 1<gram>,
+                                m,
+                                int p97 * 1<gram>
                             )
 
                         let height =
                             normalNeoHeights 
                             |> nearest pcAgeInWeeks
-                            |> Option.map (fun h ->
-                                hghts
-                                |> List.nearestIndex (int h)
-                                |> fun idx -> hghts[idx]
-                                |> Measures.toCm
+                            |> Option.map (fun (p3, m, p97) ->
+                                let m =
+                                    hghts
+                                    |> List.nearestIndex (int m)
+                                    |> fun idx -> hghts[idx]
+                                    |> Measures.toCm
+                                int p3 * 1<cm>,
+                                m,
+                                int p97 * 1<cm>
                             )
 
                         weight, height
@@ -774,22 +790,29 @@ module Models =
                         let weight = 
                             normalWeights 
                             |> nearest ageInYears
-                            |> Option.map (fun w -> w * 1000.)
-                            |> Option.map (fun w ->
-                                wghts
-                                |> List.nearestIndex (int w)
-                                |> fun idx -> wghts[idx]
-                                |> Measures.toGram
+                            |> Option.map (fun (p3, m, p97) ->
+                                let m =
+                                    wghts
+                                    |> List.nearestIndex (int (m * 1000.))
+                                    |> fun idx -> wghts[idx]
+                                    |> Measures.toGram
+                                int p3 * 1000<gram>,
+                                m,
+                                int p97 * 1000<gram>
                             )                        
 
                         let height = 
                             normalHeights 
                             |> nearest ageInYears
-                            |> Option.map (fun h ->
-                                hghts
-                                |> List.nearestIndex (int h)
-                                |> fun idx -> hghts[idx]
-                                |> Measures.toCm
+                            |> Option.map (fun (p3, m, p97) ->
+                                let m =
+                                    hghts
+                                    |> List.nearestIndex (int m)
+                                    |> fun idx -> hghts[idx]
+                                    |> Measures.toCm
+                                int p3 * 1<cm>,
+                                m,
+                                int p97 * 1<cm>
                             )                       
 
                         weight, height
@@ -797,20 +820,24 @@ module Models =
             { pat with 
                 Weight = 
                     { pat.Weight with 
-                        Estimated = ew
-                        Measured = pat.Weight.Measured |> Option.orElse ew
+                        EstimatedP3 = ew |> Option.map (fun (p3, _, _) -> p3)
+                        Estimated = ew |> Option.map (fun (_, m, _) -> m)
+                        EstimatedP97 = ew |> Option.map (fun (_, _, p97) -> p97)
+                        Measured = pat.Weight.Measured |> Option.orElse (ew |> Option.map (fun (_, m, _) -> m))
                     }
                 Height = 
                     { pat.Height with 
-                        Estimated = eh 
-                        Measured = pat.Height.Measured |> Option.orElse eh
+                        EstimatedP3 = eh |> Option.map (fun (p3, _, _) -> p3)
+                        Estimated = eh |> Option.map (fun (p3, m, p97) -> m)
+                        EstimatedP97 = eh |> Option.map (fun (_, _, p97) -> p97)
+                        Measured = pat.Height.Measured |> Option.orElse (eh |> Option.map (fun (_, m, _) -> m))
                     } 
             }
 
 
         let toString terms lang markDown (pat: Patient) =
             let getTerm = Localization.getTerm terms lang
-            let toStr s n = n |> Option.map (Math.fixPrecision 3 >> string >> (fun s' -> $"{s}{s'}"))
+            let toStr s n = n |> Option.map (Math.fixPrecision 3 >> string >> fun s' -> $"{s}{s'}")
 
             let bold s =
                 s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
@@ -818,15 +845,28 @@ module Models =
             let italic s =
                 s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
 
+            let isAdult =
+                pat.Age
+                |> Option.map (fun a -> a.Years >= 18)
+                |> Option.defaultValue false
+
             [
-                (Some $"{Terms.``Patient Age`` |> getTerm}:") |> italic
+                match pat.Gender with
+                | Male -> 
+                    if isAdult then Some "Man" else Some "Jongen"
+                | Female -> 
+                    if isAdult then Some "Vrouw" else Some "Meisje"
+                | UnknownGender -> Some "Onbekend geslacht"
+                |> bold
+
+                Some $"{Terms.``Patient Age`` |> getTerm}:" |> italic
 
                 pat.Age
                 |> Option.map (Age.toString terms lang)
                 |> bold
                 |> Option.orElse ("" |> Some)
 
-                (Some $"{Terms.``Patient Weight`` |> getTerm}:") |> italic
+                Some $"{Terms.``Patient Weight`` |> getTerm}:" |> italic
 
                 pat.Weight.Measured
                 |> Option.map (fun x -> float x / 1000.)
@@ -834,13 +874,22 @@ module Models =
                 |> Option.map (fun s -> $"{s} kg")
                 |> bold
 
-                pat.Weight.Estimated
-                |> Option.map (fun x -> float x / 1000.)
-                |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
-                |> Option.map (fun s -> $"({s} kg)")
+
+                match pat.Weight.EstimatedP3, pat.Weight.EstimatedP97 with
+                | Some p3, Some p97 ->
+                    let capt = $"{Terms.``Patient Estimated`` |> getTerm}: "
+                    let p3 = float p3 / 1000. |> Math.fixPrecision 3
+                    let p97 = float p97 / 1000. |> Math.fixPrecision 3
+                    $"{capt}({p3} - {p97} kg)"
+                    |> Some
+                | _ ->
+                    pat.Weight.Estimated
+                    |> Option.map (fun x -> float x / 1000.)
+                    |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
+                    |> Option.map (fun s -> $"({s} kg)")
 
 
-                (Some $"{Terms.``Patient Length`` |> getTerm}:") |> italic
+                Some $"{Terms.``Patient Length`` |> getTerm}:" |> italic
 
                 pat.Height.Measured
                 |> Option.map float
@@ -848,10 +897,19 @@ module Models =
                 |> Option.map (fun s -> $"{s} cm")
                 |> bold
 
-                pat.Height.Estimated
-                |> Option.map float
-                |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
-                |> Option.map (fun s -> $"({s} cm)")
+
+                match pat.Height.EstimatedP3, pat.Height.EstimatedP97 with
+                | Some p3, Some p97 ->
+                    let capt = $"{Terms.``Patient Estimated`` |> getTerm}: "
+                    let p3 = float p3 |> Math.fixPrecision 3
+                    let p97 = float p97 |> Math.fixPrecision 3
+                    $"{capt}({p3} - {p97} cm)"
+                    |> Some
+                | _ ->
+                    pat.Height.Estimated
+                    |> Option.map float
+                    |> toStr $"{Terms.``Patient Estimated`` |> getTerm}: "
+                    |> Option.map (fun s -> $"({s} cm)")
 
 
                 (Some "BSA:") |> italic
