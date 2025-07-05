@@ -62,13 +62,13 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `Route` - Administration route
 - `Shape` - Medication form/shape
 - `Unit` - Base unit for the medication form
-- `DoseUnit` - Unit for dose calculations
+- `DoseUnit` - Base Unit for dose calculations
 - `MinDoseQty` - Minimum dose quantity (optional)
 - `MaxDoseQty` - Maximum dose quantity (optional)
 - `MinDoseQtyKg` - Minimum dose per kilogram (optional)
 - `MaxDoseQtyKg` - Maximum dose per kilogram (optional)
 - `Divisible` - Divisibility factor (optional)
-- `Timed` - Boolean indicating if timing is critical (accepts "true"/"false")
+- `Timed` - Boolean indicating if administration runs over a time period (accepts "true"/"false")
 - `Reconstitute` - Boolean indicating if reconstitution is required (accepts "true"/"false")
 - `IsSolution` - Boolean indicating if the form is a solution (accepts "true"/"false")
 
@@ -435,8 +435,8 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `minWeight` - Minimum weight for application (numeric)
 - `maxWeight` - Maximum weight for application (numeric)
 - `dose` - Normal dose per kg (numeric)
-- `min` - Minimum total dose (numeric)
-- `max` - Maximum total dose (numeric)
+- `min` - Minimum absolute dose (numeric)
+- `max` - Maximum absulute dose (numeric)
 - `conc` - Concentration (numeric)
 - `unit` - Unit of measurement
 - `remark` - Additional remarks or instructions
@@ -446,8 +446,8 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Example Data**:
 | hospital | indication | medication | minWeight | maxWeight | dose | min | max | conc | unit | remark |
 |----------|------------|------------|-----------|-----------|------|-----|-----|------|------|--------|
-| UMCU | reanimatie | adrenaline | 0.5 | 100 | 0.01 | 0.1 | 1 | 0.1 | mg | eerste keus |
-| UMCU | shock | noradrenaline | 3 | 80 | 0.05 | 0.1 | 2 | 1 | mg | |
+| UMCU | intubation | fentanyl | 0 | 0 | 1 | 0 | 50 | 50 | microg | |
+| UMCU | bradycardia | atropin | 0 | 0 | 0.02 | 0.1 | 1 | 0.5 | mg | |
 
 #### 12B. Continuous Medication Data Sheet
 
@@ -476,7 +476,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Example Data**:
 | hospital | catagory | indication | dosetype | medication | generic | unit | doseunit | minweight | maxweight | quantity | total | mindose | maxdose | absmax | solution |
 |----------|----------|------------|----------|------------|---------|------|----------|-----------|-----------|----------|-------|---------|---------|---------|----------|
-| UMCU | cardiovasculair | shock | start | noradrenaline | noradrenaline | mg | mg/kg/uur | 3 | 80 | 4 | 50 | 0.05 | 2 | 10 | NaCl 0.9% |
+| UMCU | cardiovasculair | shock | start | noradrenaline | noradrenaline | mg | microg/kg/min | 3 | 80 | 4 | 50 | 0.05 | 2 | 10 | NaCl 0.9% |
 
 #### 12C. Products Data Sheet
 
