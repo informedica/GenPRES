@@ -262,7 +262,6 @@ module OrderContext =
             { pr with
                 DoseRule =
                     { pr.DoseRule with
-                        Shape = pr.DoseRule.Generic
                         ComponentLimits =
                             pr.DoseRule.ComponentLimits
                             |> Array.map (fun cl ->
