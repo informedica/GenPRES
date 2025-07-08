@@ -509,8 +509,8 @@ module Prescribe =
                         }
                         {
                             match props.orderContext with
-                            | Resolved ctx when ctx.Filter.Shapes |> Array.length > 1 &&
-                                                ctx.Scenarios |> Array.isEmpty ->
+                            | Resolved ctx when ctx.Filter.Shapes |> Array.length >= 1 &&
+                                                (not isMobile || ctx.Scenarios |> Array.length <> 1) ->
                                 false, ctx.Filter.Shape, ctx.Filter.Shapes
                             | Resolved _ -> false, None, [||]
                             | _ -> true, None, [||]
@@ -525,7 +525,8 @@ module Prescribe =
                                         |> select isLoading lbl sel shapeChange
                                     else
                                         items
-                                        |> autoComplete isLoading lbl sel shapeChange
+                                        |> Array.map (fun s -> s, s)
+                                        |> select isLoading lbl sel shapeChange
                         }
                         {
                             match props.orderContext with

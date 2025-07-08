@@ -1043,7 +1043,11 @@ module Models =
 
 
         let calcFluidBolus wght =
-            let d, _ = calcDoseVol wght 10. 1. 0. 500.
+            let d, _ = 
+                if wght < 3. then
+                    calcDoseVol wght 20. 1. 0. 1000.
+                else
+                    calcDoseVol wght 10. 1. 0. 500.
 
             { Intervention.emptyIntervention with
                 Catagory = "reanimatie"
@@ -1054,7 +1058,11 @@ module Models =
                 SubstanceDoseText = $"%A{d} ml NaCl 0.9%%"
                 SubstanceDoseAdjust = d / wght |> Math.fixPrecision 1 |> Some
                 SubstanceDoseAdjustUnit = "ml/kg"
-                Text = "10 ml/kg (max 500 ml)"
+                Text = 
+                    if wght < 3. then
+                        "20 ml/kg"
+                    else
+                        "10 ml/kg (max 500 ml)"
             }
 
 
@@ -1248,6 +1256,9 @@ module Models =
                         (fun w -> w * 1.5 + 5.5)
                         (fun f -> $"%.1f{f} cm")
                         weight.Value
+                    // fluid bolus
+                    if weight |> Option.isSome then
+                        calcFluidBolus weight.Value
 
                 ]
             else
@@ -1279,17 +1290,17 @@ module Models =
                     if weight |> Option.isSome then
                         calcCardioVersion weight.Value
                 ]
-                // add rest of bolus medication
-                |> fun xs ->
-                    if weight.IsNone then
-                        []
-                    else
-                        bolusMed
-                        |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
-                        |> List.filter (fun m -> m.MinWeight <= weight.Value && (weight.Value < m.MaxWeight || m.MaxWeight = 0.))
-                        |> List.map (calcBolusMedication weight.Value)
-                    |> List.append xs
-                    |> List.distinct
+            // add rest of bolus medication
+            |> fun xs ->
+                if weight.IsNone then
+                    []
+                else
+                    bolusMed
+                    |> List.filter (fun m -> m.Generic = "adrenaline" |> not)
+                    |> List.filter (fun m -> m.MinWeight <= weight.Value && (weight.Value < m.MaxWeight || m.MaxWeight = 0.))
+                    |> List.map (calcBolusMedication weight.Value)
+                |> List.append xs
+                |> List.distinct
 
 
     module ContinuousMedication =
