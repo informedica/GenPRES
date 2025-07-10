@@ -103,6 +103,7 @@
 !/docs/
 !/docs/*.xlsx
 !/docs/code-reviews/
+!docs/data-extraction/
 !/docs/mdr/
 !/docs/mdr/design-history/
 !/docs/mdr/post-market/
