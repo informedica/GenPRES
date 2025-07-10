@@ -250,8 +250,8 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `MaxPMAge` - Maximum post-menstrual age (numeric, optional)
 
 #### Dose Configuration
-- `DoseType` - Type of dose (e.g., "start", "maintenance", "max")
-- `DoseText` - Dose description text
+- `DoseType` - Type of dose (can only be either "discontinuous", "continuous", "once", "timed" or "onceTimed")
+- `DoseText` - Dose type description text (can be empty)
 - `Freqs` - Frequencies (semicolon-separated numeric values)
 - `DoseUnit` - Base dose unit
 - `AdjustUnit` - Adjustment unit (e.g., "kg", "m2")
@@ -290,8 +290,8 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Example Data**:
 | Source | Generic | Shape | Route | Indication | DoseType | MinWeight | MaxWeight | DoseUnit | MinQty | MaxQty | AdjustUnit | MinQtyAdj | MaxQtyAdj |
 |--------|---------|-------|-------|------------|----------|-----------|-----------|----------|---------|---------|------------|-----------|-----------|
-| NKF | paracetamol | tablet | po | fever | maintenance | 10 | 50 | mg | 500 | 1000 | kg | 10 | 15 |
-| NKF | amoxicillin | suspension | po | infection | start | 5 | 80 | mg | | | kg | 25 | 50 |
+| NKF | paracetamol | tablet | po | fever | discontinous | 10 | 50 | mg | 500 | 1000 | kg | 10 | 15 |
+| NKF | amoxicillin | suspension | po | infection | discontinuous | 5 | 80 | mg | | | kg | 25 | 50 |
 
 ---
 
