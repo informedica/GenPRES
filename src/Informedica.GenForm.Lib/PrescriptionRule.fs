@@ -176,17 +176,16 @@ module PrescriptionRule =
                                 // component selection mechanism
                                 if filter.Components |> List.isEmpty then pr.DoseRule.ComponentLimits
                                 else
-                                    match pr.DoseRule.ComponentLimits |> Array.toList with
-                                    | [dl] -> [| dl |]
-                                    | dl ::rest ->
-                                        rest
-                                        |> List.filter (fun dl ->
+                                    match pr.DoseRule.ComponentLimits |> Array.tryHead with
+                                    | None -> [||]
+                                    | Some dl ->
+                                        pr.DoseRule.ComponentLimits
+                                        |> Array.tail
+                                        |> Array.filter (fun dl ->
                                             filter.Components
                                             |> List.exists ((=) dl.Name)
                                         )
-                                        |> List.toArray
                                         |> Array.append [| dl |]
-                                    | _ -> pr.DoseRule.ComponentLimits
 
                                 // applies to all targets?
                                 // |> Array.filter DoseRule.DoseLimit.isSubstanceLimit
