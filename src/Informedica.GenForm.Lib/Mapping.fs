@@ -3,14 +3,14 @@ namespace Informedica.GenForm.Lib
 
 module Mapping =
 
+    open System
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
 
-    /// Mapping of long Z-index route names to short names
-    let routeMapping =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
+
+    let getRouteMappingWithDataUrlId dataUrlId =
         Web.getDataFromSheet dataUrlId "Routes"
         |> fun data ->
             let getColumn =
@@ -23,16 +23,19 @@ module Mapping =
             |> Array.map (fun r ->
                 let get = getColumn r
 
-                {|
+                {
                     Long = get "ZIndex"
                     Short = get "ShortDutch"
-                |}
+                }
             )
 
 
-    /// Mapping of long Z-index unit names to short names
-    let unitMapping =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
+    /// Mapping of long Z-index route names to short names
+    let getRouteMapping () = getRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
+
+
+
+    let getUnitMappingWithDataUrlId dataUrlId =
         Web.getDataFromSheet dataUrlId "Units"
         |> fun data ->
             let getColumn =
@@ -45,20 +48,24 @@ module Mapping =
             |> Array.map (fun r ->
                 let get = getColumn r
 
-                {|
+                {
                     Long = get "ZIndexUnitLong"
                     Short = get "Unit"
                     MV = get "MetaVisionUnit"
                     Group = get "Group"
-                |}
+                }
             )
 
 
-    let mapUnit s =
+    /// Mapping of long Z-index unit names to short names
+    let getUnitMapping () = getUnitMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
+
+
+    let mapUnitWithMapping (mapping : UnitMapping array) s =
         if s |> String.isNullOrWhiteSpace then None
         else
             let s = s |> String.trim
-            unitMapping
+            mapping
             |> Array.tryFind (fun r ->
                 r.Long |> String.equalsCapInsens s ||
                 r.Short |> String.equalsCapInsens s ||
@@ -69,15 +76,24 @@ module Mapping =
                 | None -> None
 
 
-    /// Try to find mapping for a route
-    let mapRoute rte =
-        routeMapping
-        |> Array.tryFind (fun r ->
-            r.Long |> String.equalsCapInsens rte ||
-            r.Short |> String.equalsCapInsens rte
+    let mapUnit =
+        mapUnitWithMapping (getUnitMapping ())
 
-        )
-        |> Option.map _.Long
+
+    let mapRouteWithMapping (mapping : RouteMapping array) s =
+        if s |> String.isNullOrWhiteSpace then None
+        else
+            let s = s |> String.trim
+            mapping
+            |> Array.tryFind (fun r ->
+                r.Long |> String.equalsCapInsens s ||
+                r.Short |> String.equalsCapInsens s
+            )
+            |> Option.map _.Long
+
+
+    /// Try to find mapping for a route
+    let mapRoute = mapRouteWithMapping (getRouteMapping ())
 
 
     let eqsRoute r1 r2 =
@@ -89,8 +105,7 @@ module Mapping =
 
 
     /// Get the array of ShapeRoute records
-    let mappingShapeRoute =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
+    let getShapeRouteMappingWithDataUrlId dataUrlId =
         Web.getDataFromSheet dataUrlId "ShapeRoute"
         |> fun data ->
             let inline getColumn get =
@@ -168,15 +183,12 @@ module Mapping =
             )
 
 
-    /// <summary>
-    /// Filter the mappingRouteShape array on route, shape and unit
-    /// </summary>
-    /// <param name="rte">The Route</param>
-    /// <param name="shape">The Shape</param>
-    /// <param name="unt">The Unit</param>
-    /// <returns>An array of RouteShape records</returns>
-    let filterRouteShapeUnit rte shape unt =
-        mappingShapeRoute
+    let getShapeRouteMapping () =
+        getShapeRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
+
+
+    let filterRouteShapeUnitWithMapping (mapping : ShapeRoute []) rte shape unt =
+        mapping
         |> Array.filter (fun xs ->
             let eqsRte =
                 rte |> String.isNullOrWhiteSpace ||
@@ -190,6 +202,17 @@ module Mapping =
         )
 
 
+    /// <summary>
+    /// Filter the mappingRouteShape array on route, shape and unit
+    /// </summary>
+    /// <param name="rte">The Route</param>
+    /// <param name="shape">The Shape</param>
+    /// <param name="unt">The Unit</param>
+    /// <returns>An array of RouteShape records</returns>
+    let filterRouteShapeUnit rte shape unt = 
+        filterRouteShapeUnitWithMapping (getShapeRouteMapping ()) rte shape unt
+
+
     let private requires_ (rtes, unt, shape) =
         rtes
         |> Array.collect (fun rte ->
@@ -200,13 +223,12 @@ module Mapping =
 
 
     /// Check if reconstitution is required for a route, shape and unit
-    let requiresReconstitution =
+    let requiresReconstitutionMemoized =
         Memoization.memoize requires_
 
 
     /// Mapping of long Z-index unit names to short names
-    let validShapes_ () =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
+    let getValidShapesWithDataUrlId dataUrlId =
         Web.getDataFromSheet dataUrlId "ValidShapes"
         |> fun data ->
             let getColumn =
@@ -224,5 +246,12 @@ module Mapping =
             |> Array.distinct
 
 
-    let validShapes =
-        Memoization.memoize validShapes_
+    /// Mapping of long Z-index unit names to short names
+    [<Obsolete("Use getValidShapesWithDataUrlId instead")>]
+    let getValidShapes () = 
+        getValidShapesWithDataUrlId (Web.getDataUrlIdGenPres ())
+
+
+    [<Obsolete("Use IResources instead")>]
+    let getValidShapesMemoized =
+        Memoization.memoize getValidShapes

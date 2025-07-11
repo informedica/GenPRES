@@ -50,7 +50,7 @@ module Check =
 
 
     let mapRoute s =
-        Mapping.routeMapping
+        Mapping.getRouteMapping ()
         |> Array.tryFind(fun r -> r.Short |> String.equalsCapInsens s)
         |> Option.map _.Long
         |> Option.defaultValue ""

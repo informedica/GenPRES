@@ -43,7 +43,7 @@ module Product =
         /// </summary>
         /// <param name="shape">The Shape</param>
         let isSolution shape  =
-            Mapping.mappingShapeRoute
+            Mapping.getShapeRouteMapping ()
             |> Array.tryFind (fun sr ->
                 sr.Shape |> String.equalsCapInsens shape
             )
@@ -425,7 +425,7 @@ module Product =
             |> Mapping.mapUnit
             |> Option.defaultValue NoUnit
 
-        let reqReconst = Mapping.requiresReconstitution (gp.Route, shpUnit, gp.Shape)
+        let reqReconst = Mapping.requiresReconstitutionMemoized (gp.Route, shpUnit, gp.Shape)
 
         let shpUnit =
             if not reqReconst then shpUnit
@@ -598,7 +598,7 @@ module Product =
                     gpp.GenericProducts
                     |> Array.filter (fun gp ->
                         gp.Id = r.GPKODE &&
-                        Mapping.validShapes ()
+                        Mapping.getValidShapesMemoized ()
                         |> Array.exists (String.equalsCapInsens gp.Shape) &&
                         gp.Substances
                         |> Array.exists (fun s ->

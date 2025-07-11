@@ -4,10 +4,28 @@ namespace Informedica.GenForm.Lib
 [<AutoOpen>]
 module Types =
 
+    open System
     open MathNet.Numerics
     open Informedica.GenUnits.Lib
 
     type MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+
+
+    type UnitMapping =
+        {
+            Long : string
+            Short : string
+            MV : string
+            Group : string
+        }
+
+
+    type RouteMapping =
+        {
+            Long : string
+            Short : string
+        }
+
 
     /// Associate a Route and a Shape
     /// setting default values for the other fields
@@ -461,6 +479,24 @@ module Types =
         }
 
 
+    type IResourceProvider =
+        abstract member GetDoseRules : unit -> DoseRule[]
+        abstract member GetSolutionRules : unit -> SolutionRule[]
+        abstract member GetRenalRules : unit -> RenalRule[]
+        abstract member GetProducts : unit -> Product[]
+        abstract member GetShapeRoutes : unit -> ShapeRoute[]
+        abstract member GetUnitMappings : unit -> UnitMapping[]
+        abstract member GetRouteMappings : unit -> RouteMapping[]
+
+        // Resource metadata and health information
+        abstract member GetResourceInfo : unit -> ResourceInfo
+
+    and ResourceInfo = {
+        LastUpdated: DateTime
+        IsLoaded: bool
+    }
+
+
     type ProductFilter =
         {
             Generic: string
@@ -525,3 +561,4 @@ module Types =
         | NormQuantityAdjust of LimitTarget * ValueUnit
         | NormPerTimeAdjust of LimitTarget * ValueUnit
         | NormRateAdjust of LimitTarget * ValueUnit
+
