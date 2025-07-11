@@ -623,7 +623,7 @@ cannot map {r}
     let getDoseRuleDetails dataUrl =
         let prods = Product.get ()
 
-        let warnings = System.Collections.Generic.Dictionary<_, _>()
+        let warnings = Collections.Generic.Dictionary<_, _>()
 
         dataUrl
         |> getData
