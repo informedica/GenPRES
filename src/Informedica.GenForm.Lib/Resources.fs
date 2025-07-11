@@ -159,15 +159,18 @@ module Resources =
         }
 
     /// Create a cached resource provider with TTL
-    type CachedResourceProvider(loadAllResources , ttlMinutes: int) =
+    type CachedResourceProvider(loadAllResources, ttlMinutes: int option) =
         let mutable cachedState: (ResourceState * DateTime) option = None
         let lockObj = obj()
         
         let isExpired (timestamp: DateTime) =
-            DateTime.UtcNow.Subtract(timestamp).TotalMinutes > float ttlMinutes
+            match ttlMinutes with
+            | None -> false // No expiration if ttl is not set
+            | Some ttlMinutes ->
+                DateTime.UtcNow.Subtract(timestamp).TotalMinutes > float ttlMinutes
         
         let loadFresh () =
-            match loadAllResources() with
+            match loadAllResources () with
             | Ok state ->
                 cachedState <- Some (state, DateTime.UtcNow)
                 state

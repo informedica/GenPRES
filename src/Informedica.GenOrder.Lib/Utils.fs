@@ -27,7 +27,7 @@ module Utils =
         /// </summary>
         /// <param name="sheet">The sheet to get</param>
         /// <returns>A array table of string arrays</returns>
-        let getDataFromConstraints sheet = GoogleSheets.getDataFromSheet constraints sheet
+        let getDataFromConstraints sheet = GoogleSheets.getCsvDataFromSheetSync constraints sheet
 
 
         /// <summary>
@@ -37,7 +37,7 @@ module Utils =
         let getDataFromGenPres =
             Env.getItem "GENPRES_URL_ID"
             |> Option.defaultValue genpres
-            |> GoogleSheets.getDataFromSheet
+            |> GoogleSheets.getCsvDataFromSheetSync
 
 
 

@@ -64,5 +64,5 @@ module Utils =
         /// <param name="sheet">The sheet name</param>
         let getDataFromSheet sheet =
             sheet
-            |> Web.GoogleSheets.getDataFromSheet FilePath.genpres
+            |> Web.GoogleSheets.getCsvDataFromSheetSync FilePath.genpres
 

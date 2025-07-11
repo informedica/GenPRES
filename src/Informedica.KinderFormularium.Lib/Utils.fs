@@ -98,7 +98,7 @@ module Utils =
         /// <param name="sheet">The specific sheet</param>
         /// <returns>The data as a table of string array array</returns>
         let getDataFromSheet urlId sheet =
-            fun () -> Web.GoogleSheets.getDataFromSheet urlId sheet
+            fun () -> Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet
             |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
 
 

@@ -28,7 +28,7 @@ module Assortment =
 
     let get_ () =
         fun () ->
-            GoogleSheets.getDataFromSheet FilePath.genpres "Formulary"
+            GoogleSheets.getCsvDataFromSheetSync FilePath.genpres "Formulary"
             |> fun data ->
                 data
                 |> Array.tryHead

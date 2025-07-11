@@ -117,7 +117,7 @@ module Totals =
 
 
     let totals =
-        Web.GoogleSheets.getDataFromSheet
+        Web.GoogleSheets.getCsvDataFromSheetSync
             "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
             "Totals"
 

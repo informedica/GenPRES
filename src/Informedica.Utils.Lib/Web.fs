@@ -32,13 +32,22 @@ module Web =
             }
 
 
+        let getDataFromSheet parser dataUrlId sheet =
+            async {
+                let! data = createUrl sheet dataUrlId |> download
+                return parser data
+            }
+
+
+        let getCsvDataFromSheet = 
+            getDataFromSheet Csv.parseCSV
+
+
         /// Get the data from a sheet in a google spreadsheet
         /// Return the data as a array of string arrays where
         /// each array represents a row in the sheet
         /// TODO: wrap in async
-        let getDataFromSheet dataUrlId sheet =
-            createUrl sheet dataUrlId
-            |> download
+        let getCsvDataFromSheetSync dataUrlId sheet =
+            getCsvDataFromSheet dataUrlId sheet
             |> Async.RunSynchronously
-            |> Csv.parseCSV
 
