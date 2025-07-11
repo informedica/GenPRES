@@ -31,8 +31,8 @@ module Mapping =
 
 
     /// Mapping of long Z-index route names to short names
+    [<Obsolete("Use getRouteMappingWithDataUrlId instead")>]
     let getRouteMapping () = getRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
-
 
 
     let getUnitMappingWithDataUrlId dataUrlId =
@@ -58,6 +58,7 @@ module Mapping =
 
 
     /// Mapping of long Z-index unit names to short names
+    [<Obsolete("Use getUnitMappingWithDataUrlId instead")>]
     let getUnitMapping () = getUnitMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
 
 
@@ -76,6 +77,7 @@ module Mapping =
                 | None -> None
 
 
+    [<Obsolete("Use getUnitMapping instead")>]
     let mapUnit =
         mapUnitWithMapping (getUnitMapping ())
 
@@ -183,8 +185,11 @@ module Mapping =
             )
 
 
-    let getShapeRouteMapping () =
-        getShapeRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
+    [<Obsolete("Use getShapeRouteMappingWithDataUrlId instead")>]
+    let getShapeRouteMappingMemoized =
+        fun () ->
+            getShapeRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
+        |> Memoization.memoize
 
 
     let filterRouteShapeUnitWithMapping (mapping : ShapeRoute []) rte shape unt =
@@ -209,8 +214,9 @@ module Mapping =
     /// <param name="shape">The Shape</param>
     /// <param name="unt">The Unit</param>
     /// <returns>An array of RouteShape records</returns>
+    [<Obsolete("Use filterRouteShapeUnitWithMapping instead")>]
     let filterRouteShapeUnit rte shape unt = 
-        filterRouteShapeUnitWithMapping (getShapeRouteMapping ()) rte shape unt
+        filterRouteShapeUnitWithMapping (getShapeRouteMappingMemoized ()) rte shape unt
 
 
     let private requires_ (rtes, unt, shape) =

@@ -8,15 +8,16 @@ module Resources =
 
     type ResourceState =
         {
+            UnitMappings: UnitMapping []
+            RouteMappings: RouteMapping []
+            ShapeRoutes: ShapeRoute []
+            Products: Product []
+            Reconstitution: Reconstitution []
             DoseRules: DoseRule []
             SolutionRules: SolutionRule []
             RenalRules: RenalRule []
-            Products: Product []
-            ShapeRoutes: ShapeRoute []
-            UnitMappings: UnitMapping []
-            RouteMappings: RouteMapping []
-            LastReloaded: DateTime
             IsLoaded : bool
+            LastReloaded: DateTime
         }
     with
         interface IResourceProvider with
@@ -24,13 +25,14 @@ module Resources =
             member this.GetSolutionRules() = this.SolutionRules
             member this.GetRenalRules() = this.RenalRules
             member this.GetProducts() = this.Products
+            member this.GetReconstitution() = this.Reconstitution 
             member this.GetShapeRoutes() = this.ShapeRoutes
             member this.GetUnitMappings() = this.UnitMappings
             member this.GetRouteMappings() = this.RouteMappings
             member this.GetResourceInfo() = {
                 LastUpdated = this.LastReloaded
                 IsLoaded = this.IsLoaded
-            }
+            }            
 
 
     type ResourceProvider(state: ResourceState) =
@@ -39,6 +41,7 @@ module Resources =
             member _.GetSolutionRules() = state.SolutionRules
             member _.GetRenalRules() = state.RenalRules
             member _.GetProducts() = state.Products
+            member _.GetReconstitution() = state.Reconstitution
             member _.GetShapeRoutes() = state.ShapeRoutes
             member _.GetUnitMappings() = state.UnitMappings
             member _.GetRouteMappings() = state.RouteMappings
@@ -49,12 +52,21 @@ module Resources =
 
 
 
-    let createProvider doseRules solutionRules renalRules products shapeRoutes unitMappings routeMappings =
+    let createProvider 
+        doseRules 
+        solutionRules 
+        renalRules 
+        products 
+        reconstitution
+        shapeRoutes 
+        unitMappings 
+        routeMappings =
         let state = {
             DoseRules = doseRules
             SolutionRules = solutionRules
             RenalRules = renalRules
             Products = products
+            Reconstitution = reconstitution 
             ShapeRoutes = shapeRoutes
             UnitMappings = unitMappings
             RouteMappings = routeMappings
@@ -70,6 +82,7 @@ module Resources =
         GetSolutionRules: unit -> SolutionRule[]
         GetRenalRules: unit -> RenalRule[]
         GetProducts: unit -> Product[]
+        GetReconstitution: unit -> Reconstitution[]
         GetShapeRoutes: unit -> ShapeRoute[]
         GetUnitMappings: unit -> UnitMapping[]
         GetRouteMappings: unit -> RouteMapping[]
@@ -96,6 +109,7 @@ module Resources =
             let solutionRules = config.GetSolutionRules()
             let renalRules = config.GetRenalRules()
             let products = config.GetProducts()
+            let reconstitution = config.GetReconstitution ()
             let shapeRoutes = config.GetShapeRoutes()
             let unitMappings = config.GetUnitMappings()
             let routeMappings = config.GetRouteMappings()
@@ -105,6 +119,7 @@ module Resources =
                 SolutionRules = solutionRules
                 RenalRules = renalRules
                 Products = products
+                Reconstitution = reconstitution
                 ShapeRoutes = shapeRoutes
                 UnitMappings = unitMappings
                 RouteMappings = routeMappings
@@ -128,6 +143,7 @@ module Resources =
         (solutionRules: SolutionRule[])
         (renalRules: RenalRule[])
         (products: Product[])
+        (reconstitution: Reconstitution[])
         (shapeRoutes: ShapeRoute[])
         (unitMappings: UnitMapping[])
         (routeMappings: RouteMapping[]) =
@@ -136,6 +152,7 @@ module Resources =
             GetSolutionRules = fun () -> solutionRules
             GetRenalRules = fun () -> renalRules
             GetProducts = fun () -> products
+            GetReconstitution = fun () -> reconstitution
             GetShapeRoutes = fun () -> shapeRoutes
             GetUnitMappings = fun () -> unitMappings
             GetRouteMappings = fun () -> routeMappings
@@ -161,6 +178,7 @@ module Resources =
                     SolutionRules = [||]
                     RenalRules = [||]
                     Products = [||]
+                    Reconstitution = [||]
                     ShapeRoutes = [||]
                     UnitMappings = [||]
                     RouteMappings = [||]
@@ -216,6 +234,13 @@ module Resources =
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.RouteMappings
                     | _ -> (loadFresh()).RouteMappings
+                )
+                
+            member _.GetReconstitution () = 
+                lock lockObj (fun () ->
+                    match cachedState with
+                    | Some (state, timestamp) when not (isExpired timestamp) -> state.Reconstitution
+                    | _ -> (loadFresh()).Reconstitution
                 )
                 
             member _.GetResourceInfo() =

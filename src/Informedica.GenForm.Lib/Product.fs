@@ -10,6 +10,8 @@ module Product =
     open ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
 
+    open Informedica.GenUnits.Lib
+
 
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
     module ATCGroup = Informedica.ZIndex.Lib.ATCGroup
@@ -43,7 +45,7 @@ module Product =
         /// </summary>
         /// <param name="shape">The Shape</param>
         let isSolution shape  =
-            Mapping.getShapeRouteMapping ()
+            Mapping.getShapeRouteMappingMemoized ()
             |> Array.tryFind (fun sr ->
                 sr.Shape |> String.equalsCapInsens shape
             )
@@ -82,14 +84,24 @@ module Product =
                     let get = getColumn r
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                    {|
+                    {
                         GPK = get "GPK"
                         Route = get "Route"
-                        Dep = get "Dep"
-                        DiluentVol = get "DiluentVol" |> toBrOpt
-                        ExpansionVol = get "ExpansionVol" |> toBrOpt
-                        Diluents = get "Diluents"
-                    |}
+                        Department = get "Dep"
+                        DiluentVolume = 
+                            get "DiluentVol" 
+                            |> toBrOpt
+                            |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
+                            |> Option.defaultValue (ValueUnit.singleWithUnit Units.Volume.milliLiter 1N)
+                        ExpansionVolume = 
+                            get "ExpansionVol" 
+                            |> toBrOpt
+                            |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
+                        Diluents = 
+                            get "Diluents"
+                            |> String.splitAt ';'
+                            |> Array.map String.trim
+                    }
                 )
 
 
@@ -121,8 +133,6 @@ module Product =
 
 
     module Enteral =
-
-        open Informedica.GenUnits.Lib
 
 
         let private get_ () =
@@ -472,27 +482,7 @@ module Product =
             Reconstitution =
                 Reconstitution.get ()
                 |> Array.filter (fun r ->
-                    r.GPK = $"{gp.Id}" &&
-                    r.DiluentVol |> Option.isSome
-                )
-                |> Array.map (fun r ->
-                    {
-                        Route = r.Route
-                        Department = r.Dep
-                        DiluentVolume =
-                            r.DiluentVol.Value
-                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                        ExpansionVolume =
-                            r.ExpansionVol
-                            |> Option.map (fun v ->
-                                v
-                                |> ValueUnit.singleWithUnit Units.Volume.milliLiter
-                            )
-                        Diluents =
-                            r.Diluents
-                            |> String.splitAt ';'
-                            |> Array.map String.trim
-                    }
+                    r.GPK = $"{gp.Id}" 
                 )
             Divisible =
                 match divisible with

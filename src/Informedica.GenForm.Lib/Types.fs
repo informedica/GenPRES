@@ -93,6 +93,23 @@ module Types =
         | OnceTimed of string
         | NoDoseType
 
+    
+    type Reconstitution =
+        {
+            // The GPK of the reconstitution
+            GPK : string
+            // The route for the reconstitution
+            Route : string
+            // The department for the reconstitution
+            Department : string
+            // The volume of the reconstitution
+            DiluentVolume : ValueUnit
+            // An optional expansion volume of the reconstitution
+            ExpansionVolume : ValueUnit option
+            // The Diluents for the reconstitution
+            Diluents : string []
+        }
+
 
     /// A Substance type.
     type Substance =
@@ -148,19 +165,6 @@ module Types =
             Divisible : BigRational option
             // The Substances in the Product
             Substances : Substance array
-        }
-    and Reconstitution =
-        {
-            // The route for the reconstitution
-            Route : string
-            // The department for the reconstitution
-            Department : string
-            // The volume of the reconstitution
-            DiluentVolume : ValueUnit
-            // An optional expansion volume of the reconstitution
-            ExpansionVolume : ValueUnit option
-            // The Diluents for the reconstitution
-            Diluents : string []
         }
 
 
@@ -487,6 +491,7 @@ module Types =
         abstract member GetShapeRoutes : unit -> ShapeRoute[]
         abstract member GetUnitMappings : unit -> UnitMapping[]
         abstract member GetRouteMappings : unit -> RouteMapping[]
+        abstract member GetReconstitution : unit -> Reconstitution[]
 
         // Resource metadata and health information
         abstract member GetResourceInfo : unit -> ResourceInfo
