@@ -1,9 +1,12 @@
-namespace Informedica.GenForm.Lib
+
+#load "load.fsx"
+
 
 
 module Resources =
 
     open System
+    open Informedica.GenForm.Lib
 
 
     type ResourceState =
@@ -25,14 +28,14 @@ module Resources =
             member this.GetSolutionRules() = this.SolutionRules
             member this.GetRenalRules() = this.RenalRules
             member this.GetProducts() = this.Products
-            member this.GetReconstitution() = this.Reconstitution 
+            member this.GetReconstitution() = this.Reconstitution
             member this.GetShapeRoutes() = this.ShapeRoutes
             member this.GetUnitMappings() = this.UnitMappings
             member this.GetRouteMappings() = this.RouteMappings
             member this.GetResourceInfo() = {
                 LastUpdated = this.LastReloaded
                 IsLoaded = this.IsLoaded
-            }            
+            }
 
 
     type ResourceProvider(state: ResourceState) =
@@ -52,21 +55,21 @@ module Resources =
 
 
 
-    let createProvider 
-        doseRules 
-        solutionRules 
-        renalRules 
-        products 
+    let createProvider
+        doseRules
+        solutionRules
+        renalRules
+        products
         reconstitution
-        shapeRoutes 
-        unitMappings 
+        shapeRoutes
+        unitMappings
         routeMappings =
         let state = {
             DoseRules = doseRules
             SolutionRules = solutionRules
             RenalRules = renalRules
             Products = products
-            Reconstitution = reconstitution 
+            Reconstitution = reconstitution
             ShapeRoutes = shapeRoutes
             UnitMappings = unitMappings
             RouteMappings = routeMappings
@@ -113,7 +116,7 @@ module Resources =
             let shapeRoutes = config.GetShapeRoutes()
             let unitMappings = config.GetUnitMappings()
             let routeMappings = config.GetRouteMappings()
-            
+
             {
                 DoseRules = doseRules
                 SolutionRules = solutionRules
@@ -138,8 +141,8 @@ module Resources =
 
 
     /// Create a test resource configuration with mock data
-    let createTestResourceConfig 
-        (doseRules: DoseRule[]) 
+    let createTestResourceConfig
+        (doseRules: DoseRule[])
         (solutionRules: SolutionRule[])
         (renalRules: RenalRule[])
         (products: Product[])
@@ -162,13 +165,13 @@ module Resources =
     type CachedResourceProvider(loadAllResources, ttlMinutes: int option) =
         let mutable cachedState: (ResourceState * DateTime) option = None
         let lockObj = obj()
-        
+
         let isExpired (timestamp: DateTime) =
             match ttlMinutes with
             | None -> false // No expiration if ttl is not set
             | Some ttlMinutes ->
                 DateTime.UtcNow.Subtract(timestamp).TotalMinutes > float ttlMinutes
-        
+
         let loadFresh () =
             match loadAllResources () with
             | Ok state ->
@@ -188,7 +191,7 @@ module Resources =
                     LastReloaded = DateTime.MinValue
                     IsLoaded = false
                 }
-        
+
         interface IResourceProvider with
             member _.GetDoseRules() =
                 lock lockObj (fun () ->
@@ -196,64 +199,62 @@ module Resources =
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.DoseRules
                     | _ -> (loadFresh()).DoseRules
                 )
-            
+
             member _.GetSolutionRules() =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.SolutionRules
                     | _ -> (loadFresh()).SolutionRules
                 )
-            
+
             member _.GetRenalRules() =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.RenalRules
                     | _ -> (loadFresh()).RenalRules
                 )
-                
+
             member _.GetProducts() =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.Products
                     | _ -> (loadFresh()).Products
                 )
-                
+
             member _.GetShapeRoutes() =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.ShapeRoutes
                     | _ -> (loadFresh()).ShapeRoutes
                 )
-                
+
             member _.GetUnitMappings() =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.UnitMappings
                     | _ -> (loadFresh()).UnitMappings
                 )
-                
+
             member _.GetRouteMappings() =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.RouteMappings
                     | _ -> (loadFresh()).RouteMappings
                 )
-                
-            member _.GetReconstitution () = 
+
+            member _.GetReconstitution () =
                 lock lockObj (fun () ->
                     match cachedState with
                     | Some (state, timestamp) when not (isExpired timestamp) -> state.Reconstitution
                     | _ -> (loadFresh()).Reconstitution
                 )
-                
+
             member _.GetResourceInfo() =
                 lock lockObj (fun () ->
                     match cachedState with
-                    | Some (state, timestamp) when not (isExpired timestamp) -> 
+                    | Some (state, timestamp) when not (isExpired timestamp) ->
                         { LastUpdated = state.LastReloaded; IsLoaded = state.IsLoaded }
-                    | _ -> 
+                    | _ ->
                         let freshState = loadFresh()
                         { LastUpdated = freshState.LastReloaded; IsLoaded = freshState.IsLoaded }
                 )
-
-
