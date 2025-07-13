@@ -3,6 +3,7 @@ namespace Informedica.GenForm.Lib
 
 module SolutionRule =
 
+    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -30,9 +31,11 @@ module SolutionRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let private get_ () =
+    let getWithDataUrlId dataUrlId (parenteral : Product[]) =
+        (*
         let dataUrlId = Web.getDataUrlIdGenPres ()
         let parenteral = Product.Parenteral.get ()
+        *)
 
         Web.getDataFromSheet dataUrlId "SolutionRules"
         |> fun data ->
@@ -207,12 +210,20 @@ module SolutionRule =
             )
 
 
+    [<Obsolete("Use getWithDataUrlId instead")>]
+    let private get_ () =
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        let parenteral = Product.Parenteral.get ()
+        getWithDataUrlId dataUrlId parenteral
+
+
     /// <summary>
     /// Gets the SolutionRules.
     /// </summary>
     /// <remarks>
     /// This function is memoized.
     /// </remarks>
+    [<Obsolete("Use getWithDataUrlId instead")>]
     let get : unit -> SolutionRule [] =
         Memoization.memoize get_
 
@@ -223,7 +234,7 @@ module SolutionRule =
     /// <param name="filter">The Filter</param>
     /// <param name="solutionRules">The SolutionRules</param>
     /// <returns>The matching SolutionRules</returns>
-    let filter (filter : SolutionFilter) (solutionRules : SolutionRule []) =
+    let filterWithMapping mapping (filter : SolutionFilter) (solutionRules : SolutionRule []) =
         let eqs a (b : string) =
             a
             |> Option.map (String.equalsCapInsens b)
@@ -234,7 +245,7 @@ module SolutionRule =
             fun (sr : SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
             fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
             fun (sr : SolutionRule) -> sr.Indication |> Option.map (eqs filter.Indication) |> Option.defaultValue true
-            fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute filter.Route
+            fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRouteWithMapping mapping filter.Route
             fun (sr : SolutionRule) ->
                 sr.DoseType = NoDoseType ||
                 filter.DoseType
@@ -255,6 +266,12 @@ module SolutionRule =
                     )
             }
         )
+
+
+    [<Obsolete("Use filterWithMapping instead")>]
+    let filter =
+        let mapping = Mapping.getRouteMapping ()
+        filterWithMapping mapping
 
 
     /// Helper function to get the distinct values of a member of SolutionRule.

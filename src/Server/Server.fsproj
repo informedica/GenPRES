@@ -16,6 +16,7 @@
     <None Include="Scripts\Scripts.fsx" />
     <None Include="Scripts\MemoryStream.fsx" />
     <None Include="Scripts\OrderAgent.fsx" />
+    <None Include="Scripts\Resources.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenOrder.Lib\Informedica.GenOrder.Lib.fsproj" />

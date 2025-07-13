@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 
 module PrescriptionRule =
 
+    open System
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
@@ -94,13 +95,25 @@ module PrescriptionRule =
 
 
     /// Use a Filter to get matching PrescriptionRules.
-    let filter (filter : DoseFilter) =
-        let pat = filter.Patient
+    let filterWithDoseRulesAndMapping
+        doseRules
+        solutionRules
+        routeMapping
+        (filter : DoseFilter) =
 
-        DoseRule.get ()
-        |> DoseRule.filter filter
+        let pat = filter.Patient
+        (*
+        let doseRules = DoseRule.get ()
+        *)
+
+        doseRules
+        |> DoseRule.filterWithMapping routeMapping filter
         |> Array.map (fun dr ->
-            let dr = dr |> DoseRule.reconstitute pat.Department pat.Locations
+            let dr =
+                dr
+                |> DoseRule.reconstituteWithMapping
+                       routeMapping
+                       pat.Department pat.Locations
 
             let filter =
                 { filter with
@@ -126,8 +139,8 @@ module PrescriptionRule =
                             Dose = None
                         }
 
-                    SolutionRule.get ()
-                    |> SolutionRule.filter solFilter
+                    solutionRules
+                    |> SolutionRule.filterWithMapping routeMapping solFilter
                     |> Array.map (fun sr ->
                         { sr with
                             Products =
@@ -143,7 +156,7 @@ module PrescriptionRule =
                     )
                 RenalRules =
                     RenalRule.get ()
-                    |> RenalRule.filter filter
+                    |> RenalRule.filterWithMapping routeMapping filter
             }
         )
         |> Array.filter (fun pr ->
@@ -215,6 +228,15 @@ module PrescriptionRule =
         )
 
 
+    [<Obsolete("Use filterWithDoseRulesAndMapping instead")>]
+    let filter =
+        let doseRules = DoseRule.get ()
+        let solutionRules = SolutionRule.get ()
+        let routeMapping = Mapping.getRouteMapping ()
+
+        filterWithDoseRulesAndMapping doseRules solutionRules routeMapping
+
+
     /// Get all matching PrescriptionRules for a given Patient.
     let get (pat : Patient) =
         Filter.doseFilter
@@ -237,10 +259,10 @@ module PrescriptionRule =
                                 Products =
                                     dl.Products
                                     |> Array.filter (fun p ->
-                                        let cmpItems = 
-                                            cmpItems 
+                                        let cmpItems =
+                                            cmpItems
                                             |> List.filter (fun itm -> itm.ComponentName = p.Generic)
-                                        
+
                                         cmpItems
                                         |> List.map _.ComponentQuantity
                                         |> List.exists (ValueUnit.eqs p.ShapeQuantities)

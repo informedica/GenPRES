@@ -2,8 +2,9 @@ namespace Informedica.GenForm.Lib
 
 
 
-
 module Product =
+
+    open System
 
     open MathNet.Numerics
     open Informedica.Utils.Lib
@@ -39,13 +40,23 @@ module Product =
     module ShapeRoute =
 
 
+        let isSolutionWithMapping (mapping : ShapeRoute[]) shape =
+            mapping
+            |> Array.tryFind (fun sr ->
+                sr.Shape |> String.equalsCapInsens shape
+            )
+            |> Option.map _.IsSolution
+            |> Option.defaultValue false
+
+
         /// <summary>
         /// Check if the given shape is a solution using
         /// a ShapeRoute array.
         /// </summary>
         /// <param name="shape">The Shape</param>
+        [<Obsolete("Use isSolution with a ShapeRoute array instead")>]
         let isSolution shape  =
-            Mapping.getShapeRouteMappingMemoized ()
+            Mapping.getShapeRoutesMemoized ()
             |> Array.tryFind (fun sr ->
                 sr.Shape |> String.equalsCapInsens shape
             )
@@ -59,17 +70,7 @@ module Product =
 
         open Utils
 
-        // GPK
-        // Route
-        // DoseType
-        // Dep
-        // CVL
-        // PVL
-        // DiluentVol
-        // ExpansionVol
-        // Diluents
-        let private get_ () =
-            let dataUrlId = Web.getDataUrlIdGenPres ()
+        let getWithDataUrlId dataUrlId =
             Web.getDataFromSheet dataUrlId "Reconstitution"
             |> fun data ->
 
@@ -88,16 +89,16 @@ module Product =
                         GPK = get "GPK"
                         Route = get "Route"
                         Department = get "Dep"
-                        DiluentVolume = 
-                            get "DiluentVol" 
+                        DiluentVolume =
+                            get "DiluentVol"
                             |> toBrOpt
                             |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
                             |> Option.defaultValue (ValueUnit.singleWithUnit Units.Volume.milliLiter 1N)
-                        ExpansionVolume = 
-                            get "ExpansionVol" 
+                        ExpansionVolume =
+                            get "ExpansionVol"
                             |> toBrOpt
                             |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
-                        Diluents = 
+                        Diluents =
                             get "Diluents"
                             |> String.splitAt ';'
                             |> Array.map String.trim
@@ -105,10 +106,32 @@ module Product =
                 )
 
 
+        [<Obsolete("Use getWithDataUrlId instead")>]
+        let private get_ () =
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            getWithDataUrlId dataUrlId
+
+
         /// Get the Reconstitution array.
         /// Returns an anonymous record with the following fields:
         /// unit -> {| Dep: string; DiluentVol: BigRational option; Diluents: string; DoseType: DoseType; ExpansionVol: BigRational option; GPK: string; Location: VenousAccess; Route: string |} array
+        [<Obsolete("Use getWithDataUrlId instead")>]
         let get = Memoization.memoize get_
+
+
+        let filterWithRouteMapping routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
+            let eqs a b =
+                a
+                |> Option.map (fun x -> x = b)
+                |> Option.defaultValue true
+
+            [|
+                fun (r : Reconstitution) -> r.Route |> Mapping.eqsRouteWithMapping routeMapping filter.Route
+                fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
+            |]
+            |> Array.fold (fun (acc : Reconstitution[]) pred ->
+                acc |> Array.filter pred
+            ) rs
 
 
         /// <summary>
@@ -117,26 +140,16 @@ module Product =
         /// </summary>
         /// <param name="filter">The Filter</param>
         /// <param name="rs">The array of reconstitution rules</param>
-        let filter (filter : DoseFilter) (rs : Reconstitution []) =
-            let eqs a b =
-                a
-                |> Option.map (fun x -> x = b)
-                |> Option.defaultValue true
-
-            [|
-                fun (r : Reconstitution) -> r.Route |> Mapping.eqsRoute filter.Route
-                fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
-            |]
-            |> Array.fold (fun (acc : Reconstitution[]) pred ->
-                acc |> Array.filter pred
-            ) rs
+        [<Obsolete("Use filterWithRouteMapping instead")>]
+        let filter =
+            let routeMapping = Mapping.getRouteMapping ()
+            filterWithRouteMapping routeMapping
 
 
     module Enteral =
 
 
-        let private get_ () =
-            let dataUrlId = Web.getDataUrlIdGenPres ()
+        let getWithUnitMappingAndDataUrlId unitMapping dataUrlId =
             Web.getDataFromSheet dataUrlId "EntFeeding"
 
             |> fun data ->
@@ -219,7 +232,7 @@ module Product =
                                         q
                                         |> Option.bind (fun q ->
                                             u
-                                            |> Mapping.mapUnit
+                                            |> Mapping.mapUnitWithMapping unitMapping
                                             |> function
                                                 | None ->
                                                     writeErrorMessage $"cannot map unit: {u}"
@@ -244,7 +257,15 @@ module Product =
                 )
 
 
+        [<Obsolete("Use getWithDataUrlId instead")>]
+        let private get_ () =
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            let unitMapping = Mapping.getUnitMappingWithDataUrlId dataUrlId
+            getWithUnitMappingAndDataUrlId unitMapping dataUrlId
+
+
         /// Get the Enteral feeding as a Product array.
+        [<Obsolete("Use getWithDataUrlId instead")>]
         let get : unit -> Product [] =
             Memoization.memoize get_
 
@@ -252,11 +273,8 @@ module Product =
 
     module Parenteral =
 
-        open Informedica.GenUnits.Lib
 
-
-        let private get_ () =
-            let dataUrlId = Web.getDataUrlIdGenPres ()
+        let getWithUnitMappingAndDataUrlId unitMapping dataUrlId =
             Web.getDataFromSheet dataUrlId "ParentMeds"
             |> fun data ->
                 let getColumn =
@@ -341,7 +359,7 @@ module Product =
                                         q
                                         |> Option.bind (fun q ->
                                             u
-                                            |> Mapping.mapUnit
+                                            |> Mapping.mapUnitWithMapping unitMapping
                                             |> function
                                                 | None ->
                                                     writeErrorMessage $"cannot map unit: {u}"
@@ -366,13 +384,17 @@ module Product =
                 )
 
 
+        [<Obsolete("Use getWithDataUrlId instead")>]
+        let private get_ () =
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            let unitMapping = Mapping.getUnitMappingWithDataUrlId dataUrlId
+            getWithUnitMappingAndDataUrlId unitMapping dataUrlId
+
+
         /// Get the Parenterals as a Product array.
+        [<Obsolete("Use getWithDataUrlId instead")>]
         let get : unit -> Product [] =
             Memoization.memoize get_
-
-
-
-    open Informedica.GenUnits.Lib
 
 
     let create gen rte substs =
@@ -414,7 +436,11 @@ module Product =
         |> String.toLower
 
 
-    let map
+    let mapWithMappingAndShapeRoutes
+        unitMapping
+        routeMapping
+        shapeRoutes
+        (reconstitution : Reconstitution[])
         name
         useGenName
         useShape
@@ -432,10 +458,11 @@ module Product =
 
         let shpUnit =
             gp.Substances[0].ShapeUnit
-            |> Mapping.mapUnit
+            |> Mapping.mapUnitWithMapping unitMapping
             |> Option.defaultValue NoUnit
 
-        let reqReconst = Mapping.requiresReconstitutionMemoized (gp.Route, shpUnit, gp.Shape)
+        let reqReconst =
+            Mapping.requiresWithMapping routeMapping shapeRoutes (gp.Route, shpUnit, gp.Shape)
 
         let shpUnit =
             if not reqReconst then shpUnit
@@ -473,22 +500,25 @@ module Product =
                 | _ -> ""
             Label = gp.Label
             Shape = gp.Shape |> String.toLower
-            Routes = gp.Route |> Array.choose Mapping.mapRoute
+            Routes = gp.Route |> Array.choose (Mapping.mapRouteWithMapping routeMapping)
             ShapeQuantities =
                 shapeQuantities
                 |> ValueUnit.withUnit shpUnit
             ShapeUnit = shpUnit
             RequiresReconstitution = reqReconst
             Reconstitution =
-                Reconstitution.get ()
+                reconstitution
                 |> Array.filter (fun r ->
-                    r.GPK = $"{gp.Id}" 
+                    r.GPK = $"{gp.Id}"
                 )
             Divisible =
                 match divisible with
                 | Some d -> d |> BigRational.fromInt |> Some
                 | None ->
-                    let rs = Mapping.filterRouteShapeUnit "" (gp.Shape.ToLower()) NoUnit
+                    let rs =
+                        Mapping.filterRouteShapeUnitWithMapping
+                            routeMapping
+                            shapeRoutes "" (gp.Shape.ToLower()) NoUnit
                     if rs |> Array.length = 0 then None
                     else
                         rs[0].Divisibility
@@ -509,11 +539,12 @@ module Product =
                     ps.SubstanceQuantity > 0.
                 )
                 |> Array.append additional
+                // TODO should be group by as additional can have different concentrations
                 |> Array.distinctBy _.SubstanceId
                 |> Array.map (fun s ->
                     let su =
                             s.SubstanceUnit
-                            |> Mapping.mapUnit
+                            |> Mapping.mapUnitWithMapping unitMapping
                             |> Option.map (fun u ->
                                 CombiUnit(u, OpPer, shpUnit)
                             )
@@ -539,11 +570,17 @@ module Product =
         }
 
 
-    let private get_ () =
+    [<Obsolete("Use mapWithMappingAndShapeRoutes instead")>]
+    let map =
+        let unitMapping = Mapping.getUnitMapping()
+        let routeMapping = Mapping.getRouteMapping ()
+        let shapeRoutes = Mapping.getShapeRoutesMemoized ()
+        let reconstitution = Reconstitution.get ()
+        mapWithMappingAndShapeRoutes unitMapping routeMapping shapeRoutes reconstitution
+
+
+    let getFormularyProducts dataUrlId =
         fun () ->
-            // first get the products from the GenPres Formulary, i.e.
-            // the assortment
-            let dataUrlId = Web.getDataUrlIdGenPres ()
             Web.getDataFromSheet dataUrlId "Formulary"
             |> fun data ->
                 let getColumn =
@@ -551,30 +588,42 @@ module Product =
                     |> Array.head
                     |> Csv.getStringColumn
 
-                let formulary =
-                    data
-                    |> Array.tail
-                    |> Array.map (fun r ->
-                        let get = getColumn r
+                data
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
 
-                        {|
-                            GPKODE = get "GPKODE" |> Int32.parse
-                            Apotheek = get "UMCU"
-                            ICC = get "ICC"
-                            NEO = get "NEO"
-                            ICK = get "ICK"
-                            HCK = get "HCK"
-                            Generic = get "Generic"
-                            useGenName = get "UseGenName" = "x"
-                            useShape = get "UseShape" = "x"
-                            useBrand = get "UseBrand" = "x"
-                            tallMan = get "TallMan"
-                            mmol = get "Mmol" |> Double.tryParse
-                            divisible = get "Divisible" |> Int32.tryParse
-                        |}
-                    )
+                    {
+                        GPKODE = get "GPKODE" |> Int32.parse
+                        Apotheek = get "UMCU"
+                        ICC = get "ICC"
+                        NEO = get "NEO"
+                        ICK = get "ICK"
+                        HCK = get "HCK"
+                        Generic = get "Generic"
+                        useGenName = get "UseGenName" = "x"
+                        useShape = get "UseShape" = "x"
+                        useBrand = get "UseBrand" = "x"
+                        tallMan = get "TallMan"
+                        mmol = get "Mmol" |> Double.tryParse
+                        divisible = get "Divisible" |> Int32.tryParse
+                    }
+                )
+        |> StopWatch.clockFunc "retrieved formulary products"
 
-                formulary
+
+    let createWithFormularyProductsAndValidShapesAndMappings
+        unitMapping
+        routeMapping
+        validShapes
+        shapeRoutes
+        reconstitution
+        parenteral
+        enteral
+        (formularyProducts: FormularyProduct[])
+        =
+        fun () ->
+                formularyProducts
                 // find the matching GenPresProducts
                 |> Array.collect (fun r ->
                     r.GPKODE
@@ -588,7 +637,8 @@ module Product =
                     gpp.GenericProducts
                     |> Array.filter (fun gp ->
                         gp.Id = r.GPKODE &&
-                        Mapping.getValidShapesMemoized ()
+
+                        validShapes
                         |> Array.exists (String.equalsCapInsens gp.Shape) &&
                         gp.Substances
                         |> Array.exists (fun s ->
@@ -620,7 +670,12 @@ module Product =
                             if xs |> Array.isEmpty then [| 1N |] else xs
 
                     gp
-                    |> map name
+                    |> mapWithMappingAndShapeRoutes
+                           unitMapping
+                           routeMapping
+                           shapeRoutes
+                           reconstitution
+                           name
                            r.useGenName
                            r.useShape
                            r.useBrand
@@ -629,10 +684,41 @@ module Product =
                            r.divisible
                            r.mmol
                 )
-                |> Array.append (Parenteral.get ())
-                |> Array.append (Enteral.get ())
+                |> Array.append parenteral
+                |> Array.append enteral
 
         |> StopWatch.clockFunc "created products"
+
+
+    [<Obsolete("Use createWithFormularyProductsAndValidShapesAndMappings instead")>]
+    let private get_ () =
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        let unitMapping = Mapping.getUnitMapping ()
+        let routeMapping = Mapping.getRouteMapping ()
+        let validShapes = Mapping.getValidShapes ()
+        let shapeRoutes = Mapping.getShapeRoutesMemoized ()
+        let reconstitution = Reconstitution.get ()
+
+        let parenteral =
+            Parenteral.getWithUnitMappingAndDataUrlId
+                unitMapping
+                dataUrlId
+
+        let enteral =
+            Enteral.getWithUnitMappingAndDataUrlId
+                unitMapping
+                dataUrlId
+
+        getFormularyProducts dataUrlId
+        |> createWithFormularyProductsAndValidShapesAndMappings
+            unitMapping
+            routeMapping
+            validShapes
+            shapeRoutes
+            reconstitution
+            parenteral
+            enteral
+
 
 
     /// <summary>
@@ -641,6 +727,7 @@ module Product =
     /// <remarks>
     /// This function is memoized.
     /// </remarks>
+    [<Obsolete("Use createWithFormularyProductsAndValidShapesAndMappings instead")>]
     let get : unit -> Product [] =
         Memoization.memoize get_
 
@@ -658,7 +745,8 @@ module Product =
     /// The reconstituted product or None if the product
     /// does not require reconstitution.
     /// </returns>
-    let reconstitute rte dtp dep loc (prod : Product) =
+    let reconstituteWithMapping mapping rte dtp dep loc (prod : Product) =
+        let eqsRoute = Mapping.eqsRouteWithMapping mapping
         [|
             // if reconstitution is not required, the
             // original product is returned as well
@@ -667,10 +755,10 @@ module Product =
                 // calculate the reconstituted products
                 prod.Reconstitution
                 |> Array.filter (fun r ->
-                    (rte |> String.isNullOrWhiteSpace || r.Route |> Mapping.eqsRoute (Some rte)) &&
+                    (rte |> String.isNullOrWhiteSpace || r.Route |> eqsRoute (Some rte)) &&
                     dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true
                 )
-                |> fun xs -> 
+                |> fun xs ->
                     if xs |> Array.isEmpty then writeWarningMessage $"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}"
                     xs
                 |> Array.map (fun r ->
@@ -704,12 +792,21 @@ module Product =
         |> Array.collect id
 
 
+    [<Obsolete("Use reconstituteWithMapping instead")>]
+    let reconstitute rte dtp dep loc (prod : Product) =
+        let mapping = Mapping.getRouteMapping ()
+        reconstituteWithMapping mapping rte dtp dep loc (prod : Product)
+
+
     /// <summary>
     /// Filter the Product array to get all the products
     /// </summary>
     /// <param name="filter">The Filter</param>
     /// <param name="prods">The array of Products</param>
-    let filter (filter : DoseFilter) (prods : Product []) =
+    let filterWithMapping mapping (filter : DoseFilter) (prods : Product []) =
+        let eqsRoute = Mapping.eqsRouteWithMapping mapping
+        let recFilter = Reconstitution.filterWithRouteMapping mapping
+
         let repl s =
             s
             |> String.replace "/" ""
@@ -730,15 +827,21 @@ module Product =
         |> Array.filter (fun p ->
             p.Generic |> eqs filter.Generic &&
             p.Shape |> eqs filter.Shape &&
-            p.Routes |> Array.exists (Mapping.eqsRoute filter.Route)
+            p.Routes |> Array.exists (eqsRoute filter.Route)
         )
         |> Array.map (fun p ->
             { p with
                 Reconstitution =
                     p.Reconstitution
-                    |> Reconstitution.filter filter
+                    |> recFilter filter
             }
         )
+
+
+    [<Obsolete("Use filterWithMapping instead")>]
+    let filter =
+        let mapping = Mapping.getRouteMapping ()
+        filterWithMapping mapping
 
 
     /// Get all Generics from the given Product array.

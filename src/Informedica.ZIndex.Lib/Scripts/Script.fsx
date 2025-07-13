@@ -444,7 +444,7 @@ GenPresProduct.findByBrand "Picoprep"
 )
 
 
-GenPresProduct.findByGPK 9962
+GenPresProduct.findByGPK 9504
 
 GenPresProduct.get []
 |> Array.filter (fun gpp ->

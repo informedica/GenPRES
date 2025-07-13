@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module Check =
 
 
+    open System
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineNoTime
     open MathNet.Numerics
@@ -49,14 +50,20 @@ module Check =
         | _ -> None
 
 
-    let mapRoute s =
-        Mapping.getRouteMapping ()
+    let mapRouteWithMapping routeMapping s =
+        routeMapping
         |> Array.tryFind(fun r -> r.Short |> String.equalsCapInsens s)
         |> Option.map _.Long
         |> Option.defaultValue ""
 
 
-    let createDoseRules (pat: Patient) gen shp rte =
+    [<Obsolete("Use mapRouteWithMapping instead")>]
+    let mapRoute =
+        let routeMapping = Mapping.getRouteMapping ()
+        mapRouteWithMapping routeMapping
+
+
+    let createDoseRulesWithMapping routeMapping (pat: Patient) gen shp rte =
         let a =
             pat.Age
             |> Option.bind (fun vu ->
@@ -86,11 +93,17 @@ module Check =
             )
 
         rte
-        |> mapRoute
+        |> mapRouteWithMapping routeMapping
         |> GStand.createDoseRules
             GStand.config
             a w None None
             gen shp
+
+
+    [<Obsolete("Use createDoseRulesWithMapping instead")>]
+    let createDoseRules =
+        let mapping = Mapping.getRouteMapping ()
+        createDoseRulesWithMapping mapping
 
 
     let setAdjustAndOrTimeUnit adjUn tu (mm : MinMax) =

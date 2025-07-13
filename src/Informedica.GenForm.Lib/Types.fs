@@ -93,7 +93,7 @@ module Types =
         | OnceTimed of string
         | NoDoseType
 
-    
+
     type Reconstitution =
         {
             // The GPK of the reconstitution
@@ -165,6 +165,24 @@ module Types =
             Divisible : BigRational option
             // The Substances in the Product
             Substances : Substance array
+        }
+
+
+    type FormularyProduct =
+        {
+            Apotheek: string
+            GPKODE: int
+            Generic: string
+            HCK: string
+            ICC: string
+            ICK: string
+            NEO: string
+            divisible: int option
+            mmol: float option
+            tallMan: string
+            useBrand: bool
+            useGenName: bool
+            useShape: bool
         }
 
 
@@ -483,25 +501,6 @@ module Types =
         }
 
 
-    type IResourceProvider =
-        abstract member GetDoseRules : unit -> DoseRule[]
-        abstract member GetSolutionRules : unit -> SolutionRule[]
-        abstract member GetRenalRules : unit -> RenalRule[]
-        abstract member GetProducts : unit -> Product[]
-        abstract member GetShapeRoutes : unit -> ShapeRoute[]
-        abstract member GetUnitMappings : unit -> UnitMapping[]
-        abstract member GetRouteMappings : unit -> RouteMapping[]
-        abstract member GetReconstitution : unit -> Reconstitution[]
-
-        // Resource metadata and health information
-        abstract member GetResourceInfo : unit -> ResourceInfo
-
-    and ResourceInfo = {
-        LastUpdated: DateTime
-        IsLoaded: bool
-    }
-
-
     type ProductFilter =
         {
             Generic: string
@@ -566,4 +565,3 @@ module Types =
         | NormQuantityAdjust of LimitTarget * ValueUnit
         | NormPerTimeAdjust of LimitTarget * ValueUnit
         | NormRateAdjust of LimitTarget * ValueUnit
-

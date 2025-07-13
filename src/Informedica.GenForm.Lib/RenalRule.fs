@@ -3,6 +3,7 @@ namespace Informedica.GenForm.Lib
 
 module RenalRule =
 
+    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -326,7 +327,7 @@ module RenalRule =
         |> Memoization.memoize
 
 
-    let filter (filter : DoseFilter) (renalRules : RenalRule []) =
+    let filterWithMapping mapping (filter : DoseFilter) (renalRules : RenalRule []) =
         let eqs a (b : string) =
             a
             |> Option.map (fun x ->
@@ -346,7 +347,7 @@ module RenalRule =
             fun (rr : RenalRule) -> rr.Generic |> eqs filter.Generic
             fun (rr : RenalRule) ->
                 rr.Route |> String.isNullOrWhiteSpace ||
-                (filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRoute filter.Route)
+                (filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRouteWithMapping mapping filter.Route)
             fun (rr : RenalRule) ->
                 rr.Indication |> String.isNullOrWhiteSpace ||
                 (filter.Indication |> Option.isNone || rr.Indication |> eqs filter.Indication)
@@ -380,6 +381,12 @@ module RenalRule =
         |> Array.fold (fun (acc : RenalRule[]) pred ->
             acc |> Array.filter pred
         ) renalRules
+
+
+    [<Obsolete("Use filterWithMapping instead")>]
+    let filter =
+        let mapping = Mapping.getRouteMapping ()
+        filterWithMapping mapping
 
 
     let adjustDoseLimit (renalRule : RenalRule) (doseRule : DoseRule) (dl : DoseLimit) =

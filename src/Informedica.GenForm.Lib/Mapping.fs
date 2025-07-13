@@ -4,10 +4,11 @@ namespace Informedica.GenForm.Lib
 module Mapping =
 
     open System
+    open System.Diagnostics.Contracts
+
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
-
 
 
     let getRouteMappingWithDataUrlId dataUrlId =
@@ -77,7 +78,7 @@ module Mapping =
                 | None -> None
 
 
-    [<Obsolete("Use getUnitMapping instead")>]
+    [<Obsolete("Use mapUnitWithMapping instead")>]
     let mapUnit =
         mapUnitWithMapping (getUnitMapping ())
 
@@ -95,10 +96,13 @@ module Mapping =
 
 
     /// Try to find mapping for a route
+    [<Obsolete("Use mapRouteWithMapping instead")>]
     let mapRoute = mapRouteWithMapping (getRouteMapping ())
 
 
-    let eqsRoute r1 r2 =
+    let eqsRouteWithMapping routeMapping r1 r2 =
+        let mapRoute = mapRouteWithMapping routeMapping
+
         if r1 |> Option.isNone then true
         else
             match r1.Value |> mapRoute, r2 |> mapRoute with
@@ -106,8 +110,16 @@ module Mapping =
             | _ -> false
 
 
+    [<Obsolete("Use eqsRouteWithMapping instead")>]
+    let eqsRoute =
+        let routeMapping = getRouteMapping ()
+        eqsRouteWithMapping routeMapping
+
+
     /// Get the array of ShapeRoute records
-    let getShapeRouteMappingWithDataUrlId dataUrlId =
+    let getShapeRoutesWithDataUrlId unitMapping dataUrlId =
+        let mapUnit = mapUnitWithMapping unitMapping
+
         Web.getDataFromSheet dataUrlId "ShapeRoute"
         |> fun data ->
             let inline getColumn get =
@@ -186,13 +198,17 @@ module Mapping =
 
 
     [<Obsolete("Use getShapeRouteMappingWithDataUrlId instead")>]
-    let getShapeRouteMappingMemoized =
+    let getShapeRoutesMemoized =
         fun () ->
-            getShapeRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
+            let dataUrlId = Web.getDataUrlIdGenPres ()
+            let unitMapping = getUnitMappingWithDataUrlId dataUrlId
+            getShapeRoutesWithDataUrlId unitMapping dataUrlId
         |> Memoization.memoize
 
 
-    let filterRouteShapeUnitWithMapping (mapping : ShapeRoute []) rte shape unt =
+    let filterRouteShapeUnitWithMapping routeMapping (mapping : ShapeRoute []) rte shape unt =
+        let mapRoute = mapRouteWithMapping routeMapping
+
         mapping
         |> Array.filter (fun xs ->
             let eqsRte =
@@ -215,14 +231,25 @@ module Mapping =
     /// <param name="unt">The Unit</param>
     /// <returns>An array of RouteShape records</returns>
     [<Obsolete("Use filterRouteShapeUnitWithMapping instead")>]
-    let filterRouteShapeUnit rte shape unt = 
-        filterRouteShapeUnitWithMapping (getShapeRouteMappingMemoized ()) rte shape unt
+    let filterRouteShapeUnit rte shape unt =
+        let routeMapping = getRouteMapping ()
+        filterRouteShapeUnitWithMapping routeMapping (getShapeRoutesMemoized ()) rte shape unt
 
 
+    [<Obsolete("Use requiresWithMapping instead")>]
     let private requires_ (rtes, unt, shape) =
         rtes
         |> Array.collect (fun rte ->
             filterRouteShapeUnit rte shape unt
+        )
+        |> Array.map _.Reconstitute
+        |> Array.exists id
+
+
+    let requiresWithMapping routeMapping shapeRoutes (rtes, unt, shape) =
+        rtes
+        |> Array.collect (fun rte ->
+            filterRouteShapeUnitWithMapping routeMapping shapeRoutes rte shape unt
         )
         |> Array.map _.Reconstitute
         |> Array.exists id
@@ -254,7 +281,7 @@ module Mapping =
 
     /// Mapping of long Z-index unit names to short names
     [<Obsolete("Use getValidShapesWithDataUrlId instead")>]
-    let getValidShapes () = 
+    let getValidShapes () =
         getValidShapesWithDataUrlId (Web.getDataUrlIdGenPres ())
 
 
