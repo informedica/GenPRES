@@ -236,8 +236,15 @@ module PrescriptionRule =
 
         filterWithDoseRulesAndMapping doseRules solutionRules routeMapping
 
+    /// Get all matching PrescriptionRules for a given Patient.
+    let getWithDoseRulesAndMapping doseRules solutionRules routeMapping (pat : Patient) =
+        Filter.doseFilter
+        |> Filter.setPatient pat
+        |> filterWithDoseRulesAndMapping doseRules solutionRules routeMapping
+
 
     /// Get all matching PrescriptionRules for a given Patient.
+    [<Obsolete("Use getWithDoseRulesAndMapping instead")>]
     let get (pat : Patient) =
         Filter.doseFilter
         |> Filter.setPatient pat

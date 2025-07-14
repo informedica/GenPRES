@@ -349,6 +349,48 @@ module Types =
     }
 
 
+    type RenalRuleDetails =
+        {
+            Generic: string
+            Route: string
+            Indication: string
+            Source: string
+            MinAge: BigRational option
+            MaxAge: BigRational option
+            ContDial: string
+            IntDial: string
+            PerDial: string
+            MinGFR: BigRational option
+            MaxGFR: BigRational option
+            DoseType: string
+            DoseText: string
+            Frequencies: BigRational array
+            MinInterval: BigRational option
+            MaxInterval: BigRational option
+            IntervalUnit: string
+            Substance: string
+            DoseRed: string
+            DoseUnit: string
+            AdjustUnit: string
+            FreqUnit: string
+            RateUnit: string
+            MinQty: BigRational option
+            MaxQty: BigRational option
+            NormQtyAdj: BigRational array
+            MinQtyAdj: BigRational option
+            MaxQtyAdj: BigRational option
+            MinPerTime: BigRational option
+            MaxPerTime: BigRational option
+            NormPerTimeAdj: BigRational array
+            MinPerTimeAdj: BigRational option
+            MaxPerTimeAdj: BigRational option
+            MinRate: BigRational option
+            MaxRate: BigRational option
+            MinRateAdj: BigRational option
+            MaxRateAdj: BigRational option
+        }
+
+
     type ComponentLimit =
         {
             Name : string

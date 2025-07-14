@@ -100,7 +100,7 @@ module RenalRule =
                     getColumn r >> String.trim
                 let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                {|
+                {
                     Generic = get "Generic"
                     Route = get "Route"
                     Indication = get "Indication"
@@ -138,7 +138,7 @@ module RenalRule =
                     MaxRate = get "MaxRate" |> toBrOpt
                     MinRateAdj = get "MinRateAdj" |> toBrOpt
                     MaxRateAdj = get "MaxRateAdj" |> toBrOpt
-                |}
+                }
             )
 
 
@@ -147,7 +147,6 @@ module RenalRule =
 
 
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
-
 
 
     let createRenalFunction
@@ -175,7 +174,7 @@ module RenalRule =
             |> EGFR |> Some
 
 
-    let fromData (data : {| AdjustUnit: string; ContDial: string; DoseRed: string; DoseText: string; DoseType: string; DoseUnit: string; FreqUnit: string; Frequencies: BigRational array; Generic: string; Indication: string; IntDial: string; IntervalUnit: string; MaxAge: BigRational option; MaxGFR: BigRational option; MaxInterval: BigRational option; MaxPerTime: BigRational option; MaxPerTimeAdj: BigRational option; MaxQty: BigRational option; MaxQtyAdj: BigRational option; MaxRate: BigRational option; MaxRateAdj: BigRational option; MinAge: BigRational option; MinGFR: BigRational option; MinInterval: BigRational option; MinPerTime: BigRational option; MinPerTimeAdj: BigRational option; MinQty: BigRational option; MinQtyAdj: BigRational option; MinRate: BigRational option; MinRateAdj: BigRational option; NormPerTimeAdj: BigRational[]; NormQtyAdj: BigRational[]; PerDial: string; RateUnit: string; Route: string; Source: string; Substance: string |} array) =
+    let fromData (data: RenalRuleDetails[]) =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&
