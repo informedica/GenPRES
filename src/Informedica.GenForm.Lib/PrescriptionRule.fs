@@ -98,6 +98,7 @@ module PrescriptionRule =
     let filterWithDoseRulesAndMapping
         doseRules
         solutionRules
+        renalRules
         routeMapping
         (filter : DoseFilter) =
 
@@ -155,7 +156,7 @@ module PrescriptionRule =
                         }
                     )
                 RenalRules =
-                    RenalRule.get ()
+                    renalRules
                     |> RenalRule.filterWithMapping routeMapping filter
             }
         )
@@ -228,27 +229,11 @@ module PrescriptionRule =
         )
 
 
-    [<Obsolete("Use filterWithDoseRulesAndMapping instead")>]
-    let filter =
-        let doseRules = DoseRule.get ()
-        let solutionRules = SolutionRule.get ()
-        let routeMapping = Mapping.getRouteMapping ()
-
-        filterWithDoseRulesAndMapping doseRules solutionRules routeMapping
-
     /// Get all matching PrescriptionRules for a given Patient.
-    let getWithDoseRulesAndMapping doseRules solutionRules routeMapping (pat : Patient) =
+    let getWithDoseRulesAndMapping dataUrlId doseRules solutionRules routeMapping (pat : Patient) =
         Filter.doseFilter
         |> Filter.setPatient pat
-        |> filterWithDoseRulesAndMapping doseRules solutionRules routeMapping
-
-
-    /// Get all matching PrescriptionRules for a given Patient.
-    [<Obsolete("Use getWithDoseRulesAndMapping instead")>]
-    let get (pat : Patient) =
-        Filter.doseFilter
-        |> Filter.setPatient pat
-        |> filter
+        |> filterWithDoseRulesAndMapping dataUrlId doseRules solutionRules routeMapping
 
 
     /// Filter the Products in a PrescriptionRule to match the

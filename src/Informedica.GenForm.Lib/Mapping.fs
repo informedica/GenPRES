@@ -78,11 +78,6 @@ module Mapping =
                 | None -> None
 
 
-    [<Obsolete("Use mapUnitWithMapping instead")>]
-    let mapUnit =
-        mapUnitWithMapping (getUnitMapping ())
-
-
     let mapRouteWithMapping (mapping : RouteMapping array) s =
         if s |> String.isNullOrWhiteSpace then None
         else
@@ -95,11 +90,6 @@ module Mapping =
             |> Option.map _.Long
 
 
-    /// Try to find mapping for a route
-    [<Obsolete("Use mapRouteWithMapping instead")>]
-    let mapRoute = mapRouteWithMapping (getRouteMapping ())
-
-
     let eqsRouteWithMapping routeMapping r1 r2 =
         let mapRoute = mapRouteWithMapping routeMapping
 
@@ -108,12 +98,6 @@ module Mapping =
             match r1.Value |> mapRoute, r2 |> mapRoute with
             | Some r1, Some r2 -> r1 = r2
             | _ -> false
-
-
-    [<Obsolete("Use eqsRouteWithMapping instead")>]
-    let eqsRoute =
-        let routeMapping = getRouteMapping ()
-        eqsRouteWithMapping routeMapping
 
 
     /// Get the array of ShapeRoute records
@@ -224,29 +208,6 @@ module Mapping =
         )
 
 
-    /// <summary>
-    /// Filter the mappingRouteShape array on route, shape and unit
-    /// </summary>
-    /// <param name="rte">The Route</param>
-    /// <param name="shape">The Shape</param>
-    /// <param name="unt">The Unit</param>
-    /// <returns>An array of RouteShape records</returns>
-    [<Obsolete("Use filterRouteShapeUnitWithMapping instead")>]
-    let filterRouteShapeUnit rte shape unt =
-        let routeMapping = getRouteMapping ()
-        filterRouteShapeUnitWithMapping routeMapping (getShapeRoutesMemoized ()) rte shape unt
-
-
-    [<Obsolete("Use requiresWithMapping instead")>]
-    let private requires_ (rtes, unt, shape) =
-        rtes
-        |> Array.collect (fun rte ->
-            filterRouteShapeUnit rte shape unt
-        )
-        |> Array.map _.Reconstitute
-        |> Array.exists id
-
-
     let requiresWithMapping routeMapping shapeRoutes (rtes, unt, shape) =
         rtes
         |> Array.collect (fun rte ->
@@ -254,11 +215,6 @@ module Mapping =
         )
         |> Array.map _.Reconstitute
         |> Array.exists id
-
-
-    /// Check if reconstitution is required for a route, shape and unit
-    let requiresReconstitutionMemoized =
-        Memoization.memoize requires_
 
 
     /// Mapping of long Z-index unit names to short names
@@ -278,14 +234,3 @@ module Mapping =
                 get "Shape"
             )
             |> Array.distinct
-
-
-    /// Mapping of long Z-index unit names to short names
-    [<Obsolete("Use getValidShapesWithDataUrlId instead")>]
-    let getValidShapes () =
-        getValidShapesWithDataUrlId (Web.getDataUrlIdGenPres ())
-
-
-    [<Obsolete("Use IResources instead")>]
-    let getValidShapesMemoized =
-        Memoization.memoize getValidShapes

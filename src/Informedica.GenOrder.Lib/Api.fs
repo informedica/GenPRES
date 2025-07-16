@@ -8,67 +8,67 @@ module Filters =
     /// <summary>
     /// Get all possible indications for a Patient
     /// </summary>
-    let getIndications = PrescriptionRule.get >> PrescriptionRule.indications
+    let getIndications = Api.getPrescriptionRules >> PrescriptionRule.indications
 
 
     /// <summary>
     /// Get all possible generics for a Patient
     /// </summary>
-    let getGenerics = PrescriptionRule.get >> PrescriptionRule.generics
+    let getGenerics = Api.getPrescriptionRules >> PrescriptionRule.generics
 
 
     /// <summary>
     /// Get all possible routes for a Patient
     /// </summary>
-    let getRoutes = PrescriptionRule.get >> PrescriptionRule.routes
+    let getRoutes = Api.getPrescriptionRules >> PrescriptionRule.routes
 
 
     /// <summary>
     /// Get all possible shapes for a Patient
     /// </summary>
-    let getShapes = PrescriptionRule.get >> PrescriptionRule.shapes
+    let getShapes = Api.getPrescriptionRules >> PrescriptionRule.shapes
 
 
     /// <summary>
     /// Get all possible frequencies for a Patient
     /// </summary>
-    let getFrequencies =  PrescriptionRule.get >> PrescriptionRule.frequencies
+    let getFrequencies =  Api.getPrescriptionRules >> PrescriptionRule.frequencies
 
 
     /// <summary>
     /// Filter the indications using a Informedica.GenForm.Lib.Filter
     /// </summary>
-    let filterIndications = PrescriptionRule.filter >> PrescriptionRule.indications
+    let filterIndications = Api.filterPrescriptionRules >> PrescriptionRule.indications
 
 
     /// <summary>
     /// Filter the generics using a Informedica.GenForm.Lib.Filter
     /// </summary>
-    let filterGenerics = PrescriptionRule.filter >> PrescriptionRule.generics
+    let filterGenerics = Api.filterPrescriptionRules >> PrescriptionRule.generics
 
 
     /// <summary>
     /// Filter the routes using a Informedica.GenForm.Lib.Filter
     /// </summary>
-    let filterRoutes = PrescriptionRule.filter >> PrescriptionRule.routes
+    let filterRoutes = Api.filterPrescriptionRules >> PrescriptionRule.routes
 
 
     /// <summary>
     /// Filter the shapes using a Informedica.GenForm.Lib.Filter
     /// </summary>
-    let filterShapes = PrescriptionRule.filter >> PrescriptionRule.shapes
+    let filterShapes = Api.filterPrescriptionRules >> PrescriptionRule.shapes
 
 
-    let filterDoseTypes = PrescriptionRule.filter >> PrescriptionRule.doseTypes
+    let filterDoseTypes = Api.filterPrescriptionRules >> PrescriptionRule.doseTypes
 
 
-    let filterDiluents = PrescriptionRule.filter >> PrescriptionRule.diluents >> Array.map _.Generic
+    let filterDiluents = Api.filterPrescriptionRules >> PrescriptionRule.diluents >> Array.map _.Generic
 
 
     /// <summary>
     /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
     /// </summary>
-    let filterFrequencies =  PrescriptionRule.filter >> PrescriptionRule.shapes
+    let filterFrequencies =  Api.filterPrescriptionRules >> PrescriptionRule.shapes
 
 
 module OrderScenario =
@@ -417,7 +417,7 @@ module OrderContext =
                     |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
             }
 
-        let prs = pat |> PrescriptionRule.get
+        let prs = pat |> Api.getPrescriptionRules
 
         let filter =
             {
@@ -526,7 +526,7 @@ module OrderContext =
                     Shape = shp
                     DoseType = dst
                 }
-                |> PrescriptionRule.filter
+                |> Api.filterPrescriptionRules
             | _ -> [||]
         | _ ->
             ctx.Patient |> create
@@ -891,12 +891,12 @@ module Formulary =
 
 
     let getDoseRules filter =
-        DoseRule.get ()
-        |> DoseRule.filter filter
+        Api.getDoseRules ()
+        |> Api.filterDoseRules filter
 
 
     let getSolutionRules generic shape route =
-        SolutionRule.get ()
+        Api.getSolutionRules ()
         |> Array.filter (fun sr ->
             generic
             |> Option.map (String.equalsCapInsens sr.Generic)

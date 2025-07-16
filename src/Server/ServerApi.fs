@@ -517,10 +517,12 @@ module Formulary =
 
 
     let checkDoseRules pat (dsrs : DoseRule []) =
+        let routeMapping = Informedica.GenForm.Lib.Api.getRouteMappings ()
+
         let empt, rs =
             dsrs
             |> Array.distinctBy (fun dr -> dr.Generic, dr.Shape, dr.Route, dr.DoseType)
-            |> Array.map (Check.checkDoseRule pat)
+            |> Array.map (Check.checkDoseRule routeMapping pat)
             |> Array.partition (fun c ->
                 c.didPass |> Array.isEmpty &&
                 c.didNotPass |> Array.isEmpty

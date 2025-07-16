@@ -65,7 +65,6 @@ module DoseLimit =
 module DoseRule =
 
     open System
-    open Informedica.ZIndex.Lib.Route
     open MathNet.Numerics
 
     open FSharp.Data
@@ -431,6 +430,7 @@ module DoseRule =
     /// <summary>
     /// Reconstitute the products in a DoseRule that require reconstitution.
     /// </summary>
+    /// <param name="mapping"></param>
     /// <param name="dep">The Department to select the reconstitution</param>
     /// <param name="loc">The VenousAccess location to select the reconstitution</param>
     /// <param name="dr">The DoseRule</param>
@@ -447,12 +447,6 @@ module DoseRule =
                     }
                 )
         }
-
-
-    [<Obsolete("Use reconstituteWithMapping instead")>]
-    let reconstitute dep loc (dr : DoseRule) =
-        let mapping = Mapping.getRouteMapping ()
-        reconstituteWithMapping mapping dep loc (dr : DoseRule)
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -628,7 +622,7 @@ cannot map {r}
              dd.MaxRateAdj |> Option.isSome)
 
 
-    let getDoseRuleDetailsWithProductsAndMapping prods mapping dataUrl =
+    let getDoseRuleDetailsWithProductsAndMapping prods routeMapping dataUrl =
         let warnings = Collections.Generic.Dictionary<_, _>()
 
         dataUrl
@@ -648,7 +642,8 @@ cannot map {r}
                 let filtered =
                     if r.GPKs |> Array.isEmpty then
                         prods
-                        |> Product.filter
+                        |> Product.filterWithMapping
+                            routeMapping
                             { Filter.doseFilter with
                                 Generic = r.Component |> Some
                                 Route = rte |> Some
@@ -700,7 +695,7 @@ cannot map {r}
                                             if r.GPKs |> Array.length > 0 then ps
                                             else
                                                 ps
-                                                |> Product.filterWithMapping mapping
+                                                |> Product.filterWithMapping routeMapping
                                                  { Filter.doseFilter with
                                                      Generic = r.Component |> Some
                                                      Shape = product.Shape |> Some
@@ -728,12 +723,13 @@ cannot map {r}
                                                 if r.GPKs |> Array.length > 0 then ps
                                                 else
                                                     ps
-                                                    |> Product.filter
-                                                     { Filter.doseFilter with
-                                                         Generic = r.Component |> Some
-                                                         Shape = product.Shape |> Some
-                                                         Route = rte |> Some
-                                                     }
+                                                    |> Product.filterWithMapping
+                                                         routeMapping
+                                                         { Filter.doseFilter with
+                                                             Generic = r.Component |> Some
+                                                             Shape = product.Shape |> Some
+                                                             Route = rte |> Some
+                                                         }
                                         }
                                     )
                                     |> Array.distinct
@@ -743,38 +739,6 @@ cannot map {r}
 
             )
         )
-
-
-    [<Obsolete("Use getDoseRuleDetailsWithProductsAndMapping instead")>]
-    let getDoseRuleDetails dataUrlId =
-        let unitMapping = Mapping.getUnitMapping ()
-        let routeMapping = Mapping.getRouteMapping ()
-        let validShapes = Mapping.getValidShapes ()
-        let shapeRoutes = Mapping.getShapeRoutesMemoized ()
-        let reconstitution = Product.Reconstitution.get ()
-
-        let parenteral =
-            Product.Parenteral.getWithUnitMappingAndDataUrlId
-                dataUrlId
-                unitMapping
-
-        let enteral =
-            Product.Enteral.getWithUnitMappingAndDataUrlId
-                dataUrlId
-                unitMapping
-
-        let prods =
-            Product.getFormularyProducts dataUrlId
-            |> Product.createWithFormularyProductsAndValidShapesAndMappings
-                unitMapping
-                routeMapping
-                validShapes
-                shapeRoutes
-                reconstitution
-                parenteral
-                enteral
-
-        getDoseRuleDetailsWithProductsAndMapping prods routeMapping dataUrlId
 
 
     let addShapeLimitsWithShapeRoutes routeMapping shapeRoutes (dr : DoseRule) =
@@ -855,14 +819,6 @@ cannot map {r}
                 | None -> dr
                 | Some shapeLimit ->
                     { dr with ShapeLimit = Some shapeLimit }
-
-
-    [<Obsolete("Use addShapeLimitsWithShapeRoutes instead")>]
-    let addShapeLimits =
-        let routeMapping = Mapping.getRouteMapping ()
-        let shapeRoutes = Mapping.getShapeRoutesMemoized ()
-
-        addShapeLimitsWithShapeRoutes routeMapping shapeRoutes
 
 
     let getDoseLimits (rs : DoseRuleDetails []) =
@@ -1007,23 +963,6 @@ cannot map {r}
         |> Array.map (fun (dr, rs) -> dr.Value, rs)
 
 
-    [<Obsolete("Use getWithParams instead")>]
-    let get_ dataUrl =
-        dataUrl
-        |> getDoseRuleDetails
-        |> Array.groupBy mapToDoseRule
-        |> Array.filter (fst >> Option.isSome)
-        |> Array.map (fun (dr, rs) -> dr.Value, rs)
-
-
-    [<Obsolete("Use addDoseLimitsWithMapping instead")>]
-    let addDoseLimits =
-        let routeMapping = Mapping.getRouteMapping ()
-        let shapeRoutes = Mapping.getShapeRoutesMemoized ()
-
-        addDoseLimitsWithMapping routeMapping shapeRoutes
-
-
     /// <summary>
     /// Get the DoseRules from the Google Sheet.
     /// </summary>
@@ -1045,19 +984,10 @@ cannot map {r}
         |> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
 
 
-    [<Obsolete("Use getWithMapping instead")>]
-    let get : unit -> DoseRule [] =
-        fun () ->
-            Web.getDataUrlIdGenPres ()
-            |> get_
-            |> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
-
-        |> Memoization.memoize
-
-
     /// <summary>
     /// Filter the DoseRules according to the Filter.
     /// </summary>
+    /// <param name="routeMapping"></param>
     /// <param name="filter">The Filter</param>
     /// <param name="drs">The DoseRule array</param>
     let filterWithMapping routeMapping (filter : DoseFilter) (drs : DoseRule array) =
@@ -1085,12 +1015,6 @@ cannot map {r}
             |> Array.fold (fun (acc : DoseRule[]) pred ->
                 acc |> Array.filter pred
             ) drs
-
-
-    [<Obsolete("Use filterWithMaping instead")>]
-    let filter =
-        let routeMapping = Mapping.getRouteMapping ()
-        filterWithMapping routeMapping
 
 
     let private getMember getter (drs : DoseRule[]) =
@@ -1256,10 +1180,10 @@ cannot map {r}
                 d.MaxRateAdj.IsSome
 
 
-        let dataToCsv distBy dataUrlId =
+        let dataToCsv dataUrlId prods routeMapping distBy =
             let grouped =
                 dataUrlId
-                |> getDoseRuleDetails
+                |> getDoseRuleDetailsWithProductsAndMapping prods routeMapping
                 |> Array.groupBy mapToDoseRule
                 |> Array.filter (fst >> Option.isSome)
                 |> Array.map (fun (dr, details) -> dr.Value, details)

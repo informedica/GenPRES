@@ -329,14 +329,6 @@ module RenalRule =
         |> fromData
 
 
-    [<Obsolete("Use getWithDataUrlId instead")>]
-    let get : unit -> RenalRule [] =
-        fun () ->
-            getData ()
-            |> fromData
-        |> Memoization.memoize
-
-
     let filterWithMapping mapping (filter : DoseFilter) (renalRules : RenalRule []) =
         let eqs a (b : string) =
             a
@@ -391,12 +383,6 @@ module RenalRule =
         |> Array.fold (fun (acc : RenalRule[]) pred ->
             acc |> Array.filter pred
         ) renalRules
-
-
-    [<Obsolete("Use filterWithMapping instead")>]
-    let filter =
-        let mapping = Mapping.getRouteMapping ()
-        filterWithMapping mapping
 
 
     let adjustDoseLimit (renalRule : RenalRule) (doseRule : DoseRule) (dl : DoseLimit) =

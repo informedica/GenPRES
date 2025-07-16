@@ -57,12 +57,6 @@ module Check =
         |> Option.defaultValue ""
 
 
-    [<Obsolete("Use mapRouteWithMapping instead")>]
-    let mapRoute =
-        let routeMapping = Mapping.getRouteMapping ()
-        mapRouteWithMapping routeMapping
-
-
     let createDoseRulesWithMapping routeMapping (pat: Patient) gen shp rte =
         let a =
             pat.Age
@@ -98,12 +92,6 @@ module Check =
             GStand.config
             a w None None
             gen shp
-
-
-    [<Obsolete("Use createDoseRulesWithMapping instead")>]
-    let createDoseRules =
-        let mapping = Mapping.getRouteMapping ()
-        createDoseRulesWithMapping mapping
 
 
     let setAdjustAndOrTimeUnit adjUn tu (mm : MinMax) =
@@ -307,13 +295,13 @@ module Check =
         age && weight
 
 
-    let matchWithZIndex (pat : Patient) (dr : DoseRule) =
+    let matchWithZIndex routeMapping (pat : Patient) (dr : DoseRule) =
         {|
             doseRule = dr
             zindex =
                 {|
                     dosages =
-                        createDoseRules pat dr.Generic dr.Shape dr.Route
+                        createDoseRulesWithMapping routeMapping pat dr.Generic dr.Shape dr.Route
                         |> Seq.toList
                         |> List.collect _.IndicationsDosages
                         |> List.collect _.RouteDosages
@@ -490,10 +478,10 @@ module Check =
         |}
 
 
-    let checkDoseRule (pat : Patient) (dr : DoseRule) =
+    let checkDoseRule routeMapping (pat : Patient) (dr : DoseRule) =
         let m =
             dr
-            |> matchWithZIndex pat
+            |> matchWithZIndex routeMapping pat
             |> createMapping
 
         m.mapping.doseLimits
@@ -634,12 +622,12 @@ module Check =
             {| m with didNotPass = didNot |> Array.map snd; didPass = did |> Array.map snd |}
 
 
-    let checkAll (pat : Patient) (drs : DoseRule[]) =
+    let checkAll routeMapping (pat : Patient) (drs : DoseRule[]) =
         drs
         |> Array.mapi (fun i dr ->
             writeInfoMessage $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
 
-            checkDoseRule pat dr
+            checkDoseRule routeMapping pat dr
         )
         |> Array.filter (fun c ->
             c.didNotPass |> Array.isEmpty |> not

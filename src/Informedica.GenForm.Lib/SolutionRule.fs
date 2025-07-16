@@ -215,29 +215,10 @@ module SolutionRule =
             )
 
 
-    [<Obsolete("Use getWithDataUrlId instead")>]
-    let private get_ () =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
-        let parenteral = Product.Parenteral.get ()
-        let mapping = Mapping.getRouteMapping ()
-        let products = Product.get ()
-        getWithDataUrlId dataUrlId mapping parenteral products
-
-
-    /// <summary>
-    /// Gets the SolutionRules.
-    /// </summary>
-    /// <remarks>
-    /// This function is memoized.
-    /// </remarks>
-    [<Obsolete("Use getWithDataUrlId instead")>]
-    let get : unit -> SolutionRule [] =
-        Memoization.memoize get_
-
-
     /// <summary>
     /// Get all the SolutionRules that match the given Filter.
     /// </summary>
+    /// <param name="mapping"></param>
     /// <param name="filter">The Filter</param>
     /// <param name="solutionRules">The SolutionRules</param>
     /// <returns>The matching SolutionRules</returns>
@@ -273,12 +254,6 @@ module SolutionRule =
                     )
             }
         )
-
-
-    [<Obsolete("Use filterWithMapping instead")>]
-    let filter =
-        let mapping = Mapping.getRouteMapping ()
-        filterWithMapping mapping
 
 
     /// Helper function to get the distinct values of a member of SolutionRule.
