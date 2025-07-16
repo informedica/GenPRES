@@ -455,7 +455,7 @@ module DoseRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let mapToDoseRule (r : DoseRuleDetails) =
+    let mapToDoseRule (r : DoseRuleData) =
         try
             {
                 Source = r.Source
@@ -609,25 +609,25 @@ cannot map {r}
         |> Array.distinct
 
 
-    let doseDetailsIsValid (dd: DoseRuleDetails) =
-            dd.DoseType |> String.notEmpty &&
-            (dd.Frequencies |> Array.length > 0 && dd.FreqUnit |> String.notEmpty ||
-             dd.MaxQty |> Option.isSome ||
-             dd.NormQtyAdj |> Option.isSome ||
-             dd.MaxQtyAdj |> Option.isSome ||
-             dd.MaxPerTime |> Option.isSome ||
-             dd.NormPerTimeAdj |> Option.isSome ||
-             dd.MaxPerTime |> Option.isSome ||
-             dd.MaxRate |> Option.isSome ||
-             dd.MaxRateAdj |> Option.isSome)
+    let doseRuleDataIsValid (dd: DoseRuleData) =
+        dd.DoseType |> String.notEmpty &&
+        (dd.Frequencies |> Array.length > 0 && dd.FreqUnit |> String.notEmpty ||
+         dd.MaxQty |> Option.isSome ||
+         dd.NormQtyAdj |> Option.isSome ||
+         dd.MaxQtyAdj |> Option.isSome ||
+         dd.MaxPerTime |> Option.isSome ||
+         dd.NormPerTimeAdj |> Option.isSome ||
+         dd.MaxPerTime |> Option.isSome ||
+         dd.MaxRate |> Option.isSome ||
+         dd.MaxRateAdj |> Option.isSome)
 
 
-    let getDoseRuleDetails prods routeMapping dataUrl =
+    let getDoseRuleData prods routeMapping dataUrl =
         let warnings = Collections.Generic.Dictionary<_, _>()
 
         dataUrl
         |> getData
-        |> Array.filter doseDetailsIsValid
+        |> Array.filter doseRuleDataIsValid
         |> Array.groupBy (fun d ->
             match d.Shape, d.Brand with
             | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
@@ -821,7 +821,7 @@ cannot map {r}
                     { dr with ShapeLimit = Some shapeLimit }
 
 
-    let getDoseLimits (rs : DoseRuleDetails []) =
+    let getDoseLimits (rs : DoseRuleData []) =
         rs
         |> Array.map (fun r ->
             // the adjust unit
@@ -909,7 +909,7 @@ cannot map {r}
         )
 
 
-    let addDoseLimits routeMapping shapeRoutes (rs: DoseRuleDetails[]) (dr : DoseRule) =
+    let addDoseLimits routeMapping shapeRoutes (rs: DoseRuleData[]) (dr : DoseRule) =
         { dr with
             ComponentLimits =
                 rs
@@ -956,7 +956,7 @@ cannot map {r}
     /// <remarks>
     /// This function is memoized.
     /// </remarks>
-    let getWithMapping
+    let get
         dataUrl
         routeMapping
         shapeRoutes
@@ -965,7 +965,7 @@ cannot map {r}
         let addDoseLimits = addDoseLimits routeMapping shapeRoutes
 
         dataUrl
-        |> getDoseRuleDetails prods routeMapping
+        |> getDoseRuleData prods routeMapping
         |> Array.groupBy mapToDoseRule
         |> Array.filter (fst >> Option.isSome)
         |> Array.map (fun (dr, rs) -> dr.Value, rs)
@@ -1148,7 +1148,7 @@ cannot map {r}
             |> List.singleton
 
 
-        let distinctByDoseLimit (d : DoseRuleDetails) =
+        let distinctByDoseLimit (d : DoseRuleData) =
                 d.DoseType,
                 d.Substance |> String.isNullOrWhiteSpace,
                 d.AdjustUnit |> String.isNullOrWhiteSpace,
@@ -1171,7 +1171,7 @@ cannot map {r}
         let dataToCsv dataUrlId prods routeMapping distBy =
             let grouped =
                 dataUrlId
-                |> getDoseRuleDetails prods routeMapping
+                |> getDoseRuleData prods routeMapping
                 |> Array.groupBy mapToDoseRule
                 |> Array.filter (fst >> Option.isSome)
                 |> Array.map (fun (dr, details) -> dr.Value, details)

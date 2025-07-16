@@ -366,9 +366,9 @@ module Product =
         }
 
 
-    let rename defN useGenName (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) =
+    let rename defaultName useGenName (subst : Informedica.ZIndex.Lib.Types.ProductSubstance) =
         if useGenName then subst.GenericName
-        else defN
+        else defaultName
         |> String.toLower
 
 
@@ -384,7 +384,7 @@ module Product =
         synonyms
         shapeQuantities
         divisible
-        mmol
+        molarConcentration
         (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
         =
 
@@ -492,12 +492,12 @@ module Product =
                             |> BigRational.fromFloat
                             |> Option.map (ValueUnit.singleWithUnit su)
                         MolarConcentration =
-                            if mmol |> Option.isNone ||
+                            if molarConcentration |> Option.isNone ||
                                s.SubstanceName |> String.equalsCapInsens name |> not then None
                             // only apply mmol to substance with the same name as the product
                             else
                                 let u = Units.Molar.milliMole |> Units.per shpUnit
-                                mmol.Value
+                                molarConcentration.Value
                                 |> BigRational.fromFloat
                                 |> Option.map (ValueUnit.singleWithUnit u)
                     }

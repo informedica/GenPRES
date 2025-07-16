@@ -172,7 +172,7 @@ module RenalRule =
             |> EGFR |> Some
 
 
-    let fromData (data: RenalRuleDetails[]) =
+    let map (data: RenalRuleData[]) =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&
@@ -319,7 +319,7 @@ module RenalRule =
 
     let get dataUrlId =
         getDetails dataUrlId
-        |> fromData
+        |> map
 
 
     let filter mapping (filter : DoseFilter) (renalRules : RenalRule []) =

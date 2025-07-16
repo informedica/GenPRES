@@ -11,10 +11,10 @@ open Informedica.GenForm.Lib
 Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
 
 
-open Informedica.GenForm.Lib
-
 
 Api.cachedApiProvider.GetResourceInfo ()
+
+Api.reloadCache ()
 
 Api.getProducts ()
 |> Array.filter (fun p -> p.Generic = "noradrenaline")

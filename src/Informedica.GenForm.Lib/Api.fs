@@ -166,7 +166,7 @@ module Resources =
             GetProducts =
                 Product.get
             GetDoseRules =
-                DoseRule.getWithMapping dataUrlId
+                DoseRule.get dataUrlId
             GetSolutionRules =
                 SolutionRule.get dataUrlId
             GetRenalRules = fun () ->

@@ -292,7 +292,7 @@ module Types =
             (fun (p : Patient) -> p.Department), (fun d (p : Patient) -> { p with Department = d})
 
 
-    type DoseRuleDetails = {
+    type DoseRuleData = {
         AdjustUnit: string
         Brand: string
         Component: string
@@ -349,7 +349,7 @@ module Types =
     }
 
 
-    type RenalRuleDetails =
+    type RenalRuleData =
         {
             Generic: string
             Route: string
