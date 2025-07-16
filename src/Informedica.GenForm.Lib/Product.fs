@@ -149,7 +149,7 @@ module Product =
     module Enteral =
 
 
-        let getWithUnitMappingAndDataUrlId unitMapping dataUrlId =
+        let getWithUnitMappingAndDataUrlId dataUrlId unitMapping =
             Web.getDataFromSheet dataUrlId "EntFeeding"
 
             |> fun data ->
@@ -261,7 +261,8 @@ module Product =
         let private get_ () =
             let dataUrlId = Web.getDataUrlIdGenPres ()
             let unitMapping = Mapping.getUnitMappingWithDataUrlId dataUrlId
-            getWithUnitMappingAndDataUrlId unitMapping dataUrlId
+
+            getWithUnitMappingAndDataUrlId dataUrlId unitMapping
 
 
         /// Get the Enteral feeding as a Product array.
@@ -274,7 +275,7 @@ module Product =
     module Parenteral =
 
 
-        let getWithUnitMappingAndDataUrlId unitMapping dataUrlId =
+        let getWithUnitMappingAndDataUrlId dataUrlId unitMapping =
             Web.getDataFromSheet dataUrlId "ParentMeds"
             |> fun data ->
                 let getColumn =
@@ -388,7 +389,8 @@ module Product =
         let private get_ () =
             let dataUrlId = Web.getDataUrlIdGenPres ()
             let unitMapping = Mapping.getUnitMappingWithDataUrlId dataUrlId
-            getWithUnitMappingAndDataUrlId unitMapping dataUrlId
+
+            getWithUnitMappingAndDataUrlId dataUrlId unitMapping
 
 
         /// Get the Parenterals as a Product array.
@@ -701,13 +703,13 @@ module Product =
 
         let parenteral =
             Parenteral.getWithUnitMappingAndDataUrlId
-                unitMapping
                 dataUrlId
+                unitMapping
 
         let enteral =
             Enteral.getWithUnitMappingAndDataUrlId
-                unitMapping
                 dataUrlId
+                unitMapping
 
         getFormularyProducts dataUrlId
         |> createWithFormularyProductsAndValidShapesAndMappings

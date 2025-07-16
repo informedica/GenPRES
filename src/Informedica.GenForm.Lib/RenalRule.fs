@@ -84,8 +84,8 @@ module RenalRule =
         }
 
 
-    let getData () =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
+    let getDataWithDataUrlId dataUrlId =
+        //let dataUrlId = Web.getDataUrlIdGenPres ()
         Web.getDataFromSheet dataUrlId "RenalRules"
         |> fun data ->
             let getColumn =
@@ -141,6 +141,11 @@ module RenalRule =
                 }
             )
 
+
+    [<Obsolete("Use getDataWithDataUrlId instead")>]
+    let getData () =
+        let dataUrlId = Web.getDataUrlIdGenPres ()
+        getDataWithDataUrlId dataUrlId
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -319,6 +324,12 @@ module RenalRule =
         )
 
 
+    let getWithDataUrlId dataUrlId =
+        getDataWithDataUrlId dataUrlId
+        |> fromData
+
+
+    [<Obsolete("Use getWithDataUrlId instead")>]
     let get : unit -> RenalRule [] =
         fun () ->
             getData ()

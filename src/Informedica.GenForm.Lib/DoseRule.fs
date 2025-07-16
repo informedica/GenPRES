@@ -65,6 +65,7 @@ module DoseLimit =
 module DoseRule =
 
     open System
+    open Informedica.ZIndex.Lib.Route
     open MathNet.Numerics
 
     open FSharp.Data
@@ -744,6 +745,7 @@ cannot map {r}
         )
 
 
+    [<Obsolete("Use getDoseRuleDetailsWithProductsAndMapping instead")>]
     let getDoseRuleDetails dataUrlId =
         let unitMapping = Mapping.getUnitMapping ()
         let routeMapping = Mapping.getRouteMapping ()
@@ -753,13 +755,13 @@ cannot map {r}
 
         let parenteral =
             Product.Parenteral.getWithUnitMappingAndDataUrlId
-                unitMapping
                 dataUrlId
+                unitMapping
 
         let enteral =
             Product.Enteral.getWithUnitMappingAndDataUrlId
-                unitMapping
                 dataUrlId
+                unitMapping
 
         let prods =
             Product.getFormularyProducts dataUrlId
@@ -992,6 +994,20 @@ cannot map {r}
         |> addShapeLimitsWithShapeRoutes routeMapping shapeRoutes
 
 
+    let getWithParams
+        routeMapping
+        prods
+        dataUrl
+        =
+
+        dataUrl
+        |> getDoseRuleDetailsWithProductsAndMapping prods routeMapping
+        |> Array.groupBy mapToDoseRule
+        |> Array.filter (fst >> Option.isSome)
+        |> Array.map (fun (dr, rs) -> dr.Value, rs)
+
+
+    [<Obsolete("Use getWithParams instead")>]
     let get_ dataUrl =
         dataUrl
         |> getDoseRuleDetails
@@ -1014,14 +1030,19 @@ cannot map {r}
     /// <remarks>
     /// This function is memoized.
     /// </remarks>
-    let getWithMapping routeMapping shapeRoutes : unit -> DoseRule [] =
-        fun () ->
-            let addDoseLimits = addDoseLimitsWithMapping routeMapping shapeRoutes
-            Web.getDataUrlIdGenPres ()
-            |> get_
-            |> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
+    let getWithMapping
+        dataUrl
+        routeMapping
+        shapeRoutes
+        prods
+        =
+        let addDoseLimits = addDoseLimitsWithMapping routeMapping shapeRoutes
 
-        |> Memoization.memoize
+        getWithParams
+            routeMapping
+            prods
+            dataUrl
+        |> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
 
 
     [<Obsolete("Use getWithMapping instead")>]

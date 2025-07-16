@@ -117,7 +117,7 @@ module Mapping =
 
 
     /// Get the array of ShapeRoute records
-    let getShapeRoutesWithDataUrlId unitMapping dataUrlId =
+    let getShapeRoutesWithDataUrlId dataUrlId unitMapping =
         let mapUnit = mapUnitWithMapping unitMapping
 
         Web.getDataFromSheet dataUrlId "ShapeRoute"
@@ -202,7 +202,8 @@ module Mapping =
         fun () ->
             let dataUrlId = Web.getDataUrlIdGenPres ()
             let unitMapping = getUnitMappingWithDataUrlId dataUrlId
-            getShapeRoutesWithDataUrlId unitMapping dataUrlId
+
+            getShapeRoutesWithDataUrlId dataUrlId unitMapping
         |> Memoization.memoize
 
 

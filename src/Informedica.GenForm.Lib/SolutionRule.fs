@@ -31,7 +31,12 @@ module SolutionRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let getWithDataUrlId dataUrlId (parenteral : Product[]) =
+    let getWithDataUrlId
+        dataUrlId
+        routeMapping
+        (parenteral : Product[])
+        products
+        =
         (*
         let dataUrlId = Web.getDataUrlIdGenPres ()
         let parenteral = Product.Parenteral.get ()
@@ -194,7 +199,7 @@ module SolutionRule =
                             |> not
                         )
                     Products =
-                        Product.get ()
+                        products
                         |> Array.filter (fun p ->
                             p.Generic = sr.Generic &&
                             sr.Shape
@@ -203,7 +208,7 @@ module SolutionRule =
                             )
                             |> Option.defaultValue true &&
                             p.Routes
-                            |> Array.exists (Mapping.eqsRoute (Some sr.Route))
+                            |> Array.exists (Mapping.eqsRouteWithMapping routeMapping (Some sr.Route))
                         )
 
                 }
@@ -214,7 +219,9 @@ module SolutionRule =
     let private get_ () =
         let dataUrlId = Web.getDataUrlIdGenPres ()
         let parenteral = Product.Parenteral.get ()
-        getWithDataUrlId dataUrlId parenteral
+        let mapping = Mapping.getRouteMapping ()
+        let products = Product.get ()
+        getWithDataUrlId dataUrlId mapping parenteral products
 
 
     /// <summary>
