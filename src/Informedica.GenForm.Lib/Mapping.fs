@@ -11,7 +11,7 @@ module Mapping =
     open Informedica.GenUnits.Lib
 
 
-    let getRouteMappingWithDataUrlId dataUrlId =
+    let getRouteMapping dataUrlId =
         Web.getDataFromSheet dataUrlId "Routes"
         |> fun data ->
             let getColumn =
@@ -31,12 +31,7 @@ module Mapping =
             )
 
 
-    /// Mapping of long Z-index route names to short names
-    [<Obsolete("Use getRouteMappingWithDataUrlId instead")>]
-    let getRouteMapping () = getRouteMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
-
-
-    let getUnitMappingWithDataUrlId dataUrlId =
+    let getUnitMapping dataUrlId =
         Web.getDataFromSheet dataUrlId "Units"
         |> fun data ->
             let getColumn =
@@ -58,12 +53,7 @@ module Mapping =
             )
 
 
-    /// Mapping of long Z-index unit names to short names
-    [<Obsolete("Use getUnitMappingWithDataUrlId instead")>]
-    let getUnitMapping () = getUnitMappingWithDataUrlId (Web.getDataUrlIdGenPres ())
-
-
-    let mapUnitWithMapping (mapping : UnitMapping array) s =
+    let mapUnit (mapping : UnitMapping array) s =
         if s |> String.isNullOrWhiteSpace then None
         else
             let s = s |> String.trim
@@ -78,7 +68,7 @@ module Mapping =
                 | None -> None
 
 
-    let mapRouteWithMapping (mapping : RouteMapping array) s =
+    let mapRoute (mapping : RouteMapping array) s =
         if s |> String.isNullOrWhiteSpace then None
         else
             let s = s |> String.trim
@@ -90,8 +80,8 @@ module Mapping =
             |> Option.map _.Long
 
 
-    let eqsRouteWithMapping routeMapping r1 r2 =
-        let mapRoute = mapRouteWithMapping routeMapping
+    let eqsRoute routeMapping r1 r2 =
+        let mapRoute = mapRoute routeMapping
 
         if r1 |> Option.isNone then true
         else
@@ -101,8 +91,8 @@ module Mapping =
 
 
     /// Get the array of ShapeRoute records
-    let getShapeRoutesWithDataUrlId dataUrlId unitMapping =
-        let mapUnit = mapUnitWithMapping unitMapping
+    let getShapeRoutes dataUrlId unitMapping =
+        let mapUnit = mapUnit unitMapping
 
         Web.getDataFromSheet dataUrlId "ShapeRoute"
         |> fun data ->
@@ -181,18 +171,8 @@ module Mapping =
             )
 
 
-    [<Obsolete("Use getShapeRouteMappingWithDataUrlId instead")>]
-    let getShapeRoutesMemoized =
-        fun () ->
-            let dataUrlId = Web.getDataUrlIdGenPres ()
-            let unitMapping = getUnitMappingWithDataUrlId dataUrlId
-
-            getShapeRoutesWithDataUrlId dataUrlId unitMapping
-        |> Memoization.memoize
-
-
-    let filterRouteShapeUnitWithMapping routeMapping (mapping : ShapeRoute []) rte shape unt =
-        let mapRoute = mapRouteWithMapping routeMapping
+    let filterShapeRoutes routeMapping (mapping : ShapeRoute []) rte shape unt =
+        let mapRoute = mapRoute routeMapping
 
         mapping
         |> Array.filter (fun xs ->
@@ -208,17 +188,17 @@ module Mapping =
         )
 
 
-    let requiresWithMapping routeMapping shapeRoutes (rtes, unt, shape) =
+    let requiresReconstitution routeMapping shapeRoutes (rtes, unt, shape) =
         rtes
         |> Array.collect (fun rte ->
-            filterRouteShapeUnitWithMapping routeMapping shapeRoutes rte shape unt
+            filterShapeRoutes routeMapping shapeRoutes rte shape unt
         )
         |> Array.map _.Reconstitute
         |> Array.exists id
 
 
     /// Mapping of long Z-index unit names to short names
-    let getValidShapesWithDataUrlId dataUrlId =
+    let getValidShapes dataUrlId =
         Web.getDataFromSheet dataUrlId "ValidShapes"
         |> fun data ->
             let getColumn =

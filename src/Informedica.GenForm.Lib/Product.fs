@@ -40,7 +40,7 @@ module Product =
     module ShapeRoute =
 
 
-        let isSolutionWithMapping (mapping : ShapeRoute[]) shape =
+        let isSolution (mapping : ShapeRoute[]) shape =
             mapping
             |> Array.tryFind (fun sr ->
                 sr.Shape |> String.equalsCapInsens shape
@@ -55,7 +55,7 @@ module Product =
 
         open Utils
 
-        let getWithDataUrlId dataUrlId =
+        let get dataUrlId =
             Web.getDataFromSheet dataUrlId "Reconstitution"
             |> fun data ->
 
@@ -91,14 +91,14 @@ module Product =
                 )
 
 
-        let filterWithRouteMapping routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
+        let filter routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
             let eqs a b =
                 a
                 |> Option.map (fun x -> x = b)
                 |> Option.defaultValue true
 
             [|
-                fun (r : Reconstitution) -> r.Route |> Mapping.eqsRouteWithMapping routeMapping filter.Route
+                fun (r : Reconstitution) -> r.Route |> Mapping.eqsRoute routeMapping filter.Route
                 fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
             |]
             |> Array.fold (fun (acc : Reconstitution[]) pred ->
@@ -109,7 +109,7 @@ module Product =
     module Enteral =
 
 
-        let getWithUnitMappingAndDataUrlId dataUrlId unitMapping =
+        let get dataUrlId unitMapping =
             Web.getDataFromSheet dataUrlId "EntFeeding"
 
             |> fun data ->
@@ -192,7 +192,7 @@ module Product =
                                         q
                                         |> Option.bind (fun q ->
                                             u
-                                            |> Mapping.mapUnitWithMapping unitMapping
+                                            |> Mapping.mapUnit unitMapping
                                             |> function
                                                 | None ->
                                                     writeErrorMessage $"cannot map unit: {u}"
@@ -221,7 +221,7 @@ module Product =
     module Parenteral =
 
 
-        let getWithUnitMappingAndDataUrlId dataUrlId unitMapping =
+        let get dataUrlId unitMapping =
             Web.getDataFromSheet dataUrlId "ParentMeds"
             |> fun data ->
                 let getColumn =
@@ -306,7 +306,7 @@ module Product =
                                         q
                                         |> Option.bind (fun q ->
                                             u
-                                            |> Mapping.mapUnitWithMapping unitMapping
+                                            |> Mapping.mapUnit unitMapping
                                             |> function
                                                 | None ->
                                                     writeErrorMessage $"cannot map unit: {u}"
@@ -372,7 +372,7 @@ module Product =
         |> String.toLower
 
 
-    let mapWithMappingAndShapeRoutes
+    let map
         unitMapping
         routeMapping
         shapeRoutes
@@ -394,11 +394,11 @@ module Product =
 
         let shpUnit =
             gp.Substances[0].ShapeUnit
-            |> Mapping.mapUnitWithMapping unitMapping
+            |> Mapping.mapUnit unitMapping
             |> Option.defaultValue NoUnit
 
         let reqReconst =
-            Mapping.requiresWithMapping routeMapping shapeRoutes (gp.Route, shpUnit, gp.Shape)
+            Mapping.requiresReconstitution routeMapping shapeRoutes (gp.Route, shpUnit, gp.Shape)
 
         let shpUnit =
             if not reqReconst then shpUnit
@@ -436,7 +436,7 @@ module Product =
                 | _ -> ""
             Label = gp.Label
             Shape = gp.Shape |> String.toLower
-            Routes = gp.Route |> Array.choose (Mapping.mapRouteWithMapping routeMapping)
+            Routes = gp.Route |> Array.choose (Mapping.mapRoute routeMapping)
             ShapeQuantities =
                 shapeQuantities
                 |> ValueUnit.withUnit shpUnit
@@ -452,7 +452,7 @@ module Product =
                 | Some d -> d |> BigRational.fromInt |> Some
                 | None ->
                     let rs =
-                        Mapping.filterRouteShapeUnitWithMapping
+                        Mapping.filterShapeRoutes
                             routeMapping
                             shapeRoutes "" (gp.Shape.ToLower()) NoUnit
                     if rs |> Array.length = 0 then None
@@ -480,7 +480,7 @@ module Product =
                 |> Array.map (fun s ->
                     let su =
                             s.SubstanceUnit
-                            |> Mapping.mapUnitWithMapping unitMapping
+                            |> Mapping.mapUnit unitMapping
                             |> Option.map (fun u ->
                                 CombiUnit(u, OpPer, shpUnit)
                             )
@@ -539,7 +539,7 @@ module Product =
         |> StopWatch.clockFunc "retrieved formulary products"
 
 
-    let createWithFormularyProductsAndValidShapesAndMappings
+    let get
         unitMapping
         routeMapping
         validShapes
@@ -597,7 +597,7 @@ module Product =
                             if xs |> Array.isEmpty then [| 1N |] else xs
 
                     gp
-                    |> mapWithMappingAndShapeRoutes
+                    |> map
                            unitMapping
                            routeMapping
                            shapeRoutes
@@ -631,8 +631,8 @@ module Product =
     /// The reconstituted product or None if the product
     /// does not require reconstitution.
     /// </returns>
-    let reconstituteWithMapping mapping rte dtp dep loc (prod : Product) =
-        let eqsRoute = Mapping.eqsRouteWithMapping mapping
+    let reconstitute mapping rte dtp dep loc (prod : Product) =
+        let eqsRoute = Mapping.eqsRoute mapping
         [|
             // if reconstitution is not required, the
             // original product is returned as well
@@ -684,9 +684,9 @@ module Product =
     /// <param name="mapping"></param>
     /// <param name="filter">The Filter</param>
     /// <param name="prods">The array of Products</param>
-    let filterWithMapping mapping (filter : DoseFilter) (prods : Product []) =
-        let eqsRoute = Mapping.eqsRouteWithMapping mapping
-        let recFilter = Reconstitution.filterWithRouteMapping mapping
+    let filter mapping (filter : DoseFilter) (prods : Product []) =
+        let eqsRoute = Mapping.eqsRoute mapping
+        let recFilter = Reconstitution.filter mapping
 
         let repl s =
             s

@@ -84,8 +84,7 @@ module RenalRule =
         }
 
 
-    let getDataWithDataUrlId dataUrlId =
-        //let dataUrlId = Web.getDataUrlIdGenPres ()
+    let getDetails dataUrlId =
         Web.getDataFromSheet dataUrlId "RenalRules"
         |> fun data ->
             let getColumn =
@@ -140,12 +139,6 @@ module RenalRule =
                     MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                 }
             )
-
-
-    [<Obsolete("Use getDataWithDataUrlId instead")>]
-    let getData () =
-        let dataUrlId = Web.getDataUrlIdGenPres ()
-        getDataWithDataUrlId dataUrlId
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -324,12 +317,12 @@ module RenalRule =
         )
 
 
-    let getWithDataUrlId dataUrlId =
-        getDataWithDataUrlId dataUrlId
+    let get dataUrlId =
+        getDetails dataUrlId
         |> fromData
 
 
-    let filterWithMapping mapping (filter : DoseFilter) (renalRules : RenalRule []) =
+    let filter mapping (filter : DoseFilter) (renalRules : RenalRule []) =
         let eqs a (b : string) =
             a
             |> Option.map (fun x ->
@@ -349,7 +342,7 @@ module RenalRule =
             fun (rr : RenalRule) -> rr.Generic |> eqs filter.Generic
             fun (rr : RenalRule) ->
                 rr.Route |> String.isNullOrWhiteSpace ||
-                (filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRouteWithMapping mapping filter.Route)
+                (filter.Route |> Option.isNone || rr.Route |> Mapping.eqsRoute mapping filter.Route)
             fun (rr : RenalRule) ->
                 rr.Indication |> String.isNullOrWhiteSpace ||
                 (filter.Indication |> Option.isNone || rr.Indication |> eqs filter.Indication)

@@ -95,7 +95,7 @@ module PrescriptionRule =
 
 
     /// Use a Filter to get matching PrescriptionRules.
-    let filterWithDoseRulesAndMapping
+    let filter
         doseRules
         solutionRules
         renalRules
@@ -103,16 +103,13 @@ module PrescriptionRule =
         (filter : DoseFilter) =
 
         let pat = filter.Patient
-        (*
-        let doseRules = DoseRule.get ()
-        *)
 
         doseRules
-        |> DoseRule.filterWithMapping routeMapping filter
+        |> DoseRule.filter routeMapping filter
         |> Array.map (fun dr ->
             let dr =
                 dr
-                |> DoseRule.reconstituteWithMapping
+                |> DoseRule.reconstitute
                        routeMapping
                        pat.Department pat.Locations
 
@@ -141,7 +138,7 @@ module PrescriptionRule =
                         }
 
                     solutionRules
-                    |> SolutionRule.filterWithMapping routeMapping solFilter
+                    |> SolutionRule.filter routeMapping solFilter
                     |> Array.map (fun sr ->
                         { sr with
                             Products =
@@ -157,7 +154,7 @@ module PrescriptionRule =
                     )
                 RenalRules =
                     renalRules
-                    |> RenalRule.filterWithMapping routeMapping filter
+                    |> RenalRule.filter routeMapping filter
             }
         )
         |> Array.filter (fun pr ->
@@ -230,10 +227,10 @@ module PrescriptionRule =
 
 
     /// Get all matching PrescriptionRules for a given Patient.
-    let getWithDoseRulesAndMapping dataUrlId doseRules solutionRules routeMapping (pat : Patient) =
+    let getForPatient dataUrlId doseRules solutionRules routeMapping (pat : Patient) =
         Filter.doseFilter
         |> Filter.setPatient pat
-        |> filterWithDoseRulesAndMapping dataUrlId doseRules solutionRules routeMapping
+        |> filter dataUrlId doseRules solutionRules routeMapping
 
 
     /// Filter the Products in a PrescriptionRule to match the

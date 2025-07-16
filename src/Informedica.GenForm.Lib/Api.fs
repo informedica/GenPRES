@@ -155,22 +155,22 @@ module Resources =
     let defaultResourceConfig dataUrlId =
 
         {
-            GetUnitMappings = fun () -> Mapping.getUnitMappingWithDataUrlId dataUrlId
-            GetRouteMappings = fun () -> Mapping.getRouteMappingWithDataUrlId dataUrlId
-            GetValidShapes = fun () -> Mapping.getValidShapesWithDataUrlId dataUrlId
-            GetShapeRoutes = Mapping.getShapeRoutesWithDataUrlId dataUrlId
+            GetUnitMappings = fun () -> Mapping.getUnitMapping dataUrlId
+            GetRouteMappings = fun () -> Mapping.getRouteMapping dataUrlId
+            GetValidShapes = fun () -> Mapping.getValidShapes dataUrlId
+            GetShapeRoutes = Mapping.getShapeRoutes dataUrlId
             GetFormularyProducts = fun () -> Product.getFormularyProducts dataUrlId
-            GetReconstitution = fun () -> Product.Reconstitution.getWithDataUrlId dataUrlId
-            GetParenteralMeds = Product.Parenteral.getWithUnitMappingAndDataUrlId dataUrlId
-            GetEnteralFeeding = Product.Enteral.getWithUnitMappingAndDataUrlId dataUrlId
+            GetReconstitution = fun () -> Product.Reconstitution.get dataUrlId
+            GetParenteralMeds = Product.Parenteral.get dataUrlId
+            GetEnteralFeeding = Product.Enteral.get dataUrlId
             GetProducts =
-                Product.createWithFormularyProductsAndValidShapesAndMappings
+                Product.get
             GetDoseRules =
                 DoseRule.getWithMapping dataUrlId
             GetSolutionRules =
-                SolutionRule.getWithDataUrlId dataUrlId
+                SolutionRule.get dataUrlId
             GetRenalRules = fun () ->
-                RenalRule.getWithDataUrlId dataUrlId
+                RenalRule.get dataUrlId
         }
 
 
@@ -362,19 +362,19 @@ module Api =
     // Filtering functions using cached mappings
     let filterDoseRules filter doseRules =
         let routeMappings = getRouteMappings()
-        DoseRule.filterWithMapping routeMappings filter doseRules
+        DoseRule.filter routeMappings filter doseRules
 
     let filterRenalRules filter renalRules =
         let routeMappings = getRouteMappings()
-        RenalRule.filterWithMapping routeMappings filter renalRules
+        RenalRule.filter routeMappings filter renalRules
 
     let filterProducts filter products =
         let routeMappings = getRouteMappings()
-        Product.filterWithMapping routeMappings filter products
+        Product.filter routeMappings filter products
 
     let reconstituteDoseRule department location doseRule =
         let routeMappings = getRouteMappings()
-        DoseRule.reconstituteWithMapping routeMappings department location doseRule
+        DoseRule.reconstitute routeMappings department location doseRule
 
     let getPrescriptionRules =
         let doseRules = cachedApiProvider.GetDoseRules()
@@ -382,7 +382,7 @@ module Api =
         let routeMappings = cachedApiProvider.GetRouteMappings()
         let renalRules = cachedApiProvider.GetRenalRules()
 
-        PrescriptionRule.getWithDoseRulesAndMapping doseRules solutionRules renalRules routeMappings
+        PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
 
     // Add to Api module
     let filterDoseRulesWithFilter filter =
@@ -395,7 +395,7 @@ module Api =
         let routeMappings = getRouteMappings()
         let renalRules = getRenalRules()
 
-        PrescriptionRule.filterWithDoseRulesAndMapping doseRules solutionRules renalRules routeMappings filter
+        PrescriptionRule.filter doseRules solutionRules renalRules routeMappings filter
 
 
     let getAllRenalRules () = getRenalRules()

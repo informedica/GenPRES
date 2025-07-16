@@ -31,17 +31,12 @@ module SolutionRule =
     let fromTupleInclIncl = MinMax.fromTuple Inclusive Inclusive
 
 
-    let getWithDataUrlId
+    let get
         dataUrlId
         routeMapping
         (parenteral : Product[])
         products
         =
-        (*
-        let dataUrlId = Web.getDataUrlIdGenPres ()
-        let parenteral = Product.Parenteral.get ()
-        *)
-
         Web.getDataFromSheet dataUrlId "SolutionRules"
         |> fun data ->
             let getColumn =
@@ -208,7 +203,7 @@ module SolutionRule =
                             )
                             |> Option.defaultValue true &&
                             p.Routes
-                            |> Array.exists (Mapping.eqsRouteWithMapping routeMapping (Some sr.Route))
+                            |> Array.exists (Mapping.eqsRoute routeMapping (Some sr.Route))
                         )
 
                 }
@@ -222,7 +217,7 @@ module SolutionRule =
     /// <param name="filter">The Filter</param>
     /// <param name="solutionRules">The SolutionRules</param>
     /// <returns>The matching SolutionRules</returns>
-    let filterWithMapping mapping (filter : SolutionFilter) (solutionRules : SolutionRule []) =
+    let filter mapping (filter : SolutionFilter) (solutionRules : SolutionRule []) =
         let eqs a (b : string) =
             a
             |> Option.map (String.equalsCapInsens b)
@@ -233,7 +228,7 @@ module SolutionRule =
             fun (sr : SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
             fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
             fun (sr : SolutionRule) -> sr.Indication |> Option.map (eqs filter.Indication) |> Option.defaultValue true
-            fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRouteWithMapping mapping filter.Route
+            fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute mapping filter.Route
             fun (sr : SolutionRule) ->
                 sr.DoseType = NoDoseType ||
                 filter.DoseType
@@ -257,7 +252,7 @@ module SolutionRule =
 
 
     /// Helper function to get the distinct values of a member of SolutionRule.
-    let getMember getter (rules : SolutionRule[]) =
+    let private getMember getter (rules : SolutionRule[]) =
         rules
         |> Array.map getter
         |> Array.distinct
