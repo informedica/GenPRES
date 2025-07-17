@@ -61,6 +61,7 @@ module private Elmish =
         | OnSelectContinuousMedicationItem of string
 
         | OrderContextCommand of Api.OrderContextCommand
+        | LoadResourcesReloaded of ApiResponse
         | LoadUpdatedOrderContext of ApiResponse
         | LoadSelectedOrderScenario of ApiResponse
         | LoadUpdatedOrderScenario of ApiResponse
@@ -101,6 +102,7 @@ module private Elmish =
 
     let processApiMsg state msg =
         match msg with
+        | Api.OrderContextResp (Api.ResourcesReloaded ctx)
         | Api.OrderContextResp (Api.OrderContextSelected ctx)
         | Api.OrderContextResp (Api.OrderContextRefreshed ctx)
         | Api.OrderContextResp (Api.OrderContextUpdated ctx) ->
@@ -266,7 +268,7 @@ module private Elmish =
 
                     Logging.log "parsed: " patient
                     patient
-                    
+
                 | _ ->
                     Logging.warning "could not parse url to patient" sl
                     None
@@ -472,7 +474,7 @@ module private Elmish =
         | UpdatePage p ->
             // make sure that the order context is not in use
             // i.e. the order context should be "fresh"
-            if p = ContinuousMeds && 
+            if p = ContinuousMeds &&
                state.OrderContext |> Deferred.map(fun ctx -> ctx.Filter.Medication |> Option.isSome) |> Deferred.defaultValue true
                 then
                 { state with
@@ -480,15 +482,21 @@ module private Elmish =
                     OrderContext = HasNotStartedYet
                 }, Cmd.ofMsg (LoadUpdatedOrderContext Started)
             else
-                { state with
-                    Page = p
-                }, Cmd.none
+                if p = Settings then
+                    { state with
+                        OrderContext = OrderContext.empty |> Resolved
+                    }
+                    , Cmd.ofMsg (LoadResourcesReloaded Started)
+                else
+                    { state with
+                        Page = p
+                    }, Cmd.none
 
         | UpdatePatient p ->
             let p =
                 p
                 |> Option.map (
-                    Patient.applyNormalValues 
+                    Patient.applyNormalValues
                         (state.NormalWeights |> Deferred.toOption)
                         (state.NormalHeights |> Deferred.toOption)
                         (state.NormalNeoWeights |> Deferred.toOption)
@@ -575,7 +583,7 @@ module private Elmish =
                 Patient =
                     state.Patient
                     |> Option.map (
-                        Patient.applyNormalValues 
+                        Patient.applyNormalValues
                             (Some weights)
                             (state.NormalHeights |> Deferred.toOption)
                             (state.NormalNeoWeights |> Deferred.toOption)
@@ -634,7 +642,7 @@ module private Elmish =
             { state with
                 NormalNeoHeights = heights |> Resolved
             },
-            Cmd.none    
+            Cmd.none
 
         | LoadNormalNeoHeights (Finished (Error s)) ->
             Logging.error "cannot load normal neo heights" s
@@ -699,7 +707,7 @@ module private Elmish =
                         | Resolved ctx -> ctx
                         |> fun ctx ->
                             { ctx with
-                                OrderContext.Filter.Indication = 
+                                OrderContext.Filter.Indication =
                                     if selected.Indication = "" then None else Some selected.Indication
                                 OrderContext.Filter.Medication = Some selected.Generic
                                 OrderContext.Filter.Route = Some "INTRAVENEUS"
@@ -734,6 +742,34 @@ module private Elmish =
             | Api.SelectOrderScenario ctx -> ctx |> selectOrderScenario state
             | Api.UpdateOrderScenario ctx -> ctx |> updateOrderScenario state
             | Api.ResetOrderScenario ctx -> ctx |> refreshOrderScenario state
+            | Api.ReloadResources ctx -> ctx |> updateOrderContext state
+
+        | LoadResourcesReloaded Started ->
+            match state.Patient with
+            | None ->
+                { state with OrderContext = HasNotStartedYet },
+                OrderContext.empty
+                |> Api.ReloadResources
+                |> loadOrderContext LoadResourcesReloaded
+            | Some pat ->
+                match state.OrderContext with
+                | HasNotStartedYet ->
+                        { state with OrderContext = InProgress },
+                        OrderContext.empty
+                        |> OrderContext.setPatient pat
+                        |> Api.ReloadResources
+                        |> loadOrderContext LoadResourcesReloaded
+                | InProgress -> state, Cmd.none
+                | Resolved ctx ->
+                    let ctx = { ctx with Patient = pat }
+
+                    { state with OrderContext = InProgress },
+                    ctx
+                    |> Api.ReloadResources
+                    |> loadOrderContext LoadResourcesReloaded
+
+        | LoadResourcesReloaded (Finished (Ok msg)) -> msg |> processOk
+        | LoadResourcesReloaded (Finished (Error err)) -> err |> processError
 
         | LoadUpdatedOrderContext Started ->
             match state.Patient with

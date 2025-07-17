@@ -40,6 +40,7 @@ module GenPres =
                 TreatmentPlan
                 Formulary
                 Parenteralia
+                Settings
             ]
 
 
@@ -59,6 +60,7 @@ module GenPres =
                             | s when p = TreatmentPlan -> Mui.Icons.SummarizeIcon |> Some, s, b
                             | s when p = Formulary -> Mui.Icons.LocalPharmacy |> Some, s, b
                             | s when p = Parenteralia -> Mui.Icons.Bloodtype |> Some, s, b
+                            | s when p = Settings -> Mui.Icons.Settings |> Some, s, b
                             | s -> None, s, b
                         )
 
@@ -263,6 +265,15 @@ module GenPres =
                                     parenteralia = props.parenteralia
                                     updateParenteralia = props.updateParenteralia
                                 |}
+                            | Global.Pages.Settings ->
+                                Views.Prescribe.View {|
+                                    orderContext = props.orderContext
+                                    updateOrderContext = props.updateOrderContext
+                                    treatmentPlan = props.treatmentPlan
+                                    updateTreatmentPlan = Api.UpdateTreatmentPlan >> props.treatmentPlanCommand
+                                    localizationTerms = props.localizationTerms
+                                |}
+
                         }
                     </Box>
                     <Box>

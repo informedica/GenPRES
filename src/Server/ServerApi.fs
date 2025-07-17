@@ -749,6 +749,7 @@ module OrderContext =
                 | Api.SelectOrderScenario _ -> ctx |> OrderContext.SelectOrderScenario
                 | Api.UpdateOrderScenario _ -> ctx |> OrderContext.UpdateOrderScenario
                 | Api.ResetOrderScenario _ -> ctx |> OrderContext.ResetOrderScenario
+                | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
             |> OrderContext.printCtx "start eval"
             |> OrderContext.evaluate
             |> OrderContext.printCtx "finish eval"
@@ -757,7 +758,9 @@ module OrderContext =
         | Api.UpdateOrderContext ctx
         | Api.SelectOrderScenario ctx
         | Api.UpdateOrderScenario ctx
-        | Api.ResetOrderScenario ctx ->
+        | Api.ResetOrderScenario ctx
+        | Api.ReloadResources ctx
+         ->
             let map = mapToShared ctx >> updateIntake >> setDemoVersion
 
             let pat =
@@ -774,6 +777,7 @@ module OrderContext =
                     | OrderContext.SelectOrderScenario newCtx -> newCtx |> map
                     | OrderContext.UpdateOrderScenario newCtx -> newCtx |> map
                     | OrderContext.ResetOrderScenario newCtx -> newCtx |> map
+                    | OrderContext.ReloadResources newCtx -> newCtx |> map
             with
             | e ->
                 writeErrorMessage $"errored:\n{e}"

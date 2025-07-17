@@ -15,6 +15,7 @@ type Pages =
     | TreatmentPlan
     | Formulary
     | Parenteralia
+    | Settings
 
 
 let pageToString terms locale page =
@@ -35,6 +36,7 @@ let pageToString terms locale page =
     | TreatmentPlan -> Terms.``Treatment Plan`` |> getTerm
     | Formulary -> Terms.``Formulary`` |> getTerm
     | Parenteralia -> Terms.``Parenteralia`` |> getTerm
+    | Settings -> "Instellingen"
 
 
 type Context = { Localization : Localization.Locales; Hospital : string }

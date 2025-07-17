@@ -203,6 +203,7 @@ module OrderContext =
         | SelectOrderScenario of OrderContext
         | UpdateOrderScenario of OrderContext
         | ResetOrderScenario of OrderContext
+        | ReloadResources of OrderContext
 
 
     module Command =
@@ -213,6 +214,7 @@ module OrderContext =
             | SelectOrderScenario ctx -> ctx
             | UpdateOrderScenario ctx -> ctx
             | ResetOrderScenario ctx -> ctx
+            | ReloadResources ctx -> ctx
 
 
         let toString = function
@@ -220,7 +222,7 @@ module OrderContext =
             | SelectOrderScenario _ -> "SelectOrderScenario"
             | UpdateOrderScenario _ -> "UpdateOrderScenario"
             | ResetOrderScenario _ -> "ResetOrderScenario"
-
+            | ReloadResources _ -> "ReloadResources"
 
         let apply f cmd =
             match cmd with
@@ -228,6 +230,7 @@ module OrderContext =
             | SelectOrderScenario ctx -> f ctx
             | UpdateOrderScenario ctx -> f ctx
             | ResetOrderScenario ctx -> f ctx
+            | ReloadResources ctx -> f ctx
 
 
         let map f cmd =
@@ -236,6 +239,7 @@ module OrderContext =
             | SelectOrderScenario ctx -> SelectOrderScenario (f ctx)
             | UpdateOrderScenario ctx -> UpdateOrderScenario (f ctx)
             | ResetOrderScenario ctx -> ResetOrderScenario (f ctx)
+            | ReloadResources ctx -> ReloadResources (f ctx)
 
 
         let mapInv cmd f = map f cmd
@@ -809,6 +813,11 @@ Scenarios: {scenarios}
         |> updateFilterIfOneScenario
 
 
+    let reloadResources ctx =
+        Api.reloadCache ()
+        ctx |>getScenarios
+
+
     let activateLogger () =
         if Env.getItem "GENPRES_LOG"
            |> Option.map (fun s -> s = "1")
@@ -833,6 +842,7 @@ Scenarios: {scenarios}
         | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario
         | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario
         | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario
+        | ReloadResources ctx -> ctx |> reloadResources |> ReloadResources
 
     let printCtx msg cmd =
         writeDebugMessage $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"

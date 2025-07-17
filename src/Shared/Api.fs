@@ -18,12 +18,13 @@ module Api =
         | SelectOrderScenario of OrderContext
         | UpdateOrderScenario of OrderContext
         | ResetOrderScenario of OrderContext
+        | ReloadResources of OrderContext
 
     and TreatmentPlanCommand =
         | UpdateTreatmentPlan of TreatmentPlan
         | FilterTreatmentPlan of TreatmentPlan
 
-    and Response =
+    type Response =
         | OrderContextResp of OrderContextResponse
         | TreatmentPlanResp of TreatmentPlanResponse
         | FormularyResp of Formulary
@@ -33,10 +34,12 @@ module Api =
         | OrderContextSelected of OrderContext
         | OrderContextUpdated of OrderContext
         | OrderContextRefreshed of OrderContext
+        | ResourcesReloaded of OrderContext
 
     and TreatmentPlanResponse =
         | TreatmentPlanFiltered of TreatmentPlan
         | TreatmentPlanUpdated of TreatmentPlan
+
 
 
     /// Defines how routes are generated on server and mapped from client
