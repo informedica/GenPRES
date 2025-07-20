@@ -127,14 +127,14 @@ module Resources =
 
     type ResourceConfig =
         {
-            GetUnitMappings: unit -> UnitMapping[]
+            GetUnitMappings: unit -> Result<UnitMapping[], Message>
             GetRouteMappings: unit -> Result<RouteMapping[], Message>
-            GetValidShapes: unit -> string[]
-            GetShapeRoutes: UnitMapping [] -> ShapeRoute[]
-            GetFormularyProducts: unit -> FormularyProduct[]
-            GetReconstitution: unit -> Reconstitution[]
-            GetParenteralMeds: UnitMapping[] -> Product[]
-            GetEnteralFeeding: UnitMapping[] -> Product[]
+            GetValidShapes: unit -> Result<string[], Message>
+            GetShapeRoutes: UnitMapping [] -> Result<ShapeRoute[], Message>
+            GetFormularyProducts: unit -> Result<FormularyProduct[], Message>
+            GetReconstitution: unit -> Result<Reconstitution[], Message>
+            GetParenteralMeds: UnitMapping[] -> Result<Product[], Message>
+            GetEnteralFeeding: UnitMapping[] -> Result<Product[], Message>
             GetProducts:
                 UnitMapping[] ->
                 RouteMapping[] ->
@@ -162,14 +162,14 @@ module Resources =
     /// Default resource configuration using the standard get functions
     let defaultResourceConfig dataUrlId =
         {
-            GetUnitMappings = Mapping.getUnitMapping dataUrlId |> delay
+            GetUnitMappings = Mapping.getUnitMappingResult dataUrlId |> delay
             GetRouteMappings = Mapping.getRouteMappingResult dataUrlId |> delay
-            GetValidShapes = Mapping.getValidShapes dataUrlId |> delay
-            GetShapeRoutes = Mapping.getShapeRoutes dataUrlId
-            GetFormularyProducts = fun () -> Product.getFormularyProducts dataUrlId
-            GetReconstitution = Product.Reconstitution.get dataUrlId |> delay
-            GetParenteralMeds = Product.Parenteral.get dataUrlId
-            GetEnteralFeeding = Product.Enteral.get dataUrlId
+            GetValidShapes = Mapping.getValidShapesResult dataUrlId |> delay
+            GetShapeRoutes = Mapping.getShapeRoutesResult dataUrlId
+            GetFormularyProducts = fun () -> Product.getFormularyProductsResult dataUrlId
+            GetReconstitution = Product.Reconstitution.getResult dataUrlId |> delay
+            GetParenteralMeds = Product.Parenteral.getResult dataUrlId
+            GetEnteralFeeding = Product.Enteral.getResult dataUrlId
             GetProducts = Product.get
             GetDoseRules = DoseRule.get dataUrlId
             GetSolutionRules = SolutionRule.get dataUrlId
@@ -178,20 +178,18 @@ module Resources =
 
 
     /// Load all resources at once using provided configuration
-    let loadAllResourcesWithConfig (config: ResourceConfig) : Result<ResourceState, string> =
+    let loadAllResourcesWithConfig (config: ResourceConfig) : Result<ResourceState, Message> =
         try
-            let unitMappings = config.GetUnitMappings()
-            let routeMappings = config.GetRouteMappings()
-            let validShapes = config.GetValidShapes()
-            let shapeRoutes = config.GetShapeRoutes unitMappings
-            let formularyProducts = config.GetFormularyProducts()
-            let reconstitution = config.GetReconstitution ()
-            let parenteralMeds = config.GetParenteralMeds unitMappings
-            let enteralFeeding = config.GetEnteralFeeding unitMappings
-            let products =
-                result {
-                    let! routeMappings = routeMappings
-                    return
+            result {
+                let! unitMappings = config.GetUnitMappings()
+                let! routeMappings = config.GetRouteMappings()
+                let! validShapes = config.GetValidShapes()
+                let! shapeRoutes = config.GetShapeRoutes unitMappings
+                let! formularyProducts = config.GetFormularyProducts()
+                let! reconstitution = config.GetReconstitution ()
+                let! parenteralMeds = config.GetParenteralMeds unitMappings
+                let! enteralFeeding = config.GetEnteralFeeding unitMappings
+                let products =
                         config.GetProducts
                             unitMappings
                             routeMappings
@@ -201,54 +199,46 @@ module Resources =
                             parenteralMeds
                             enteralFeeding
                             formularyProducts
-                }
-            let doseRules =
-                result {
-                    let! routeMappings = routeMappings
-                    let! products = products
-                    return
-                        config.GetDoseRules
-                            routeMappings
-                            shapeRoutes
-                            products
-                }
-            let solutionRules =
-                result {
-                    let! routeMappings = routeMappings
-                    let! products = products
-                    return
+                let doseRules =
+                    config.GetDoseRules
+                        routeMappings
+                        shapeRoutes
+                        products
+                let solutionRules =
                         config.GetSolutionRules
                             routeMappings
                             parenteralMeds
                             products
-                }
-            let renalRules =
-                config.GetRenalRules ()
-
-            {
-                UnitMappings = unitMappings
-                RouteMappings = routeMappings |> Result.defaultValue [||]
-                ValidShapes = validShapes
-                ShapeRoutes = shapeRoutes
-                FormularyProducts = formularyProducts
-                Reconstitution = reconstitution
-                ParenteralMeds = parenteralMeds
-                EnteralFeeding = enteralFeeding
-                Products = products |> Result.defaultValue [||]
-                DoseRules = doseRules |> Result.defaultValue [||]
-                SolutionRules = solutionRules |> Result.defaultValue [||]
-                RenalRules = renalRules
-                Messages = [||]
-                LastReloaded = DateTime.UtcNow
-                IsLoaded = true
+                let renalRules =
+                    config.GetRenalRules ()
+                return
+                    {
+                        UnitMappings = unitMappings
+                        RouteMappings = routeMappings
+                        ValidShapes = validShapes
+                        ShapeRoutes = shapeRoutes
+                        FormularyProducts = formularyProducts
+                        Reconstitution = reconstitution
+                        ParenteralMeds = parenteralMeds
+                        EnteralFeeding = enteralFeeding
+                        Products = products
+                        DoseRules = doseRules
+                        SolutionRules = solutionRules
+                        RenalRules = renalRules
+                        Messages = [||]
+                        LastReloaded = DateTime.UtcNow
+                        IsLoaded = true
+                    }
             }
-            |> Ok
         with
-        | ex -> Error $"Failed to load resources: {ex.Message}"
+        | exn ->
+            ("Failed to load resources", Some exn)
+            |> ErrorMsg
+            |> Error
 
 
     /// Load all resources at once using default configuration
-    let loadAllResources dataUrlId : Result<ResourceState, string> =
+    let loadAllResources dataUrlId : Result<ResourceState, Message> =
         loadAllResourcesWithConfig (defaultResourceConfig dataUrlId)
 
 
@@ -264,23 +254,24 @@ module Resources =
         (parenteralMeds: Product[])
         =
         {
-            GetUnitMappings = fun () -> unitMappings
+            GetUnitMappings = unitMappings |> Ok |> delay
             GetRouteMappings = routeMappings |> Ok |> delay
-            GetValidShapes = fun () -> validShapes
-            GetShapeRoutes = fun _ -> shapeRoutes
-            GetFormularyProducts = fun () -> formularyProducts
-            GetReconstitution = fun () -> reconstitution
-            GetEnteralFeeding = fun _ -> enteralFeeding
-            GetParenteralMeds = fun _ -> parenteralMeds
+            GetValidShapes = validShapes |> Ok |> delay
+            GetShapeRoutes = fun _ -> shapeRoutes |> Ok
+            GetFormularyProducts = formularyProducts |> Ok |> delay
+            GetReconstitution = reconstitution |> Ok |> delay
+            GetEnteralFeeding = fun _ -> enteralFeeding |> Ok
+            GetParenteralMeds = fun _ -> parenteralMeds |> Ok
             GetProducts = failwith "Not implemented"
             GetDoseRules = failwith "Not implemented"
             GetSolutionRules = failwith "Not implemented"
             GetRenalRules = failwith "Not implemented"
         }
+        |> Ok
 
 
     /// Create a cached resource provider with TTL
-    type CachedResourceProvider(loadAllResources: unit -> Result<ResourceState,string>, ttlMinutes: int option) =
+    type CachedResourceProvider(loadAllResources: unit -> Result<ResourceState, Message>, ttlMinutes: int option) =
         let mutable cachedState: (ResourceState * DateTime) option = None
         let lockObj = obj()
 
@@ -295,7 +286,7 @@ module Resources =
             | Ok state ->
                 cachedState <- Some (state, DateTime.UtcNow)
                 state
-            | Error _ ->
+            | Error msg ->
                 // Return empty state on error
                 {
                     UnitMappings = [||]
@@ -310,7 +301,7 @@ module Resources =
                     DoseRules = [||]
                     SolutionRules = [||]
                     RenalRules = [||]
-                    Messages = [||]
+                    Messages = [| msg|]
                     LastReloaded = DateTime.MinValue
                     IsLoaded = false
                 }
