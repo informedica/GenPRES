@@ -65,6 +65,7 @@ module DoseLimit =
 module DoseRule =
 
     open System
+    open System.Collections.Generic
     open MathNet.Numerics
 
     open FSharp.Data
@@ -435,18 +436,26 @@ module DoseRule =
     /// <param name="loc">The VenousAccess location to select the reconstitution</param>
     /// <param name="dr">The DoseRule</param>
     let reconstitute mapping dep loc (dr : DoseRule) =
+        let warns = ResizeArray<string>()
         let reconstitute = Product.reconstitute mapping
-        { dr with
-            ComponentLimits =
-                dr.ComponentLimits
-                |> Array.map (fun dl ->
-                    { dl with
-                        Products =
-                            dl.Products
-                            |> Array.collect (reconstitute dr.Route dr.DoseType dep loc)
-                    }
-                )
-        }
+        let dr =
+            { dr with
+                ComponentLimits =
+                    dr.ComponentLimits
+                    |> Array.map (fun dl ->
+                        { dl with
+                            Products =
+                                dl.Products
+                                |> Array.collect (fun prod ->
+                                    let prods, newWarns = reconstitute dr.Route dr.DoseType dep loc prod
+                                    warns.AddRange(newWarns)
+                                    prods
+                                )
+                        }
+                    )
+            }
+        dr,
+        warns |> Seq.distinct
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive

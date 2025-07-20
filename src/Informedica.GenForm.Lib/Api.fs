@@ -4,6 +4,8 @@ namespace Informedica.GenForm.Lib
 module Resources =
 
     open System
+    open FsToolkit.ErrorHandling.ResultCE
+
 
     type IResourceProvider =
         abstract member GetUnitMappings : unit -> UnitMapping[]
@@ -21,6 +23,7 @@ module Resources =
         abstract member GetResourceInfo : unit -> ResourceInfo
 
     and ResourceInfo = {
+        Messages : Message []
         LastUpdated: DateTime
         IsLoaded: bool
     }
@@ -40,6 +43,7 @@ module Resources =
             DoseRules: DoseRule []
             SolutionRules: SolutionRule []
             RenalRules: RenalRule []
+            Messages: Message []
             IsLoaded : bool
             LastReloaded: DateTime
         }
@@ -58,6 +62,7 @@ module Resources =
             member this.GetSolutionRules() = this.SolutionRules
             member this.GetRenalRules() = this.RenalRules
             member this.GetResourceInfo() = {
+                Messages = this.Messages
                 LastUpdated = this.LastReloaded
                 IsLoaded = this.IsLoaded
             }
@@ -78,6 +83,7 @@ module Resources =
             member _.GetSolutionRules() = state.SolutionRules
             member _.GetRenalRules() = state.RenalRules
             member _.GetResourceInfo() = {
+                Messages = state.Messages
                 LastUpdated = state.LastReloaded
                 IsLoaded = state.IsLoaded
             }
@@ -96,6 +102,7 @@ module Resources =
         doseRules
         solutionRules
         renalRules
+        msgs
         =
         let state = {
             UnitMappings = unitMappings
@@ -110,6 +117,7 @@ module Resources =
             DoseRules = doseRules
             SolutionRules = solutionRules
             RenalRules = renalRules
+            Messages = msgs
             LastReloaded = DateTime.UtcNow
             IsLoaded = true
         }
@@ -120,7 +128,7 @@ module Resources =
     type ResourceConfig =
         {
             GetUnitMappings: unit -> UnitMapping[]
-            GetRouteMappings: unit -> RouteMapping[]
+            GetRouteMappings: unit -> Result<RouteMapping[], Message>
             GetValidShapes: unit -> string[]
             GetShapeRoutes: UnitMapping [] -> ShapeRoute[]
             GetFormularyProducts: unit -> FormularyProduct[]
@@ -153,24 +161,19 @@ module Resources =
 
     /// Default resource configuration using the standard get functions
     let defaultResourceConfig dataUrlId =
-
         {
-            GetUnitMappings = fun () -> Mapping.getUnitMapping dataUrlId
-            GetRouteMappings = fun () -> Mapping.getRouteMapping dataUrlId
-            GetValidShapes = fun () -> Mapping.getValidShapes dataUrlId
+            GetUnitMappings = Mapping.getUnitMapping dataUrlId |> delay
+            GetRouteMappings = Mapping.getRouteMappingResult dataUrlId |> delay
+            GetValidShapes = Mapping.getValidShapes dataUrlId |> delay
             GetShapeRoutes = Mapping.getShapeRoutes dataUrlId
             GetFormularyProducts = fun () -> Product.getFormularyProducts dataUrlId
-            GetReconstitution = fun () -> Product.Reconstitution.get dataUrlId
+            GetReconstitution = Product.Reconstitution.get dataUrlId |> delay
             GetParenteralMeds = Product.Parenteral.get dataUrlId
             GetEnteralFeeding = Product.Enteral.get dataUrlId
-            GetProducts =
-                Product.get
-            GetDoseRules =
-                DoseRule.get dataUrlId
-            GetSolutionRules =
-                SolutionRule.get dataUrlId
-            GetRenalRules = fun () ->
-                RenalRule.get dataUrlId
+            GetProducts = Product.get
+            GetDoseRules = DoseRule.get dataUrlId
+            GetSolutionRules = SolutionRule.get dataUrlId
+            GetRenalRules = RenalRule.get dataUrlId |> delay
         }
 
 
@@ -186,41 +189,56 @@ module Resources =
             let parenteralMeds = config.GetParenteralMeds unitMappings
             let enteralFeeding = config.GetEnteralFeeding unitMappings
             let products =
-                config.GetProducts
-                    unitMappings
-                    routeMappings
-                    validShapes
-                    shapeRoutes
-                    reconstitution
-                    parenteralMeds
-                    enteralFeeding
-                    formularyProducts
+                result {
+                    let! routeMappings = routeMappings
+                    return
+                        config.GetProducts
+                            unitMappings
+                            routeMappings
+                            validShapes
+                            shapeRoutes
+                            reconstitution
+                            parenteralMeds
+                            enteralFeeding
+                            formularyProducts
+                }
             let doseRules =
-                config.GetDoseRules
-                    routeMappings
-                    shapeRoutes
-                    products
+                result {
+                    let! routeMappings = routeMappings
+                    let! products = products
+                    return
+                        config.GetDoseRules
+                            routeMappings
+                            shapeRoutes
+                            products
+                }
             let solutionRules =
-                config.GetSolutionRules
-                    routeMappings
-                    parenteralMeds
-                    products
+                result {
+                    let! routeMappings = routeMappings
+                    let! products = products
+                    return
+                        config.GetSolutionRules
+                            routeMappings
+                            parenteralMeds
+                            products
+                }
             let renalRules =
                 config.GetRenalRules ()
 
             {
                 UnitMappings = unitMappings
-                RouteMappings = routeMappings
+                RouteMappings = routeMappings |> Result.defaultValue [||]
                 ValidShapes = validShapes
                 ShapeRoutes = shapeRoutes
                 FormularyProducts = formularyProducts
                 Reconstitution = reconstitution
                 ParenteralMeds = parenteralMeds
                 EnteralFeeding = enteralFeeding
-                Products = products
-                DoseRules = doseRules
-                SolutionRules = solutionRules
+                Products = products |> Result.defaultValue [||]
+                DoseRules = doseRules |> Result.defaultValue [||]
+                SolutionRules = solutionRules |> Result.defaultValue [||]
                 RenalRules = renalRules
+                Messages = [||]
                 LastReloaded = DateTime.UtcNow
                 IsLoaded = true
             }
@@ -247,7 +265,7 @@ module Resources =
         =
         {
             GetUnitMappings = fun () -> unitMappings
-            GetRouteMappings = fun () -> routeMappings
+            GetRouteMappings = routeMappings |> Ok |> delay
             GetValidShapes = fun () -> validShapes
             GetShapeRoutes = fun _ -> shapeRoutes
             GetFormularyProducts = fun () -> formularyProducts
@@ -292,6 +310,7 @@ module Resources =
                     DoseRules = [||]
                     SolutionRules = [||]
                     RenalRules = [||]
+                    Messages = [||]
                     LastReloaded = DateTime.MinValue
                     IsLoaded = false
                 }
@@ -322,7 +341,8 @@ module Resources =
             member this.GetDoseRules() = this.getFromCache _.DoseRules
             member this.GetSolutionRules() = this.getFromCache _.SolutionRules
             member this.GetRenalRules() = this.getFromCache _.RenalRules
-            member this.GetResourceInfo() = this.getFromCache (fun s -> { LastUpdated = s.LastReloaded; IsLoaded = s.IsLoaded })
+            member this.GetResourceInfo() =
+                this.getFromCache (fun s -> {Messages = s.Messages; LastUpdated = s.LastReloaded; IsLoaded = s.IsLoaded })
 
 
 module Api =

@@ -11,6 +11,15 @@ module Utils =
     open ConsoleWriter.NewLineNoTime
 
 
+    let inline delay f = fun () -> f
+
+
+    module Message =
+
+
+        let createExnMsg source exn = (source, Some exn) |> ErrorMsg
+
+
     module Web =
 
 
@@ -43,7 +52,6 @@ module Utils =
         let getDataFromSheet urlId sheet =
             fun () -> Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet
             |> StopWatch.clockFunc $"loaded {sheet} from web sheet"
-
 
 
     module BigRational =

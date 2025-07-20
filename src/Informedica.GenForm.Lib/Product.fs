@@ -6,12 +6,16 @@ module Product =
 
     open System
 
+    open System.Collections.Generic
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
 
     open Informedica.GenUnits.Lib
+
+
+    let createError source exn = (Message.createExnMsg source exn) |> Error
 
 
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
@@ -55,40 +59,48 @@ module Product =
 
         open Utils
 
-        let get dataUrlId =
-            Web.getDataFromSheet dataUrlId "Reconstitution"
-            |> fun data ->
+        let getResult dataUrlId =
+            try
+                Web.getDataFromSheet dataUrlId "Reconstitution"
+                |> fun data ->
 
-                let getColumn =
+                    let getColumn =
+                        data
+                        |> Array.head
+                        |> Csv.getStringColumn
+
                     data
-                    |> Array.head
-                    |> Csv.getStringColumn
+                    |> Array.tail
+                    |> Array.map (fun r ->
+                        let get = getColumn r
+                        let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
-                    let toBrOpt = BigRational.toBrs >> Array.tryHead
+                        {
+                            GPK = get "GPK"
+                            Route = get "Route"
+                            Department = get "Dep"
+                            DiluentVolume =
+                                get "DiluentVol"
+                                |> toBrOpt
+                                |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
+                                |> Option.defaultValue (ValueUnit.singleWithUnit Units.Volume.milliLiter 1N)
+                            ExpansionVolume =
+                                get "ExpansionVol"
+                                |> toBrOpt
+                                |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
+                            Diluents =
+                                get "Diluents"
+                                |> String.splitAt ';'
+                                |> Array.map String.trim
+                        }
+                    )
+                |> Ok
+            with
+            | exn -> createError "Reconstiution.get" exn
 
-                    {
-                        GPK = get "GPK"
-                        Route = get "Route"
-                        Department = get "Dep"
-                        DiluentVolume =
-                            get "DiluentVol"
-                            |> toBrOpt
-                            |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
-                            |> Option.defaultValue (ValueUnit.singleWithUnit Units.Volume.milliLiter 1N)
-                        ExpansionVolume =
-                            get "ExpansionVol"
-                            |> toBrOpt
-                            |> Option.map (ValueUnit.singleWithUnit Units.Volume.milliLiter)
-                        Diluents =
-                            get "Diluents"
-                            |> String.splitAt ';'
-                            |> Array.map String.trim
-                    }
-                )
+
+        [<Obsolete("use getResult instead")>]
+        let get = getResult >> Result.defaultValue [||]
 
 
         let filter routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
@@ -109,228 +121,240 @@ module Product =
     module Enteral =
 
 
-        let get dataUrlId unitMapping =
-            Web.getDataFromSheet dataUrlId "EntFeeding"
+        let getResult dataUrlId unitMapping =
+            try
+                Web.getDataFromSheet dataUrlId "EntFeeding"
 
-            |> fun data ->
-                let getColumn =
+                |> fun data ->
+                    let getColumn =
+                        data
+                        |> Array.head
+                        |> Csv.getStringColumn
+
                     data
-                    |> Array.head
-                    |> Csv.getStringColumn
+                    |> Array.tail
+                    |> Array.map (fun r ->
+                        let get = getColumn r
+                        let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
-                    let toBrOpt = BigRational.toBrs >> Array.tryHead
+                        {|
+                            Name = get "Name"
+                            Unit = get "Eenheid"
+                            Substances =
+                                [|
+                                    "volume mL", get "volume mL" |> toBrOpt
+                                    "energie kCal", get "energie kCal" |> toBrOpt
+                                    "eiwit g", get "eiwit g" |> toBrOpt
+                                    "koolhydraat g", get "KH g" |> toBrOpt
+                                    "vet g", get "vet g" |> toBrOpt
+                                    "natrium mmol", get "Na mmol" |> toBrOpt
+                                    "kalium mmol", get "K mmol" |> toBrOpt
+                                    "calcium mmol", get "Ca mmol" |> toBrOpt
+                                    "fosfaat mmol", get "P mmol" |> toBrOpt
+                                    "magnesium mmol", get "Mg mmol" |> toBrOpt
+                                    "ijzer mmol", get "Fe mmol" |> toBrOpt
+                                    "VitD IE", get "VitD IE" |> toBrOpt
+                                    "chloor mmol", get "Cl mmol" |> toBrOpt
 
-                    {|
-                        Name = get "Name"
-                        Unit = get "Eenheid"
-                        Substances =
-                            [|
-                                "volume mL", get "volume mL" |> toBrOpt
-                                "energie kCal", get "energie kCal" |> toBrOpt
-                                "eiwit g", get "eiwit g" |> toBrOpt
-                                "koolhydraat g", get "KH g" |> toBrOpt
-                                "vet g", get "vet g" |> toBrOpt
-                                "natrium mmol", get "Na mmol" |> toBrOpt
-                                "kalium mmol", get "K mmol" |> toBrOpt
-                                "calcium mmol", get "Ca mmol" |> toBrOpt
-                                "fosfaat mmol", get "P mmol" |> toBrOpt
-                                "magnesium mmol", get "Mg mmol" |> toBrOpt
-                                "ijzer mmol", get "Fe mmol" |> toBrOpt
-                                "VitD IE", get "VitD IE" |> toBrOpt
-                                "chloor mmol", get "Cl mmol" |> toBrOpt
+                                |]
+                        |}
+                    )
+                    |> Array.map (fun r ->
+                        let shapeUnit =
+                            r.Unit
+                            |> Units.fromString
+                            |> Option.defaultValue Units.Volume.milliLiter
+                        {
+                            GPK =  r.Name
+                            ATC = ""
+                            MainGroup = ""
+                            SubGroup = ""
+                            Generic = r.Name
+                            UseGenericName = false
+                            UseShape = false
+                            UseBrand = false
+                            TallMan = "" //r.TallMan
+                            Synonyms = [||]
+                            Product = r.Name
+                            Label = r.Name
+                            Shape = "voeding"
+                            Routes = [| "ORAAL" |]
+                            ShapeQuantities =
+                                shapeUnit
+                                |> ValueUnit.singleWithValue 1N
+                            ShapeUnit = shapeUnit
+                            RequiresReconstitution = false
+                            Reconstitution = [||]
+                            Divisible = Some 10N
+                            Substances =
+                                r.Substances
+                                |> Array.filter (fun (n, q) ->
+                                    n |> String.equalsCapInsens "volume mL" |> not &&
+                                    q
+                                    |> Option.map (fun br -> br > 0N)
+                                    |> Option.defaultValue false
+                                )
+                                |> Array.map (fun (s, q) ->
+                                    let n, u =
+                                        match s |> String.split " " with
+                                        | [n; u] -> n |> String.trim, u |> String.trim
+                                        | _ -> failwith $"cannot parse substance {s}"
+                                    {
+                                        Name = n
+                                        Concentration =
+                                            q
+                                            |> Option.bind (fun q ->
+                                                u
+                                                |> Mapping.mapUnit unitMapping
+                                                |> function
+                                                    | None ->
+                                                        writeErrorMessage $"cannot map unit: {u}"
+                                                        None
+                                                    | Some u ->
+                                                        let u =
+                                                            u
+                                                            |> Units.per shapeUnit
+                                                        q
+                                                        |> ValueUnit.singleWithUnit u
+                                                        |> Some
+                                            )
+                                        MolarConcentration = None
+                                    }
+                                )
+                                |> Array.filter (fun s ->
+                                    s.Name |> String.notEmpty &&
+                                    (s.Concentration |> Option.isSome ||
+                                    s.MolarConcentration |> Option.isSome)
+                                )
+                        }
+                    )
+                |> Ok
+            with
+            | exn -> createError "Enteral.get" exn
 
-                            |]
-                    |}
-                )
-                |> Array.map (fun r ->
-                    let shapeUnit =
-                        r.Unit
-                        |> Units.fromString
-                        |> Option.defaultValue Units.Volume.milliLiter
-                    {
-                        GPK =  r.Name
-                        ATC = ""
-                        MainGroup = ""
-                        SubGroup = ""
-                        Generic = r.Name
-                        UseGenericName = false
-                        UseShape = false
-                        UseBrand = false
-                        TallMan = "" //r.TallMan
-                        Synonyms = [||]
-                        Product = r.Name
-                        Label = r.Name
-                        Shape = "voeding"
-                        Routes = [| "ORAAL" |]
-                        ShapeQuantities =
-                            shapeUnit
-                            |> ValueUnit.singleWithValue 1N
-                        ShapeUnit = shapeUnit
-                        RequiresReconstitution = false
-                        Reconstitution = [||]
-                        Divisible = Some 10N
-                        Substances =
-                            r.Substances
-                            |> Array.filter (fun (n, q) ->
-                                n |> String.equalsCapInsens "volume mL" |> not &&
-                                q
-                                |> Option.map (fun br -> br > 0N)
-                                |> Option.defaultValue false
-                            )
-                            |> Array.map (fun (s, q) ->
-                                let n, u =
-                                    match s |> String.split " " with
-                                    | [n; u] -> n |> String.trim, u |> String.trim
-                                    | _ -> failwith $"cannot parse substance {s}"
-                                {
-                                    Name = n
-                                    Concentration =
-                                        q
-                                        |> Option.bind (fun q ->
-                                            u
-                                            |> Mapping.mapUnit unitMapping
-                                            |> function
-                                                | None ->
-                                                    writeErrorMessage $"cannot map unit: {u}"
-                                                    None
-                                                | Some u ->
-                                                    let u =
-                                                        u
-                                                        |> Units.per shapeUnit
-                                                    q
-                                                    |> ValueUnit.singleWithUnit u
-                                                    |> Some
-                                        )
-                                    MolarConcentration = None
-                                }
-                            )
-                            |> Array.filter (fun s ->
-                                s.Name |> String.notEmpty &&
-                                (s.Concentration |> Option.isSome ||
-                                s.MolarConcentration |> Option.isSome)
-                            )
-                    }
-                )
 
+        [<Obsolete("use getResult instead")>]
+        let get dataUrlId unitMapping = getResult dataUrlId unitMapping |> Result.defaultValue [||]
 
 
     module Parenteral =
 
 
-        let get dataUrlId unitMapping =
-            Web.getDataFromSheet dataUrlId "ParentMeds"
-            |> fun data ->
-                let getColumn =
+        let getResult dataUrlId unitMapping =
+            try
+                Web.getDataFromSheet dataUrlId "ParentMeds"
+                |> fun data ->
+                    let getColumn =
+                        data
+                        |> Array.head
+                        |> Csv.getStringColumn
+
                     data
-                    |> Array.head
-                    |> Csv.getStringColumn
+                    |> Array.tail
+                    |> Array.map (fun r ->
+                        let get = getColumn r
+                        let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
-                    let toBrOpt = BigRational.toBrs >> Array.tryHead
+                        {|
+                            GPK = get "GPK"
+                            Name = get "Name"
+                            Substances =
+                                [|
+                                    "volume mL", get "volume mL" |> toBrOpt
+                                    "glucose g", get "glucose g" |> toBrOpt
+                                    "energie kCal", get "energie kCal" |> toBrOpt
+                                    "eiwit g", get "eiwit g" |> toBrOpt
+                                    "koolhydraat g", get "koolhydraat g" |> toBrOpt
+                                    "vet g", get "vet g" |> toBrOpt
+                                    "natrium mmol", get "natrium mmol" |> toBrOpt
+                                    "kalium mmol", get "kalium mmol" |> toBrOpt
+                                    "calcium mmol", get "calcium mmol" |> toBrOpt
+                                    "fosfaat mmol", get "fosfaat mmol" |> toBrOpt
+                                    "magnesium mmol", get "magnesium mmol" |> toBrOpt
+                                    "ijzer mmol", get "ijzer mmol" |> toBrOpt
+                                    "VitD IE", get "VitD IE" |> toBrOpt
+                                    "chloor mmol", get "chloor mmol" |> toBrOpt
 
-                    {|
-                        GPK = get "GPK"
-                        Name = get "Name"
-                        Substances =
-                            [|
-                                "volume mL", get "volume mL" |> toBrOpt
-                                "glucose g", get "glucose g" |> toBrOpt
-                                "energie kCal", get "energie kCal" |> toBrOpt
-                                "eiwit g", get "eiwit g" |> toBrOpt
-                                "koolhydraat g", get "koolhydraat g" |> toBrOpt
-                                "vet g", get "vet g" |> toBrOpt
-                                "natrium mmol", get "natrium mmol" |> toBrOpt
-                                "kalium mmol", get "kalium mmol" |> toBrOpt
-                                "calcium mmol", get "calcium mmol" |> toBrOpt
-                                "fosfaat mmol", get "fosfaat mmol" |> toBrOpt
-                                "magnesium mmol", get "magnesium mmol" |> toBrOpt
-                                "ijzer mmol", get "ijzer mmol" |> toBrOpt
-                                "VitD IE", get "VitD IE" |> toBrOpt
-                                "chloor mmol", get "chloor mmol" |> toBrOpt
+                                |]
+                            Oplosmiddel = get "volume mL"
+                            Verdunner = get "volume mL"
+                            IsOplosmiddel = get "Oplosmiddel" = "TRUE"
+                            IsVerdunner = get "Verdunner" = "TRUE"
+                        |}
+                    )
+                    |> Array.map (fun r ->
 
-                            |]
-                        Oplosmiddel = get "volume mL"
-                        Verdunner = get "volume mL"
-                        IsOplosmiddel = get "Oplosmiddel" = "TRUE"
-                        IsVerdunner = get "Verdunner" = "TRUE"
-                    |}
-                )
-                |> Array.map (fun r ->
-
-                    {
-                        GPK =  r.GPK
-                        ATC = ""
-                        MainGroup = ""
-                        SubGroup = ""
-                        Generic = r.Name
-                        UseGenericName = false
-                        UseShape = false
-                        UseBrand = false
-                        TallMan = "" //r.TallMan
-                        Synonyms = [||]
-                        Product = r.Name
-                        Label = r.Name
-                        Shape = "vloeistof"
-                        Routes = [| "INTRAVENEUS"; "ORAAL" |]
-                        ShapeQuantities =
-                            Units.Volume.milliLiter
-                            |> ValueUnit.singleWithValue 1N
-                        ShapeUnit =
-                            Units.Volume.milliLiter
-                        RequiresReconstitution = false
-                        Reconstitution = [||]
-                        Divisible = Some 10N
-                        Substances =
-                            r.Substances
-                            |> Array.filter (fun (n, q) ->
-                                n |> String.equalsCapInsens "volume mL" |> not &&
-                                q
-                                |> Option.map (fun br -> br > 0N)
-                                |> Option.defaultValue false
-                            )
-                            |> Array.map (fun (s, q) ->
-                                let n, u =
-                                    match s |> String.split " " with
-                                    | [n; u] -> n |> String.trim, u |> String.trim
-                                    | _ -> failwith $"cannot parse substance {s}"
-                                {
-                                    Name = n
-                                    Concentration =
-                                        q
-                                        |> Option.bind (fun q ->
-                                            u
-                                            |> Mapping.mapUnit unitMapping
-                                            |> function
-                                                | None ->
-                                                    writeErrorMessage $"cannot map unit: {u}"
-                                                    None
-                                                | Some u ->
-                                                    let u =
-                                                        u
-                                                        |> Units.per Units.Volume.milliLiter
-                                                    q
-                                                    |> ValueUnit.singleWithUnit u
-                                                    |> Some
-                                        )
-                                    MolarConcentration = None
-                                }
-                            )
-                            |> Array.filter (fun s ->
-                                s.Name |> String.notEmpty &&
-                                (s.Concentration |> Option.isSome ||
-                                s.MolarConcentration |> Option.isSome)
-                            )
-                    }
-                )
+                        {
+                            GPK =  r.GPK
+                            ATC = ""
+                            MainGroup = ""
+                            SubGroup = ""
+                            Generic = r.Name
+                            UseGenericName = false
+                            UseShape = false
+                            UseBrand = false
+                            TallMan = "" //r.TallMan
+                            Synonyms = [||]
+                            Product = r.Name
+                            Label = r.Name
+                            Shape = "vloeistof"
+                            Routes = [| "INTRAVENEUS"; "ORAAL" |]
+                            ShapeQuantities =
+                                Units.Volume.milliLiter
+                                |> ValueUnit.singleWithValue 1N
+                            ShapeUnit =
+                                Units.Volume.milliLiter
+                            RequiresReconstitution = false
+                            Reconstitution = [||]
+                            Divisible = Some 10N
+                            Substances =
+                                r.Substances
+                                |> Array.filter (fun (n, q) ->
+                                    n |> String.equalsCapInsens "volume mL" |> not &&
+                                    q
+                                    |> Option.map (fun br -> br > 0N)
+                                    |> Option.defaultValue false
+                                )
+                                |> Array.map (fun (s, q) ->
+                                    let n, u =
+                                        match s |> String.split " " with
+                                        | [n; u] -> n |> String.trim, u |> String.trim
+                                        | _ -> failwith $"cannot parse substance {s}"
+                                    {
+                                        Name = n
+                                        Concentration =
+                                            q
+                                            |> Option.bind (fun q ->
+                                                u
+                                                |> Mapping.mapUnit unitMapping
+                                                |> function
+                                                    | None ->
+                                                        writeErrorMessage $"cannot map unit: {u}"
+                                                        None
+                                                    | Some u ->
+                                                        let u =
+                                                            u
+                                                            |> Units.per Units.Volume.milliLiter
+                                                        q
+                                                        |> ValueUnit.singleWithUnit u
+                                                        |> Some
+                                            )
+                                        MolarConcentration = None
+                                    }
+                                )
+                                |> Array.filter (fun s ->
+                                    s.Name |> String.notEmpty &&
+                                    (s.Concentration |> Option.isSome ||
+                                    s.MolarConcentration |> Option.isSome)
+                                )
+                        }
+                    )
+                |> Ok
+            with
+            | exn -> createError "Parenteral.get" exn
 
 
+        let get dataUrlId unitMapping = getResult dataUrlId unitMapping |> Result.defaultValue [||]
 
 
     let create gen rte substs =
@@ -506,37 +530,45 @@ module Product =
         }
 
 
-    let getFormularyProducts dataUrlId =
-        fun () ->
-            Web.getDataFromSheet dataUrlId "Formulary"
-            |> fun data ->
-                let getColumn =
+    let getFormularyProductsResult dataUrlId =
+        try
+            fun () ->
+                Web.getDataFromSheet dataUrlId "Formulary"
+                |> fun data ->
+                    let getColumn =
+                        data
+                        |> Array.head
+                        |> Csv.getStringColumn
+
                     data
-                    |> Array.head
-                    |> Csv.getStringColumn
+                    |> Array.tail
+                    |> Array.map (fun r ->
+                        let get = getColumn r
 
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
+                        {
+                            GPKODE = get "GPKODE" |> Int32.parse
+                            Apotheek = get "UMCU"
+                            ICC = get "ICC"
+                            NEO = get "NEO"
+                            ICK = get "ICK"
+                            HCK = get "HCK"
+                            Generic = get "Generic"
+                            useGenName = get "UseGenName" = "x"
+                            useShape = get "UseShape" = "x"
+                            useBrand = get "UseBrand" = "x"
+                            tallMan = get "TallMan"
+                            mmol = get "Mmol" |> Double.tryParse
+                            divisible = get "Divisible" |> Int32.tryParse
+                        }
+                    )
+            |> StopWatch.clockFunc "retrieved formulary products"
+            |> Ok
+        with
+        | exn -> createError "FormularyProducts" exn
 
-                    {
-                        GPKODE = get "GPKODE" |> Int32.parse
-                        Apotheek = get "UMCU"
-                        ICC = get "ICC"
-                        NEO = get "NEO"
-                        ICK = get "ICK"
-                        HCK = get "HCK"
-                        Generic = get "Generic"
-                        useGenName = get "UseGenName" = "x"
-                        useShape = get "UseShape" = "x"
-                        useBrand = get "UseBrand" = "x"
-                        tallMan = get "TallMan"
-                        mmol = get "Mmol" |> Double.tryParse
-                        divisible = get "Divisible" |> Int32.tryParse
-                    }
-                )
-        |> StopWatch.clockFunc "retrieved formulary products"
+
+    [<Obsolete("use getFormularyProductsResult instead")>]
+    let getFormularyProducts = getFormularyProductsResult >> Result.defaultValue [||]
 
 
     let get
@@ -550,69 +582,69 @@ module Product =
         (formularyProducts: FormularyProduct[])
         =
         fun () ->
-                formularyProducts
-                // find the matching GenPresProducts
-                |> Array.collect (fun r ->
-                    r.GPKODE
-                    |> GenPresProduct.findByGPK
-                    |> Array.map (fun gpp -> (r, gpp))
-                )
-                // collect the GenericProducts
-                // filtered by "valid shape" and
-                // at least one substance quantity > 0
-                |> Array.collect (fun (r, gpp) ->
-                    gpp.GenericProducts
-                    |> Array.filter (fun gp ->
-                        gp.Id = r.GPKODE &&
+            formularyProducts
+            // find the matching GenPresProducts
+            |> Array.collect (fun r ->
+                r.GPKODE
+                |> GenPresProduct.findByGPK
+                |> Array.map (fun gpp -> (r, gpp))
+            )
+            // collect the GenericProducts
+            // filtered by "valid shape" and
+            // at least one substance quantity > 0
+            |> Array.collect (fun (r, gpp) ->
+                gpp.GenericProducts
+                |> Array.filter (fun gp ->
+                    gp.Id = r.GPKODE &&
 
-                        validShapes
-                        |> Array.exists (String.equalsCapInsens gp.Shape) &&
-                        gp.Substances
-                        |> Array.exists (fun s ->
-                            s.SubstanceQuantity > 0.
-                        )
+                    validShapes
+                    |> Array.exists (String.equalsCapInsens gp.Shape) &&
+                    gp.Substances
+                    |> Array.exists (fun s ->
+                        s.SubstanceQuantity > 0.
                     )
-                    |> Array.map (fun gp -> r, gp)
                 )
-                // create the Product records
-                |> Array.map (fun (r, gp) ->
-                    let name = r.Generic |> String.toLower
+                |> Array.map (fun gp -> r, gp)
+            )
+            // create the Product records
+            |> Array.map (fun (r, gp) ->
+                let name = r.Generic |> String.toLower
 
-                    let synonyms =
-                        gp.PrescriptionProducts
-                        |> Array.collect (fun pp ->
-                            pp.TradeProducts
-                            |> Array.map _.Brand
-                        )
-                        |> Array.distinct
-                        |> Array.filter String.notEmpty
+                let synonyms =
+                    gp.PrescriptionProducts
+                    |> Array.collect (fun pp ->
+                        pp.TradeProducts
+                        |> Array.map _.Brand
+                    )
+                    |> Array.distinct
+                    |> Array.filter String.notEmpty
 
-                    let shapeQuantities =
-                        gp.PrescriptionProducts
-                        |> Array.map _.Quantity
-                        |> Array.choose BigRational.fromFloat
-                        |> Array.filter (fun br -> br > 0N)
-                        |> Array.distinct
-                        |> fun xs ->
-                            if xs |> Array.isEmpty then [| 1N |] else xs
+                let shapeQuantities =
+                    gp.PrescriptionProducts
+                    |> Array.map _.Quantity
+                    |> Array.choose BigRational.fromFloat
+                    |> Array.filter (fun br -> br > 0N)
+                    |> Array.distinct
+                    |> fun xs ->
+                        if xs |> Array.isEmpty then [| 1N |] else xs
 
-                    gp
-                    |> map
-                           unitMapping
-                           routeMapping
-                           shapeRoutes
-                           reconstitution
-                           name
-                           r.useGenName
-                           r.useShape
-                           r.useBrand
-                           synonyms
-                           shapeQuantities
-                           r.divisible
-                           r.mmol
-                )
-                |> Array.append parenteral
-                |> Array.append enteral
+                gp
+                |> map
+                       unitMapping
+                       routeMapping
+                       shapeRoutes
+                       reconstitution
+                       name
+                       r.useGenName
+                       r.useShape
+                       r.useBrand
+                       synonyms
+                       shapeQuantities
+                       r.divisible
+                       r.mmol
+            )
+            |> Array.append parenteral
+            |> Array.append enteral
 
         |> StopWatch.clockFunc "created products"
 
@@ -632,50 +664,57 @@ module Product =
     /// does not require reconstitution.
     /// </returns>
     let reconstitute mapping rte dtp dep loc (prod : Product) =
+        let warnings = ResizeArray<string>()
         let eqsRoute = Mapping.eqsRoute mapping
-        [|
-            // if reconstitution is not required, the
-            // original product is returned as well
-            if prod.RequiresReconstitution |> not then [| prod |]
-            else
-                // calculate the reconstituted products
-                prod.Reconstitution
-                |> Array.filter (fun r ->
-                    (rte |> String.isNullOrWhiteSpace || r.Route |> eqsRoute (Some rte)) &&
-                    dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true
-                )
-                |> fun xs ->
-                    if xs |> Array.isEmpty then writeWarningMessage $"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}"
-                    xs
-                |> Array.map (fun r ->
-                    let v =
-                        r.ExpansionVolume
-                        |> Option.map (fun v -> v + r.DiluentVolume)
-                        |> Option.defaultValue r.DiluentVolume
 
-                    { prod with
-                        ShapeUnit =
-                            Units.Volume.milliLiter
-                        ShapeQuantities = v
-                        Substances =
-                            prod.Substances
-                            |> Array.map (fun s ->
-                                { s with
-                                    Concentration =
-                                        s.Concentration
-                                        |> Option.map (fun q ->
-                                            // replace the old shapeunit with the new one
-                                            let one =
-                                                Units.Volume.milliLiter
-                                                |> ValueUnit.singleWithValue 1N
-                                            one * q / v
-                                        )
-                                }
-                            )
-                    }
-                )
-        |]
-        |> Array.collect id
+        let prods =
+            [|
+                // if reconstitution is not required, the
+                // original product is returned as well
+                if prod.RequiresReconstitution |> not then [| prod |]
+                else
+                    // calculate the reconstituted products
+                    prod.Reconstitution
+                    |> Array.filter (fun r ->
+                        (rte |> String.isNullOrWhiteSpace || r.Route |> eqsRoute (Some rte)) &&
+                        dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true
+                    )
+                    |> fun xs ->
+                        if xs |> Array.isEmpty then
+                            warnings.Add($"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}")
+                        xs
+                    |> Array.map (fun r ->
+                        let v =
+                            r.ExpansionVolume
+                            |> Option.map (fun v -> v + r.DiluentVolume)
+                            |> Option.defaultValue r.DiluentVolume
+
+                        { prod with
+                            ShapeUnit =
+                                Units.Volume.milliLiter
+                            ShapeQuantities = v
+                            Substances =
+                                prod.Substances
+                                |> Array.map (fun s ->
+                                    { s with
+                                        Concentration =
+                                            s.Concentration
+                                            |> Option.map (fun q ->
+                                                // replace the old shapeunit with the new one
+                                                let one =
+                                                    Units.Volume.milliLiter
+                                                    |> ValueUnit.singleWithValue 1N
+                                                one * q / v
+                                            )
+                                    }
+                                )
+                        }
+                    )
+            |]
+            |> Array.collect id
+
+        prods,
+        warnings |> Seq.distinct
 
 
     /// <summary>

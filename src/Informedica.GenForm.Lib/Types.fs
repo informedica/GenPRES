@@ -607,3 +607,9 @@ module Types =
         | NormQuantityAdjust of LimitTarget * ValueUnit
         | NormPerTimeAdjust of LimitTarget * ValueUnit
         | NormRateAdjust of LimitTarget * ValueUnit
+
+
+    type Message =
+        | Info of string
+        | Warning of string
+        | ErrorMsg of (string * exn option)

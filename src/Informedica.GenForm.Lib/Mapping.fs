@@ -4,53 +4,71 @@ namespace Informedica.GenForm.Lib
 module Mapping =
 
     open System
-    open System.Diagnostics.Contracts
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
 
-    let getRouteMapping dataUrlId =
-        Web.getDataFromSheet dataUrlId "Routes"
-        |> fun data ->
-            let getColumn =
+    let createError source exn = (Message.createExnMsg source exn) |> Error
+
+
+    let getRouteMappingResult dataUrlId =
+        try
+            Web.getDataFromSheet dataUrlId "Routes"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get = getColumn r
-
-                {
-                    Long = get "ZIndex"
-                    Short = get "ShortDutch"
-                }
-            )
+                    {
+                        Long = get "ZIndex"
+                        Short = get "ShortDutch"
+                    }
+                )
+            |> Ok
+        with
+        | exn ->  createError "getRouteMappingResult" exn
 
 
-    let getUnitMapping dataUrlId =
-        Web.getDataFromSheet dataUrlId "Units"
-        |> fun data ->
-            let getColumn =
+    [<Obsolete("Use getRouteMappingResult instead")>]
+    let getRouteMapping = getRouteMappingResult >> Result.defaultValue [||]
+
+
+    let getUnitMappingResult dataUrlId =
+        try
+            Web.getDataFromSheet dataUrlId "Units"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get = getColumn r
+                    {
+                        Long = get "ZIndexUnitLong"
+                        Short = get "Unit"
+                        MV = get "MetaVisionUnit"
+                        Group = get "Group"
+                    }
+                )
+            |> Ok
+        with
+        | exn -> createError "getUnitMappingResult" exn
 
-                {
-                    Long = get "ZIndexUnitLong"
-                    Short = get "Unit"
-                    MV = get "MetaVisionUnit"
-                    Group = get "Group"
-                }
-            )
+
+    [<Obsolete("Use getRouteMappingResult instead")>]
+    let getUnitMapping = getUnitMappingResult >> Result.defaultValue [||]
 
 
     let mapUnit (mapping : UnitMapping array) s =
@@ -91,84 +109,92 @@ module Mapping =
 
 
     /// Get the array of ShapeRoute records
-    let getShapeRoutes dataUrlId unitMapping =
+    let getShapeRoutesResult dataUrlId unitMapping =
         let mapUnit = mapUnit unitMapping
 
-        Web.getDataFromSheet dataUrlId "ShapeRoute"
-        |> fun data ->
-            let inline getColumn get =
+        try
+            Web.getDataFromSheet dataUrlId "ShapeRoute"
+            |> fun data ->
+                let inline getColumn get =
+                    data
+                    |> Array.head
+                    |> get
+
                 data
-                |> Array.head
-                |> get
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let getStr = getColumn Csv.getStringColumn r
+                    let getFlt = getColumn Csv.getFloatOptionColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let getStr = getColumn Csv.getStringColumn r
-                let getFlt = getColumn Csv.getFloatOptionColumn r
-
-                let un = getStr "Unit" |> mapUnit |> Option.defaultValue NoUnit
-                {
-                    Route = getStr "Route"
-                    Shape = getStr "Shape"
-                    Unit = un
-                    DoseUnit = getStr "DoseUnit" |> mapUnit |> Option.defaultValue NoUnit
-                    MinDoseQty =
-                        if un = NoUnit then None
-                        else
-                            getFlt "MinDoseQty"
-                            |> Option.bind BigRational.fromFloat
-                            |> Option.map (ValueUnit.singleWithUnit un)
-                    MaxDoseQty =
-                        if un = NoUnit then None
-                        else
-                            getFlt "MaxDoseQty"
-                            |> Option.bind BigRational.fromFloat
-                            |> Option.map (ValueUnit.singleWithUnit un)
-                    MinDoseQtyPerKg =
-                        if un = NoUnit then None
-                        else
-                            let un = un |> Units.per Units.Weight.kiloGram
-
-                            getFlt "MinDoseQtyKg"
-                            |> Option.bind BigRational.fromFloat
-                            |> Option.map (ValueUnit.singleWithUnit un)
-                    MaxDoseQtyPerKg =
-                        if un = NoUnit then None
-                        else
-                            let un = un |> Units.per Units.Weight.kiloGram
-
-                            getFlt "MaxDoseQtyKg"
-                            |> Option.bind BigRational.fromFloat
-                            |> Option.map (ValueUnit.singleWithUnit un)
-                    Divisibility =
-                        getFlt "Divisible"
-                        |> Option.bind BigRational.fromFloat
-                    Timed = getStr "Timed" |> String.equalsCapInsens "true"
-                    Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
-                    IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
-                }
-                |> fun rs ->
-                    match rs.DoseUnit with
-                    | NoUnit -> rs
-                    | du ->
-                        { rs with
-                            MinDoseQty =
+                    let un = getStr "Unit" |> mapUnit |> Option.defaultValue NoUnit
+                    {
+                        Route = getStr "Route"
+                        Shape = getStr "Shape"
+                        Unit = un
+                        DoseUnit = getStr "DoseUnit" |> mapUnit |> Option.defaultValue NoUnit
+                        MinDoseQty =
+                            if un = NoUnit then None
+                            else
                                 getFlt "MinDoseQty"
-                                |> Option.bind (fun v ->
-                                   v
-                                   |> BigRational.fromFloat
-                                   |> Option.map (ValueUnit.singleWithUnit du)
-                                )
-                            MaxDoseQty =
+                                |> Option.bind BigRational.fromFloat
+                                |> Option.map (ValueUnit.singleWithUnit un)
+                        MaxDoseQty =
+                            if un = NoUnit then None
+                            else
                                 getFlt "MaxDoseQty"
-                                |> Option.bind (fun v ->
-                                   v
-                                   |> BigRational.fromFloat
-                                   |> Option.map (ValueUnit.singleWithUnit du)
-                                )
-                        }
-            )
+                                |> Option.bind BigRational.fromFloat
+                                |> Option.map (ValueUnit.singleWithUnit un)
+                        MinDoseQtyPerKg =
+                            if un = NoUnit then None
+                            else
+                                let un = un |> Units.per Units.Weight.kiloGram
+
+                                getFlt "MinDoseQtyKg"
+                                |> Option.bind BigRational.fromFloat
+                                |> Option.map (ValueUnit.singleWithUnit un)
+                        MaxDoseQtyPerKg =
+                            if un = NoUnit then None
+                            else
+                                let un = un |> Units.per Units.Weight.kiloGram
+
+                                getFlt "MaxDoseQtyKg"
+                                |> Option.bind BigRational.fromFloat
+                                |> Option.map (ValueUnit.singleWithUnit un)
+                        Divisibility =
+                            getFlt "Divisible"
+                            |> Option.bind BigRational.fromFloat
+                        Timed = getStr "Timed" |> String.equalsCapInsens "true"
+                        Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
+                        IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
+                    }
+                    |> fun rs ->
+                        match rs.DoseUnit with
+                        | NoUnit -> rs
+                        | du ->
+                            { rs with
+                                MinDoseQty =
+                                    getFlt "MinDoseQty"
+                                    |> Option.bind (fun v ->
+                                       v
+                                       |> BigRational.fromFloat
+                                       |> Option.map (ValueUnit.singleWithUnit du)
+                                    )
+                                MaxDoseQty =
+                                    getFlt "MaxDoseQty"
+                                    |> Option.bind (fun v ->
+                                       v
+                                       |> BigRational.fromFloat
+                                       |> Option.map (ValueUnit.singleWithUnit du)
+                                    )
+                            }
+                )
+            |> Ok
+        with
+        | exn -> createError "getShapeRoutesResult" exn
+
+
+    [<Obsolete("use getShapeRouteResult instead")>]
+    let getShapeRoutes unitMapping = getShapeRoutesResult unitMapping >> Result.defaultValue [||]
 
 
     let filterShapeRoutes routeMapping (mapping : ShapeRoute []) rte shape unt =
@@ -198,19 +224,27 @@ module Mapping =
 
 
     /// Mapping of long Z-index unit names to short names
-    let getValidShapes dataUrlId =
-        Web.getDataFromSheet dataUrlId "ValidShapes"
-        |> fun data ->
-            let getColumn =
+    let getValidShapesResult dataUrlId =
+        try
+            Web.getDataFromSheet dataUrlId "ValidShapes"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get = getColumn r
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get = getColumn r
+                    get "Shape"
+                )
+                |> Array.distinct
+            |> Ok
+        with
+        | exn -> createError "getValidShapesResult" exn
 
-                get "Shape"
-            )
-            |> Array.distinct
+
+    [<Obsolete("use getValidShapesResult instead")>]
+    let getValidShapes = getValidShapesResult >> Result.defaultValue [||]
