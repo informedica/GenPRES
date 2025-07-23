@@ -356,8 +356,13 @@ module Api =
 
 
     // Public API functions that use the cached provider
-    let getUnitMappings () = cachedApiProvider.GetUnitMappings()
     let getRouteMappings () = cachedApiProvider.GetRouteMappings()
+    let getDoseRules () = cachedApiProvider.GetDoseRules()
+    let getSolutionRules () = cachedApiProvider.GetSolutionRules()
+    let getRenalRules () = cachedApiProvider.GetRenalRules()
+
+    (*
+    let getUnitMappings () = cachedApiProvider.GetUnitMappings()
     let getValidShapes () = cachedApiProvider.GetValidShapes()
     let getShapeRoutes () = cachedApiProvider.GetShapeRoutes()
     let getFormularyProducts () = cachedApiProvider.GetFormularyProducts()
@@ -365,16 +370,16 @@ module Api =
     let getEnteralFeeding () = cachedApiProvider.GetEnteralFeeding()
     let getParenteralMeds () = cachedApiProvider.GetParenteralMeds()
     let getProducts () = cachedApiProvider.GetProducts()
-    let getDoseRules () = cachedApiProvider.GetDoseRules()
-    let getSolutionRules () = cachedApiProvider.GetSolutionRules()
-    let getRenalRules () = cachedApiProvider.GetRenalRules()
     let getResourceInfo () = cachedApiProvider.GetResourceInfo()
+    *)
 
     // Filtering functions using cached mappings
+
     let filterDoseRules filter doseRules =
         let routeMappings = getRouteMappings()
         DoseRule.filter routeMappings filter doseRules
 
+    (*
     let filterRenalRules filter renalRules =
         let routeMappings = getRouteMappings()
         RenalRule.filter routeMappings filter renalRules
@@ -382,10 +387,7 @@ module Api =
     let filterProducts filter products =
         let routeMappings = getRouteMappings()
         Product.filter routeMappings filter products
-
-    let reconstituteDoseRule department location doseRule =
-        let routeMappings = getRouteMappings()
-        DoseRule.reconstitute routeMappings department location doseRule
+    *)
 
     let getPrescriptionRules =
         let doseRules = cachedApiProvider.GetDoseRules()
@@ -395,10 +397,11 @@ module Api =
 
         PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
 
-    // Add to Api module
+    (*
     let filterDoseRulesWithFilter filter =
         getDoseRules()
         |> filterDoseRules filter
+    *)
 
     let filterPrescriptionRules filter =
         let doseRules = getDoseRules()
@@ -408,5 +411,3 @@ module Api =
 
         PrescriptionRule.filter doseRules solutionRules renalRules routeMappings filter
 
-
-    let getAllRenalRules () = getRenalRules()
