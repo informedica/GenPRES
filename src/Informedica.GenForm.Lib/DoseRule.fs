@@ -198,7 +198,7 @@ module DoseRule =
                     "Natriumdocusaat (al dan niet i.c.m. sorbitol)",
                     "natriumdocusaat-al-dan-niet-icm-sorbitol"
                 ]
-            let res = JsonValue.Load(kinderFormUrl)
+            let res = JsonValue.Load kinderFormUrl
             [ for v in res do
                 {|
                     id = v?id.AsString()
@@ -536,86 +536,94 @@ cannot map {r}
 
 
     let getData dataUrlId =
-        Web.getDataFromSheet dataUrlId "DoseRules"
-        |> fun data ->
-            let getColumn =
+        try 
+            Web.getDataFromSheet dataUrlId "DoseRules"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.distinctBy (fun row -> row |> Array.tail)
+                |> Array.map (fun r ->
+                    let get = getColumn r
+                    let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-            data
-            |> Array.tail
-            |> Array.distinctBy (fun row -> row |> Array.tail)
-            |> Array.map (fun r ->
-                let get = getColumn r
-                let toBrOpt = BigRational.toBrs >> Array.tryHead
+                    {
+                        Source = get "Source"
+                        Indication = get "Indication"
+                        Generic = get "Generic"
+                        Shape = get "Shape"
+                        Brand = get "Brand"
+                        GPKs =
+                            get "GPKs"
+                            |> String.splitAt ';'
+                            |> Array.map String.trim
+                            |> Array.filter String.notEmpty
+                            |> Array.distinct
+                        Route = get "Route"
+                        Department = get "Dep"
+                        ScheduleText =
+                            try
+                                get "ScheduleText"
+                            with
+                            | _ -> ""
+                        Gender = get "Gender" |> Gender.fromString
+                        MinAge = get "MinAge" |> toBrOpt
+                        MaxAge = get "MaxAge" |> toBrOpt
+                        MinWeight = get "MinWeight" |> toBrOpt
+                        MaxWeight = get "MaxWeight" |> toBrOpt
+                        MinBSA = get "MinBSA" |> toBrOpt
+                        MaxBSA = get "MaxBSA" |> toBrOpt
+                        MinGestAge = get "MinGestAge" |> toBrOpt
+                        MaxGestAge = get "MaxGestAge" |> toBrOpt
+                        MinPMAge = get "MinPMAge" |> toBrOpt
+                        MaxPMAge = get "MaxPMAge" |> toBrOpt
+                        DoseType = get "DoseType"
+                        DoseText = get "DoseText"
+                        Frequencies = get "Freqs" |> BigRational.toBrs
+                        DoseUnit = get "DoseUnit"
+                        AdjustUnit = get "AdjustUnit"
+                        FreqUnit = get "FreqUnit"
+                        RateUnit = get "RateUnit"
+                        MinTime = get "MinTime" |> toBrOpt
+                        MaxTime = get "MaxTime" |> toBrOpt
+                        TimeUnit = get "TimeUnit"
+                        MinInterval = get "MinInt" |> toBrOpt
+                        MaxInterval = get "MaxInt" |> toBrOpt
+                        IntervalUnit = get "IntUnit"
+                        MinDur = get "MinDur" |> toBrOpt
+                        MaxDur = get "MaxDur" |> toBrOpt
+                        DurUnit = get "DurUnit"
+                        Component = get "Component"
+                        Substance = get "Substance"
+                        MinQty = get "MinQty" |> toBrOpt
+                        MaxQty = get "MaxQty" |> toBrOpt
+                        NormQtyAdj = get "NormQtyAdj" |> toBrOpt
+                        MinQtyAdj = get "MinQtyAdj" |> toBrOpt
+                        MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
+                        MinPerTime = get "MinPerTime" |> toBrOpt
+                        MaxPerTime = get "MaxPerTime" |> toBrOpt
+                        NormPerTimeAdj = get "NormPerTimeAdj" |> toBrOpt
+                        MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
+                        MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
+                        MinRate = get "MinRate" |> toBrOpt
+                        MaxRate = get "MaxRate" |> toBrOpt
+                        MinRateAdj = get "MinRateAdj" |> toBrOpt
+                        MaxRateAdj = get "MaxRateAdj" |> toBrOpt
+                        Products = [||]
+                    }
+                )
+            |> Array.distinct
+            |> Ok
+        with
+        | exn ->
+            ("getDataResult", Some exn)
+            |> ErrorMsg
+            |> Error
 
-                {
-                    Source = get "Source"
-                    Indication = get "Indication"
-                    Generic = get "Generic"
-                    Shape = get "Shape"
-                    Brand = get "Brand"
-                    GPKs =
-                        get "GPKs"
-                        |> String.splitAt ';'
-                        |> Array.map String.trim
-                        |> Array.filter String.notEmpty
-                        |> Array.distinct
-                    Route = get "Route"
-                    Department = get "Dep"
-                    ScheduleText =
-                        try
-                            get "ScheduleText"
-                        with
-                        | _ -> ""
-                    Gender = get "Gender" |> Gender.fromString
-                    MinAge = get "MinAge" |> toBrOpt
-                    MaxAge = get "MaxAge" |> toBrOpt
-                    MinWeight = get "MinWeight" |> toBrOpt
-                    MaxWeight = get "MaxWeight" |> toBrOpt
-                    MinBSA = get "MinBSA" |> toBrOpt
-                    MaxBSA = get "MaxBSA" |> toBrOpt
-                    MinGestAge = get "MinGestAge" |> toBrOpt
-                    MaxGestAge = get "MaxGestAge" |> toBrOpt
-                    MinPMAge = get "MinPMAge" |> toBrOpt
-                    MaxPMAge = get "MaxPMAge" |> toBrOpt
-                    DoseType = get "DoseType"
-                    DoseText = get "DoseText"
-                    Frequencies = get "Freqs" |> BigRational.toBrs
-                    DoseUnit = get "DoseUnit"
-                    AdjustUnit = get "AdjustUnit"
-                    FreqUnit = get "FreqUnit"
-                    RateUnit = get "RateUnit"
-                    MinTime = get "MinTime" |> toBrOpt
-                    MaxTime = get "MaxTime" |> toBrOpt
-                    TimeUnit = get "TimeUnit"
-                    MinInterval = get "MinInt" |> toBrOpt
-                    MaxInterval = get "MaxInt" |> toBrOpt
-                    IntervalUnit = get "IntUnit"
-                    MinDur = get "MinDur" |> toBrOpt
-                    MaxDur = get "MaxDur" |> toBrOpt
-                    DurUnit = get "DurUnit"
-                    Component = get "Component"
-                    Substance = get "Substance"
-                    MinQty = get "MinQty" |> toBrOpt
-                    MaxQty = get "MaxQty" |> toBrOpt
-                    NormQtyAdj = get "NormQtyAdj" |> toBrOpt
-                    MinQtyAdj = get "MinQtyAdj" |> toBrOpt
-                    MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
-                    MinPerTime = get "MinPerTime" |> toBrOpt
-                    MaxPerTime = get "MaxPerTime" |> toBrOpt
-                    NormPerTimeAdj = get "NormPerTimeAdj" |> toBrOpt
-                    MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
-                    MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
-                    MinRate = get "MinRate" |> toBrOpt
-                    MaxRate = get "MaxRate" |> toBrOpt
-                    MinRateAdj = get "MinRateAdj" |> toBrOpt
-                    MaxRateAdj = get "MaxRateAdj" |> toBrOpt
-                    Products = [||]
-                }
-            )
-        |> Array.distinct
 
 
     let doseRuleDataIsValid (dd: DoseRuleData) =
@@ -631,11 +639,10 @@ cannot map {r}
          dd.MaxRateAdj |> Option.isSome)
 
 
-    let getDoseRuleData prods routeMapping dataUrl =
+    let processDoseRuleData prods routeMapping data =
         let warnings = Collections.Generic.Dictionary<_, _>()
 
-        dataUrl
-        |> getData
+        data
         |> Array.filter doseRuleDataIsValid
         |> Array.groupBy (fun d ->
             match d.Shape, d.Brand with
@@ -973,12 +980,16 @@ cannot map {r}
         =
         let addDoseLimits = addDoseLimits routeMapping shapeRoutes
 
+        let proc = 
+            processDoseRuleData prods routeMapping
+            >> Array.groupBy mapToDoseRule
+            >> Array.filter (fst >> Option.isSome)
+            >> Array.map (fun (dr, rs) -> dr.Value, rs)
+            >> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
+
         dataUrl
-        |> getDoseRuleData prods routeMapping
-        |> Array.groupBy mapToDoseRule
-        |> Array.filter (fst >> Option.isSome)
-        |> Array.map (fun (dr, rs) -> dr.Value, rs)
-        |> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
+        |> getData
+        |> Result.map proc
 
 
     /// <summary>
@@ -1180,7 +1191,7 @@ cannot map {r}
         let dataToCsv dataUrlId prods routeMapping distBy =
             let grouped =
                 dataUrlId
-                |> getDoseRuleData prods routeMapping
+                |> processDoseRuleData prods routeMapping
                 |> Array.groupBy mapToDoseRule
                 |> Array.filter (fst >> Option.isSome)
                 |> Array.map (fun (dr, details) -> dr.Value, details)

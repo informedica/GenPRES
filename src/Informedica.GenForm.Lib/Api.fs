@@ -149,27 +149,27 @@ module Resources =
                 RouteMapping[] ->
                 ShapeRoute[] ->
                 Product[] ->
-                DoseRule[]
+                Result<DoseRule[], Message>
             GetSolutionRules:
                 RouteMapping[] ->
                 Product[] ->
                 Product[] ->
-                SolutionRule[]
-            GetRenalRules: unit -> RenalRule[]
+                Result<SolutionRule[], Message>
+            GetRenalRules: unit -> Result<RenalRule[], Message>
         }
 
 
     /// Default resource configuration using the standard get functions
     let defaultResourceConfig dataUrlId =
         {
-            GetUnitMappings = Mapping.getUnitMappingResult dataUrlId |> delay
-            GetRouteMappings = Mapping.getRouteMappingResult dataUrlId |> delay
-            GetValidShapes = Mapping.getValidShapesResult dataUrlId |> delay
-            GetShapeRoutes = Mapping.getShapeRoutesResult dataUrlId
-            GetFormularyProducts = fun () -> Product.getFormularyProductsResult dataUrlId
-            GetReconstitution = Product.Reconstitution.getResult dataUrlId |> delay
-            GetParenteralMeds = Product.Parenteral.getResult dataUrlId
-            GetEnteralFeeding = Product.Enteral.getResult dataUrlId
+            GetUnitMappings = Mapping.getUnitMapping dataUrlId |> delay
+            GetRouteMappings = Mapping.getRouteMapping dataUrlId |> delay
+            GetValidShapes = Mapping.getValidShapes dataUrlId |> delay
+            GetShapeRoutes = Mapping.getShapeRoutes dataUrlId
+            GetFormularyProducts = fun () -> Product.getFormularyProducts dataUrlId
+            GetReconstitution = Product.Reconstitution.get dataUrlId |> delay
+            GetParenteralMeds = Product.Parenteral.get dataUrlId
+            GetEnteralFeeding = Product.Enteral.get dataUrlId
             GetProducts = Product.get
             GetDoseRules = DoseRule.get dataUrlId
             GetSolutionRules = SolutionRule.get dataUrlId
@@ -199,18 +199,17 @@ module Resources =
                             parenteralMeds
                             enteralFeeding
                             formularyProducts
-                let doseRules =
+                let! doseRules =
                     config.GetDoseRules
                         routeMappings
                         shapeRoutes
                         products
-                let solutionRules =
+                let! solutionRules =
                         config.GetSolutionRules
                             routeMappings
                             parenteralMeds
                             products
-                let renalRules =
-                    config.GetRenalRules ()
+                let! renalRules = config.GetRenalRules ()
                 return
                     {
                         UnitMappings = unitMappings

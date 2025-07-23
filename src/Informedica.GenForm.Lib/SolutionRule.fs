@@ -37,177 +37,185 @@ module SolutionRule =
         (parenteral : Product[])
         products
         =
-        Web.getDataFromSheet dataUrlId "SolutionRules"
-        |> fun data ->
-            let getColumn =
+        try
+
+            Web.getDataFromSheet dataUrlId "SolutionRules"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get =
+                        getColumn r >> String.trim
+                    let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get =
-                    getColumn r >> String.trim
-                let toBrOpt = BigRational.toBrs >> Array.tryHead
-
-                {|
-                    // solution rule section
-                    Generic = get "Generic"
-                    Shape = get "Shape"
-                    Route = get "Route"
-                    Indication = get "Indication"
-                    Department = get "Dep"
-                    CVL = get "CVL"
-                    PVL = get "PVL"
-                    MinAge = get "MinAge" |> toBrOpt
-                    MaxAge = get "MaxAge" |> toBrOpt
-                    MinWeight = get "MinWeight" |> toBrOpt
-                    MaxWeight = get "MaxWeight" |> toBrOpt
-                    MinGestAge = get "MinGestAge" |> toBrOpt
-                    MaxGestAge = get "MaxGestAge" |> toBrOpt
-                    MinDose = get "MinDose" |> toBrOpt
-                    MaxDose = get "MaxDose" |> toBrOpt
-                    DoseType = get "DoseType"
-                    Solutions = get "Solutions" |> String.split "|" |> List.map String.trim
-                    Volumes = get "Volumes" |> BigRational.toBrs
-                    MinVol = get "MinVol" |> toBrOpt
-                    MaxVol = get "MaxVol" |> toBrOpt
-                    MinVolAdj = get "MinVolAdj" |> toBrOpt
-                    MaxVolAdj = get "MaxVolAdj" |> toBrOpt
-                    MinPerc = get "MinPerc" |> toBrOpt
-                    MaxPerc = get "MaxPerc" |> toBrOpt
-                    // solution limit section
-                    Substance = get "Substance"
-                    Unit = get "Unit"
-                    Quantities = get "Quantities" |> BigRational.toBrs
-                    MinQty = get "MinQty" |> toBrOpt
-                    MaxQty = get "MaxQty" |> toBrOpt
-                    MinDrip = get "MinDrip" |> toBrOpt
-                    MaxDrip = get "MaxDrip" |> toBrOpt
-                    MinConc = get "MinConc" |> toBrOpt
-                    MaxConc = get "MaxConc" |> toBrOpt
-                |}
-            )
-            |> Array.groupBy (fun r ->
-                let du = r.Unit |> Units.fromString
-                {
-                    Generic = r.Generic
-                    Shape =
-                        if r.Shape |> String.isNullOrWhiteSpace then None
-                        else r.Shape |> Some
-                    Route = r.Route
-                    Indication =
-                        if r.Indication |> String.isNullOrWhiteSpace then None
-                        else r.Indication |> Some
-                    PatientCategory =
-                        { PatientCategory.empty with
-                            Department =
-                                if r.Department |> String.isNullOrWhiteSpace then None
-                                else r.Department |> Some
-                            Location =
-                                if r.CVL = "x" then CVL
-                                else
-                                    if r.PVL = "x" then PVL
+                    {|
+                        // solution rule section
+                        Generic = get "Generic"
+                        Shape = get "Shape"
+                        Route = get "Route"
+                        Indication = get "Indication"
+                        Department = get "Dep"
+                        CVL = get "CVL"
+                        PVL = get "PVL"
+                        MinAge = get "MinAge" |> toBrOpt
+                        MaxAge = get "MaxAge" |> toBrOpt
+                        MinWeight = get "MinWeight" |> toBrOpt
+                        MaxWeight = get "MaxWeight" |> toBrOpt
+                        MinGestAge = get "MinGestAge" |> toBrOpt
+                        MaxGestAge = get "MaxGestAge" |> toBrOpt
+                        MinDose = get "MinDose" |> toBrOpt
+                        MaxDose = get "MaxDose" |> toBrOpt
+                        DoseType = get "DoseType"
+                        Solutions = get "Solutions" |> String.split "|" |> List.map String.trim
+                        Volumes = get "Volumes" |> BigRational.toBrs
+                        MinVol = get "MinVol" |> toBrOpt
+                        MaxVol = get "MaxVol" |> toBrOpt
+                        MinVolAdj = get "MinVolAdj" |> toBrOpt
+                        MaxVolAdj = get "MaxVolAdj" |> toBrOpt
+                        MinPerc = get "MinPerc" |> toBrOpt
+                        MaxPerc = get "MaxPerc" |> toBrOpt
+                        // solution limit section
+                        Substance = get "Substance"
+                        Unit = get "Unit"
+                        Quantities = get "Quantities" |> BigRational.toBrs
+                        MinQty = get "MinQty" |> toBrOpt
+                        MaxQty = get "MaxQty" |> toBrOpt
+                        MinDrip = get "MinDrip" |> toBrOpt
+                        MaxDrip = get "MaxDrip" |> toBrOpt
+                        MinConc = get "MinConc" |> toBrOpt
+                        MaxConc = get "MaxConc" |> toBrOpt
+                    |}
+                )
+                |> Array.groupBy (fun r ->
+                    let du = r.Unit |> Units.fromString
+                    {
+                        Generic = r.Generic
+                        Shape =
+                            if r.Shape |> String.isNullOrWhiteSpace then None
+                            else r.Shape |> Some
+                        Route = r.Route
+                        Indication =
+                            if r.Indication |> String.isNullOrWhiteSpace then None
+                            else r.Indication |> Some
+                        PatientCategory =
+                            { PatientCategory.empty with
+                                Department =
+                                    if r.Department |> String.isNullOrWhiteSpace then None
+                                    else r.Department |> Some
+                                Location =
+                                    if r.CVL = "x" then CVL
                                     else
-                                        AnyAccess
-                            Age =
-                                (r.MinAge, r.MaxAge)
-                                |> fromTupleInclExcl (Some Utils.Units.day)
-                            Weight =
-                                (r.MinWeight, r.MaxWeight)
-                                |> fromTupleInclExcl (Some Utils.Units.weightGram)
-                            GestAge =
-                                (r.MinGestAge, r.MaxGestAge)
-                                |> fromTupleInclExcl (Some Utils.Units.day)
-                        }
-                    Dose =
-                        (r.MinDose, r.MaxDose)
-                        |> fromTupleInclIncl du
-                    DoseType = DoseType.fromString r.DoseType ""
-                    Diluents =
-                        parenteral
-                        |> Array.filter (fun p ->
-                            r.Solutions
-                            |> List.exists (fun s ->
-                                p.Generic
-                                |> String.equalsCapInsens s
-                            )
-                        )
-                        |> Array.distinctBy _.Generic
-                    Volumes =
-                        if r.Volumes |> Array.isEmpty then None
-                        else
-                            r.Volumes
-                            |> ValueUnit.withUnit Units.mL
-                            |> Some
-                    Volume =
-                        (r.MinVol, r.MaxVol)
-                        |> fromTupleInclIncl (Some Units.mL)
-                    VolumeAdjust =
-                        (r.MinVolAdj, r.MaxVolAdj)
-                        |> fromTupleInclIncl (Units.mL |> Units.per Units.Weight.kiloGram |> Some)
-                    DripRate =
-                        (r.MinDrip, r.MaxDrip)
-                        |> fromTupleInclIncl (Some (Units.Volume.milliLiter |> Units.per Units.Time.hour))
-                    DosePerc =
-                        (r.MinPerc, r.MaxPerc)
-                        |> fromTupleInclIncl (Some Units.Count.times)
-                    Products = [||]
-                    SolutionLimits = [||]
-                }
-            )
-            |> Array.map (fun (sr, rs) ->
-                { sr with
-                    SolutionLimits =
-                        rs
-                        |> Array.map (fun l ->
-                            let u = l.Unit |> Units.fromString
-                            {
-                                SolutionLimitTarget =
-                                    if l.Substance |> String.isNullOrWhiteSpace then l.Shape|> ShapeLimitTarget
-                                    else l.Substance |> SubstanceLimitTarget
-                                Quantity =
-                                    (l.MinQty, l.MaxQty)
-                                    |> fromTupleInclIncl u
-                                Quantities =
-                                    if l.Quantities |> Array.isEmpty then None
-                                    else
-                                        match u with
-                                        | None -> None
-                                        | Some u ->
-                                            l.Quantities
-                                            |> ValueUnit.withUnit u
-                                            |> Some
-                                Concentration =
-                                    let u =
-                                        u
-                                        |> Option.map (Units.per Units.Volume.milliLiter)
-                                    (l.MinConc, l.MaxConc)
-                                    |> fromTupleInclIncl u
+                                        if r.PVL = "x" then PVL
+                                        else
+                                            AnyAccess
+                                Age =
+                                    (r.MinAge, r.MaxAge)
+                                    |> fromTupleInclExcl (Some Utils.Units.day)
+                                Weight =
+                                    (r.MinWeight, r.MaxWeight)
+                                    |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                                GestAge =
+                                    (r.MinGestAge, r.MaxGestAge)
+                                    |> fromTupleInclExcl (Some Utils.Units.day)
                             }
-                        )
-                        |> Array.filter (fun sl ->
-                            (sl.Concentration |> MinMax.isEmpty &&
-                            sl.Quantities |> Option.isNone &&
-                            sl.Quantity |> MinMax.isEmpty)
-                            |> not
-                        )
-                    Products =
-                        products
-                        |> Array.filter (fun p ->
-                            p.Generic = sr.Generic &&
-                            sr.Shape
-                            |> Option.map (fun s ->
-                                s |> String.equalsCapInsens p.Shape
+                        Dose =
+                            (r.MinDose, r.MaxDose)
+                            |> fromTupleInclIncl du
+                        DoseType = DoseType.fromString r.DoseType ""
+                        Diluents =
+                            parenteral
+                            |> Array.filter (fun p ->
+                                r.Solutions
+                                |> List.exists (fun s ->
+                                    p.Generic
+                                    |> String.equalsCapInsens s
+                                )
                             )
-                            |> Option.defaultValue true &&
-                            p.Routes
-                            |> Array.exists (Mapping.eqsRoute routeMapping (Some sr.Route))
-                        )
+                            |> Array.distinctBy _.Generic
+                        Volumes =
+                            if r.Volumes |> Array.isEmpty then None
+                            else
+                                r.Volumes
+                                |> ValueUnit.withUnit Units.mL
+                                |> Some
+                        Volume =
+                            (r.MinVol, r.MaxVol)
+                            |> fromTupleInclIncl (Some Units.mL)
+                        VolumeAdjust =
+                            (r.MinVolAdj, r.MaxVolAdj)
+                            |> fromTupleInclIncl (Units.mL |> Units.per Units.Weight.kiloGram |> Some)
+                        DripRate =
+                            (r.MinDrip, r.MaxDrip)
+                            |> fromTupleInclIncl (Some (Units.Volume.milliLiter |> Units.per Units.Time.hour))
+                        DosePerc =
+                            (r.MinPerc, r.MaxPerc)
+                            |> fromTupleInclIncl (Some Units.Count.times)
+                        Products = [||]
+                        SolutionLimits = [||]
+                    }
+                )
+                |> Array.map (fun (sr, rs) ->
+                    { sr with
+                        SolutionLimits =
+                            rs
+                            |> Array.map (fun l ->
+                                let u = l.Unit |> Units.fromString
+                                {
+                                    SolutionLimitTarget =
+                                        if l.Substance |> String.isNullOrWhiteSpace then l.Shape|> ShapeLimitTarget
+                                        else l.Substance |> SubstanceLimitTarget
+                                    Quantity =
+                                        (l.MinQty, l.MaxQty)
+                                        |> fromTupleInclIncl u
+                                    Quantities =
+                                        if l.Quantities |> Array.isEmpty then None
+                                        else
+                                            match u with
+                                            | None -> None
+                                            | Some u ->
+                                                l.Quantities
+                                                |> ValueUnit.withUnit u
+                                                |> Some
+                                    Concentration =
+                                        let u =
+                                            u
+                                            |> Option.map (Units.per Units.Volume.milliLiter)
+                                        (l.MinConc, l.MaxConc)
+                                        |> fromTupleInclIncl u
+                                }
+                            )
+                            |> Array.filter (fun sl ->
+                                (sl.Concentration |> MinMax.isEmpty &&
+                                sl.Quantities |> Option.isNone &&
+                                sl.Quantity |> MinMax.isEmpty)
+                                |> not
+                            )
+                        Products =
+                            products
+                            |> Array.filter (fun p ->
+                                p.Generic = sr.Generic &&
+                                sr.Shape
+                                |> Option.map (fun s ->
+                                    s |> String.equalsCapInsens p.Shape
+                                )
+                                |> Option.defaultValue true &&
+                                p.Routes
+                                |> Array.exists (Mapping.eqsRoute routeMapping (Some sr.Route))
+                            )
 
-                }
-            )
+                    }
+                )
+            |> Ok
+        with
+        | exn -> 
+            ("Error in SolutionRule.getResult: ", Some exn)
+            |> ErrorMsg
+            |> Error
 
 
     /// <summary>

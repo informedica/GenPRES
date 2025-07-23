@@ -15,7 +15,7 @@ module Product =
     open Informedica.GenUnits.Lib
 
 
-    let createError source exn = (Message.createExnMsg source exn) |> Error
+    let createError source exn = Message.createExnMsg source exn |> Error
 
 
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
@@ -59,7 +59,7 @@ module Product =
 
         open Utils
 
-        let getResult dataUrlId =
+        let get dataUrlId =
             try
                 Web.getDataFromSheet dataUrlId "Reconstitution"
                 |> fun data ->
@@ -99,10 +99,6 @@ module Product =
             | exn -> createError "Reconstiution.get" exn
 
 
-        [<Obsolete("use getResult instead")>]
-        let get = getResult >> Result.defaultValue [||]
-
-
         let filter routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
             let eqs a b =
                 a
@@ -121,7 +117,7 @@ module Product =
     module Enteral =
 
 
-        let getResult dataUrlId unitMapping =
+        let get dataUrlId unitMapping =
             try
                 Web.getDataFromSheet dataUrlId "EntFeeding"
 
@@ -233,14 +229,10 @@ module Product =
             | exn -> createError "Enteral.get" exn
 
 
-        [<Obsolete("use getResult instead")>]
-        let get dataUrlId unitMapping = getResult dataUrlId unitMapping |> Result.defaultValue [||]
-
-
     module Parenteral =
 
 
-        let getResult dataUrlId unitMapping =
+        let get dataUrlId unitMapping =
             try
                 Web.getDataFromSheet dataUrlId "ParentMeds"
                 |> fun data ->
@@ -352,9 +344,6 @@ module Product =
                 |> Ok
             with
             | exn -> createError "Parenteral.get" exn
-
-
-        let get dataUrlId unitMapping = getResult dataUrlId unitMapping |> Result.defaultValue [||]
 
 
     let create gen rte substs =
@@ -530,7 +519,7 @@ module Product =
         }
 
 
-    let getFormularyProductsResult dataUrlId =
+    let getFormularyProducts dataUrlId =
         try
             fun () ->
                 Web.getDataFromSheet dataUrlId "Formulary"
@@ -565,10 +554,6 @@ module Product =
             |> Ok
         with
         | exn -> createError "FormularyProducts" exn
-
-
-    [<Obsolete("use getFormularyProductsResult instead")>]
-    let getFormularyProducts = getFormularyProductsResult >> Result.defaultValue [||]
 
 
     let get

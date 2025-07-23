@@ -84,61 +84,68 @@ module RenalRule =
         }
 
 
-    let getDetails dataUrlId =
-        Web.getDataFromSheet dataUrlId "RenalRules"
-        |> fun data ->
-            let getColumn =
+    let getData dataUrlId =
+        try
+            Web.getDataFromSheet dataUrlId "RenalRules"
+            |> fun data ->
+                let getColumn =
+                    data
+                    |> Array.head
+                    |> Csv.getStringColumn
+
                 data
-                |> Array.head
-                |> Csv.getStringColumn
+                |> Array.tail
+                |> Array.map (fun r ->
+                    let get =
+                        getColumn r >> String.trim
+                    let toBrOpt = BigRational.toBrs >> Array.tryHead
 
-            data
-            |> Array.tail
-            |> Array.map (fun r ->
-                let get =
-                    getColumn r >> String.trim
-                let toBrOpt = BigRational.toBrs >> Array.tryHead
-
-                {
-                    Generic = get "Generic"
-                    Route = get "Route"
-                    Indication = get "Indication"
-                    Source = get "Source"
-                    MinAge = get "MinAge" |> toBrOpt
-                    MaxAge = get "MaxAge" |> toBrOpt
-                    IntDial = get "IntDial"
-                    ContDial = get "ContDial"
-                    PerDial = get "PerDial"
-                    MinGFR = get "MinGFR" |> toBrOpt
-                    MaxGFR = get "MaxGFR" |> toBrOpt
-                    DoseType = get "DoseType"
-                    DoseText = get "DoseText"
-                    Frequencies = get "Freqs" |> BigRational.toBrs
-                    DoseRed = get "DoseRed"
-                    DoseUnit = get "DoseUnit"
-                    AdjustUnit = get "AdjustUnit"
-                    FreqUnit = get "FreqUnit"
-                    RateUnit = get "RateUnit"
-                    MinInterval = get "MinInt" |> toBrOpt
-                    MaxInterval = get "MaxInt" |> toBrOpt
-                    IntervalUnit = get "IntUnit"
-                    Substance = get "Substance"
-                    MinQty = get "MinQty" |> toBrOpt
-                    MaxQty = get "MaxQty" |> toBrOpt
-                    NormQtyAdj = get "NormQtyAdj" |> String.replace " - " ";" |> BigRational.toBrs
-                    MinQtyAdj = get "MinQtyAdj" |> toBrOpt
-                    MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
-                    MinPerTime = get "MinPerTime" |> toBrOpt
-                    MaxPerTime = get "MaxPerTime" |> toBrOpt
-                    NormPerTimeAdj = get "NormPerTimeAdj" |> String.replace " - " ";" |> BigRational.toBrs
-                    MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
-                    MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
-                    MinRate = get "MinRate" |> toBrOpt
-                    MaxRate = get "MaxRate" |> toBrOpt
-                    MinRateAdj = get "MinRateAdj" |> toBrOpt
-                    MaxRateAdj = get "MaxRateAdj" |> toBrOpt
-                }
-            )
+                    {
+                        Generic = get "Generic"
+                        Route = get "Route"
+                        Indication = get "Indication"
+                        Source = get "Source"
+                        MinAge = get "MinAge" |> toBrOpt
+                        MaxAge = get "MaxAge" |> toBrOpt
+                        IntDial = get "IntDial"
+                        ContDial = get "ContDial"
+                        PerDial = get "PerDial"
+                        MinGFR = get "MinGFR" |> toBrOpt
+                        MaxGFR = get "MaxGFR" |> toBrOpt
+                        DoseType = get "DoseType"
+                        DoseText = get "DoseText"
+                        Frequencies = get "Freqs" |> BigRational.toBrs
+                        DoseRed = get "DoseRed"
+                        DoseUnit = get "DoseUnit"
+                        AdjustUnit = get "AdjustUnit"
+                        FreqUnit = get "FreqUnit"
+                        RateUnit = get "RateUnit"
+                        MinInterval = get "MinInt" |> toBrOpt
+                        MaxInterval = get "MaxInt" |> toBrOpt
+                        IntervalUnit = get "IntUnit"
+                        Substance = get "Substance"
+                        MinQty = get "MinQty" |> toBrOpt
+                        MaxQty = get "MaxQty" |> toBrOpt
+                        NormQtyAdj = get "NormQtyAdj" |> String.replace " - " ";" |> BigRational.toBrs
+                        MinQtyAdj = get "MinQtyAdj" |> toBrOpt
+                        MaxQtyAdj = get "MaxQtyAdj" |> toBrOpt
+                        MinPerTime = get "MinPerTime" |> toBrOpt
+                        MaxPerTime = get "MaxPerTime" |> toBrOpt
+                        NormPerTimeAdj = get "NormPerTimeAdj" |> String.replace " - " ";" |> BigRational.toBrs
+                        MinPerTimeAdj = get "MinPerTimeAdj" |> toBrOpt
+                        MaxPerTimeAdj = get "MaxPerTimeAdj" |> toBrOpt
+                        MinRate = get "MinRate" |> toBrOpt
+                        MaxRate = get "MaxRate" |> toBrOpt
+                        MinRateAdj = get "MinRateAdj" |> toBrOpt
+                        MaxRateAdj = get "MaxRateAdj" |> toBrOpt
+                    }
+                )
+            |> Ok
+        with
+        | exn -> 
+            ("Error in RenalRule.getDetails: ", Some exn)
+            |> ErrorMsg
+            |> Error
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -318,8 +325,8 @@ module RenalRule =
 
 
     let get dataUrlId =
-        getDetails dataUrlId
-        |> map
+        getData dataUrlId
+        |> Result.map map
 
 
     let filter mapping (filter : DoseFilter) (renalRules : RenalRule []) =

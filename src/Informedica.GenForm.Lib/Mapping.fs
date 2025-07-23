@@ -13,7 +13,7 @@ module Mapping =
     let createError source exn = (Message.createExnMsg source exn) |> Error
 
 
-    let getRouteMappingResult dataUrlId =
+    let getRouteMapping dataUrlId =
         try
             Web.getDataFromSheet dataUrlId "Routes"
             |> fun data ->
@@ -37,11 +37,7 @@ module Mapping =
         | exn ->  createError "getRouteMappingResult" exn
 
 
-    [<Obsolete("Use getRouteMappingResult instead")>]
-    let getRouteMapping = getRouteMappingResult >> Result.defaultValue [||]
-
-
-    let getUnitMappingResult dataUrlId =
+    let getUnitMapping dataUrlId =
         try
             Web.getDataFromSheet dataUrlId "Units"
             |> fun data ->
@@ -65,10 +61,6 @@ module Mapping =
             |> Ok
         with
         | exn -> createError "getUnitMappingResult" exn
-
-
-    [<Obsolete("Use getRouteMappingResult instead")>]
-    let getUnitMapping = getUnitMappingResult >> Result.defaultValue [||]
 
 
     let mapUnit (mapping : UnitMapping array) s =
@@ -109,7 +101,7 @@ module Mapping =
 
 
     /// Get the array of ShapeRoute records
-    let getShapeRoutesResult dataUrlId unitMapping =
+    let getShapeRoutes dataUrlId unitMapping =
         let mapUnit = mapUnit unitMapping
 
         try
@@ -193,10 +185,6 @@ module Mapping =
         | exn -> createError "getShapeRoutesResult" exn
 
 
-    [<Obsolete("use getShapeRouteResult instead")>]
-    let getShapeRoutes unitMapping = getShapeRoutesResult unitMapping >> Result.defaultValue [||]
-
-
     let filterShapeRoutes routeMapping (mapping : ShapeRoute []) rte shape unt =
         let mapRoute = mapRoute routeMapping
 
@@ -224,7 +212,7 @@ module Mapping =
 
 
     /// Mapping of long Z-index unit names to short names
-    let getValidShapesResult dataUrlId =
+    let getValidShapes dataUrlId =
         try
             Web.getDataFromSheet dataUrlId "ValidShapes"
             |> fun data ->
@@ -244,7 +232,3 @@ module Mapping =
             |> Ok
         with
         | exn -> createError "getValidShapesResult" exn
-
-
-    [<Obsolete("use getValidShapesResult instead")>]
-    let getValidShapes = getValidShapesResult >> Result.defaultValue [||]

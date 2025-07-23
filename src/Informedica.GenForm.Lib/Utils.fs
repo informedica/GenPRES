@@ -40,9 +40,6 @@ module Utils =
                 s
 
 
-        let getDataUrlIdGenPres = Memoization.memoize getDataUrlId
-
-
         /// <summary>
         /// Get data from a web sheet
         /// </summary>
