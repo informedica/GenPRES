@@ -31,6 +31,7 @@ GENPRES_PROD={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
     |> writeInfoMessage
 
 
+(*
     writeInfoMessage $"""
 
 === Initialized: ===
@@ -39,6 +40,7 @@ GENPRES_PROD={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
 - Scenarios {Models.OrderContext.empty |> UpdateOrderContext |> OrderContext.evaluate |> ignore}
 
 """
+*)
 
 
 let port =
