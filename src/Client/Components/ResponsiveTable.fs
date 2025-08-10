@@ -161,10 +161,15 @@ module ResponsiveTable =
                 pars?id |> string |> props.onRowClick
 
         let onSelectionChange =
-            fun pars ->
-                (pars |> string).Split ","
-                |> Array.filter (String.IsNullOrWhiteSpace >> not)
-                |> props.onSelectChange
+            fun selectionModel ->
+                Logging.log "selectionModel" selectionModel
+                // selectionModel is now { type: string, ids: Set }
+                // Extract the ids and convert to array
+                let selectedIds = 
+                    selectionModel?ids 
+                    |> unbox<Set<string>>
+                    |> Set.toArray
+                props.onSelectChange selectedIds
 
         let rows =
             props.rows
@@ -198,6 +203,11 @@ module ResponsiveTable =
                 """
                 |> toReact
 
+            let selectedRows =
+                props.selectedRows
+                |> fun ids ->
+                    {| ``type`` = "include"; ids = ids |> Set.ofArray |}
+
             JSX.jsx
                 $"""
             import {{ DataGrid }} from '@mui/x-data-grid';
@@ -208,9 +218,10 @@ module ResponsiveTable =
                 </Box>
                 <div style={ {| height =props.height; width = "100%" |} }>
                     <DataGrid
+                        showToolbar={true}
                         checkboxSelection={props.checkboxSelection}
                         disableRowSelectionOnClick
-                        rowSelectionModel = {props.selectedRows}
+                        rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         rows={rows}
                         slots={ {| toolbar = toolbar |} }
