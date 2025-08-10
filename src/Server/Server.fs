@@ -5,7 +5,6 @@ open Giraffe
 open Saturn
 open Fable.Remoting.Server
 open Fable.Remoting.Giraffe
-open Shared
 open Shared.Api
 open ServerApi
 open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
@@ -25,22 +24,11 @@ let initialize () =
 GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID" |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"}
 GENPRES_LOG={tryGetEnv "GENPRES_LOG" |> Option.defaultValue "0"}
 GENPRES_PROD={tryGetEnv "GENPRES_PROD" |> Option.defaultValue "0"}
-GENPRES_PROD={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
+GENPRES_DEBUG={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
 
 """
     |> writeInfoMessage
 
-
-(*
-    writeInfoMessage $"""
-
-=== Initialized: ===
-- Formulary {Models.Formulary.empty |> Formulary.get |> ignore}
-- Parenteralia {Models.Parenteralia.empty |> Parenteralia.get |> ignore}
-- Scenarios {Models.OrderContext.empty |> UpdateOrderContext |> OrderContext.evaluate |> ignore}
-
-"""
-*)
 
 
 let port =
@@ -49,6 +37,12 @@ let port =
 
 
 let webApi =
+    let serverApi = 
+        tryGetEnv "GENPRES_URL_ID"
+        |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+        |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId
+        |> createServerApi
+
     Remoting.createApi()
     |> Remoting.fromValue serverApi
     |> Remoting.withRouteBuilder routerPaths
@@ -57,7 +51,7 @@ let webApi =
 
 let webApp =
     choose [
-        webApi;
+        webApi
         GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI"
     ]
 

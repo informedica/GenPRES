@@ -3,7 +3,6 @@ namespace ServerApi
 
 module Mappers =
 
-
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
@@ -15,10 +14,6 @@ module Mappers =
 
 
     module Order =
-
-
-        module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
-
 
 
         let mapToValueUnit (dto : ValueUnit.Dto.Dto) : Types.ValueUnit =
@@ -332,9 +327,9 @@ module Mappers =
         |> Patient.calcPMAge
 
 
-    let mapFromShared pat (ctx : OrderContext)  : Informedica.GenOrder.Lib.Types.OrderContext =
+    let mapFromShared provider pat (ctx : OrderContext)  : Informedica.GenOrder.Lib.Types.OrderContext =
 
-        let mappedCtx = OrderContext.create pat
+        let mappedCtx = OrderContext.create provider pat
 
         { mappedCtx with
             Scenarios =
@@ -483,16 +478,11 @@ module Formulary =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineTime
-    open Informedica.GenUnits.Lib
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
-
     open Shared.Types
     open Shared
-
-
-    module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
 
     let mapFormularyToFilter (form: Formulary)=
@@ -516,8 +506,8 @@ module Formulary =
         | _ -> sel
 
 
-    let checkDoseRules pat (dsrs : DoseRule []) =
-        let routeMapping = Informedica.GenForm.Lib.Api.getRouteMappings ()
+    let checkDoseRules provider pat (dsrs : DoseRule []) =
+        let routeMapping = Api.getRouteMapping provider
 
         let empt, rs =
             dsrs
@@ -544,7 +534,7 @@ module Formulary =
             | xs -> xs
 
 
-    let get (form : Formulary) =
+    let get provider (form : Formulary) =
         let filter = form |> mapFormularyToFilter
 
         $"""
@@ -560,7 +550,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
 """
         |> writeInfoMessage
 
-        let dsrs = Formulary.getDoseRules filter
+        let dsrs = Formulary.getDoseRules provider filter
 
         writeInfoMessage $"Found: {dsrs |> Array.length} formulary dose rules"
         let form =
@@ -590,7 +580,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
 
                             let s =
                                 dsrs
-                                |> checkDoseRules filter.Patient
+                                |> checkDoseRules provider filter.Patient
                                 |> Array.map (fun s ->
                                     match s |> String.split "\t" with
                                     | [| s1; _; p; s2 |] ->
@@ -637,11 +627,11 @@ module Parenteralia =
     type Parenteralia = Shared.Types.Parenteralia
 
 
-    let get (par : Parenteralia) : Result<Parenteralia, string> =
+    let get provider (par : Parenteralia) : Result<Parenteralia, string> =
         writeInfoMessage $"getting parenteralia for {par.Generic}"
 
         let srs =
-            Formulary.getSolutionRules
+            Formulary.getSolutionRules provider
                 par.Generic
                 par.Shape
                 par.Route
@@ -711,7 +701,6 @@ module OrderContext =
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
-
     open Shared
     open Shared.Types
     open Mappers
@@ -741,7 +730,7 @@ module OrderContext =
         }
 
 
-    let evaluate cmd : Result<OrderContext,  string []> =
+    let evaluate provider cmd : Result<OrderContext,  string []> =
         let eval ctx =
             cmd
             |> function
@@ -751,7 +740,7 @@ module OrderContext =
                 | Api.ResetOrderScenario _ -> ctx |> OrderContext.ResetOrderScenario
                 | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
             |> OrderContext.printCtx "start eval"
-            |> OrderContext.evaluate
+            |> OrderContext.evaluate provider
             |> OrderContext.printCtx "finish eval"
 
         match cmd with
@@ -770,7 +759,7 @@ module OrderContext =
 
             try
                 ctx
-                |> mapFromShared pat
+                |> mapFromShared provider pat
                 |> eval
                 |> function
                     | OrderContext.UpdateOrderContext newCtx -> newCtx |> map
@@ -793,13 +782,13 @@ module TreatmentPlan =
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
 
 
-    let updateTreatmentPlan (tp : TreatmentPlan) =
+    let updateTreatmentPlan provider (tp : TreatmentPlan) =
         match tp.Selected with
         | Some os ->
             os
             |> Models.OrderContext.fromOrderScenario tp.Patient
             |> Api.UpdateOrderScenario
-            |> OrderContext.evaluate
+            |> OrderContext.evaluate provider
             |> Result.map (fun pr ->
                 let newOsc = pr.Scenarios |> Array.tryExactlyOne
 
@@ -840,26 +829,31 @@ module TreatmentPlan =
 
 module Command =
 
+
     open Shared.Api
     open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
 
 
-    let processCmd cmd =
+    let processCmd provider cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
+            writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
+
+
         match cmd with
         | OrderContextCmd ctxCmd ->
             ctxCmd
-            |> OrderContext.evaluate
+            |> OrderContext.evaluate provider
             |> Result.map (OrderContextUpdated >> OrderContextResp)
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
                 tp
-                |> TreatmentPlan.updateTreatmentPlan
+                |> TreatmentPlan.updateTreatmentPlan provider
                 |> TreatmentPlan.calculateTotals
                 |> TreatmentPlanUpdated
                 |> TreatmentPlanResp
@@ -874,12 +868,12 @@ module Command =
 
         | FormularyCmd form ->
             form
-            |> Formulary.get
+            |> Formulary.get provider
             |> Result.map FormularyResp
 
         | ParenteraliaCmd par ->
             par
-            |> Parenteralia.get
+            |> Parenteralia.get provider
             |> Result.mapError Array.singleton
             |> Result.map ParentaraliaResp
 
@@ -891,12 +885,12 @@ module ApiImpl =
 
 
     /// An implementation of the Shared IServerApi protocol.
-    let serverApi: IServerApi =
+    let createServerApi provider : IServerApi =
         {
-            processMessage =
-                fun msg ->
+            processCommand =
+                fun cmd ->
                     async {
-                        return msg |> Command.processCmd
+                        return cmd |> Command.processCmd provider
                     }
 
             testApi =

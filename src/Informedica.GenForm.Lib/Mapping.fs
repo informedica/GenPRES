@@ -10,6 +10,17 @@ module Mapping =
     open Informedica.GenUnits.Lib
 
 
+    module Constants =
+
+        let [<Literal>] unitMappingSheet = "Units"
+
+        let [<Literal>] routeMappingSheet = "Routes"
+
+        let [<Literal>] validShapesSheet = "ValidShapes"
+
+        let [<Literal>] shapeRoutesSheet = "ShapeRoute"
+
+
     let createError source exn = Message.createExnMsg source exn |> Error
 
 
@@ -23,9 +34,9 @@ module Mapping =
         )
 
 
-    let getData dataUrlId f =
+    let getData dataUrlId sheet f =
         try
-            Web.getDataFromSheet dataUrlId "Routes"
+            Web.getDataFromSheet dataUrlId sheet
             |> fun data ->
                 match data |> Array.tryHead with
                 | None -> 
@@ -55,7 +66,7 @@ module Mapping =
                 Long = get "ZIndex"
                 Short = get "ShortDutch"
             }
-        |> getData dataUrlId 
+        |> getData dataUrlId Constants.routeMappingSheet
         |> mapErrorSource "getRouteMapping"
 
 
@@ -68,7 +79,7 @@ module Mapping =
                 MV = get "MetaVisionUnit"
                 Group = get "Group"
             }
-        |> getData dataUrlId
+        |> getData dataUrlId Constants.unitMappingSheet
         |> mapErrorSource "getUnitMapping"
 
 
@@ -175,7 +186,7 @@ module Mapping =
                                 |> Option.map (ValueUnit.singleWithUnit du)
                             )
                     }
-        |> getData dataUrlId 
+        |> getData dataUrlId Constants.shapeRoutesSheet
         |> mapErrorSource "getShapeRoutes"
 
 
@@ -205,30 +216,8 @@ module Mapping =
         |> Array.exists id
 
 
-    let getValidShapesResult dataUrlId =
+    let getValidShapes dataUrlId =
         fun get _ ->
             get "Shape"
-        |> getData dataUrlId
+        |> getData dataUrlId Constants.validShapesSheet
         |> mapErrorSource "getValidShapesResult"
-
-
-    let getValidShapes dataUrlId =
-        try
-            Web.getDataFromSheet dataUrlId "ValidShapes"
-            |> fun data ->
-                let getColumn =
-                    data
-                    |> Array.head
-                    |> Csv.getStringColumn
-
-                data
-                |> Array.tail
-                |> Array.map (fun r ->
-                    let get = getColumn r
-
-                    get "Shape"
-                )
-                |> Array.distinct
-            |> Ok
-        with
-        | exn -> createError "getValidShapesResult" exn

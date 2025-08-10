@@ -94,7 +94,7 @@ module private Elmish =
 
     let createApiMsg msg cmd =
         async {
-            let! result = serverApi.processMessage cmd
+            let! result = serverApi.processCommand cmd
             return Finished result |> msg
         }
         |> Cmd.fromAsync

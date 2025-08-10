@@ -41,6 +41,23 @@ module Api =
         | TreatmentPlanUpdated of TreatmentPlan
 
 
+    module Command = 
+
+        let toString = function
+            | OrderContextCmd cmd -> 
+                match cmd with
+                | UpdateOrderContext _ -> "UpdateOrderContext"
+                | SelectOrderScenario _ -> "SelectOrderScenario"
+                | UpdateOrderScenario _ -> "UpdateOrderScenario"
+                | ResetOrderScenario _ -> "ResetOrderScenario"
+                | ReloadResources _ -> "ReloadResources"
+            | TreatmentPlanCmd cmd -> 
+                match cmd with
+                | UpdateTreatmentPlan _ -> "UpdateTreatmentPlan"
+                | FilterTreatmentPlan _ -> "FilterTreatmentPlan"
+            | FormularyCmd _ -> "FormularyCmd"
+            | ParenteraliaCmd _ -> "ParenteraliaCmd"
+
 
     /// Defines how routes are generated on server and mapped from client
     let routerPaths typeName method = sprintf "/api/%s/%s" typeName method
@@ -50,6 +67,6 @@ module Api =
     /// to learn more, read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
     type IServerApi =
         {
-            processMessage: Command -> Async<Result<Response, string[]>>
+            processCommand: Command -> Async<Result<Response, string[]>>
             testApi: unit -> Async<string>
         }

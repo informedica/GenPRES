@@ -2,73 +2,66 @@ namespace Informedica.GenOrder.Lib
 
 module Filters =
 
+    open System
+
     open Informedica.GenForm.Lib
+    open Informedica.GenForm.Lib.Resources
 
 
-    /// <summary>
-    /// Get all possible indications for a Patient
-    /// </summary>
-    let getIndications = Api.getPrescriptionRules >> PrescriptionRule.indications
+    let getPrescriptionRules (provider: IResourceProvider) =
+        Api.getPrescriptionRules provider 
 
 
-    /// <summary>
-    /// Get all possible generics for a Patient
-    /// </summary>
-    let getGenerics = Api.getPrescriptionRules >> PrescriptionRule.generics
+    let filterPrescriptionRules (provider: IResourceProvider) filter =
+        Api.filterPrescriptionRules provider filter
 
 
-    /// <summary>
-    /// Get all possible routes for a Patient
-    /// </summary>
-    let getRoutes = Api.getPrescriptionRules >> PrescriptionRule.routes
+    let getIndications (provider: IResourceProvider) =
+        getPrescriptionRules provider >> PrescriptionRule.indications
 
 
-    /// <summary>
-    /// Get all possible shapes for a Patient
-    /// </summary>
-    let getShapes = Api.getPrescriptionRules >> PrescriptionRule.shapes
+    let getGenerics (provider: IResourceProvider) =
+        getPrescriptionRules provider >> PrescriptionRule.generics
 
 
-    /// <summary>
-    /// Get all possible frequencies for a Patient
-    /// </summary>
-    let getFrequencies =  Api.getPrescriptionRules >> PrescriptionRule.frequencies
+    let getRoutes (provider: IResourceProvider) =
+        getPrescriptionRules provider >> PrescriptionRule.routes
 
 
-    /// <summary>
-    /// Filter the indications using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterIndications = Api.filterPrescriptionRules >> PrescriptionRule.indications
+    let getShapes (provider: IResourceProvider) =
+        getPrescriptionRules provider >> PrescriptionRule.shapes
 
 
-    /// <summary>
-    /// Filter the generics using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterGenerics = Api.filterPrescriptionRules >> PrescriptionRule.generics
+    let getFrequencies (provider: IResourceProvider) =
+        getPrescriptionRules provider >> PrescriptionRule.frequencies
 
 
-    /// <summary>
-    /// Filter the routes using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterRoutes = Api.filterPrescriptionRules >> PrescriptionRule.routes
+    let filterIndications (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.indications
 
 
-    /// <summary>
-    /// Filter the shapes using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterShapes = Api.filterPrescriptionRules >> PrescriptionRule.shapes
+    let filterGenerics (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.generics
 
 
-    let filterDoseTypes = Api.filterPrescriptionRules >> PrescriptionRule.doseTypes
+    let filterRoutes (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.routes
 
 
-    let filterDiluents = Api.filterPrescriptionRules >> PrescriptionRule.diluents >> Array.map _.Generic
+    let filterShapes (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.shapes
 
 
-    /// <summary>
-    /// Filter the frequencies using a Informedica.GenForm.Lib.Filter
-    /// </summary>
-    let filterFrequencies =  Api.filterPrescriptionRules >> PrescriptionRule.shapes
+    let filterDoseTypes (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.doseTypes
+
+
+    let filterFrequencies (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.frequencies
+
+
+    let filterDiluents (provider: IResourceProvider) =
+        filterPrescriptionRules provider >> PrescriptionRule.diluents >> Array.map _.Generic
 
 
 module OrderScenario =
@@ -410,10 +403,7 @@ module OrderContext =
     module Prescription = Order.Prescription
 
 
-    /// <summary>
-    /// Create an initial ScenarioResult for a Patient.
-    /// </summary>
-    let create (pat : Patient) =
+    let create provider (pat : Patient) =
         let pat =
             { pat with
                 Weight =
@@ -421,7 +411,7 @@ module OrderContext =
                     |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
             }
 
-        let prs = pat |> Api.getPrescriptionRules
+        let prs = pat |> getPrescriptionRules provider
 
         let filter =
             {
@@ -448,7 +438,7 @@ module OrderContext =
         }
 
 
-    let getRules ctx =
+    let getRules provider ctx =
 
         match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
         | Some w, Some h, d when d |> Option.isSome ->
@@ -492,11 +482,11 @@ module OrderContext =
                     }
                 }
 
-            let inds = doseFilter |> filterIndications
-            let gens = doseFilter |> filterGenerics
-            let rtes = doseFilter |> filterRoutes
-            let shps = doseFilter |> filterShapes
-            let dsts = doseFilter |> filterDoseTypes
+            let inds = doseFilter |> filterIndications provider
+            let gens = doseFilter |> filterGenerics provider
+            let rtes = doseFilter |> filterRoutes provider
+            let shps = doseFilter |> filterShapes provider
+            let dsts = doseFilter |> filterDoseTypes provider
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
@@ -530,11 +520,12 @@ module OrderContext =
                     Shape = shp
                     DoseType = dst
                 }
-                |> Api.filterPrescriptionRules
+                |> Api.filterPrescriptionRules provider
             | _ -> [||]
         | _ ->
-            ctx.Patient |> create
+            ctx.Patient |> create provider
             , [||]
+
 
 
     let setFilter filter ctx = { ctx with Filter = filter }
@@ -786,8 +777,9 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let getScenarios ctx =
-        let ctx, prs = ctx |> getRules
+
+    let getScenarios provider  ctx =
+        let ctx, prs = ctx |> getRules provider
 
         if prs |> Array.isEmpty then ctx
         else
@@ -813,9 +805,9 @@ Scenarios: {scenarios}
         |> updateFilterIfOneScenario
 
 
-    let reloadResources ctx =
-        Api.reloadCache ()
-        ctx |>getScenarios
+    let reloadResources provider ctx =
+        Api.reloadCache provider
+        ctx |>getScenarios provider 
 
 
     let activateLogger () =
@@ -832,17 +824,16 @@ Scenarios: {scenarios}
             OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
 
-    /// <summary>
-    /// </summary>
-    let evaluate cmd =
+    let evaluate provider cmd =
         activateLogger ()
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios |> UpdateOrderContext
+        | UpdateOrderContext ctx -> ctx |> getScenarios provider |> UpdateOrderContext
         | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario
         | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario
         | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario
-        | ReloadResources ctx -> ctx |> reloadResources |> ReloadResources
+        | ReloadResources ctx -> ctx |> reloadResources provider |> ReloadResources
+
 
     let printCtx msg cmd =
         writeDebugMessage $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
@@ -899,14 +890,13 @@ module Formulary =
     module Prescription = Order.Prescription
 
 
+    let getDoseRules provider filter =
+        Api.getDoseRules provider
+        |> Api.filterDoseRules provider filter
 
-    let getDoseRules filter =
-        Api.getDoseRules ()
-        |> Api.filterDoseRules filter
 
-
-    let getSolutionRules generic shape route =
-        Api.getSolutionRules ()
+    let getSolutionRules provider generic shape route =
+        Api.getSolutionRules provider
         |> Array.filter (fun sr ->
             generic
             |> Option.map (String.equalsCapInsens sr.Generic)

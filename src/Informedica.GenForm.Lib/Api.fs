@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module Resources =
 
     open System
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
     open FsToolkit.ErrorHandling.ResultCE
 
 
@@ -190,26 +191,27 @@ module Resources =
                 let! parenteralMeds = config.GetParenteralMeds unitMappings
                 let! enteralFeeding = config.GetEnteralFeeding unitMappings
                 let products =
-                        config.GetProducts
-                            unitMappings
-                            routeMappings
-                            validShapes
-                            shapeRoutes
-                            reconstitution
-                            parenteralMeds
-                            enteralFeeding
-                            formularyProducts
+                    config.GetProducts
+                        unitMappings
+                        routeMappings
+                        validShapes
+                        shapeRoutes
+                        reconstitution
+                        parenteralMeds
+                        enteralFeeding
+                        formularyProducts
                 let! doseRules =
                     config.GetDoseRules
                         routeMappings
                         shapeRoutes
                         products
                 let! solutionRules =
-                        config.GetSolutionRules
-                            routeMappings
-                            parenteralMeds
-                            products
+                    config.GetSolutionRules
+                        routeMappings
+                        parenteralMeds
+                        products
                 let! renalRules = config.GetRenalRules ()
+
                 return
                     {
                         UnitMappings = unitMappings
@@ -286,6 +288,7 @@ module Resources =
                 cachedState <- Some (state, DateTime.UtcNow)
                 state
             | Error msg ->
+                writeErrorMessage $"Failed to load resources: {msg}"
                 // Return empty state on error
                 {
                     UnitMappings = [||]
@@ -300,7 +303,7 @@ module Resources =
                     DoseRules = [||]
                     SolutionRules = [||]
                     RenalRules = [||]
-                    Messages = [| msg|]
+                    Messages = [| msg |]
                     LastReloaded = DateTime.MinValue
                     IsLoaded = false
                 }
@@ -341,24 +344,27 @@ module Api =
     open Resources
 
 
-    let dataUrlId = Environment.GetEnvironmentVariable("GENPRES_URL_ID") |> Option.ofObj |> Option.defaultValue "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+    let getCachedProviderWithDataUrlId dataUrlId =  
+        CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
 
 
-    /// Default cached API provider instance
-    let cachedApiProvider : IResourceProvider = CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
+    let reloadCache (provider : IResourceProvider) =
+        match provider with
+        | :? CachedResourceProvider as cachedProvider -> cachedProvider.ReloadCache()
+        | _ -> failwith "Provider is not a CachedResourceProvider instance"
 
 
-    let reloadCache() =
-        match cachedApiProvider with
-        | :? CachedResourceProvider as provider -> provider.ReloadCache()
-        | _ -> failwith "Cached API provider is not a CachedResourceProvider instance"
+    let getRouteMapping (provider : IResourceProvider) = provider.GetRouteMappings()
 
 
-    // Public API functions that use the cached provider
-    let getRouteMappings () = cachedApiProvider.GetRouteMappings()
-    let getDoseRules () = cachedApiProvider.GetDoseRules()
-    let getSolutionRules () = cachedApiProvider.GetSolutionRules()
-    let getRenalRules () = cachedApiProvider.GetRenalRules()
+    let getDoseRules (provider : IResourceProvider) = provider.GetDoseRules()
+
+
+    let getSolutionRules (provider : IResourceProvider) = provider.GetSolutionRules()
+
+
+    let getRenalRules (provider : IResourceProvider) = provider.GetRenalRules()
+
 
     (*
     let getUnitMappings () = cachedApiProvider.GetUnitMappings()
@@ -374,8 +380,9 @@ module Api =
 
     // Filtering functions using cached mappings
 
-    let filterDoseRules filter doseRules =
-        let routeMappings = getRouteMappings()
+
+    let filterDoseRules (provider: IResourceProvider) filter doseRules =
+        let routeMappings = getRouteMapping provider
         DoseRule.filter routeMappings filter doseRules
 
     (*
@@ -388,11 +395,12 @@ module Api =
         Product.filter routeMappings filter products
     *)
 
-    let getPrescriptionRules =
-        let doseRules = cachedApiProvider.GetDoseRules()
-        let solutionRules = cachedApiProvider.GetSolutionRules()
-        let routeMappings = cachedApiProvider.GetRouteMappings()
-        let renalRules = cachedApiProvider.GetRenalRules()
+
+    let getPrescriptionRules (provider: IResourceProvider) =
+        let doseRules = getDoseRules provider
+        let solutionRules = getSolutionRules provider
+        let routeMappings = getRouteMapping provider
+        let renalRules = getRenalRules provider
 
         PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
 
@@ -402,11 +410,11 @@ module Api =
         |> filterDoseRules filter
     *)
 
-    let filterPrescriptionRules filter =
-        let doseRules = getDoseRules()
-        let solutionRules = getSolutionRules()
-        let routeMappings = getRouteMappings()
-        let renalRules = getRenalRules()
+
+    let filterPrescriptionRules (provider: IResourceProvider) filter =
+        let doseRules = getDoseRules provider
+        let solutionRules = getSolutionRules provider
+        let routeMappings = getRouteMapping provider
+        let renalRules = getRenalRules provider
 
         PrescriptionRule.filter doseRules solutionRules renalRules routeMappings filter
-
