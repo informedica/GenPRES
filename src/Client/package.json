@@ -10,23 +10,23 @@
     },
     "devDependencies": {
         "@types/node": "^24.0.3",
-        "@vitejs/plugin-react": "^4.5.2",
+        "@vitejs/plugin-react": "^5.0.0",
         "autoprefixer": "^10.4.21",
         "mocha": "^11.7.0",
         "postcss": "^8.4.38",
         "sass": "^1.89.2",
-        "vite": "^6.1.0",
-        "vite-plugin-inspect": "^10.1.1"
+        "vite": "^7.1.1",
+        "vite-plugin-inspect": "^11.3.2"
     },
     "dependencies": {
         "@emotion/react": "^11.11.4",
         "@emotion/styled": "^11.11.5",
-        "@fontsource/roboto": "^4.5.8",
+        "@fontsource/roboto": "^5.2.6",
         "@mui/icons-material": "^7.3.1",
         "@mui/material": "^7.3.1",
         "@mui/x-data-grid": "^8.10.0",
         "react": "^19.0.0",
         "react-dom": "^19.1.0",
-        "react-markdown": "^9.0.1"
+        "react-markdown": "^10.1.0"
     }
 }
