@@ -4,8 +4,9 @@ namespace Informedica.GenForm.Lib
 [<AutoOpen>]
 module Types =
 
-    open System
     open MathNet.Numerics
+
+    open Informedica.Utils.Lib
     open Informedica.GenUnits.Lib
 
     type MinMax = Informedica.GenCore.Lib.Ranges.MinMax
@@ -616,4 +617,4 @@ module Types =
 
     
     type GenFormResult<'T> = 
-        Result<'T * Message list, Message list>
+        ValidatedResult<'T, Message>

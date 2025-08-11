@@ -140,7 +140,7 @@ module RenalRule =
                         MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                     }
                 )
-            |> createOk
+            |> createOkNoMsgs
         with
         | exn -> 
             createError "Error in RenalRule.getDetails: " exn 
@@ -320,7 +320,7 @@ module RenalRule =
                 rf
                 limits
         )
-        |> createOk
+        |> createOkNoMsgs
 
 
     let get dataUrlId : GenFormResult<_> =

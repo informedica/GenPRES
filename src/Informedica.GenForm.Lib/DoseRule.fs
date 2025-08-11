@@ -67,12 +67,11 @@ module DoseRule =
     open System
     open MathNet.Numerics
     open FsToolkit.ErrorHandling.ResultCE
-    
+
     open FSharp.Data
     open FSharp.Data.JsonExtensions
 
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
 
@@ -533,7 +532,7 @@ module DoseRule =
 
 
     let getData dataUrlId : GenFormResult<_> =
-        try 
+        try
             Web.getDataFromSheet dataUrlId "DoseRules"
             |> fun data ->
                 let getColumn =
@@ -614,7 +613,7 @@ module DoseRule =
                     }
                 )
             |> Array.distinct
-            |> createOk
+            |> createOkNoMsgs
         with
         | exn ->
              createError "getDataResult" exn
@@ -673,8 +672,9 @@ module DoseRule =
                     if filtered |> Array.length = 0 then
                         let key = $"{gen} {rte}"
                         if warnings.ContainsKey(key) |> not then
-                            warnings.Add(key, key)
-                            writeWarningMessage $"no products for {key}"
+                            let msg =
+                                $"{key}: no products found"
+                            warnings.Add(key, msg)
 
                         [|
                             { r with
@@ -985,12 +985,12 @@ module DoseRule =
         =
         let addDoseLimits = addDoseLimits routeMapping shapeRoutes
 
-        let map data = 
+        let map data =
             result {
                 let! data, msgs = data |> processDoseRuleData prods routeMapping
                 // split in ok and error results
-                let rules, errs = 
-                    data 
+                let rules, errs =
+                    data
                     |> Array.map (fun d -> d, d |> mapToDoseRule)
                     |> Array.partition (snd >> Result.isOk)
                 // collect all messages
@@ -1005,14 +1005,14 @@ module DoseRule =
                     |> List.append msgs
                 // process ok results
                 let rules =
-                    rules 
+                    rules
                     |> Array.map (fun (d, r) ->
                         r |> Result.get, d
                     )
                     |> Array.groupBy fst
                     |> Array.map (fun (dr, rs) ->
                         dr |> addDoseLimits (rs |> Array.map snd)
-                    )   
+                    )
                 return! Ok (rules, msgs)
             }
 

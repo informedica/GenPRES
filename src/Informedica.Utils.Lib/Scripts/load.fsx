@@ -28,4 +28,5 @@
 #load "../App.fs"
 #load "../Console.fs"
 #load "../StopWatch.fs"
+#load "../Result.fs"
 

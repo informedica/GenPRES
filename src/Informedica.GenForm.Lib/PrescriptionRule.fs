@@ -4,10 +4,11 @@ namespace Informedica.GenForm.Lib
 
 module PrescriptionRule =
 
-    open System
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.Utils.Lib.ConsoleWriter.Flip
+
+    open GenFormResult
 
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
@@ -101,7 +102,8 @@ module PrescriptionRule =
         solutionRules
         renalRules
         routeMapping
-        (filter : DoseFilter) =
+        (filter : DoseFilter) : GenFormResult<_> =
+
         let warns = ResizeArray<string>()
         let pat = filter.Patient
 
@@ -230,7 +232,12 @@ module PrescriptionRule =
         |> fun prs ->
             warns |> Seq.distinct |> Seq.sort |> Seq.iter (writeWarningMessage true false)
             writeWarningMessage  true false "== end of reconstitution warnings"
-            prs
+            warns
+            |> Seq.distinct
+            |> Seq.sort
+            |> Seq.toList
+            |> List.map Warning
+            |> createOk prs 
 
 
     /// Get all matching PrescriptionRules for a given Patient.

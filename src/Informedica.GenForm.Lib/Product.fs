@@ -4,9 +4,7 @@ namespace Informedica.GenForm.Lib
 
 module Product =
 
-    open System
 
-    open System.Collections.Generic
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineNoTime
@@ -93,7 +91,7 @@ module Product =
                                 |> Array.map String.trim
                         }
                     )
-                |> createOk
+                |> createOkNoMsgs
             with
             | exn -> createError "Reconstiution.get" exn
 
@@ -223,7 +221,7 @@ module Product =
                                 )
                         }
                     )
-                |> createOk
+                |> createOkNoMsgs
             with
             | exn -> createError "Enteral.get" exn
 
@@ -340,7 +338,7 @@ module Product =
                                 )
                         }
                     )
-                |> createOk
+                |> createOkNoMsgs
             with
             | exn -> createError "Parenteral.get" exn
 
@@ -550,7 +548,7 @@ module Product =
                         }
                     )
             |> StopWatch.clockFunc "retrieved formulary products"
-            |> createOk
+            |> createOkNoMsgs
         with
         | exn -> createError "FormularyProducts" exn
 
@@ -665,7 +663,7 @@ module Product =
                     )
                     |> fun xs ->
                         if xs |> Array.isEmpty then
-                            warnings.Add($"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}")
+                            warnings.Add $"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}"
                         xs
                     |> Array.map (fun r ->
                         let v =

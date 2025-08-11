@@ -16,4 +16,4 @@ Path.Tests.testAll ()
 Csv.Tests.testAll ()
 Char.Tests.testAll ()
 BigInteger.Tests.testFareySequence()
-
+ValidatedResult.Tests.testAll ()

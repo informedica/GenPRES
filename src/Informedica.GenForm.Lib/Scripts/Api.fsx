@@ -4,17 +4,19 @@
 #r "../bin/Debug/net9.0/Informedica.GenForm.Lib.dll"
 
 
-open System
 open Informedica.GenForm.Lib
+open Informedica.GenForm.Lib.Resources
+
+#time
 
 
-Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
+System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+
+let provider : IResourceProvider = Api.getCachedProviderWithDataUrlId "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
 
 
+provider.GetResourceInfo () |> ignore
 
-Api.cachedApiProvider.GetResourceInfo ()
-
-Api.reloadCache ()
-
-Api.getProducts ()
-|> Array.filter (fun p -> p.Generic = "noradrenaline")
+provider
+|> Api.getPrescriptionRules
+|> fun f -> Patient.patient |> f

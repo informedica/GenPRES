@@ -13,13 +13,13 @@ module Mapping =
 
     module Constants =
 
-        let [<Literal>] unitMappingSheet = "Units"
+        let [<Literal>] unitsSheet = "Units"
 
-        let [<Literal>] routeMappingSheet = "Routes"
+        let [<Literal>] routesSheet = "Routes"
 
         let [<Literal>] validShapesSheet = "ValidShapes"
 
-        let [<Literal>] shapeRoutesSheet = "ShapeRoute"
+        let [<Literal>] shapeRouteSheet = "ShapeRoute"
 
 
 
@@ -28,7 +28,7 @@ module Mapping =
             Web.getDataFromSheet dataUrlId sheet
             |> fun data ->
                 match data |> Array.tryHead with
-                | None -> 
+                | None ->
                     [
                         ("Sheet is empty or not found", None)
                         |> ErrorMsg
@@ -46,7 +46,7 @@ module Mapping =
 
                         f getString getFloat
                     )
-                    |> createOk
+                    |> createOkNoMsgs
         with
         | exn -> createError "getData" exn
 
@@ -57,9 +57,8 @@ module Mapping =
                 Long = get "ZIndex"
                 Short = get "ShortDutch"
             }
-        |> getData dataUrlId Constants.routeMappingSheet
+        |> getData dataUrlId Constants.routesSheet
         |> mapErrorSource "getRouteMapping"
-
 
 
     let getUnitMapping dataUrlId =
@@ -70,7 +69,7 @@ module Mapping =
                 MV = get "MetaVisionUnit"
                 Group = get "Group"
             }
-        |> getData dataUrlId Constants.unitMappingSheet
+        |> getData dataUrlId Constants.unitsSheet
         |> mapErrorSource "getUnitMapping"
 
 
@@ -113,7 +112,7 @@ module Mapping =
 
     let getShapeRoutes dataUrlId unitMapping =
         let mapUnit = mapUnit unitMapping
-        
+
         fun getStr getFlt ->
             let un = getStr "Unit" |> mapUnit |> Option.defaultValue NoUnit
 
@@ -177,7 +176,7 @@ module Mapping =
                                 |> Option.map (ValueUnit.singleWithUnit du)
                             )
                     }
-        |> getData dataUrlId Constants.shapeRoutesSheet
+        |> getData dataUrlId Constants.shapeRouteSheet
         |> mapErrorSource "getShapeRoutes"
 
 

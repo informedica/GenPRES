@@ -2,18 +2,20 @@ namespace Informedica.GenOrder.Lib
 
 module Filters =
 
-    open System
-
     open Informedica.GenForm.Lib
     open Informedica.GenForm.Lib.Resources
 
 
     let getPrescriptionRules (provider: IResourceProvider) =
         Api.getPrescriptionRules provider 
+        >> Result.map fst
+        >> Result.defaultValue [||]
 
 
     let filterPrescriptionRules (provider: IResourceProvider) filter =
         Api.filterPrescriptionRules provider filter
+        |> Result.map fst
+        |> Result.defaultValue [||]
 
 
     let getIndications (provider: IResourceProvider) =
@@ -399,7 +401,6 @@ module OrderContext =
 
     open Helpers
 
-
     module Prescription = Order.Prescription
 
 
@@ -521,10 +522,10 @@ module OrderContext =
                     DoseType = dst
                 }
                 |> Api.filterPrescriptionRules provider
-            | _ -> [||]
+            | _ -> GenFormResult.createOkNoMsgs [||]
         | _ ->
             ctx.Patient |> create provider
-            , [||]
+            , GenFormResult.createOkNoMsgs [||]
 
 
 
@@ -777,9 +778,13 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
+    let getScenarios provider ctx =
+        let ctx, result = ctx |> getRules provider
 
-    let getScenarios provider  ctx =
-        let ctx, prs = ctx |> getRules provider
+        let prs, msgs =
+            match result with
+            | Ok (prs, msgs) -> prs, msgs
+            | Error msgs -> [||], msgs
 
         if prs |> Array.isEmpty then ctx
         else
@@ -803,11 +808,14 @@ Scenarios: {scenarios}
                     |> filterScenariosByPreparation
             }
         |> updateFilterIfOneScenario
+        |> GenFormResult.createOkWithMsgs msgs
 
 
     let reloadResources provider ctx =
         Api.reloadCache provider
-        ctx |>getScenarios provider 
+        
+        ctx 
+        |> getScenarios provider 
 
 
     let activateLogger () =
@@ -828,11 +836,11 @@ Scenarios: {scenarios}
         activateLogger ()
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios provider |> UpdateOrderContext
+        | UpdateOrderContext ctx -> ctx |> getScenarios provider |> ValidatedResult.get |> UpdateOrderContext
         | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario
         | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario
         | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario
-        | ReloadResources ctx -> ctx |> reloadResources provider |> ReloadResources
+        | ReloadResources ctx -> ctx |> reloadResources provider |> ValidatedResult.get |> ReloadResources
 
 
     let printCtx msg cmd =

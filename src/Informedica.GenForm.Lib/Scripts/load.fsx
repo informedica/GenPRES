@@ -6,6 +6,7 @@
 #r "nuget: Aether"
 #r "nuget: Markdig"
 #r "nuget: ClosedXML"
+#r "nuget: FsToolkit.ErrorHandling"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"

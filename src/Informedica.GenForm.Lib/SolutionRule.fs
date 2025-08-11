@@ -212,7 +212,7 @@ module SolutionRule =
 
                     }
                 )
-            |> createOk
+            |> createOkNoMsgs
         with
         | exn -> 
             createError "Error in SolutionRule.getResult: " exn

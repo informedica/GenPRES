@@ -3,8 +3,6 @@ namespace Informedica.GenForm.Lib
 
 module Check =
 
-
-    open System
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineNoTime
     open MathNet.Numerics
@@ -13,13 +11,13 @@ module Check =
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenForm.Lib
 
-
     module GStand = Informedica.ZForm.Lib.GStand
     module Dosage = Informedica.ZForm.Lib.DoseRule.Dosage
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder
 
     type Dosage = Informedica.ZForm.Lib.Types.Dosage
     type DoseRange = Informedica.ZForm.Lib.Types.DoseRange
+
 
     let unitToString = Units.toStringDutchShort >> String.removeBrackets
 

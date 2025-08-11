@@ -39,7 +39,13 @@ module Utils =
             )
 
 
-        let createOk x : GenFormResult<_> = (x, []) |> Ok
+        let createOk x msgs : GenFormResult<_> = (x, msgs) |> Ok
+
+
+        let createOkWithMsgs msgs x = createOk x msgs
+
+
+        let createOkNoMsgs x  = createOk x []
 
 
     module Web =

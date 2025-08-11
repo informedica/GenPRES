@@ -118,9 +118,6 @@ type Patient =
 and AgeWeeksDays = { Weeks: int<week>; Days : int<day> }
 
 
-
-
-
 module AgeType =
 
 
@@ -214,7 +211,6 @@ module AgeValue =
             av.Months
             av.Weeks
             av.Days
-
 
 
     module Optics =
