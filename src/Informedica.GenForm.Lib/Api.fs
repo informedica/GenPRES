@@ -128,14 +128,14 @@ module Resources =
 
     type ResourceConfig =
         {
-            GetUnitMappings: unit -> Result<UnitMapping[], Message>
-            GetRouteMappings: unit -> Result<RouteMapping[], Message>
-            GetValidShapes: unit -> Result<string[], Message>
-            GetShapeRoutes: UnitMapping [] -> Result<ShapeRoute[], Message>
-            GetFormularyProducts: unit -> Result<FormularyProduct[], Message>
-            GetReconstitution: unit -> Result<Reconstitution[], Message>
-            GetParenteralMeds: UnitMapping[] -> Result<Product[], Message>
-            GetEnteralFeeding: UnitMapping[] -> Result<Product[], Message>
+            GetUnitMappings: unit -> GenFormResult<UnitMapping []>
+            GetRouteMappings: unit -> GenFormResult<RouteMapping []>
+            GetValidShapes: unit -> GenFormResult<string []>
+            GetShapeRoutes: UnitMapping [] -> GenFormResult<ShapeRoute []>
+            GetFormularyProducts: unit -> GenFormResult<FormularyProduct []>
+            GetReconstitution: unit -> GenFormResult<Reconstitution []>
+            GetParenteralMeds: UnitMapping[] -> GenFormResult<Product []>
+            GetEnteralFeeding: UnitMapping[] -> GenFormResult<Product []>
             GetProducts:
                 UnitMapping[] ->
                 RouteMapping[] ->
@@ -150,13 +150,13 @@ module Resources =
                 RouteMapping[] ->
                 ShapeRoute[] ->
                 Product[] ->
-                Result<DoseRule[], Message>
+                GenFormResult<DoseRule []>
             GetSolutionRules:
                 RouteMapping[] ->
                 Product[] ->
                 Product[] ->
-                Result<SolutionRule[], Message>
-            GetRenalRules: unit -> Result<RenalRule[], Message>
+                GenFormResult<SolutionRule []>
+            GetRenalRules: unit -> GenFormResult<RenalRule []>
         }
 
 
@@ -179,17 +179,17 @@ module Resources =
 
 
     /// Load all resources at once using provided configuration
-    let loadAllResourcesWithConfig (config: ResourceConfig) : Result<ResourceState, Message> =
+    let loadAllResourcesWithConfig (config: ResourceConfig)  =
         try
             result {
-                let! unitMappings = config.GetUnitMappings()
-                let! routeMappings = config.GetRouteMappings()
-                let! validShapes = config.GetValidShapes()
-                let! shapeRoutes = config.GetShapeRoutes unitMappings
-                let! formularyProducts = config.GetFormularyProducts()
-                let! reconstitution = config.GetReconstitution ()
-                let! parenteralMeds = config.GetParenteralMeds unitMappings
-                let! enteralFeeding = config.GetEnteralFeeding unitMappings
+                let! unitMappings, unitMsgs = config.GetUnitMappings()
+                let! routeMappings, routeMsgs = config.GetRouteMappings()
+                let! validShapes, shapeMsgs = config.GetValidShapes()
+                let! shapeRoutes, shapeRouteMsgs = config.GetShapeRoutes unitMappings
+                let! formularyProducts, formularyMsgs = config.GetFormularyProducts()
+                let! reconstitution, reconstitutionMsgs = config.GetReconstitution ()
+                let! parenteralMeds, parenteralMsgs = config.GetParenteralMeds unitMappings
+                let! enteralFeeding, enteralMsgs = config.GetEnteralFeeding unitMappings
                 let products =
                     config.GetProducts
                         unitMappings
@@ -200,17 +200,17 @@ module Resources =
                         parenteralMeds
                         enteralFeeding
                         formularyProducts
-                let! doseRules =
+                let! doseRules, doseRuleMsgs =
                     config.GetDoseRules
                         routeMappings
                         shapeRoutes
                         products
-                let! solutionRules =
+                let! solutionRules, solutionMsgs =
                     config.GetSolutionRules
                         routeMappings
                         parenteralMeds
                         products
-                let! renalRules = config.GetRenalRules ()
+                let! renalRules, renalMsgs = config.GetRenalRules ()
 
                 return
                     {
@@ -226,20 +226,35 @@ module Resources =
                         DoseRules = doseRules
                         SolutionRules = solutionRules
                         RenalRules = renalRules
-                        Messages = [||]
+                        Messages = 
+                            [|
+                                yield! unitMsgs
+                                yield! routeMsgs
+                                yield! shapeMsgs
+                                yield! shapeRouteMsgs
+                                yield! formularyMsgs
+                                yield! reconstitutionMsgs
+                                yield! parenteralMsgs
+                                yield! enteralMsgs
+                                yield! doseRuleMsgs
+                                yield! solutionMsgs
+                                yield! renalMsgs
+                            |]
                         LastReloaded = DateTime.UtcNow
                         IsLoaded = true
                     }
             }
         with
         | exn ->
-            ("Failed to load resources", Some exn)
-            |> ErrorMsg
+            [
+                ("Failed to load resources", Some exn)
+                |> ErrorMsg
+            ]
             |> Error
 
 
     /// Load all resources at once using default configuration
-    let loadAllResources dataUrlId : Result<ResourceState, Message> =
+    let loadAllResources dataUrlId =
         loadAllResourcesWithConfig (defaultResourceConfig dataUrlId)
 
 
@@ -255,14 +270,14 @@ module Resources =
         (parenteralMeds: Product[])
         =
         {
-            GetUnitMappings = unitMappings |> Ok |> delay
-            GetRouteMappings = routeMappings |> Ok |> delay
-            GetValidShapes = validShapes |> Ok |> delay
-            GetShapeRoutes = fun _ -> shapeRoutes |> Ok
-            GetFormularyProducts = formularyProducts |> Ok |> delay
-            GetReconstitution = reconstitution |> Ok |> delay
-            GetEnteralFeeding = fun _ -> enteralFeeding |> Ok
-            GetParenteralMeds = fun _ -> parenteralMeds |> Ok
+            GetUnitMappings = failwith "Not implemented"
+            GetRouteMappings = failwith "Not implemented"
+            GetValidShapes = failwith "Not implemented"
+            GetShapeRoutes = failwith "Not implemented"
+            GetFormularyProducts = failwith "Not implemented"
+            GetReconstitution = failwith "Not implemented"
+            GetEnteralFeeding = failwith "Not implemented"
+            GetParenteralMeds = failwith "Not implemented"
             GetProducts = failwith "Not implemented"
             GetDoseRules = failwith "Not implemented"
             GetSolutionRules = failwith "Not implemented"
@@ -272,7 +287,7 @@ module Resources =
 
 
     /// Create a cached resource provider with TTL
-    type CachedResourceProvider(loadAllResources: unit -> Result<ResourceState, Message>, ttlMinutes: int option) =
+    type CachedResourceProvider(loadAllResources: unit -> Result<ResourceState, Message list>, ttlMinutes: int option) =
         let mutable cachedState: (ResourceState * DateTime) option = None
         let lockObj = obj()
 
@@ -287,8 +302,8 @@ module Resources =
             | Ok state ->
                 cachedState <- Some (state, DateTime.UtcNow)
                 state
-            | Error msg ->
-                writeErrorMessage $"Failed to load resources: {msg}"
+            | Error msgs ->
+                writeErrorMessage $"Failed to load resources: {msgs}"
                 // Return empty state on error
                 {
                     UnitMappings = [||]
@@ -303,7 +318,7 @@ module Resources =
                     DoseRules = [||]
                     SolutionRules = [||]
                     RenalRules = [||]
-                    Messages = [| msg |]
+                    Messages = [| yield! msgs |> List.toArray |]
                     LastReloaded = DateTime.MinValue
                     IsLoaded = false
                 }

@@ -3,7 +3,6 @@ namespace Informedica.GenForm.Lib
 
 module RenalRule =
 
-    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -12,6 +11,7 @@ module RenalRule =
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
+    open GenFormResult
 
 
     module DoseReduction =
@@ -84,7 +84,7 @@ module RenalRule =
         }
 
 
-    let getData dataUrlId =
+    let getData dataUrlId : GenFormResult<_> =
         try
             Web.getDataFromSheet dataUrlId "RenalRules"
             |> fun data ->
@@ -140,12 +140,10 @@ module RenalRule =
                         MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                     }
                 )
-            |> Ok
+            |> createOk
         with
         | exn -> 
-            ("Error in RenalRule.getDetails: ", Some exn)
-            |> ErrorMsg
-            |> Error
+            createError "Error in RenalRule.getDetails: " exn 
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -179,7 +177,7 @@ module RenalRule =
             |> EGFR |> Some
 
 
-    let map (data: RenalRuleData[]) =
+    let map (data: RenalRuleData[], msgs) : GenFormResult<_> =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&
@@ -322,11 +320,12 @@ module RenalRule =
                 rf
                 limits
         )
+        |> createOk
 
 
-    let get dataUrlId =
+    let get dataUrlId : GenFormResult<_> =
         getData dataUrlId
-        |> Result.map map
+        |> Result.bind map
 
 
     let filter mapping (filter : DoseFilter) (renalRules : RenalRule []) =

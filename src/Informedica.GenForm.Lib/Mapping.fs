@@ -3,11 +3,12 @@ namespace Informedica.GenForm.Lib
 
 module Mapping =
 
-    open System
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
+
+    open GenFormResult
 
 
     module Constants =
@@ -21,18 +22,6 @@ module Mapping =
         let [<Literal>] shapeRoutesSheet = "ShapeRoute"
 
 
-    let createError source exn = Message.createExnMsg source exn |> Error
-
-
-    let mapErrorSource s r =
-        r
-        |> Result.mapError (fun e ->
-            match e with
-            | Info _ 
-            | Warning _ -> e
-            | ErrorMsg(_, exn) -> (s, exn) |> ErrorMsg
-        )
-
 
     let getData dataUrlId sheet f =
         try
@@ -40,8 +29,10 @@ module Mapping =
             |> fun data ->
                 match data |> Array.tryHead with
                 | None -> 
-                    ("Sheet is empty or not found", None)
-                    |> ErrorMsg
+                    [
+                        ("Sheet is empty or not found", None)
+                        |> ErrorMsg
+                    ]
                     |> Error
                 | Some h ->
                     let getStringColumn = Csv.getStringColumn h
@@ -55,7 +46,7 @@ module Mapping =
 
                         f getString getFloat
                     )
-                    |> Ok
+                    |> createOk
         with
         | exn -> createError "getData" exn
 

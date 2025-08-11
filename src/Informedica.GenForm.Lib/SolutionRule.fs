@@ -3,13 +3,14 @@ namespace Informedica.GenForm.Lib
 
 module SolutionRule =
 
-    open System
     open MathNet.Numerics
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
+
+    open GenFormResult
 
 
     module SolutionLimit =
@@ -36,6 +37,7 @@ module SolutionRule =
         routeMapping
         (parenteral : Product[])
         products
+        : GenFormResult<_> 
         =
         try
 
@@ -210,12 +212,10 @@ module SolutionRule =
 
                     }
                 )
-            |> Ok
+            |> createOk
         with
         | exn -> 
-            ("Error in SolutionRule.getResult: ", Some exn)
-            |> ErrorMsg
-            |> Error
+            createError "Error in SolutionRule.getResult: " exn
 
 
     /// <summary>

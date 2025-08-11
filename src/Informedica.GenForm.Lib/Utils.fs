@@ -20,6 +20,28 @@ module Utils =
         let createExnMsg source exn = (source, Some exn) |> ErrorMsg
 
 
+    module GenFormResult =
+
+
+        let createError source exn : GenFormResult<_> = [ Message.createExnMsg source exn ] |> Error
+
+
+        let mapErrorSource s r : GenFormResult<_> =
+            r
+            |> Result.mapError (fun msgs ->
+                msgs
+                |> List.map (fun msg ->
+                    match msg with
+                    | Info _ 
+                    | Warning _ -> msg
+                    | ErrorMsg(_, exn) -> (s, exn) |> ErrorMsg
+                )
+            )
+
+
+        let createOk x : GenFormResult<_> = (x, []) |> Ok
+
+
     module Web =
 
 

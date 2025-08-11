@@ -14,8 +14,7 @@ module Product =
 
     open Informedica.GenUnits.Lib
 
-
-    let createError source exn = Message.createExnMsg source exn |> Error
+    open GenFormResult
 
 
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
@@ -59,7 +58,7 @@ module Product =
 
         open Utils
 
-        let get dataUrlId =
+        let get dataUrlId : GenFormResult<_> =
             try
                 Web.getDataFromSheet dataUrlId "Reconstitution"
                 |> fun data ->
@@ -94,7 +93,7 @@ module Product =
                                 |> Array.map String.trim
                         }
                     )
-                |> Ok
+                |> createOk
             with
             | exn -> createError "Reconstiution.get" exn
 
@@ -117,7 +116,7 @@ module Product =
     module Enteral =
 
 
-        let get dataUrlId unitMapping =
+        let get dataUrlId unitMapping : GenFormResult<_> =
             try
                 Web.getDataFromSheet dataUrlId "EntFeeding"
 
@@ -224,7 +223,7 @@ module Product =
                                 )
                         }
                     )
-                |> Ok
+                |> createOk
             with
             | exn -> createError "Enteral.get" exn
 
@@ -232,7 +231,7 @@ module Product =
     module Parenteral =
 
 
-        let get dataUrlId unitMapping =
+        let get dataUrlId unitMapping : GenFormResult<_> =
             try
                 Web.getDataFromSheet dataUrlId "ParentMeds"
                 |> fun data ->
@@ -341,7 +340,7 @@ module Product =
                                 )
                         }
                     )
-                |> Ok
+                |> createOk
             with
             | exn -> createError "Parenteral.get" exn
 
@@ -519,7 +518,7 @@ module Product =
         }
 
 
-    let getFormularyProducts dataUrlId =
+    let getFormularyProducts dataUrlId : GenFormResult<_> =
         try
             fun () ->
                 Web.getDataFromSheet dataUrlId "Formulary"
@@ -551,7 +550,7 @@ module Product =
                         }
                     )
             |> StopWatch.clockFunc "retrieved formulary products"
-            |> Ok
+            |> createOk
         with
         | exn -> createError "FormularyProducts" exn
 

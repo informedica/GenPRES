@@ -613,3 +613,7 @@ module Types =
         | Info of string
         | Warning of string
         | ErrorMsg of (string * exn option)
+
+    
+    type GenFormResult<'T> = 
+        Result<'T * Message list, Message list>

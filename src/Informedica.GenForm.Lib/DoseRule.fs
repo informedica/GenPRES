@@ -65,9 +65,9 @@ module DoseLimit =
 module DoseRule =
 
     open System
-    open System.Collections.Generic
     open MathNet.Numerics
-
+    open FsToolkit.ErrorHandling.ResultCE
+    
     open FSharp.Data
     open FSharp.Data.JsonExtensions
 
@@ -75,7 +75,9 @@ module DoseRule =
     open ConsoleWriter.NewLineNoTime
     open Informedica.Utils.Lib.BCL
     open Informedica.GenCore.Lib.Ranges
+
     open Utils
+    open GenFormResult
 
 
     module Print =
@@ -474,7 +476,6 @@ module DoseRule =
                 Brand =
                     if r.Brand |> String.isNullOrWhiteSpace then None
                     else r.Brand |> Some
-//                GPKs = r.GPKs
                 Route = r.Route
                 ScheduleText = r.ScheduleText
                 PatientCategory =
@@ -525,17 +526,13 @@ module DoseRule =
                 ComponentLimits = [||]
                 RenalRule = None
             }
-            |> Some
+            |> Ok
         with
-        | e ->
-            writeErrorMessage $"""
-{e}
-cannot map {r}
-"""
-            None
+        | exn ->
+            ("mapToDoseRule", Some exn) |> ErrorMsg |> Error
 
 
-    let getData dataUrlId =
+    let getData dataUrlId : GenFormResult<_> =
         try 
             Web.getDataFromSheet dataUrlId "DoseRules"
             |> fun data ->
@@ -617,12 +614,10 @@ cannot map {r}
                     }
                 )
             |> Array.distinct
-            |> Ok
+            |> createOk
         with
         | exn ->
-            ("getDataResult", Some exn)
-            |> ErrorMsg
-            |> Error
+             createError "getDataResult" exn
 
 
 
@@ -639,122 +634,131 @@ cannot map {r}
          dd.MaxRateAdj |> Option.isSome)
 
 
-    let processDoseRuleData prods routeMapping data =
+    let processDoseRuleData prods routeMapping (data, msgs) : GenFormResult<_> =
         let warnings = Collections.Generic.Dictionary<_, _>()
 
-        data
-        |> Array.filter doseRuleDataIsValid
-        |> Array.groupBy (fun d ->
-            match d.Shape, d.Brand with
-            | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
-            | _, s when s |> String.notEmpty -> $"{d.Generic} ({d.Brand |> String.toLower |> String.capitalize})"
-            | _ -> d.Generic
-            ,
-            d.Route
-        )
-        |> Array.collect (fun ((gen, rte), rs) ->
-            rs
-            |> Array.collect (fun r ->
-                let filtered =
-                    if r.GPKs |> Array.isEmpty then
-                        prods
-                        |> Product.filter
-                            routeMapping
-                            { Filter.doseFilter with
-                                Generic = r.Component |> Some
-                                Route = rte |> Some
-                            }
-                    else
-                        prods
-                        |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
-                    // make sure that all products have the same unit group
-                    (*
-                    |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
-                    |> Array.head
-                    |> snd
-                    *)
-
-                if filtered |> Array.length = 0 then
-                    let key = $"{gen} {rte}"
-                    if warnings.ContainsKey(key) |> not then
-                        warnings.Add(key, key)
-                        writeWarningMessage $"no products for {key}"
-
-                    [|
-                        { r with
-                            Products =
-                                [|
-                                    rs
-                                    |> Array.map _.Substance
-                                    |> Array.filter String.notEmpty
-                                    |> Array.distinct
-                                    |> Product.create gen rte
-                                |]
-                        }
-                    |]
-                else
-                    filtered
-                    // create doserule per shape
-                    |> Array.groupBy _.Shape
-                    |> Array.collect (fun (_, ps) ->
+        let data =
+            data
+            |> Array.filter doseRuleDataIsValid
+            |> Array.groupBy (fun d ->
+                match d.Shape, d.Brand with
+                | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
+                | _, s when s |> String.notEmpty -> $"{d.Generic} ({d.Brand |> String.toLower |> String.capitalize})"
+                | _ -> d.Generic
+                ,
+                d.Route
+            )
+            |> Array.collect (fun ((gen, rte), rs) ->
+                rs
+                |> Array.collect (fun r ->
+                    let filtered =
+                        if r.GPKs |> Array.isEmpty then
+                            prods
+                            |> Product.filter
+                                routeMapping
+                                { Filter.doseFilter with
+                                    Generic = r.Component |> Some
+                                    Route = rte |> Some
+                                }
+                        else
+                            prods
+                            |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
                         // make sure that all products have the same unit group
-                        ps
+                        (*
                         |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
-                        |> function
-                            | [|(_, ps)|] ->
-                                ps
-                                |> Array.map (fun product ->
-                                    { r with
-                                        Generic = gen
-                                        Shape = product.Shape |> String.toLower
-                                        Products =
-                                            if r.GPKs |> Array.length > 0 then ps
-                                            else
-                                                ps
-                                                |> Product.filter routeMapping
-                                                 { Filter.doseFilter with
-                                                     Generic = r.Component |> Some
-                                                     Shape = product.Shape |> Some
-                                                     Route = rte |> Some
-                                                 }
-                                    }
-                                )
-                                |> Array.distinct
-                            | xs ->
-                                xs
-                                |> Array.collect (fun (_, ps) ->
+                        |> Array.head
+                        |> snd
+                        *)
+
+                    if filtered |> Array.length = 0 then
+                        let key = $"{gen} {rte}"
+                        if warnings.ContainsKey(key) |> not then
+                            warnings.Add(key, key)
+                            writeWarningMessage $"no products for {key}"
+
+                        [|
+                            { r with
+                                Products =
+                                    [|
+                                        rs
+                                        |> Array.map _.Substance
+                                        |> Array.filter String.notEmpty
+                                        |> Array.distinct
+                                        |> Product.create gen rte
+                                    |]
+                            }
+                        |]
+                    else
+                        filtered
+                        // create doserule per shape
+                        |> Array.groupBy _.Shape
+                        |> Array.collect (fun (_, ps) ->
+                            // make sure that all products have the same unit group
+                            ps
+                            |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
+                            |> function
+                                | [|_, ps|] ->
                                     ps
                                     |> Array.map (fun product ->
-                                        let u =
-                                            product.ShapeUnit
-                                            |> Units.toString Units.Dutch Units.Short
-                                            |> String.removeTextBetweenBrackets
-                                            |> String.removeBrackets
-
                                         { r with
                                             Generic = gen
-                                            Shape =
-                                                $"{product.Shape |> String.toLower} ({u})"
+                                            Shape = product.Shape |> String.toLower
                                             Products =
                                                 if r.GPKs |> Array.length > 0 then ps
                                                 else
                                                     ps
-                                                    |> Product.filter
-                                                         routeMapping
-                                                         { Filter.doseFilter with
-                                                             Generic = r.Component |> Some
-                                                             Shape = product.Shape |> Some
-                                                             Route = rte |> Some
-                                                         }
+                                                    |> Product.filter routeMapping
+                                                        { Filter.doseFilter with
+                                                            Generic = r.Component |> Some
+                                                            Shape = product.Shape |> Some
+                                                            Route = rte |> Some
+                                                        }
                                         }
                                     )
                                     |> Array.distinct
-                                )
+                                | xs ->
+                                    xs
+                                    |> Array.collect (fun (_, ps) ->
+                                        ps
+                                        |> Array.map (fun product ->
+                                            let u =
+                                                product.ShapeUnit
+                                                |> Units.toString Units.Dutch Units.Short
+                                                |> String.removeTextBetweenBrackets
+                                                |> String.removeBrackets
 
-                    )
+                                            { r with
+                                                Generic = gen
+                                                Shape =
+                                                    $"{product.Shape |> String.toLower} ({u})"
+                                                Products =
+                                                    if r.GPKs |> Array.length > 0 then ps
+                                                    else
+                                                        ps
+                                                        |> Product.filter
+                                                            routeMapping
+                                                            { Filter.doseFilter with
+                                                                Generic = r.Component |> Some
+                                                                Shape = product.Shape |> Some
+                                                                Route = rte |> Some
+                                                            }
+                                            }
+                                        )
+                                        |> Array.distinct
+                                    )
 
+                        )
+
+                )
             )
-        )
+
+        let msgs =
+            warnings.Values |> Seq.toList
+            |> List.map Warning
+            |> List.append msgs
+
+        (data, msgs)
+        |> Ok
 
 
     let addShapeLimits routeMapping shapeRoutes (dr : DoseRule) =
@@ -977,19 +981,52 @@ cannot map {r}
         routeMapping
         shapeRoutes
         prods
+        : GenFormResult<_>
         =
         let addDoseLimits = addDoseLimits routeMapping shapeRoutes
 
-        let proc = 
+        let map data = 
+            result {
+                let! data, msgs = data |> processDoseRuleData prods routeMapping
+                // split in ok and error results
+                let rules, errs = 
+                    data 
+                    |> Array.map (fun d -> d, d |> mapToDoseRule)
+                    |> Array.partition (snd >> Result.isOk)
+                // collect all messages
+                let msgs =
+                    errs
+                    |> Array.collect (fun (_, r) ->
+                        match r with
+                        | Ok _ ->  [||]
+                        | Error msg -> [| msg |]
+                    )
+                    |> Array.toList
+                    |> List.append msgs
+                // process ok results
+                let rules =
+                    rules 
+                    |> Array.map (fun (d, r) ->
+                        r |> Result.get, d
+                    )
+                    |> Array.groupBy fst
+                    |> Array.map (fun (dr, rs) ->
+                        dr |> addDoseLimits (rs |> Array.map snd)
+                    )   
+                return! Ok (rules, msgs)
+            }
+
+            (*
             processDoseRuleData prods routeMapping
             >> Array.groupBy mapToDoseRule
             >> Array.filter (fst >> Option.isSome)
             >> Array.map (fun (dr, rs) -> dr.Value, rs)
             >> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
+            *)
 
         dataUrl
         |> getData
-        |> Result.map proc
+        |> Result.bind map
 
 
     /// <summary>
@@ -1192,7 +1229,12 @@ cannot map {r}
             let grouped =
                 dataUrlId
                 |> processDoseRuleData prods routeMapping
-                |> Array.groupBy mapToDoseRule
+                |> Result.toOption
+                |> function
+                    | None -> [||]
+                    | Some (data, _) ->
+                        data
+                |> Array.groupBy (mapToDoseRule >> Result.toOption)
                 |> Array.filter (fst >> Option.isSome)
                 |> Array.map (fun (dr, details) -> dr.Value, details)
 
@@ -1223,54 +1265,54 @@ cannot map {r}
                     d.Shape
                     d.Brand
                     d.Route
-                    (d.GPKs |> String.concat ";")
+                    d.GPKs |> String.concat ";"
                     d.Indication
                     d.ScheduleText
                     d.Department
-                    (d.Gender |> Gender.toString)
-                    (d.MinAge |> bigRatOptToString)
-                    (d.MaxAge |> bigRatOptToString)
-                    (d.MinWeight |> bigRatOptToString)
-                    (d.MaxWeight |> bigRatOptToString)
-                    (d.MinBSA |> bigRatOptToString)
-                    (d.MaxBSA |> bigRatOptToString)
-                    (d.MinGestAge |> bigRatOptToString)
-                    (d.MaxGestAge |> bigRatOptToString)
-                    (d.MinPMAge |> bigRatOptToString)
-                    (d.MaxPMAge |> bigRatOptToString)
+                    d.Gender |> Gender.toString
+                    d.MinAge |> bigRatOptToString
+                    d.MaxAge |> bigRatOptToString
+                    d.MinWeight |> bigRatOptToString
+                    d.MaxWeight |> bigRatOptToString
+                    d.MinBSA |> bigRatOptToString
+                    d.MaxBSA |> bigRatOptToString
+                    d.MinGestAge |> bigRatOptToString
+                    d.MaxGestAge |> bigRatOptToString
+                    d.MinPMAge |> bigRatOptToString
+                    d.MaxPMAge |> bigRatOptToString
                     d.DoseType
                     d.DoseText
                     d.Component
                     ""
                     d.Substance
-                    (d.Frequencies |> bigRatToStringList)
+                    d.Frequencies |> bigRatToStringList
                     d.DoseUnit
                     d.AdjustUnit
                     d.FreqUnit
                     d.RateUnit
-                    (d.MinTime |> bigRatOptToString)
-                    (d.MaxTime |> bigRatOptToString)
+                    d.MinTime |> bigRatOptToString
+                    d.MaxTime |> bigRatOptToString
                     d.TimeUnit
                     "" //d.MinInt
                     "" //d.MaxInt
                     "" //d.IntUnit
-                    (d.MinDur |> bigRatOptToString)
-                    (d.MaxDur |> bigRatOptToString)
+                    d.MinDur |> bigRatOptToString
+                    d.MaxDur |> bigRatOptToString
                     d.DurUnit
-                    (d.MinQty |> bigRatOptToString)
-                    (d.MaxQty |> bigRatOptToString)
-                    (d.NormQtyAdj |> bigRatOptToString)
-                    (d.MinQtyAdj |> bigRatOptToString)
-                    (d.MaxQtyAdj |> bigRatOptToString)
-                    (d.MinPerTime |> bigRatOptToString)
-                    (d.MaxPerTime |> bigRatOptToString)
-                    (d.NormPerTimeAdj |> bigRatOptToString)
-                    (d.MinPerTimeAdj |> bigRatOptToString)
-                    (d.MaxPerTimeAdj |> bigRatOptToString)
-                    (d.MinRate |> bigRatOptToString)
-                    (d.MaxRate |> bigRatOptToString)
-                    (d.MinRateAdj |> bigRatOptToString)
-                    (d.MaxRateAdj |> bigRatOptToString)
+                    d.MinQty |> bigRatOptToString
+                    d.MaxQty |> bigRatOptToString
+                    d.NormQtyAdj |> bigRatOptToString
+                    d.MinQtyAdj |> bigRatOptToString
+                    d.MaxQtyAdj |> bigRatOptToString
+                    d.MinPerTime |> bigRatOptToString
+                    d.MaxPerTime |> bigRatOptToString
+                    d.NormPerTimeAdj |> bigRatOptToString
+                    d.MinPerTimeAdj |> bigRatOptToString
+                    d.MaxPerTimeAdj |> bigRatOptToString
+                    d.MinRate |> bigRatOptToString
+                    d.MaxRate |> bigRatOptToString
+                    d.MinRateAdj |> bigRatOptToString
+                    d.MaxRateAdj |> bigRatOptToString
 
                 ]
                 |> String.concat "\t"
