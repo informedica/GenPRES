@@ -1679,7 +1679,7 @@ module Models =
                 }
 
 
-    module Intake =
+    module Totals =
 
         let empty: Totals =
             {
@@ -1849,7 +1849,7 @@ module Models =
                 Filter = filter
                 Patient = Patient.empty
                 Scenarios = [||]
-                Intake = Intake.empty
+                Intake = Totals.empty
             }
 
         let setPatient pat sr : OrderContext = { sr with Patient = pat }
@@ -1873,7 +1873,7 @@ module Models =
                     }
                 Patient = pat
                 Scenarios = [| sc |]
-                Intake = Intake.empty
+                Intake = Totals.empty
             }
 
 
@@ -1885,7 +1885,7 @@ module Models =
                 Selected = None
                 Filtered = [||]
                 Scenarios = srs
-                Totals = Intake.empty
+                Totals = Totals.empty
             }
 
 
