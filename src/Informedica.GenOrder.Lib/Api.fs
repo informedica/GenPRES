@@ -836,11 +836,12 @@ Scenarios: {scenarios}
         activateLogger ()
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios provider |> ValidatedResult.get |> UpdateOrderContext
-        | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario
-        | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario
-        | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario
-        | ReloadResources ctx -> ctx |> reloadResources provider |> ValidatedResult.get |> ReloadResources
+        | UpdateOrderContext ctx -> ctx |> getScenarios provider |> ValidatedResult.map UpdateOrderContext
+        | ReloadResources ctx -> ctx |> reloadResources provider |> ValidatedResult.map ReloadResources
+        // TODO: need to implement validation
+        | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
+        | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
+        | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
 
 
     let printCtx msg cmd =

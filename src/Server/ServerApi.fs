@@ -741,6 +741,7 @@ module OrderContext =
                 | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
             |> OrderContext.printCtx "start eval"
             |> OrderContext.evaluate provider
+            |> ValidatedResult.get 
             |> OrderContext.printCtx "finish eval"
 
         match cmd with
