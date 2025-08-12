@@ -1,7 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
-open Informedica.Utils.Lib
 
+open Informedica.Utils.Lib
 
 
 module OrderLogger =
@@ -173,7 +173,7 @@ messages: {msgs.Value.Count}
 
 
     /// A logger that prints to the console
-    let printLogger : Logger = { Log = (printMsg None >> (printfn "%s")) }
+    let printLogger : Logger = { Log = printMsg None >> printfn "%s" }
 
 
     /// The Order logger agent

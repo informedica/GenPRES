@@ -10,4 +10,8 @@ module ConsoleTables =
 
 
     let write format (table: ConsoleTable)=
-        table.Write(format)
+        table.Write format
+
+
+    let toMarkDownString (table: ConsoleTable) =
+        table.ToMarkDownString()

@@ -160,6 +160,10 @@
 !/src/Informedica.GenCore.Lib/
 !/src/Informedica.GenCore.Lib/Scripts/
 !/src/Informedica.GenCore.Lib/Notebooks/
+# Informedica.Logging.Lib
+!/src/Informedica.Logging.Lib/
+!/src/Informedica.Logging.Lib/Scripts/
+!/src/Informedica.Logging.Lib/Notebooks/
 # Informedica.GenUnits.Lib
 !/src/Informedica.GenUnits.Lib/
 !/src/Informedica.GenUnits.Lib/Scripts/

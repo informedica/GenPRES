@@ -40,7 +40,7 @@ let private createAgent (serverApi: IServerApi) = MailboxProcessor.Start(fun inb
         | ProcessCommand (cmd, reply) ->
             try
                 let! result = serverApi.processCommand cmd
-                reply.Reply(result)
+                reply.Reply result
             with
             | ex -> 
                 reply.Reply(Error [| ex.Message |])
@@ -100,6 +100,7 @@ let provider =
     |> Option.ofObj
     |> Option.defaultValue "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
     |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId
+
 
 let serverApi = ServerApi.ApiImpl.createServerApi provider
 
@@ -215,6 +216,7 @@ async {
     | Error errs -> 
         printfn "Error processing parenteralia: %A" errs
 } |> Async.RunSynchronously
+
 
 printfn "OrderAgent testing completed!"
 
