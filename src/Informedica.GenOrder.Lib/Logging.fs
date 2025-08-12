@@ -5,7 +5,7 @@ module Logging =
 
     open System
 
-    module SolverLogging = Informedica.GenSolver.Lib.Logging
+    module SolverLogging = Informedica.GenSolver.Lib.Logger
     module LoggingType = Informedica.GenSolver.Lib.Types.Logging
 
 

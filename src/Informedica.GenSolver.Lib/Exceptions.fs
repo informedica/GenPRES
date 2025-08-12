@@ -14,7 +14,7 @@ module Exceptions =
 
         match log with
         | Some log ->
-            m |> Logging.logError log
+            m |> Logger.logError log
         | None -> ()
 
         m::errs |> SolverException |> raise

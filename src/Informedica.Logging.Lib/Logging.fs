@@ -17,7 +17,7 @@ type Level =
     | Error
 
 
-type Message =
+type Event =
     {
         TimeStamp: TimeStamp
         Level: Level
@@ -25,7 +25,7 @@ type Message =
     }
 
 
-type Logger = { Log: Message -> unit }
+type Logger = { Log: Event -> unit }
 
 
 /// General logging module
@@ -69,7 +69,7 @@ module Logging =
 
 
     /// Create a logger that uses the given function to process messages
-    let create (f: Message -> unit) : Logger = { Log = f }
+    let create (f: Event -> unit) : Logger = { Log = f }
 
 
     /// Create a logger that prints to console using a message formatter
@@ -132,7 +132,7 @@ module MessageFormatter =
         // Create a map using Type.FullName as the key
         let formatterMap = 
             formatters 
-            |> List.map (fun (t, f) -> (t.FullName, f))
+            |> List.map (fun (t, f) -> t.FullName, f)
             |> Map.ofList
         
         fun msg ->
@@ -164,7 +164,7 @@ module AgentLogging =
     
     type LoggerMessage =
         | Start of path: string option * Level * AsyncReplyChannel<unit>
-        | LogMessage of Message
+        | LogEvent of Event
         | Report of AsyncReplyChannel<unit>
         | Write of string * AsyncReplyChannel<unit>
         | Stop of AsyncReplyChannel<unit>
@@ -181,7 +181,7 @@ module AgentLogging =
 
     let createAgentLogger (formatter: IMessage -> string) =
         let agent = MailboxProcessor.Start(fun inbox ->
-            let messages = ResizeArray<float * Message>()
+            let messages = ResizeArray<float * Event>()
             let timer = Diagnostics.Stopwatch.StartNew()
             
             let rec loop path level =
@@ -190,19 +190,19 @@ module AgentLogging =
                         let! msg = inbox.Receive()
                         
                         match msg with
-                        | Stop replyChannel ->  // ✅ Fix: Added missing replyChannel
+                        | Stop replyChannel ->  
                             replyChannel.Reply()
                             return ()
 
-                        | Start (newPath, newLevel, replyChannel) ->  // ✅ Fix: Handle replyChannel
+                        | Start (newPath, newLevel, replyChannel) ->  
                             if newPath.IsSome then
                                 $"Start logging {newLevel}: {DateTime.Now}\n\n"
                                 |> fun text -> System.IO.File.WriteAllText(newPath.Value, text)
                             
-                            replyChannel.Reply()  // ✅ Fix: Reply to the channel
+                            replyChannel.Reply()  
                             return! loop newPath newLevel
 
-                        | LogMessage logMsg ->
+                        | LogEvent logMsg ->
                             let shouldLog = 
                                 match level with
                                 | Informative -> true
@@ -247,7 +247,7 @@ module AgentLogging =
                     with
                     | ex -> 
                         eprintfn "Logger agent error: %s" ex.Message
-                        return! loop path level  // ✅ Fix: Continue loop after exception
+                        return! loop path level  
                 
                 }
             
@@ -261,18 +261,17 @@ module AgentLogging =
         {
             Start = fun path level -> 
                 agent.PostAndAsyncReply(fun reply -> Start (path, level, reply))
-                |> Async.RunSynchronously  // ✅ Fix: Make synchronous
-            Logger = { Log = fun msg -> agent.Post(LogMessage msg) }
+                |> Async.RunSynchronously  
+            Logger = { Log = fun msg -> agent.Post(LogEvent msg) }
             Report = fun () -> 
                 agent.PostAndAsyncReply Report
-                |> Async.RunSynchronously  // ✅ Fix: Make synchronous
+                |> Async.RunSynchronously
             Write = fun path -> 
                 agent.PostAndAsyncReply(fun reply -> Write (path, reply))
-                |> Async.RunSynchronously  // ✅ Fix: Make synchronous
+                |> Async.RunSynchronously  
             Stop = fun () -> 
                 agent.PostAndAsyncReply Stop
-                |> Async.RunSynchronously  // ✅ Fix: Make synchronous
-            StopAsync = fun () -> agent.PostAndAsyncReply Stop  // ✅ Keep async version
+                |> Async.RunSynchronously
+            StopAsync = fun () -> agent.PostAndAsyncReply Stop
         }
 
-        

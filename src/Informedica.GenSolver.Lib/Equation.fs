@@ -380,7 +380,7 @@ module Equation =
                         // log starting the calculation
                         (op1, op2, y, xs)
                         |> Events.EquationStartCalculation
-                        |> Logging.logInfo log
+                        |> Logger.logInfo log
 
                         xs
                         |> calc op1 op2
@@ -389,7 +389,7 @@ module Equation =
                             // log finishing the calculation
                             (y::xs, false)
                             |> Events.EquationFinishedCalculation
-                            |> Logging.logInfo log
+                            |> Logger.logInfo log
 
                             n, None
                         | Some var ->
@@ -399,14 +399,14 @@ module Equation =
                                 // log finishing the calculation
                                 ([yNew], true)
                                 |> Events.EquationFinishedCalculation
-                                |> Logging.logInfo log
+                                |> Logger.logInfo log
 
                                 n, Some yNew
                             else
                                 // log finishing the calculation
                                 ([], false)
                                 |> Events.EquationFinishedCalculation
-                                |> Logging.logInfo log
+                                |> Logger.logInfo log
 
                                 n, None
         ) (0, None)
@@ -465,7 +465,7 @@ module Equation =
             // log starting the equation solve
             eq
             |> Events.EquationStartedSolving
-            |> Logging.logInfo log
+            |> Logger.logInfo log
 
             // get the vars and the matching operators
             let vars, op1, op2 =
@@ -522,7 +522,7 @@ module Equation =
                         // log finishing equation solving
                         (eq, sr)
                         |> Events.EquationFinishedSolving
-                        |> Logging.logInfo log
+                        |> Logger.logInfo log
 
                         eq, sr
 
@@ -542,7 +542,7 @@ module Equation =
         with
         | Exceptions.SolverException errs ->
             errs
-            |> List.iter (Logging.logError log)
+            |> List.iter (Logger.logError log)
 
             eq, Errored errs
 

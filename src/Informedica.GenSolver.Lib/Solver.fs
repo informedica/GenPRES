@@ -219,7 +219,7 @@ module Solver =
         | rpl, rst ->
             rpl
             |> Events.SolverStartSolving
-            |> Logging.logInfo log
+            |> Logger.logInfo log
 
             try
                 match rpl with
@@ -237,13 +237,13 @@ module Solver =
             | Ok eqs ->
                 eqs
                 |> Events.SolverFinishedSolving
-                |> Logging.logInfo log
+                |> Logger.logInfo log
 
                 eqs |> Ok
             | Error (eqs, m) ->
                 eqs
                 |> Events.SolverFinishedSolving
-                |> Logging.logInfo log
+                |> Logger.logInfo log
 
                 Error (eqs, m)
 
