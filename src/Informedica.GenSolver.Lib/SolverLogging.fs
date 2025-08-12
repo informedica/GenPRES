@@ -3,9 +3,12 @@ namespace Informedica.GenSolver.Lib
 
 module SolverLogging =
 
+    open System
+
     open Types
     open Types.Logging
     open Types.Events
+    open Informedica.Logging.Lib
 
     module Name = Variable.Name
     module ValueRange = Variable.ValueRange
@@ -101,22 +104,8 @@ module SolverLogging =
         """
     | _ -> "not a recognized msg"
 
-    let printMsg = function
-    | ExceptionMessage m ->
-        m
-        |> printException
-    | SolverMessage m ->
-        let toString eq =
-            let op = if eq |> Equation.isProduct then " * " else " + "
-            let varName = Variable.getName >> Variable.Name.toStringReplace true
 
-            match eq |> Equation.toVars with
-            | [] -> ""
-            | [ _ ] -> ""
-            | y::xs ->
-                $"""{y |> varName } = {xs |> List.map varName |> String.concat op}"""
-
-        match m with
+    let printSolverEvent = function
         | EquationStartedSolving eq ->
             $"=== Start solving Equation ===\n{eq |> Equation.toStringShort}"
 
@@ -162,18 +151,74 @@ module SolverLogging =
         | ConstrainedSolved c -> $"Constraint {c |> Constraint.toString} solved"
 
 
-    /// <summary>
-    /// Create a logger that uses the given function to log
-    /// </summary>
-    /// <param name="f">The function to process the log string</param>
-    /// <returns>A logger</returns>
-    let create f =
-        {
-            Log =
-                fun { TimeStamp = _; Level = _; Message = msg } ->
-                    match msg with
-                    | :? Logging.SolverMessage as m ->
-                        m |> printMsg |> f
-                    | _ -> $"cannot print msg: {msg}" |> f
+    /// Format solver messages using the IMessage interface
+    let formatSolverMessage (msg: IMessage) : string =
+        match msg with
+        | :? SolverMessage as solverMsg ->
+            match solverMsg with
+            | ExceptionMessage ex -> ex |> printException
+            | SolverEventMessage evt -> evt |> printSolverEvent
+        | _ -> $"Unknown message type: {msg.GetType().Name}"
 
+
+    /// Create a solver-specific logger using the general logging framework
+    let createLogger (baseLogger: Logger option) =
+        let formatter = MessageFormatter.create [
+            typeof<SolverMessage>, formatSolverMessage
+        ]
+        
+        match baseLogger with
+        | Some logger -> logger
+        | None -> Logging.createConsole formatter
+
+
+    /// Create a file-based solver logger
+    let createFileLogger (path: string) =
+        let formatter = MessageFormatter.create [
+            typeof<SolverMessage>, formatSolverMessage
+        ]
+        Logging.createFile path formatter
+
+
+    /// Create an agent-based solver logger
+    let createAgentLogger () =
+        let formatter = MessageFormatter.create [
+            typeof<SolverMessage>, formatSolverMessage
+        ]
+        AgentLogging.createAgentLogger formatter
+
+
+    /// Convenience functions for logging solver events
+    let logSolverEvent (logger: Logger) (event: Events.Event) =
+        event 
+        |> SolverEventMessage 
+        |> Logging.logInfo logger
+
+
+    let logSolverWarning (logger: Logger) (event: Events.Event) =
+        event 
+        |> SolverEventMessage 
+        |> Logging.logWarning logger
+
+
+    let logSolverException (logger: Logger) (ex: Exceptions.Message) =
+        ex 
+        |> ExceptionMessage 
+        |> Logging.logError logger
+
+
+    /// Backward compatibility - create a logger that matches the old interface
+    let create (f: string -> unit) =
+        let formatter = MessageFormatter.create [
+            typeof<SolverMessage>, formatSolverMessage
+        ]
+        
+        {
+            Log = fun event ->
+                event.Message
+                |> formatter
+                |> fun s -> if not (String.IsNullOrEmpty s) then f s
         }
+
+    /// Ignore logger for backward compatibility
+    let ignore = Logging.ignore

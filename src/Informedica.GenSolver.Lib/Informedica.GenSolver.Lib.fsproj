@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
@@ -9,14 +9,15 @@
         <None Include="paket.references" />
         <Compile Include="Types.fs" />
         <Compile Include="Utils.fs" />
-        <Compile Include="Logging.fs" />
-        <Compile Include="Exceptions.fs" />
+        
+        <Compile Include="Logging.fs" /><Compile Include="Exceptions.fs" />
         <Compile Include="Variable.fs" />
         <Compile Include="Equation.fs" />
         <Compile Include="Solver.fs" />
         <Compile Include="Constraint.fs" />
-        <Compile Include="Api.fs" />
         <Compile Include="SolverLogging.fs" />
+        <Compile Include="Api.fs" />
+        
         <None Include="Scripts/load.fsx" />
         <None Include="Scripts\Pick.fsx" />
         <None Include="Scripts\Tests.fsx" />
@@ -25,6 +26,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
         <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+        <ProjectReference Include="..\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
     </ItemGroup>
     <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

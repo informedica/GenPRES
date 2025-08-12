@@ -3,7 +3,6 @@ framework: 9.0
 storage: none
 
 nuget FSharpPlus = 1.6.0-RC2
-nuget FSharp.Core ~> 8
 
 nuget Fable.Core ~> 4
 nuget Fable.Remoting.Client ~> 7

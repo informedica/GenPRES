@@ -185,31 +185,12 @@ module rec Types =
 
     module Logging =
 
-        type IMessage = interface end
-
-
-        type TimeStamp = DateTime
-
-
-        type Level =
-            | Informative
-            | Warning
-            | Debug
-            | Error
+        open Informedica.Logging.Lib
 
 
         type SolverMessage =
             | ExceptionMessage of Exceptions.Message
-            | SolverMessage of Events.Event
+            | SolverEventMessage of Events.Event
             interface IMessage
 
 
-        type Message =
-            {
-                TimeStamp: TimeStamp
-                Level: Level
-                Message: IMessage
-            }
-
-
-        type Logger = { Log: Message -> unit }

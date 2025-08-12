@@ -357,7 +357,7 @@ module OrderContext =
                 async {
                     return
                         pr
-                        |> evaluateRule OrderLogger.logger.Logger
+                        |> evaluateRule OrderLogging.printLogger
                 }
             )
             |> Async.Parallel
@@ -769,7 +769,7 @@ Scenarios: {scenarios}
                             Order =
                                 sc.Order
                                 |> cmd
-                                |> Order.processPipeLine OrderLogger.logger.Logger None
+                                |> Order.processPipeLine OrderLogging.printLogger None
                                 |> Result.defaultValue sc.Order
                         }
                         |> OrderScenario.setOrderTableFormat
@@ -829,7 +829,7 @@ Scenarios: {scenarios}
                 else
                     $"{getAssemblyPath ()}/log.txt"
 
-            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+            () //OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
 
     let evaluate provider cmd =

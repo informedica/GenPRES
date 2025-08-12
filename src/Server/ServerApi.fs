@@ -780,7 +780,7 @@ module TreatmentPlan =
     open Shared
     open Shared.Types
 
-    module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
+    module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
 
 
     let updateTreatmentPlan provider (tp : TreatmentPlan) =
@@ -835,13 +835,13 @@ module Command =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
-    module OrderLogger = Informedica.GenOrder.Lib.OrderLogger
+    module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
 
 
     let processCmd provider cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             let path = $"{__SOURCE_DIRECTORY__}/log.txt"
-            OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+            //OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
 
             writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
 

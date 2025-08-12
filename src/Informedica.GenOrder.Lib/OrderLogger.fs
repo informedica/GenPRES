@@ -1,35 +1,20 @@
 namespace Informedica.GenOrder.Lib
 
 
-open Informedica.Utils.Lib
-
-
-module OrderLogger =
+module OrderLogging =
 
     open System
-    open System.Diagnostics
 
     open Informedica.GenSolver.Lib
-
     open Informedica.GenUnits.Lib
     open Informedica.GenOrder.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
+    open Informedica.Logging.Lib
 
+    open Types.Logging
 
     module Units = ValueUnit.Units
     module Quantity = OrderVariable.Quantity
-
-    module SolverLogging = SolverLogging
-
-    type Logger = Informedica.GenSolver.Lib.Types.Logging.Logger
-    type SolverMessage = Informedica.GenSolver.Lib.Types.Logging.SolverMessage
-    type OrderMessage = Logging.OrderMessage
-
-
-    type Agent<'Msg> = MailboxProcessor<'Msg>
-    type IMessage = Informedica.GenSolver.Lib.Types.Logging.IMessage
-    type Level = Informedica.GenSolver.Lib.Types.Logging.Level
-
     module Name = Variable.Name
 
 
@@ -50,7 +35,6 @@ module OrderLogger =
             |> String.concat "\n"
 
         let (Id s) = o.Id
-
         let s = $"{s}."
 
         let mapping =
@@ -76,216 +60,166 @@ module OrderLogger =
         {(xs |> toEqString " * ").Replace(s, "")}
         {(xs |> toEqString " + ").Replace(s, "")}
         """
-
         with
         | e ->
             writeErrorMessage $"error printing: {e.ToString()}"
             ""
 
 
-    // To print all messages related to an order
-    let printOrderMsg (msgs : ResizeArray<float * Informedica.GenSolver.Lib.Types.Logging.Message> option) msg =
+    let printOrderEvent = function
+        | Events.SolverReplaceUnit (n, u) ->
+            $"replaced {n |> Name.toString} unit with {u |> ValueUnit.unitToString}"
+
+        | Events.OrderSolveStarted o -> 
+            $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Started ==="
+
+        | Events.OrderSolveFinished o -> 
+            $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Finished ==="
+
+        | Events.OrderScenario _ -> ""
+
+        | _ -> ""
+
+
+    let printOrderException = function
+        | Exceptions.OrderCouldNotBeSolved(s, o) ->
+            $"Order could not be solved: {s} for order {o.Orderable.Name |> Name.toString}"
+
+
+    /// Format order messages using the IMessage interface
+    let formatOrderMessage (msg: IMessage) : string =
         match msg with
-        | Logging.OrderEvent m ->
+        | :? OrderMessage as orderMsg ->
+            match orderMsg with
+            | OrderException ex -> ex |> printOrderException
+            | OrderEventMessage evt -> evt |> printOrderEvent
+        | :? Logging.SolverMessage as solverMsg ->
+            // Delegate to solver logging for solver messages
+            SolverLogging.formatSolverMessage solverMsg
+        | _ -> $"Unknown message type: {msg.GetType().Name}"
+
+
+    /// Create an order-specific logger using the general logging framework
+    let createLogger (baseLogger: Logger option) =
+        let formatter = MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        
+        match baseLogger with
+        | Some logger -> logger
+        | None -> Logging.createConsole formatter
+
+
+    /// Create a file-based order logger
+    let createFileLogger (path: string) =
+        let formatter = MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        Logging.createFile path formatter
+
+
+    /// Create an agent-based order logger
+    let createAgentLogger () =
+        let formatter = MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        AgentLogging.createAgentLogger formatter
+
+
+    /// Convenience functions for logging order events
+    let logOrderEvent (logger: Logger) (event: Events.Event) =
+        event 
+        |> OrderEventMessage 
+        |> Logging.logInfo logger
+
+
+    let logOrderWarning (logger: Logger) (event: Events.Event) =
+        event 
+        |> OrderEventMessage 
+        |> Logging.logWarning logger
+
+
+    let logOrderException (logger: Logger) (ex: Exceptions.Message) =
+        ex 
+        |> OrderException 
+        |> Logging.logError logger
+
+
+    /// Enhanced print function that can handle messages with context
+    let printOrderMsgWithContext (msgs : ResizeArray<float * Event> option) (msg : Event) =
+        match msg.Message with
+        | :? Logging.SolverMessage as m -> 
+            SolverLogging.formatSolverMessage m
+        | :? OrderMessage as m -> 
             match m with
-            | Events.SolverReplaceUnit (n, u) ->
-                $"replaced {n |> Name.toString} unit with {u |> ValueUnit.unitToString}"
-
-            | Events.OrderSolveStarted o -> $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Started ==="
-
-            | Events.OrderSolveFinished o -> $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Finished ==="
-
-            | Events.OrderScenario _ -> ""
-
-            | _ -> ""
-
-        | Logging.OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
-            writeErrorMessage $"""
-printing error for order {o.Orderable.Name}
+            | OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
+                writeErrorMessage $"""
+printing error for order {o.Orderable.Name |> Name.toString}
 messages: {msgs.Value.Count}
 """
-
-            let eqs =
-                match msgs with
-                | Some msgs ->
-                    msgs
-                    |> Array.ofSeq
-                    |> Array.choose (fun (_, m) ->
-                        match m.Message with
-                        | :? SolverMessage as solverMsg ->
-                            match solverMsg with
-                            | Informedica.GenSolver.Lib.Types.Logging.ExceptionMessage m ->
-                                match m with
-                                | Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored (_, _, eqs) ->
-                                    Some eqs
+                let eqs =
+                    match msgs with
+                    | Some msgs ->
+                        msgs
+                        |> Array.ofSeq
+                        |> Array.choose (fun (_, m) ->
+                            match m.Message with
+                            | :? Logging.SolverMessage as solverMsg ->
+                                match solverMsg with
+                                | Logging.SolverMessage.ExceptionMessage m ->
+                                    match m with
+                                    | Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored (_, _, eqs) ->
+                                        Some eqs
+                                    | _ -> None
                                 | _ -> None
                             | _ -> None
-                        | _ -> None
-                    )
-                    |> fun xs ->
-                        writeInfoMessage $"found {xs |> Array.length}"; xs
-                    |> Array.tryHead
-                | None -> None
-            match eqs with
-            | Some eqs ->
-                let s = $"Terminated with {s}:\n{printOrderEqs o eqs}"
-                writeInfoMessage $"%s{s}"
-                s
-            | None ->
-                let s = $"Terminated with {s}"
-                writeInfoMessage $"%s{s}"
-                s
-
-
-
-    // Catches a message and will dispatch this to the appropriate
-    // print function
-    let printMsg (msgs : ResizeArray<float * Informedica.GenSolver.Lib.Types.Logging.Message> option) (msg : Informedica.GenSolver.Lib.Types.Logging.Message) =
-        match msg.Message with
-        | :? SolverMessage as m -> m |> SolverLogging.printMsg
-        | :? OrderMessage  as m -> m |> printOrderMsg msgs
+                        )
+                        |> fun xs ->
+                            writeInfoMessage $"found {xs |> Array.length}"; xs
+                        |> Array.tryHead
+                    | None -> None
+                
+                match eqs with
+                | Some eqs ->
+                    let s = $"Terminated with {s}:\n{printOrderEqs o eqs}"
+                    writeInfoMessage $"%s{s}"
+                    s
+                | None ->
+                    let s = $"Terminated with {s}"
+                    writeInfoMessage $"%s{s}"
+                    s
+            | OrderEventMessage evt -> evt |> printOrderEvent
         | _ ->
             writeErrorMessage $"printMsg cannot handle {msg}"
             ""
 
-    // A message to send to the order logger agent
-    type Message =
-        | Start of path: string option * Level
-        | Received of Informedica.GenSolver.Lib.Types.Logging.Message
-        | Report
-        | Write of string
-        | Stop
-
-    // The type for an order logger agent that will
-    // catch a message and will process this in an asynchronous way.
-    type OrderLogger =
+    /// Backward compatibility - create a logger that matches the old interface
+    let create (f: string -> unit) =
+        let formatter = MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        
         {
-            Start : string option -> Level -> unit
-            Logger: Logger
-            Report: unit -> unit
-            Write : string -> unit
-            Stop : unit -> unit
+            Log = fun event ->
+                event.Message
+                |> formatter
+                |> fun s -> if not (String.IsNullOrEmpty s) then f s
         }
-
 
     /// A logger that does nothing
-    let noLogger : Logger = { Log = ignore }
-
+    let ignore = Logging.ignore
 
     /// A logger that prints to the console
-    let printLogger : Logger = { Log = printMsg None >> printfn "%s" }
-
-
-    /// The Order logger agent
-    let logger =
-
-        let write path i t ms m =
-            match path with
-            | None -> ()
-            | Some p ->
-                m
-                |> printMsg ms
-                |> function
-                | s when s |> String.IsNullOrEmpty -> ()
-                | s ->
-                    let text = [ $"{i}. {t}: {m.Level}"; s ]
-                    System.IO.File.AppendAllLines(p, text)
-
-        let loggerAgent : Agent<Message> =
-            Agent.Start <| fun inbox ->
-                let msgs = ResizeArray<float * Informedica.GenSolver.Lib.Types.Logging.Message>()
-
-                let rec loop (timer : Stopwatch) path level msgs =
-                    async {
-                        let! msg = inbox.Receive ()
-
-                        match msg with
-                        | Stop ->
-                            return ()
-                        | Start (path, level) ->
-                            if path.IsSome then
-                                $"Start logging {level}: {DateTime.Now}\n\n"
-                                |> File.writeTextToFile path.Value
-
-                            let timer = Stopwatch.StartNew()
-                            return!
-                                ResizeArray<float * Informedica.GenSolver.Lib.Types.Logging.Message>()
-                                |> loop timer path level
-
-                        | Received m ->
-                            match level with
-                            | Level.Informative ->
-                                let t = timer.Elapsed.TotalSeconds
-                                let i = msgs.Count
-                                write path i t (Some msgs) m
-
-                                msgs.Add(timer.Elapsed.TotalSeconds, m)
-                            | _ when m.Level = level || m.Level = Level.Error ->
-                                let t = timer.Elapsed.TotalSeconds
-                                let i = msgs.Count
-                                write path i t (Some msgs) m
-
-                                msgs.Add(timer.Elapsed.TotalSeconds, m)
-                            | _ -> ()
-                            return! loop timer path level msgs
-
-                        | Report ->
-                            writeInfoMessage "=== Start Report ===\n"
-                            msgs
-                            |> Seq.length
-                            |> sprintf "Total messages received: %i\n"
-                            |> writeInfoMessage
-
-                            msgs
-                            |> Seq.iteri (fun i (t, m) ->
-                                m
-                                |> printMsg (Some msgs)
-                                |> function
-                                | s when s |> String.IsNullOrEmpty -> ()
-                                | s -> writeInfoMessage $"\n%i{i}. %f{t}: %A{m.Level}\n%s{s}"
-                            )
-                            printfn "\n"
-
-                            return! loop timer path level msgs
-
-                        | Write path ->
-                            msgs
-                            |> Seq.iteri (fun i (t, m) -> write (Some path) i t (Some msgs) m)
-
-                            return! loop timer (Some path) level msgs
-                    }
-
-                let timer = Stopwatch.StartNew()
-                loop timer None Level.Informative msgs
-
-        {
-            Start =
-                fun path level ->
-                    writeInfoMessage $"start logging at level {level}"
-                    if path.IsSome then
-                        writeInfoMessage $"file logging to {path.Value}"
-
-                    (path, level)
-                    |> Start
-                    |> loggerAgent.Post
-            Logger = {
-                Log =
-                    fun msg ->
-                        msg
-                        |> Received
-                        |> loggerAgent.Post
-            }
-            Report =
-                fun _ ->
-                    Report
-                    |> loggerAgent.Post
-            Write =
-                fun path ->
-                    Write path
-                    |> loggerAgent.Post
-            Stop = fun () -> Stop |> loggerAgent.Post
-        }
-
+    let printLogger : Logger = 
+        let formatter = MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        Logging.createConsole formatter
 
 
     /// <summary>

@@ -549,10 +549,12 @@ module Types =
 
         module Logging =
 
-            open Informedica.GenSolver.Lib.Types.Logging
+
+            open Informedica.Logging.Lib
+
 
             /// Messages for order-related logging
             type OrderMessage =
                 | OrderException of Exceptions.Message
-                | OrderEvent of Events.Event
+                | OrderEventMessage of Events.Event
                 interface IMessage

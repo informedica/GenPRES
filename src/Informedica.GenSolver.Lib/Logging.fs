@@ -1,40 +1,34 @@
 namespace Informedica.GenSolver.Lib
 
 
-
 module Logger =
 
-    open System
+    open Informedica.Logging.Lib
     open Types.Logging
 
 
-    let private create level msg =
-        {
-            TimeStamp = DateTime.Now
-            Level = level
-            Message = msg
-        }
-
-
-    let logMessage level (logger : Logger) evt =
+    /// Log a solver event with a specific level
+    let logMessage level (logger: Logger) (evt: Types.Events.Event) =
         evt
-        |> SolverMessage
-        |> create level
-        |> logger.Log
+        |> SolverEventMessage
+        |> Logging.logWith level logger
 
 
-    let logInfo logger msg = logMessage Informative logger msg
+    /// Log an informative solver event
+    let logInfo logger evt = logMessage Informative logger evt
 
 
-    let logWarning logger msg = logMessage Warning logger msg
+    /// Log a warning solver event
+    let logWarning logger evt = logMessage Warning logger evt
 
 
-    let logError (logger : Logger) msg =
+    /// Log a solver exception as an error
+    let logError (logger: Logger) (msg: Exceptions.Message) =
         msg
         |> ExceptionMessage
-        |> create Error
-        |> logger.Log
+        |> Logging.logError logger
 
 
-    let ignore = { Log = ignore }
+    /// Ignore logger for backward compatibility
+    let ignore = Logging.ignore
 
