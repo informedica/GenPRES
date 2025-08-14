@@ -35,7 +35,7 @@ module Logging =
     
 
     /// Create a message with timestamp and level
-    let private createMessage level (msg: IMessage) =
+    let createMessage level (msg: IMessage) =
         {
             TimeStamp = DateTime.Now
             Level = level
@@ -159,10 +159,9 @@ module MessageFormatter =
             |> Option.defaultWith (fun () -> fallback msg)
 
 
-
 /// Agent-based logging system
 module AgentLogging =
-    open System
+
     open System.IO
     open System.Threading
 
@@ -179,6 +178,7 @@ module AgentLogging =
         | Report of AsyncReplyChannel<string[]>                // formatted lines
         | Write  of string * AsyncReplyChannel<Result<unit, string>>
         | Stop   of AsyncReplyChannel<unit>
+        | FlushTimer 
 
     type AgentLogger =
         {
@@ -191,6 +191,16 @@ module AgentLogging =
         interface IDisposable with
             member this.Dispose() = this.StopAsync() |> Async.RunSynchronously
 
+
+    type AgentLoggerConfig = {
+        Formatter: IMessage -> string
+        MaxMessages: int option
+        DefaultLevel: Level
+        FlushInterval: TimeSpan
+//        ErrorHandler: (LoggingError -> unit) option
+    }
+
+
     let createAgentLogger (formatter: IMessage -> string) (maxMessages: int option) =
         let cts = new CancellationTokenSource()
         let mutable isDisposed = 0L
@@ -200,12 +210,22 @@ module AgentLogging =
         let logger =
             Agent<LoggerMessage>.Start(fun inbox ->
                 let timer = Diagnostics.Stopwatch.StartNew()
+                let mutable pendingFlush = false
+                
+                let scheduleFlush() =
+                    if not pendingFlush then
+                        pendingFlush <- true
+                        async {
+                            do! Async.Sleep 10_000 //(int config.FlushInterval.TotalMilliseconds)
+                            inbox.Post(FlushTimer)
+                        } |> Async.Start
 
                 // choose storage
                 let ringOpt =
                     match maxMessages with
                     | Some n when n > 0 -> Some (RingBuffer.create n)
                     | _ -> None
+
                 let bag =
                     match ringOpt with
                     | Some _ -> Unchecked.defaultof<ResizeArray<float * Event>> // unused
@@ -226,6 +246,7 @@ module AgentLogging =
                     | Some rb -> rb.CountValue
                     | None -> bag.Count
 
+                // TODO: use SB
                 let formatLogMessage (elapsed: float) (count: int) (ev: Event) =
                     try
                         let text = formatter ev.Message
@@ -310,6 +331,13 @@ module AgentLogging =
                                 with ex -> Error ex.Message
                             reply.Reply(result)
                             return! loop path level
+
+                        | FlushTimer ->
+                            pendingFlush <- false
+                            do! W.flushAsync writer
+                            return! loop path level
+
+
                 }
                 loop None Level.Informative
             )
@@ -352,9 +380,10 @@ module AgentLogging =
                             do! logger.PostAndAsyncReply(fun rc -> Stop rc)
                             do! W.flushAsync writer
                             do! W.stopAsync writer
+                            cts.Cancel()
+                            cts.Dispose()
+                            logger |> Agent.dispose
                         with ex ->
                             eprintfn "Error stopping agent: %s" ex.Message
-                        cts.Cancel()
-                        cts.Dispose()
                 }
         }

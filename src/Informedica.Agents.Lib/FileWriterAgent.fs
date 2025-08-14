@@ -25,10 +25,14 @@ module FileWriterAgent =
         | _ ->
             // Append, allow readers; UTF8 without BOM by default
             let fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read)
-            let sw = new StreamWriter(fs)
-            sw.AutoFlush <- false
-            state.Writers[path] <- sw
-            sw
+            try
+                let sw = new StreamWriter(fs)
+                sw.AutoFlush <- false
+                state.Writers[path] <- sw
+                sw
+            with _ -> 
+                fs.Dispose()
+                reraise ()
 
 
     let create () : Agent<FileWriterMsg> =
