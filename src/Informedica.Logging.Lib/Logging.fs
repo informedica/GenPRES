@@ -162,126 +162,199 @@ module MessageFormatter =
 
 /// Agent-based logging system
 module AgentLogging =
-
+    open System
+    open System.IO
     open System.Threading
-    
+
+    open Informedica.Utils.Lib
+    open Informedica.Agents.Lib
+
+    module W = FileWriterAgent
+
+    // ... your Level, IMessage, Event, Logger types here ...
 
     type LoggerMessage =
-        | Start of path: string option * Level * AsyncReplyChannel<unit>
+        | Start  of path: string option * Level * AsyncReplyChannel<Result<unit, string>>
         | LogEvent of Event
-        | Report of AsyncReplyChannel<unit>
-        | Write of string * AsyncReplyChannel<unit>
-        | Stop of AsyncReplyChannel<unit>
-
+        | Report of AsyncReplyChannel<string[]>                // formatted lines
+        | Write  of string * AsyncReplyChannel<Result<unit, string>>
+        | Stop   of AsyncReplyChannel<unit>
 
     type AgentLogger =
         {
-            Start: string option -> Level -> unit
-            Logger: Logger
-            Report: unit -> unit
-            Write: string -> unit
-            Stop: unit -> unit
-            StopAsync: unit -> Async<unit>
+            StartAsync : string option -> Level -> Async<Result<unit, string>>
+            Logger     : Logger
+            ReportAsync: unit -> Async<string[]>               // formatted lines
+            WriteAsync : string -> Async<Result<unit, string>>
+            StopAsync  : unit -> Async<unit>
         }
+        interface IDisposable with
+            member this.Dispose() = this.StopAsync() |> Async.RunSynchronously
 
-
-    let createAgentLogger (formatter: IMessage -> string) =
+    let createAgentLogger (formatter: IMessage -> string) (maxMessages: int option) =
         let cts = new CancellationTokenSource()
+        let mutable isDisposed = 0L
 
-        let agent = MailboxProcessor.Start((fun inbox ->
-            let messages = ResizeArray<float * Event>()
-            let timer = Diagnostics.Stopwatch.StartNew()
-            
-            let rec loop path level =
-                async {
+        let writer = W.create()
+
+        let logger =
+            Agent<LoggerMessage>.Start(fun inbox ->
+                let timer = Diagnostics.Stopwatch.StartNew()
+
+                // choose storage
+                let ringOpt =
+                    match maxMessages with
+                    | Some n when n > 0 -> Some (RingBuffer.create n)
+                    | _ -> None
+                let bag =
+                    match ringOpt with
+                    | Some _ -> Unchecked.defaultof<ResizeArray<float * Event>> // unused
+                    | None -> ResizeArray<float * Event>()
+
+                let addMessage elapsed ev =
+                    match ringOpt with
+                    | Some rb -> RingBuffer.add (elapsed, ev) rb
+                    | None -> bag.Add (elapsed, ev)
+
+                let iterMessages () : seq<float * Event> =
+                    match ringOpt with
+                    | Some rb -> RingBuffer.toSeq rb
+                    | None -> bag :> _
+
+                let countMessages () =
+                    match ringOpt with
+                    | Some rb -> rb.CountValue
+                    | None -> bag.Count
+
+                let formatLogMessage (elapsed: float) (count: int) (ev: Event) =
                     try
-                        let! msg = inbox.Receive()
-                        
+                        let text = formatter ev.Message
+                        if String.IsNullOrWhiteSpace text then None
+                        else Some [|
+                            // [0] – optional header/meta; [1] – body
+                            sprintf "%d. %.3f: %A" count elapsed ev.Level
+                            text
+                        |]
+                    with ex ->
+                        eprintfn "Formatter error: %s" ex.Message
+                        None
+
+                let rec loop (path: string option) (level: Level) = async {
+                    let! msgOpt = inbox.TryReceive(1000)
+                    match msgOpt with
+                    | None ->
+                        if cts.Token.IsCancellationRequested then return ()
+                        else return! loop path level
+
+                    | Some msg ->
                         match msg with
-                        | Stop replyChannel ->  
-                            replyChannel.Reply()
-                            inbox.Dispose()
-                            cts.Cancel()
+                        | Stop reply ->
+                            timer.Stop()
+                            reply.Reply(())
                             return ()
 
-                        | Start (newPath, newLevel, replyChannel) ->  
-                            if newPath.IsSome then
-                                $"Start logging {newLevel}: {DateTime.Now}\n\n"
-                                |> fun text -> System.IO.File.WriteAllText(newPath.Value, text)
-                            
-                            replyChannel.Reply()  
+                        | Start (newPath, newLevel, reply) ->
+                            let res =
+                                try
+                                    match newPath with
+                                    | Some p ->
+                                        let header = sprintf "Start logging %A: %s\n"
+                                                        newLevel (DateTime.Now.ToShortTimeString())
+                                        File.WriteAllText(p, header + Environment.NewLine)
+                                    | None -> ()
+                                    Ok ()
+                                with ex -> Error ex.Message
+                            reply.Reply(res)
                             return! loop newPath newLevel
 
-                        | LogEvent logMsg ->
-                            let shouldLog = 
+                        | LogEvent ev ->
+                            let shouldLog =
                                 match level with
                                 | Level.Informative -> true
-                                | _ -> logMsg.Level = level || logMsg.Level = Level.Error
-                            
+                                | _ -> ev.Level = level || ev.Level = Level.Error
                             if shouldLog then
                                 let elapsed = timer.Elapsed.TotalSeconds
-                                messages.Add(elapsed, logMsg)
-                                
-                                let formattedMsg = formatter logMsg.Message
-                                if not (String.IsNullOrEmpty formattedMsg) then
+                                addMessage elapsed ev
+                                let idx = countMessages()
+                                match formatLogMessage elapsed idx ev with
+                                | Some lines ->
                                     match path with
-                                    | Some p ->
-                                        let text = [$"{messages.Count}. {elapsed}: {logMsg.Level}"; formattedMsg]
-                                        System.IO.File.AppendAllLines(p, text)
-                                    | None -> printfn "%s" formattedMsg
-                        
+                                    | Some p -> W.append p lines writer      // async writer
+                                    | None   -> printfn "%s" lines[1]        // print body only
+                                | None -> ()
                             return! loop path level
-                    
-                        | Report replyChannel ->
-                            printfn "=== Start Report ==="
-                            printfn "Total messages received: %d" messages.Count
-                            messages
-                            |> Seq.iteri (fun i (t, m) ->
-                                let formattedMsg = formatter m.Message
-                                if not (String.IsNullOrEmpty formattedMsg) then
-                                    printfn "\n%d. %f: %A\n%s" i t m.Level formattedMsg
-                            )
-                            replyChannel.Reply()
+
+                        | Report reply ->
+                            // produce formatted lines (oldest -> newest)
+                            let lines =
+                                iterMessages()
+                                |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
+                                |> Seq.choose id
+                                |> Seq.collect id
+                                |> Array.ofSeq
+                            reply.Reply(lines)
                             return! loop path level
-                        
-                        | Write (filePath, replyChannel) ->
-                            messages
-                            |> Seq.iteri (fun i (t, m) ->
-                                let formattedMsg = formatter m.Message
-                                if not (String.IsNullOrEmpty formattedMsg) then
-                                    let text = [$"{i}. {t}: {m.Level}"; formattedMsg]
-                                    System.IO.File.AppendAllLines(filePath, text)
-                            )
-                            replyChannel.Reply()
+
+                        | Write (filePath, reply) ->
+                            // fire-and-forget write of a snapshot
+                            let result =
+                                try
+                                    let allLines =
+                                        iterMessages()
+                                        |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
+                                        |> Seq.choose id
+                                        |> Seq.collect id
+                                        |> Array.ofSeq
+                                    W.append filePath allLines writer         // no flush here
+                                    Ok ()
+                                with ex -> Error ex.Message
+                            reply.Reply(result)
                             return! loop path level
-                    with
-                    | ex -> 
-                        eprintfn "Logger agent error: %s" ex.Message
-                        return! loop path level  
-                
                 }
-            
-            loop None Level.Informative
-        ), true, cts.Token)
+                loop None Level.Informative
+            )
 
-        // Add error handling
-        agent.Error.Add(fun ex -> eprintfn "Agent error: %s" ex.Message)
+        logger.Error.Add(fun ex -> eprintfn "Agent error: %s" ex.Message)
+        logger.OnError.Add(fun ex -> eprintfn "Agent body error: %s" ex.Message)
 
+        let ensureNotDisposed () =
+            if Interlocked.Read(&isDisposed) = 1L then invalidOp "Logger agent has been disposed"
 
         {
-            Start = fun path level -> 
-                agent.PostAndAsyncReply(fun reply -> Start (path, level, reply))
-                |> Async.RunSynchronously  
-            Logger = { Log = fun msg -> agent.Post(LogEvent msg) }
-            Report = fun () -> 
-                agent.PostAndAsyncReply Report
-                |> Async.RunSynchronously
-            Write = fun path -> 
-                agent.PostAndAsyncReply(fun reply -> Write (path, reply))
-                |> Async.RunSynchronously  
-            Stop = fun () -> 
-                agent.PostAndAsyncReply Stop
-                |> Async.RunSynchronously
-            StopAsync = fun () -> agent.PostAndAsyncReply Stop
-        }
+            StartAsync = fun path level ->
+                async {
+                    ensureNotDisposed()
+                    return! logger.PostAndAsyncReply(fun rc -> Start(path, level, rc))
+                }
 
+            Logger =
+                { Log = fun ev ->
+                    if Interlocked.Read(&isDisposed) = 0L then
+                        logger.Post(LogEvent ev)
+                }
+
+            ReportAsync = fun () ->
+                async {
+                    ensureNotDisposed()
+                    return! logger.PostAndAsyncReply(fun rc -> Report rc) // string[]
+                }
+
+            WriteAsync = fun path ->
+                async {
+                    ensureNotDisposed()
+                    return! logger.PostAndAsyncReply(fun rc -> Write(path, rc))
+                }
+
+            StopAsync = fun () ->
+                async {
+                    if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
+                        try
+                            do! logger.PostAndAsyncReply(fun rc -> Stop rc)
+                            do! W.flushAsync writer
+                            do! W.stopAsync writer
+                        with ex ->
+                            eprintfn "Error stopping agent: %s" ex.Message
+                        cts.Cancel()
+                        cts.Dispose()
+                }
+        }

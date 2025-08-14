@@ -29,7 +29,7 @@
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Seq.fs" />
-    <Compile Include="Set.fs" />
+    <Compile Include="Set.fs" /><Compile Include="RingBuffer.fs" />
     <Compile Include="Path.fs" />
     <Compile Include="File.fs" />
     <Compile Include="Csv.fs" />

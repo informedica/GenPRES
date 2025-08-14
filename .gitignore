@@ -152,6 +152,11 @@
 !/src/Informedica.Utils.Lib/BCL/
 !/src/Informedica.Utils.Lib/Scripts/
 !/src/Informedica.Utils.Lib/Notebooks/
+# Informedica.Agents.Lib
+!/src/Informedica.Agents.Lib/
+!/src/Informedica.Agents.Lib/BCL/
+!/src/Informedica.Agents.Lib/Scripts/
+!/src/Informedica.Agents.Lib/Notebooks/
 # Informedica.OpenAI.Lib
 !/src/Informedica.OpenAI.Lib/
 !/src/Informedica.OpenAI.Lib/Scripts/

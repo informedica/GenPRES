@@ -5,6 +5,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
+
 /// <summary>
 /// Represents an asynchronous agent that processes messages of type 'T.
 /// This is a wrapper around FSharp's MailboxProcessor, providing a unified API for agent-based concurrency.
@@ -149,6 +150,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
             
             
 // Convenience module for creating and using agents with common patterns
+[<RequireQualifiedAccess>]
 module Agent =
 
     /// <summary>
@@ -218,6 +220,10 @@ module Agent =
             }
             loop initialState
         )
+
+
+    let post msg (agent: Agent<_>) =
+        agent.Post msg
 
     /// <summary>
     /// Posts a request to the agent and tries to synchronously receive a reply within the specified timeout.
