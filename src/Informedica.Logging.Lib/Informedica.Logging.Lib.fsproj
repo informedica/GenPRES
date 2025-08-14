@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Logging.fs" />
+    <None Include="\Scripts\load.fsx" />
+    <None Include="\Scripts\Scripts.fsx" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

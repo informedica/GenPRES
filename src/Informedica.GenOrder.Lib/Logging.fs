@@ -15,11 +15,11 @@ module Logging =
 
 
     /// Log an informative solver event
-    let logInfo logger evt = logMessage Informative logger evt
+    let logInfo logger evt = logMessage Level.Informative logger evt
 
 
     /// Log a warning solver event
-    let logWarning logger evt = logMessage Warning logger evt
+    let logWarning logger evt = logMessage Level.Warning logger evt
 
 
     /// Log a solver exception as an error

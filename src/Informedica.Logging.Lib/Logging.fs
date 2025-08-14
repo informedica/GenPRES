@@ -10,6 +10,7 @@ type IMessage = interface end
 type TimeStamp = DateTime
 
 
+[<RequireQualifiedAccess>]
 type Level =
     | Informative
     | Warning
@@ -49,19 +50,19 @@ module Logging =
 
 
     /// Log an informative message
-    let logInfo logger msg = logWith Informative logger msg
+    let logInfo logger msg = logWith Level.Informative logger msg
 
 
     /// Log a warning message  
-    let logWarning logger msg = logWith Warning logger msg
+    let logWarning logger msg = logWith Level.Warning logger msg
 
 
     /// Log a debug message
-    let logDebug logger msg = logWith Debug logger msg
+    let logDebug logger msg = logWith Level.Debug logger msg
 
 
     /// Log an error message
-    let logError logger msg = logWith Error logger msg
+    let logError logger msg = logWith Level.Error logger msg
 
 
     /// A logger that does nothing
@@ -103,10 +104,10 @@ module Logging =
     /// Filter messages by level
     let filterByLevel (minLevel: Level) (logger: Logger) : Logger =
         let levelValue = function
-            | Informative -> 0
-            | Debug -> 1
-            | Warning -> 2
-            | Error -> 3
+            | Level.Informative -> 0
+            | Level.Debug -> 1
+            | Level.Warning -> 2
+            | Level.Error -> 3
         
         create (fun msg ->
             if levelValue msg.Level >= levelValue minLevel then
@@ -161,13 +162,17 @@ module MessageFormatter =
 
 /// Agent-based logging system
 module AgentLogging =
+
+    open System.Threading
     
+
     type LoggerMessage =
         | Start of path: string option * Level * AsyncReplyChannel<unit>
         | LogEvent of Event
         | Report of AsyncReplyChannel<unit>
         | Write of string * AsyncReplyChannel<unit>
         | Stop of AsyncReplyChannel<unit>
+
 
     type AgentLogger =
         {
@@ -179,8 +184,11 @@ module AgentLogging =
             StopAsync: unit -> Async<unit>
         }
 
+
     let createAgentLogger (formatter: IMessage -> string) =
-        let agent = MailboxProcessor.Start(fun inbox ->
+        let cts = new CancellationTokenSource()
+
+        let agent = MailboxProcessor.Start((fun inbox ->
             let messages = ResizeArray<float * Event>()
             let timer = Diagnostics.Stopwatch.StartNew()
             
@@ -192,6 +200,8 @@ module AgentLogging =
                         match msg with
                         | Stop replyChannel ->  
                             replyChannel.Reply()
+                            inbox.Dispose()
+                            cts.Cancel()
                             return ()
 
                         | Start (newPath, newLevel, replyChannel) ->  
@@ -205,8 +215,8 @@ module AgentLogging =
                         | LogEvent logMsg ->
                             let shouldLog = 
                                 match level with
-                                | Informative -> true
-                                | _ -> logMsg.Level = level || logMsg.Level = Error
+                                | Level.Informative -> true
+                                | _ -> logMsg.Level = level || logMsg.Level = Level.Error
                             
                             if shouldLog then
                                 let elapsed = timer.Elapsed.TotalSeconds
@@ -251,8 +261,8 @@ module AgentLogging =
                 
                 }
             
-            loop None Informative
-        )
+            loop None Level.Informative
+        ), true, cts.Token)
 
         // Add error handling
         agent.Error.Add(fun ex -> eprintfn "Agent error: %s" ex.Message)
