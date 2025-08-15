@@ -387,3 +387,17 @@ module AgentLogging =
                             eprintfn "Error stopping agent: %s" ex.Message
                 }
         }
+
+
+module AgentLoggingTests =
+    let ``should handle high message throughput`` () =
+        // Test with 10,000 messages
+        failwith "not implemented yet"
+        
+    let ``should recover from file system errors`` () =
+        // Test with read-only file system
+        failwith "not implemented yet"
+        
+    let ``should respect memory limits`` () =
+        // Test with ring buffer overflow
+        failwith "not implemented yet"
