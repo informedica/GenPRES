@@ -475,6 +475,181 @@ module Tests =
                 }
             ]
 
+        // Agent Logging Tests with proper disposal (use bindings)
+        let agentLoggingDisposalTests =
+            testList "Agent Logging with Disposal" [
+                
+                testAsync "createConsole with use binding should auto-dispose" {
+                    use logger = AgentLogging.createConsole()
+                    
+                    let! result = logger.StartAsync None Level.Informative
+                    Expect.isOk result "Start should succeed"
+                    
+                    // Log a message
+                    let msg = createTestMessage "auto-dispose test"
+                    Logging.logInfo logger.Logger msg
+                    
+                    // Wait briefly for processing
+                    do! Async.Sleep 200
+                    
+                    // Stop the logger
+                    do! logger.StopAsync()
+                }
+                
+                testAsync "createDebug with use binding should handle quick operations" {
+                    use logger = AgentLogging.createDebug()
+                    
+                    let! result = logger.StartAsync None Level.Debug
+                    Expect.isOk result "Start should succeed"
+                    
+                    // Log a few messages quickly
+                    for i in 1..3 do
+                        let msg = createTestMessage $"Quick {i}"
+                        Logging.logDebug logger.Logger msg
+                    
+                    // Brief wait
+                    do! Async.Sleep 100
+                    
+                    let! lines = logger.ReportAsync()
+                    let messageLines = lines |> Array.filter (fun l -> l.Contains("Text = \"Quick"))
+                    Expect.isGreaterThan messageLines.Length 0 "Should have processed some messages"
+                    
+                    do! logger.StopAsync()
+                }
+                
+                testAsync "createHighPerformance with use binding should handle batch logging" {
+                    use logger = AgentLogging.createHighPerformance()
+                    
+                    let! result = logger.StartAsync None Level.Informative
+                    Expect.isOk result "Start should succeed"
+                    
+                    // Log batch of messages
+                    for i in 1..50 do
+                        let msg = createNumberMessage i
+                        Logging.logInfo logger.Logger msg
+                    
+                    // Wait for processing
+                    do! Async.Sleep 300
+                    
+                    let! lines = logger.ReportAsync()
+                    let messageLines = lines |> Array.filter (fun l -> l.Contains("Value ="))
+                    Expect.isGreaterThan messageLines.Length 10 "Should have processed many messages"
+                    
+                    do! logger.StopAsync()
+                }
+                
+                testAsync "custom config with use binding should respect settings" {
+                    let config = { 
+                        AgentLogging.AgentLoggerDefaults.console with 
+                            MaxMessages = Some 2
+                            FlushInterval = TimeSpan.FromMilliseconds(50.0)
+                    }
+                    use logger = AgentLogging.createAgentLogger config
+                    
+                    let! result = logger.StartAsync None Level.Informative
+                    Expect.isOk result "Start should succeed"
+                    
+                    // Log more messages than limit
+                    for i in 1..5 do
+                        let msg = createTestMessage $"Config {i}"
+                        Logging.logInfo logger.Logger msg
+                    
+                    // Wait for processing
+                    do! Async.Sleep 150
+                    
+                    let! lines = logger.ReportAsync()
+                    let messageLines = lines |> Array.filter (fun l -> l.Contains("Text = \"Config"))
+                    Expect.hasLength messageLines 2 "Should only keep last 2 messages due to limit"
+                    
+                    do! logger.StopAsync()
+                }
+                
+                testAsync "level filtering with use binding should work correctly" {
+                    use logger = AgentLogging.createProduction() // Error level only
+                    
+                    let! result = logger.StartAsync None Level.Error
+                    Expect.isOk result "Start should succeed"
+                    
+                    // Log at different levels
+                    let infoMsg = createTestMessage "info-level"
+                    let errorMsg = createTestMessage "error-level"
+                    
+                    Logging.logInfo logger.Logger infoMsg     // Should be filtered out
+                    Logging.logError logger.Logger errorMsg   // Should pass through
+                    
+                    // Wait for processing
+                    do! Async.Sleep 200
+                    
+                    let! lines = logger.ReportAsync()
+                    let messageLines = lines |> Array.filter (fun l -> l.Contains("Text = \"error-level\""))
+                    
+                    Expect.hasLength messageLines 1 "Should only log error messages"
+                    
+                    do! logger.StopAsync()
+                }
+                
+                testAsync "write snapshot with use binding should work quickly" {
+                    return
+                        withTempFile (fun tempFile ->
+                            async {
+                                use logger = AgentLogging.createDebug()
+                                
+                                let! result = logger.StartAsync None Level.Informative
+                                Expect.isOk result "Start should succeed"
+                                
+                                // Log a few messages
+                                for i in 1..3 do
+                                    let msg = createTestMessage $"Snapshot {i}"
+                                    Logging.logInfo logger.Logger msg
+                                
+                                // Brief wait
+                                do! Async.Sleep 100
+                                
+                                // Write snapshot
+                                let! writeResult = logger.WriteAsync tempFile
+                                Expect.isOk writeResult "Write should succeed"
+                                
+                                do! logger.StopAsync()
+                                
+                                // Check snapshot file
+                                let content = File.ReadAllText(tempFile)
+                                Expect.stringContains content "Snapshot" "File should contain snapshot messages"
+                            } |> Async.RunSynchronously
+                        )
+                }
+                
+                testAsync "concurrent use bindings should not interfere" {
+                    // Test that multiple loggers with use bindings work independently
+                    use logger1 = AgentLogging.createConsole()
+                    use logger2 = AgentLogging.createDebug()
+                    
+                    let! result1 = logger1.StartAsync None Level.Informative
+                    let! result2 = logger2.StartAsync None Level.Debug
+                    
+                    Expect.isOk result1 "Logger1 start should succeed"
+                    Expect.isOk result2 "Logger2 start should succeed"
+                    
+                    // Log to both
+                    let msg1 = createTestMessage "logger1-msg"
+                    let msg2 = createTestMessage "logger2-msg"
+                    
+                    Logging.logInfo logger1.Logger msg1
+                    Logging.logDebug logger2.Logger msg2
+                    
+                    // Brief wait
+                    do! Async.Sleep 200
+                    
+                    let! lines1 = logger1.ReportAsync()
+                    let! lines2 = logger2.ReportAsync()
+                    
+                    Expect.isGreaterThan lines1.Length 0 "Logger1 should have messages"
+                    Expect.isGreaterThan lines2.Length 0 "Logger2 should have messages"
+                    
+                    do! logger1.StopAsync()
+                    do! logger2.StopAsync()
+                }
+            ]
+
         // Main test suite
         [<Tests>]
         let allTests =
@@ -482,6 +657,7 @@ module Tests =
                 basicLoggingTests
                 messageFormatterTests
                 agentLoggingTests
+                agentLoggingDisposalTests
                 performanceTests
                 errorHandlingTests
             ]

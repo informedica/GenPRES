@@ -223,7 +223,7 @@ let agentLoggingTests =
     testList "Agent Logging" [
         
         testAsync "createConsole should work with default config" {
-            let logger = AgentLogging.createConsole()
+            use logger = AgentLogging.createConsole()
             
             let! result = logger.StartAsync None Level.Informative
             Expect.isOk result "Start should succeed"
@@ -243,7 +243,7 @@ let agentLoggingTests =
             return
                 withTempFile (fun tempFile ->
                     async {
-                        let logger = AgentLogging.createDebug()
+                        use logger = AgentLogging.createDebug()
                         
                         let! result = logger.StartAsync (Some tempFile) Level.Informative
                         Expect.isOk result "Start should succeed"
@@ -273,7 +273,7 @@ let agentLoggingTests =
                     MaxMessages = Some 3
                     FlushInterval = TimeSpan.FromMilliseconds(100.0)
             }
-            let logger = AgentLogging.createAgentLogger config
+            use logger = AgentLogging.createAgentLogger config
             
             let! result = logger.StartAsync None Level.Informative
             Expect.isOk result "Start should succeed"
@@ -300,7 +300,7 @@ let agentLoggingTests =
         }
         
         testAsync "should handle high throughput" {
-            let logger = AgentLogging.createHighPerformance()
+            use logger = AgentLogging.createHighPerformance()
             
             let! result = logger.StartAsync None Level.Informative
             Expect.isOk result "Start should succeed"
@@ -328,7 +328,7 @@ let agentLoggingTests =
         }
         
         testAsync "should handle level filtering" {
-            let logger = AgentLogging.createProduction() // Only logs errors
+            use logger = AgentLogging.createProduction() // Only logs errors
             
             let! result = logger.StartAsync None Level.Error
             Expect.isOk result "Start should succeed"
@@ -359,7 +359,7 @@ let agentLoggingTests =
             return
                 withTempFile (fun tempFile ->
                     async {
-                        let logger = AgentLogging.createDebug()
+                        use logger = AgentLogging.createDebug()
                         
                         let! result = logger.StartAsync None Level.Informative
                         Expect.isOk result "Start should succeed"
@@ -387,7 +387,7 @@ let agentLoggingTests =
         }
         
         testAsync "should handle disposal correctly" {
-            let logger = AgentLogging.createConsole()
+            use logger = AgentLogging.createConsole()
             
             let! result = logger.StartAsync None Level.Informative
             Expect.isOk result "Start should succeed"
@@ -409,7 +409,7 @@ let performanceTests =
     testList "Performance" [
         
         testAsync "should handle concurrent logging" {
-            let logger = AgentLogging.createHighPerformance()
+            use logger = AgentLogging.createHighPerformance()
             
             let! result = logger.StartAsync None Level.Informative
             Expect.isOk result "Start should succeed"
@@ -452,7 +452,7 @@ let errorHandlingTests =
                     Formatter = badFormatter
             }
             
-            let logger = AgentLogging.createAgentLogger config
+            use logger = AgentLogging.createAgentLogger config
             
             let! result = logger.StartAsync None Level.Informative
             Expect.isOk result "Start should succeed even with bad formatter"
