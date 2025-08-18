@@ -19,3 +19,4 @@ let useWriter () =
     |> FileWriterAgent.stop
 
 
+useWriter ()

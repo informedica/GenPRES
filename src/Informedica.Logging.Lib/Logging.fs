@@ -181,16 +181,23 @@ module AgentLogging =
         | Stop   of AsyncReplyChannel<unit>
         | FlushTimer 
 
+    type DisposeResult =
+        | Disposed
+        | AlreadyDisposed
+        | DisposeError of exn
+
+
     type AgentLogger =
         {
-            StartAsync : string option -> Level -> Async<Result<unit, string>>
-            Logger     : Logger
-            ReportAsync: unit -> Async<string[]>               // formatted lines
-            WriteAsync : string -> Async<Result<unit, string>>
-            StopAsync  : unit -> Async<unit>
+            StartAsync  : string option -> Level -> Async<Result<unit, string>>
+            Logger      : Logger
+            ReportAsync : unit -> Async<string[]>               // formatted lines
+            WriteAsync  : string -> Async<Result<unit, string>>
+            StopAsync   : unit -> Async<unit>
+            DisposeAsync: unit -> Async<DisposeResult> 
         }
         interface IDisposable with
-            member this.Dispose() = this.StopAsync() |> Async.RunSynchronously
+            member this.Dispose() = this.DisposeAsync() |> Async.RunSynchronously |> ignore
 
 
     type LoggingError =
@@ -305,13 +312,24 @@ module AgentLogging =
             Agent<LoggerMessage>.Start(fun inbox ->
                 let timer = Diagnostics.Stopwatch.StartNew()
                 let mutable pendingFlush = false
-                
+                let mutable lastFlushTime = DateTime.UtcNow
+                let mutable messageCountSinceFlush = 0
+                let minFlushInterval = TimeSpan.FromSeconds(1.0)
+                let maxFlushInterval = TimeSpan.FromSeconds(30.0)
+                let flushThreshold = 100                
+
                 let scheduleFlush() =
-                    if not pendingFlush && config.FlushInterval > TimeSpan.Zero then
+                    let now = DateTime.UtcNow
+                    let interval =
+                        if messageCountSinceFlush >= flushThreshold then minFlushInterval
+                        elif now - lastFlushTime > maxFlushInterval then maxFlushInterval
+                        else config.FlushInterval
+
+                    if not pendingFlush && interval > TimeSpan.Zero then
                         pendingFlush <- true
                         async {
                             try
-                                do! Async.Sleep (int config.FlushInterval.TotalMilliseconds)
+                                do! Async.Sleep (int interval.TotalMilliseconds)
                                 if not cts.Token.IsCancellationRequested then
                                     inbox.Post(FlushTimer)
                             with
@@ -407,6 +425,18 @@ module AgentLogging =
                                             scheduleFlush ()
                                         | None   -> printfn "%s" lines[1]        // print body only
                                     | None -> ()
+                                    messageCountSinceFlush <- messageCountSinceFlush + 1
+                                    scheduleFlush ()
+                                return! loop path level
+
+                            | FlushTimer ->
+                                pendingFlush <- false
+                                try
+                                    do! W.flushAsync writer
+                                    lastFlushTime <- DateTime.UtcNow
+                                    messageCountSinceFlush <- 0
+                                with 
+                                | ex -> config.ErrorHandler |> Option.iter (fun h -> FileWriteError (ex, "flush") |> h)
                                 return! loop path level
 
                             | Report reply ->
@@ -434,14 +464,6 @@ module AgentLogging =
                                         Ok ()
                                     with ex -> Error ex.Message
                                 reply.Reply(result)
-                                return! loop path level
-
-                            | FlushTimer ->
-                                pendingFlush <- false
-                                try
-                                    do! W.flushAsync writer
-                                with 
-                                | ex -> config.ErrorHandler |> Option.iter (fun h -> FileWriteError (ex, "flush") |> h)
                                 return! loop path level
                 }
 
@@ -491,6 +513,30 @@ module AgentLogging =
                             logger |> Agent.dispose
                         with ex ->
                             eprintfn "Error stopping agent: %s" ex.Message
+                }
+
+            DisposeAsync = fun () ->
+                async {
+                    if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
+                        try
+                            // First stop the logger agent gracefully
+                            do! logger.PostAndAsyncReply(fun rc -> Stop rc)
+                            
+                            // Then cleanup the file writer
+                            do! W.flushAsync writer
+                            do! W.stopAsync writer
+                            
+                            // Finally cleanup other resources
+                            cts.Cancel()
+                            cts.Dispose()
+                            logger |> Agent.dispose
+                            
+                            return Disposed
+                        with ex ->
+                            eprintfn "Error during disposal: %s" ex.Message
+                            return DisposeError ex
+                    else
+                        return AlreadyDisposed
                 }
         }
 
