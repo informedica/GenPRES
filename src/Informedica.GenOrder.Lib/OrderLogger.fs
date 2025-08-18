@@ -126,7 +126,7 @@ module OrderLogging =
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
         ]
-        AgentLogging.createAgentLogger formatter
+        AgentLogging.createWithFormatter formatter
 
 
     /// Convenience functions for logging order events

@@ -164,6 +164,7 @@ module AgentLogging =
 
     open System.IO
     open System.Threading
+    open System.Text
 
     open Informedica.Utils.Lib
     open Informedica.Agents.Lib
@@ -192,16 +193,109 @@ module AgentLogging =
             member this.Dispose() = this.StopAsync() |> Async.RunSynchronously
 
 
+    type LoggingError =
+        | FormatterError of exn * IMessage
+        | FileWriteError of exn * string
+        | AgentError of exn
+
+
+    let mutable errorHandler : (LoggingError -> unit) option = None
+
+
     type AgentLoggerConfig = {
         Formatter: IMessage -> string
         MaxMessages: int option
         DefaultLevel: Level
         FlushInterval: TimeSpan
-//        ErrorHandler: (LoggingError -> unit) option
+        ErrorHandler: (LoggingError -> unit) option
     }
 
 
-    let createAgentLogger (formatter: IMessage -> string) (maxMessages: int option) =
+    /// Default configurations for AgentLogger
+    module AgentLoggerDefaults =
+        
+
+        /// Default formatter that handles basic message types
+        let defaultFormatter : IMessage -> string =
+            fun msg -> sprintf "%A" msg
+        
+
+        /// Default error handler that prints to stderr
+        let defaultErrorHandler : LoggingError -> unit =
+            function
+            | FormatterError (ex, msg) ->
+                eprintfn "Formatter error for message %s: %s" (msg.GetType().Name) ex.Message
+            | FileWriteError (ex, operation) ->
+                eprintfn "File write error during %s: %s" operation ex.Message
+            | AgentError ex ->
+                eprintfn "Agent error: %s" ex.Message
+        
+
+        /// Create default configuration with console-only logging
+        let console : AgentLoggerConfig = {
+            Formatter = defaultFormatter
+            MaxMessages = Some 1000  // Keep last 1000 messages in memory
+            DefaultLevel = Level.Informative
+            FlushInterval = TimeSpan.FromSeconds(5.0)  // Auto-flush every 5 seconds
+            ErrorHandler = Some defaultErrorHandler
+        }
+        
+
+        /// Create default configuration for high-performance logging
+        let highPerformance : AgentLoggerConfig = {
+            Formatter = defaultFormatter
+            MaxMessages = Some 5000  // Larger buffer for high throughput
+            DefaultLevel = Level.Warning  // Only log warnings and errors
+            FlushInterval = TimeSpan.FromSeconds(10.0)  // Less frequent flushing
+            ErrorHandler = Some defaultErrorHandler
+        }
+        
+
+        /// Create default configuration for debugging
+        let debug : AgentLoggerConfig = {
+            Formatter = defaultFormatter
+            MaxMessages = None  // Unlimited message storage
+            DefaultLevel = Level.Debug
+            FlushInterval = TimeSpan.FromSeconds(1.0)  // Frequent flushing for immediate feedback
+            ErrorHandler = Some defaultErrorHandler
+        }
+        
+
+        /// Create default configuration for production use
+        let production : AgentLoggerConfig = {
+            Formatter = defaultFormatter
+            MaxMessages = Some 10000  // Large buffer for production
+            DefaultLevel = Level.Error  // Only log errors in production
+            FlushInterval = TimeSpan.FromSeconds(30.0)  // Less frequent flushing
+            ErrorHandler = Some defaultErrorHandler
+        }
+        
+
+        /// Create a custom configuration with specified formatter
+        let withFormatter (formatter: IMessage -> string) : AgentLoggerConfig = {
+            console with Formatter = formatter
+        }
+        
+
+        /// Create a configuration with custom message limit
+        let withMaxMessages (maxMessages: int option) : AgentLoggerConfig = {
+            console with MaxMessages = maxMessages
+        }
+        
+
+        /// Create a configuration with custom flush interval
+        let withFlushInterval (interval: TimeSpan) : AgentLoggerConfig = {
+            console with FlushInterval = interval
+        }
+        
+
+        /// Create a configuration with custom default level
+        let withLevel (level: Level) : AgentLoggerConfig = {
+            console with DefaultLevel = level
+        }
+
+
+    let createAgentLogger (config: AgentLoggerConfig) =
         let cts = new CancellationTokenSource()
         let mutable isDisposed = 0L
 
@@ -213,16 +307,20 @@ module AgentLogging =
                 let mutable pendingFlush = false
                 
                 let scheduleFlush() =
-                    if not pendingFlush then
+                    if not pendingFlush && config.FlushInterval > TimeSpan.Zero then
                         pendingFlush <- true
                         async {
-                            do! Async.Sleep 10_000 //(int config.FlushInterval.TotalMilliseconds)
-                            inbox.Post(FlushTimer)
+                            try
+                                do! Async.Sleep (int config.FlushInterval.TotalMilliseconds)
+                                if not cts.Token.IsCancellationRequested then
+                                    inbox.Post(FlushTimer)
+                            with
+                            | :? OperationCanceledException -> ()
                         } |> Async.Start
 
                 // choose storage
                 let ringOpt =
-                    match maxMessages with
+                    match config.MaxMessages with
                     | Some n when n > 0 -> Some (RingBuffer.create n)
                     | _ -> None
 
@@ -246,100 +344,108 @@ module AgentLogging =
                     | Some rb -> rb.CountValue
                     | None -> bag.Count
 
-                // TODO: use SB
+                let sb = StringBuilder(1024)
+
                 let formatLogMessage (elapsed: float) (count: int) (ev: Event) =
                     try
-                        let text = formatter ev.Message
+                        let text = config.Formatter ev.Message
                         if String.IsNullOrWhiteSpace text then None
-                        else Some [|
-                            // [0] – optional header/meta; [1] – body
-                            sprintf "%d. %.3f: %A" count elapsed ev.Level
-                            text
-                        |]
+                        else 
+                            sb.Clear() |> ignore
+                            let header =
+                                sb.AppendFormat("{0}. {1:F3}: {2}", count, elapsed, ev.Level) 
+                                |> StringBuilder.toString
+                            Some [| header; text |]
                     with ex ->
-                        eprintfn "Formatter error: %s" ex.Message
-                        None
+                        errorHandler |> Option.iter (fun h -> h (FormatterError(ex, ev.Message)))
+                        Some [| sprintf "ERROR: Failed to format message: %s" ex.Message; "" |]
 
-                let rec loop (path: string option) (level: Level) = async {
-                    let! msgOpt = inbox.TryReceive(1000)
-                    match msgOpt with
-                    | None ->
-                        if cts.Token.IsCancellationRequested then return ()
-                        else return! loop path level
+                let rec loop (path: string option) (level: Level) = 
+                    async {
+                        let! msgOpt = inbox.TryReceive(1000)
+                        match msgOpt with
+                        | None ->
+                            if cts.Token.IsCancellationRequested then return ()
+                            else return! loop path level
 
-                    | Some msg ->
-                        match msg with
-                        | Stop reply ->
-                            timer.Stop()
-                            reply.Reply(())
-                            return ()
+                        | Some msg ->
+                            match msg with
+                            | Stop reply ->
+                                timer.Stop()
+                                do! W.flushAsync writer
+                                reply.Reply(())
+                                return ()
 
-                        | Start (newPath, newLevel, reply) ->
-                            let res =
-                                try
-                                    match newPath with
-                                    | Some p ->
-                                        let header = sprintf "Start logging %A: %s\n"
-                                                        newLevel (DateTime.Now.ToShortTimeString())
-                                        File.WriteAllText(p, header + Environment.NewLine)
+                            | Start (newPath, newLevel, reply) ->
+                                let res =
+                                    try
+                                        match newPath with
+                                        | Some p ->
+                                            let header = sprintf "Start logging %A: %s\n"
+                                                            newLevel (DateTime.Now.ToShortTimeString())
+                                            File.WriteAllText(p, header + Environment.NewLine)
+                                        | None -> ()
+                                        Ok ()
+                                    with ex -> Error ex.Message
+                                reply.Reply(res)
+                                return! loop newPath newLevel
+
+                            | LogEvent ev ->
+                                let shouldLog =
+                                    match level with
+                                    | Level.Informative -> true
+                                    | _ -> ev.Level = level || ev.Level = Level.Error
+                                if shouldLog then
+                                    let elapsed = timer.Elapsed.TotalSeconds
+                                    addMessage elapsed ev
+                                    let idx = countMessages()
+                                    match formatLogMessage elapsed idx ev with
+                                    | Some lines ->
+                                        match path with
+                                        | Some p -> 
+                                            W.append p lines writer      // async writer
+                                            scheduleFlush ()
+                                        | None   -> printfn "%s" lines[1]        // print body only
                                     | None -> ()
-                                    Ok ()
-                                with ex -> Error ex.Message
-                            reply.Reply(res)
-                            return! loop newPath newLevel
+                                return! loop path level
 
-                        | LogEvent ev ->
-                            let shouldLog =
-                                match level with
-                                | Level.Informative -> true
-                                | _ -> ev.Level = level || ev.Level = Level.Error
-                            if shouldLog then
-                                let elapsed = timer.Elapsed.TotalSeconds
-                                addMessage elapsed ev
-                                let idx = countMessages()
-                                match formatLogMessage elapsed idx ev with
-                                | Some lines ->
-                                    match path with
-                                    | Some p -> W.append p lines writer      // async writer
-                                    | None   -> printfn "%s" lines[1]        // print body only
-                                | None -> ()
-                            return! loop path level
+                            | Report reply ->
+                                // produce formatted lines (oldest -> newest)
+                                let lines =
+                                    iterMessages()
+                                    |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
+                                    |> Seq.choose id
+                                    |> Seq.collect id
+                                    |> Array.ofSeq
+                                reply.Reply(lines)
+                                return! loop path level
 
-                        | Report reply ->
-                            // produce formatted lines (oldest -> newest)
-                            let lines =
-                                iterMessages()
-                                |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
-                                |> Seq.choose id
-                                |> Seq.collect id
-                                |> Array.ofSeq
-                            reply.Reply(lines)
-                            return! loop path level
+                            | Write (filePath, reply) ->
+                                // fire-and-forget write of a snapshot
+                                let result =
+                                    try
+                                        let allLines =
+                                            iterMessages()
+                                            |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
+                                            |> Seq.choose id
+                                            |> Seq.collect id
+                                            |> Array.ofSeq
+                                        W.append filePath allLines writer         // no flush here
+                                        Ok ()
+                                    with ex -> Error ex.Message
+                                reply.Reply(result)
+                                return! loop path level
 
-                        | Write (filePath, reply) ->
-                            // fire-and-forget write of a snapshot
-                            let result =
+                            | FlushTimer ->
+                                pendingFlush <- false
                                 try
-                                    let allLines =
-                                        iterMessages()
-                                        |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
-                                        |> Seq.choose id
-                                        |> Seq.collect id
-                                        |> Array.ofSeq
-                                    W.append filePath allLines writer         // no flush here
-                                    Ok ()
-                                with ex -> Error ex.Message
-                            reply.Reply(result)
-                            return! loop path level
-
-                        | FlushTimer ->
-                            pendingFlush <- false
-                            do! W.flushAsync writer
-                            return! loop path level
-
-
+                                    do! W.flushAsync writer
+                                with 
+                                | ex -> config.ErrorHandler |> Option.iter (fun h -> FileWriteError (ex, "flush") |> h)
+                                return! loop path level
                 }
-                loop None Level.Informative
+
+                loop None config.DefaultLevel
             )
 
         logger.Error.Add(fun ex -> eprintfn "Agent error: %s" ex.Message)
@@ -387,6 +493,33 @@ module AgentLogging =
                             eprintfn "Error stopping agent: %s" ex.Message
                 }
         }
+
+    
+    /// Create a console logger with default settings
+    let createConsole () = 
+        createAgentLogger AgentLoggerDefaults.console
+    
+    /// Create a debug logger with verbose settings
+    let createDebug () = 
+        createAgentLogger AgentLoggerDefaults.debug
+    
+    /// Create a production logger with minimal output
+    let createProduction () = 
+        createAgentLogger AgentLoggerDefaults.production
+    
+    /// Create a high-performance logger for heavy workloads
+    let createHighPerformance () = 
+        createAgentLogger AgentLoggerDefaults.highPerformance
+    
+    /// Create a custom logger with the specified formatter
+    let createWithFormatter (formatter: IMessage -> string) =
+        AgentLoggerDefaults.withFormatter formatter
+        |> createAgentLogger
+    
+    /// Create a logger with unlimited message storage
+    let createUnlimited () =
+        AgentLoggerDefaults.withMaxMessages None
+        |> createAgentLogger
 
 
 module AgentLoggingTests =

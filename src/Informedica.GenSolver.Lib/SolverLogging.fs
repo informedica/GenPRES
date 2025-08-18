@@ -185,7 +185,7 @@ module SolverLogging =
         let formatter = MessageFormatter.create [
             typeof<SolverMessage>, formatSolverMessage
         ]
-        AgentLogging.createAgentLogger formatter
+        AgentLogging.createWithFormatter formatter
 
 
     /// Convenience functions for logging solver events
