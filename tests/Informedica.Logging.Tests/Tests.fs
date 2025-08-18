@@ -1,0 +1,2 @@
+namespace Informedica.Logging.Tests
+

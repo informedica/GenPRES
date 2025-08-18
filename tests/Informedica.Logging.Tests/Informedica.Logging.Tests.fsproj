@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,11 +8,12 @@
 
   <ItemGroup>
     <Compile Include="Tests.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
-    <ProjectReference Include="..\..\src\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj" />
+    <ProjectReference Include="..\..\src\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

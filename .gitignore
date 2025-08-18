@@ -210,6 +210,9 @@
 # Informedica.Agents.Tests
 !/tests/Informedica.Agents.Tests/
 !/tests/Informedica.Agents.Tests/Scripts/
+# Informedica.Logging.Tests
+!/tests/Informedica.Logging.Tests/
+!/tests/Informedica.Logging.Tests/Scripts/
 # Informedica.GenCore.Tests
 !/tests/Informedica.GenCore.Tests/
 !/tests/Informedica.GenCore.Tests/Scripts/
