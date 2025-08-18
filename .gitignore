@@ -243,3 +243,6 @@
 !/benchmark/BenchmarkDotNet.Artifacts/
 !/benchmark/BenchmarkDotNet.Artifacts/results/
 !/benchmark/BenchmarkDotNet.Artifacts/results/*.md
+
+#Add debug test runner
+!/debugTests.sh
