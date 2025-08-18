@@ -327,8 +327,10 @@ module Tests =
                 agent |> Agent.dispose
                 
                 // This should not throw, but message won't be processed
-                agent |> Agent.post "test"
-                Expect.isTrue true "Posting to disposed agent should not throw"
+                let b =
+                    agent 
+                    |> Agent.post "test"
+                Expect.isFalse b "Posting to disposed agent should not throw, but post is not performed"
             }
             
             testAsync "disposal should stop agent processing" {

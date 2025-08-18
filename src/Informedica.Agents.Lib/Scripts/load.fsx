@@ -8,6 +8,7 @@
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
 
+#load "../Agent.fs"
 #load "../FileWriterAgent.fs"
 
 open System

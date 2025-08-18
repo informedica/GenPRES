@@ -233,8 +233,11 @@ module Agent =
     let post msg (agent: Agent<_>) =
         try
             agent.Post msg
+            true
         with
-        | ex -> printfn $"cannot post {msg} because:\n{ex.ToString()}"
+        | ex -> 
+            eprintfn $"cannot post {msg} because:\n{ex.ToString()}"
+            false
 
 
     /// <summary>
@@ -265,7 +268,7 @@ module Agent =
                 | None -> failwith "Timed out waiting for reply"
         else
             agent.PostAndReply(fun replyChannel ->
-                (msg, replyChannel)
+                msg, replyChannel
             )
 
     /// <summary>
@@ -301,7 +304,7 @@ module Agent =
         agent.PostAndAsyncReply(fun replyChannel ->
             (msg, replyChannel)
         )
-        |> Task.FromResult
+        |> Async.StartAsTask
 
     /// <summary>
     /// Gets the default timeout for reply operations on the agent.
@@ -334,3 +337,9 @@ module Agent =
     /// <param name="agent">The agent instance.</param>
     let dispose (agent: Agent<_>) =
         (agent :> IDisposable).Dispose()
+
+
+    let stopAndDispose (stopMsg: AsyncReplyChannel<unit> -> 'T) (agent: Agent<'T>) = async {
+        do! agent.PostAndAsyncReply stopMsg
+        (agent :> IDisposable).Dispose()
+    }

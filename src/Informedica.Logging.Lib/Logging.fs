@@ -299,7 +299,7 @@ module AgentLogging =
         let cts = new CancellationTokenSource()
         let mutable isDisposed = 0L
 
-        let writer = W.create()
+        use writer = W.create()
 
         let logger =
             Agent<LoggerMessage>.Start(fun inbox ->
@@ -403,7 +403,7 @@ module AgentLogging =
                                     | Some lines ->
                                         match path with
                                         | Some p -> 
-                                            W.append p lines writer      // async writer
+                                            W.append p lines writer |> ignore      // async writer
                                             scheduleFlush ()
                                         | None   -> printfn "%s" lines[1]        // print body only
                                     | None -> ()
@@ -430,7 +430,7 @@ module AgentLogging =
                                             |> Seq.choose id
                                             |> Seq.collect id
                                             |> Array.ofSeq
-                                        W.append filePath allLines writer         // no flush here
+                                        W.append filePath allLines writer |> ignore // no flush here
                                         Ok ()
                                     with ex -> Error ex.Message
                                 reply.Reply(result)
