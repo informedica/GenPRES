@@ -14,6 +14,7 @@ module FileWriterAgent =
         | Append of path: string * lines: string[]
         | Flush of AsyncReplyChannel<unit>
         | Stop of AsyncReplyChannel<unit>
+        | Clear of path: string
 
 
     type State = { Writers: Dictionary<string, StreamWriter> }
@@ -124,27 +125,40 @@ module FileWriterAgent =
 
     let create () : Agent<_> =
         Agent.Start(fun inbox ->
-            let rec loop (st: State) = async {
+            let rec loop (state: State) = async {
                 let! msg = inbox.Receive()
 
                 match msg with
                 | Append (path, lines) ->
-                    try writeLines st path lines
+                    try writeLines state path lines
                     with ex -> eprintfn "FileWriterAgent: unexpected error: %s" ex.Message
-                    return! loop st
+                    return! loop state
                 | Flush reply ->
-                    for w in st.Writers.Values do
+                    for w in state.Writers.Values do
                         try w.Flush() with _ -> ()
                     reply.Reply(())
-                    return! loop st
+                    return! loop state
+                | Clear path ->
+                    try
+                        removeWriter state path
+                        use _ = new FileStream(
+                            path,
+                            FileMode.Create,
+                            FileAccess.Write, 
+                            FileShare.ReadWrite ||| FileShare.Delete
+                        )
+                        ()
+                    with ex ->
+                        eprintfn $"FileWriterAgent: clear failed for {path}\n{ex.Message}"
+                    return! loop state
                 | Stop reply ->
                     // final flush + dispose all writers
-                    for w in st.Writers.Values do
+                    for w in state.Writers.Values do
                         try
                             w.Flush()
                             w.Dispose()
                         with _ -> ()
-                    st.Writers.Clear()
+                    state.Writers.Clear()
                     reply.Reply(())
                     // exit
             }
@@ -162,6 +176,11 @@ module FileWriterAgent =
 
     let flush (writer: Agent<_>) = 
         writer.PostAndReply(fun rc -> Flush rc)
+        writer
+
+
+    let clear path (writer: Agent<_>)  =
+        writer.Post (Clear path)
         writer
 
 
