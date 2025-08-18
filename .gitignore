@@ -203,17 +203,17 @@
 !/src/Informedica.GenOrder.Lib/Notebooks/
 
 
-# Add test files
-!/tests/
-!/tests/Server
-!/tests/Server/Scripts/
-!/tests/UITests/
-!/tests/UITests/Scripts/
 
 # Informedica.Utils.Tests
 !/tests/Informedica.Utils.Tests/
 !/tests/Informedica.Utils.Tests/Scripts/
-# Informedica.Utils.Tests
+# Informedica.Agents.Tests
+!/tests/Informedica.Agents.Tests/
+!/tests/Informedica.Agents.Tests/Scripts/
+# Informedica.GenCore.Tests
+!/tests/Informedica.GenCore.Tests/
+!/tests/Informedica.GenCore.Tests/Scripts/
+# Informedica.ZIndex.Tests
 !/tests/Informedica.ZIndex.Tests/
 !/tests/Informedica.ZIndex.Tests/Scripts/
 # Informedica.GenUnits.Tests
@@ -228,10 +228,12 @@
 # Informedica.GenOrder.Tests
 !/tests/Informedica.GenOrder.Tests/
 !/tests/Informedica.GenOrder.Tests/Scripts/
-# Informedica.GenCore.Tests
-!/tests/Informedica.GenCore.Tests/
-!/tests/Informedica.GenCore.Tests/Scripts/
-
+# Add Server test files
+!/tests/
+!/tests/Server
+!/tests/Server/Scripts/
+!/tests/UITests/
+!/tests/UITests/Scripts/
 
 # Add benchmark files
 !/benchmark/
