@@ -46,10 +46,14 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// </summary>
     member _.Post(message) = mbox.Post(message)
 
+
     /// <summary>
     /// Posts a message to the agent and synchronously waits for a reply.
     /// </summary>
-    member _.PostAndReply(messageBuilder) = mbox.PostAndReply(messageBuilder)
+    member _.PostAndReply(messageBuilder: (AsyncReplyChannel<'Reply> -> 'T), ?timeout: int) : 'Reply =
+        match timeout with
+        | Some t -> mbox.PostAndReply(messageBuilder, t)
+        | None -> mbox.PostAndReply(messageBuilder)
 
     /// <summary>
     /// Posts a message to the agent and synchronously waits for a reply, with a timeout.
@@ -169,6 +173,10 @@ module Agent =
             loop ()
         )
 
+
+    let create processor = createSimple processor
+
+
     /// <summary>
     /// Creates and starts a stateful agent that maintains state of type 'State.
     /// The processor function updates the state for each message received.
@@ -223,7 +231,11 @@ module Agent =
 
 
     let post msg (agent: Agent<_>) =
-        agent.Post msg
+        try
+            agent.Post msg
+        with
+        | ex -> printfn $"cannot post {msg} because:\n{ex.ToString()}"
+
 
     /// <summary>
     /// Posts a request to the agent and tries to synchronously receive a reply within the specified timeout.

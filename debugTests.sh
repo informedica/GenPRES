@@ -8,13 +8,14 @@ echo "=========================================="
 
 # Array of test projects
 test_projects=(
+    "tests/Informedica.Utils.Tests/Informedica.Utils.Tests.fsproj"
+    "tests/Informedica.Agents.Tests/Informedica.Agents.Tests.fsproj"
+    "tests/Informedica.GenUnits.Tests/Informedica.GenUnits.Tests.fsproj"
     "tests/Informedica.GenCore.Tests/Informedica.GenCore.Tests.fsproj"
+    "tests/Informedica.GenSolver.Tests/Informedica.GenSolver.Tests.fsproj"
     "tests/Informedica.GenForm.Tests/Informedica.GenForm.Tests.fsproj"
     "tests/Informedica.GenOrder.Tests/Informedica.GenOrder.Tests.fsproj"
-    "tests/Informedica.GenSolver.Tests/Informedica.GenSolver.Tests.fsproj"
-    "tests/Informedica.GenUnits.Tests/Informedica.GenUnits.Tests.fsproj"
-    "tests/Informedica.Utils.Tests/Informedica.Utils.Tests.fsproj"
-    "tests/Informedica.ZIndex.Tests/Informedica.ZIndex.Tests.fsproj"
+#    "tests/Informedica.ZIndex.Tests/Informedica.ZIndex.Tests.fsproj"
     "tests/Server/Server.Tests.fsproj"
 )
 

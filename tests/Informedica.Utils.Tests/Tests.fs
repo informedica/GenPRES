@@ -1,8 +1,6 @@
 namespace Informedica.Utils.Tests
 
 
-
-
 module Tests =
 
     open System
