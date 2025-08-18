@@ -10,6 +10,7 @@ echo "=========================================="
 test_projects=(
     "tests/Informedica.Utils.Tests/Informedica.Utils.Tests.fsproj"
     "tests/Informedica.Agents.Tests/Informedica.Agents.Tests.fsproj"
+    "tests/Informedica.Logging.Tests/Informedica.Logging.Tests.fsproj"
     "tests/Informedica.GenUnits.Tests/Informedica.GenUnits.Tests.fsproj"
     "tests/Informedica.GenCore.Tests/Informedica.GenCore.Tests.fsproj"
     "tests/Informedica.GenSolver.Tests/Informedica.GenSolver.Tests.fsproj"

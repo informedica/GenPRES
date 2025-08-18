@@ -306,7 +306,7 @@ module AgentLogging =
         let cts = new CancellationTokenSource()
         let mutable isDisposed = 0L
 
-        use writer = W.create()
+        let writer = W.create()
 
         let logger =
             Agent<LoggerMessage>.Start(fun inbox ->
@@ -325,7 +325,7 @@ module AgentLogging =
                         elif now - lastFlushTime > maxFlushInterval then maxFlushInterval
                         else config.FlushInterval
 
-                    if not pendingFlush && interval > TimeSpan.Zero then
+                    if not pendingFlush && interval > TimeSpan.Zero && not cts.Token.IsCancellationRequested then
                         pendingFlush <- true
                         async {
                             try
@@ -334,6 +334,7 @@ module AgentLogging =
                                     inbox.Post(FlushTimer)
                             with
                             | :? OperationCanceledException -> ()
+                            | :? ObjectDisposedException -> ()
                         } |> Async.Start
 
                 // choose storage
@@ -410,9 +411,12 @@ module AgentLogging =
 
                             | LogEvent ev ->
                                 let shouldLog =
-                                    match level with
-                                    | Level.Informative -> true
-                                    | _ -> ev.Level = level || ev.Level = Level.Error
+                                    let levelValue = function
+                                        | Level.Informative -> 0
+                                        | Level.Debug -> 1
+                                        | Level.Warning -> 2
+                                        | Level.Error -> 3
+                                    levelValue ev.Level >= levelValue level
                                 if shouldLog then
                                     let elapsed = timer.Elapsed.TotalSeconds
                                     addMessage elapsed ev
@@ -508,8 +512,10 @@ module AgentLogging =
                             do! logger.PostAndAsyncReply(fun rc -> Stop rc)
                             do! W.flushAsync writer
                             do! W.stopAsync writer
+
                             cts.Cancel()
                             cts.Dispose()
+                            writer |> Agent.dispose
                             logger |> Agent.dispose
                         with ex ->
                             eprintfn "Error stopping agent: %s" ex.Message
@@ -529,6 +535,7 @@ module AgentLogging =
                             // Finally cleanup other resources
                             cts.Cancel()
                             cts.Dispose()
+                            writer |> Agent.dispose
                             logger |> Agent.dispose
                             
                             return Disposed

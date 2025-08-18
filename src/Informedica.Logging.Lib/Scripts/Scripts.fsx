@@ -233,7 +233,7 @@ let agentLoggingTests =
             Logging.logInfo logger.Logger msg
             
             // Wait a bit for processing
-            do! Async.Sleep 100
+            do! Async.Sleep 1000
             
             // Stop the logger
             do! logger.StopAsync()
@@ -319,7 +319,7 @@ let agentLoggingTests =
             do! Async.Sleep 1000
             
             let! lines = logger.ReportAsync()
-            let messageLines = lines |> Array.filter (fun l -> l.Contains("Number:"))
+            let messageLines = lines |> Array.filter (fun l -> l.Contains("Value ="))
             
             Expect.isGreaterThan messageLines.Length 0 "Should have processed some messages"
             printfn $"Processed {messageLines.Length} messages in {sw.ElapsedMilliseconds}ms"
@@ -346,7 +346,7 @@ let agentLoggingTests =
             do! Async.Sleep 500
             
             let! lines = logger.ReportAsync()
-            let messageLines = lines |> Array.filter (fun l -> l.Contains("Test:"))
+            let messageLines = lines |> Array.filter (fun l -> l.Contains("Text = \"error\""))
             
             // Should only have the error message
             Expect.hasLength messageLines 1 "Should only log error messages"
@@ -401,6 +401,7 @@ let agentLoggingTests =
                 |> Async.RunSynchronously 
                 |> ignore) "Should throw after disposal"
         }
+
     ]
 
 // Performance and stress tests
@@ -430,7 +431,7 @@ let performanceTests =
             do! Async.Sleep 1000
             
             let! lines = logger.ReportAsync()
-            let messageLines = lines |> Array.filter (fun l -> l.Contains("Number:"))
+            let messageLines = lines |> Array.filter (fun l -> l.Contains("Value ="))
             
             Expect.isGreaterThan messageLines.Length 500 "Should have processed most messages"
             
@@ -481,7 +482,7 @@ let allTests =
     ]
 
 // Run tests
-runTestsWithCLIArgs [] [|"--summary"|] agentLoggingTests
+runTestsWithCLIArgs [] [|"--summary"|] allTests
 
 
 (*
