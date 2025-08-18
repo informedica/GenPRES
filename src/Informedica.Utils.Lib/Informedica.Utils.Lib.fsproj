@@ -38,7 +38,7 @@
     <Compile Include="App.fs" />
     <Compile Include="Console.fs" />
     <Compile Include="ConsoleTables.fs" />
-    <Compile Include="StopWatch.fs" /><Compile Include="Agent.fs" />
+    <Compile Include="StopWatch.fs" />
     <None Include="Scripts/load.fsx" />
     <None Include="Scripts/Scripts.fsx" />
     <None Include="Scripts\AI.fsx" />

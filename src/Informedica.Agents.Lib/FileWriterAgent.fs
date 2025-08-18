@@ -6,8 +6,6 @@ module FileWriterAgent =
     open System.IO
     open System.Collections.Generic
 
-    open Informedica.Utils.Lib
-
 
     // Messages for the file writer agent
     type FileWriterMsg =
