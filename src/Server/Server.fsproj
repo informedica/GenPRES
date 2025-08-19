@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -10,6 +10,7 @@
     <Compile Include="../Shared/Localization.fs" />
     <Compile Include="../Shared/Models.fs" />
     <Compile Include="../Shared/Api.fs" />
+    <Compile Include="Logging.fs" />
     <Compile Include="ServerApi.fs" />
     <Compile Include="Server.fs" />
     <None Include="Scripts\load.fsx" />

@@ -737,13 +737,6 @@ Scenarios: {scenarios}
                     }
             }
 
-    open System.Reflection
-    open System.IO
-
-    let getAssemblyPath () =
-        let assembly = Assembly.GetExecutingAssembly()
-        let location = assembly.Location
-        Path.GetDirectoryName(location)
 
 
     let applyToOrderScenario scenarioF (ctx: OrderContext) =
@@ -818,59 +811,6 @@ Scenarios: {scenarios}
         |> getScenarios provider 
 
 
-    let getServerDataPath () =
-        let assemblyPath = getAssemblyPath ()
-        let currentDir = 
-            if assemblyPath |> String.isNullOrWhiteSpace then
-                Environment.CurrentDirectory
-            else
-                assemblyPath
-        
-        // Navigate up from assembly location to find src/Server directory
-        let rec findServerRoot dir =
-            if Directory.Exists(Path.Combine(dir, "data")) && 
-               File.Exists(Path.Combine(dir, "Server.fs")) then
-                dir
-            else
-                let parent = Directory.GetParent(dir)
-                if parent = null then
-                    Environment.CurrentDirectory // Fallback if we can't find server root
-                else
-                    findServerRoot parent.FullName
-        
-        findServerRoot currentDir
-
-    let getRecommendedLogPath (componentName: string option) =
-        let serverRoot = getServerDataPath ()
-        
-        // Use Server's data directory structure
-        let logDir = Path.Combine(serverRoot, "data", "logs")
-        Directory.CreateDirectory(logDir) |> ignore
-        
-        let componentName = componentName |> Option.defaultValue "general"
-        let timestamp = DateTime.Now.ToString("yyyyMMdd_HHmm")
-        let fileName = $"genpres_{componentName}_{timestamp}.log"
-        
-        Path.Combine(logDir, fileName)
-
-
-    let activateLogger (componentName: string option) =
-        if Env.getItem "GENPRES_LOG"
-        |> Option.map (fun s -> s = "1")
-        |> Option.defaultValue false then
-
-            let path = getRecommendedLogPath componentName |> Some
-
-            OrderLogging.agentLogger.StartAsync path Informedica.Logging.Lib.Level.Informative
-            |> Async.RunSynchronously
-            |> function
-            | Ok _-> 
-                match path with
-                | Some p -> printfn $"💾 Logger activated - Writing to: {p}"
-                | None -> printfn "🖥️  Logger activated - Console only"
-            | Error s -> eprintfn $"❌ Logger could not be activated:\n{s}"
-
-
     let inline report x =
         async {
             printfn "=== PRINTING REPORT ===\n\n"
@@ -887,8 +827,6 @@ Scenarios: {scenarios}
 
 
     let evaluate provider cmd =
-        "genorder" |> Some |> activateLogger
-
         match cmd with
         | UpdateOrderContext ctx -> ctx |> getScenarios provider |> ValidatedResult.map UpdateOrderContext
         | ReloadResources ctx -> ctx |> reloadResources provider |> ValidatedResult.map ReloadResources
@@ -896,7 +834,6 @@ Scenarios: {scenarios}
         | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
         | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
         | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
-        //|> report 
 
 
     let printCtx msg cmd =

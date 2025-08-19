@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Agent.fs" />
     <Compile Include="FileWriterAgent.fs" />
+  <Compile Include="FileDirectoryAgent.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
