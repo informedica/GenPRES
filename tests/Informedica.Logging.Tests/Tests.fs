@@ -222,6 +222,264 @@ module Tests =
                 }
             ]
 
+        // Discriminated Union Message Types for testing inheritance and type hierarchy
+        type LogEventMessage =
+            | InfoEvent of message: string
+            | WarnEvent of message: string * code: int
+            | ErrorEvent of message: string * code: int * details: string
+            interface IMessage
+
+        type SystemMessage =
+            | StartupMessage of version: string
+            | ShutdownMessage of reason: string
+            | ConfigMessage of LogEventMessage  // Nested discriminated union
+            interface IMessage
+
+        type ComplexMessage =
+            | Simple of string
+            | WithLogEvent of LogEventMessage
+            | WithSystem of SystemMessage
+            | Compound of LogEventMessage * SystemMessage
+            interface IMessage
+
+        // Base type for inheritance testing
+        type BaseMessage =
+            abstract member GetDescription: unit -> string
+
+        type DerivedMessage(description: string) =
+            member __.GetDescription() = description
+            interface IMessage
+            interface BaseMessage with
+                member __.GetDescription() = description
+
+        type AnotherDerivedMessage(description: string, code: int) =
+            member __.Code = code
+            member __.GetDescription() = $"{description} (Code: {code})"
+            interface IMessage
+            interface BaseMessage with
+                member __.GetDescription() = $"{description} (Code: {code})"
+
+        // Helper functions for creating discriminated union messages
+        let createLogEvent msg = InfoEvent msg :> IMessage
+        let createWarnEvent msg code = WarnEvent (msg, code) :> IMessage
+        let createErrorEvent msg code details = ErrorEvent (msg, code, details) :> IMessage
+        let createSystemMessage version = StartupMessage version :> IMessage
+        let createComplexMessage msg = Simple msg :> IMessage
+        let createNestedMessage logEvent = ConfigMessage logEvent :> IMessage
+
+        // Discriminated Union Message Formatter Tests
+        let discriminatedUnionFormatterTests =
+            testList "Discriminated Union Message Formatters" [
+                
+                test "should format discriminated union with simple cases" {
+                    let formatters = [
+                        typeof<LogEventMessage>, (fun (msg: IMessage) ->
+                            match msg :?> LogEventMessage with
+                            | InfoEvent message -> $"INFO: {message}"
+                            | WarnEvent (message, code) -> $"WARN[{code}]: {message}"
+                            | ErrorEvent (message, code, details) -> $"ERROR[{code}]: {message} - {details}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let infoResult = formatter (createLogEvent "System started")
+                    let warnResult = formatter (createWarnEvent "Low memory" 1001)
+                    let errorResult = formatter (createErrorEvent "Connection failed" 2001 "Network timeout")
+                    
+                    Expect.equal infoResult "INFO: System started" "Info event should be formatted correctly"
+                    Expect.equal warnResult "WARN[1001]: Low memory" "Warn event should be formatted correctly"
+                    Expect.equal errorResult "ERROR[2001]: Connection failed - Network timeout" "Error event should be formatted correctly"
+                }
+
+                test "should format nested discriminated unions" {
+                    let formatLogEvent = function
+                        | InfoEvent message -> $"INFO: {message}"
+                        | WarnEvent (message, code) -> $"WARN[{code}]: {message}"
+                        | ErrorEvent (message, code, details) -> $"ERROR[{code}]: {message} - {details}"
+
+                    let formatters = [
+                        typeof<SystemMessage>, (fun (msg: IMessage) ->
+                            match msg :?> SystemMessage with
+                            | StartupMessage version -> $"STARTUP: Version {version}"
+                            | ShutdownMessage reason -> $"SHUTDOWN: {reason}"
+                            | ConfigMessage logEvent -> $"CONFIG: {formatLogEvent logEvent}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let startupResult = formatter (createSystemMessage "1.0.0")
+                    let configResult = formatter (createNestedMessage (WarnEvent ("Invalid setting", 3001)))
+                    
+                    Expect.equal startupResult "STARTUP: Version 1.0.0" "Startup message should be formatted correctly"
+                    Expect.equal configResult "CONFIG: WARN[3001]: Invalid setting" "Nested discriminated union should be formatted correctly"
+                }
+
+                test "should handle complex discriminated unions with multiple types" {
+                    let formatLogEvent = function
+                        | InfoEvent message -> $"INFO: {message}"
+                        | WarnEvent (message, code) -> $"WARN[{code}]: {message}"
+                        | ErrorEvent (message, code, details) -> $"ERROR[{code}]: {message} - {details}"
+
+                    let formatSystemMessage = function
+                        | StartupMessage version -> $"STARTUP: Version {version}"
+                        | ShutdownMessage reason -> $"SHUTDOWN: {reason}"
+                        | ConfigMessage logEvent -> $"CONFIG: {formatLogEvent logEvent}"
+
+                    let formatters = [
+                        typeof<ComplexMessage>, (fun (msg: IMessage) ->
+                            match msg :?> ComplexMessage with
+                            | Simple text -> $"SIMPLE: {text}"
+                            | WithLogEvent logEvent -> $"LOG: {formatLogEvent logEvent}"
+                            | WithSystem sysMsg -> $"SYS: {formatSystemMessage sysMsg}"
+                            | Compound (logEvent, sysMsg) -> $"COMPOUND: {formatLogEvent logEvent} | {formatSystemMessage sysMsg}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let simpleResult = formatter (Simple "Hello" :> IMessage)
+                    let logResult = formatter (WithLogEvent (InfoEvent "Test") :> IMessage)
+                    let compoundResult = formatter (Compound (ErrorEvent ("Failed", 500, "Details"), StartupMessage "2.0") :> IMessage)
+                    
+                    Expect.equal simpleResult "SIMPLE: Hello" "Simple case should be formatted correctly"
+                    Expect.equal logResult "LOG: INFO: Test" "Log event case should be formatted correctly"
+                    Expect.equal compoundResult "COMPOUND: ERROR[500]: Failed - Details | STARTUP: Version 2.0" "Compound case should be formatted correctly"
+                }
+
+                test "should handle inheritance-like behavior with interfaces" {
+                    let formatters = [
+                        typeof<BaseMessage>, (fun (msg: IMessage) ->
+                            let baseMsg = msg :?> BaseMessage
+                            $"BASE: {baseMsg.GetDescription()}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let derivedResult = formatter (DerivedMessage("Test message") :> IMessage)
+                    let anotherDerivedResult = formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
+                    
+                    Expect.equal derivedResult "BASE: Test message" "Derived message should use base formatter"
+                    Expect.equal anotherDerivedResult "BASE: Error occurred (Code: 404)" "Another derived message should use base formatter"
+                }
+
+                test "should use first matching formatter in list order" {
+                    let formatters = [
+                        typeof<BaseMessage>, (fun (msg: IMessage) ->
+                            let baseMsg = msg :?> BaseMessage
+                            $"BASE: {baseMsg.GetDescription()}"
+                        )
+                        typeof<DerivedMessage>, (fun (msg: IMessage) ->
+                            let derivedMsg = msg :?> DerivedMessage
+                            $"DERIVED: {derivedMsg.GetDescription()}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let derivedResult = formatter (DerivedMessage("Test message") :> IMessage)
+                    let anotherDerivedResult = formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
+                    
+                    Expect.equal derivedResult "BASE: Test message" "First matching formatter should be used for DerivedMessage"
+                    Expect.equal anotherDerivedResult "BASE: Error occurred (Code: 404)" "Base formatter should be used for AnotherDerivedMessage"
+                }
+
+                test "should prioritize more specific formatters when listed first" {
+                    let formatters = [
+                        typeof<DerivedMessage>, (fun (msg: IMessage) ->
+                            let derivedMsg = msg :?> DerivedMessage
+                            $"DERIVED: {derivedMsg.GetDescription()}"
+                        )
+                        typeof<BaseMessage>, (fun (msg: IMessage) ->
+                            let baseMsg = msg :?> BaseMessage
+                            $"BASE: {baseMsg.GetDescription()}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let derivedResult = formatter (DerivedMessage("Test message") :> IMessage)
+                    let anotherDerivedResult = formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
+                    
+                    Expect.equal derivedResult "DERIVED: Test message" "More specific formatter should be used when listed first"
+                    Expect.equal anotherDerivedResult "BASE: Error occurred (Code: 404)" "Base formatter should be used for non-derived types"
+                }
+
+                test "should handle multiple formatters for same discriminated union type" {
+                    let formatters = [
+                        typeof<LogEventMessage>, (fun (msg: IMessage) ->
+                            match msg :?> LogEventMessage with
+                            | InfoEvent message -> $"📝 {message}"
+                            | WarnEvent (message, code) -> $"⚠️ [{code}] {message}"
+                            | ErrorEvent (message, code, details) -> $"❌ [{code}] {message}: {details}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let infoResult = formatter (InfoEvent "System operational" :> IMessage)
+                    let warnResult = formatter (WarnEvent ("Memory usage high", 2001) :> IMessage)
+                    let errorResult = formatter (ErrorEvent ("Database error", 5001, "Connection timeout") :> IMessage)
+                    
+                    Expect.equal infoResult "📝 System operational" "Info with emoji formatter should work"
+                    Expect.equal warnResult "⚠️ [2001] Memory usage high" "Warning with emoji formatter should work"
+                    Expect.equal errorResult "❌ [5001] Database error: Connection timeout" "Error with emoji formatter should work"
+                }
+
+                test "should handle fallback for unregistered discriminated union types" {
+                    let formatters = [
+                        typeof<LogEventMessage>, (fun (msg: IMessage) ->
+                            match msg :?> LogEventMessage with
+                            | InfoEvent message -> $"LOG: {message}"
+                            | _ -> "LOG: Other event"
+                        )
+                    ]
+                    
+                    let fallback = fun (msg: IMessage) -> $"UNKNOWN: {msg.GetType().Name}"
+                    let formatter = MessageFormatter.createWithFallback formatters fallback
+                    
+                    let knownResult = formatter (InfoEvent "Known message" :> IMessage)
+                    let unknownResult = formatter (StartupMessage "1.0" :> IMessage)
+                    
+                    Expect.equal knownResult "LOG: Known message" "Known discriminated union should use specific formatter"
+                    Expect.equal unknownResult "UNKNOWN: StartupMessage" "Unknown discriminated union should use fallback"
+                }
+
+                test "should handle empty formatter list gracefully" {
+                    let formatters: (Type * (IMessage -> string)) list = []
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let result = formatter (InfoEvent "Test" :> IMessage)
+                    
+                    Expect.equal result "" "Empty formatter list should return empty string"
+                }
+
+                test "should handle null or exception cases in discriminated union formatters" {
+                    let formatters = [
+                        typeof<LogEventMessage>, (fun (msg: IMessage) ->
+                            match msg :?> LogEventMessage with
+                            | InfoEvent message when String.IsNullOrEmpty(message) -> "EMPTY INFO"
+                            | InfoEvent message -> $"INFO: {message}"
+                            | WarnEvent (message, code) when code < 0 -> "INVALID WARN CODE"
+                            | WarnEvent (message, code) -> $"WARN[{code}]: {message}"
+                            | ErrorEvent (message, code, details) -> $"ERROR[{code}]: {message} - {details}"
+                        )
+                    ]
+                    
+                    let formatter = MessageFormatter.create formatters
+                    
+                    let emptyResult = formatter (InfoEvent "" :> IMessage)
+                    let invalidCodeResult = formatter (WarnEvent ("Test", -1) :> IMessage)
+                    let normalResult = formatter (InfoEvent "Normal" :> IMessage)
+                    
+                    Expect.equal emptyResult "EMPTY INFO" "Empty message should be handled"
+                    Expect.equal invalidCodeResult "INVALID WARN CODE" "Invalid code should be handled"
+                    Expect.equal normalResult "INFO: Normal" "Normal message should work"
+                }
+            ]
+
         // Agent Logging Tests
         let agentLoggingTests =
             testList "Agent Logging" [
@@ -656,6 +914,7 @@ module Tests =
             testList "Informedica.Logging.Lib Tests" [
                 basicLoggingTests
                 messageFormatterTests
+                discriminatedUnionFormatterTests
                 agentLoggingTests
                 agentLoggingDisposalTests
                 performanceTests
