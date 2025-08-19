@@ -62,7 +62,7 @@ module Logging
         |> Some
 
 
-    let getDirAgent path =
+    let getDirAgent (path: string) =
         let agent =
             match dirAgent with
             | Some agent -> agent
@@ -71,21 +71,35 @@ module Logging
                 dirAgent <- Some agent
                 agent
 
-        agent
-        |> FileDirectoryAgent.setPolicyWithPattern path MAX_LOG_FILES "*.log"
+        // Ensure policy is set on the directory (not the file path)
+        let dir =
+            match Path.GetDirectoryName path with
+            | null | "" -> getServerDataPath ()
+            | d -> d
+        agent |> FileDirectoryAgent.setPolicyWithPattern dir MAX_LOG_FILES "*.log"
 
 
     let activateLogger (componentName: string option) (logger: AgentLogger) =
-        if Env.getItem "GENPRES_LOG"
-        |> Option.map (fun s -> s = "1")
-        |> Option.defaultValue false then
+        let loggingEnabled =
+            Env.getItem "GENPRES_LOG"
+            |> Option.map (fun s ->
+                match s.Trim().ToLowerInvariant() with
+                | "1" | "true" | "yes" | "on" -> true
+                | _ -> false)
+            |> Option.defaultValue false
+
+        if loggingEnabled then
 
             let path = getRecommendedLogPath componentName
-            getDirAgent path
-            |> FileDirectoryAgent.prune path
-            |> function
-            | Ok n -> () //printfn $"Deleted {n} log files"
-            | Error s -> eprintfn $"Log path prune errored with: {s}"
+            let agent = getDirAgent path
+            // Prune asynchronously to avoid blocking startup
+            async {
+                let! res = FileDirectoryAgent.pruneAsync path agent
+                match res with
+                | Ok n when n > 0 -> printfn $"🧹 Pruned {n} old log file(s)"
+                | Ok _ -> ()
+                | Error s -> eprintfn $"Log path prune errored with: {s}"
+            } |> Async.StartImmediate
 
 
             logger.StartAsync (Some path) Informedica.Logging.Lib.Level.Informative
