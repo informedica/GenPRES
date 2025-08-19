@@ -383,13 +383,13 @@ module AgentLogging =
                         errorHandler |> Option.iter (fun h -> h (FormatterError(ex, ev.Message)))
                         Some [| sprintf "ERROR: Failed to format message: %s" ex.Message; "" |]
 
-                let rec loop (path: string option) (level: Level) = 
+                let rec loop (path: string option) (level: Level) (fileInitialized: bool) = 
                     async {
                         let! msgOpt = inbox.TryReceive(1000)
                         match msgOpt with
                         | None ->
                             if cts.Token.IsCancellationRequested then return ()
-                            else return! loop path level
+                            else return! loop path level fileInitialized
 
                         | Some msg ->
                             match msg with
@@ -403,17 +403,15 @@ module AgentLogging =
                                 let res =
                                     try
                                         match newPath with
-                                        | Some p ->
-                                            // Initialize file using FileWriterAgent to keep encoding consistent (no BOM)
-                                            let header = sprintf "Start logging %A: %s" newLevel (DateTime.Now.ToShortTimeString())
-                                            // Clear existing file and write header + an empty line
-                                            W.clear p writer |> ignore
-                                            W.append p [| header; "" |] writer |> ignore
+                                        | Some _ ->
+                                            // Defer file creation until the first actual log message
+                                            ()
                                         | None -> ()
                                         Ok ()
                                     with ex -> Error ex.Message
                                 reply.Reply(res)
-                                return! loop newPath newLevel
+                                // Reset initialization state when (re)starting a path
+                                return! loop newPath newLevel false
 
                             | LogEvent ev ->
                                 let shouldLog =
@@ -431,13 +429,21 @@ module AgentLogging =
                                     | Some lines ->
                                         match path with
                                         | Some p -> 
+                                            // Create the file lazily on first write by prepending a header
+                                            if not fileInitialized then
+                                                let header = sprintf "Start logging %A: %s" level (DateTime.Now.ToShortTimeString())
+                                                Array.append [| header; "" |] lines
+                                                |> fun firstBatch -> W.append p firstBatch writer |> ignore
+                                                scheduleFlush ()
+                                                return! loop path level true
+                                            // Already initialized; just append the message lines
                                             W.append p lines writer |> ignore      // async writer
                                             scheduleFlush ()
                                         | None   -> printfn "%s" lines[1]        // print body only
                                     | None -> ()
                                     messageCountSinceFlush <- messageCountSinceFlush + 1
                                     scheduleFlush ()
-                                return! loop path level
+                                return! loop path level fileInitialized
 
                             | FlushTimer ->
                                 pendingFlush <- false
@@ -447,7 +453,7 @@ module AgentLogging =
                                     messageCountSinceFlush <- 0
                                 with 
                                 | ex -> config.ErrorHandler |> Option.iter (fun h -> FileWriteError (ex, "flush") |> h)
-                                return! loop path level
+                                return! loop path level fileInitialized
 
                             | Report reply ->
                                 // produce formatted lines (oldest -> newest)
@@ -458,7 +464,7 @@ module AgentLogging =
                                     |> Seq.collect id
                                     |> Array.ofSeq
                                 reply.Reply(lines)
-                                return! loop path level
+                                return! loop path level fileInitialized
 
                             | Write (filePath, reply) ->
                                 // fire-and-forget write of a snapshot
@@ -474,10 +480,10 @@ module AgentLogging =
                                         Ok ()
                                     with ex -> Error ex.Message
                                 reply.Reply(result)
-                                return! loop path level
+                                return! loop path level fileInitialized
                 }
 
-                loop None config.DefaultLevel
+                loop None config.DefaultLevel false
             )
 
         logger.Error.Add(fun ex -> eprintfn "Agent error: %s" ex.Message)
