@@ -739,10 +739,10 @@ module OrderContext =
                 | Api.UpdateOrderScenario _ -> ctx |> OrderContext.UpdateOrderScenario
                 | Api.ResetOrderScenario _ -> ctx |> OrderContext.ResetOrderScenario
                 | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
-            |> OrderContext.printCtx "start eval"
+            |> OrderContext.printCtx Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger "start eval"
             |> OrderContext.evaluate provider
             |> ValidatedResult.get 
-            |> OrderContext.printCtx "finish eval"
+            |> OrderContext.printCtx Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger "finish eval"
 
         match cmd with
         | Api.UpdateOrderContext ctx

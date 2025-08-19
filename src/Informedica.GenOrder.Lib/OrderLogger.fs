@@ -76,7 +76,10 @@ module OrderLogging =
         | Events.OrderSolveFinished o -> 
             $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Finished ==="
 
-        | Events.OrderScenario _ -> ""
+        | Events.OrderScenario s -> s
+        | Events.OrderScenarioWithNameValue (o, n, v) ->
+            let (Types.Id oid) = o.Id
+            $"Scenario {oid}: {n |> Name.toString} = {v}"
 
         | _ -> ""
 

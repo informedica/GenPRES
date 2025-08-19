@@ -836,8 +836,10 @@ Scenarios: {scenarios}
         | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
 
 
-    let printCtx msg cmd =
-        writeDebugMessage $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
+    let printCtx (logger: Informedica.Logging.Lib.Logger) msg cmd =
+        let log (s: string) = Informedica.Logging.Lib.Logging.logDebug logger (Informedica.GenOrder.Lib.Types.Logging.OrderMessage.OrderEventMessage (Informedica.GenOrder.Lib.Types.Events.OrderScenario s))
+
+        log $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
         let ctx = cmd |> Command.get
 
         match ctx.Scenarios |> Array.tryExactlyOne with
@@ -854,7 +856,7 @@ Scenarios: {scenarios}
                 $"Doses are solved: {sc.Order |> Order.doseIsSolved}"
             ]
             |> String.concat "\n"
-            |> writeDebugMessage
+            |> log
 
             if sc.Order |> Order.isWithinConstraints |> not then
                 sc.Order
@@ -862,23 +864,21 @@ Scenarios: {scenarios}
                 |> List.map (OrderVariable.toStringWithConstraints true false)
                 |> String.concat "\n"
                 |> sprintf "Variables outside constraints:\n%s"
-                |> writeDebugMessage
-
+                |> log
         | _ -> ()
 
-        writeDebugMessage $"Components change: {ctx |> checkComponentChange}"
-        writeDebugMessage $"Diluent change: {ctx |> checkDiluentChange}\n"
+        log $"Components change: {ctx |> checkComponentChange}"
+        log $"Diluent change: {ctx |> checkDiluentChange}\n"
 
         ctx
         |> toString $"Order Context"
-        |> writeDebugMessage
+        |> log
 
         ctx.Scenarios
         |> Array.tryExactlyOne
         |> Option.iter (_.Order >> Order.printTable Format.Minimal)
 
-        writeDebugMessage $"\n===\n"
-
+        log $"\n===\n"
         cmd
 
 
