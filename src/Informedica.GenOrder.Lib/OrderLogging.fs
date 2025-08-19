@@ -154,8 +154,10 @@ module OrderLogging =
     /// Enhanced print function that can handle messages with context
     let printOrderMsgWithContext (msgs : ResizeArray<float * Event> option) (msg : Event) =
         match msg.Message with
+        (*
         | :? Logging.SolverMessage as m -> 
             SolverLogging.formatSolverMessage m
+        *)
         | :? OrderMessage as m -> 
             match m with
             | OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
@@ -199,6 +201,7 @@ messages: {msgs.Value.Count}
             writeErrorMessage $"printMsg cannot handle {msg}"
             ""
 
+
     /// Backward compatibility - create a logger that matches the old interface
     let create (f: string -> unit) =
         let formatter = MessageFormatter.create [
@@ -213,14 +216,17 @@ messages: {msgs.Value.Count}
                 |> fun s -> if not (String.IsNullOrEmpty s) then f s
         }
 
+
     /// A logger that does nothing
     let ignore = Logging.ignore
+
 
     /// A logger that prints to the console
     let printLogger : Logger = 
         let formatter = MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.GenFormLogging.formatMessage
         ]
         Logging.createConsole formatter
 
@@ -229,6 +235,7 @@ messages: {msgs.Value.Count}
         MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.GenFormLogging.formatMessage
         ]
         |> AgentLogging.createWithFormatter
 

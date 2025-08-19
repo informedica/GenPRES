@@ -7,6 +7,7 @@ module Types =
     open MathNet.Numerics
 
     open Informedica.Utils.Lib
+    open Informedica.Logging.Lib
     open Informedica.GenUnits.Lib
 
     type MinMax = Informedica.GenCore.Lib.Ranges.MinMax
@@ -614,7 +615,10 @@ module Types =
         | Info of string
         | Warning of string
         | ErrorMsg of (string * exn option)
+        interface IMessage
 
     
     type GenFormResult<'T> = 
         ValidatedResult<'T, Message>
+
+

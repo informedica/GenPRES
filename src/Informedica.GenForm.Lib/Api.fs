@@ -356,6 +356,8 @@ module Resources =
 module Api =
 
     open System
+    open Informedica.Logging.Lib
+
     open Resources
 
 
