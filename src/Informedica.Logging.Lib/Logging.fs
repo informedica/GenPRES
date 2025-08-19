@@ -317,7 +317,7 @@ module AgentLogging =
                 let mutable lastFlushTime = DateTime.UtcNow
                 let mutable messageCountSinceFlush = 0
                 let minFlushInterval = TimeSpan.FromSeconds(1.0)
-                let maxFlushInterval = TimeSpan.FromSeconds(30.0)
+                let maxFlushInterval = TimeSpan.FromSeconds(10.0)
                 let flushThreshold = 100                
 
                 let scheduleFlush() =
@@ -404,9 +404,11 @@ module AgentLogging =
                                     try
                                         match newPath with
                                         | Some p ->
-                                            let header = sprintf "Start logging %A: %s\n"
-                                                            newLevel (DateTime.Now.ToShortTimeString())
-                                            File.WriteAllText(p, header + Environment.NewLine)
+                                            // Initialize file using FileWriterAgent to keep encoding consistent (no BOM)
+                                            let header = sprintf "Start logging %A: %s" newLevel (DateTime.Now.ToShortTimeString())
+                                            // Clear existing file and write header + an empty line
+                                            W.clear p writer |> ignore
+                                            W.append p [| header; "" |] writer |> ignore
                                         | None -> ()
                                         Ok ()
                                     with ex -> Error ex.Message
@@ -579,15 +581,3 @@ module AgentLogging =
         |> createAgentLogger
 
 
-module AgentLoggingTests =
-    let ``should handle high message throughput`` () =
-        // Test with 10,000 messages
-        failwith "not implemented yet"
-        
-    let ``should recover from file system errors`` () =
-        // Test with read-only file system
-        failwith "not implemented yet"
-        
-    let ``should respect memory limits`` () =
-        // Test with ring buffer overflow
-        failwith "not implemented yet"

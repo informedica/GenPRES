@@ -62,9 +62,10 @@ module FileWriterAgent =
 
 
     /// Open a new StreamWriter with sharing that allows editors to truncate/replace.
+    /// Always write UTF-8 without BOM to avoid hidden preambles/nonprintable characters.
     let openWriter (path: string) =
-        // If the file already exists with a BOM indicating UTF-16, honor it
-        let enc = detectEncoding path
+        // For consistency, always write UTF-8 (no BOM)
+        let enc = utf8NoBom
         let fs =
             new FileStream(
                 path,
