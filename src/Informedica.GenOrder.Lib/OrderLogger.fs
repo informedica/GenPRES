@@ -113,20 +113,20 @@ module OrderLogging =
 
     /// Create a file-based order logger
     let createFileLogger (path: string) =
-        let formatter = MessageFormatter.create [
+        MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
         ]
-        Logging.createFile path formatter
+        |> Logging.createFile path
 
 
     /// Create an agent-based order logger
     let createAgentLogger () =
-        let formatter = MessageFormatter.create [
+        MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
         ]
-        AgentLogging.createWithFormatter formatter
+        |> AgentLogging.createWithFormatter
 
 
     /// Convenience functions for logging order events
@@ -220,6 +220,14 @@ messages: {msgs.Value.Count}
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
         ]
         Logging.createConsole formatter
+
+
+    let agentLogger =
+        MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        |> AgentLogging.createWithFormatter
 
 
     /// <summary>

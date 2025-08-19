@@ -845,7 +845,6 @@ module Command =
 
             writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
 
-
         match cmd with
         | OrderContextCmd ctxCmd ->
             ctxCmd

@@ -357,7 +357,7 @@ module OrderContext =
                 async {
                     return
                         pr
-                        |> evaluateRule OrderLogging.printLogger
+                        |> evaluateRule OrderLogging.agentLogger.Logger
                 }
             )
             |> Async.Parallel
@@ -769,7 +769,7 @@ Scenarios: {scenarios}
                             Order =
                                 sc.Order
                                 |> cmd
-                                |> Order.processPipeLine OrderLogging.printLogger None
+                                |> Order.processPipeLine OrderLogging.agentLogger.Logger None
                                 |> Result.defaultValue sc.Order
                         }
                         |> OrderScenario.setOrderTableFormat
@@ -828,8 +828,28 @@ Scenarios: {scenarios}
                     $"{Environment.CurrentDirectory}/log.txt"
                 else
                     $"{getAssemblyPath ()}/log.txt"
+            ()
 
-            () //OrderLogger.logger.Start (Some path) OrderLogger.Level.Informative
+        OrderLogging.agentLogger.StartAsync None Informedica.Logging.Lib.Level.Informative
+        |> Async.RunSynchronously
+        |> function
+        | Ok _-> () //printfn "Logger is activated"
+        | Error s -> eprintfn $"Logger could not be activated:\n{s}"
+
+
+    let inline report x =
+        async {
+            printfn "=== PRINTING REPORT ===\n\n"
+            // Give the agent time to process any pending messages
+            do! Async.Sleep(100)
+            let! msgs = OrderLogging.agentLogger.ReportAsync ()
+            printfn "Found %d messages to display" msgs.Length
+            msgs
+            |> Array.iter (printfn "%s")
+            printfn "=== END REPORT ===\n\n"
+        }
+        |> Async.RunSynchronously
+        x
 
 
     let evaluate provider cmd =
@@ -842,6 +862,7 @@ Scenarios: {scenarios}
         | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
         | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
         | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
+        |> report 
 
 
     let printCtx msg cmd =

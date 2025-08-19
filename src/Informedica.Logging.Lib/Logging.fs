@@ -130,31 +130,33 @@ module MessageFormatter =
     
     /// Create a formatter that handles multiple message types
     let create (formatters: (Type * (IMessage -> string)) list) : IMessage -> string =
-        // Create a map using Type.FullName as the key
-        let formatterMap = 
-            formatters 
-            |> List.map (fun (t, f) -> t.FullName, f)
-            |> Map.ofList
-        
         fun msg ->
             let msgType = msg.GetType()
-            formatterMap
-            |> Map.tryFind msgType.FullName
+            //printfn $"msgType = {msgType} in {formatters |> List.map (fst >> _.FullName)}"
+            
+            // Try to find a formatter where the registered type is assignable from the message type
+            formatters
+            |> List.tryPick (fun (regType, formatter) ->
+                if regType.IsAssignableFrom(msgType) then
+                    Some formatter
+                else None
+            )
             |> Option.map (fun formatter -> formatter msg)
             |> Option.defaultValue ""
 
 
     /// Create a formatter with fallback
     let createWithFallback (formatters: (Type * (IMessage -> string)) list) (fallback: IMessage -> string) : IMessage -> string =
-        let formatterMap = 
-            formatters 
-            |> List.map (fun (t, f) -> t.FullName, f)
-            |> Map.ofList
-        
         fun msg ->
             let msgType = msg.GetType()
-            formatterMap
-            |> Map.tryFind msgType.FullName
+            
+            // Try to find a formatter where the registered type is assignable from the message type
+            formatters
+            |> List.tryPick (fun (regType, formatter) ->
+                if regType.IsAssignableFrom(msgType) then
+                    Some formatter
+                else None
+            )
             |> Option.map (fun formatter -> formatter msg)
             |> Option.defaultWith (fun () -> fallback msg)
 
@@ -271,7 +273,7 @@ module AgentLogging =
         /// Create default configuration for production use
         let production : AgentLoggerConfig = {
             Formatter = defaultFormatter
-            MaxMessages = Some 10000  // Large buffer for production
+            MaxMessages = Some 10_000  // Large buffer for production
             DefaultLevel = Level.Error  // Only log errors in production
             FlushInterval = TimeSpan.FromSeconds(30.0)  // Less frequent flushing
             ErrorHandler = Some defaultErrorHandler
@@ -367,7 +369,9 @@ module AgentLogging =
 
                 let formatLogMessage (elapsed: float) (count: int) (ev: Event) =
                     try
-                        let text = config.Formatter ev.Message
+                        let text = 
+                            //AgentLoggerDefaults.defaultFormatter ev.Message 
+                            config.Formatter ev.Message
                         if String.IsNullOrWhiteSpace text then None
                         else 
                             sb.Clear() |> ignore

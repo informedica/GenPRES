@@ -3,7 +3,6 @@ namespace Informedica.Agents.Lib
 
 open System
 open System.Threading
-open System.Threading.Tasks
 
 
 /// <summary>
@@ -249,7 +248,7 @@ module Agent =
     /// <returns>Some(reply) if successful, None if timed out.</returns>
     let tryPostAndReply timeout msg (agent: Agent<_>) =
         agent.TryPostAndReply((fun replyChannel ->
-            (msg, replyChannel)
+            msg, replyChannel
         ), timeout)
 
     /// <summary>
@@ -279,7 +278,7 @@ module Agent =
     /// <returns>An Async computation returning the reply.</returns>
     let postAndAsyncReply msg (agent: Agent<_>) =
         agent.PostAndAsyncReply(fun replyChannel ->
-            (msg, replyChannel)
+            msg, replyChannel
         )
 
     /// <summary>
@@ -291,7 +290,7 @@ module Agent =
     /// <returns>An Async computation returning Some(reply) or None if timed out.</returns>
     let postAndTryAsyncReply timeout msg (agent: Agent<_>) =
         agent.PostAndTryAsyncReply((fun replyChannel ->
-            (msg, replyChannel)
+            msg, replyChannel
         ), timeout)
 
     /// <summary>
@@ -302,7 +301,7 @@ module Agent =
     /// <returns>A Task returning the reply.</returns>
     let postAndAsyncReplyTask msg (agent: Agent<_>) =
         agent.PostAndAsyncReply(fun replyChannel ->
-            (msg, replyChannel)
+            msg, replyChannel
         )
         |> Async.StartAsTask
 
