@@ -20,10 +20,32 @@ module FileDirectoryAgent =
 
     let private defaultPattern = "*"
 
-    let private normalizeDir (dir: string) =
-        if String.IsNullOrWhiteSpace dir then 
-            invalidArg (nameof dir) "Directory must not be null or empty"
-        Path.GetFullPath dir
+    let private normalizeDir (pathOrDir: string) =
+        if String.IsNullOrWhiteSpace pathOrDir then 
+            invalidArg (nameof pathOrDir) "Directory/path must not be null or empty"
+        let p = Path.GetFullPath pathOrDir
+        // If it's an existing directory, use it as-is
+        if Directory.Exists p then p
+        else
+            // If it's an existing file, use its directory
+            if File.Exists p then
+                match Path.GetDirectoryName p with
+                | null | "" -> Directory.GetCurrentDirectory()
+                | d -> d
+            else
+                // Heuristics when path doesn't exist:
+                // - trailing separator => directory
+                // - has extension => treat as file path, take its directory
+                // - otherwise => treat as directory
+                let endsWithSep =
+                    p.EndsWith(string Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    || p.EndsWith(string Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
+                if endsWithSep then p
+                else if Path.HasExtension p then
+                    match Path.GetDirectoryName p with
+                    | null | "" -> Directory.GetCurrentDirectory()
+                    | d -> d
+                else p
 
     /// Return number of deleted files; oldest by LastWriteTimeUtc
     let private pruneOnce (dir: string) (pattern: string) (maxFiles: int) : Result<int, string> =

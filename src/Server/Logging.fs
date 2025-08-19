@@ -8,7 +8,11 @@ module Logging
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
+    open Informedica.Agents.Lib
     open Informedica.Logging.Lib.AgentLogging
+
+
+    let [<Literal>] MAX_LOG_FILES = 100
 
 
     let getAssemblyPath () =
@@ -53,20 +57,43 @@ module Logging
         Path.Combine(logDir, fileName)
 
 
+    let mutable private dirAgent =
+        FileDirectoryAgent.create()
+        |> Some
+
+
+    let getDirAgent path =
+        let agent =
+            match dirAgent with
+            | Some agent -> agent
+            | None ->
+                let agent = FileDirectoryAgent.create()
+                dirAgent <- Some agent
+                agent
+
+        agent
+        |> FileDirectoryAgent.setPolicyWithPattern path MAX_LOG_FILES "*.log"
+
+
     let activateLogger (componentName: string option) (logger: AgentLogger) =
         if Env.getItem "GENPRES_LOG"
         |> Option.map (fun s -> s = "1")
         |> Option.defaultValue false then
 
-            let path = getRecommendedLogPath componentName |> Some
+            let path = getRecommendedLogPath componentName
+            getDirAgent path
+            |> FileDirectoryAgent.prune path
+            |> function
+            | Ok n -> () //printfn $"Deleted {n} log files"
+            | Error s -> eprintfn $"Log path prune errored with: {s}"
 
-            logger.StartAsync path Informedica.Logging.Lib.Level.Informative
+
+            logger.StartAsync (Some path) Informedica.Logging.Lib.Level.Informative
             |> Async.RunSynchronously
             |> function
             | Ok _-> 
-                match path with
-                | Some p -> printfn $"💾 Logger activated - Writing to: {p}"
-                | None -> printfn "🖥️  Logger activated - Console only"
+                printfn $"💾 Logger activated - Writing to: {path}"
+                //| None -> printfn "🖥️  Logger activated - Console only"
             | Error s -> eprintfn $"❌ Logger could not be activated:\n{s}"
 
 

@@ -835,7 +835,9 @@ module Command =
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
+
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
+
 
 
     let processCmd provider cmd =
