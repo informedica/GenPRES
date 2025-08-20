@@ -30,6 +30,11 @@ GENPRES_DEBUG={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
     |> writeInfoMessage
 
 
+if tryGetEnv "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
+
+    Informedica.GenOrder.Lib.OrderLogging.agentLogger
+    |> Logging.activateLogger (Some "server")
+
 
 let port =
     "SERVER_PORT"
@@ -40,7 +45,7 @@ let webApi =
     let serverApi = 
         tryGetEnv "GENPRES_URL_ID"
         |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
-        |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId
+        |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger
         |> createServerApi
 
     Remoting.createApi()

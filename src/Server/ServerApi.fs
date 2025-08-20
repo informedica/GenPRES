@@ -842,10 +842,9 @@ module Command =
 
     let processCmd provider cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-
             Informedica.GenOrder.Lib.OrderLogging.agentLogger
-            |> Logging.activateLogger (Some "genorder")
-            
+            |> Logging.activateLogger (Some "serverApi")
+
             writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
 
         match cmd with

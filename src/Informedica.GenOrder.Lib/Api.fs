@@ -831,7 +831,7 @@ Scenarios: {scenarios}
 
 
     let reloadResources provider ctx =
-        Api.reloadCache provider
+        Api.reloadCache OrderLogging.agentLogger.Logger provider 
         
         ctx 
         |> getScenarios provider 

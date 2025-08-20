@@ -361,13 +361,29 @@ module Api =
     open Resources
 
 
-    let getCachedProviderWithDataUrlId dataUrlId =  
-        CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
+    let private logGenFormMessages (logger: Logger) provider =
+        (provider :> IResourceProvider).GetResourceInfo().Messages 
+        |> Array.iter (fun m ->
+            match m with
+            | Informedica.GenForm.Lib.Types.Info _ -> Logging.logInfo logger m
+            | Informedica.GenForm.Lib.Types.Warning _ -> Logging.logWarning logger m
+            | Informedica.GenForm.Lib.Types.ErrorMsg _ -> Logging.logError logger m
+        )
 
 
-    let reloadCache (provider : IResourceProvider) =
+    let getCachedProviderWithDataUrlId (logger: Logger) dataUrlId =  
+        let provider = CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
+        provider
+        |> logGenFormMessages logger
+        
+        provider
+
+
+    let reloadCache (logger: Logger) (provider : IResourceProvider) =
         match provider with
-        | :? CachedResourceProvider as cachedProvider -> cachedProvider.ReloadCache()
+        | :? CachedResourceProvider as cachedProvider -> 
+            cachedProvider.ReloadCache()
+            cachedProvider |> logGenFormMessages logger
         | _ -> failwith "Provider is not a CachedResourceProvider instance"
 
 
