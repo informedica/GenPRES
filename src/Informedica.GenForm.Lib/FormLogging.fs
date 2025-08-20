@@ -1,6 +1,6 @@
 namespace Informedica.GenForm.Lib
 
-module GenFormLogging =
+module FormLogging =
 
     open Informedica.Logging.Lib
     open Informedica.GenForm.Lib.Types

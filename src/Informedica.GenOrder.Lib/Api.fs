@@ -4,18 +4,44 @@ module Filters =
 
     open Informedica.GenForm.Lib
     open Informedica.GenForm.Lib.Resources
+    open Informedica.Logging.Lib
 
+    let private logGenFormMessages (logger: Logger) (res: Informedica.GenForm.Lib.Types.GenFormResult<_>) =
+        let msgs = Informedica.Utils.Lib.ValidatedResult.getMessages res
+        msgs |> List.iter (fun m ->
+            match m with
+            | Informedica.GenForm.Lib.Types.Info _ -> Logging.logInfo logger m
+            | Informedica.GenForm.Lib.Types.Warning _ -> Logging.logWarning logger m
+            | Informedica.GenForm.Lib.Types.ErrorMsg _ -> Logging.logError logger m
+        )
+        res
 
-    let getPrescriptionRules (provider: IResourceProvider) =
+    // Logger-injected variant
+    let getPrescriptionRulesWithLogger (logger: Logger) (provider: IResourceProvider) =
         Api.getPrescriptionRules provider 
-        >> Result.map fst
-        >> Result.defaultValue [||]
+        >> fun res ->
+            res
+            |> logGenFormMessages logger
+            |> function
+                | Ok (rules, _) -> rules
+                | Error _ -> [||]
+
+    // Backwards-compatible variant using the same logger as OrderContext evaluation
+    let getPrescriptionRules (provider: IResourceProvider) =
+        getPrescriptionRulesWithLogger Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger provider
 
 
-    let filterPrescriptionRules (provider: IResourceProvider) filter =
+    // Logger-injected variant
+    let filterPrescriptionRulesWithLogger (logger: Logger) (provider: IResourceProvider) filter =
         Api.filterPrescriptionRules provider filter
-        |> Result.map fst
-        |> Result.defaultValue [||]
+        |> logGenFormMessages logger
+        |> function
+            | Ok (rules, _) -> rules
+            | Error _ -> [||]
+
+    // Backwards-compatible variant using the same logger as OrderContext evaluation
+    let filterPrescriptionRules (provider: IResourceProvider) filter =
+        filterPrescriptionRulesWithLogger Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger provider filter
 
 
     let getIndications (provider: IResourceProvider) =
@@ -837,7 +863,7 @@ Scenarios: {scenarios}
 
 
     let printCtx (logger: Informedica.Logging.Lib.Logger) msg cmd =
-        let log (s: string) = Informedica.Logging.Lib.Logging.logDebug logger (Informedica.GenOrder.Lib.Types.Logging.OrderMessage.OrderEventMessage (Informedica.GenOrder.Lib.Types.Events.OrderScenario s))
+        let log (s: string) = Informedica.Logging.Lib.Logging.logDebug logger (Logging.OrderMessage.OrderEventMessage (Events.OrderScenario s))
 
         log $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
         let ctx = cmd |> Command.get

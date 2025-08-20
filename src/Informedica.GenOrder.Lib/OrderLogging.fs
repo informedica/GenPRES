@@ -226,7 +226,7 @@ messages: {msgs.Value.Count}
         let formatter = MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
-            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.GenFormLogging.formatMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
         ]
         Logging.createConsole formatter
 
@@ -235,7 +235,7 @@ messages: {msgs.Value.Count}
         MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
             typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
-            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.GenFormLogging.formatMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
         ]
         |> AgentLogging.createWithFormatter
 
