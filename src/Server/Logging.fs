@@ -122,5 +122,5 @@ module Logging
             |> Array.iter (printfn "%s")
             printfn "=== END REPORT ===\n\n"
         }
-        |> Async.RunSynchronously
+        |> Async.Start
         x

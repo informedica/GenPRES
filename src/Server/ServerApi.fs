@@ -842,7 +842,6 @@ module Command =
 
     let processCmd provider cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-            let path = $"{__SOURCE_DIRECTORY__}/log.txt"
 
             Informedica.GenOrder.Lib.OrderLogging.agentLogger
             |> Logging.activateLogger (Some "genorder")

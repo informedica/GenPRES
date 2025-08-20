@@ -837,21 +837,6 @@ Scenarios: {scenarios}
         |> getScenarios provider 
 
 
-    let inline report x =
-        async {
-            printfn "=== PRINTING REPORT ===\n\n"
-            // Give the agent time to process any pending messages
-            do! Async.Sleep(100)
-            let! msgs = OrderLogging.agentLogger.ReportAsync ()
-            printfn "Found %d messages to display" msgs.Length
-            msgs
-            |> Array.iter (printfn "%s")
-            printfn "=== END REPORT ===\n\n"
-        }
-        |> Async.RunSynchronously
-        x
-
-
     let evaluate provider cmd =
         match cmd with
         | UpdateOrderContext ctx -> ctx |> getScenarios provider |> ValidatedResult.map UpdateOrderContext
