@@ -232,12 +232,19 @@ messages: {msgs.Value.Count}
 
 
     let agentLogger =
-        MessageFormatter.create [
-            typeof<OrderMessage>, formatOrderMessage
-            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
-            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-        ]
-        |> AgentLogging.createWithFormatter
+        let formatter =
+            MessageFormatter.create [
+                typeof<OrderMessage>, formatOrderMessage
+                typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
+            ]
+        AgentLogging.AgentLoggerDefaults.config
+        |> AgentLogging.AgentLoggerDefaults.withFormatter formatter
+        |> AgentLogging.AgentLoggerDefaults.withLevel Level.Informative
+        |> AgentLogging.AgentLoggerDefaults.withFlushInterval (TimeSpan.FromSeconds 5.)
+        |> AgentLogging.AgentLoggerDefaults.withMinFlushInterval (TimeSpan.FromSeconds 1.)
+        |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 60.)
+        |> AgentLogging.createAgentLogger
 
 
     /// <summary>

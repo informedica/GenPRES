@@ -531,7 +531,7 @@ module Tests =
                 
                 testAsync "should respect message limits" {
                     let config = { 
-                        AgentLogging.AgentLoggerDefaults.console with 
+                        AgentLogging.AgentLoggerDefaults.config with 
                             MaxMessages = Some 3
                             FlushInterval = TimeSpan.FromMilliseconds(100.0)
                     }
@@ -710,7 +710,7 @@ module Tests =
                         failwith "Formatter error!"
                     
                     let config = { 
-                        AgentLogging.AgentLoggerDefaults.console with 
+                        AgentLogging.AgentLoggerDefaults.config with 
                             Formatter = badFormatter
                     }
                     
@@ -798,7 +798,7 @@ module Tests =
                 
                 testAsync "custom config with use binding should respect settings" {
                     let config = { 
-                        AgentLogging.AgentLoggerDefaults.console with 
+                        AgentLogging.AgentLoggerDefaults.config with 
                             MaxMessages = Some 2
                             FlushInterval = TimeSpan.FromMilliseconds(50.0)
                     }

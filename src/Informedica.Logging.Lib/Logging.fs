@@ -215,7 +215,10 @@ module AgentLogging =
         Formatter: IMessage -> string
         MaxMessages: int option
         DefaultLevel: Level
+        flushThreshold : int
         FlushInterval: TimeSpan
+        MinFlushInterval : TimeSpan
+        MaxFlushInterval : TimeSpan
         ErrorHandler: (LoggingError -> unit) option
     }
 
@@ -241,11 +244,14 @@ module AgentLogging =
         
 
         /// Create default configuration with console-only logging
-        let console : AgentLoggerConfig = {
+        let config : AgentLoggerConfig = {
             Formatter = defaultFormatter
             MaxMessages = Some 1000  // Keep last 1000 messages in memory
             DefaultLevel = Level.Informative
+            flushThreshold = 100
             FlushInterval = TimeSpan.FromSeconds(5.0)  // Auto-flush every 5 seconds
+            MinFlushInterval = TimeSpan.FromSeconds(1.0)
+            MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
         
@@ -255,7 +261,10 @@ module AgentLogging =
             Formatter = defaultFormatter
             MaxMessages = Some 5000  // Larger buffer for high throughput
             DefaultLevel = Level.Warning  // Only log warnings and errors
-            FlushInterval = TimeSpan.FromSeconds(10.0)  // Less frequent flushing
+            flushThreshold = 1000
+            FlushInterval = TimeSpan.FromSeconds(10.0)  
+            MinFlushInterval = TimeSpan.FromSeconds(1.0)
+            MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
         
@@ -265,7 +274,10 @@ module AgentLogging =
             Formatter = defaultFormatter
             MaxMessages = None  // Unlimited message storage
             DefaultLevel = Level.Debug
-            FlushInterval = TimeSpan.FromSeconds(1.0)  // Frequent flushing for immediate feedback
+            flushThreshold = 10
+            FlushInterval = TimeSpan.FromSeconds(1.0)  
+            MinFlushInterval = TimeSpan.FromSeconds(1.0)
+            MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
         
@@ -275,32 +287,53 @@ module AgentLogging =
             Formatter = defaultFormatter
             MaxMessages = Some 10_000  // Large buffer for production
             DefaultLevel = Level.Error  // Only log errors in production
-            FlushInterval = TimeSpan.FromSeconds(30.0)  // Less frequent flushing
+            flushThreshold = 10
+            FlushInterval = TimeSpan.FromSeconds(1.0)  
+            MinFlushInterval = TimeSpan.FromSeconds(1.0)
+            MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
         
 
         /// Create a custom configuration with specified formatter
-        let withFormatter (formatter: IMessage -> string) : AgentLoggerConfig = {
-            console with Formatter = formatter
+        let withFormatter (formatter: IMessage -> string) (config: AgentLoggerConfig) = {
+            config with Formatter = formatter
         }
         
 
         /// Create a configuration with custom message limit
-        let withMaxMessages (maxMessages: int option) : AgentLoggerConfig = {
-            console with MaxMessages = maxMessages
-        }
-        
-
-        /// Create a configuration with custom flush interval
-        let withFlushInterval (interval: TimeSpan) : AgentLoggerConfig = {
-            console with FlushInterval = interval
+        let withMaxMessages (maxMessages: int option) (config: AgentLoggerConfig) = {
+            config with MaxMessages = maxMessages
         }
         
 
         /// Create a configuration with custom default level
-        let withLevel (level: Level) : AgentLoggerConfig = {
-            console with DefaultLevel = level
+        let withLevel (level: Level) (config: AgentLoggerConfig) = {
+            config with DefaultLevel = level
+        }
+        
+
+        /// Create a configuration with custom flush interval
+        let withFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
+            config with FlushInterval = interval
+        }
+        
+
+        /// Create a configuration with custom flush threshold
+        let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) = {
+            config with flushThreshold = threshold
+        }
+        
+
+        /// Create a configuration with custom minimum flush interval
+        let withMinFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
+            config with MinFlushInterval = interval
+        }
+        
+
+        /// Create a configuration with custom maximum flush interval
+        let withMaxFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
+            config with MaxFlushInterval = interval
         }
 
 
@@ -316,9 +349,9 @@ module AgentLogging =
                 let mutable pendingFlush = false
                 let mutable lastFlushTime = DateTime.UtcNow
                 let mutable messageCountSinceFlush = 0
-                let minFlushInterval = TimeSpan.FromSeconds(1.0)
-                let maxFlushInterval = TimeSpan.FromSeconds(10.0)
-                let flushThreshold = 100                
+                let minFlushInterval = config.MinFlushInterval
+                let maxFlushInterval = config.MaxFlushInterval
+                let flushThreshold = config.flushThreshold                
 
                 let scheduleFlush() =
                     let now = DateTime.UtcNow
@@ -562,7 +595,7 @@ module AgentLogging =
     
     /// Create a console logger with default settings
     let createConsole () = 
-        createAgentLogger AgentLoggerDefaults.console
+        createAgentLogger AgentLoggerDefaults.config
     
     /// Create a debug logger with verbose settings
     let createDebug () = 
@@ -578,12 +611,14 @@ module AgentLogging =
     
     /// Create a custom logger with the specified formatter
     let createWithFormatter (formatter: IMessage -> string) =
-        AgentLoggerDefaults.withFormatter formatter
+        AgentLoggerDefaults.config
+        |> AgentLoggerDefaults.withFormatter formatter
         |> createAgentLogger
     
     /// Create a logger with unlimited message storage
     let createUnlimited () =
-        AgentLoggerDefaults.withMaxMessages None
+        AgentLoggerDefaults.config
+        |> AgentLoggerDefaults.withMaxMessages None
         |> createAgentLogger
 
 
