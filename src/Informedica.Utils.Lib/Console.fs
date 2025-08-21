@@ -48,10 +48,9 @@ module ConsoleWriter =
     }
 
 
-    let private lock f =
-        let lockObj = obj()
+    let private lockObj = obj()
 
-        lock lockObj f
+    let private applyLock f = lock lockObj f
 
 
     /// Set the colors for the console
@@ -93,7 +92,7 @@ module ConsoleWriter =
 
             Console.Out.Flush()
 
-        |> lock
+        |> applyLock
 
     let writeText (text: string) (writeLine: bool) (writeTime: bool) =
         writeColoredText None text colors.StandardFrontColor colors.StandardBackColor writeLine writeTime

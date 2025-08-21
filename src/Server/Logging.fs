@@ -11,8 +11,9 @@ module Logging
     open Informedica.Agents.Lib
     open Informedica.Logging.Lib
 
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
-    let [<Literal>] MAX_LOG_FILES = 100
+    let [<Literal>] MAX_LOG_FILES = 5
 
 
     let getAssemblyPath () =
@@ -31,21 +32,27 @@ module Logging
         
         // Navigate up from assembly location to find server root directory
         let rec findServerRoot dir =
-            // Check for Docker container scenario (Server.dll exists)
-            if File.Exists(Path.Combine(dir, "Server.dll")) then
+            // First priority: Check for development scenario (Server.fs exists)
+            if File.Exists(Path.Combine(dir, "Server.fs")) then
                 dir
-            // Check for development scenario (src/Server directory with Server.fs)
+            // Second priority: Check if we're in a typical development structure with data folder and Server.fs
             elif Directory.Exists(Path.Combine(dir, "data")) && 
                  File.Exists(Path.Combine(dir, "Server.fs")) then
                 dir
             else
                 let parent = Directory.GetParent(dir)
-                if parent = null then
-                    Environment.CurrentDirectory // Fallback if we can't find server root
-                else
+                if parent <> null then
                     findServerRoot parent.FullName
+                else
+                    // Last resort: Check for production scenario (Server.dll exists, but no Server.fs)
+                    if File.Exists(Path.Combine(currentDir, "Server.dll")) && 
+                       not (File.Exists(Path.Combine(currentDir, "Server.fs"))) then
+                        currentDir
+                    else
+                        Environment.CurrentDirectory // Final fallback
         
         findServerRoot currentDir
+
 
     let getRecommendedLogPath (componentName: string option) =
         let serverRoot = getServerDataPath ()
@@ -61,20 +68,8 @@ module Logging
         Path.Combine(logDir, fileName)
 
 
-    let mutable private dirAgent =
-        FileDirectoryAgent.create()
-        |> Some
-
-
     let getDirAgent (path: string) =
-        let agent =
-            match dirAgent with
-            | Some agent -> agent
-            | None ->
-                let agent = FileDirectoryAgent.create()
-                dirAgent <- Some agent
-                agent
-
+        let agent = FileDirectoryAgent.create()
         // Ensure policy is set on the directory (not the file path)
         let dir =
             match Path.GetDirectoryName path with
@@ -86,6 +81,7 @@ module Logging
     let config =
         AgentLogging.AgentLoggerDefaults.config
         |> AgentLogging.AgentLoggerDefaults.withLevel Level.Informative
+        |> AgentLogging.AgentLoggerDefaults.withMaxMessages (Some 10_000)
         |> AgentLogging.AgentLoggerDefaults.withFlushInterval (TimeSpan.FromSeconds 5.)
         |> AgentLogging.AgentLoggerDefaults.withMinFlushInterval (TimeSpan.FromSeconds 1.)
         |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 60.)
@@ -103,24 +99,24 @@ module Logging
         if loggingEnabled then
 
             let path = getRecommendedLogPath componentName
-            let agent = getDirAgent path
+            use agent = getDirAgent path
+
             // Prune asynchronously to avoid blocking startup
             async {
                 let! res = FileDirectoryAgent.pruneAsync path agent
                 match res with
-                | Ok n when n > 0 -> printfn $"🧹 Pruned {n} old log file(s)"
+                | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
                 | Ok _ -> ()
-                | Error s -> eprintfn $"Log path prune errored with: {s}"
-            } |> Async.StartImmediate
-
+                | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
+            } |> Async.Start
 
             logger.StartAsync (Some path) Informedica.Logging.Lib.Level.Informative
             |> Async.RunSynchronously
             |> function
             | Ok _-> 
-                printfn $"💾 Logger activated - Writing to: {path}"
+                writeInfoMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
                 //| None -> printfn "🖥️  Logger activated - Console only"
-            | Error s -> eprintfn $"❌ Logger could not be activated:\n{s}"
+            | Error s -> writeErrorMessage $"❌ Logger for {componentName} could not be activated:\n{s}\n"
 
 
     let inline report (logger: AgentLogging.AgentLogger) x =

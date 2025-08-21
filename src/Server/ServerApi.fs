@@ -886,6 +886,7 @@ module Command =
 [<AutoOpen>]
 module ApiImpl =
 
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
     open Shared.Api
 
 
@@ -895,7 +896,12 @@ module ApiImpl =
             processCommand =
                 fun cmd ->
                     async {
-                        return cmd |> Command.processCmd provider
+                        try 
+                            return cmd |> Command.processCmd provider
+                        with 
+                        | ex ->
+                            writeErrorMessage $"Error processing command: {ex.Message}"
+                            return Error [| ex.Message |]
                     }
 
             testApi =
