@@ -1,6 +1,7 @@
 ﻿namespace Informedica.Logging.Lib
 
 open System
+open System.Threading.Tasks
 
 
 /// General message types
@@ -164,7 +165,6 @@ module MessageFormatter =
 /// Agent-based logging system
 module AgentLogging =
 
-    open System.IO
     open System.Threading
     open System.Text
 
@@ -197,10 +197,18 @@ module AgentLogging =
             WriteAsync  : string -> Async<Result<unit, string>>
             FlushAsync  : unit -> Async<unit>
             StopAsync   : unit -> Async<unit>
-            DisposeAsync: unit -> Async<DisposeResult> 
+            DisposeAsync : unit -> Async<DisposeResult>
         }
         interface IDisposable with
-            member this.Dispose() = this.DisposeAsync() |> Async.RunSynchronously |> ignore
+            member this.Dispose() = 
+                this.DisposeAsync() 
+                |> Async.RunSynchronously 
+                |> ignore
+
+        interface IAsyncDisposable with
+            member this.DisposeAsync() =
+                // Use ValueTask for proper async disposal
+                ValueTask(this.DisposeAsync() |> Async.StartAsTask :> Task)
 
 
     type LoggingError =
@@ -527,7 +535,28 @@ module AgentLogging =
         let ensureNotDisposed () =
             if Interlocked.Read(&isDisposed) = 1L then invalidOp "Logger agent has been disposed"
 
-        {
+        let disposeAsync () = async {
+            if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
+                try
+                    // First stop the logger agent gracefully
+                    do! logger.PostAndAsyncReply(fun rc -> Stop rc)
+                    
+                    // Then cleanup the file writer
+                    do! W.flushAsync writer
+                    do! W.stopAsync writer
+                    
+                    // Finally cleanup other resources
+                    cts.Cancel()
+                    cts.Dispose()
+                    writer |> Agent.dispose
+                    logger |> Agent.dispose
+                with ex ->
+                    eprintfn "Error during disposal: %s" ex.Message
+        }
+
+
+        // Create the AgentLogger with proper disposal interfaces
+        { 
             StartAsync = fun path level ->
                 async {
                     ensureNotDisposed()
@@ -543,7 +572,7 @@ module AgentLogging =
             ReportAsync = fun () ->
                 async {
                     ensureNotDisposed()
-                    return! logger.PostAndAsyncReply(fun rc -> Report rc) // string[]
+                    return! logger.PostAndAsyncReply(fun rc -> Report rc)
                 }
 
             WriteAsync = fun path ->
@@ -554,49 +583,20 @@ module AgentLogging =
 
             FlushAsync = fun () ->
                 async {
+                    ensureNotDisposed()
                     logger.Post(FlushTimer)
                     return ()
                 }
 
             StopAsync = fun () ->
                 async {
-                    if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
-                        try
-                            do! logger.PostAndAsyncReply(fun rc -> Stop rc)
-                            do! W.flushAsync writer
-                            do! W.stopAsync writer
-
-                            cts.Cancel()
-                            cts.Dispose()
-                            writer |> Agent.dispose
-                            logger |> Agent.dispose
-                        with ex ->
-                            eprintfn "Error stopping agent: %s" ex.Message
+                    do! disposeAsync()
                 }
 
             DisposeAsync = fun () ->
                 async {
-                    if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
-                        try
-                            // First stop the logger agent gracefully
-                            do! logger.PostAndAsyncReply(fun rc -> Stop rc)
-                            
-                            // Then cleanup the file writer
-                            do! W.flushAsync writer
-                            do! W.stopAsync writer
-                            
-                            // Finally cleanup other resources
-                            cts.Cancel()
-                            cts.Dispose()
-                            writer |> Agent.dispose
-                            logger |> Agent.dispose
-                            
-                            return Disposed
-                        with ex ->
-                            eprintfn "Error during disposal: %s" ex.Message
-                            return DisposeError ex
-                    else
-                        return AlreadyDisposed
+                    do! disposeAsync()
+                    return Disposed
                 }
         }
 
@@ -628,5 +628,4 @@ module AgentLogging =
         AgentLoggerDefaults.config
         |> AgentLoggerDefaults.withMaxMessages None
         |> createAgentLogger
-
 
