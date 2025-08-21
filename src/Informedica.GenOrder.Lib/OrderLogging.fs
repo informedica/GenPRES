@@ -124,12 +124,16 @@ module OrderLogging =
 
 
     /// Create an agent-based order logger
-    let createAgentLogger () =
-        MessageFormatter.create [
-            typeof<OrderMessage>, formatOrderMessage
-            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
-        ]
-        |> AgentLogging.createWithFormatter
+    let createAgentLogger config =
+        let formatter =
+            MessageFormatter.create [
+                typeof<OrderMessage>, formatOrderMessage
+                typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
+            ]
+        config
+        |> AgentLogging.AgentLoggerDefaults.withFormatter formatter
+        |> AgentLogging.createAgentLogger
 
 
     /// Convenience functions for logging order events
@@ -218,33 +222,7 @@ messages: {msgs.Value.Count}
 
 
     /// A logger that does nothing
-    let ignore = Logging.noOp
-
-
-    /// A logger that prints to the console
-    let printLogger : Logger = 
-        let formatter = MessageFormatter.create [
-            typeof<OrderMessage>, formatOrderMessage
-            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
-            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-        ]
-        Logging.createConsole formatter
-
-
-    let agentLogger =
-        let formatter =
-            MessageFormatter.create [
-                typeof<OrderMessage>, formatOrderMessage
-                typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
-                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-            ]
-        AgentLogging.AgentLoggerDefaults.config
-        |> AgentLogging.AgentLoggerDefaults.withFormatter formatter
-        |> AgentLogging.AgentLoggerDefaults.withLevel Level.Informative
-        |> AgentLogging.AgentLoggerDefaults.withFlushInterval (TimeSpan.FromSeconds 5.)
-        |> AgentLogging.AgentLoggerDefaults.withMinFlushInterval (TimeSpan.FromSeconds 1.)
-        |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 60.)
-        |> AgentLogging.createAgentLogger
+    let noOp = Logging.noOp
 
 
     /// <summary>

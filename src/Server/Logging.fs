@@ -9,7 +9,7 @@ module Logging
     open Informedica.Utils.Lib.BCL
 
     open Informedica.Agents.Lib
-    open Informedica.Logging.Lib.AgentLogging
+    open Informedica.Logging.Lib
 
 
     let [<Literal>] MAX_LOG_FILES = 100
@@ -79,7 +79,15 @@ module Logging
         agent |> FileDirectoryAgent.setPolicyWithPattern dir MAX_LOG_FILES "*.log"
 
 
-    let activateLogger (componentName: string option) (logger: AgentLogger) =
+    let config =
+        AgentLogging.AgentLoggerDefaults.config
+        |> AgentLogging.AgentLoggerDefaults.withLevel Level.Informative
+        |> AgentLogging.AgentLoggerDefaults.withFlushInterval (TimeSpan.FromSeconds 5.)
+        |> AgentLogging.AgentLoggerDefaults.withMinFlushInterval (TimeSpan.FromSeconds 1.)
+        |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 60.)
+
+
+    let activateLogger (componentName: string option) (logger: AgentLogging.AgentLogger) =
         let loggingEnabled =
             Env.getItem "GENPRES_LOG"
             |> Option.map (fun s ->
@@ -111,7 +119,7 @@ module Logging
             | Error s -> eprintfn $"❌ Logger could not be activated:\n{s}"
 
 
-    let inline report (logger: AgentLogger) x =
+    let inline report (logger: AgentLogging.AgentLogger) x =
         async {
             printfn "=== PRINTING REPORT ===\n\n"
             // Give the agent time to process any pending messages

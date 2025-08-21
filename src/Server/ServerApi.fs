@@ -327,9 +327,9 @@ module Mappers =
         |> Patient.calcPMAge
 
 
-    let mapFromShared provider pat (ctx : OrderContext)  : Informedica.GenOrder.Lib.Types.OrderContext =
+    let mapFromShared logger provider pat (ctx : OrderContext)  : Informedica.GenOrder.Lib.Types.OrderContext =
 
-        let mappedCtx = OrderContext.create provider pat
+        let mappedCtx = OrderContext.create logger provider pat
 
         { mappedCtx with
             Scenarios =
@@ -730,7 +730,7 @@ module OrderContext =
         }
 
 
-    let evaluate provider cmd : Result<OrderContext,  string []> =
+    let evaluate logger provider cmd : Result<OrderContext,  string []> =
         let eval ctx =
             cmd
             |> function
@@ -739,10 +739,10 @@ module OrderContext =
                 | Api.UpdateOrderScenario _ -> ctx |> OrderContext.UpdateOrderScenario
                 | Api.ResetOrderScenario _ -> ctx |> OrderContext.ResetOrderScenario
                 | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
-            |> OrderContext.printCtx Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger "start eval"
-            |> OrderContext.evaluate provider
+            |> OrderContext.printCtx logger "start eval"
+            |> OrderContext.evaluate logger provider
             |> ValidatedResult.get 
-            |> OrderContext.printCtx Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger "finish eval"
+            |> OrderContext.printCtx logger "finish eval"
 
         match cmd with
         | Api.UpdateOrderContext ctx
@@ -760,7 +760,7 @@ module OrderContext =
 
             try
                 ctx
-                |> mapFromShared provider pat
+                |> mapFromShared logger provider pat
                 |> eval
                 |> function
                     | OrderContext.UpdateOrderContext newCtx -> newCtx |> map
@@ -783,13 +783,13 @@ module TreatmentPlan =
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
 
 
-    let updateTreatmentPlan provider (tp : TreatmentPlan) =
+    let updateTreatmentPlan logger provider (tp : TreatmentPlan) =
         match tp.Selected with
         | Some os ->
             os
             |> Models.OrderContext.fromOrderScenario tp.Patient
             |> Api.UpdateOrderScenario
-            |> OrderContext.evaluate provider
+            |> OrderContext.evaluate logger provider
             |> Result.map (fun pr ->
                 let newOsc = pr.Scenarios |> Array.tryExactlyOne
 
@@ -830,32 +830,35 @@ module TreatmentPlan =
 
 module Command =
 
-
+    open System
     open Shared.Api
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+    open Informedica.Logging.Lib
 
 
     module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
 
 
-
     let processCmd provider cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-            Informedica.GenOrder.Lib.OrderLogging.agentLogger
-            |> Logging.activateLogger (Some "serverApi")
-
             writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
 
         match cmd with
         | OrderContextCmd ctxCmd ->
+            use logger = OrderLogger.createAgentLogger Logging.config
+            logger |> Logging.activateLogger (Some "OrderContext")
+
             ctxCmd
-            |> OrderContext.evaluate provider
+            |> OrderContext.evaluate logger.Logger provider
             |> Result.map (OrderContextUpdated >> OrderContextResp)
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
+                use logger = OrderLogger.createAgentLogger Logging.config
+                logger |> Logging.activateLogger (Some "TreatmentPlan")
+
                 tp
-                |> TreatmentPlan.updateTreatmentPlan provider
+                |> TreatmentPlan.updateTreatmentPlan logger.Logger provider
                 |> TreatmentPlan.calculateTotals
                 |> TreatmentPlanUpdated
                 |> TreatmentPlanResp

@@ -17,7 +17,7 @@ module Filters =
         res
 
     // Logger-injected variant
-    let getPrescriptionRulesWithLogger (logger: Logger) (provider: IResourceProvider) =
+    let getPrescriptionRules (logger: Logger) (provider: IResourceProvider) =
         Api.getPrescriptionRules provider 
         >> fun res ->
             res
@@ -26,70 +26,62 @@ module Filters =
                 | Ok (rules, _) -> rules
                 | Error _ -> [||]
 
-    // Backwards-compatible variant using the same logger as OrderContext evaluation
-    let getPrescriptionRules (provider: IResourceProvider) =
-        getPrescriptionRulesWithLogger Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger provider
-
 
     // Logger-injected variant
-    let filterPrescriptionRulesWithLogger (logger: Logger) (provider: IResourceProvider) filter =
+    let filterPrescriptionRules (logger: Logger) (provider: IResourceProvider) filter =
         Api.filterPrescriptionRules provider filter
         |> logGenFormMessages logger
         |> function
             | Ok (rules, _) -> rules
             | Error _ -> [||]
 
-    // Backwards-compatible variant using the same logger as OrderContext evaluation
-    let filterPrescriptionRules (provider: IResourceProvider) filter =
-        filterPrescriptionRulesWithLogger Informedica.GenOrder.Lib.OrderLogging.agentLogger.Logger provider filter
+
+    let getIndications logger (provider: IResourceProvider) =
+        getPrescriptionRules logger provider >> PrescriptionRule.indications
 
 
-    let getIndications (provider: IResourceProvider) =
-        getPrescriptionRules provider >> PrescriptionRule.indications
+    let getGenerics logger (provider: IResourceProvider) =
+        getPrescriptionRules logger provider >> PrescriptionRule.generics
 
 
-    let getGenerics (provider: IResourceProvider) =
-        getPrescriptionRules provider >> PrescriptionRule.generics
+    let getRoutes logger (provider: IResourceProvider) =
+        getPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let getRoutes (provider: IResourceProvider) =
-        getPrescriptionRules provider >> PrescriptionRule.routes
+    let getShapes logger (provider: IResourceProvider) =
+        getPrescriptionRules logger provider >> PrescriptionRule.shapes
 
 
-    let getShapes (provider: IResourceProvider) =
-        getPrescriptionRules provider >> PrescriptionRule.shapes
+    let getFrequencies logger  (provider: IResourceProvider) =
+        getPrescriptionRules logger provider >> PrescriptionRule.frequencies
 
 
-    let getFrequencies (provider: IResourceProvider) =
-        getPrescriptionRules provider >> PrescriptionRule.frequencies
+    let filterIndications logger (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.indications
 
 
-    let filterIndications (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.indications
+    let filterGenerics logger (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.generics
 
 
-    let filterGenerics (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.generics
+    let filterRoutes logger (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let filterRoutes (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.routes
+    let filterShapes logger (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.shapes
 
 
-    let filterShapes (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.shapes
+    let filterDoseTypes logger (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.doseTypes
 
 
-    let filterDoseTypes (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.doseTypes
+    let filterFrequencies (logger: Logger) (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.frequencies
 
 
-    let filterFrequencies (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.frequencies
-
-
-    let filterDiluents (provider: IResourceProvider) =
-        filterPrescriptionRules provider >> PrescriptionRule.diluents >> Array.map _.Generic
+    let filterDiluents (logger: Logger) (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.diluents >> Array.map _.Generic
 
 
 module OrderScenario =
@@ -269,6 +261,7 @@ module OrderContext =
 
     module Helpers =
 
+        open Informedica.Logging.Lib
 
         /// <summary>
         /// Increase the Orderable Quantity and Rate Increment of an Order.
@@ -377,13 +370,13 @@ module OrderContext =
             |> Array.map (eval pr)
 
 
-        let evaluateRules prs =
+        let evaluateRules (logger: Logger) prs =
             prs
             |> Array.map (fun pr ->
                 async {
                     return
                         pr
-                        |> evaluateRule OrderLogging.agentLogger.Logger
+                        |> evaluateRule logger
                 }
             )
             |> Async.Parallel
@@ -425,12 +418,13 @@ module OrderContext =
             ord
 
 
+    open Informedica.Logging.Lib
     open Helpers
 
     module Prescription = Order.Prescription
 
 
-    let create provider (pat : Patient) =
+    let create logger provider (pat : Patient) =
         let pat =
             { pat with
                 Weight =
@@ -438,7 +432,7 @@ module OrderContext =
                     |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
             }
 
-        let prs = pat |> getPrescriptionRules provider
+        let prs = pat |> getPrescriptionRules logger provider
 
         let filter =
             {
@@ -465,7 +459,7 @@ module OrderContext =
         }
 
 
-    let getRules provider ctx =
+    let getRules logger provider ctx =
 
         match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
         | Some w, Some h, d when d |> Option.isSome ->
@@ -509,11 +503,11 @@ module OrderContext =
                     }
                 }
 
-            let inds = doseFilter |> filterIndications provider
-            let gens = doseFilter |> filterGenerics provider
-            let rtes = doseFilter |> filterRoutes provider
-            let shps = doseFilter |> filterShapes provider
-            let dsts = doseFilter |> filterDoseTypes provider
+            let inds = doseFilter |> filterIndications logger provider
+            let gens = doseFilter |> filterGenerics logger provider
+            let rtes = doseFilter |> filterRoutes logger provider
+            let shps = doseFilter |> filterShapes logger provider
+            let dsts = doseFilter |> filterDoseTypes logger provider
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
@@ -550,7 +544,7 @@ module OrderContext =
                 |> Api.filterPrescriptionRules provider
             | _ -> GenFormResult.createOkNoMsgs [||]
         | _ ->
-            ctx.Patient |> create provider
+            ctx.Patient |> create logger provider
             , GenFormResult.createOkNoMsgs [||]
 
 
@@ -775,7 +769,7 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let processOrders cmd (ctx: OrderContext) =
+    let processOrders (logger: Logger) cmd (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None ->
             writeErrorMessage "No orders to proces in order context"
@@ -788,7 +782,7 @@ Scenarios: {scenarios}
                             Order =
                                 sc.Order
                                 |> cmd
-                                |> Order.processPipeLine OrderLogging.agentLogger.Logger None
+                                |> Order.processPipeLine logger None
                                 |> Result.defaultValue sc.Order
                         }
                         |> OrderScenario.setOrderTableFormat
@@ -797,8 +791,8 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let getScenarios provider ctx =
-        let ctx, result = ctx |> getRules provider
+    let getScenarios logger provider ctx =
+        let ctx, result = ctx |> getRules logger provider
 
         let prs, msgs =
             match result with
@@ -812,14 +806,14 @@ Scenarios: {scenarios}
                     // Note: different prescription rules can exist based on multiple shapes
                     // and multiple solution rules
                     prs
-                    |> evaluateRules
+                    |> evaluateRules logger
                     |> function
                     | [||] ->
                         // no valid results so evaluate again
                         // with changed product divisibility
                         prs
                         |> Array.map changeRuleProductsDivisible
-                        |> evaluateRules
+                        |> evaluateRules logger
                         |> processEvaluationResults
                     | results ->
                         results
@@ -830,21 +824,21 @@ Scenarios: {scenarios}
         |> GenFormResult.createOkWithMsgs msgs
 
 
-    let reloadResources provider ctx =
-        Api.reloadCache OrderLogging.agentLogger.Logger provider 
+    let reloadResources logger provider ctx =
+        Api.reloadCache logger provider 
         
         ctx 
-        |> getScenarios provider 
+        |> getScenarios logger provider 
 
 
-    let evaluate provider cmd =
+    let evaluate logger provider cmd =
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios provider |> ValidatedResult.map UpdateOrderContext
-        | ReloadResources ctx -> ctx |> reloadResources provider |> ValidatedResult.map ReloadResources
+        | UpdateOrderContext ctx -> ctx |> getScenarios logger provider |> ValidatedResult.map UpdateOrderContext
+        | ReloadResources ctx -> ctx |> reloadResources logger provider |> ValidatedResult.map ReloadResources
         // TODO: need to implement validation
-        | SelectOrderScenario ctx -> ctx |> processOrders CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
-        | UpdateOrderScenario ctx -> ctx |> processOrders SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
-        | ResetOrderScenario ctx -> ctx |> processOrders ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
+        | SelectOrderScenario ctx -> ctx |> processOrders logger CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
+        | UpdateOrderScenario ctx -> ctx |> processOrders logger SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
+        | ResetOrderScenario ctx -> ctx |> processOrders logger ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
 
 
     let printCtx (logger: Informedica.Logging.Lib.Logger) msg cmd =
