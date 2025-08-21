@@ -197,18 +197,18 @@ module AgentLogging =
             WriteAsync  : string -> Async<Result<unit, string>>
             FlushAsync  : unit -> Async<unit>
             StopAsync   : unit -> Async<unit>
-            DisposeAsync : unit -> Async<DisposeResult>
+            DisposeWorkAsync : unit -> Async<DisposeResult>
         }
         interface IDisposable with
             member this.Dispose() = 
-                this.DisposeAsync() 
+                this.DisposeWorkAsync() 
                 |> Async.RunSynchronously 
                 |> ignore
 
         interface IAsyncDisposable with
             member this.DisposeAsync() =
                 // Use ValueTask for proper async disposal
-                ValueTask(this.DisposeAsync() |> Async.StartAsTask :> Task)
+                ValueTask(this.DisposeWorkAsync() |> Async.StartAsTask :> Task)
 
 
     type LoggingError =
@@ -373,7 +373,8 @@ module AgentLogging =
                         pendingFlush <- true
                         async {
                             try
-                                do! Async.Sleep (int interval.TotalMilliseconds)
+                                // Respect cancellation during delay
+                                do! Async.AwaitTask (Task.Delay(interval, cts.Token))
                                 if not cts.Token.IsCancellationRequested then
                                     inbox.Post(FlushTimer)
                             with
@@ -540,23 +541,27 @@ module AgentLogging =
                 try
                     // First stop the logger agent gracefully
                     do! logger.PostAndAsyncReply(fun rc -> Stop rc)
-                    
+
                     // Then cleanup the file writer
                     do! W.flushAsync writer
                     do! W.stopAsync writer
-                    
+
                     // Finally cleanup other resources
                     cts.Cancel()
                     cts.Dispose()
                     writer |> Agent.dispose
                     logger |> Agent.dispose
+                    return Disposed
                 with ex ->
                     eprintfn "Error during disposal: %s" ex.Message
+                    return DisposeError ex
+            else
+                return AlreadyDisposed
         }
 
 
         // Create the AgentLogger with proper disposal interfaces
-        { 
+        {
             StartAsync = fun path level ->
                 async {
                     ensureNotDisposed()
@@ -590,13 +595,13 @@ module AgentLogging =
 
             StopAsync = fun () ->
                 async {
-                    do! disposeAsync()
+                    // Stop the pipeline; further logging will be ignored due to isDisposed flag
+                    do! disposeAsync() |> Async.Ignore
                 }
 
-            DisposeAsync = fun () ->
+            DisposeWorkAsync = fun () ->
                 async {
-                    do! disposeAsync()
-                    return Disposed
+                    return! disposeAsync()
                 }
         }
 
