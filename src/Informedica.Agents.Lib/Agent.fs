@@ -3,7 +3,7 @@ namespace Informedica.Agents.Lib
 
 open System
 open System.Threading
-
+open System.Threading.Tasks
 
 /// <summary>
 /// Represents an asynchronous agent that processes messages of type 'T.
@@ -11,6 +11,8 @@ open System.Threading
 /// </summary>
 type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     let cts = new CancellationTokenSource()
+    let shutDownTcs = new TaskCompletionSource<unit>()
+
     let errEvent = Event<_>()
 
     // The main difference with the original MailboxProcessor is that we handle errors in the body function

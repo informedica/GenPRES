@@ -846,41 +846,55 @@ module Command =
 
         match cmd with
         | OrderContextCmd ctxCmd ->
-            use logger = OrderLogger.createAgentLogger Logging.config
-            logger |> Logging.activateLogger (Some "OrderContext")
+            async {
+                use logger = OrderLogger.createAgentLogger Logging.config
+                do! logger |> Logging.activateLogger (Some "OrderContext")
 
-            ctxCmd
-            |> OrderContext.evaluate logger.Logger provider
-            |> Result.map (OrderContextUpdated >> OrderContextResp)
+                return 
+                    ctxCmd
+                    |> OrderContext.evaluate logger.Logger provider
+                    |> Result.map (OrderContextUpdated >> OrderContextResp)
+            }
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
+            async {
                 use logger = OrderLogger.createAgentLogger Logging.config
-                logger |> Logging.activateLogger (Some "TreatmentPlan")
-
-                tp
-                |> TreatmentPlan.updateTreatmentPlan logger.Logger provider
-                |> TreatmentPlan.calculateTotals
-                |> TreatmentPlanUpdated
-                |> TreatmentPlanResp
-                |> Ok
+                do! logger |> Logging.activateLogger (Some "TreatmentPlan")
+                return
+                    tp
+                    |> TreatmentPlan.updateTreatmentPlan logger.Logger provider
+                    |> TreatmentPlan.calculateTotals
+                    |> TreatmentPlanUpdated
+                    |> TreatmentPlanResp
+                    |> Ok
+            }
 
         | TreatmentPlanCmd (FilterTreatmentPlan tp) ->
-            tp
-            |> TreatmentPlan.calculateTotals
-            |> TreatmentPlanFiltered
-            |> TreatmentPlanResp
-            |> Ok
+            async {
+            return
+                tp
+                |> TreatmentPlan.calculateTotals
+                |> TreatmentPlanFiltered
+                |> TreatmentPlanResp
+                |> Ok
+            }
 
         | FormularyCmd form ->
-            form
-            |> Formulary.get provider
-            |> Result.map FormularyResp
+            async {
+                return
+                    form
+                    |> Formulary.get provider
+                    |> Result.map FormularyResp
+            }
 
         | ParenteraliaCmd par ->
-            par
-            |> Parenteralia.get provider
-            |> Result.mapError Array.singleton
-            |> Result.map ParentaraliaResp
+            async {
+                return
+                    par
+                    |> Parenteralia.get provider
+                    |> Result.mapError Array.singleton
+                    |> Result.map ParentaraliaResp
+            }
 
 
 [<AutoOpen>]
@@ -897,7 +911,7 @@ module ApiImpl =
                 fun cmd ->
                     async {
                         try 
-                            return cmd |> Command.processCmd provider
+                            return! cmd |> Command.processCmd provider
                         with 
                         | ex ->
                             writeErrorMessage $"Error processing command: {ex.Message}"

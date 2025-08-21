@@ -37,13 +37,16 @@ let port =
 
 let webApi =
     let serverApi = 
-        use logger = Informedica.GenOrder.Lib.OrderLogging.createAgentLogger Logging.config
-        logger |> Logging.activateLogger (Some "ServerApi")
+        async {
+            use logger = Informedica.GenOrder.Lib.OrderLogging.createAgentLogger Logging.config
+            do! logger |> Logging.activateLogger (Some "ServerApi")
+            let provider =
+                tryGetEnv "GENPRES_URL_ID"
+                |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+                |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger.Logger
 
-        tryGetEnv "GENPRES_URL_ID"
-        |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
-        |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger.Logger
-        |> createServerApi
+            return provider |> createServerApi
+        } |> Async.RunSynchronously
 
     Remoting.createApi()
     |> Remoting.fromValue serverApi

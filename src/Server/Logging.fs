@@ -99,24 +99,26 @@ module Logging
         if loggingEnabled then
 
             let path = getRecommendedLogPath componentName
-            use agent = getDirAgent path
 
             // Prune asynchronously to avoid blocking startup
             async {
+                use agent = getDirAgent path
                 let! res = FileDirectoryAgent.pruneAsync path agent
                 match res with
                 | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
                 | Ok _ -> ()
                 | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
-            } |> Async.Start
 
-            logger.StartAsync (Some path) Informedica.Logging.Lib.Level.Informative
-            |> Async.RunSynchronously
-            |> function
-            | Ok _-> 
-                writeInfoMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
-                //| None -> printfn "🖥️  Logger activated - Console only"
-            | Error s -> writeErrorMessage $"❌ Logger for {componentName} could not be activated:\n{s}\n"
+                let! res = logger.StartAsync (Some path) Level.Informative
+                res
+                |> function
+                | Ok _-> 
+                    writeInfoMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
+                    //| None -> printfn "🖥️  Logger activated - Console only"
+                | Error s -> writeErrorMessage $"❌ Logger for {componentName} could not be activated:\n{s}\n"
+            }
+        
+        else async { () }
 
 
     let inline report (logger: AgentLogging.AgentLogger) x =

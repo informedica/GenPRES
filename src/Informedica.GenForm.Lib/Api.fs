@@ -372,11 +372,11 @@ module Api =
 
 
     let getCachedProviderWithDataUrlId (logger: Logger) dataUrlId =  
-        let provider = CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
-        provider
-        |> logGenFormMessages logger
-        
-        provider
+            let provider = CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
+            
+            provider
+            |> logGenFormMessages logger
+            provider
 
 
     let reloadCache (logger: Logger) (provider : IResourceProvider) =
