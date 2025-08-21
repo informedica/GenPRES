@@ -7,7 +7,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 # and install dependencies
 RUN mkdir /usr/local/nvm
 ENV NVM_DIR=/usr/local/nvm
-ENV NODE_VERSION=22.11.0
+ENV NODE_VERSION=22.12.0
 RUN curl https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash \
     && . $NVM_DIR/nvm.sh \
     && nvm install $NODE_VERSION \
@@ -29,12 +29,13 @@ COPY Build.fsproj .
 COPY Build.fs .
 COPY Helpers.fs .
 COPY src/Informedica.Utils.Lib src/Informedica.Utils.Lib
+COPY src/Informedica.Agents.Lib src/Informedica.Agents.Lib
+COPY src/Informedica.Logging.Lib src/Informedica.Logging.Lib
+COPY src/Informedica.GenCore.Lib src/Informedica.GenCore.Lib
+COPY src/Informedica.GenUnits.Lib src/Informedica.GenUnits.Lib
+COPY src/Informedica.GenSolver.Lib src/Informedica.GenSolver.Lib
 COPY src/Informedica.ZIndex.Lib src/Informedica.ZIndex.Lib
 COPY src/Informedica.ZForm.Lib src/Informedica.ZForm.Lib
-COPY src/Informedica.KinderFormularium.Lib src/Informedica.KinderFormularium.Lib
-COPY src/Informedica.GenUnits.Lib src/Informedica.GenUnits.Lib
-COPY src/Informedica.GenCore.Lib src/Informedica.GenCore.Lib
-COPY src/Informedica.GenSolver.Lib src/Informedica.GenSolver.Lib
 COPY src/Informedica.GenForm.Lib src/Informedica.GenForm.Lib
 COPY src/Informedica.GenOrder.Lib src/Informedica.GenOrder.Lib
 COPY src/Shared src/Shared
@@ -46,7 +47,7 @@ RUN dotnet run bundle
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 COPY --from=app-build /workspace/deploy /app
 
-ENV GENPRES_LOG="0"
+ENV GENPRES_LOG="1"
 ENV GENPRES_PROD="1"
 
 ARG GENPRES_URL_ARG

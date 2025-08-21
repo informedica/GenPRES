@@ -29,10 +29,14 @@ module Logging
             else
                 assemblyPath
         
-        // Navigate up from assembly location to find src/Server directory
+        // Navigate up from assembly location to find server root directory
         let rec findServerRoot dir =
-            if Directory.Exists(Path.Combine(dir, "data")) && 
-               File.Exists(Path.Combine(dir, "Server.fs")) then
+            // Check for Docker container scenario (Server.dll exists)
+            if File.Exists(Path.Combine(dir, "Server.dll")) then
+                dir
+            // Check for development scenario (src/Server directory with Server.fs)
+            elif Directory.Exists(Path.Combine(dir, "data")) && 
+                 File.Exists(Path.Combine(dir, "Server.fs")) then
                 dir
             else
                 let parent = Directory.GetParent(dir)
