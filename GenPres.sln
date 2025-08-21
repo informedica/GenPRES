@@ -43,9 +43,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.KinderFormulari
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.OpenAI.Lib", "src\Informedica.OpenAI.Lib\Informedica.OpenAI.Lib.fsproj", "{5B13678B-1260-4B21-B5FF-7F8C8A9B1BD2}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Client", "src\Client\Client.fsproj", "{3F834542-C97F-40F3-B687-0F6DBD622896}"
-EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Server", "src\Server\Server.fsproj", "{B56110F0-2D27-4718-8C80-E7FDE3439A63}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Client", "src\Client\Client.fsproj", "{3F834542-C97F-40F3-B687-0F6DBD622896}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Utils.Tests", "tests\Informedica.Utils.Tests\Informedica.Utils.Tests.fsproj", "{60DA999E-A773-4356-AE69-7CA1AA17822B}"
 EndProject

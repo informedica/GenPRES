@@ -97,7 +97,7 @@ module Tests =
                 test "ignore logger should not process messages" {
                     // This test ensures ignore logger doesn't throw
                     let msg = createTestMessage "ignored"
-                    Logging.logInfo Logging.ignore msg
+                    Logging.logInfo Logging.noOp msg
                     // If we get here without exception, test passes
                     Expect.isTrue true "Ignore logger should not throw"
                 }

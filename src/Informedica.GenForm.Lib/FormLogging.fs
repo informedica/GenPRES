@@ -7,7 +7,7 @@ module FormLogging =
 
 
     /// A logger that does nothing
-    let ignore = Logging.ignore
+    let ignore = Logging.noOp
 
 
     let formatMessage (msg: IMessage) : string =

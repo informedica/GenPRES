@@ -27,5 +27,5 @@ module Logging =
 
 
     /// Ignore logger for backward compatibility
-    let ignore = Logging.ignore
+    let noOp = Logging.noOp
 

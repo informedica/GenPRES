@@ -218,7 +218,7 @@ messages: {msgs.Value.Count}
 
 
     /// A logger that does nothing
-    let ignore = Logging.ignore
+    let ignore = Logging.noOp
 
 
     /// A logger that prints to the console

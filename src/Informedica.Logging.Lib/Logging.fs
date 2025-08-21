@@ -66,7 +66,7 @@ module Logging =
 
 
     /// A logger that does nothing
-    let ignore : Logger = { Log = ignore }
+    let noOp : Logger = { Log = ignore }
 
 
     /// Create a logger that uses the given function to process messages
@@ -195,6 +195,7 @@ module AgentLogging =
             Logger      : Logger
             ReportAsync : unit -> Async<string[]>               // formatted lines
             WriteAsync  : string -> Async<Result<unit, string>>
+            FlushAsync  : unit -> Async<unit>
             StopAsync   : unit -> Async<unit>
             DisposeAsync: unit -> Async<DisposeResult> 
         }
@@ -380,7 +381,7 @@ module AgentLogging =
 
                 let bag =
                     match ringOpt with
-                    | Some _ -> Unchecked.defaultof<ResizeArray<float * Event>> // unused
+                    | Some _ -> ResizeArray<float * Event>() // unused, but always a valid instance
                     | None -> ResizeArray<float * Event>()
 
                 let addMessage elapsed ev =
@@ -472,7 +473,8 @@ module AgentLogging =
                                             // Already initialized; just append the message lines
                                             W.append p lines writer |> ignore      // async writer
                                             scheduleFlush ()
-                                        | None   -> printfn "%s" lines[1]        // print body only
+                                        // In the console case, print all lines for clarity.
+                                        | None   -> lines |> Array.iter (printfn "%s") // print all lines
                                     | None -> ()
                                     messageCountSinceFlush <- messageCountSinceFlush + 1
                                     scheduleFlush ()
@@ -548,6 +550,12 @@ module AgentLogging =
                 async {
                     ensureNotDisposed()
                     return! logger.PostAndAsyncReply(fun rc -> Write(path, rc))
+                }
+
+            FlushAsync = fun () ->
+                async {
+                    logger.Post(FlushTimer)
+                    return ()
                 }
 
             StopAsync = fun () ->
