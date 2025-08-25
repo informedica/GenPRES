@@ -246,6 +246,8 @@ NUGET
     Hopac (0.5.1)
       FSharp.Core (>= 4.5.2)
     HtmlAgilityPack (1.12.2)
+    IcedTasks (0.11.8)
+      FSharp.Core (>= 9.0.300-beta.25181.1)
     Irony (1.5.3)
     Markdig (0.41.3)
     MathNet.Numerics (5.0)

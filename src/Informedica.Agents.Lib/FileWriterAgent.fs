@@ -15,6 +15,7 @@ module FileWriterAgent =
         | Flush of AsyncReplyChannel<unit>
         | Stop of AsyncReplyChannel<unit>
         | Clear of path: string
+        | Close of path: string
 
 
     type State = { Writers: Dictionary<string, StreamWriter> }
@@ -152,6 +153,12 @@ module FileWriterAgent =
                     with ex ->
                         eprintfn $"FileWriterAgent: clear failed for {path}\n{ex.Message}"
                     return! loop state
+                | Close path ->
+                    try
+                        removeWriter state path
+                    with ex ->
+                        eprintfn $"FileWriterAgent: close failed for {path}\n{ex.Message}"
+                    return! loop state
                 | Stop reply ->
                     // final flush + dispose all writers
                     for w in state.Writers.Values do
@@ -182,6 +189,10 @@ module FileWriterAgent =
 
     let clear path (writer: Agent<_>)  =
         writer.Post (Clear path)
+        writer
+
+    let close path (writer: Agent<_>)  =
+        writer.Post (Close path)
         writer
 
 

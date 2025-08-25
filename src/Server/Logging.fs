@@ -5,11 +5,14 @@ module Logging
     open System.Reflection
     open System.IO
 
+    open IcedTasks.Polyfill.Async
+
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
     open Informedica.Agents.Lib
     open Informedica.Logging.Lib
+    open Informedica.GenOrder.Lib
 
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
@@ -85,6 +88,16 @@ module Logging
         |> AgentLogging.AgentLoggerDefaults.withFlushInterval (TimeSpan.FromSeconds 5.)
         |> AgentLogging.AgentLoggerDefaults.withMinFlushInterval (TimeSpan.FromSeconds 1.)
         |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 60.)
+
+
+    let mutable private logger = None //Informedica.GenOrder.Lib.OrderLogging.createAgentLogger config
+
+
+    let getLogger () =
+        if logger.IsNone then
+            let instance = OrderLogging.createAgentLogger config
+            logger <- instance |> Some
+        logger.Value
 
 
     let activateLogger (componentName: string option) (logger: AgentLogging.AgentLogger) =

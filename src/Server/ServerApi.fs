@@ -837,19 +837,16 @@ module Command =
     open Informedica.Logging.Lib
 
 
-    module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
-
-
     let processCmd provider cmd =
         if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
             writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
 
+        let logger = Logging.getLogger()
+
         match cmd with
         | OrderContextCmd ctxCmd ->
             async {
-                use logger = OrderLogger.createAgentLogger Logging.config
                 do! logger |> Logging.activateLogger (Some "OrderContext")
-
                 return 
                     ctxCmd
                     |> OrderContext.evaluate logger.Logger provider
@@ -858,7 +855,6 @@ module Command =
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
             async {
-                use logger = OrderLogger.createAgentLogger Logging.config
                 do! logger |> Logging.activateLogger (Some "TreatmentPlan")
                 return
                     tp

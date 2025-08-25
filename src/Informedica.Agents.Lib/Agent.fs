@@ -11,7 +11,9 @@ open System.Threading.Tasks
 /// </summary>
 type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     let cts = new CancellationTokenSource()
-    let shutDownTcs = new TaskCompletionSource<unit>()
+
+    // Track the lifetime of the mailbox processing loop without starting a second loop
+    let tcs = new TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
 
     let errEvent = Event<_>()
 
@@ -20,17 +22,37 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     // This allows the agent to continue processing messages even after an error occurs.
     // The error event can be subscribed to by the user to handle errors gracefully.
     // The agent will keep running and processing messages, but will notify subscribers of any unhandled exceptions.
-    let mbox = new MailboxProcessor<'T>((fun _ ->
-        let rec loop () =
-            async {
-                try return! body self
+    let mbox = new MailboxProcessor<'T>(
+        (fun _ ->
+            let rec loop () = async {
+                try
+                    // Run user body; for typical helpers this loops on Receive()
+                    do! body self
+                    // If body returns normally, keep processing
+                    return! loop ()
                 with
+                // Treat cancellation as a clean shutdown: stop looping and complete the TCS
+                | :? OperationCanceledException
+                | :? TaskCanceledException ->
+                    tcs.TrySetCanceled(cts.Token) |> ignore
+                    return ()
+                | :? ObjectDisposedException ->
+                    tcs.TrySetCanceled() |> ignore
+                    return ()
+                // For other errors, publish and continue processing
                 | e ->
                     errEvent.Trigger(e)
                     return! loop ()
             }
-        loop ()
-    ), true, cts.Token)
+            async {
+                do! loop ()
+                // If we exit the loop without cancellation, complete gracefully
+                tcs.TrySetResult(()) |> ignore
+            }
+        ), true, cts.Token)
+
+    // Expose a task for async disposal to await; never start a second processing loop
+    let mutable running : Task = tcs.Task
 
     /// <summary>
     /// Event that is triggered when an unhandled exception occurs in the agent's processing loop.
@@ -74,12 +96,14 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// <summary>
     /// Starts the agent's processing loop.
     /// </summary>
-    member _.Start() = mbox.Start()
+    member _.Start() =     
+        mbox.Start()
 
     /// <summary>
     /// Starts the agent's processing loop immediately on the current thread.
     /// </summary>
-    member _.StartImmediate () = mbox.StartImmediate()
+    member _.StartImmediate () = 
+            mbox.StartImmediate()
 
     /// <summary>
     /// Receives the next message from the agent's queue asynchronously.
@@ -133,6 +157,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// </summary>
     static member Start(body) =
         let mbox = new Agent<'T>(body)
+        
         mbox.Start ()
         mbox
 
@@ -153,7 +178,19 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
             cts.Dispose()
             (mbox :> IDisposable).Dispose()
             
-            
+    interface IAsyncDisposable with
+        member _.DisposeAsync() =
+            task {
+                cts.Cancel()
+                try
+                    do! running |> Async.AwaitTask
+                with :? TaskCanceledException -> ()
+                (mbox :> IDisposable).Dispose()
+                cts.Dispose()
+            }
+            |> ValueTask
+
+
 // Convenience module for creating and using agents with common patterns
 [<RequireQualifiedAccess>]
 module Agent =

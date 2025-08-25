@@ -8,6 +8,9 @@ open Fable.Remoting.Giraffe
 open Shared.Api
 open ServerApi
 open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+open Microsoft.Extensions.Hosting
+open Microsoft.Extensions.DependencyInjection
+open System.Threading.Tasks
 
 
 
@@ -38,16 +41,14 @@ let port =
 let webApi =
     let serverApi = 
         async {
-            use logger = Informedica.GenOrder.Lib.OrderLogging.createAgentLogger Logging.config
-            do! logger |> Logging.activateLogger (Some "ServerApi")
+            do! Logging.getLogger () |> Logging.activateLogger (Some "ServerApi")
             let provider =
                 tryGetEnv "GENPRES_URL_ID"
                 |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
-                |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger.Logger
+                |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId (Logging.getLogger ()).Logger
 
             return provider |> createServerApi
         } |> Async.RunSynchronously
-
     Remoting.createApi()
     |> Remoting.fromValue serverApi
     |> Remoting.withRouteBuilder routerPaths
@@ -60,15 +61,30 @@ let webApp =
         GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI"
     ]
 
+type LoggerShutdown() =
+    interface IHostedService with
+        member _.StartAsync(_ct) =
+            Task.CompletedTask
+        member _.StopAsync(_ct) =
+            try
+                let logger = Logging.getLogger()
+                (logger.StopAsync() |> Async.StartAsTask) :> Task
+            with ex ->
+                eprintfn "Logger shutdown failed: %s" ex.Message
+                Task.CompletedTask
 
 let application = application {
     url ("http://*:" + port.ToString() + "/")
     use_mime_types [
-            ".svg", "image/svg+xml"
-            ".png", "image/png"
-        ]
+                ".svg", "image/svg+xml"
+                ".png", "image/png"
+            ]
     use_static "public" //publicPath
     use_router webApp
+    service_config (fun services ->
+        services.AddHostedService<LoggerShutdown>() |> ignore
+        services
+    )
     memory_cache
     use_gzip
 }

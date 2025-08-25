@@ -443,16 +443,16 @@ module AgentLogging =
                                 return ()
 
                             | Start (newPath, newLevel, reply) ->
-                                let res =
-                                    try
-                                        match newPath with
-                                        | Some _ ->
-                                            // Defer file creation until the first actual log message
-                                            ()
-                                        | None -> ()
-                                        Ok ()
-                                    with ex -> Error ex.Message
-                                reply.Reply(res)
+                                try
+                                    // If switching to a different path, flush and close the previous writer to avoid leaks
+                                    match path, newPath with
+                                    | Some oldPath, Some newP when not (String.Equals(oldPath, newP, StringComparison.Ordinal)) ->
+                                        do! W.flushAsync writer
+                                        W.close oldPath writer |> ignore
+                                    | _ -> ()
+                                    // Defer file creation until first actual log message
+                                    reply.Reply(Ok ())
+                                with ex -> reply.Reply(Error ex.Message)
                                 // Reset initialization state when (re)starting a path
                                 return! loop newPath newLevel false
 
