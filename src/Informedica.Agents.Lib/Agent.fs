@@ -177,18 +177,6 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
             cts.Cancel()
             cts.Dispose()
             (mbox :> IDisposable).Dispose()
-            
-    interface IAsyncDisposable with
-        member _.DisposeAsync() =
-            task {
-                cts.Cancel()
-                try
-                    do! running |> Async.AwaitTask
-                with :? TaskCanceledException -> ()
-                (mbox :> IDisposable).Dispose()
-                cts.Dispose()
-            }
-            |> ValueTask
 
 
 // Convenience module for creating and using agents with common patterns

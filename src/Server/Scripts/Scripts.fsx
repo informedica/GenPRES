@@ -12,55 +12,32 @@ open Shared.Types
 open Shared
 
 
-let ctx =
-    let pat =
-        { Models.Patient.empty with
-            Age =
-                Models.Patient.Age.create
-                    1 None None None
-                |> Some
-            Weight =
-                {
-                    Measured = Some 10_000
-                    Estimated = None
-                }
-            Height =
-                {
-                    Measured = Some 72
-                    Estimated = None
-                }
-            Department = Some "ICK"
+open Informedica.Logging.Lib
 
-        }
-
-    Models.OrderContext.empty
-    |> Models.OrderContext.setPatient pat
-
-ctx
-|> Api.OrderContextMsg
-|> ServerApi.Message.processMsg
+let tryGetEnv key =
+    match Environment.GetEnvironmentVariable key with
+    | x when String.IsNullOrWhiteSpace x -> None
+    | x -> Some x
 
 
-ctx
-|> ServerApi.OrderContext.evaluate
+let serverApi = 
+    async {
+        do! Logging.getLogger () |> Logging.activateLogger (Some "ServerApi")
+        Console.WriteLine "logger activated"
+        let provider = ()
+            (*
+            tryGetEnv "GENPRES_URL_ID"
+            |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+            |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId (Logging.getLogger ()).Logger
+            *)
+
+        return provider //|> createServerApi
+    } |> Async.RunSynchronously
 
 
-open ServerApi
-open Mappers
-open OrderContext
-open Informedica.GenForm.Lib
-
-module OrderContext = Informedica.GenOrder.Lib.OrderContext
-
-let pat =
-    ctx.Patient
-    |> mapFromSharedPatient
-    |> Patient.calcPMAge
-
-let ctx2 =
-    ctx
-    |> mapFromShared pat
+printfn "start"
+async { do! (Logging.getLogger ()).StartAsync (Some "Test.log") Level.Informative |> Async.Ignore }
+|> Async.RunSynchronously
+printfn "stop"
 
 
-OrderContext.create pat
-|> OrderContext.evaluate

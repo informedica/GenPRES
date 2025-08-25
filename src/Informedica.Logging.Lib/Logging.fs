@@ -232,6 +232,11 @@ module AgentLogging =
     }
 
 
+    type MessageStorate<'T> =
+        | RingBuffer of RingBuffer<'T>
+        | UnlimitedList of ResizeArray<'T>
+
+
     /// Default configurations for AgentLogger
     module AgentLoggerDefaults =
         
@@ -382,31 +387,25 @@ module AgentLogging =
                             | :? ObjectDisposedException -> ()
                         } |> Async.Start
 
-                // choose storage
-                let ringOpt =
+                let storage = 
                     match config.MaxMessages with
-                    | Some n when n > 0 -> Some (RingBuffer.create n)
-                    | _ -> None
-
-                let bag =
-                    match ringOpt with
-                    | Some _ -> ResizeArray<float * Event>() // unused, but always a valid instance
-                    | None -> ResizeArray<float * Event>()
+                    | Some n when n > 0 -> RingBuffer.create n |> RingBuffer
+                    | _ -> ResizeArray<float * Event>() |> UnlimitedList
 
                 let addMessage elapsed ev =
-                    match ringOpt with
-                    | Some rb -> RingBuffer.add (elapsed, ev) rb
-                    | None -> bag.Add (elapsed, ev)
+                    match storage with
+                    | RingBuffer rb -> RingBuffer.add (elapsed, ev) rb
+                    | UnlimitedList bag -> bag.Add (elapsed, ev)
 
                 let iterMessages () : seq<float * Event> =
-                    match ringOpt with
-                    | Some rb -> RingBuffer.toSeq rb
-                    | None -> bag :> _
+                    match storage with
+                    | RingBuffer rb -> RingBuffer.toSeq rb
+                    | UnlimitedList bag -> bag :> _
 
                 let countMessages () =
-                    match ringOpt with
-                    | Some rb -> rb.CountValue
-                    | None -> bag.Count
+                    match storage with
+                    | RingBuffer rb -> rb.CountValue
+                    | UnlimitedList bag -> bag.Count
 
                 let sb = StringBuilder(1024)
 
@@ -571,7 +570,11 @@ module AgentLogging =
             Logger =
                 { Log = fun ev ->
                     if Interlocked.Read(&isDisposed) = 0L then
-                        logger.Post(LogEvent ev)
+                        try
+                            logger.Post(LogEvent ev)
+                        with 
+                        | :? ObjectDisposedException -> ()
+                        | ex -> eprintfn $"Failed to post log event {ev} with:\n{ex.Message}"
                 }
 
             ReportAsync = fun () ->

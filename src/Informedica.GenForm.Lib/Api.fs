@@ -365,9 +365,9 @@ module Api =
         (provider :> IResourceProvider).GetResourceInfo().Messages 
         |> Array.iter (fun m ->
             match m with
-            | Informedica.GenForm.Lib.Types.Info _ -> Logging.logInfo logger m
-            | Informedica.GenForm.Lib.Types.Warning _ -> Logging.logWarning logger m
-            | Informedica.GenForm.Lib.Types.ErrorMsg _ -> Logging.logError logger m
+            | Info _ -> Logging.logInfo logger m
+            | Warning _ -> Logging.logWarning logger m
+            | ErrorMsg _ -> Logging.logError logger m
         )
 
 

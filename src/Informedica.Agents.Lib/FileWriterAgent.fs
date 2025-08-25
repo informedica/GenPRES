@@ -86,8 +86,11 @@ module FileWriterAgent =
     let removeWriter (st: State) (path: string) =
         match st.Writers.TryGetValue path with
         | true, w ->
-            try w.Flush() with _ -> ()
-            try w.Dispose() with _ -> ()
+            try 
+                w.Flush() 
+                w.Dispose() 
+            with ex -> eprintfn $"Failed to dispose writer for: {path}\{ex.Message}" 
+
             st.Writers.Remove path |> ignore
         | _ -> ()
 

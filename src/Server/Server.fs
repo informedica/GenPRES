@@ -19,9 +19,7 @@ let tryGetEnv key =
     | x when String.IsNullOrWhiteSpace x -> None
     | x -> Some x
 
-
-let initialize () =
-    $"""
+$"""
 
 === Environmental variables ===
 GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID" |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"}
@@ -30,7 +28,7 @@ GENPRES_PROD={tryGetEnv "GENPRES_PROD" |> Option.defaultValue "0"}
 GENPRES_DEBUG={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
 
 """
-    |> writeInfoMessage
+|> writeInfoMessage
 
 
 let port =
@@ -49,6 +47,7 @@ let webApi =
 
             return provider |> createServerApi
         } |> Async.RunSynchronously
+
     Remoting.createApi()
     |> Remoting.fromValue serverApi
     |> Remoting.withRouteBuilder routerPaths
@@ -66,6 +65,7 @@ type LoggerShutdown() =
         member _.StartAsync(_ct) =
             Task.CompletedTask
         member _.StopAsync(_ct) =
+            writeInfoMessage "Trying to Stop Server Async"
             try
                 let logger = Logging.getLogger()
                 (logger.StopAsync() |> Async.StartAsTask) :> Task
@@ -89,6 +89,4 @@ let application = application {
     use_gzip
 }
 
-
-initialize ()
 run application

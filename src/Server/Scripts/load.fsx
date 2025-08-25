@@ -8,9 +8,12 @@
 #r "nuget: ClosedXML"
 #r "nuget: FsToolkit.ErrorHandling"
 #r "nuget: ConsoleTables"
+#r "nuget: IcedTasks"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Agents.Lib/bin/Debug/net9.0/Informedica.Agents.Lib.dll"
+#r "../../Informedica.Logging.Lib/bin/Debug/net9.0/Informedica.Logging.Lib.dll"
 #r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
 #r "../../Informedica.GenCore.Lib/bin/Debug/net9.0/Informedica.GenCore.Lib.dll"
 #r "../../Informedica.ZIndex.Lib/bin/Debug/net9.0/Informedica.ZIndex.Lib.dll"
@@ -26,6 +29,7 @@
 #load "../../Shared/Localization.fs"
 #load "../../Shared/Models.fs"
 #load "../../Shared/Api.fs"
+#load "../Logging.fs"
 #load "../ServerApi.fs"
 
 fsi.AddPrinter<System.DateTime> _.ToShortDateString()

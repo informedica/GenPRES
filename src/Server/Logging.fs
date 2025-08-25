@@ -113,17 +113,18 @@ module Logging
 
             let path = getRecommendedLogPath componentName
 
-            // Prune asynchronously to avoid blocking startup
             async {
-                use agent = getDirAgent path
-                let! res = FileDirectoryAgent.pruneAsync path agent
-                match res with
+                let agent = getDirAgent path
+                let! pruned = FileDirectoryAgent.pruneAsync path agent
+                match pruned with
                 | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
                 | Ok _ -> ()
                 | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
+                agent |> Agent.dispose
 
-                let! res = logger.StartAsync (Some path) Level.Informative
-                res
+                let! started = logger.StartAsync (Some path) config.DefaultLevel
+
+                started
                 |> function
                 | Ok _-> 
                     writeInfoMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
