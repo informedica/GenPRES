@@ -2945,7 +2945,7 @@ module Order =
         ord
 
 
-    let printTable format ord =
+    let printTable logger format ord =
         ord
         |> toStringWithConstraints
         |> List.map (fun s ->
@@ -2966,7 +2966,9 @@ module Order =
             |}
         )
         |> ConsoleTables.from
-        |> ConsoleTables.write format
+        |> ConsoleTables.toMarkDownString
+        |> Events.OrderScenario
+        |> Logging.logInfo logger
 
 
     /// <summary>
@@ -3860,7 +3862,7 @@ module Order =
             |> function
             | Ok res -> res |> Ok
             | Error (_, errs) ->
-                ord |> printTable Format.Minimal
+                ord |> printTable logger Format.Minimal
 
                 (ord , errs)
                 |> Error

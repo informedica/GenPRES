@@ -411,9 +411,9 @@ module OrderContext =
             )
 
 
-        let printOrder ord =
+        let printOrder logger ord =
             ord
-            |> Order.printTable Format.Minimal
+            |> Order.printTable logger Format.Minimal
 
             ord
 
@@ -881,7 +881,7 @@ Scenarios: {scenarios}
 
         ctx.Scenarios
         |> Array.tryExactlyOne
-        |> Option.iter (_.Order >> Order.printTable Format.Minimal)
+        |> Option.iter (_.Order >> Order.printTable logger Format.Minimal)
 
         log $"\n===\n"
         cmd
