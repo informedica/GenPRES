@@ -33,7 +33,7 @@ type Logger = { Log: Event -> unit }
 /// General logging module
 [<RequireQualifiedAccess>]
 module Logging =
-    
+
 
     /// Create a message with timestamp and level
     let createMessage level (msg: IMessage) =
@@ -54,7 +54,7 @@ module Logging =
     let logInfo logger msg = logWith Level.Informative logger msg
 
 
-    /// Log a warning message  
+    /// Log a warning message
     let logWarning logger msg = logWith Level.Warning logger msg
 
 
@@ -76,9 +76,9 @@ module Logging =
 
     /// Create a logger that prints to console using a message formatter
     let createConsole (formatter: IMessage -> string) : Logger =
-        create (fun msg -> 
-            msg.Message 
-            |> formatter 
+        create (fun msg ->
+            msg.Message
+            |> formatter
             |> fun s -> if not (String.IsNullOrEmpty s) then printfn "%s" s
         )
 
@@ -88,7 +88,7 @@ module Logging =
         create (fun msg ->
             msg.Message
             |> formatter
-            |> fun s -> 
+            |> fun s ->
                 if not (String.IsNullOrEmpty s) then
                     let text = [$"{msg.TimeStamp}: {msg.Level}"; s]
                     System.IO.File.AppendAllLines(path, text)
@@ -109,7 +109,7 @@ module Logging =
             | Level.Debug -> 1
             | Level.Warning -> 2
             | Level.Error -> 3
-        
+
         create (fun msg ->
             if levelValue msg.Level >= levelValue minLevel then
                 logger.Log msg
@@ -128,13 +128,13 @@ module Logging =
 /// Message formatter module
 [<RequireQualifiedAccess>]
 module MessageFormatter =
-    
+
     /// Create a formatter that handles multiple message types
     let create (formatters: (Type * (IMessage -> string)) list) : IMessage -> string =
         fun msg ->
             let msgType = msg.GetType()
             //printfn $"msgType = {msgType} in {formatters |> List.map (fst >> _.FullName)}"
-            
+
             // Try to find a formatter where the registered type is assignable from the message type
             formatters
             |> List.tryPick (fun (regType, formatter) ->
@@ -150,7 +150,7 @@ module MessageFormatter =
     let createWithFallback (formatters: (Type * (IMessage -> string)) list) (fallback: IMessage -> string) : IMessage -> string =
         fun msg ->
             let msgType = msg.GetType()
-            
+
             // Try to find a formatter where the registered type is assignable from the message type
             formatters
             |> List.tryPick (fun (regType, formatter) ->
@@ -169,6 +169,7 @@ module AgentLogging =
     open System.Text
 
     open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.Agents.Lib
 
     module W = FileWriterAgent
@@ -181,7 +182,7 @@ module AgentLogging =
         | Report of AsyncReplyChannel<string[]>                // formatted lines
         | Write  of string * AsyncReplyChannel<Result<unit, string>>
         | Stop   of AsyncReplyChannel<unit>
-        | FlushTimer 
+        | FlushTimer
 
     type DisposeResult =
         | Disposed
@@ -200,9 +201,9 @@ module AgentLogging =
             DisposeWorkAsync : unit -> Async<DisposeResult>
         }
         interface IDisposable with
-            member this.Dispose() = 
-                this.DisposeWorkAsync() 
-                |> Async.RunSynchronously 
+            member this.Dispose() =
+                this.DisposeWorkAsync()
+                |> Async.RunSynchronously
                 |> ignore
 
         interface IAsyncDisposable with
@@ -239,12 +240,12 @@ module AgentLogging =
 
     /// Default configurations for AgentLogger
     module AgentLoggerDefaults =
-        
+
 
         /// Default formatter that handles basic message types
         let defaultFormatter : IMessage -> string =
             fun msg -> sprintf "%A" msg
-        
+
 
         /// Default error handler that prints to stderr
         let defaultErrorHandler : LoggingError -> unit =
@@ -255,7 +256,7 @@ module AgentLogging =
                 eprintfn "File write error during %s: %s" operation ex.Message
             | AgentError ex ->
                 eprintfn "Agent error: %s" ex.Message
-        
+
 
         /// Create default configuration with console-only logging
         let config : AgentLoggerConfig = {
@@ -268,7 +269,7 @@ module AgentLogging =
             MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
-        
+
 
         /// Create default configuration for high-performance logging
         let highPerformance : AgentLoggerConfig = {
@@ -276,12 +277,12 @@ module AgentLogging =
             MaxMessages = Some 5000  // Larger buffer for high throughput
             DefaultLevel = Level.Warning  // Only log warnings and errors
             flushThreshold = 1000
-            FlushInterval = TimeSpan.FromSeconds(10.0)  
+            FlushInterval = TimeSpan.FromSeconds(10.0)
             MinFlushInterval = TimeSpan.FromSeconds(1.0)
             MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
-        
+
 
         /// Create default configuration for debugging
         let debug : AgentLoggerConfig = {
@@ -289,12 +290,12 @@ module AgentLogging =
             MaxMessages = None  // Unlimited message storage
             DefaultLevel = Level.Debug
             flushThreshold = 10
-            FlushInterval = TimeSpan.FromSeconds(1.0)  
+            FlushInterval = TimeSpan.FromSeconds(1.0)
             MinFlushInterval = TimeSpan.FromSeconds(1.0)
             MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
-        
+
 
         /// Create default configuration for production use
         let production : AgentLoggerConfig = {
@@ -302,48 +303,48 @@ module AgentLogging =
             MaxMessages = Some 10_000  // Large buffer for production
             DefaultLevel = Level.Error  // Only log errors in production
             flushThreshold = 10
-            FlushInterval = TimeSpan.FromSeconds(1.0)  
+            FlushInterval = TimeSpan.FromSeconds(1.0)
             MinFlushInterval = TimeSpan.FromSeconds(1.0)
             MaxFlushInterval = TimeSpan.FromSeconds(30.)
             ErrorHandler = Some defaultErrorHandler
         }
-        
+
 
         /// Create a custom configuration with specified formatter
         let withFormatter (formatter: IMessage -> string) (config: AgentLoggerConfig) = {
             config with Formatter = formatter
         }
-        
+
 
         /// Create a configuration with custom message limit
         let withMaxMessages (maxMessages: int option) (config: AgentLoggerConfig) = {
             config with MaxMessages = maxMessages
         }
-        
+
 
         /// Create a configuration with custom default level
         let withLevel (level: Level) (config: AgentLoggerConfig) = {
             config with DefaultLevel = level
         }
-        
+
 
         /// Create a configuration with custom flush interval
         let withFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
             config with FlushInterval = interval
         }
-        
+
 
         /// Create a configuration with custom flush threshold
         let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) = {
             config with flushThreshold = threshold
         }
-        
+
 
         /// Create a configuration with custom minimum flush interval
         let withMinFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
             config with MinFlushInterval = interval
         }
-        
+
 
         /// Create a configuration with custom maximum flush interval
         let withMaxFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
@@ -365,7 +366,7 @@ module AgentLogging =
                 let mutable messageCountSinceFlush = 0
                 let minFlushInterval = config.MinFlushInterval
                 let maxFlushInterval = config.MaxFlushInterval
-                let flushThreshold = config.flushThreshold                
+                let flushThreshold = config.flushThreshold
 
                 let scheduleFlush() =
                     let now = DateTime.UtcNow
@@ -387,7 +388,7 @@ module AgentLogging =
                             | :? ObjectDisposedException -> ()
                         } |> Async.Start
 
-                let storage = 
+                let storage =
                     match config.MaxMessages with
                     | Some n when n > 0 -> RingBuffer.create n |> RingBuffer
                     | _ -> ResizeArray<float * Event>() |> UnlimitedList
@@ -411,21 +412,21 @@ module AgentLogging =
 
                 let formatLogMessage (elapsed: float) (count: int) (ev: Event) =
                     try
-                        let text = 
-                            //AgentLoggerDefaults.defaultFormatter ev.Message 
+                        let text =
+                            //AgentLoggerDefaults.defaultFormatter ev.Message
                             config.Formatter ev.Message
                         if String.IsNullOrWhiteSpace text then None
-                        else 
+                        else
                             sb.Clear() |> ignore
                             let header =
-                                sb.AppendFormat("{0}. {1:F3}: {2}", count, elapsed, ev.Level) 
+                                sb.AppendFormat("{0}. {1:F3}: {2}", count, elapsed, ev.Level)
                                 |> StringBuilder.toString
                             Some [| header; text |]
                     with ex ->
                         errorHandler |> Option.iter (fun h -> h (FormatterError(ex, ev.Message)))
                         Some [| sprintf "ERROR: Failed to format message: %s" ex.Message; "" |]
 
-                let rec loop (path: string option) (level: Level) (fileInitialized: bool) = 
+                let rec loop (path: string option) (level: Level) (fileInitialized: bool) =
                     async {
                         let! msgOpt = inbox.TryReceive(1000)
                         match msgOpt with
@@ -470,7 +471,7 @@ module AgentLogging =
                                     match formatLogMessage elapsed idx ev with
                                     | Some lines ->
                                         match path with
-                                        | Some p -> 
+                                        | Some p ->
                                             // Create the file lazily on first write by prepending a header
                                             if not fileInitialized then
                                                 let header = sprintf "Start logging %A: %s" level (DateTime.Now.ToShortTimeString())
@@ -482,7 +483,10 @@ module AgentLogging =
                                             W.append p lines writer |> ignore      // async writer
                                             scheduleFlush ()
                                         // In the console case, print all lines for clarity.
-                                        | None   -> lines |> Array.iter (printfn "%s") // print all lines
+                                        | None   ->
+                                            if level = Level.Debug then
+                                                lines
+                                                |> Array.iter writeDebugMessage // print all lines
                                     | None -> ()
                                     messageCountSinceFlush <- messageCountSinceFlush + 1
                                     scheduleFlush ()
@@ -494,7 +498,7 @@ module AgentLogging =
                                     do! W.flushAsync writer
                                     lastFlushTime <- DateTime.UtcNow
                                     messageCountSinceFlush <- 0
-                                with 
+                                with
                                 | ex -> config.ErrorHandler |> Option.iter (fun h -> FileWriteError (ex, "flush") |> h)
                                 return! loop path level fileInitialized
 
@@ -572,7 +576,7 @@ module AgentLogging =
                     if Interlocked.Read(&isDisposed) = 0L then
                         try
                             logger.Post(LogEvent ev)
-                        with 
+                        with
                         | :? ObjectDisposedException -> ()
                         | ex -> eprintfn $"Failed to post log event {ev} with:\n{ex.Message}"
                 }
@@ -608,29 +612,29 @@ module AgentLogging =
                 }
         }
 
-    
+
     /// Create a console logger with default settings
-    let createConsole () = 
+    let createConsole () =
         createAgentLogger AgentLoggerDefaults.config
-    
+
     /// Create a debug logger with verbose settings
-    let createDebug () = 
+    let createDebug () =
         createAgentLogger AgentLoggerDefaults.debug
-    
+
     /// Create a production logger with minimal output
-    let createProduction () = 
+    let createProduction () =
         createAgentLogger AgentLoggerDefaults.production
-    
+
     /// Create a high-performance logger for heavy workloads
-    let createHighPerformance () = 
+    let createHighPerformance () =
         createAgentLogger AgentLoggerDefaults.highPerformance
-    
+
     /// Create a custom logger with the specified formatter
     let createWithFormatter (formatter: IMessage -> string) =
         AgentLoggerDefaults.config
         |> AgentLoggerDefaults.withFormatter formatter
         |> createAgentLogger
-    
+
     /// Create a logger with unlimited message storage
     let createUnlimited () =
         AgentLoggerDefaults.config

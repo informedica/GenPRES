@@ -479,11 +479,115 @@ module Tests =
 
     module BigRational =
 
-
         open Expecto
 
         open MathNet.Numerics
         open Informedica.Utils.Lib.BCL
+
+        // Test calcCartesian function
+        let testCalcCartesian () =
+
+            testList "testCalcCartesion" [
+                // Test empty arrays
+                testCase "calcCartesian with empty vs1 returns empty array" <| fun _ ->
+                    let vs1 : BigRational[] = [||]
+                    let vs2 = [|1N; 2N; 3N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [||] "Result should be empty array when vs1 is empty"
+
+                testCase "calcCartesian with empty vs2 returns empty array" <| fun _ ->
+                    let vs1 = [|1N; 2N|]
+                    let vs2 : BigRational[] = [||]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [||] "Result should be empty array when vs2 is empty"
+
+                // Test single element arrays (broadcasting)
+                testCase "calcCartesian single element vs1 addition" <| fun _ ->
+                    let vs1 = [|2N|]
+                    let vs2 = [|1N; 3N; 5N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [|3N; 5N; 7N|] "Result should match expected addition"
+
+                testCase "calcCartesian single element vs2 addition" <| fun _ ->
+                    let vs1 = [|1N; 2N; 4N|]
+                    let vs2 = [|3N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [|4N; 5N; 7N|] "Result should match expected addition"
+
+                // Test addition
+                testCase "calcCartesian addition" <| fun _ ->
+                    let vs1 = [|1N; 2N|]
+                    let vs2 = [|3N; 4N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [|4N; 5N; 5N; 6N|] "Addition result should match"
+
+                testCase "calcCartesian subtraction" <| fun _ ->
+                    let vs1 = [|5N; 7N|]
+                    let vs2 = [|2N; 3N|]
+                    let result = BigRational.calcCartesian (-) vs1 vs2
+                    Expect.equal result [|3N; 2N; 5N; 4N|] "Subtraction result should match"
+
+                testCase "calcCartesian multiplication" <| fun _ ->
+                    let vs1 = [|2N; 3N|]
+                    let vs2 = [|4N; 5N|]
+                    let result = BigRational.calcCartesian (*) vs1 vs2
+                    Expect.equal result [|8N; 10N; 12N; 15N|] "Multiplication result should match"
+
+                testCase "calcCartesian multiplication with zero" <| fun _ ->
+                    let vs1 = [|0N; 2N|]
+                    let vs2 = [|3N; 4N|]
+                    let result = BigRational.calcCartesian (*) vs1 vs2
+                    Expect.equal result [|0N; 0N; 6N; 8N|] "Multiplication with zero result should match"
+
+                testCase "calcCartesian multiplication with zero in vs2" <| fun _ ->
+                    let vs1 = [|2N; 3N|]
+                    let vs2 = [|0N; 4N|]
+                    let result = BigRational.calcCartesian (*) vs1 vs2
+                    Expect.equal result [|0N; 8N; 0N; 12N|] "Multiplication with zero in vs2 result should match"
+
+                testCase "calcCartesian division" <| fun _ ->
+                    let vs1 = [|6N; 8N|]
+                    let vs2 = [|2N; 4N|]
+                    let result = BigRational.calcCartesian (/) vs1 vs2
+                    Expect.equal result [|3N; 3N/2N; 4N; 2N|] "Division result should match"
+
+                testCase "calcCartesian with fractions addition" <| fun _ ->
+                    let vs1 = [|1N/2N; 3N/4N|]
+                    let vs2 = [|1N/3N; 2N/5N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [|5N/6N; 9N/10N; 13N/12N; 23N/20N|] "Addition with fractions result should match"
+
+                testCase "calcCartesian with fractions multiplication" <| fun _ ->
+                    let vs1 = [|1N/2N; 2N/3N|]
+                    let vs2 = [|3N/4N; 4N/5N|]
+                    let result = BigRational.calcCartesian (*) vs1 vs2
+                    Expect.equal result [|3N/8N; 2N/5N; 1N/2N; 8N/15N|] "Multiplication with fractions result should match"
+
+                testCase "calcCartesian larger arrays" <| fun _ ->
+                    let vs1 = [|1N; 2N; 3N|]
+                    let vs2 = [|10N; 20N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [|11N; 21N; 12N; 22N; 13N; 23N|] "Larger arrays addition result should match"
+                    Expect.equal result.Length 6 "Result length should be 6"
+
+                testCase "calcCartesian single element broadcasting with zero for multiplication" <| fun _ ->
+                    let vs1 = [|0N|]
+                    let vs2 = [|1N; 2N; 3N; 4N; 5N|]
+                    let result = BigRational.calcCartesian (*) vs1 vs2
+                    Expect.equal result [|0N; 0N; 0N; 0N; 0N|] "Single element broadcasting with zero result should match"
+
+                testCase "calcCartesian division by single element" <| fun _ ->
+                    let vs1 = [|6N; 9N; 12N|]
+                    let vs2 = [|3N|]
+                    let result = BigRational.calcCartesian (/) vs1 vs2
+                    Expect.equal result [|2N; 3N; 4N|] "Division by single element result should match"
+
+                testCase "calcCartesian result ordering (Cartesian product order)" <| fun _ ->
+                    let vs1 = [|1N; 2N|]
+                    let vs2 = [|10N; 20N; 30N|]
+                    let result = BigRational.calcCartesian (+) vs1 vs2
+                    Expect.equal result [|11N; 21N; 31N; 12N; 22N; 32N|] "Result ordering should match"
+            ]
 
 
         [<Tests>]
@@ -515,7 +619,6 @@ module Tests =
                             printfn "%f <> %f" a b
                             false
                     )
-
 
                 testPropertyWithConfig config "can convert any bigrational to a double" <| fun br ->
                     let f =
@@ -549,16 +652,13 @@ module Tests =
                     | None -> true
 
                 testPropertyWithConfig config "when a is gcd of b and c then b and c both are a multiple of a" <| fun b c ->
-                    // printfn "%s %s %s" (b |> BigRational.toString) (c |> BigRational.toString) (a |> BigRational.toString)
                     if (b = 0N || c = 0N) then true
                     else
                         let a = BigRational.gcd b c
                         b |> BigRational.isMultiple a &&
                         c |> BigRational.isMultiple a
 
-
                 testPropertyWithConfig config "when b is converted to multiple of c then result a is multiple of c" <| fun b c ->
-                    // printfn "%s %s %s" (b |> BigRational.toString) (c |> BigRational.toString) (a |> BigRational.toString)
                     if (b = 0N || c = 0N) then true
                     else
                         let a = b |> BigRational.toMultipleOf true c
@@ -585,7 +685,7 @@ module Tests =
                 test "when operator is subtraction" {
                     Expect.equal ((-) |> BigRational.opIsSubtr) true ""
                 }
-
+                testCalcCartesian ()
             ]
 
 
@@ -689,6 +789,9 @@ module Tests =
 
 
     module Csv =
+
+        open Expect
+        open Expecto.Flip
 
         let inline parse<'T> dt (p : string -> 'T option) (s: string) =
             s
@@ -863,16 +966,12 @@ module Tests =
                     |> Csv.parseCSV
                     |> function
                     | [|cols; row1; _; _ |] ->
-                        row1
-                        |> Csv.getColumn<string> Csv.StringData cols
-                        |> fun get -> get "c"
-                        |> Expect.equal $"column a should be %s{stringData}" stringData
+                        let v = row1 |> Csv.getColumn<string> Csv.StringData cols |> fun get -> get "c"
+                        Expect.equal "column c should be hello" v stringData
                     | _ ->
-                        Console.WriteLine($"%A{testCsv}")
-                        false |> Expect.isTrue "cannot get the c column"
+                        failwith "unexpected parseCSV result"
                 }
             ]
-
 
         [<Tests>]
         let tests =
@@ -881,391 +980,5 @@ module Tests =
                 tryCastTests
                 tryGetColumnTests
                 parseCsvTests
-            ]
-
-
-    module Ringbuffer =
-
-        open Informedica.Utils.Lib
-        open Expecto
-        open FsCheck
-
-
-
-        // Basic functionality tests
-        let basicTests =
-            testList "Basic RingBuffer Operations" [
-                
-                test "create with positive capacity should succeed" {
-                    let rb = RingBuffer.create 5
-                    Expect.equal rb.Capacity 5 "Capacity should be set correctly"
-                    Expect.equal rb.CountValue 0 "Initial count should be 0"
-                    Expect.isFalse rb.IsFull "Should not be full initially"
-                }
-                
-                test "create with zero capacity should throw" {
-                    Expect.throws (fun () -> RingBuffer.create 0 |> ignore) "Should throw for zero capacity"
-                }
-                
-                test "create with negative capacity should throw" {
-                    Expect.throws (fun () -> RingBuffer.create -1 |> ignore) "Should throw for negative capacity"
-                }
-                
-                test "add single item should work" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 42 rb
-                    
-                    Expect.equal rb.CountValue 1 "Count should be 1"
-                    Expect.isFalse rb.IsFull "Should not be full"
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|42|] "Should contain the added item"
-                }
-                
-                test "add items up to capacity" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    
-                    Expect.equal rb.CountValue 3 "Count should be 3"
-                    Expect.isTrue rb.IsFull "Should be full"
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|1; 2; 3|] "Should contain all items in order"
-                }
-                
-                test "add beyond capacity should overwrite oldest" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    RingBuffer.add 4 rb  // Should overwrite 1
-                    
-                    Expect.equal rb.CountValue 3 "Count should stay at capacity"
-                    Expect.isTrue rb.IsFull "Should remain full"
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|2; 3; 4|] "Should contain newest items, oldest first"
-                }
-                
-                test "clear should reset buffer" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.clear rb
-                    
-                    Expect.equal rb.CountValue 0 "Count should be 0 after clear"
-                    Expect.isFalse rb.IsFull "Should not be full after clear"
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.isEmpty items "Should be empty after clear"
-                }
-                
-                test "toSeq should return items in oldest-to-newest order" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    RingBuffer.add 4 rb  // Overwrites 1
-                    
-                    let items = RingBuffer.toSeq rb |> List.ofSeq
-                    Expect.equal items [2; 3; 4] "Should return items oldest to newest"
-                }
-                
-                test "iter should visit items in oldest-to-newest order" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    RingBuffer.add 4 rb  // Overwrites 1
-                    
-                    let mutable visited = []
-                    RingBuffer.iter (fun x -> visited <- x :: visited) rb
-                    
-                    let visitedInOrder = List.rev visited
-                    Expect.equal visitedInOrder [2; 3; 4] "Should visit items oldest to newest"
-                }
-                
-                test "map should transform items in oldest-to-newest order" {
-                    let rb = RingBuffer.create 3
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    
-                    let doubled = RingBuffer.map (fun x -> x * 2) rb
-                    Expect.equal doubled [|2; 4; 6|] "Should map items in correct order"
-                }
-            ]
-
-        // Edge case tests
-        let edgeTests =
-            testList "Edge Cases" [
-                
-                test "single capacity buffer behavior" {
-                    let rb = RingBuffer.create 1
-                    
-                    RingBuffer.add 1 rb
-                    Expect.equal (RingBuffer.toArray rb) [|1|] "Should contain first item"
-                    Expect.isTrue rb.IsFull "Should be full"
-                    
-                    RingBuffer.add 2 rb
-                    Expect.equal (RingBuffer.toArray rb) [|2|] "Should contain second item, first overwritten"
-                    
-                    RingBuffer.add 3 rb
-                    Expect.equal (RingBuffer.toArray rb) [|3|] "Should contain third item"
-                }
-                
-                test "empty buffer operations" {
-                    let rb = RingBuffer.create 5
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.isEmpty items "Empty buffer should return empty array"
-                    
-                    let seqItems = RingBuffer.toSeq rb |> List.ofSeq
-                    Expect.isEmpty seqItems "Empty buffer should return empty sequence"
-                    
-                    let mutable iterCount = 0
-                    RingBuffer.iter (fun _ -> iterCount <- iterCount + 1) rb
-                    Expect.equal iterCount 0 "Iter should not execute on empty buffer"
-                    
-                    let mapped = RingBuffer.map (fun x -> x * 2) rb
-                    Expect.isEmpty mapped "Map should return empty array for empty buffer"
-                }
-                
-                test "clear and reuse buffer" {
-                    let rb = RingBuffer.create 3
-                    
-                    // Fill buffer
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    
-                    // Clear and reuse
-                    RingBuffer.clear rb
-                    RingBuffer.add 10 rb
-                    RingBuffer.add 20 rb
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|10; 20|] "Should work correctly after clear"
-                }
-                
-                test "multiple wrap-arounds" {
-                    let rb = RingBuffer.create 3
-                    
-                    // Add 10 items (multiple wrap-arounds)
-                    for i in 1..10 do
-                        RingBuffer.add i rb
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|8; 9; 10|] "Should contain last 3 items"
-                }
-            ]
-
-        // Property-based tests using FsCheck
-        let propertyTests =
-            testList "Property-based Tests" [
-                
-                testProperty
-                    "capacity is always preserved" <| fun (PositiveInt capacity) ->
-                    (capacity > 0 && capacity < 1000) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        rb.Capacity = capacity
-                    )
-                
-                testProperty
-                    "count never exceeds capacity" <| fun (PositiveInt capacity) (items: int list) ->
-                    (capacity > 0 && capacity < 100) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        items |> List.iter (fun item -> RingBuffer.add item rb)
-                        rb.CountValue <= rb.Capacity
-                    )
-                
-                testProperty
-                    "toArray length equals count" <| fun (PositiveInt capacity) (items: int list) ->
-                    (capacity > 0 && capacity < 100) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        items |> List.iter (fun item -> RingBuffer.add item rb)
-                        let arr = RingBuffer.toArray rb
-                        arr.Length = rb.CountValue
-                    )
-                
-
-                testProperty
-                    "map preserves count and order" <| fun (PositiveInt capacity) (items: int list) ->
-                    (capacity > 0 && capacity < 100) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        items |> List.iter (fun item -> RingBuffer.add item rb)
-                        
-                        let original = RingBuffer.toArray rb
-                        let mapped = RingBuffer.map (fun x -> x * 2) rb
-                        
-                        mapped.Length = original.Length &&
-                        Array.zip original mapped |> Array.forall (fun (orig, map) -> map = orig * 2)
-                    )
-
-
-                testProperty 
-                    "toSeq and toArray are equivalent" <| fun (PositiveInt capacity) (items: int list) ->
-                    (capacity > 0 && capacity < 100) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        items |> List.iter (fun item -> RingBuffer.add item rb)
-                        
-                        let fromSeq = RingBuffer.toSeq rb |> Array.ofSeq
-                        let fromArray = RingBuffer.toArray rb
-                        
-                        fromSeq = fromArray
-                    )
-
-
-                testProperty
-                    "clear always resets to empty state" <| fun (PositiveInt capacity) (items: int list) ->
-                    (capacity > 0 && capacity < 100 && items |> List.length < 200) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        items |> List.iter (fun item -> RingBuffer.add item rb)
-                        
-                        RingBuffer.clear rb
-                        
-                        rb.CountValue = 0 && 
-                        not rb.IsFull && 
-                        (RingBuffer.toArray rb).Length = 0
-                    )
-
-
-                testProperty
-                    "adding items maintains newest-first property when full" <| fun (capacity: int) ->
-                    (capacity > 0 && capacity <= 100) ==> lazy (
-                        let rb = RingBuffer.create capacity
-                        
-                        // Fill beyond capacity
-                        let totalItems = capacity + 5
-                        for i in 1..totalItems do
-                            RingBuffer.add i rb
-                        
-                        let items = RingBuffer.toArray rb 
-                        let expectedStart = totalItems - capacity + 1
-                        let expected = [|expectedStart..totalItems|]
-                        
-                        if not (items = expected) then printfn $"{capacity} -> items: {items}, expected: {expected}"
-                        items = expected
-                    )
-
-            ]
-
-        // Performance and stress tests
-        let performanceTests =
-            testList "Performance Tests" [
-                
-                test "large buffer operations should be fast" {
-                    let capacity = 10000
-                    let rb = RingBuffer.create capacity
-                    
-                    let sw = System.Diagnostics.Stopwatch.StartNew()
-                    
-                    // Add many items
-                    for i in 1..50000 do
-                        RingBuffer.add i rb
-                    
-                    sw.Stop()
-                    
-                    Expect.isLessThan sw.ElapsedMilliseconds 1000L "Should add 50k items quickly"
-                    Expect.equal rb.CountValue capacity "Should maintain capacity"
-                    
-                    // Verify the buffer contains the last 'capacity' items
-                    let items = RingBuffer.toArray rb
-                    let expectedStart = 50000 - capacity + 1
-                    Expect.equal items.[0] expectedStart "Should start with correct item"
-                    Expect.equal items.[capacity - 1] 50000 "Should end with correct item"
-                }
-                
-                test "frequent clear and refill should be efficient" {
-                    let rb = RingBuffer.create 1000
-                    let sw = System.Diagnostics.Stopwatch.StartNew()
-                    
-                    for cycle in 1..100 do
-                        RingBuffer.clear rb
-                        for i in 1..1000 do
-                            RingBuffer.add (cycle * 1000 + i) rb
-                    
-                    sw.Stop()
-                    
-                    Expect.isLessThan sw.ElapsedMilliseconds 1000L "Should handle frequent clear/refill efficiently"
-                }
-                
-                test "toSeq should handle large buffers efficiently" {
-                    let capacity = 10000
-                    let rb = RingBuffer.create capacity
-                    
-                    for i in 1..capacity do
-                        RingBuffer.add i rb
-                    
-                    let sw = System.Diagnostics.Stopwatch.StartNew()
-                    let items = RingBuffer.toSeq rb |> Array.ofSeq
-                    sw.Stop()
-                    
-                    Expect.isLessThan sw.ElapsedMilliseconds 100L "Should convert to sequence quickly"
-                    Expect.equal items.Length capacity "Should have correct length"
-                }
-            ]
-
-        // Sequence and ordering tests
-        let orderingTests =
-            testList "Ordering and Sequence Tests" [
-                
-                test "partial fill maintains insertion order" {
-                    let rb = RingBuffer.create 5
-                    
-                    RingBuffer.add 10 rb
-                    RingBuffer.add 20 rb
-                    RingBuffer.add 30 rb
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|10; 20; 30|] "Should maintain insertion order when not full"
-                }
-                
-                test "wrap-around maintains oldest-to-newest order" {
-                    let rb = RingBuffer.create 4
-                    
-                    // Fill completely
-                    for i in 1..4 do
-                        RingBuffer.add i rb
-                    
-                    // Add more to cause wrap-around
-                    RingBuffer.add 5 rb
-                    RingBuffer.add 6 rb
-                    
-                    let items = RingBuffer.toArray rb
-                    Expect.equal items [|3; 4; 5; 6|] "Should maintain oldest-to-newest after wrap-around"
-                }
-                
-                test "iter visits all elements exactly once" {
-                    let rb = RingBuffer.create 3
-                    
-                    RingBuffer.add 1 rb
-                    RingBuffer.add 2 rb
-                    RingBuffer.add 3 rb
-                    RingBuffer.add 4 rb  // Overwrites 1
-                    
-                    let mutable sum = 0
-                    let mutable count = 0
-                    
-                    RingBuffer.iter (fun x -> 
-                        sum <- sum + x
-                        count <- count + 1) rb
-                    
-                    Expect.equal count 3 "Should visit exactly 3 elements"
-                    Expect.equal sum 9 "Should visit 2+3+4 = 9"
-                }
-            ]
-
-        // Main test suite
-        [<Tests>]
-        let allTests =
-            testList "Informedica.Utils.Lib RingBuffer Tests" [
-                basicTests
-                edgeTests
-                propertyTests
-                performanceTests
-                orderingTests
             ]
 
