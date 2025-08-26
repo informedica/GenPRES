@@ -370,7 +370,7 @@ module BigRational =
         | _ -> failwith "Operator is not supported"
 
 
-    let inline calcCartesian op (vs1: BigRational[]) (vs2: BigRational[]) : BigRational[] =
+    let calcCartesian op (vs1: BigRational[]) (vs2: BigRational[]) : BigRational[] =
         let n = vs1.Length
         let m = vs2.Length
         if n = 0 || m = 0 then
