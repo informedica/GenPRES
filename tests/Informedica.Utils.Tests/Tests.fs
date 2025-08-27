@@ -313,6 +313,49 @@ module Tests =
             ]
 
 
+    module FileTests =
+
+        open System
+        open System.IO
+        open Expecto
+        open Informedica.Utils.Lib
+
+        [<Tests>]
+        let tests =
+            testList "File.findParent" [
+                test "returns Some for a file in current directory" {
+                    // Use this test file name as the sentinel
+                    let currentDir = Directory.GetCurrentDirectory()
+                    let fileName = "Informedica.Utils.Tests.dll" // built test assembly name typically in bin during run
+                    // We can't rely on exact file presence; instead, write a temp file and clean up
+                    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+                    Directory.CreateDirectory(tempDir) |> ignore
+                    let nestedDir = Path.Combine(tempDir, "a", "b")
+                    Directory.CreateDirectory(nestedDir) |> ignore
+                    let targetFile = Path.Combine(tempDir, "sentinel.txt")
+                    File.WriteAllText(targetFile, "x")
+                    // search starting in nestedDir for sentinel.txt
+                    let found = File.findParent nestedDir "sentinel.txt"
+                    try
+                        Expect.equal found (Some tempDir) "Should find parent directory that contains the file"
+                    finally
+                        try Directory.Delete(tempDir, true) with _ -> ()
+                }
+
+                test "returns None when file does not exist in any ancestor" {
+                    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+                    Directory.CreateDirectory(tempDir) |> ignore
+                    let nestedDir = Path.Combine(tempDir, "a", "b")
+                    Directory.CreateDirectory(nestedDir) |> ignore
+                    let found = File.findParent nestedDir "definitely-not-existing-12345.xyz"
+                    try
+                        Expect.equal found None "Should return None when file not found"
+                    finally
+                        try Directory.Delete(tempDir, true) with _ -> ()
+                }
+            ]
+
+
     module Double =
 
         open System

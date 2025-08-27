@@ -9,17 +9,6 @@ module Env =
     open System.Collections.Generic
 
 
-    /// Recursively tries to find the parent of a file starting from a directory
-    let rec findParent (directory: string) (fileToFind: string) =
-        let path =
-            if Directory.Exists(directory) then directory else Directory.GetParent(directory).FullName
-
-        let files = Directory.GetFiles(path)
-        if files.Any(fun file -> Path.GetFileName(file).ToLower() = fileToFind.ToLower())
-        then path
-        else findParent (DirectoryInfo(path).Parent.FullName) fileToFind
-
-
     /// Returns current process environment variables as a dictionary (portable)
     /// - Uses the current process environment only (works on all platforms)
     /// - Case-insensitive keys to avoid casing pitfalls across OSes
