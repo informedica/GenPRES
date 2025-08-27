@@ -20,29 +20,30 @@ module Env =
         else findParent (DirectoryInfo(path).Parent.FullName) fileToFind
 
 
-    /// Returns enviroment variables as a dictionary
-    let environmentVars() =
-        let variables = Dictionary<string, string>()
-        let userVariables = Environment.GetEnvironmentVariables(EnvironmentVariableTarget.User)
-        let processVariables = Environment.GetEnvironmentVariables(EnvironmentVariableTarget.Process)
-        for pair in userVariables do
-            let variable = unbox<Collections.DictionaryEntry> pair
-            let key = unbox<string> variable.Key
-            let value = unbox<string> variable.Value
-            if not (variables.ContainsKey(key)) && key <> "PATH" then variables.Add(key, value)
-        for pair in processVariables do
-            let variable = unbox<Collections.DictionaryEntry> pair
-            let key = unbox<string> variable.Key
-            let value = unbox<string> variable.Value
-            if not (variables.ContainsKey(key)) && key <> "PATH" then variables.Add(key, value)
+    /// Returns current process environment variables as a dictionary (portable)
+    /// - Uses the current process environment only (works on all platforms)
+    /// - Case-insensitive keys to avoid casing pitfalls across OSes
+    /// - Does not filter out PATH or any other variable
+    let environmentVars () =
+        let variables = Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        let all = Environment.GetEnvironmentVariables()
+        for pair in all do
+            let entry = unbox<Collections.DictionaryEntry> pair
+            let key = string entry.Key
+            let value =
+                match entry.Value with
+                | null -> ""
+                | :? string as s -> s
+                | v -> v.ToString()
+            // last one wins if duplicates appear (shouldn't for process scope)
+            if variables.ContainsKey(key) then variables.[key] <- value
+            else variables.Add(key, value)
         variables
 
 
-    /// Get an environment variable
-    /// Returns None if the variable does not exist
+    /// Get an environment variable from the current process.
+    /// Returns None if the variable does not exist.
     let getItem envName =
-        let vars = environmentVars()
-        if not (vars.ContainsKey(envName)) then None
-        else
-            vars.Item(envName)
-            |> Some
+        match Environment.GetEnvironmentVariable(envName) with
+        | null -> None
+        | v -> Some v

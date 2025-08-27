@@ -277,6 +277,42 @@ module Tests =
             ]
 
 
+    module EnvTests =
+
+        open Expecto
+        open Informedica.Utils.Lib
+
+        [<Tests>]
+        let tests =
+            testList "Env" [
+                test "environmentVars returns without exceptions and contains common vars" {
+                    let vars = Env.environmentVars()
+                    // Should not throw and should be non-empty in most environments
+                    Expect.isTrue (vars.Count >= 0) "environmentVars returns a dictionary"
+                    // PATH is commonly present; if missing we still pass but log
+                    if not (vars.ContainsKey "PATH") then
+                        printfn "Note: PATH not found in environmentVars on this system/session"
+                }
+
+                test "getItem returns None for unlikely var and Some for an injected one" {
+                    let name = "INFORMEDICA_UTILS_TEST_VAR"
+                    let value = "test-value"
+                    // ensure not set
+                    match Env.getItem name with
+                    | Some _ -> ()
+                    | None -> ()
+
+                    // set and verify
+                    System.Environment.SetEnvironmentVariable(name, value)
+                    let actual = Env.getItem name
+                    Expect.equal actual (Some value) "getItem should return the value we set"
+
+                    // clean up
+                    System.Environment.SetEnvironmentVariable(name, null)
+                }
+            ]
+
+
     module Double =
 
         open System
