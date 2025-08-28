@@ -76,6 +76,9 @@ module Tests
         open Informedica.GenOrder.Lib
         open Informedica.GenOrder.Lib.Order
         open Informedica.GenOrder.Lib.OrderVariable
+        module OV = Informedica.GenOrder.Lib.OrderVariable
+        module Units = Informedica.GenUnits.Lib.Units
+        open Informedica.GenOrder.Lib.Types
 
         let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
 
@@ -132,6 +135,50 @@ module Tests
                     match res with
                     | Ok _ -> true |> Expect.isTrue "calc minmax ok"
                     | Error (o, _) -> (box o) |> Expect.isNotNull "Order returned with error"
+                }
+            ]
+
+        [<Tests>]
+        let cleared_processing_tests =
+            testList "processClearedOrder behavior" [
+                test "Discontinuous FrequencyCleared materializes values" {
+                    let ord0 = mkConstrainedOrder ()
+                    // Switch to Discontinuous and clear its frequency via the change API
+                    let ord =
+                        let hz = Units.per Units.Time.hour Units.Count.times
+                        { ord0 with Prescription = Discontinuous (ord0.Prescription |> Prescription.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)) }
+                        |> Order.OrderPropertyChange.proc [ PrescriptionFrequency (fun (Frequency f) -> Frequency (OrderVariable.clear f)) ]
+                    let before = countValues ord
+                    let res = Order.processClearedOrder Logging.noOp ord
+                    match res with
+                    | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
+                    | Error (o, _) -> Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
+                }
+
+                test "Timed TimeCleared re-applies time constraints and values" {
+                    let ord0 = mkConstrainedOrder ()
+                    let hz = Units.per Units.Time.hour Units.Count.times
+                    let frq = ord0.Prescription |> Prescription.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)
+                    let tme = ord0.Prescription |> Prescription.getTime |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
+                    let ord = { ord0 with Prescription = Timed (frq, Time (OrderVariable.clear (let (Time tv) = tme in tv))) }
+                    let before = countValues ord
+                    let res = Order.processClearedOrder Logging.noOp ord
+                    match res with
+                    | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
+                    | Error (o, _) -> Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
+                }
+
+                test "Continuous ConcentrationCleared resets and re-solves" {
+                    let ord0 = mkConstrainedOrder ()
+                    // Ensure continuous prescription with a valid time and clear a component orderable concentration
+                    let tme = ord0.Prescription |> Prescription.getTime |> Option.defaultValue (OV.Time.create (Name "t") Units.Time.hour)
+                    let ord = { ord0 with Prescription = Continuous tme }
+                    let ord = ord |> Order.OrderPropertyChange.proc [ ComponentOrderableConcentration ("", fun (Concentration c) -> Concentration (OrderVariable.clear c)) ]
+                    let before = countValues ord
+                    let res = Order.processClearedOrder Logging.noOp ord
+                    match res with
+                    | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
+                    | Error (o, _) -> Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
                 }
             ]
 

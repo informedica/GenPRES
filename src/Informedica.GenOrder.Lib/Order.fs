@@ -1,10 +1,12 @@
 namespace Informedica.GenOrder.Lib
 
 
+/// <summary>
 /// Types and functions that deal with an order.
 /// An `Order` models the `Prescription` of an
 /// `Orderable` with a `StartStop` start date and
 /// stop date.
+/// </summary>
 //[<RequireQualifiedAccess>]
 module Order =
 
@@ -52,6 +54,7 @@ module Order =
         let [<Literal>] onceTimed = 7
 
 
+        // Get the equations from a google spreadsheet
         let private getEquations_ indx =
             Web.getDataFromGenPres "Equations"
             |> Array.skip 1
@@ -236,9 +239,11 @@ module Order =
             module TotalAdjust = OrderVariable.TotalAdjust
 
 
+            /// Apply **f** to a `Dose`
             let apply f (dos: Dose) = f dos
 
 
+            /// Utility method to facilitate type inference
             let inf = apply id
 
 
@@ -356,6 +361,9 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            /// <summary>
+            /// Apply only max quantity constraints to a Dose
+            /// </summary>
             let applyQuantityMaxConstraints dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.applyOnlyMaxConstraints
@@ -363,6 +371,9 @@ module Order =
                 }
 
 
+            /// <summary>
+            /// Apply quantity constraints to a Dose
+            /// </summary>
             let applyQuantityConstraints dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.applyConstraints
@@ -370,6 +381,9 @@ module Order =
                 }
 
 
+            /// <summary>
+            /// Apply per time constraints to a Dose
+            /// </summary>
             let applyPerTimeConstraints dos =
                 { (dos |> inf) with
                     PerTime = dos.PerTime |> PerTime.applyConstraints
@@ -377,12 +391,23 @@ module Order =
                 }
 
 
+            /// <summary>
+            /// Set the rate constraints for a Dose
+            /// </summary>
+            /// <param name="cons">The constraints</param>
+            /// <param name="dos">The Dose</param>
+            /// <returns>The Dose with the rate constraints set</returns>
             let setRateConstraints cons dos =
                 { (dos |> inf) with
                     Rate = dos.Rate |> Rate.setConstraints cons
                 }
 
 
+            /// <summary>
+            /// Set standard rate constraints for a Dose
+            /// </summary>
+            /// <param name="dos">The Dose</param>
+            /// <returns>The Dose with the standard rate constraints set</returns>
             let setStandardRateConstraints dos =
                 let rates =
                     [| 1N / 10N .. 1N / 10N .. 1_000N |]
@@ -393,6 +418,9 @@ module Order =
                 dos |> setRateConstraints rates
 
 
+            /// <summary>
+            /// Apply rate constraints to a Dose
+            /// </summary>
             let applyRateConstraints dos =
                 { (dos |> inf) with
                     Rate = dos.Rate |> Rate.applyConstraints
@@ -412,7 +440,14 @@ module Order =
                     Rate =  dos.Rate |> Rate.increaseIncrement maxCount incrs
                 }
 
-
+            /// <summary>
+            /// Set the norm dose adjustments to a Dose 
+            /// by finding the nearest value in the dose's
+            /// NormQuantityAdjust or NormPerTimeAdjust
+            /// </summary>
+            /// <param name="nd">The norm dose adjustment</param>
+            /// <param name="dos">The Dose</param>
+            /// <returns>The Dose with the norm dose adjustments set</returns>
             let setNormDose nd dos =
                 let qty_adj, ptm_adj =
                     match nd with
@@ -434,6 +469,13 @@ module Order =
                 create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+            /// <summary>
+            /// Set min, max or median dose value
+            /// </summary>
+            /// <param name="set">The function to set the value</param>
+            /// <param name="prs">The prescription type</param>
+            /// <param name="dos">The Dose</param>
+            /// <returns>The Dose with the value set</returns>
             let setDose set prs dos =
                 match prs with
                 | Once
@@ -464,68 +506,86 @@ module Order =
                     }
 
 
+            /// Set the min dose value
             let setMinDose = setDose OrderVariable.setMinValue
 
 
+            /// Set the max dose value
             let setMaxDose = setDose OrderVariable.setMaxValue
 
 
+            /// Set the median dose value
             let setMedianDose = setDose OrderVariable.setMedianValue
 
 
+            /// <summary>
+            /// Check if all variables in a Dose are solved
+            /// </summary>
+            /// <returns>True if all variables are solved, false otherwise</returns>
             let isSolved = toOrdVars >> List.forall OrderVariable.isSolved
 
 
+            /// Apply a function to Quantity of a Dose
             let applyToQuantity f dos =
                 { (dos |> inf) with
                     Quantity = f dos.Quantity
                 }
 
 
+            /// Apply a function to PerTime of a Dose
             let applyToPerTime f dos =
                 { (dos |> inf) with
                     PerTime = f dos.PerTime
                 }
 
 
+            /// Apply a function to Rate of a Dose
             let applyToRate f dos =
                 { (dos |> inf) with
                     Rate = f dos.Rate
                 }
 
 
+            /// Apply a function to Total of a Dose
             let applyToTotal f dos =
                 { (dos |> inf) with
                     Total = f dos.Total
                 }
 
 
+            /// Apply a function to QuantityAdjust of a Dose
             let applyToQuantityAdjust f dos =
                 { (dos |> inf) with
                     QuantityAdjust = f dos.QuantityAdjust
                 }
 
 
+            /// Apply a function to PerTimeAdjust of a Dose
             let applyToPerTimeAdjust f dos =
                 { (dos |> inf) with
                     PerTimeAdjust = f dos.PerTimeAdjust
                 }
 
 
+            /// Apply a function to RateAdjust of a Dose
             let applyToRateAdjust f dos =
                 { (dos |> inf) with
                     RateAdjust = f dos.RateAdjust
                 }
 
 
+            /// Check if the rate or rateAdjust of a Dose is cleared
             let isRateCleared dos =
                 (dos |> inf).Rate |> Rate.isCleared ||
                 dos.RateAdjust |> RateAdjust.isCleared
 
 
+            /// Clear the rate of a Dose (not the rateAdjust)
             let clearRate = applyToRate Rate.clear
 
 
+            /// Clear both the rate and rateAdjust of a Dose
+            /// by setting them to non zero positive
             let setRateToNonZeroPositive dos =
                 { (dos |> inf) with
                     Rate =
@@ -644,7 +704,7 @@ module Order =
                 let doseQuantityAdjustToString = doseQuantityAdjustTo false
 
 
-                let doseQuantityAdjustToMd = doseQuantityAdjustTo false
+                let doseQuantityAdjustToMd = doseQuantityAdjustTo true
 
 
                 let dosePerTimeTo md prec =
@@ -669,7 +729,7 @@ module Order =
                     doseTo _.PerTimeAdjust toStr
 
 
-                let dosePerTimeAdjustToString = doseQuantityAdjustTo false
+                let dosePerTimeAdjustToString = dosePerTimeAdjustTo false
 
 
                 let dosePerTimeAdjustToMd = dosePerTimeAdjustTo true
@@ -3738,7 +3798,28 @@ module Order =
             ]
 
 
+    // Assumptions:
+    // - write*Message functions are development-time traces; use Logging.* for production logs
+    // - Only one variable is cleared at a time
+    // - minTime flag in minIncrMaxToValues:
+    //     true  => discontinuous/once/continuous (dose per time or quantity focus)
+    //     false => timed/once-timed (time-driven)
     let processClearedOrder logger ord =
+        // small helpers to clarify post-processing after property changes
+        let postMinMax minTime =
+            solveMinMax true logger
+            >> Result.map (minIncrMaxToValues true minTime logger)
+
+        let defaultInc = 100
+        let postMinMaxWithInc minTime =
+            solveMinMax true logger
+            >> Result.bind (increaseIncrements logger defaultInc defaultInc)
+            >> Result.map (minIncrMaxToValues true minTime logger)
+
+        let logUnmatched (kind: string) =
+            $"===> no match for {kind} cleared " |> writeWarningMessage
+            ord |> stringTable |> Events.OrderScenario |> Logging.logWarning logger
+
         match (ord |> inf).Prescription with
         | Continuous _ ->
             match ord with
@@ -3746,8 +3827,7 @@ module Order =
             | RateCleared ->
                 ord
                 |> orderPropertyChangeRate
-                |> solveMinMax true logger
-                |> Result.map (minIncrMaxToValues true true logger)
+                |> postMinMax true
             | ConcentrationCleared ->
                 ord
                 |> OrderPropertyChange.proc
@@ -3771,10 +3851,9 @@ module Order =
                         ItemOrderableConcentration ("", "", Concentration.setToNonZeroPositive)
                         ItemOrderableQuantity ("", "", Quantity.setToNonZeroPositive)
                     ]
-                |> solveMinMax true logger
-                |> Result.map (minIncrMaxToValues true true logger)
+                |> postMinMax true
             | _ ->
-                """===> no match for continuous cleared """ |> writeWarningMessage
+                logUnmatched "continuous"
                 ord |> solveOrder true logger
         | Once
         | Discontinuous _ ->
@@ -3782,16 +3861,14 @@ module Order =
             | FrequencyCleared ->
                 ord
                 |> orderPropertyChangeFrequency
-                |> solveOrder true logger
+                |> postMinMax true
             | DosePerTimeCleared
             | DoseQuantityCleared ->
                 ord
                 |> orderPropertyChangeDoseQuantity
-                |> solveMinMax true logger
-                |> Result.bind (increaseIncrements logger 100 100)
-                |> Result.map (minIncrMaxToValues true true logger)
+                |> postMinMaxWithInc true
             | _ ->
-                $"""===> no match for discontinuous cleared""" |> writeDebugMessage
+                logUnmatched "discontinuous"
                 ord |> solveOrder true logger
         | OnceTimed _
         | Timed _ ->
@@ -3799,24 +3876,20 @@ module Order =
             | FrequencyCleared ->
                 ord
                 |> orderPropertyChangeFrequency
-                |> solveMinMax true logger
-                |> Result.map (minIncrMaxToValues true true logger)
+                |> postMinMax false
             | RateCleared
             | TimeCleared ->
                 ord
                 |> orderPropertyChangeRate
-                |> solveMinMax true logger
-                |> Result.map (minIncrMaxToValues true false logger)
+                |> postMinMax false
             | DosePerTimeCleared
             | DoseQuantityCleared ->
                 ord
                 |> orderPropertyChangeDoseQuantity
-                |> solveMinMax true logger
-                |> Result.bind (increaseIncrements logger 100 100)
-                |> Result.map (minIncrMaxToValues true false logger)
+                |> postMinMaxWithInc false
 
             | _ ->
-                """===> no match for timed cleared """ |> writeWarningMessage
+                logUnmatched "timed"
                 ord |> solveOrder true logger
 
 
@@ -3837,9 +3910,6 @@ module Order =
         | DoseSolvedAndCleared -> "DoseSolvedAndCleared"
 
 
-    type Status = Processed of Order | NotProcessed of Order
-
-
     // New: A lightweight classification and step-driven pipeline
     type PrescriptionKind =
         | PKOnce
@@ -3857,9 +3927,8 @@ module Order =
         PrescriptionKind: PrescriptionKind
     }
 
-
     let classify (ord: Order) : OrderState =
-        let prescription =
+        let kind =
             match ord.Prescription with
             | Once -> PKOnce
             | OnceTimed _ -> PKOnceTimed
@@ -3872,77 +3941,79 @@ module Order =
             HasValues = ord |> hasValues
             DoseIsSolved = ord |> doseIsSolved
             IsCleared = ord |> isCleared
-            PrescriptionKind = prescription
+            PrescriptionKind = kind
         }
+
+
+    type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
 
 
     type Step = {
         Name: string
         Guard: OrderState -> bool
-        Run: Order -> Result<Order, Order * Informedica.GenSolver.Lib.Types.Exceptions.Message list>
+        Run: Order -> Result<Order, Order * GenSolverExceptionMsg list>
     }
 
-
-    let private runStep logger (step: Step) (ord: Order) =
-        if step.Guard (classify ord) then
-            $"\n=== PIPELINE {step.Name} ===\n"
-            |> writeDebugMessage
-            step.Run ord
-        else Ok ord
-
-
-    let private runPipeline logger (steps: Step list) (ord: Order) : Result<Order, Order * Informedica.GenSolver.Lib.Types.Exceptions.Message list> =
-        ((Ok ord), steps)
-        ||> List.fold (fun acc s -> acc |> Result.bind (runStep logger s))
 
 
     // Refactored, fluent pipeline using Step. Kept separate to avoid breaking callers.
     let processPipeline logger normDose cmd =
+
+        let runStep (step: Step) (ord: Order) =
+            if step.Guard (classify ord) then
+                $"\n=== PIPELINE {step.Name} ===\n"
+                |> writeDebugMessage
+                step.Run ord
+            else Ok ord
+
+        let runPipeline (ord: Order) (steps: Step list) =
+            (Ok ord, steps)
+            ||> List.fold (fun acc step -> acc |> Result.bind (runStep step))
+
         // Core step functions
-        let calcMinMaxStep increaseIncrement (ord: Order) =
+        let calcMinMaxStep increaseIncrement ord =
             match calcMinMax logger normDose increaseIncrement ord with
             | Ok o -> Ok o
             | Error (o, errs) ->
                 o |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
                 Error (o, errs)
 
-        let calcValuesStep (ord: Order) = ord |> minIncrMaxToValues false true logger |> Ok
+        let calcValuesStep ord = ord |> minIncrMaxToValues false true logger |> Ok
 
-        let solveStep (ord: Order) = solveOrder true logger ord
+        let solveStep ord = solveOrder true logger ord
 
-        let processClearedStep (ord: Order) =
+        let processClearedStep ord =
             match processClearedOrder logger ord with
             | Ok o -> Ok o
             | Error _ -> solveOrder true logger ord
 
-        let applyConstraintsStep (ord: Order) = ord |> applyConstraints |> Ok
-
-        let stepsForSolveOrder : Step list = [
-            { Name = "ensure-minmax"; Guard = (fun s -> not s.HasValues); Run = calcMinMaxStep false };
-            { Name = "ensure-values-1"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
-            { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
-            { Name = "ensure-values-2"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
-            { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
-            { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
-            { Name = "final-solve"; Guard = (fun _ -> true); Run = solveStep }
-        ]
+        let applyConstraintsStep ord = ord |> applyConstraints |> Ok
 
         match cmd with
         | CalcMinMax ord ->
-            let steps : Step list = [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
-            runPipeline logger steps ord
+            [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
+            |> runPipeline ord
         | CalcValues ord ->
-            let steps : Step list = [ { Name = "calc-values"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep } ]
-            runPipeline logger steps ord
+            [ { Name = "calc-values"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep } ]
+            |> runPipeline ord
         | SolveOrder ord ->
-            runPipeline logger stepsForSolveOrder ord
+            [
+                { Name = "ensure-minmax"; Guard = (fun s -> not s.HasValues); Run = calcMinMaxStep false };
+                { Name = "ensure-values-1"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
+                { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                { Name = "ensure-values-2"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
+                { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
+                { Name = "final-solve"; Guard = (fun _ -> true); Run = solveStep }
+            ]
+            |> runPipeline ord
         | ReCalcValues ord ->
-            let steps : Step list = [
+            [
                 { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
                 { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
                 { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
             ]
-            runPipeline logger steps ord
+            |> runPipeline ord
 
 
 
