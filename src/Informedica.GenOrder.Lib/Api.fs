@@ -319,7 +319,7 @@ module OrderContext =
                 |> DrugOrder.toOrderDto
                 |> Order.Dto.fromDto
                 |> CalcMinMax
-                |> Order.processPipeLine logger (pr.DoseRule |> DoseRule.getNormDose)
+                |> Order.processPipeline logger (pr.DoseRule |> DoseRule.getNormDose)
                 |> function
                 | Ok ord ->
                     let ord =
@@ -783,7 +783,7 @@ Scenarios: {scenarios}
                             Order =
                                 sc.Order
                                 |> cmd
-                                |> Order.processPipeLine logger None
+                                |> Order.processPipeline logger None
                                 |> Result.defaultValue sc.Order
                         }
                         |> OrderScenario.setOrderTableFormat

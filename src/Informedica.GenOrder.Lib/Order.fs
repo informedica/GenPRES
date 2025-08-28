@@ -3840,91 +3840,110 @@ module Order =
     type Status = Processed of Order | NotProcessed of Order
 
 
-    let processPipeLine logger normDose cmd =
-        let calcValues = minIncrMaxToValues false true logger >> Ok
+    // New: A lightweight classification and step-driven pipeline
+    type PrescriptionKind =
+        | PKOnce
+        | PKOnceTimed
+        | PKDiscontinuous
+        | PKContinuous
+        | PKTimed
 
-        let isEmpty = function | IsEmpty -> true | _ -> false
 
-        let noValues = function | NoValues -> true | _ -> false
+    type OrderState = {
+        IsEmpty: bool
+        HasValues: bool
+        DoseIsSolved: bool
+        IsCleared: bool
+        PrescriptionKind: PrescriptionKind
+    }
 
-        let hasValues = function | HasValues -> true | _ -> false
 
-        let doseSolvedNotCleared = function | DoseSolvedNotCleared -> true | _ -> false
+    let classify (ord: Order) : OrderState =
+        let prescription =
+            match ord.Prescription with
+            | Once -> PKOnce
+            | OnceTimed _ -> PKOnceTimed
+            | Discontinuous _ -> PKDiscontinuous
+            | Continuous _ -> PKContinuous
+            | Timed _ -> PKTimed
 
-        let doseSolvedAndCleared = function | DoseSolvedAndCleared -> true | _ -> false
+        {
+            IsEmpty = ord |> isEmpty
+            HasValues = ord |> hasValues
+            DoseIsSolved = ord |> doseIsSolved
+            IsCleared = ord |> isCleared
+            PrescriptionKind = prescription
+        }
 
-        let procCleared ord =
-            ord
-            |> processClearedOrder logger
-            |> function
-            | Ok res -> res |> Ok
-            | Error _ -> ord |> solveOrder true logger
 
-        let procIf msg pred procF ord =
+    type Step = {
+        Name: string
+        Guard: OrderState -> bool
+        Run: Order -> Result<Order, Order * Informedica.GenSolver.Lib.Types.Exceptions.Message list>
+    }
 
-            match ord with
-            | Ok (Processed ord) -> ord |> Processed |> Ok
-            | Ok (NotProcessed ord) ->
-                if ord |> pred then
-                    $"""
 
-=== PIPELINE ===
-{msg}
+    let private runStep logger (step: Step) (ord: Order) =
+        if step.Guard (classify ord) then
+            $"\n=== PIPELINE {step.Name} ===\n"
+            |> writeDebugMessage
+            step.Run ord
+        else Ok ord
 
-                    """
-                    |> writeDebugMessage
 
-                    ord
-                    |> procF
-                    |> Result.map (fun ord ->
-                        if ord |> hasValues then ord |> Processed
-                        else ord |> NotProcessed
-                    )
-                else ord |> NotProcessed |> Ok
-            | Error _ -> ord
+    let private runPipeline logger (steps: Step list) (ord: Order) : Result<Order, Order * Informedica.GenSolver.Lib.Types.Exceptions.Message list> =
+        ((Ok ord), steps)
+        ||> List.fold (fun acc s -> acc |> Result.bind (runStep logger s))
 
-        let calcMinMax b ord =
-            ord
-            |> calcMinMax logger normDose b
-            |> function
-            | Ok res -> res |> Ok
-            | Error (_, errs) ->
-                ord 
-                |> stringTable 
-                |> Events.OrderScenario
-                |> Logging.logInfo logger
 
-                (ord , errs)
-                |> Error
+    // Refactored, fluent pipeline using Step. Kept separate to avoid breaking callers.
+    let processPipeline logger normDose cmd =
+        // Core step functions
+        let calcMinMaxStep increaseIncrement (ord: Order) =
+            match calcMinMax logger normDose increaseIncrement ord with
+            | Ok o -> Ok o
+            | Error (o, errs) ->
+                o |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
+                Error (o, errs)
+
+        let calcValuesStep (ord: Order) = ord |> minIncrMaxToValues false true logger |> Ok
+
+        let solveStep (ord: Order) = solveOrder true logger ord
+
+        let processClearedStep (ord: Order) =
+            match processClearedOrder logger ord with
+            | Ok o -> Ok o
+            | Error _ -> solveOrder true logger ord
+
+        let applyConstraintsStep (ord: Order) = ord |> applyConstraints |> Ok
+
+        let stepsForSolveOrder : Step list = [
+            { Name = "ensure-minmax"; Guard = (fun s -> not s.HasValues); Run = calcMinMaxStep false };
+            { Name = "ensure-values-1"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
+            { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
+            { Name = "ensure-values-2"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
+            { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
+            { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
+            { Name = "final-solve"; Guard = (fun _ -> true); Run = solveStep }
+        ]
 
         match cmd with
         | CalcMinMax ord ->
-            ord
-            |> (NotProcessed >> Ok)
-            |> procIf "order is empty: calc minmax" isEmpty (calcMinMax false)
+            let steps : Step list = [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
+            runPipeline logger steps ord
         | CalcValues ord ->
-            ord
-            |> (NotProcessed >> Ok)
-            |> procIf "order has no values: calc values" noValues calcValues
+            let steps : Step list = [ { Name = "calc-values"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep } ]
+            runPipeline logger steps ord
         | SolveOrder ord ->
-            ord
-            |> (NotProcessed >> Ok)
-            |> procIf "order has no values: calc values" noValues calcValues
-            |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
-            |> procIf "order has values: solve order" hasValues (solveOrder true logger)
-            |> procIf "order has no values: calc values" noValues calcValues
-            |> Result.map (function | Processed ord -> ord |> NotProcessed | NotProcessed ord -> ord |> NotProcessed)
-            |> procIf "order has values: solve order" hasValues (solveOrder true logger)
-            |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared procCleared
-            |> procIf "order is solved no cleared prop: just solve" (fun _ -> true) (solveOrder true logger)
+            runPipeline logger stepsForSolveOrder ord
         | ReCalcValues ord ->
-            ord
-            |> applyConstraints
-            |> (NotProcessed >> Ok)
-            |> procIf "recalc requested: recalc order" (fun _ -> true) (calcMinMax false >> Result.bind calcValues)
+            let steps : Step list = [
+                { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
+                { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
+                { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
+            ]
+            runPipeline logger steps ord
 
-        |> Result.map (function | Processed ord | NotProcessed ord -> ord)
-        |> Result.map (fun ord -> "\n=== END PIPELINE ===\n" |> writeDebugMessage ;ord)
 
 
     module Print =

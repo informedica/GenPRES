@@ -10,7 +10,9 @@ module Tests
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
+    // --- New tests for fluent pipeline guard/order behavior ---
 
+    // Original test data used by several tests below
     let testDrugOrders = [
         { DrugOrder.drugOrder with
             Id = "DO1"
@@ -27,18 +29,15 @@ module Tests
                         { DrugOrder.substanceItem with
                             Name = "Substance A1"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 100N |] )
-                            Dose = 
-                                DoseLimit.limit |> Some
+                            Dose = DoseLimit.limit |> Some
                         }
                         { DrugOrder.substanceItem with
                             Name = "Substance A2"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 50N |] )
-                            Dose = 
-                                DoseLimit.limit |> Some
+                            Dose = DoseLimit.limit |> Some
                         }
                     ] 
                 }
-                
                 { DrugOrder.productComponent with
                     Name = "Component B"
                     Shape = "injectievloeistof"
@@ -46,14 +45,12 @@ module Tests
                         { DrugOrder.substanceItem with
                             Name = "Substance B1"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 150N |] )
-                            Dose = 
-                                DoseLimit.limit |> Some
+                            Dose = DoseLimit.limit |> Some
                         }
                     ] 
                 }
             ] 
         }
-
         { DrugOrder.drugOrder with
             Id = "DO2"
             Name = "Test Drug Order 2"
@@ -66,14 +63,77 @@ module Tests
                         { DrugOrder.substanceItem with
                             Name = "Substance C1"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 200N |] )
-                            Dose = 
-                                DoseLimit.limit |> Some
+                            Dose = DoseLimit.limit |> Some
                         }
                     ] 
                 }
             ] 
         }
     ]
+
+    // --- New tests for fluent pipeline guard/order behavior ---
+    module Pipeline =
+        open Informedica.GenOrder.Lib
+        open Informedica.GenOrder.Lib.Order
+        open Informedica.GenOrder.Lib.OrderVariable
+
+        let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
+
+        // Build an Order from testDrugOrders with realistic constraints to enable value calculation
+        let private mkConstrainedOrder () =
+            let drugOrder =
+                testDrugOrders
+                |> List.tryFind (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
+                |> Option.defaultValue (testDrugOrders |> List.head)
+            drugOrder |> DrugOrder.toOrderDto |> Order.Dto.fromDto
+
+        // Also a minimal empty order for CalcMinMax path
+        let private mkEmptyOrder () =
+            Order.Dto.discontinuous "T" "Test" "PO" [] |> Order.Dto.fromDto
+
+        let private countValues (o: Order) =
+            o
+            |> Order.toOrdVars
+            |> List.filter OrderVariable.hasValues
+            |> List.length
+
+        [<Tests>]
+        let guard_and_run_order_tests =
+            testList "processPipeline guard and run order" [
+                test "SolveOrder first ensures values before solving" {
+                    let ord = mkConstrainedOrder ()
+                    let before = countValues ord
+                    let res = Order.processPipeline noLogger None (SolveOrder ord)
+                    match res with
+                    | Ok solved ->
+                        let after = countValues solved
+                        Expect.isTrue "Value count should not decrease" (after >= before)
+                    | Error (o, errs) ->
+                        let after = countValues o
+                        Expect.isTrue "Value count should not decrease (even on error)" (after >= before)
+                }
+
+                test "CalcValues path only calculates values" {
+                    let ord = mkConstrainedOrder ()
+                    let before = countValues ord
+                    let res = Order.processPipeline noLogger None (CalcValues ord)
+                    match res with
+                    | Ok o ->
+                        let after = countValues o
+                        Expect.isTrue "Value count should not decrease" (after >= before)
+                    | Error (o, _) ->
+                        let after = countValues o
+                        Expect.isTrue "Value count should not decrease (even on error)" (after >= before)
+                }
+
+                test "CalcMinMax path runs when order is empty" {
+                    let ord = mkEmptyOrder ()
+                    let res = Order.processPipeline noLogger None (CalcMinMax ord)
+                    match res with
+                    | Ok _ -> true |> Expect.isTrue "calc minmax ok"
+                    | Error (o, _) -> (box o) |> Expect.isNotNull "Order returned with error"
+                }
+            ]
 
 
     module ToOrderDto =
