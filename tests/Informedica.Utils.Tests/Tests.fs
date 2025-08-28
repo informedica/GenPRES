@@ -310,6 +310,15 @@ module Tests =
                     // clean up
                     System.Environment.SetEnvironmentVariable(name, null)
                 }
+
+                test "getSystemInfo returns a readable multi-line summary" {
+                    let info = Env.getSystemInfo()
+                    Expect.isNotEmpty info "getSystemInfo should return a non-empty string"
+                    // Basic anchors to avoid brittle assertions across platforms
+                    Expect.isTrue (info.Contains("CPU cores:")) "Should contain CPU cores"
+                    Expect.isTrue (info.Contains("OS:")) "Should contain OS description"
+                    Expect.isTrue (info.Contains(".NET:")) "Should contain .NET runtime description"
+                }
             ]
 
 
