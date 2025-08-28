@@ -365,14 +365,14 @@ module DrugOrder =
 
     module ToOrderDtoHelpers =
     
-        let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
+        let vuToDto = Option.bind (ValueUnit.Dto.toDto false ValueUnit.Dto.dutch)
         let limToDto = Option.map Limit.getValueUnit >> vuToDto
     
         /// Create the base Order DTO based on order type
         let createBaseOrderDto (d : DrugOrder) =
             match d.OrderType with
-            | AnyOrder -> failwith "the order type cannot be 'Any'"
-            | ProcessOrder -> failwith "the order type cannot be 'Process'"
+            | AnyOrder -> failwith "Not implemented yet, the order type cannot be 'Any'"
+            | ProcessOrder -> failwith "Not implemented yet, the order type cannot be 'Process'"
             | OnceOrder -> Order.Dto.once d.Id d.Name d.Route []
             | OnceTimedOrder -> Order.Dto.onceTimed d.Id d.Name d.Route []
             | ContinuousOrder -> Order.Dto.continuous d.Id d.Name d.Route []
@@ -388,12 +388,12 @@ module DrugOrder =
             )
 
         /// Apply solution constraints to a component
-        let applySolutionConstraints (cmpDto : Order.Orderable.Component.Dto.Dto) (sl : SolutionLimit) =
+        let setComponentSolutionConstraints (cmpDto : Order.Orderable.Component.Dto.Dto) (sl : SolutionLimit) =
             cmpDto.OrderableQuantity.Constraints |> MinMax.setConstraints sl.Quantities sl.Quantity
             cmpDto.OrderableConcentration.Constraints |> MinMax.setConstraints None sl.Concentration
 
         /// Apply solution constraints to an item
-        let applyItemSolutionConstraints (itmDto : Order.Orderable.Item.Dto.Dto) (sl : SolutionLimit) =
+        let setItemSolutionConstraints (itmDto : Order.Orderable.Item.Dto.Dto) (sl : SolutionLimit) =
             itmDto.OrderableQuantity.Constraints |> MinMax.setConstraints sl.Quantities sl.Quantity
             itmDto.OrderableConcentration.Constraints |> MinMax.setConstraints None sl.Concentration
 
@@ -409,7 +409,7 @@ module DrugOrder =
                     1N/10N |> createSingleValueUnitDto Units.Volume.milliLiter
 
         /// Set basic item-level constraints
-        let setItemConstraints (itmDto : Order.Orderable.Item.Dto.Dto) (d : DrugOrder) (s : SubstanceItem) =
+        let setItemQtyConcConstraints (itmDto : Order.Orderable.Item.Dto.Dto) (d : DrugOrder) (s : SubstanceItem) =
             itmDto.ComponentConcentration.Constraints.ValsOpt <- s.Concentrations |> vuToDto
         
             // Handle single component case
@@ -417,7 +417,7 @@ module DrugOrder =
                 itmDto.OrderableConcentration.Constraints.ValsOpt <- itmDto.ComponentConcentration.Constraints.ValsOpt
         
             // Apply solution constraints if present
-            s.Solution |> Option.iter (applyItemSolutionConstraints itmDto)
+            s.Solution |> Option.iter (setItemSolutionConstraints itmDto)
 
         /// Set item dose constraints based on order type
         let setItemDoseConstraints (itmDto : Order.Orderable.Item.Dto.Dto) (d : DrugOrder) (s : SubstanceItem) =
@@ -446,7 +446,7 @@ module DrugOrder =
             let itmDto = Order.Orderable.Item.Dto.dto d.Id d.Name p.Name s.Name
         
             // Set basic item constraints
-            setItemConstraints itmDto d s
+            setItemQtyConcConstraints itmDto d s
         
             // Set item dose constraints based on order type
             setItemDoseConstraints itmDto d s
@@ -455,14 +455,10 @@ module DrugOrder =
 
         /// Create item DTOs for a component
         let createItemDtos (d : DrugOrder) (p : ProductComponent) =
-            [
-                for s in p.Substances do
-                    let itmDto = createSingleItemDto d p s
-                    yield itmDto
-            ]
+            [ for s in p.Substances -> createSingleItemDto d p s ]
 
         /// Set basic component-level constraints
-        let setComponentConstraints (cmpDto : Order.Orderable.Component.Dto.Dto) (d : DrugOrder) (p : ProductComponent) =
+        let setComponentQtyConcConstraints (cmpDto : Order.Orderable.Component.Dto.Dto) (d : DrugOrder) (p : ProductComponent) =
             let div = calculateDivisibility p
         
             cmpDto.ComponentQuantity.Constraints.ValsOpt <- p.Quantities |> vuToDto
@@ -475,7 +471,7 @@ module DrugOrder =
                 cmpDto.Dose.Quantity.Constraints.IncrOpt <- div
         
             // Apply solution constraints if present
-            p.Solution |> Option.iter (applySolutionConstraints cmpDto)
+            p.Solution |> Option.iter (setComponentSolutionConstraints cmpDto)
 
         /// Set component dose constraints based on order type
         let setComponentDoseConstraints (cmpDto : Order.Orderable.Component.Dto.Dto) (d : DrugOrder) (p : ProductComponent) =
@@ -510,7 +506,7 @@ module DrugOrder =
             let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
         
             // Set basic component constraints
-            setComponentConstraints cmpDto d p
+            setComponentQtyConcConstraints cmpDto d p
         
             // Set component dose constraints based on order type
             setComponentDoseConstraints cmpDto d p
@@ -522,11 +518,7 @@ module DrugOrder =
 
         /// Create component DTOs from DrugOrder components
         let createComponentDtos (d : DrugOrder) =
-            [
-                for p in d.Components do
-                    let cmpDto = createSingleComponentDto d p
-                    yield cmpDto
-            ]
+            [ for p in d.Components -> createSingleComponentDto d p ]
 
         /// Set basic orderable-level constraints
         let setOrderableConstraints (orbDto : Order.Orderable.Dto.Dto) (d : DrugOrder) =
