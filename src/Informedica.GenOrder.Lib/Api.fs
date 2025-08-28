@@ -340,13 +340,13 @@ module OrderContext =
                                     let cmpQty =
                                         cmp.ComponentQuantity
                                         |> OrderVariable.Quantity.toOrdVar
-                                        |> OrderVariable.getValueUnit
+                                        |> OrderVariable.getValSetValueUnit
                                     if cmpQty.IsSome then
                                         for itm in cmp.Items do
                                             let itmQty =
                                                 itm.ComponentConcentration
                                                 |> OrderVariable.Concentration.toOrdVar
-                                                |> OrderVariable.getValueUnit
+                                                |> OrderVariable.getValSetValueUnit
                                             if itmQty.IsSome then
                                                 {
                                                     ComponentName = cmp.Name |> Name.toString

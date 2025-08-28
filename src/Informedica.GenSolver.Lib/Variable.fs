@@ -3480,7 +3480,7 @@ module Variable =
 
     /// Apply a `ValueRange` **vr** to
     /// `Variable` **v**.
-    let setValueRange var vr =
+    let setValueRange vr var =
         try
             { var with
                 Values =
@@ -3731,7 +3731,7 @@ module Variable =
 
         let inline (@-) vr1 vr2 = calc (@-) (vr1, vr2)
 
-        let inline (@<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange vr1
+        let inline (@<-) vr1 vr2 = vr1 |> setValueRange (vr2 |> getValueRange)
 
 
         /// Constant 1

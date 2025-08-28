@@ -58,6 +58,7 @@ module Order =
         let private getEquations_ indx =
             Web.getDataFromGenPres "Equations"
             |> Array.skip 1
+            // only pick those equations that are marked with an 'x'
             |> Array.filter (fun xs -> xs[indx] = "x")
             |> Array.map (Array.item 1)
             |> Array.toList
@@ -597,28 +598,35 @@ module Order =
                 }
 
 
+            /// Convert min, incr, max to values for the rate of a Dose
+            /// by creating a ValueSet from min, incr, max
             let rateMinIncrMaxToValues dos =
                 { (dos |> inf) with
                     Rate = dos.Rate |> Rate.minIncrMaxToValues
                 }
 
 
+            /// Check if the quantity or quantityAdjust of a Dose is cleared
             let isQuantityCleared dos =
                 (dos |> inf).Quantity |> Quantity.isCleared ||
                 dos.QuantityAdjust |> QuantityAdjust.isCleared
 
 
+            /// Check if the quantity or quantityAdjust of a Dose has a max constraint
             let hasQuantityMaxConstraint dos =
                 (dos |> inf).Quantity |> Quantity.hasMaxConstraint ||
                 dos.QuantityAdjust |> QuantityAdjust.hasMaxConstraint
 
 
+            /// Clear the quantity of a Dose (not the quantityAdjust)
             let clearQuantity dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.clear
                 }
 
 
+            /// Clear both the quantity and quantityAdjust of a Dose
+            /// by setting them to non zero positive
             let setQuantityToNonZeroPositive dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.setToNonZeroPositive
@@ -626,20 +634,26 @@ module Order =
                 }
 
 
+            /// Convert min, incr, max to values for the quantity of a Dose
+            /// by creating a ValueSet from min, incr, max
             let quantityMinIncrMaxToValues dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.minIncrMaxToValues
                 }
 
 
+            /// Check if the per time or per time adjust of a Dose is cleared
             let isPerTimeCleared dos =
                 (dos |> inf).PerTime |> PerTime.isCleared ||
                 dos.PerTimeAdjust |> PerTimeAdjust.isCleared
 
 
+            /// Clear the per time of a Dose (not the per time adjust)
             let clearPerTime dos = (dos |> inf).PerTime |> PerTime.clear
 
 
+            /// Clear both the per time and per time adjust of a Dose
+            /// by setting them to non zero positive
             let setPerTimeToNonZeroPositive dos =
                 { (dos |> inf) with
                     PerTime = dos.PerTime |> PerTime.setToNonZeroPositive
@@ -647,12 +661,22 @@ module Order =
                 }
 
 
+            /// Convert min, incr, max to values for the per time of a Dose
+            /// by creating a ValueSet from min, incr, max
             let perTimeMinIncrMaxToValues dos =
                 { (dos |> inf) with
                     PerTime = dos.PerTime |> PerTime.minIncrMaxToValues
                 }
 
 
+            /// <Summary>
+            /// Set the dose unit for all variables in a Dose
+            /// This is the first unit of the full dose unit
+            /// e.g. for mg/kg/day this is mg
+            /// </Summary>
+            /// <param name="du">The dose unit</param>
+            /// <param name="dos">The Dose</param>
+            /// <returns>The Dose with the dose unit set</returns>
             let setDoseUnit du dos =
                 let qty = (dos |> inf).Quantity |> Quantity.convertFirstUnit du
                 let ptm = dos.PerTime |> PerTime.convertFirstUnit du
@@ -673,6 +697,7 @@ module Order =
             let toString = toOrdVars >> List.map (OrderVariable.toString false)
 
 
+            /// Help functions to print values of a Dose
             module Print =
 
 
@@ -815,6 +840,7 @@ module Order =
                 module TotalAdjust = OrderVariable.TotalAdjust
 
 
+                /// The Dose Dto type
                 type Dto () =
                     member val Quantity = OrderVariable.Dto.dto () with get, set
                     member val PerTime = OrderVariable.Dto.dto () with get, set
@@ -826,6 +852,7 @@ module Order =
                     member val TotalAdjust = OrderVariable.Dto.dto () with get, set
 
 
+                /// Create a Dose from a Dose Dto
                 let fromDto (dto: Dto) =
 
                     let qty = dto.Quantity |> Quantity.fromDto
@@ -840,6 +867,7 @@ module Order =
                     create qty ptm rte tot qty_adj ptm_adj rte_adj tot_adj
 
 
+                /// Create a Dose Dto from a Dose
                 let toDto (dos : Dose) =
                     let dto = Dto ()
 
@@ -854,9 +882,11 @@ module Order =
 
                     dto
 
-
+                /// Create an empty Dose Dto
                 let dto () = Dto ()
 
+
+                /// Clean a Dose Dto
                 let clean (dto: Dto) =
                     dto.Quantity |> OrderVariable.Dto.clean
                     dto.PerTime |> OrderVariable.Dto.clean

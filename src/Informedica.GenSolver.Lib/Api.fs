@@ -54,9 +54,11 @@ module Api =
         |> function
         | [] -> None
         | var::_ ->
-            p
-            |> Property.toValueRange
-            |> Variable.setValueRange var
+            var
+            |> Variable.setValueRange (
+                p
+                |> Property.toValueRange
+            )
             |> Some
 
 

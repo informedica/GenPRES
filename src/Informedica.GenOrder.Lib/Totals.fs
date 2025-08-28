@@ -76,10 +76,12 @@ module Totals =
                 Name.create ["wght"]
                 |> Variable.empty
                 |> fun var ->
-                    w
-                    |> Variable.ValueRange.ValueSet.create
-                    |> ValSet
-                    |> Variable.setValueRange var
+                    var 
+                    |> Variable.setValueRange (
+                        w
+                        |> Variable.ValueRange.ValueSet.create
+                        |> ValSet
+                    )
 
             [|
                 for o in ords do
