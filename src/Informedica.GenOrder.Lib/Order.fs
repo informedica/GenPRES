@@ -888,14 +888,14 @@ module Order =
 
                 /// Clean a Dose Dto
                 let clean (dto: Dto) =
-                    dto.Quantity |> OrderVariable.Dto.clean
-                    dto.PerTime |> OrderVariable.Dto.clean
-                    dto.Rate |> OrderVariable.Dto.clean
-                    dto.Total |> OrderVariable.Dto.clean
-                    dto.QuantityAdjust |> OrderVariable.Dto.clean
-                    dto.PerTimeAdjust |> OrderVariable.Dto.clean
-                    dto.RateAdjust |> OrderVariable.Dto.clean
-                    dto.TotalAdjust |> OrderVariable.Dto.clean
+                    dto.Quantity |> OrderVariable.Dto.cleanVariable
+                    dto.PerTime |> OrderVariable.Dto.cleanVariable
+                    dto.Rate |> OrderVariable.Dto.cleanVariable
+                    dto.Total |> OrderVariable.Dto.cleanVariable
+                    dto.QuantityAdjust |> OrderVariable.Dto.cleanVariable
+                    dto.PerTimeAdjust |> OrderVariable.Dto.cleanVariable
+                    dto.RateAdjust |> OrderVariable.Dto.cleanVariable
+                    dto.TotalAdjust |> OrderVariable.Dto.cleanVariable
 
 
         /// Type and functions that models an
@@ -4515,27 +4515,27 @@ module Order =
 
 
         let cleanDose (dto : Dto) =
-            dto.Duration |> OrderVariable.Dto.clean
+            dto.Duration |> OrderVariable.Dto.cleanVariable
 
             if dto.Prescription.IsDiscontinuous || dto.Prescription.IsTimed then
-                dto.Prescription.Frequency |> OrderVariable.Dto.clean
+                dto.Prescription.Frequency |> OrderVariable.Dto.cleanVariable
             if dto.Prescription.IsTimed then
-                dto.Prescription.Time |> OrderVariable.Dto.clean
+                dto.Prescription.Time |> OrderVariable.Dto.cleanVariable
             if not dto.Prescription.IsContinuous then
-                dto.Orderable.OrderableQuantity |> OrderVariable.Dto.clean
+                dto.Orderable.OrderableQuantity |> OrderVariable.Dto.cleanVariable
 
             dto.Orderable.Dose |> Dose.Dto.clean
 
             dto.Orderable.Components
                 |> List.iter (fun c ->
-                    c.OrderableQuantity |> OrderVariable.Dto.clean
-                    c.OrderableConcentration |> OrderVariable.Dto.clean
-                    c.OrderableCount |> OrderVariable.Dto.clean
+                    c.OrderableQuantity |> OrderVariable.Dto.cleanVariable
+                    c.OrderableConcentration |> OrderVariable.Dto.cleanVariable
+                    c.OrderableCount |> OrderVariable.Dto.cleanVariable
                     c.Dose |> Dose.Dto.clean
                     c.Items
                     |> List.iter (fun i ->
-                        i.OrderableQuantity |> OrderVariable.Dto.clean
-                        i.OrderableConcentration |> OrderVariable.Dto.clean
+                        i.OrderableQuantity |> OrderVariable.Dto.cleanVariable
+                        i.OrderableConcentration |> OrderVariable.Dto.cleanVariable
                         i.Dose |> Dose.Dto.clean
                     )
                 )

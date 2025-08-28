@@ -3508,10 +3508,14 @@ module Variable =
 
 
     /// Get the number of distinct values
+    /// Note that the valuerange has to be a ValueSet
+    /// to get a count
     let count v =
         v |> getValueRange |> ValueRange.cardinality
 
 
+    /// Checks whether a `Variable` has
+    /// values (and therefore is a ValueSet).
     let hasValues var =
         var
         |> count
@@ -3708,6 +3712,8 @@ module Variable =
         }
 
 
+    /// Clear all restrictions on the values of a Variable
+    /// by setting the ValueRange to Unrestricted
     let clear var =
         { var with Values = Unrestricted }
 
