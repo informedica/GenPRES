@@ -131,7 +131,8 @@ module ConsoleWriter =
 
 
     let writeDebugMessage (text: string) (_: bool) (writeTime: bool) =
-        if Env.getItem "GENPRES_DEBUG" |> Option.isNone then ()
+        // TODO: make this parameterized on env variable or boolean
+        if Env.getItem "GENPRES_DEBUG" |> Option.defaultValue "" <> "1" then ()
         else
             let debug = Constants.HTMLCodeSymbols.TryFind "debug"
 

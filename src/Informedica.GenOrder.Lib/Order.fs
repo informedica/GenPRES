@@ -3389,22 +3389,24 @@ module Order =
                 |> mapFromOrderEquations ord
                 |> fun ord ->
                     if printErr then
+                        writeDebugMessage $"Solve errored with: {m}"
                         ord
                         |> toString
                         |> List.mapi (sprintf "%i. %s")
-                        |> List.iter writeErrorMessage
+                        |> List.iter writeDebugMessage
 
                     Error (ord, m)
         with
-        | e ->
+        | exn ->
             if printErr then
+                writeDebugMessage $"Solve errored with: {exn.Message}"
                 oEqs
                 |> mapFromOrderEquations ord
                 |> toString
                 |> List.mapi (sprintf "%i. %s")
-                |> List.iter writeErrorMessage
+                |> List.iter writeDebugMessage
 
-            let msg = [ e |> Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException ]
+            let msg = [ exn |> Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException ]
             Error (ord, msg)
 
 
@@ -3456,9 +3458,10 @@ module Order =
                 |> solveMinMax false logger
                 |> function
                 | Error (_, errs) ->
+                    writeDebugMessage "Could not increase orderable quantity increment:"
                     errs
                     |> List.iter (fun e ->
-                        writeErrorMessage $"{e}"
+                        writeDebugMessage $"{e}"
                     )
                     ord // original order
                 | Ok ord ->
@@ -3470,13 +3473,14 @@ module Order =
 
                     |> function
                     | Error (_, errs) ->
+                        writeDebugMessage "Could not increase orderable rate increment:"
                         errs
                         |> List.iter (fun e ->
-                            writeErrorMessage $"{e}"
+                            writeDebugMessage $"{e}"
                         )
                         ord // increased increment order
                     | Ok ord ->
-                        ord // calculated order
+                        ord // increased increment and rate order
         |> Ok
 
 
