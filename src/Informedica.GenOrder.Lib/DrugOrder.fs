@@ -16,7 +16,7 @@ module DrugOrder =
     module Limit = Limit
 
 
-    let private tryHead m = (Array.map m) >> Array.tryHead >> Option.defaultValue ""
+    let private tryHead m = Array.map m >> Array.tryHead >> Option.defaultValue ""
 
 
     /// <summary>
@@ -32,7 +32,7 @@ module DrugOrder =
         else
             brs
             |> ValueUnit.withUnit u
-            |> ValueUnit.Dto.toDto false "English"
+            |> ValueUnit.Dto.toDto false ValueUnit.Dto.english
 
     /// <summary>
     /// Create a single value unit dto from a string and a big rational.
@@ -62,7 +62,7 @@ module DrugOrder =
             (minMax : MinMax)
             (dto: Informedica.GenSolver.Lib.Variable.Dto.Dto) =
 
-            let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
+            let vuToDto = Option.bind (ValueUnit.Dto.toDto false ValueUnit.Dto.english)
 
             let limToVu = Option.map Limit.getValueUnit
 
@@ -86,12 +86,12 @@ module DrugOrder =
             match min with
             | None -> ()
             | Some _ ->
-                dto.MinIncl <- true
+                dto.MinIncl <- min.IsSome
                 dto.MinOpt <- min
             match max with
             | None -> ()
             | Some _ ->
-                dto.MaxIncl <- true
+                dto.MaxIncl <- max.IsSome
                 dto.MaxOpt <- max
 
 
@@ -363,7 +363,7 @@ module DrugOrder =
             |> Array.map create
 
 
-    module ToOrderDtoHelpers =
+    module OrderDtoHelpers =
     
         let vuToDto = Option.bind (ValueUnit.Dto.toDto false ValueUnit.Dto.dutch)
         let limToDto = Option.map Limit.getValueUnit >> vuToDto
@@ -673,7 +673,7 @@ module DrugOrder =
             if d.AdjustUnit 
                |> Option.map (ValueUnit.Group.eqsGroup Units.Weight.kiloGram)
                |> Option.defaultValue false then
-                dto.Adjust.Constraints.MinOpt <- (200N/1000N) |> createSingleValueUnitDto d.AdjustUnit.Value
+                dto.Adjust.Constraints.MinOpt <- 200N/1000N |> createSingleValueUnitDto d.AdjustUnit.Value
                 dto.Adjust.Constraints.MaxOpt <- 150N |> createSingleValueUnitDto d.AdjustUnit.Value
         
             // TODO: add constraints for BSA
@@ -686,16 +686,16 @@ module DrugOrder =
     /// <param name="d">The DrugOrder to convert</param>
     let toOrderDto (d : DrugOrder) =
         // Create the base DTO structure
-        let dto = ToOrderDtoHelpers.createBaseOrderDto d
+        let dto = OrderDtoHelpers.createBaseOrderDto d
         
         // Set up the orderable with all its constraints
-        let orbDto = ToOrderDtoHelpers.createOrderableDto d
+        let orbDto = OrderDtoHelpers.createOrderableDto d
         dto.Orderable <- orbDto
         
         // Apply prescription constraints
-        ToOrderDtoHelpers.setPrescriptionConstraints dto d
+        OrderDtoHelpers.setPrescriptionConstraints dto d
         
         // Apply patient adjustment constraints
-        ToOrderDtoHelpers.setAdjustmentConstraints dto d
+        OrderDtoHelpers.setAdjustmentConstraints dto d
         
         dto

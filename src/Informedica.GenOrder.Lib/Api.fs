@@ -387,12 +387,13 @@ module OrderContext =
 
         let processEvaluationResults prs =
             prs
-            |> Array.mapi (fun i r -> (i, r))
+            |> Array.mapi (fun i r -> i, r)
             |> Array.choose (function
                 | i, Ok (ord, pr) ->
                     OrderScenario.fromRule i pr ord
                     |> Some
                 | _, Error (ord, ctx, errs) ->
+                    // TODO: this never gets written!!
                     errs
                     |> List.map string
                     |> String.concat "\n"
@@ -411,9 +412,9 @@ module OrderContext =
             )
 
 
-        let printOrder logger ord =
+        let printOrder ord =
             ord
-            |> Order.printTable logger Format.Minimal
+            |> Order.printTable Format.Minimal
 
             ord
 
@@ -841,8 +842,8 @@ Scenarios: {scenarios}
         | ResetOrderScenario ctx -> ctx |> processOrders logger ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
 
 
-    let printCtx (logger: Informedica.Logging.Lib.Logger) msg cmd =
-        let log (s: string) = Informedica.Logging.Lib.Logging.logDebug logger (Logging.OrderMessage.OrderEventMessage (Events.OrderScenario s))
+    let logOrderContext (logger: Informedica.Logging.Lib.Logger) msg cmd =
+        let log (s: string) = Logging.logDebug logger (Logging.OrderMessage.OrderEventMessage (Events.OrderScenario s))
 
         log $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
         let ctx = cmd |> Command.get
@@ -881,7 +882,7 @@ Scenarios: {scenarios}
 
         ctx.Scenarios
         |> Array.tryExactlyOne
-        |> Option.iter (_.Order >> Order.printTable logger Format.Minimal)
+        |> Option.iter (_.Order >> Order.stringTable >> log)
 
         log $"\n===\n"
         cmd

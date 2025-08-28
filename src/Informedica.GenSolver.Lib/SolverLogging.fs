@@ -33,8 +33,8 @@ module SolverLogging =
 
 
     let rec printException = function
-    | Exceptions.ValueRangeEmptyValueSet ->
-        "ValueRange cannot have an empty value set"
+    | Exceptions.ValueRangeEmptyValueSet s ->
+        $"ValueRange cannot have an empty value set: {s}"
 
     | Exceptions.EquationEmptyVariableList ->
         "An equation should at least contain one variable"

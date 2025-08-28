@@ -2945,7 +2945,31 @@ module Order =
         ord
 
 
-    let printTable logger format ord =
+    let printTable format ord =
+        ord
+        |> toStringWithConstraints
+        |> List.map (fun s ->
+            s
+            |> String.replace "[" ""
+            |> String.replace "]_" "|"
+            |> String.split "|"
+        )
+        |> List.filter (List.length >> (=) 3)
+        |> List.map (fun xs ->
+            let v =
+                xs[1] |> String.split " "
+            {|
+                ``1 - NAME`` = xs[0] |> String.trim
+                ``2 - VARIABLE`` = v[0] |> String.trim
+                ``3 - VALUE`` = v[1..] |> String.concat " " |> String.trim |> String.replace "]" ""
+                ``4 - CONSTRAINTS`` = xs[2] |> String.trim |> String.replace "]" ""
+            |}
+        )
+        |> ConsoleTables.from
+        |> ConsoleTables.write format
+
+
+    let stringTable ord =
         ord
         |> toStringWithConstraints
         |> List.map (fun s ->
@@ -2967,8 +2991,7 @@ module Order =
         )
         |> ConsoleTables.from
         |> ConsoleTables.toMarkDownString
-        |> Events.OrderScenario
-        |> Logging.logInfo logger
+
 
 
     /// <summary>
@@ -3332,7 +3355,7 @@ module Order =
                 | false, _ -> ord |> Ok
                 | true, orb ->
                     { ord with Order.Orderable = orb }
-                    |> solve minMax true logger
+                    |> solve minMax printErr logger
 
         let mapping =
             match ord.Prescription with
@@ -3430,7 +3453,7 @@ module Order =
             else
                 ord
                 |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
-                |> solveMinMax true logger
+                |> solveMinMax false logger
                 |> function
                 | Error (_, errs) ->
                     errs
@@ -3862,7 +3885,10 @@ module Order =
             |> function
             | Ok res -> res |> Ok
             | Error (_, errs) ->
-                ord |> printTable logger Format.Minimal
+                ord 
+                |> stringTable 
+                |> Events.OrderScenario
+                |> Logging.logInfo logger
 
                 (ord , errs)
                 |> Error
