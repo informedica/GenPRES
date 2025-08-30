@@ -171,28 +171,20 @@ module Utils =
             let three =
                 [| 3N |] |> create Units.Count.times
 
-            /// Check whether the operator is subtraction
-            let opIsSub op = (three |> op <| two) = three - two // = 1
-
-            /// Check whether the operator is addition
-            let opIsAdd op = (three |> op <| two) = three + two // = 5
-
-            /// Check whether the operator is multiplication
-            let opIsMul op = (three |> op <| two) = three * two // = 6
-
-            /// Check whether the operator is divsion
-            let opIsDiv op = (three |> op <| two) = three / two // = 3/2
-
-
-
-            /// Match an operator `op` to either
-            /// multiplication, division, addition
-            /// or subtraction, fails when
-            /// the operation is neither.
+            /// Match an operator `op` to either multiplication, division, addition or subtraction
+            /// by delegating detection to the BigRational active pattern.
             let (|Mul|Div|Add|Sub|) op =
-                match op with
-                | _ when op |> opIsMul -> Mul
-                | _ when op |> opIsDiv -> Div
-                | _ when op |> opIsAdd -> Add
-                | _ when op |> opIsSub -> Sub
-                | _ -> failwith "Operator is not supported"
+                // Bridge the ValueUnit op to a BigRational op using dimensionless units (Count.times)
+                let toBrOp (o: ValueUnit -> ValueUnit -> ValueUnit) =
+                    fun (a: MathNet.Numerics.BigRational) (b: MathNet.Numerics.BigRational) ->
+                        let va = [| a |] |> create Units.Count.times
+                        let vb = [| b |] |> create Units.Count.times
+                        let vr = o va vb
+                        let vs = vr |> getValue
+                        if vs.Length > 0 then vs[0] else 0N
+
+                match toBrOp op with
+                | Informedica.Utils.Lib.BCL.BigRational.Mul -> Mul
+                | Informedica.Utils.Lib.BCL.BigRational.Div -> Div
+                | Informedica.Utils.Lib.BCL.BigRational.Add -> Add
+                | Informedica.Utils.Lib.BCL.BigRational.Sub -> Sub

@@ -1866,6 +1866,44 @@ module Tests =
         ]
 
 
+    module OperatorMatchTests =
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenUnits.Lib
+        open Informedica.GenSolver.Lib
+        open Informedica.GenSolver.Lib.Utils.ValueUnit.Operators
+
+        let tests =
+            testList "operator matching" [
+                test "matches addition" {
+                    match ((+)) with
+                    | Add -> true
+                    | _ -> false
+                    |> Expect.isTrue "should match Add"
+                }
+
+                test "matches subtraction" {
+                    match ((-)) with
+                    | Sub -> true
+                    | _ -> false
+                    |> Expect.isTrue "should match Sub"
+                }
+
+                test "matches multiplication" {
+                    match ((*)) with
+                    | Mul -> true
+                    | _ -> false
+                    |> Expect.isTrue "should match Mul"
+                }
+
+                test "matches division" {
+                    match ((/)) with
+                    | Div -> true
+                    | _ -> false
+                    |> Expect.isTrue "should match Div"
+                }
+            ]
+
     [<Tests>]
     let tests =
         [
@@ -1875,6 +1913,7 @@ module Tests =
             VariableTests.ValueRangeTests.MinMaxCalculatorTests.tests
             VariableTests.ValueRangeTests.tests
             EquationTests.tests
+            OperatorMatchTests.tests
         ]
         |> testList "GenSolver"
 
