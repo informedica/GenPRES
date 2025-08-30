@@ -184,7 +184,7 @@ module Utils =
                         if vs.Length > 0 then vs[0] else 0N
 
                 match toBrOp op with
-                | Informedica.Utils.Lib.BCL.BigRational.Mul -> Mul
-                | Informedica.Utils.Lib.BCL.BigRational.Div -> Div
-                | Informedica.Utils.Lib.BCL.BigRational.Add -> Add
-                | Informedica.Utils.Lib.BCL.BigRational.Sub -> Sub
+                | BigRational.Mul -> Mul
+                | BigRational.Div -> Div
+                | BigRational.Add -> Add
+                | BigRational.Sub -> Sub
