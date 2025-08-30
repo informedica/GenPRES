@@ -215,6 +215,62 @@ module Tests =
             module IncrementTests =
 
 
+                module MultipleOfTests =
+
+                    module Increment = Increment
+
+                    let private incr values =
+                        values
+                        |> ValueUnit.withUnit Units.Count.times
+                        |> Increment.create
+
+                    let tests =
+                        testList "increment isMultipleOf" [
+                            test "[2] is multiple of [1]" {
+                                let i1 = incr [| 2N |]
+                                let i2 = incr [| 1N |]
+                                i1 |> Increment.isMultipleOf i2
+                                |> Expect.isTrue "2 should be multiple of 1"
+                            }
+
+                            test "[2;4] is multiple of [2]" {
+                                let i1 = incr [| 2N; 4N |]
+                                let i2 = incr [| 2N |]
+                                i1 |> Increment.isMultipleOf i2
+                                |> Expect.isTrue "2 and 4 should both be multiples of 2"
+                            }
+
+                            test "[2;4] is not multiple of [3]" {
+                                let i1 = incr [| 2N; 4N |]
+                                let i2 = incr [| 3N |]
+                                i1 |> Increment.isMultipleOf i2
+                                |> Expect.isFalse "2 and 4 are not multiples of 3"
+                            }
+
+                            test "[1/2;3/4] is multiple of [1/4]" {
+                                let i1 = incr [| 1N/2N; 3N/4N |]
+                                let i2 = incr [| 1N/4N |]
+                                i1 |> Increment.isMultipleOf i2
+                                |> Expect.isTrue "1/2 and 3/4 are multiples of 1/4"
+                            }
+
+                            test "[3;6] is multiple of [2;3] (exists divisor)" {
+                                let i1 = incr [| 3N; 6N |]
+                                let i2 = incr [| 2N; 3N |]
+                                i1 |> Increment.isMultipleOf i2
+                                |> Expect.isTrue "there exists 3 such that all are multiples"
+                            }
+
+                            test "[3;5] is not multiple of [2;4]" {
+                                let i1 = incr [| 3N; 5N |]
+                                let i2 = incr [| 2N; 4N |]
+                                i1 |> Increment.isMultipleOf i2
+                                |> Expect.isFalse "no element in [2;4] divides both 3 and 5"
+                            }
+                        ]
+
+
+
                 let create brs =
                     Units.Count.times
                     |> ValueUnit.withValue brs
@@ -228,6 +284,9 @@ module Tests =
                         s2 |> ValueUnit.valueCount = (s |> ValueUnit.valueCount)
 
                 let tests = testList "increment" [
+                    // add the multiple of tests
+                    MultipleOfTests.tests
+
                     testList "increment properties" [
                         // helper function to perform a calculation
                         let calc op x y =
@@ -1901,61 +1960,6 @@ module Tests =
                 }
             ]
 
-    module IncrementMultipleOfTests =
-
-        open Informedica.GenUnits.Lib
-        open Informedica.GenSolver.Lib
-        module Increment = Variable.ValueRange.Increment
-
-        let private incr values =
-            values
-            |> ValueUnit.withUnit Units.Count.times
-            |> Increment.create
-
-        let tests =
-            testList "increment isMultipleOf" [
-                test "[2] is multiple of [1]" {
-                    let i1 = incr [| 2N |]
-                    let i2 = incr [| 1N |]
-                    i1 |> Increment.isMultipleOf i2
-                    |> Expect.isTrue "2 should be multiple of 1"
-                }
-
-                test "[2;4] is multiple of [2]" {
-                    let i1 = incr [| 2N; 4N |]
-                    let i2 = incr [| 2N |]
-                    i1 |> Increment.isMultipleOf i2
-                    |> Expect.isTrue "2 and 4 should both be multiples of 2"
-                }
-
-                test "[2;4] is not multiple of [3]" {
-                    let i1 = incr [| 2N; 4N |]
-                    let i2 = incr [| 3N |]
-                    i1 |> Increment.isMultipleOf i2
-                    |> Expect.isFalse "2 and 4 are not multiples of 3"
-                }
-
-                test "[1/2;3/4] is multiple of [1/4]" {
-                    let i1 = incr [| 1N/2N; 3N/4N |]
-                    let i2 = incr [| 1N/4N |]
-                    i1 |> Increment.isMultipleOf i2
-                    |> Expect.isTrue "1/2 and 3/4 are multiples of 1/4"
-                }
-
-                test "[3;6] is multiple of [2;3] (exists divisor)" {
-                    let i1 = incr [| 3N; 6N |]
-                    let i2 = incr [| 2N; 3N |]
-                    i1 |> Increment.isMultipleOf i2
-                    |> Expect.isTrue "there exists 3 such that all are multiples"
-                }
-
-                test "[3;5] is not multiple of [2;4]" {
-                    let i1 = incr [| 3N; 5N |]
-                    let i2 = incr [| 2N; 4N |]
-                    i1 |> Increment.isMultipleOf i2
-                    |> Expect.isFalse "no element in [2;4] divides both 3 and 5"
-                }
-            ]
 
     [<Tests>]
     let tests =
@@ -1967,7 +1971,6 @@ module Tests =
             VariableTests.ValueRangeTests.tests
             EquationTests.tests
             OperatorMatchTests.tests
-            IncrementMultipleOfTests.tests
         ]
         |> testList "GenSolver"
 
