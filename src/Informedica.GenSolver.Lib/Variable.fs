@@ -1157,6 +1157,11 @@ module Variable =
                 ValueUnit.getIndices vu1 vu2
 
 
+            /// <summary>
+            /// Pick the values at the given indices from a `ValueSet`.
+            /// </summary>
+            /// <param name="indices">The indices of the values to pick</param>
+            /// <returns>A `ValueSet` with the picked values</returns>
             let pickIndices indices =
                 function
                 | ValueSet vu ->

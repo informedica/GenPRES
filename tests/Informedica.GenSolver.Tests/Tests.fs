@@ -794,6 +794,77 @@ module Tests =
                     ]
 
 
+            module ValueSetTests =
+            
+                module ValueSet = Variable.ValueRange.ValueSet
+
+                let create brs =
+                    Units.Count.times
+                    |> ValueUnit.withValue brs
+                    |> ValueSet.create
+
+                let validVals (ValueSet s) =
+                    s |> ValueUnit.isEmpty |> not &&
+                    s |> ValueUnit.gtZero &&
+                    s |> ValueUnit.removeBigRationalMultiples
+                      |> fun s2 ->
+                        s2 |> ValueUnit.valueCount = (s |> ValueUnit.valueCount)
+
+                let tests = testList "value set" [
+                    testList "create" [
+                        fun xs ->
+                            try
+                                xs |> create |> validVals
+                            with
+                            | _ ->
+                                if xs |> Array.isEmpty ||
+                                   xs |> Array.distinct = [|0N|] then true
+                                else
+                                    xs |> create |> validVals |> not
+                        |> Generators.testProp "only valid value sets can be created"
+                    ]
+
+                    testList "get and pick indices" [
+                        // getIndices should return exactly the positions in vs1 whose values occur in vs2
+                        fun xs ys ->
+                            try
+                                let vs1 = xs |> create
+                                let vs2 = ys |> create
+                                // pull raw arrays for comparison
+                                let arr1 = match vs1 with ValueSet vu -> vu |> ValueUnit.getValue
+                                let arr2 = match vs2 with ValueSet vu -> vu |> ValueUnit.getValue
+
+                                let act = ValueSet.getIndices vs1 vs2 |> Array.sort
+                                let exp =
+                                    [|
+                                        for i in 0 .. arr1.Length - 1 do
+                                            if arr2 |> Array.exists ((=) arr1[i]) then yield i
+                                    |] |> Array.sort
+
+                                // also ensure indices are within bounds
+                                let inBounds = act |> Array.forall (fun i -> i >= 0 && i < arr1.Length)
+                                inBounds && (act = exp)
+                            with
+                            | _ -> true
+                        |> Generators.testProp "getIndices returns indices of common values"
+
+                        // pickIndices should pick exactly the values at those indices
+                        fun xs ys ->
+                            try
+                                let vs1 = xs |> create
+                                let vs2 = ys |> create
+                                let arr1 = match vs1 with ValueSet vu -> vu |> ValueUnit.getValue
+                                let indices = ValueSet.getIndices vs1 vs2
+                                let picked = vs1 |> ValueSet.pickIndices indices
+                                let pickedArr = match picked with ValueSet vu -> vu |> ValueUnit.getValue |> Array.sort
+                                let expArr = indices |> Array.map (fun i -> arr1[i]) |> Array.sort
+                                pickedArr = expArr
+                            with
+                            | _ -> true
+                        |> Generators.testProp "pickIndices picks exactly the intersection values"
+                    ]
+                ]
+
 
             module MinMaxCalculatorTests =
 
