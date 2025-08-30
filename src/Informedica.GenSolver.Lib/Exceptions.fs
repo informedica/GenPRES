@@ -20,6 +20,7 @@ module Exceptions =
         m::errs |> SolverException |> raise
 
 
+    /// Convert an exception to a string.
     let toString (exn : exn) =
         match exn with
         | :? SolverException as m ->

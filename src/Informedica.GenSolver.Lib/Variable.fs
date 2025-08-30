@@ -38,6 +38,8 @@ module Variable =
 
 
         /// Return the `string` value of a `Name`.
+        /// If **replace** is `true` then
+        /// replace any GUID in the name by "[ord".
         let toStringReplace replace (Name s) =
             if replace |> not then s
             else
@@ -59,6 +61,7 @@ module Variable =
                         |> String.replace g "[ord"
 
 
+        /// Return the `string` value of a `Name`.
         let toString = toStringReplace false
 
 
@@ -92,6 +95,11 @@ module Variable =
                         Exceptions.ValueRangeEmptyIncrement |> raiseExc []
 
 
+            /// <summary>
+            /// Apply a function over the ValueUnit of `Increment`.
+            /// </summary>
+            /// <param name="f">The function to apply</param>
+            /// <returns>The result of applying f to the ValueUnit</returns>
             let apply f (Increment vu) = vu |> f
 
 
@@ -248,6 +256,12 @@ module Variable =
                 incr |> ValueUnit.getValue |> Array.length
 
 
+            /// <summary>
+            /// Check if incr1 is a multiple of incr2
+            /// </summary>
+            /// <param name="incr1">The first increment</param>
+            /// <param name="incr2">The second increment</param>
+            /// <returns>True if incr1 is a multiple of incr2</returns>
             let isMultipleOf incr2 incr1 =
                 incr2
                 |> toValueUnit
@@ -499,6 +513,7 @@ module Variable =
             let isIncl = isExcl >> not
 
 
+            /// Checks whether `Minimum` is non-zero and positive.
             let isNonZeroPositive =
                 function
                 | MinExcl vu -> vu |> ValueUnit.isZero
@@ -983,7 +998,7 @@ module Variable =
         module ValueSet =
 
 
-            module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
+            module ValueUnit = ValueUnit
 
 
             /// <summary>
