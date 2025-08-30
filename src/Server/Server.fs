@@ -13,11 +13,11 @@ open Microsoft.Extensions.DependencyInjection
 open System.Threading.Tasks
 
 
+open Informedica.Utils.Lib
 
-let tryGetEnv key =
-    match Environment.GetEnvironmentVariable key with
-    | x when String.IsNullOrWhiteSpace x -> None
-    | x -> Some x
+
+let tryGetEnv key = Env.getItem key
+
 
 $"""
 
@@ -26,6 +26,10 @@ GENPRES_URL_ID={tryGetEnv "GENPRES_URL_ID" |> Option.defaultValue "1IZ3sbmrM4W4O
 GENPRES_LOG={tryGetEnv "GENPRES_LOG" |> Option.defaultValue "0"}
 GENPRES_PROD={tryGetEnv "GENPRES_PROD" |> Option.defaultValue "0"}
 GENPRES_DEBUG={tryGetEnv "GENPRES_DEBUG" |> Option.defaultValue "1"}
+
+=== System Info ===
+
+{Env.getSystemInfo ()}
 
 """
 |> writeInfoMessage

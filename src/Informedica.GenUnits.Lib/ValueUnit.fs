@@ -3938,7 +3938,7 @@ module ValueUnit =
                 l
                 |> String.trim
                 |> String.toLower
-                |> (fun l -> s |> String.startsWith l)
+                |> fun l -> s |> String.startsWith l
 
             let l =
                 match lang with
@@ -4018,7 +4018,7 @@ module ValueUnit =
             | None -> None
             | Some u ->
                 v
-                |> ValueUnit.withUnit u
+                |> withUnit u
                 |> Some
 
 

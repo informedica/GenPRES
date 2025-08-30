@@ -141,7 +141,7 @@ module rec Types =
             | NameLongerThan1000 of name: string
             | ValueRangeMinLargerThanMax of Minimum * Maximum
             | ValueRangeNotAValidOperator
-            | ValueRangeEmptyValueSet
+            | ValueRangeEmptyValueSet of string
             | ValueSetOverflow of valueCount: int
             | ValueRangeEmptyIncrement
             | ValueRangeMinShouldHaveOneValue of ValueUnit
@@ -161,7 +161,6 @@ module rec Types =
             | SolverTooManyLoops of loopCount : int * Equation list
             | SolverErrored of loopCount: int * Message list * Equation list
             | UnexpectedException of ex: exn
-
 
     module Events =
 

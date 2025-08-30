@@ -97,10 +97,12 @@ module Constraint =
             |> Exceptions.ConstraintVariableNotFound
             |> Exceptions.raiseExc (Some log) []
 
-        | vr::_ ->
-            c.Property
-            |> Property.toValueRange
-            |> Variable.setValueRange vr
+        | var::_ ->
+            var
+            |> Variable.setValueRange (
+                c.Property
+                |> Property.toValueRange
+            )
         |> fun var ->
             c
             |> Events.ConstraintApplied

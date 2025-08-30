@@ -54,6 +54,13 @@ module ValueUnit =
         | _ -> vu
 
 
+
+    /// <summary>
+    /// Collect an array of ValueUnits into one ValueUnit
+    /// Return None when the array is empty
+    /// </summary>
+    /// <param name="vus">The array of ValueUnits</param>
+    /// <returns>An optional ValueUnit</returns>
     let collect (vus : ValueUnit[]) =
         match vus |> Array.tryHead with
         | None    -> None
@@ -66,6 +73,10 @@ module ValueUnit =
             |> Some
 
 
+    /// <summary>
+    /// Get a standard frequency ValueUnit
+    /// </summary>
+    /// <param name="u">The full unit of the frequency</param>
     let toStandardFrequency u =
         match u |> getUnits with
         | [_; tu] ->
@@ -88,6 +99,8 @@ module ValueUnit =
 module Variable =
 
 
+    /// Helper functions to facilitate the use of the
+    /// `Informedica.GenSolver.Lib.Variable.ValueRange` type
     module ValueRange =
 
         open Informedica.GenSolver.Lib.Variable.ValueRange
@@ -142,16 +155,21 @@ module Variable =
     module ValueSet = Variable.ValueRange.ValueSet
 
 
-    let setValueUnitToValueSet vu (var : Variable) =
+    /// <summary>
+    /// Replace the Values of a Variable with a ValueSet
+    /// </summary>
+    /// <param name="vu">The ValueUnit to set as a ValueSet</param>
+    /// <param name="var">The Variable to set the ValueSet to</param>
+    let replaceValuesWithValueUnit vu (var : Variable) =
         { var with
             Values =
                 vu
                 |> ValueSet.create
-                |> ValueRange.ValSet
+                |> ValSet
         }
 
 
-/// Functions that deal with the `VariableUnit` type
+/// Functions that deal with the `OrderVariable` type
 module OrderVariable =
 
 
@@ -195,6 +213,7 @@ module OrderVariable =
             }
 
 
+        /// Get the fields of a `Constraints` record
         let get (cs : Constraints) =
             cs.Min,
             cs.Incr,
@@ -202,6 +221,7 @@ module OrderVariable =
             cs.Values
 
 
+        /// Check whether a `Constraints` record is empty
         let isEmpty (cs: Constraints) =
             cs.Incr.IsNone &&
             cs.Max.IsNone &&
@@ -209,6 +229,7 @@ module OrderVariable =
             cs.Values.IsNone
 
 
+        /// Check whether a `Constraints` record is non-zero positive
         let isNonZeroPositive (cs: Constraints) =
             cs.Max.IsNone &&
             cs.Incr.IsNone &&
@@ -218,12 +239,19 @@ module OrderVariable =
             |> Option.defaultValue false
 
 
+        /// <summary>
+        /// Create a `ValueRange` from a `Constraints` record
+        /// that only has an Increment and/or a Maximum
+        /// </summary>
         let toIncrMaxRange (cs : Constraints) =
             ValueRange.unrestricted
             |> ValueRange.setOptMax cs.Max
             |> ValueRange.setOptIncr cs.Incr
 
 
+        /// <summary>
+        /// Create a `ValueRange` from a `Constraints` record
+        /// </summary>
         let toValueRange (cs : Constraints) =
             ValueRange.unrestricted
             |> ValueRange.setOptMin cs.Min
@@ -237,6 +265,7 @@ module OrderVariable =
                     |> ValueRange.setOptVs cs.Values
 
 
+        /// Get the string representation of a `ValueRange` from a `Constraints` record
         let toValueRangeString = toValueRange >> ValueRange.toString false
 
 
@@ -269,6 +298,11 @@ module OrderVariable =
                 |> ValueUnit.toStringDutchShort
 
 
+        /// <summary>
+        /// Get a min-max string representation of a `Constraints` record (in Dutch)
+        /// </summary>
+        /// <param name="prec">The precision for decimal values</param>
+        /// <param name="cs">The Constraints record</param>
         let toMinMaxString prec (cs : Constraints) =
             let toStr = ValueUnit.toStringDecimalDutchShortWithPrec prec
             let toVal =
@@ -286,7 +320,7 @@ module OrderVariable =
             | Some min, Some max ->
                 if min |> ValueUnit.eqs max then $"{min |> toStr}"
                 else
-                    if min / times0_90 = (max / times1_10) then
+                    if min / times0_90 = max / times1_10 then
                         $"{min / times0_90 |> toStr}"
                     else
                         $"{min |> toVal} - {max |> toStr}"
@@ -310,6 +344,7 @@ module OrderVariable =
             }
 
 
+        /// Get the Unit from a `Constraints` record
         let getUnit (cs : Constraints) =
             cs
             |> toValueRange
@@ -371,20 +406,24 @@ module OrderVariable =
     let getVar { Variable = var } = var
 
 
+    /// Set the `Variable` of an OrderVariable
     let setVar var (ovar : OrderVariable) =
         { ovar with
             Variable = var
         }
 
 
-    let getValueUnit ovar =
+    /// Get the optional `ValueUnit` from the `ValueSet` of the `Variable`
+    let getValSetValueUnit ovar =
         ovar
         |> getVar
         |> Variable.getValueRange
-        |> Variable.ValueRange.getValSet
-        |> Option.map Variable.ValueRange.ValueSet.toValueUnit
+        |> ValueRange.getValSet
+        |> Option.map ValueSet.toValueUnit
 
 
+    /// Check whether two OrderVariables have the same unit group
+    /// Note: then they can be added or subtracted
     let eqsUnitGroup ovar1 ovar2 =
         let var1, var2 = ovar1 |> getVar, ovar2 |> getVar
         var1 |> Variable.eqsUnitGroup var2
@@ -398,6 +437,7 @@ module OrderVariable =
     let eqsName ovar1 ovar2 = (ovar1 |> getName) = (ovar2 |> getName)
 
 
+    /// Get the names of a list of OrderVariables as a comma separated string
     let getNames ovars =
         ovars
         |> List.map _.Variable
@@ -406,17 +446,20 @@ module OrderVariable =
         |> String.concat ", "
 
 
+    /// Get the `Constraints` from an OrderVariable
     let getConstraints { Constraints = cons } = cons
 
 
+    /// Check whether an OrderVariable has Constraints that
+    /// are not non-zero positive and not empty
     let hasConstraints =
         getConstraints
-        >> (fun cs ->
-            cs |> Constraints.isNonZeroPositive |> not &&
-            cs |> Constraints.isEmpty |> not
-        )
+        >> fun cs ->
+           cs |> Constraints.isNonZeroPositive |> not &&
+           cs |> Constraints.isEmpty |> not
 
 
+    /// Check whether an OrderVariable has a Maximum or a ValueSet
     let hasMaxConstraint ovar =
         ovar
         |> getConstraints
@@ -427,12 +470,20 @@ module OrderVariable =
             | _ -> false
 
 
+    /// <summary>
+    /// Set the `Constraints` of an OrderVariable
+    /// </summary>
+    /// <param name="cs">The Constraints to set</param>
+    /// <param name="ovar">The OrderVariable</param>
     let setConstraints cs (ovar :OrderVariable) =
         { ovar with
             Constraints = cs
         }
 
 
+    /// Apply only the maximum constraints of an OrderVariable
+    /// If there are no constraints, then the Variable is set to
+    /// non-zero positive
     let applyOnlyMaxConstraints (ovar : OrderVariable) =
         { ovar with
             Variable =
@@ -472,6 +523,8 @@ module OrderVariable =
         }
 
 
+    /// Check whether the Values of the Variable of an OrderVariable
+    /// are within the Constraints of the OrderVariable
     let isWithinConstraints ovar =
         if ovar |> hasConstraints |> not then true
         else
@@ -480,6 +533,8 @@ module OrderVariable =
             |> ValueRange.isSubSetOf cs
 
 
+    /// Check whether the `ValueRange` of the `Variable` of an
+    /// `OrderVariable` is a `MinIncrMax`, i.e. has an increment
     let hasIncrement (ovar: OrderVariable) =
         ovar.Variable
         |> Variable.isMinIncrMax
@@ -524,6 +579,14 @@ module OrderVariable =
         }
 
 
+    /// <summary>
+    /// Convert the `Variable` of an `OrderVariable` to a given `Unit`.
+    /// Note the first unit is replaced by the given unit, all other
+    /// units are kept.
+    /// Example: mg/kg/day to g/kg/day when u = g
+    /// </summary>
+    /// <param name="u">The Unit to convert to</param>
+    /// <param name="ovar">The OrderVariable</param>
     let convertFirstUnit u ovar =
         let u =
             ovar.Variable |> Variable.getUnit
@@ -548,6 +611,14 @@ module OrderVariable =
         }
 
 
+    /// <summary>
+    /// Convert the `Variable` of an `OrderVariable` to a given time `Unit`.
+    /// Note the last unit is replaced by the given time unit, all other
+    /// units are kept.
+    /// Example: mg/kg/day to mg/kg/week when tu = week
+    /// </summary>
+    /// <param name="tu">The time Unit to convert to</param>
+    /// <param name="ovar">The OrderVariable</param>
     let convertTimeUnit tu ovar =
         let u =
             ovar.Variable |> Variable.getUnit
@@ -576,7 +647,9 @@ module OrderVariable =
         }
 
 
-    let setNormDose vu (ovar: OrderVariable) =
+    /// Set the Values of the Variable of an OrderVariable
+    /// to the nearest ValueUnit in a given ValueSet
+    let setNearestValue vu (ovar: OrderVariable) =
         {
             ovar with
                 Variable =
@@ -691,6 +764,7 @@ module OrderVariable =
         }
 
 
+    /// Set the minimum value of the Variable of an OrderVariable
     let setMinValue (ovar: OrderVariable) =
         { ovar with
             Variable =
@@ -698,6 +772,7 @@ module OrderVariable =
         }
 
 
+    /// Set the maximum value of the Variable of an OrderVariable
     let setMaxValue (ovar: OrderVariable) =
         { ovar with
             Variable =
@@ -705,6 +780,7 @@ module OrderVariable =
         }
 
 
+    /// Set the median value of the Variable of an OrderVariable
     let setMedianValue (ovar: OrderVariable) =
         { ovar with
             Variable =
@@ -712,20 +788,29 @@ module OrderVariable =
         }
 
 
-    let setValueSet vs (ovar: OrderVariable) =
+    /// Set the Values of the Variable of an OrderVariable
+    /// to a given value range
+    let setValueRange vr (ovar: OrderVariable) =
         { ovar with
             Variable =
-                vs
-                |> Variable.setValueRange ovar.Variable
+                ovar.Variable
+                |> Variable.setValueRange vr
         }
 
 
+    /// Get the indices of the Values of the Variable of an OrderVariable
+    /// that are within the Constraints of the OrderVariable
     let getIndices (ovar: OrderVariable) =
         ovar.Variable
         |> Variable.getValueRange
         |> ValueRange.getIndices (ovar.Constraints |> Constraints.toValueRange)
 
 
+    /// <summary>
+    /// Apply the indices to the Values of the Variable of an OrderVariable
+    /// </summary>
+    /// <param name="indices">The indices to apply</param>
+    /// <param name="ovar">The OrderVariable</param>
     let applyIndices (indices: int[]) (ovar: OrderVariable) =
         { ovar with
             OrderVariable.Variable.Values =
@@ -735,6 +820,8 @@ module OrderVariable =
         }
 
 
+    /// Check whether the Values of the Variable of an OrderVariable
+    /// are non-zero positive or have an exclusive Minimum of zero
     let isNonZeroPositive (ovar: OrderVariable) =
         ovar.Variable
         |> Variable.isNonZeroPositive   ||
@@ -742,6 +829,8 @@ module OrderVariable =
         |> Variable.isMinExclusiveZero
 
 
+    /// Set the Values of the Variable of an OrderVariable
+    /// to non-zero positive values
     let setToNonZeroPositive (ovar: OrderVariable) =
         { ovar with
             OrderVariable.Variable.Values =
@@ -750,7 +839,7 @@ module OrderVariable =
                 | Some u ->
                     u
                     |> ValueUnit.zero
-                    |> ValueRange.Minimum.create false
+                    |> Minimum.create false
                     |> Min
 
             (* this doesn't work when not empty?
@@ -760,6 +849,7 @@ module OrderVariable =
         }
 
 
+    /// Clear the Values of the Variable of an OrderVariable
     let clear (ovar : OrderVariable) =
         { ovar with
             Variable =
@@ -767,6 +857,8 @@ module OrderVariable =
         }
 
 
+    /// Check whether the Values of the Variable of an OrderVariable
+    /// are cleared, i.e. unrestricted
     let isCleared (ovar : OrderVariable) =
         ovar.Variable |> Variable.isUnrestricted
 
@@ -799,6 +891,8 @@ module OrderVariable =
                 }
 
 
+    /// Check whether the Values of the Variable of an OrderVariable
+    /// are empty, i.e. unrestricted, non-zero positive or have an exclusive Minimum of zero
     let isEmpty (ovar : OrderVariable) =
         ovar.Variable
         |> Variable.isUnrestricted ||
@@ -808,6 +902,8 @@ module OrderVariable =
         |> Variable.isMinExclusiveZero
 
 
+    /// Check whether the Values of the Variable of an OrderVariable
+    /// are set, i.e. have a distinct set of values
     let hasValues (ovar: OrderVariable) =
         ovar.Variable
         |> Variable.hasValues
@@ -842,7 +938,9 @@ module OrderVariable =
         let dto () = Dto ()
 
 
-        let clean (old : Dto) =
+        /// Clean the Variable part of a Dto
+        /// by setting all optional fields to None
+        let cleanVariable (old : Dto) =
             old.Variable.MinOpt <- None
             old.Variable.IncrOpt <- None
             old.Variable.MaxOpt <- None
@@ -875,8 +973,8 @@ module OrderVariable =
                                 |> Some
                         )
 
-                    let min  = dto.Constraints.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Constraints.MinIncl)))
-                    let max  = dto.Constraints.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Constraints.MaxIncl)))
+                    let min  = dto.Constraints.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> Option.map (Minimum.create  dto.Constraints.MinIncl))
+                    let max  = dto.Constraints.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> Option.map (Maximum.create  dto.Constraints.MaxIncl))
 
                     Constraints.create min incr max vs
 
@@ -903,8 +1001,8 @@ module OrderVariable =
                             |> Some
                     )
 
-                let min  = dto.Variable.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Minimum.create  dto.Variable.MinIncl)))
-                let max  = dto.Variable.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> (Option.map (Maximum.create  dto.Variable.MaxIncl)))
+                let min  = dto.Variable.MinOpt  |> Option.bind (ValueUnit.Dto.fromDto >> Option.map (Minimum.create  dto.Variable.MinIncl))
+                let max  = dto.Variable.MaxOpt  |> Option.bind (ValueUnit.Dto.fromDto >> Option.map (Maximum.create  dto.Variable.MaxIncl))
 
                 create n min incr max vals cs
             with
@@ -1045,9 +1143,12 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Check whether a Count has Constraints that
+        /// are not non-zero positive and not empty
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a Count is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -1055,18 +1156,23 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
 
+        /// Check whether a Count is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
+        /// Check whether a Count is solved
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a Count is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a Count
         let clear = toOrdVar >> clear >> count
 
 
+        /// Set a Count to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> count
 
 
@@ -1113,8 +1219,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `Time` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Time` as a value unit string list
@@ -1128,10 +1235,12 @@ module OrderVariable =
         /// Get a ValueUnit markdown representation of a Time
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
+        /// Check whether a Time has Constraints that
+        /// are not non-zero positive and not empty
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether Time is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -1139,6 +1248,7 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
+        /// Check whether Time is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
@@ -1146,21 +1256,27 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether Time is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Set the minimum value for Time
         let setMinValue = toOrdVar >> setMinValue >> time
 
 
+        /// Set the maximum value for Time
         let setMaxValue = toOrdVar >> setMaxValue >> time
 
 
+        /// Set the median value for Time
         let setMedianValue = toOrdVar >> setMedianValue >> time
 
 
+        /// Clear the values of Time
         let clear = toOrdVar >> clear >> time
 
 
+        /// Set Time to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> time
 
 
@@ -1210,8 +1326,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `Frequency` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Frequency` as a value unit string list
@@ -1225,32 +1342,38 @@ module OrderVariable =
         /// Get a ValueUnit markdown representation of a Frequency
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
+        /// Check whether a Frequency has Constraints that
+        /// are not non-zero positive and not empty
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a Frequency is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a Frequency to the OrderVariable Variable
         let applyConstraints = apply applyConstraints
 
-
+        /// Check whether a Frequency is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
-
+        /// Set the `Constraints` of a Frequency
         let setConstraints cs = apply (setConstraints cs)
 
-
+        /// Set the Values of the Variable of a Frequency
+        /// to the minimum value
         let setMinValue = apply setMinValue
 
-
+        /// Set the Values of the Variable of a Frequency
+        /// to the maximum value
         let setMaxValue = apply setMaxValue
 
-
+        /// Set the Values of the Variable of a Frequency
+        /// to the median value
         let setMedianValue = apply setMedianValue
 
 
+    /// Set standard frequency values based on the time unit (e.g., per day/week)
         let setStandardValues frq =
             let oldCs =
                 frq
@@ -1278,15 +1401,19 @@ module OrderVariable =
             |> setConstraints oldCs
 
 
+        /// Check whether a Frequency is solved
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a Frequency is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a Frequency
         let clear = apply clear
 
 
+        /// Set a Frequency to non-zero positive values
         let setToNonZeroPositive = apply setToNonZeroPositive
 
 
@@ -1336,8 +1463,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `Concentration` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Concentration` as a value unit string list
@@ -1355,6 +1483,7 @@ module OrderVariable =
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+    /// Check whether a Concentration is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -1362,31 +1491,40 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
+        /// Apply selected indices to the values of a Concentration
         let applyIndices indices =
             toOrdVar >> applyIndices indices >> Concentration
 
 
+        /// Check whether a Concentration is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
+        /// Check whether a Concentration is solved
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a Concentration is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a Concentration
         let clear = toOrdVar >> clear >> Concentration
 
 
+        /// Set the minimum value for a Concentration
         let setMinValue = toOrdVar >> setMinValue >> Concentration
 
 
+        /// Set the maximum value for a Concentration
         let setMaxValue = toOrdVar >> setMaxValue >> Concentration
 
 
+        /// Set the median value for a Concentration
         let setMedianValue = toOrdVar >> setMedianValue >> Concentration
 
 
+        /// Set a Concentration to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Concentration
 
 
@@ -1432,8 +1570,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `Quantity` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Quantity` as a value unit string list
@@ -1451,6 +1590,7 @@ module OrderVariable =
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a Quantity is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -1465,12 +1605,15 @@ module OrderVariable =
             toOrdVar >> applyIndices indices >> Quantity
 
 
+        /// Check whether a Quantity is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
+        /// Check whether a Quantity has an increment (Min/Incr/Max)
         let hasIncrement = toOrdVar >> hasIncrement
 
 
+        /// Check whether a Quantity has a maximum or a ValueSet constraint
         let hasMaxConstraint = toOrdVar >> hasMaxConstraint
 
 
@@ -1488,24 +1631,31 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a Quantity is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Set the minimum value for a Quantity
         let setMinValue = toOrdVar >> setMinValue >> Quantity
 
 
+        /// Set the maximum value for a Quantity
         let setMaxValue = toOrdVar >> setMaxValue >> Quantity
 
 
+        /// Set the median value for a Quantity
         let setMedianValue = toOrdVar >> setMedianValue >> Quantity
 
 
+        /// Clear the values of a Quantity
         let clear = toOrdVar >> clear >> Quantity
 
 
+        /// Set a Quantity to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Quantity
 
 
+        /// Materialize Min/Incr/Max of a Quantity into a ValueSet
         let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Quantity
 
 
@@ -1549,9 +1699,11 @@ module OrderVariable =
             |> PerTime
 
 
+        /// Convert the first unit of a PerTime (e.g., mg/kg/day -> g/kg/day)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTime
 
 
+        /// Convert the time unit of a PerTime (e.g., mg/kg/day -> mg/kg/week)
         let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTime
 
 
@@ -1559,8 +1711,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `PerTime` value (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `PerTime` as a value unit string list
@@ -1575,9 +1728,11 @@ module OrderVariable =
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
+        /// Check whether a PerTime has constraints
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a PerTime is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -1585,6 +1740,7 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
+        /// Check whether a PerTime is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
@@ -1592,15 +1748,19 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a PerTime is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a PerTime
         let clear = toOrdVar >> clear >> PerTime
 
 
+        /// Set a PerTime to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTime
 
 
+        /// Materialize Min/Incr/Max of a PerTime into a ValueSet
         let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> PerTime
 
 
@@ -1643,9 +1803,11 @@ module OrderVariable =
             |> Rate
 
 
+        /// Convert the first unit of a Rate (e.g., mg/h -> g/h)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> Rate
 
 
+        /// Convert the time unit of a Rate (e.g., mg/h -> mg/min)
         let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> Rate
 
 
@@ -1653,8 +1815,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `Rate` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `Rate` as a value unit string list
@@ -1672,6 +1835,7 @@ module OrderVariable =
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a Rate is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -1679,12 +1843,14 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
+        /// Set constraints for a Rate
         let setConstraints cons = toOrdVar >> setConstraints cons >> Rate
 
 
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
+        /// Materialize Min/Incr/Max of a Rate into a ValueSet
         let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Rate
 
 
@@ -1702,21 +1868,27 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a Rate is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a Rate
         let clear = toOrdVar >> clear >> Rate
 
 
+        /// Set the minimum value for a Rate
         let setMinValue = toOrdVar >> setMinValue >> Rate
 
 
+        /// Set the maximum value for a Rate
         let setMaxValue = toOrdVar >> setMaxValue >> Rate
 
 
+        /// Set the median value for a Rate
         let setMedianValue = toOrdVar >> setMedianValue >> Rate
 
 
+        /// Set a Rate to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Rate
 
 
@@ -1755,6 +1927,7 @@ module OrderVariable =
             |> Total
 
 
+        /// Convert the first unit of a Total (e.g., mg -> g)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> Total
 
 
@@ -1762,8 +1935,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `Total` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> toStringWithConstraints true false
 
 
         /// Get a `Total` as a value unit string list
@@ -1777,37 +1951,37 @@ module OrderVariable =
         /// Get a ValueUnit markdown representation of a Total
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
+        /// Check whether a Total has constraints
         let hasConstraints = toOrdVar >> hasConstraints
 
-
+        /// Check whether a Total is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
         /// Apply the constraints of a Total to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
-
+        /// Check whether a Total is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
-
+        /// Check whether a Total is solved
         let isSolved = toOrdVar >> isSolved
 
-
+        /// Check whether a Total is cleared
         let isCleared = toOrdVar >> isCleared
 
 
         let clear = toOrdVar >> clear >> Total
 
-
+        /// Set a Total to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Total
 
+        /// Materialize Min/Incr/Max of a Total into a ValueSet
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total    
 
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total
 
-
-    /// Type and functions that represent a adjusted quantity,
-    /// and a adjusted quantity is a quantity per time
+    /// Type and functions that represent an adjusted quantity,
+    /// i.e., an amount per adjust unit (for example: mg/kg)
     module QuantityAdjust =
 
 
@@ -1848,66 +2022,62 @@ module OrderVariable =
             |> QuantityAdjust
 
 
+        /// Convert the first unit of a QuantityAdjust (e.g., mg/kg -> g/kg)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> QuantityAdjust
 
-
-        let setNearestValue vu = toOrdVar >> setNormDose vu >> QuantityAdjust
+        /// Set the nearest value of a QuantityAdjust to a given ValueUnit
+        let setNearestValue vu = toOrdVar >> setNearestValue vu >> QuantityAdjust
 
 
         /// Turn a `QuantityAdjust` to a string
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
-
+        /// Get a string representation of a `QuantityAdjust` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
         /// Get a `QuantityAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
-
         /// Get a ValueUnit string representation of a QuantityAdjust
         let toValueUnitString = toValueUnitString toOrdVar
-
 
         /// Get a ValueUnit markdown representation of a QuantityAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
         let hasConstraints = toOrdVar >> hasConstraints
 
-
+        /// Check whether a QuantityAdjust has a maximum or a ValueSet constraint
         let hasMaxConstraint = toOrdVar >> hasMaxConstraint
 
-
+        /// Check whether a QuantityAdjust is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
-
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> QuantityAdjust
-
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
-
+        /// Check whether a QuantityAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
-
 
         /// Check whether a QuantityAdjust is solved
         let isSolved = toOrdVar >> isSolved
 
-
+        /// Check whether a QuantityAdjust is cleared
         let isCleared = toOrdVar >> isCleared
 
-
+        /// Clear the values of a QuantityAdjust
         let clear = toOrdVar >> clear >> QuantityAdjust
 
-
+        /// Set a QuantityAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> QuantityAdjust
 
 
-    /// Type and functions that represent a adjusted total,
-    /// and a adjusted total is a quantity per time
+
+    /// Type and functions that represent an adjusted per-time value,
+    /// i.e., an amount per adjust unit per time (for example: mg/kg/day)
     module PerTimeAdjust =
 
 
@@ -1957,40 +2127,48 @@ module OrderVariable =
             |> PerTimeAdjust
 
 
+        /// Convert the first unit of a PerTimeAdjust (e.g., mg/kg/day -> g/kg/day)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTimeAdjust
 
 
+        /// Convert the time unit of a PerTimeAdjust (e.g., mg/kg/day -> mg/kg/week)
         let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTimeAdjust
 
 
-        let setNearestValue vu = toOrdVar >> setNormDose vu >> PerTimeAdjust
+        let setNearestValue vu = toOrdVar >> setNearestValue vu >> PerTimeAdjust
 
 
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `PerTimeAdjust` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
+        /// Get a `PerTimeAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
-
+        /// Get a ValueUnit string representation of a PerTimeAdjust
         let toValueUnitString = toValueUnitString toOrdVar
 
 
+        /// Get a ValueUnit markdown representation of a PerTimeAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
+        /// Check whether a PerTimeAdjust has constraints
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a PerTimeAdjust is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
+        /// Apply the constraints of a PerTimeAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
 
 
+        /// Check whether a PerTimeAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
@@ -1998,17 +2176,20 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a PerTimeAdjust is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a PerTimeAdjust
         let clear = toOrdVar >> clear >> PerTimeAdjust
 
 
+        /// Set a PerTimeAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> PerTimeAdjust
 
 
-    /// Type and functions that represent a adjusted total,
-    /// and a adjusted total is a quantity per time
+    /// Type and functions that represent an adjusted rate,
+    /// i.e., an amount per adjust unit per time (for example: mL/kg/h)
     module RateAdjust =
 
 
@@ -2058,9 +2239,11 @@ module OrderVariable =
             |> RateAdjust
 
 
+        /// Convert the first unit of a RateAdjust (e.g., mL/kg/h -> L/kg/h)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> RateAdjust
 
 
+        /// Convert the time unit of a RateAdjust (e.g., mL/kg/h -> mL/kg/min)
         let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> RateAdjust
 
 
@@ -2068,8 +2251,9 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints true false)
+        /// Get a string representation of a `RateAdjust` (including constraints)
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints true false)
 
 
         /// Get a `RateAdjust` as a value unit string list
@@ -2083,10 +2267,11 @@ module OrderVariable =
         /// Get a ValueUnit markdown representation of a RateAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
+        /// Check whether a RateAdjust has constraints
         let hasConstraints = toOrdVar >> hasConstraints
 
 
+        /// Check whether a RateAdjust is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
 
 
@@ -2094,6 +2279,7 @@ module OrderVariable =
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
 
+        /// Check whether a RateAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
 
 
@@ -2101,17 +2287,20 @@ module OrderVariable =
         let isSolved = toOrdVar >> isSolved
 
 
+        /// Check whether a RateAdjust is cleared
         let isCleared = toOrdVar >> isCleared
 
 
+        /// Clear the values of a RateAdjust
         let clear = toOrdVar >> clear >> RateAdjust
 
 
+        /// Set a RateAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> RateAdjust
 
 
-    /// Type and functions that represent a adjusted total,
-    /// and a adjusted total is a quantity per time
+    /// Type and functions that represent an adjusted total,
+    /// i.e., an amount per adjust unit (for example: mL/kg)
     module TotalAdjust =
 
 
@@ -2152,6 +2341,7 @@ module OrderVariable =
             |> TotalAdjust
 
 
+        /// Convert the first unit of a TotalAdjust (e.g., mL/kg -> L/kg)
         let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> TotalAdjust
 
 
@@ -2159,43 +2349,40 @@ module OrderVariable =
         let toString = toOrdVar >> (toString false)
 
 
-        /// Turn a `Time` to a string also prints constraints
-        let toStringWithConstraints = toOrdVar >> (toStringWithConstraints false true)
-
+        /// Get a string representation of a `TotalAdjust`
+        /// Note: constraints are not included by this function
+        let toStringWithConstraints =
+            toOrdVar >> (toStringWithConstraints false true)
 
         /// Get a `TotalAdjust` as a value unit string list
         let toValueUnitStringList = toValueUnitStringList toOrdVar
 
-
         /// Get a ValueUnit string representation of a TotalAdjust
         let toValueUnitString = toValueUnitString toOrdVar
-
 
         /// Get a ValueUnit markdown representation of a TotalAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
-
         let hasConstraints = toOrdVar >> hasConstraints
 
-
+        /// Check whether a TotalAdjust is within its constraints
         let isWithinConstraints = toOrdVar >> isWithinConstraints
-
 
         /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
 
-
+        /// Check whether a TotalAdjust is non-zero positive
         let isNonZeroPositive = toOrdVar >> isNonZeroPositive
-
 
         /// Check whether a TotalAdjust is solved
         let isSolved = toOrdVar >> isSolved
 
-
+        /// Check whether a TotalAdjust is cleared
         let isCleared = toOrdVar >> isCleared
 
-
+        /// Clear the values of a TotalAdjust
         let clear = toOrdVar >> clear >> TotalAdjust
 
-
+        /// Set a TotalAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> TotalAdjust
+

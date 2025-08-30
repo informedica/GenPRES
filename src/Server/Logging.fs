@@ -16,7 +16,7 @@ module Logging
 
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
-    let [<Literal>] MAX_LOG_FILES = 5
+    let [<Literal>] MAX_LOG_FILES = 10_000
 
 
     let getAssemblyPath () =

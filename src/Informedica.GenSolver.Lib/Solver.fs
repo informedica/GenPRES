@@ -133,7 +133,7 @@ module Solver =
             | Error _ -> acc
             | Ok acc  ->
                 let n = n + 1
-                if n > ((que @ acc |> List.length) * Constants.MAX_LOOP_COUNT) then
+                if n > (que @ acc |> List.length) * Constants.MAX_LOOP_COUNT then
                     writeErrorMessage $"too many loops: {n}"
 
                     (n, que @ acc)

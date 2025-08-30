@@ -443,6 +443,7 @@ module Types =
         {
             DemoVersion: bool
             Filter: Filter
+            // NOTE: Maybe not Patient but PatientInfo as things can change, i.e. age, weight, length
             Patient: Patient
             Scenarios: OrderScenario []
             Intake: Totals
@@ -454,6 +455,8 @@ module Types =
             Patient: Patient
             Selected : OrderScenario option
             Filtered : OrderScenario []
+            // NOTE: maybe use ordercontext to preserve full info
+            // so, OrderContexts: OrderContext []
             Scenarios: OrderScenario []
             Totals: Totals
         }

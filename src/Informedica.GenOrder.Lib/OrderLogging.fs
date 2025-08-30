@@ -96,9 +96,11 @@ module OrderLogging =
             match orderMsg with
             | OrderException ex -> ex |> printOrderException
             | OrderEventMessage evt -> evt |> printOrderEvent
+        (*
         | :? Logging.SolverMessage as solverMsg ->
             // Delegate to solver logging for solver messages
             SolverLogging.formatSolverMessage solverMsg
+        *)
         | _ -> $"Unknown message type: {msg.GetType().Name}"
 
 
@@ -158,10 +160,6 @@ module OrderLogging =
     /// Enhanced print function that can handle messages with context
     let printOrderMsgWithContext (msgs : ResizeArray<float * Event> option) (msg : Event) =
         match msg.Message with
-        (*
-        | :? Logging.SolverMessage as m -> 
-            SolverLogging.formatSolverMessage m
-        *)
         | :? OrderMessage as m -> 
             match m with
             | OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->

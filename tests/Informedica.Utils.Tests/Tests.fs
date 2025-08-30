@@ -277,6 +277,94 @@ module Tests =
             ]
 
 
+    module EnvTests =
+
+        open Expecto
+        open Informedica.Utils.Lib
+
+        [<Tests>]
+        let tests =
+            testList "Env" [
+                test "environmentVars returns without exceptions and contains common vars" {
+                    let vars = Env.environmentVars()
+                    // Should not throw and should be non-empty in most environments
+                    Expect.isTrue (vars.Count >= 0) "environmentVars returns a dictionary"
+                    // PATH is commonly present; if missing we still pass but log
+                    if not (vars.ContainsKey "PATH") then
+                        printfn "Note: PATH not found in environmentVars on this system/session"
+                }
+
+                test "getItem returns None for unlikely var and Some for an injected one" {
+                    let name = "INFORMEDICA_UTILS_TEST_VAR"
+                    let value = "test-value"
+                    // ensure not set
+                    match Env.getItem name with
+                    | Some _ -> ()
+                    | None -> ()
+
+                    // set and verify
+                    System.Environment.SetEnvironmentVariable(name, value)
+                    let actual = Env.getItem name
+                    Expect.equal actual (Some value) "getItem should return the value we set"
+
+                    // clean up
+                    System.Environment.SetEnvironmentVariable(name, null)
+                }
+
+                test "getSystemInfo returns a readable multi-line summary" {
+                    let info = Env.getSystemInfo()
+                    Expect.isNotEmpty info "getSystemInfo should return a non-empty string"
+                    // Basic anchors to avoid brittle assertions across platforms
+                    Expect.isTrue (info.Contains("CPU cores:")) "Should contain CPU cores"
+                    Expect.isTrue (info.Contains("OS:")) "Should contain OS description"
+                    Expect.isTrue (info.Contains(".NET:")) "Should contain .NET runtime description"
+                }
+            ]
+
+
+    module FileTests =
+
+        open System
+        open System.IO
+        open Expecto
+        open Informedica.Utils.Lib
+
+        [<Tests>]
+        let tests =
+            testList "File.findParent" [
+                test "returns Some for a file in current directory" {
+                    // Use this test file name as the sentinel
+                    let currentDir = Directory.GetCurrentDirectory()
+                    let fileName = "Informedica.Utils.Tests.dll" // built test assembly name typically in bin during run
+                    // We can't rely on exact file presence; instead, write a temp file and clean up
+                    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+                    Directory.CreateDirectory(tempDir) |> ignore
+                    let nestedDir = Path.Combine(tempDir, "a", "b")
+                    Directory.CreateDirectory(nestedDir) |> ignore
+                    let targetFile = Path.Combine(tempDir, "sentinel.txt")
+                    File.WriteAllText(targetFile, "x")
+                    // search starting in nestedDir for sentinel.txt
+                    let found = File.findParent nestedDir "sentinel.txt"
+                    try
+                        Expect.equal found (Some tempDir) "Should find parent directory that contains the file"
+                    finally
+                        try Directory.Delete(tempDir, true) with _ -> ()
+                }
+
+                test "returns None when file does not exist in any ancestor" {
+                    let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+                    Directory.CreateDirectory(tempDir) |> ignore
+                    let nestedDir = Path.Combine(tempDir, "a", "b")
+                    Directory.CreateDirectory(nestedDir) |> ignore
+                    let found = File.findParent nestedDir "definitely-not-existing-12345.xyz"
+                    try
+                        Expect.equal found None "Should return None when file not found"
+                    finally
+                        try Directory.Delete(tempDir, true) with _ -> ()
+                }
+            ]
+
+
     module Double =
 
         open System

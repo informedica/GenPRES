@@ -995,7 +995,9 @@ module Variable =
             /// <exception cref="Exceptions.ValueSetOverflow">When the `ValueSet` has too many values</exception>
             let create vu =
                 if vu |> ValueUnit.isEmpty then
-                    Exceptions.ValueRangeEmptyValueSet |> raiseExc []
+                    "ValueSet create cannot be empty"
+                    |> Exceptions.ValueRangeEmptyValueSet 
+                    |> raiseExc []
 
                 else
                     if (vu |> ValueUnit.getValue).Length > (Constants.MAX_CALC_COUNT * Constants.MAX_CALC_COUNT) then
@@ -1768,8 +1770,9 @@ module Variable =
                 let incr = incrOpt |> Option.map (Increment.toString false) |> Option.defaultValue ""
                 let max = maxOpt |> Option.map (Maximum.toString false) |> Option.defaultValue ""
                 let vs = vs |> ValueUnit.toStringDutchShort
-                writeWarningMessage $"filter with min = '%s{min}', incr = '%s{incr}', max = '%s{max}' and vs = '%s{vs}' gives empty set"
-                raise e
+                $"filter with min = '%s{min}', incr = '%s{incr}', max = '%s{max}' and vs = '%s{vs}' gives empty set"
+                |> Exceptions.ValueRangeEmptyValueSet
+                |> raiseExc []
 
 
         /// <summary>
@@ -2143,7 +2146,6 @@ module Variable =
                 | None, Some incr, Some max -> incrMaxToValueRange incr max
                 | None, Some incr, None -> incr |> Incr
                 | Some min, Some incr, Some max -> minIncrMaxToValueRange min incr max
-
             | Some vs ->
                 vs
                 |> filter min incr max
@@ -3478,7 +3480,7 @@ module Variable =
 
     /// Apply a `ValueRange` **vr** to
     /// `Variable` **v**.
-    let setValueRange var vr =
+    let setValueRange vr var =
         try
             { var with
                 Values =
@@ -3487,7 +3489,7 @@ module Variable =
 
         with
         | Exceptions.SolverException errs ->
-            writeErrorMessage $"{var.Name |> Name.toString}: SoverException:{errs}"
+            writeDebugMessage $"{var.Name |> Name.toString}: SolverException:{errs}"
 
             (var, vr)
             |> Exceptions.VariableCannotSetValueRange
@@ -3506,10 +3508,14 @@ module Variable =
 
 
     /// Get the number of distinct values
+    /// Note that the valuerange has to be a ValueSet
+    /// to get a count
     let count v =
         v |> getValueRange |> ValueRange.cardinality
 
 
+    /// Checks whether a `Variable` has
+    /// values (and therefore is a ValueSet).
     let hasValues var =
         var
         |> count
@@ -3706,6 +3712,8 @@ module Variable =
         }
 
 
+    /// Clear all restrictions on the values of a Variable
+    /// by setting the ValueRange to Unrestricted
     let clear var =
         { var with Values = Unrestricted }
 
@@ -3729,7 +3737,7 @@ module Variable =
 
         let inline (@-) vr1 vr2 = calc (@-) (vr1, vr2)
 
-        let inline (@<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange vr1
+        let inline (@<-) vr1 vr2 = vr1 |> setValueRange (vr2 |> getValueRange)
 
 
         /// Constant 1

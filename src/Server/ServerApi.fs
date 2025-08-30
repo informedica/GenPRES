@@ -739,10 +739,10 @@ module OrderContext =
                 | Api.UpdateOrderScenario _ -> ctx |> OrderContext.UpdateOrderScenario
                 | Api.ResetOrderScenario _ -> ctx |> OrderContext.ResetOrderScenario
                 | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
-            |> OrderContext.printCtx logger "start eval"
+            |> OrderContext.logOrderContext logger "start eval"
             |> OrderContext.evaluate logger provider
             |> ValidatedResult.get 
-            |> OrderContext.printCtx logger "finish eval"
+            |> OrderContext.logOrderContext logger "finish eval"
 
         match cmd with
         | Api.UpdateOrderContext ctx
