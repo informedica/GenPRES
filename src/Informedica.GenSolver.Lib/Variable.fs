@@ -185,7 +185,7 @@ module Variable =
             let calc op incr1 incr2 =
                 match op with
                 // y.incr = x1.incr * x2.incr
-                | ValueUnit.Operators.Mult -> incr1 |> op <| incr2 |> create |> Some
+                | ValueUnit.Operators.Mul -> incr1 |> op <| incr2 |> create |> Some
                 // TODO: really need to check this!!
                 // when y = x1 + x2 then y.incr = x1.incr and x2.incr
                 | ValueUnit.Operators.Add -> //| BigRational.Subtract ->
@@ -2865,15 +2865,15 @@ module Variable =
                 // MULTIPLICATION
                 // when any of the two values is zero incl, the result
                 // of multiplication will always be zero incl
-                | _, true, _, _, true, _, Mult
-                | _, _, _, true, _, true, Mult -> createZero true u1 u2
+                | _, true, _, _, true, _, Mul
+                | _, _, _, true, _, true, Mul -> createZero true u1 u2
                 // when any of the two values is zero excl, the result
                 // of multiplication will always be zero excl
-                | _, false, _, _, true, _, Mult
-                | _, _, _, false, _, true, Mult -> createZero false u1 u2
+                | _, false, _, _, true, _, Mul
+                | _, _, _, false, _, true, Mul -> createZero false u1 u2
                 // multiplication by Some non-zero by a None will result in a None
-                | None, _, Some _, _, false, false, Mult
-                | Some _, _, None, _, false, false, Mult -> None
+                | None, _, Some _, _, false, false, Mul
+                | Some _, _, None, _, false, false, Mul -> None
 
                 // DIVISION
                 // division by zero incl is not possible, so an exception is thrown
@@ -3115,7 +3115,7 @@ module Variable =
             /// according to the operand
             let calcMinMax op =
                 match op with
-                | Mult -> multiplication
+                | Mul -> multiplication
                 | Div -> division
                 | Add -> addition
                 | Sub -> subtraction

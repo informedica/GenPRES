@@ -172,13 +172,13 @@ module Utils =
                 [| 3N |] |> create Units.Count.times
 
             /// Check whether the operator is subtraction
-            let opIsSubtr op = (three |> op <| two) = three - two // = 1
+            let opIsSub op = (three |> op <| two) = three - two // = 1
 
             /// Check whether the operator is addition
             let opIsAdd op = (three |> op <| two) = three + two // = 5
 
             /// Check whether the operator is multiplication
-            let opIsMult op = (three |> op <| two) = three * two // = 6
+            let opIsMul op = (three |> op <| two) = three * two // = 6
 
             /// Check whether the operator is divsion
             let opIsDiv op = (three |> op <| two) = three / two // = 3/2
@@ -189,10 +189,10 @@ module Utils =
             /// multiplication, division, addition
             /// or subtraction, fails when
             /// the operation is neither.
-            let (|Mult|Div|Add|Sub|) op =
+            let (|Mul|Div|Add|Sub|) op =
                 match op with
-                | _ when op |> opIsMult -> Mult
+                | _ when op |> opIsMul -> Mul
                 | _ when op |> opIsDiv -> Div
                 | _ when op |> opIsAdd -> Add
-                | _ when op |> opIsSubtr -> Sub
+                | _ when op |> opIsSub -> Sub
                 | _ -> failwith "Operator is not supported"

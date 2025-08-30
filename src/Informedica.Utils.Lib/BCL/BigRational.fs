@@ -361,12 +361,12 @@ module BigRational =
     /// multiplication, division, addition
     /// or subtraction, returns `NoOp` when
     /// the operation is neither.
-    let (|Mult|Div|Add|Subtr|) op =
+    let (|Mul|Div|Add|Sub|) op =
         match op with
-        | _ when op |> opIsMult  -> Mult
+        | _ when op |> opIsMult  -> Mul
         | _ when op |> opIsDiv   -> Div
         | _ when op |> opIsAdd   -> Add
-        | _ when op |> opIsSubtr -> Subtr
+        | _ when op |> opIsSubtr -> Sub
         | _ -> failwith "Operator is not supported"
 
 
@@ -382,8 +382,8 @@ module BigRational =
                 let a = vs1[0]
                 match op with
                 | Add -> Array.init m (fun j -> a + vs2[j])
-                | Subtr -> Array.init m (fun j -> a - vs2[j])
-                | Mult ->
+                | Sub -> Array.init m (fun j -> a - vs2[j])
+                | Mul ->
                     if a.IsZero then Array.create m BigRational.Zero
                     else Array.init m (fun j -> a * vs2[j])
                 | Div ->
@@ -395,8 +395,8 @@ module BigRational =
                 let b0 = vs2[0]
                 match op with
                 | Add -> Array.init n (fun i -> vs1[i] + b0)
-                | Subtr -> Array.init n (fun i -> vs1[i] - b0)
-                | Mult ->
+                | Sub -> Array.init n (fun i -> vs1[i] - b0)
+                | Mul ->
                     if b0.IsZero then Array.create n BigRational.Zero
                     else Array.init n (fun i -> vs1[i] * b0)
                 | Div ->
@@ -413,14 +413,14 @@ module BigRational =
                         for j = 0 to m - 1 do
                             res[baseIdx + j] <- v1 + vs2[j]
                     res
-                | Subtr ->
+                | Sub ->
                     for i = 0 to n - 1 do
                         let v1 = vs1[i]
                         let baseIdx = i * m
                         for j = 0 to m - 1 do
                             res[baseIdx + j] <- v1 - vs2[j]
                     res
-                | Mult ->
+                | Mul ->
                     // Tiny optimization: if either side has many zeros, this helps avoid doing full multiplies
                     // (still O(n*m), but cheaper work on zeros)
                     for i = 0 to n - 1 do

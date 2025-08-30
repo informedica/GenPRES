@@ -3189,10 +3189,10 @@ module ValueUnit =
         // calculate new combi unit
         let u =
             match op with
-            | BigRational.Mult -> u1 |> times u2
+            | BigRational.Mul -> u1 |> times u2
             | BigRational.Div -> u1 |> per u2
             | BigRational.Add
-            | BigRational.Subtr ->
+            | BigRational.Sub ->
                 match u1, u2 with
                 | _ when u1 |> Group.eqsGroup u2 -> u2
                 // Special case when one value is a dimensionless zero
