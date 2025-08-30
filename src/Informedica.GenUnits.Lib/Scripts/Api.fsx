@@ -5,10 +5,20 @@
 
 #load "load.fsx"
 
+open System
 open MathNet.Numerics
 
 open Informedica.GenUnits.Lib
 open Informedica.Utils.Lib.BCL
+
+
+
+type ParallelismHelpers =
+    static member MaxDepth =
+        int (Math.Log(float Environment.ProcessorCount, 2.0))
+
+    static member TotalWorkers =
+        int (2.0 ** float ParallelismHelpers.MaxDepth)
 
 
 
@@ -155,10 +165,22 @@ module ValueUnit =
         |> create u
 
 
-    let calc1 =
-        let calcF op vs1 vs2 =
+    let calcFChunked2 op vs1 vs2 =
+        let pairs =
             Array.allPairs vs1 vs2
-            |> Array.map (fun (v1, v2) -> v1 |> op <| v2)
+
+        let chunkSize =
+            (pairs |> Array.length) / ParallelismHelpers.TotalWorkers
+
+        pairs
+        |> Array.chunkBySize chunkSize // make batches
+        |> Array.map (fun batch -> async { return batch |> Array.map (fun (v1, v2 ) -> op v1 v2) })
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> Array.collect id
+
+    let calc1 =
+        let calcF op vs1 vs2 = calcFChunked2 op vs1 vs2
         calc_ calcF
 
     let calc2 =
@@ -192,7 +214,7 @@ let run msg op =
     printfn $"{msg}"
 
     let run msg f =
-        let stopWatch = System.Diagnostics.Stopwatch()
+        let stopWatch = Diagnostics.Stopwatch()
 
         stopWatch.Start()
         f() |> ignore
