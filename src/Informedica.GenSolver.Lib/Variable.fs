@@ -404,7 +404,7 @@ module Variable =
             let eqs min1 min2 =
                 let b1, vu1 = min1 |> toBoolValueUnit
                 let b2, vu2 = min2 |> toBoolValueUnit
-                (vu1 =? vu2) && (b1 = b2)
+                vu1 =? vu2 && b1 = b2
 
 
             /// <summary>

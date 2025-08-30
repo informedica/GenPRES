@@ -71,7 +71,7 @@ module rec Types =
         | NonZeroPositive // <0..>
         | Min of Minimum // <min .. >
         | Max of Maximum // <..max >
-        | MinMax of Minimum * Maximum // <min .. max>
+        | MinMax of min: Minimum * max: Maximum // <min .. max>
         | Incr of Increment // <..incr ..>
         | MinIncr of min: Minimum * incr: Increment // <min .. incr ..>
         | IncrMax of incr: Increment * max: Maximum // <.. incr .. max >
@@ -161,6 +161,8 @@ module rec Types =
             | SolverTooManyLoops of loopCount : int * Equation list
             | SolverErrored of loopCount: int * Message list * Equation list
             | UnexpectedException of ex: exn
+            | ValueRangeBoundaryShouldHaveOneValue of ValueUnit
+            | ValueRangeBoundaryOverFlow of obj
 
     module Events =
 

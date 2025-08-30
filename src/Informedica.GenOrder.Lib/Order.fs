@@ -3836,12 +3836,12 @@ module Order =
     //     false => timed/once-timed (time-driven)
     let processClearedOrder logger ord =
         // small helpers to clarify post-processing after property changes
-        let postMinMax minTime =
+        let solveAndToValues minTime =
             solveMinMax true logger
             >> Result.map (minIncrMaxToValues true minTime logger)
 
         let defaultInc = 100
-        let postMinMaxWithInc minTime =
+        let solveIncrIncrAndToValues minTime =
             solveMinMax true logger
             >> Result.bind (increaseIncrements logger defaultInc defaultInc)
             >> Result.map (minIncrMaxToValues true minTime logger)
@@ -3857,7 +3857,7 @@ module Order =
             | RateCleared ->
                 ord
                 |> orderPropertyChangeRate
-                |> postMinMax true
+                |> solveAndToValues true
             | ConcentrationCleared ->
                 ord
                 |> OrderPropertyChange.proc
@@ -3881,7 +3881,7 @@ module Order =
                         ItemOrderableConcentration ("", "", Concentration.setToNonZeroPositive)
                         ItemOrderableQuantity ("", "", Quantity.setToNonZeroPositive)
                     ]
-                |> postMinMax true
+                |> solveAndToValues true
             | _ ->
                 logUnmatched "continuous"
                 ord |> solveOrder true logger
@@ -3891,12 +3891,14 @@ module Order =
             | FrequencyCleared ->
                 ord
                 |> orderPropertyChangeFrequency
-                |> postMinMax true
+                // solve min/max and min/incr/max to values
+                |> solveAndToValues true
             | DosePerTimeCleared
             | DoseQuantityCleared ->
                 ord
                 |> orderPropertyChangeDoseQuantity
-                |> postMinMaxWithInc true
+                // solve min/max, increase increments, and min/incr/max to values
+                |> solveIncrIncrAndToValues true
             | _ ->
                 logUnmatched "discontinuous"
                 ord |> solveOrder true logger
@@ -3906,17 +3908,19 @@ module Order =
             | FrequencyCleared ->
                 ord
                 |> orderPropertyChangeFrequency
-                |> postMinMax false
+                // solve min/max and min/incr/max to values
+                |> solveAndToValues false
             | RateCleared
             | TimeCleared ->
                 ord
                 |> orderPropertyChangeRate
-                |> postMinMax false
+                |> solveAndToValues false
             | DosePerTimeCleared
             | DoseQuantityCleared ->
                 ord
                 |> orderPropertyChangeDoseQuantity
-                |> postMinMaxWithInc false
+                // solve min/max, increase increments, and min/incr/max to values
+                |> solveIncrIncrAndToValues false
 
             | _ ->
                 logUnmatched "timed"
