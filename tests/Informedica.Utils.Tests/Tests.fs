@@ -807,13 +807,14 @@ module Tests =
     module List =
 
         open Expecto
-
+        open Expecto.Flip
         open Informedica.Utils.Lib
 
         [<Tests>]
         let tests =
 
-            let equals exp txt res = Expect.equal res exp txt
+            // message-first Expect.equal from Expecto.Flip
+            let equals exp txt res = Expect.equal txt exp res
 
             testList "List" [
 
@@ -839,6 +840,30 @@ module Tests =
                     ["a";"b";"a"]
                     |> List.replace ((=) "a") "b"
                     |> equals ["b";"b";"a"] "returns the list with the first match replaced"
+                }
+
+                test "rotations on empty list returns a list with empty list" {
+                    []
+                    |> List.rotations
+                    |> Expect.equal "should be [ [] ]" [ [] ]
+                }
+
+                test "rotations on single-element list returns itself" {
+                    [42]
+                    |> List.rotations
+                    |> Expect.equal "should be [[42]]" [ [42] ]
+                }
+
+                test "rotations on two elements returns both orders" {
+                    ["A"; "B"]
+                    |> List.rotations
+                    |> Expect.equal "should be [[A;B]; [B;A]]" [ ["A"; "B"]; ["B"; "A"] ]
+                }
+
+                test "rotations on three elements moves each to the front once" {
+                    [1; 2; 3]
+                    |> List.rotations
+                    |> Expect.equal "should be [[1;2;3]; [2;1;3]; [3;1;2]]" [ [1;2;3]; [2;1;3]; [3;1;2] ]
                 }
 
 
