@@ -3133,27 +3133,37 @@ module Order =
         }
 
 
+    /// Check whether all OrderVariables in an Order are empty
     let isEmpty = toOrdVars >> List.forall OrderVariable.isEmpty
 
 
+    /// Check whether at least one OrderVariable in an Order has constraints
     let hasConstraints = toOrdVars >> List.exists OrderVariable.hasConstraints
 
 
+    /// Check whether all OrderVariables in an Order are within their constraints
     let isWithinConstraints = toOrdVars >> List.forall OrderVariable.isWithinConstraints
 
 
+    /// Check whether there are OrderVariables in an Order that are not within their constraints
+    /// and return those OrderVariables
     let checkConstraints = toOrdVars >> List.filter (OrderVariable.isWithinConstraints >> not)
 
 
+    /// Check whether all OrderVariables in an Order are solved
+    /// (i.e. have a single value within their constraints)
+    /// and have constraints
+    /// NOTE: an OrderVariable without constraints is considered solved
     let isSolved =
         toOrdVars
         >> List.filter OrderVariable.hasConstraints
         >> List.forall OrderVariable.isSolved
 
 
+
     let hasValues ord =
         match (ord |> inf).Prescription with
-        | Continuous tme ->
+        | Continuous _ ->
             [
                 // drip rate
                 ord.Orderable.Dose.Rate |> Rate.toOrdVar
@@ -3828,12 +3838,9 @@ module Order =
             ]
 
 
-    // Assumptions:
-    // - write*Message functions are development-time traces; use Logging.* for production logs
-    // - Only one variable is cleared at a time
-    // - minTime flag in minIncrMaxToValues:
-    //     true  => discontinuous/once/continuous (dose per time or quantity focus)
-    //     false => timed/once-timed (time-driven)
+    /// Process an order that has been cleared
+    /// by setting relevant variables to non-zero positive
+    /// values and solving the order again
     let processClearedOrder logger ord =
         // small helpers to clarify post-processing after property changes
         let solveAndToValues minTime =
@@ -3953,6 +3960,17 @@ module Order =
         | PKTimed
 
 
+    /// The state of an Order used for classification
+    /// in the processing pipeline
+    /// IsEmpty: whether the order is empty
+    /// HasValues: whether the order has values
+    /// DoseIsSolved: whether the dose is solved
+    /// IsCleared: whether the order is cleared
+    /// PrescriptionKind: the kind of prescription
+    /// (Once, OnceTimed, Discontinuous, Continuous, Timed)
+    /// This is used to determine which steps to run
+    /// in the processing pipeline
+    /// and in which order
     type OrderState = {
         IsEmpty: bool
         HasValues: bool
@@ -3961,6 +3979,8 @@ module Order =
         PrescriptionKind: PrescriptionKind
     }
 
+
+    /// Classify an order into an OrderState
     let classify (ord: Order) : OrderState =
         let kind =
             match ord.Prescription with
@@ -3982,6 +4002,11 @@ module Order =
     type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
 
 
+    /// A processing step in the pipeline
+    /// with a name, a guard function to check
+    /// whether to run the step, and a run function
+    /// that takes an Order and returns a Result
+    /// with the processed Order or a list of error messages
     type Step = {
         Name: string
         Guard: OrderState -> bool
@@ -3989,8 +4014,14 @@ module Order =
     }
 
 
-
-    // Refactored, fluent pipeline using Step. Kept separate to avoid breaking callers.
+    /// <summary>
+    /// Process an order through a pipeline of steps
+    /// depending on the command given
+    /// </summary>
+    /// <param name="logger">The logger</param>
+    /// <param name="normDose">An optional norm dose adjustment</param>
+    /// <param name="cmd">The command to process</param>
+    /// <returns>A Result with the processed Order or a list of error messages</returns>
     let processPipeline logger normDose cmd =
 
         let runStep (step: Step) (ord: Order) =
