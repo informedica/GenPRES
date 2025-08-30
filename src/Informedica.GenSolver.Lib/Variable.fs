@@ -1419,7 +1419,13 @@ module Variable =
                 (ValueSet.map f)
 
 
-        let checkEqualUnitGroup vr =
+        /// <summary>
+        /// Check whether all `ValueUnit`s in a `ValueRange` belong to the same
+        /// `ValueUnit.Group`.
+        /// </summary>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>True if all `ValueUnit`s belong to the same `ValueUnit.Group`</returns>
+        let allSameUnitGroup vr =
             let fMinMax (min, max) =
                 min
                 |> Minimum.toValueUnit
@@ -1482,13 +1488,25 @@ module Variable =
         let convertToUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
+        /// <summary>
+        /// Get the unit of a `ValueRange` if all `ValueUnit`s belong to
+        /// the same `ValueUnit.Group`. Otherwise return `None`.
+        /// </summary>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>The unit of the `ValueRange` or `None`</returns>
         let getUnit vr =
-            if vr |> checkEqualUnitGroup then
+            if vr |> allSameUnitGroup then
                 vr
                 |> applyValueUnit (ValueUnit.getUnit >> Some)
             else None
 
 
+        /// <summary>
+        /// Check whether two `ValueRange`s have the same `ValueUnit.Group`.
+        /// </summary>
+        /// <param name="vr1">The first `ValueRange`</param>
+        /// <param name="vr2">The second `ValueRange`</param>
+        /// <returns>True if both `ValueRange`s have the same `ValueUnit.Group`</returns>
         let eqsUnitGroup vr1 vr2 =
             match vr1 |> getUnit, vr2 |> getUnit with
             | Some un1, Some un2 ->
@@ -1496,6 +1514,12 @@ module Variable =
             | _ -> true
 
 
+        /// <summary>
+        /// Set the unit of a `ValueRange` to **unt**.
+        /// </summary>
+        /// <param name="unt">The unit to set</param>
+        /// <param name="vr">The `ValueRange`</param>
+        /// <returns>The `ValueRange` with the new unit</returns>
         let setUnit unt vr =
             vr
             |> mapValueUnit (ValueUnit.setUnit unt)
@@ -1877,13 +1901,14 @@ module Variable =
         /// or equal to the original min.
         /// </remarks>
         let minMultipleOf incr min =
-            if (min,  incr) |> MinIncr |> checkEqualUnitGroup |> not then
+            if (min,  incr) |> MinIncr |> allSameUnitGroup |> not then
                 $"{min}, {incr} don't have the same unit group"
                 |> failwith
 
             min |> Minimum.multipleOf incr
 
 
+        /// Check if max is a multiple of incr
         let maxIsMultipleOf incr max =
             let b, vu = max |> Maximum.toBoolValueUnit
 
@@ -1911,7 +1936,7 @@ module Variable =
         /// or equal to the original max.
         /// </remarks>
         let maxMultipleOf incr max =
-            if (incr, max) |> IncrMax |> checkEqualUnitGroup |> not then
+            if (incr, max) |> IncrMax |> allSameUnitGroup |> not then
                 $"{incr}, {max} don't have the same unit group"
                 |> failwith
             max |> Maximum.multipleOf incr
@@ -1947,7 +1972,7 @@ module Variable =
                     min, max |> Maximum.setUnit minUnit
                 | _ -> min, max
 
-            if (min, max) |> MinMax |> checkEqualUnitGroup |> not then
+            if (min, max) |> MinMax |> allSameUnitGroup |> not then
                 $"{min}, {max} don't have the same unit group"
                 |> failwith
 
@@ -1997,7 +2022,7 @@ module Variable =
                     min |> Minimum.setUnit incrUnit
                 | _ -> min
 
-            if (min,  incr) |> MinIncr |> checkEqualUnitGroup |> not then
+            if (min,  incr) |> MinIncr |> allSameUnitGroup |> not then
                 $"{min}, {incr} don't have the same unit group"
                 |> failwith
 
@@ -2042,7 +2067,7 @@ module Variable =
                     max |> Maximum.setUnit incrUnit
                 | _ -> max
 
-            if (incr, max) |> IncrMax |> checkEqualUnitGroup |> not then
+            if (incr, max) |> IncrMax |> allSameUnitGroup |> not then
                 $"{incr}, {max} don't have the same unit group"
                 |> failwith
 
@@ -2073,7 +2098,7 @@ module Variable =
                 else
                     max |> Maximum.setUnit incrUnit
 
-            if (min, incr, max) |> MinIncrMax |> checkEqualUnitGroup |> not then
+            if (min, incr, max) |> MinIncrMax |> allSameUnitGroup |> not then
                 $"{min}, {incr}, {max} don't have the same unit group"
                 |> failwith
             let min = min |> minMultipleOf incr
@@ -2222,6 +2247,8 @@ module Variable =
             apply None None Option.none Option.none Option.none Option.none Option.none Option.none Option.none Some
 
 
+        /// Get all of min, incr, max and valSet in a `ValueRange`
+        /// as a tuple
         let getMinIncrMaxOrValueSet vr =
             vr |> getMin,
             vr |> getIncr,
@@ -2229,6 +2256,7 @@ module Variable =
             vr |> getValSet
 
 
+        /// Check whether a `ValueRange` has a minimum that is exclusive and zero.
         let isMinExclusiveZero vr =
             match vr |> getMinIncrMaxOrValueSet with
             | Some min, None, None, None  ->
@@ -2239,6 +2267,12 @@ module Variable =
             | _ -> false
 
 
+        /// <summary>
+        /// Set the nearest value in a `ValueRange` to **vu**.
+        /// </summary>
+        /// <param name="vu">The ValueUnit (value)</param>
+        /// <param name="vr">The ValueRange</param>
+        /// <returns>The `ValueRange` with the nearest value to **vu**</returns>
         let setNearestValue vu vr =
             match vr |> getValSet with
             | None -> vr
@@ -2629,6 +2663,8 @@ module Variable =
             |> snd
 
 
+        /// Set the minimum value of a ValueRange to a ValueSet
+        /// with only the minimum value.
         let setMinValue vr =
             let toMin min =
                 let b, vu = min |> Minimum.toBoolValueUnit
@@ -2649,6 +2685,8 @@ module Variable =
             | _ -> vr
 
 
+        /// Set the maximum value of a ValueRange to a ValueSet
+        /// with only the maximum value.
         let setMaxValue vr =
             let toMax max =
                 let b, vu = max |> Maximum.toBoolValueUnit
@@ -2669,6 +2707,8 @@ module Variable =
             | _ -> vr
 
 
+        /// Set the median value of a ValueRange to a ValueSet
+        /// with only the median value.
         let setMedianValue vr =
             match vr with
             | ValSet vs ->
@@ -2686,6 +2726,7 @@ module Variable =
             | _ -> [||]
 
 
+        /// Pick the values at the given indices from a ValueRange vr.
         let pickIndices indices vr =
             match vr with
             | ValSet vs ->
@@ -2695,6 +2736,7 @@ module Variable =
             | _ -> vr
 
 
+        /// Set the ValueRange to Unrestricted.
         let clear var = { var with Values = Unrestricted }
 
 
@@ -3577,19 +3619,28 @@ module Variable =
         getValueRange >> ValueRange.isUnrestricted
 
 
+    /// Checks whether the ValueRange of a Variable
+    /// is non-zero and positive
     let isNonZeroPositive =
         getValueRange >> ValueRange.isNonZeroPositive
 
 
+    /// Checks whether the ValueRange of a Variable
+    /// is a Minimum
     let isMin = getValueRange >> ValueRange.isMin
 
 
+    /// Checks whether the ValueRange of a Variable
+    /// is a Maximum
     let isMax = getValueRange >> ValueRange.isMax
 
 
+    /// Checks whether the ValueRange of a Variable
+    /// is a MinMax
     let isMinMax = getValueRange >> ValueRange.isMinMax
 
-
+    /// Checks whether the ValueRange of a Variable
+    /// is an MinIncr
     let isMinIncr = getValueRange >> ValueRange.isMinIncr
 
 
@@ -3598,6 +3649,8 @@ module Variable =
     let isMinIncrMax = getValueRange >> ValueRange.isMinIncrMax
 
 
+    /// Checks whether the ValueRange of a Variable
+    /// Minimum is exclusive zero
     let isMinExclusiveZero = getValueRange >> ValueRange.isMinExclusiveZero
 
 
@@ -3686,6 +3739,11 @@ module Variable =
         }
 
 
+    /// <summary>
+    /// Set the nearest value of a Variable
+    /// </summary>
+    /// <param name="vu">The ValueUnit to set the nearest value to</param>
+    /// <param name="var">The Variable to set the nearest value for</param>
     let setNearestValue vu var =
         { var with
             Values =
@@ -3694,6 +3752,9 @@ module Variable =
         }
 
 
+    /// Set the minimum value of a Variable
+    /// <param name="var">The Variable to set the minimum value for</param>
+    /// <returns>The Variable with the new minimum value</returns>
     let setMinValue var =
         { var with
             Values =
@@ -3702,6 +3763,9 @@ module Variable =
         }
 
 
+    /// Set the maximum value of a Variable
+    /// <param name="var">The Variable to set the maximum value for</param>
+    /// <returns>The Variable with the new maximum value</returns>
     let setMaxValue var =
         { var with
             Values =
@@ -3710,6 +3774,9 @@ module Variable =
         }
 
 
+    /// Set the median value of a Variable
+    /// <param name="var">The Variable to set the median value for</param>
+    /// <returns>The Variable with the new median value</returns>
     let setMedianValue var =
         { var with
             Values =
@@ -3723,6 +3790,10 @@ module Variable =
         var |> getValueRange |> ValueRange.getUnit
 
 
+    /// Set the unit of a Variable
+    /// <param name="unt">The unit to set</param>
+    /// <param name="var">The Variable to set the unit for</param>
+    /// <returns>The Variable with the new unit</returns>
     let setUnit unt var =
         { var with
             Values =
