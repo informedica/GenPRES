@@ -15,6 +15,46 @@ open System.Threading.Tasks
 
 open Informedica.Utils.Lib
 
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
+
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
+open System.Threading.Tasks
+
+
+let logClientIP : HttpHandler =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let getClientIP (context: HttpContext) =
+            match context.Request.Headers.TryGetValue("X-Forwarded-For") with
+            | true, values when values.Count > 0 ->
+                values.[0].Split(',').[0].Trim()
+            | _ ->
+                match context.Connection.RemoteIpAddress with
+                | null -> "unknown"
+                | ip -> ip.ToString()
+
+        let clientIP = getClientIP ctx
+        let path = ctx.Request.Path.ToString()
+        let method = ctx.Request.Method
+        
+        // Log synchronously first
+        try            
+            // If you need async logging, you could do it in a background task
+            async {
+                try
+                    let logger = Logging.getLogger () 
+                    do! logger |> Logging.setComponentName (Some "Client_Request")
+                    Logging.ServerLogging.logRequest logger method path clientIP
+                with ex ->
+                    sprintf "Async logging error: %s" ex.Message |> writeErrorMessage
+            } |> Async.Start
+        with ex ->
+            sprintf "Logging error: %s" ex.Message |> writeDebugMessage
+        
+        // Continue with the next handler
+        next ctx
+
 
 let tryGetEnv key = Env.getItem key
 
@@ -43,7 +83,7 @@ let port =
 let webApi =
     let serverApi = 
         async {
-            do! Logging.getLogger () |> Logging.activateLogger (Some "ServerApi")
+            do! Logging.getLogger () |> Logging.setComponentName (Some "ServerApi")
             let provider =
                 tryGetEnv "GENPRES_URL_ID"
                 |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
@@ -60,7 +100,7 @@ let webApi =
 
 let webApp =
     choose [
-        webApi
+        logClientIP >=> webApi
         GET >=> text "GenInteractions App. Use localhost: 8080 for the GUI"
     ]
 
@@ -72,7 +112,7 @@ type LoggerShutdown() =
             writeInfoMessage "Trying to Stop Server Async"
             try
                 let logger = Logging.getLogger()
-                (logger.StopAsync() |> Async.StartAsTask) :> Task
+                logger.StopAsync() |> Async.StartAsTask :> Task
             with ex ->
                 eprintfn "Logger shutdown failed: %s" ex.Message
                 Task.CompletedTask

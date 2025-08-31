@@ -2,7 +2,7 @@
 
 open System
 open System.Threading.Tasks
-
+open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 /// General message types
 type IMessage = interface end
@@ -140,10 +140,11 @@ module MessageFormatter =
             |> List.tryPick (fun (regType, formatter) ->
                 if regType.IsAssignableFrom(msgType) then
                     Some formatter
-                else None
+                else
+                    None
             )
             |> Option.map (fun formatter -> formatter msg)
-            |> Option.defaultValue ""
+            |> Option.defaultValue $"cannot format: {msg}"
 
 
     /// Create a formatter with fallback

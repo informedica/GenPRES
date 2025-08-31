@@ -846,7 +846,7 @@ module Command =
         match cmd with
         | OrderContextCmd ctxCmd ->
             async {
-                do! logger |> Logging.activateLogger (Some "OrderContext")
+                do! logger |> Logging.setComponentName (Some "OrderContext")
                 return 
                     ctxCmd
                     |> OrderContext.evaluate logger.Logger provider
@@ -855,7 +855,7 @@ module Command =
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
             async {
-                do! logger |> Logging.activateLogger (Some "TreatmentPlan")
+                do! logger |> Logging.setComponentName (Some "TreatmentPlan")
                 return
                     tp
                     |> TreatmentPlan.updateTreatmentPlan logger.Logger provider

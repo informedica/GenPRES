@@ -16,7 +16,30 @@ module Logging
 
     open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
 
+
+
+    // Server-specific logging message types and helpers
+    module ServerLogging =
+
+        open Informedica.Logging.Lib
+
+        /// Messages used by the Server that can be logged
+        type Message =
+            | Request of method_: string * path: string * clientIP: string
+            | Info of string
+            | Warning of string
+            | Error of string
+            interface IMessage
+
+        /// Log a request line as Informative
+        let logRequest (logger: AgentLogging.AgentLogger) (method_: string) (path: string) (clientIP: string) =
+            Request(method_, path, clientIP)
+            |> Logging.logInfo logger.Logger
+
+
+
     let [<Literal>] MAX_LOG_FILES = 10_000
+
 
 
     let getAssemblyPath () =
@@ -66,7 +89,8 @@ module Logging
         
         let componentName = componentName |> Option.defaultValue "general"
         let timestamp = DateTime.Now.ToString("yyyyMMdd_HHmm")
-        let fileName = $"genpres_{componentName}_{timestamp}.log"
+        let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 8)
+        let fileName = $"genpres_{componentName}_{timestamp}_{shortGuid}.log"
         
         Path.Combine(logDir, fileName)
 
@@ -100,7 +124,7 @@ module Logging
         logger.Value
 
 
-    let activateLogger (componentName: string option) (logger: AgentLogging.AgentLogger) =
+    let setComponentName (componentName: string option) (logger: AgentLogging.AgentLogger) =
         let loggingEnabled =
             Env.getItem "GENPRES_LOG"
             |> Option.map (fun s ->
@@ -114,20 +138,20 @@ module Logging
             let path = getRecommendedLogPath componentName
 
             async {
-                let agent = getDirAgent path
-                let! pruned = FileDirectoryAgent.pruneAsync path agent
+                let dirAgent = getDirAgent path
+                let! pruned = FileDirectoryAgent.pruneAsync path dirAgent
                 match pruned with
                 | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
                 | Ok _ -> ()
                 | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
-                agent |> Agent.dispose
+                dirAgent |> Agent.dispose
 
                 let! started = logger.StartAsync (Some path) config.DefaultLevel
 
                 started
                 |> function
                 | Ok _-> 
-                    writeInfoMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
+                    writeDebugMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
                     //| None -> printfn "🖥️  Logger activated - Console only"
                 | Error s -> writeErrorMessage $"❌ Logger for {componentName} could not be activated:\n{s}\n"
             }
