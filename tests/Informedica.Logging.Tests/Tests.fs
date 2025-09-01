@@ -203,7 +203,7 @@ module Tests =
                     
                     Expect.equal testResult "hello" "Test message should be formatted correctly"
                     Expect.equal numberResult "42" "Number message should be formatted correctly"
-                    Expect.equal unknownResult "" "Unknown message should return empty string"
+                    Expect.stringContains unknownResult "cannot format" "Unknown message should contain cannot format"
                 }
                 
                 test "createWithFallback should use fallback for unknown types" {
@@ -453,7 +453,7 @@ module Tests =
                     
                     let result = formatter (InfoEvent "Test" :> IMessage)
                     
-                    Expect.equal result "" "Empty formatter list should return empty string"
+                    Expect.stringContains result "cannot format" "Empty formatter list should have cannot format"
                 }
 
                 test "should handle null or exception cases in discriminated union formatters" {
