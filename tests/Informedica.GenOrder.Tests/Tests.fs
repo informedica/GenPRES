@@ -666,3 +666,160 @@ module Tests
             TypeTests.tests
         ]
 
+    // New: Equivalence tests comparing legacy pipeline logic with the new processPipeline
+    module PipelineEquivalence =
+        open Informedica.GenOrder.Lib
+        open Informedica.GenOrder.Lib.Order
+        open Informedica.GenOrder.Lib.OrderVariable
+        module OV = Informedica.GenOrder.Lib.OrderVariable
+        module Units = Informedica.GenUnits.Lib.Units
+
+        let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
+
+        // Build specific orders to exercise different prescription kinds
+        let private mkDiscontinuousOrder () =
+            testDrugOrders
+            |> List.find (fun d -> match d.OrderType with | DiscontinuousOrder -> true | _ -> false)
+            |> DrugOrder.toOrderDto
+            |> Order.Dto.fromDto
+
+        let private mkTimedOrder () =
+            testDrugOrders
+            |> List.find (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
+            |> DrugOrder.toOrderDto
+            |> Order.Dto.fromDto
+
+        let private mkEmptyOrder () =
+            Order.Dto.discontinuous "E" "Empty" "PO" [] |> Order.Dto.fromDto
+
+        // A minimal in-test legacy implementation mirroring the provided previous pipeline
+        module Legacy =
+            open Informedica.Utils.Lib.BCL
+
+            type PState =
+                | Processed of Order
+                | NotProcessed of Order
+
+            let private calcValues logger (ord: Order) =
+                ord |> Order.minIncrMaxToValues false true logger |> Ok
+
+            let private isEmpty = function | IsEmpty -> true | _ -> false
+            let private noValues = function | NoValues -> true | _ -> false
+            let private hasValues = function | HasValues -> true | _ -> false
+            let private doseSolvedNotCleared = function | DoseSolvedNotCleared -> true | _ -> false
+            let private doseSolvedAndCleared = function | DoseSolvedAndCleared -> true | _ -> false
+
+            let private procCleared logger ord =
+                ord
+                |> Order.processClearedOrder logger
+                |> function
+                   | Ok res -> Ok res
+                   | Error _ -> Order.solveOrder true logger ord
+
+            let private calcMinMax logger normDose increaseIncrement ord =
+                Order.calcMinMax logger normDose increaseIncrement ord
+                |> function
+                   | Ok res -> Ok res
+                   | Error (ord, errs) -> Error (ord, errs)
+
+            let private procIf msg pred procF (res: Result<PState, Order * Informedica.GenOrder.Lib.Order.GenSolverExceptionMsg list>) =
+                match res with
+                | Ok (Processed ord) -> Ok (Processed ord)
+                | Ok (NotProcessed ord) ->
+                    if pred ord then
+                        // optional: logging omitted in tests
+                        procF ord
+                        |> Result.map (fun ord -> if hasValues ord then Processed ord else NotProcessed ord)
+                    else Ok (NotProcessed ord)
+                | Error _ -> res
+
+            // The legacy pipeline exposed in tests
+            let processPipeLine logger normDose cmd =
+                match cmd with
+                | CalcMinMax ord ->
+                    Ok (NotProcessed ord)
+                    |> procIf "order is empty: calc minmax" isEmpty (calcMinMax logger normDose false)
+                | CalcValues ord ->
+                    Ok (NotProcessed ord)
+                    |> procIf "order has no values: calc values" noValues (calcValues logger)
+                | SolveOrder ord ->
+                    Ok (NotProcessed ord)
+                    |> procIf "order has no values: calc values" noValues (calcValues logger)
+                    |> Result.map (function | Processed o -> NotProcessed o | NotProcessed o -> NotProcessed o)
+                    |> procIf "order has values: solve order" hasValues (Order.solveOrder true logger)
+                    |> procIf "order has no values: calc values" noValues (calcValues logger)
+                    |> Result.map (function | Processed o -> NotProcessed o | NotProcessed o -> NotProcessed o)
+                    |> procIf "order has values: solve order" hasValues (Order.solveOrder true logger)
+                    |> procIf "order is solved and has cleared prop: process cleared order" doseSolvedAndCleared (procCleared logger)
+                    |> procIf "order is solved no cleared prop: just solve" (fun _ -> true) (Order.solveOrder true logger)
+                | ReCalcValues ord ->
+                    ord
+                    |> Order.applyConstraints
+                    |> fun o -> Ok (NotProcessed o)
+                    |> procIf "recalc requested: recalc order" (fun _ -> true) (fun o ->
+                        calcMinMax logger normDose false o |> Result.bind (calcValues logger)
+                    )
+                |> Result.map (function | Processed o | NotProcessed o -> o)
+
+        // Helper to compare results while being lenient on error messages
+        let private expectSameOutcome name (r1: Result<Order, Order * _>) (r2: Result<Order, Order * _>) =
+            match r1, r2 with
+            | Ok o1, Ok o2 -> Expect.equal name o1 o2
+            | Error (o1, _), Error (o2, _) -> Expect.equal name o1 o2
+            | _ ->
+                let msg = sprintf "%s: outcomes differ\nold: %A\nnew: %A" name r1 r2
+                false |> Expect.isTrue msg
+
+        [<Tests>]
+        let pipeline_equivalence_tests =
+            testList "Old vs new pipeline equivalence" [
+                test "CalcMinMax on empty order" {
+                    let ord = mkEmptyOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (CalcMinMax ord)
+                    let newR = Order.processPipeline noLogger None (CalcMinMax ord)
+                    expectSameOutcome "empty-calcminmax" oldR newR
+                }
+
+                test "CalcValues on discontinuous order" {
+                    let ord = mkDiscontinuousOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (CalcValues ord)
+                    let newR = Order.processPipeline noLogger None (CalcValues ord)
+                    expectSameOutcome "disco-calcvalues" oldR newR
+                }
+
+                test "CalcValues on timed order" {
+                    let ord = mkTimedOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (CalcValues ord)
+                    let newR = Order.processPipeline noLogger None (CalcValues ord)
+                    expectSameOutcome "timed-calcvalues" oldR newR
+                }
+
+                test "SolveOrder on discontinuous order" {
+                    let ord = mkDiscontinuousOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (SolveOrder ord)
+                    let newR = Order.processPipeline noLogger None (SolveOrder ord)
+                    expectSameOutcome "disco-solve" oldR newR
+                }
+
+                test "SolveOrder on timed order" {
+                    let ord = mkTimedOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (SolveOrder ord)
+                    let newR = Order.processPipeline noLogger None (SolveOrder ord)
+                    expectSameOutcome "timed-solve" oldR newR
+                }
+
+                test "ReCalcValues on discontinuous order" {
+                    let ord = mkDiscontinuousOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (ReCalcValues ord)
+                    let newR = Order.processPipeline noLogger None (ReCalcValues ord)
+                    expectSameOutcome "disco-recalcvalues" oldR newR
+                }
+
+                test "ReCalcValues on timed order" {
+                    let ord = mkTimedOrder ()
+                    let oldR = Legacy.processPipeLine noLogger None (ReCalcValues ord)
+                    let newR = Order.processPipeline noLogger None (ReCalcValues ord)
+                    expectSameOutcome "timed-recalcvalues" oldR newR
+                }
+            ]
+

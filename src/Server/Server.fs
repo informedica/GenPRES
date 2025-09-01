@@ -66,34 +66,29 @@ let provider =
 let logClientIP : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
 
-        async {
-            let clientIP = getClientIP ctx
-            let path = ctx.Request.Path.ToString()
-            let method = ctx.Request.Method
+        let clientIP = getClientIP ctx
+        let path = ctx.Request.Path.ToString()
+        let method = ctx.Request.Method
+        
+        // Log synchronously first
+        try
+            let logger = Logging.getLogger () 
+            logger |> Logging.setComponentName (Some "Client_Request") |> Async.Start
             
-            // Log synchronously first
-            try
-                let logger = Logging.getLogger () 
-                do! logger |> Logging.setComponentName (Some "Client_Request") //|> Async.RunSynchronously
-                Logging.ServerLogging.logRequest logger method path clientIP
-            with ex ->
-                sprintf "Logging error: %s" ex.Message |> writeDebugMessage
-        } |> Async.Start
+            Logging.ServerLogging.logRequest logger method path clientIP
+        with ex ->
+            sprintf "Logging error: %s" ex.Message |> writeDebugMessage
         
         // Continue with the next handler
         next ctx
 
 
 let webApi =
-    let serverApi = 
-        async {
-            do! Logging.getLogger () |> Logging.setComponentName (Some "ServerApi")
-
-            return provider |> createServerApi
-        } |> Async.RunSynchronously
+    Logging.getLogger () |> Logging.setComponentName (Some "ServerApi")
+    |> Async.Start
 
     Remoting.createApi()
-    |> Remoting.fromValue serverApi
+    |> Remoting.fromValue (createServerApi provider)
     |> Remoting.withRouteBuilder routerPaths
     |> Remoting.buildHttpHandler
 

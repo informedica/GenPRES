@@ -4027,13 +4027,19 @@ module Order =
         let runStep (step: Step) (ord: Order) =
             if step.Guard (classify ord) then
                 $"\n=== PIPELINE {step.Name} ===\n"
-                |> writeDebugMessage
+                |> Events.OrderScenario
+                |> Logging.logInfo logger
+                
                 step.Run ord
             else Ok ord
 
         let runPipeline (ord: Order) (steps: Step list) =
             (Ok ord, steps)
             ||> List.fold (fun acc step -> acc |> Result.bind (runStep step))
+
+        // Helper guards matching legacy active-pattern logic
+        // NoValues is defined as: not empty, no values, and not solved
+        let isNoValues (s: OrderState) = (not s.IsEmpty) && (not s.HasValues) && (not s.DoseIsSolved)
 
         // Core step functions
         let calcMinMaxStep increaseIncrement ord =
@@ -4054,31 +4060,37 @@ module Order =
 
         let applyConstraintsStep ord = ord |> applyConstraints |> Ok
 
-        match cmd with
-        | CalcMinMax ord ->
-            [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
-            |> runPipeline ord
-        | CalcValues ord ->
-            [ { Name = "calc-values"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep } ]
-            |> runPipeline ord
-        | SolveOrder ord ->
-            [
-                { Name = "ensure-minmax"; Guard = (fun s -> not s.HasValues); Run = calcMinMaxStep false };
-                { Name = "ensure-values-1"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
-                { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                { Name = "ensure-values-2"; Guard = (fun s -> not s.HasValues); Run = calcValuesStep };
-                { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
-                { Name = "final-solve"; Guard = (fun _ -> true); Run = solveStep }
-            ]
-            |> runPipeline ord
-        | ReCalcValues ord ->
-            [
-                { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
-                { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
-                { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
-            ]
-            |> runPipeline ord
+        let res =
+            match cmd with
+            | CalcMinMax ord ->
+                [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
+                |> runPipeline ord
+            | CalcValues ord ->
+                // Legacy behavior: only when NoValues (not for empty orders)
+                [ { Name = "calc-values"; Guard = isNoValues; Run = calcValuesStep } ]
+                |> runPipeline ord
+            | SolveOrder ord ->
+                // Legacy behavior: do NOT run min/max here; use values-only flow
+                [
+                    { Name = "ensure-values-1"; Guard = isNoValues; Run = calcValuesStep };
+                    { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                    { Name = "ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
+                    { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                    { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
+                    { Name = "final-solve"; Guard = (fun _ -> true); Run = solveStep }
+                ]
+                |> runPipeline ord
+            | ReCalcValues ord ->
+                [
+                    { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
+                    { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
+                    { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
+                ]
+                |> runPipeline ord
+
+        // Match legacy tail: print end-of-pipeline marker and return
+        res
+        |> Result.map (fun o -> "\n=== END PIPELINE ===\n" |> writeDebugMessage; o)
 
 
 

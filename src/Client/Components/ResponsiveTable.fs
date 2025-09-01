@@ -168,7 +168,7 @@ module ResponsiveTable =
                 let selectedIds = 
                     selectionModel?ids 
                     |> unbox<Set<string>>
-                    |> Set.toArray
+                    |> Seq.toArray
                 props.onSelectChange selectedIds
 
         let rows =
