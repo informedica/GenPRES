@@ -12,26 +12,24 @@ open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.DependencyInjection
 open System.Threading.Tasks
 
-
+open Informedica.Utils.Lib.BCL
 open Informedica.Utils.Lib
 
-open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 
-open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Http
-open System.Threading.Tasks
 
 
 let getClientIP (context: HttpContext) =
     match context.Request.Headers.TryGetValue("X-Forwarded-For") with
     | true, values when values.Count > 0 ->
-        values.[0].Split(',').[0].Trim()
+        values[0].Split(',')
+        |> Array.tryHead
+        |> Option.map String.trim
+        |> Option.defaultValue "unknown"
     | _ ->
         match context.Connection.RemoteIpAddress with
         | null -> "unknown"
         | ip -> ip.ToString()
-
 
 
 let tryGetEnv key = Env.getItem key
@@ -68,23 +66,19 @@ let provider =
 let logClientIP : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
 
-        let clientIP = getClientIP ctx
-        let path = ctx.Request.Path.ToString()
-        let method = ctx.Request.Method
-        
-        // Log synchronously first
-        try            
-            // If you need async logging, you could do it in a background task
-            async {
-                try
-                    let logger = Logging.getLogger () 
-                    do! logger |> Logging.setComponentName (Some "Client_Request")
-                    Logging.ServerLogging.logRequest logger method path clientIP
-                with ex ->
-                    sprintf "Async logging error: %s" ex.Message |> writeErrorMessage
-            } |> Async.Start
-        with ex ->
-            sprintf "Logging error: %s" ex.Message |> writeDebugMessage
+        async {
+            let clientIP = getClientIP ctx
+            let path = ctx.Request.Path.ToString()
+            let method = ctx.Request.Method
+            
+            // Log synchronously first
+            try
+                let logger = Logging.getLogger () 
+                do! logger |> Logging.setComponentName (Some "Client_Request") //|> Async.RunSynchronously
+                Logging.ServerLogging.logRequest logger method path clientIP
+            with ex ->
+                sprintf "Logging error: %s" ex.Message |> writeDebugMessage
+        } |> Async.Start
         
         // Continue with the next handler
         next ctx
