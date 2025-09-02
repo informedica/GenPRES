@@ -1,4 +1,64 @@
-# Order.hasValues: variables checked per prescription type
+# Order Value Constraint Logic Design
+
+## OrderVariable design
+
+An `OrderVariable` pairs a solver `Variable` with a set of `Constraints`.
+
+- Variable: identified by `Name`, holding a `ValueRange` (not a single “value”). The `ValueRange` can be unrestricted, range-shaped (min/max), incremented (min/incr/max), or a discrete `ValueSet`.
+- Constraints: optional bounds and enumerations that describe what’s allowed for the variable. In code this is a record of four optionals: `Min`, `Max`, `Incr`, and `Values`.
+
+Applying constraints and/or evaluations leads to recognizable states. The names below align with the current implementation in `OrderVariable`:
+
+- Unconstrained
+	- Meaning: the constraints record is effectively empty (no `Min`, `Max`, `Incr`, or `Values`).
+	- Code: `Constraints.isEmpty` returns true.
+- NonZeroPositive
+	- Meaning: that the variable has a lower bound (`Minimum`) of > 0. Note that in this special case the `Value` unit can be unitless (`ZeroUnit`) as calculations with zero are independent of the unit of the value.
+- WithBounds
+	- Meaning: constraints define a minimum and/or maximum (and possibly an increment), but no discrete value set has been materialized yet.
+	- Code: `Constraints.toValueRange` produces a min/max (and optionally incr) range.
+
+- MinIncrMax (enumerable)
+	- Meaning: the variable’s `ValueRange` is in the min/incr/max form, which can be expanded into a discrete set of values.
+	- Code: `Variable.isMinIncrMax` checks shape; `OrderVariable.minIncrMaxToValues` materializes into a `ValueSet` (optionally pruned).
+
+- ValueSet (discrete)
+	- Meaning: the variable (or constraints) contains a discrete set of candidate values.
+	- Code: `Variable.hasValues` inspects the variable’s `ValueRange` for a non-empty `ValueSet`.
+
+- HasValues
+	- Meaning: there are multiple selectable values remaining (cardinality > 1).
+	- Code: `OrderVariable.hasValues` delegates to `Variable.hasValues` with the >1 interpretation used by the order logic.
+
+- Solved
+	- Meaning: the system considers the variable “done”. This includes the single-value case, but also certain “default” shapes.
+	- Code: `OrderVariable.isSolved` is true if the variable is a single value OR is unrestricted OR is non‑zero‑positive. This is a deliberate shortcut used broadly in the order math.
+
+- Cleared
+	- Meaning: values are cleared back to an unrestricted domain (not “empty set”).
+	- Code: `OrderVariable.isCleared` checks `Variable.isUnrestricted`; `OrderVariable.clear` resets values to unrestricted.
+
+- Empty (shorthand used in order logic)
+	- Meaning: nothing concrete to pick yet; treated as “empty” for flow control.
+	- Code: `OrderVariable.isEmpty` is true if the variable is unrestricted, non‑zero‑positive, or has min‑exclusive‑zero.
+
+Notes on terminology adjustments:
+
+- Replaced misspellings/ambiguous terms:
+	- `UnConstraint` → `Unconstrained`
+	- `NotContrstraint` → removed in favor of explicit notions above
+	- `Constraint` → “constraints applied” is implicit via `applyConstraints` and `isWithinConstraints`
+	- `CanHaveValues` → expressed as the `MinIncrMax` shape that can be materialized into a `ValueSet`
+	- `Cleared` now explicitly means “unrestricted”, not “empty set of values”
+
+Key operations (for reference):
+
+- Apply constraints to the variable: `OrderVariable.applyConstraints`
+- Check if current values obey constraints: `OrderVariable.isWithinConstraints`
+- Materialize min/incr/max: `OrderVariable.minIncrMaxToValues`
+- Inspect cardinality: `OrderVariable.hasValues` (multiple), `OrderVariable.isSolved` (single or default shapes)
+
+## Order.hasValues: variables checked per prescription type
 
 An `Order` consists of an `Orderable` and a `Prescription`. The `Prescription` determines the administration type. The `Orderable` has one or more `Components`; each `Component` has zero or more `Items`. The concentration of each `Item` is fixed; the concentration of a `Component` relative to other `Components` can be adjusted. An `Order` can only be changed by selecting a value from a `ValueSet` contained in an `OrderVariable`.
 
