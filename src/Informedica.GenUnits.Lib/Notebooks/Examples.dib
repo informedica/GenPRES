@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":["C#","c#"],"languageName":"C#","name":"csharp"},{"aliases":["frontend"],"name":"vscode"}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["C#","c#"]},{"name":"vscode","aliases":["frontend"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"}]}}
 
 #!markdown
 
@@ -176,7 +176,7 @@ All four basic arithmetic operations can be performed:
 
 #!fsharp
 
-let withValue v u = withValue [| v |> BigRational.fromDecimal |] u
+let withValue v u = withValue v u
 
 "Calculating with counts:\n" |> printfn "%s"
 // - multiplication
