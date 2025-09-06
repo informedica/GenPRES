@@ -56,11 +56,17 @@ let port =
     |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
 
 
+let logger = Logging.getLogger () 
+
+
 let provider =
+    logger 
+    |> Logging.setComponentName (Some "Provider")
+    |> Async.RunSynchronously
+
     tryGetEnv "GENPRES_URL_ID"
     |> Option.defaultValue "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
-    |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId (Logging.getLogger ()).Logger
-
+    |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger.Logger
 
 
 let logClientIP : HttpHandler =
@@ -70,23 +76,20 @@ let logClientIP : HttpHandler =
         let path = ctx.Request.Path.ToString()
         let method = ctx.Request.Method
         
-        // Log synchronously first
-        try
-            let logger = Logging.getLogger () 
-            logger |> Logging.setComponentName (Some "Client_Request") |> Async.Start
-            
+        async {
+            do!
+                logger 
+                |> Logging.setComponentName (Some "Client_Request")           
             Logging.ServerLogging.logRequest logger method path clientIP
-        with ex ->
-            sprintf "Logging error: %s" ex.Message |> writeDebugMessage
+            return ()
+        }
+        |> Async.Start
         
         // Continue with the next handler
         next ctx
 
 
 let webApi =
-    Logging.getLogger () |> Logging.setComponentName (Some "ServerApi")
-    |> Async.Start
-
     Remoting.createApi()
     |> Remoting.fromValue (createServerApi provider)
     |> Remoting.withRouteBuilder routerPaths
@@ -108,10 +111,9 @@ type LoggerShutdown() =
         member _.StopAsync(_) =
             writeInfoMessage "Trying to Stop Server Async"
             try
-                let logger = Logging.getLogger()
                 logger.StopAsync() |> Async.StartAsTask :> Task
             with ex ->
-                eprintfn "Logger shutdown failed: %s" ex.Message
+                writeDebugMessage $"Logger shutdown failed: {ex.Message}"
                 Task.CompletedTask
 
 
