@@ -14,7 +14,7 @@ module Logging
     open Informedica.Logging.Lib
     open Informedica.GenOrder.Lib
 
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
 
@@ -88,8 +88,8 @@ module Logging
         Directory.CreateDirectory(logDir) |> ignore
         
         let componentName = componentName |> Option.defaultValue "general"
-        let timestamp = DateTime.Now.ToString("yyyyMMdd_HHmm")
-        let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 8)
+        let timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")
+        let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 4)
         let fileName = $"genpres_{componentName}_{timestamp}_{shortGuid}.log"
         
         Path.Combine(logDir, fileName)
