@@ -867,6 +867,7 @@ module Command =
 
         | TreatmentPlanCmd (FilterTreatmentPlan tp) ->
             async {
+            do! logger |> Logging.setComponentName (Some "TreatmentPlan")
             return
                 tp
                 |> TreatmentPlan.calculateTotals
@@ -877,6 +878,7 @@ module Command =
 
         | FormularyCmd form ->
             async {
+                do! logger |> Logging.setComponentName (Some "Formulary")
                 return
                     form
                     |> Formulary.get provider
@@ -885,6 +887,7 @@ module Command =
 
         | ParenteraliaCmd par ->
             async {
+                do! logger |> Logging.setComponentName (Some "Parenteralia")
                 return
                     par
                     |> Parenteralia.get provider

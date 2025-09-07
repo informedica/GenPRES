@@ -1852,10 +1852,21 @@ module Models =
                 Intake = Totals.empty
             }
 
-        let setPatient pat sr : OrderContext = { sr with Patient = pat }
+        let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
 
 
-        let setScenarios srs sr : OrderContext = { sr with Scenarios = srs }
+        let setMedication med rte ind ctx : OrderContext =
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        Medication = med
+                        Route = rte
+                        Indication = ind
+                    }
+            }
+
+
+        let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
 
         let fromOrderScenario pat (sc: OrderScenario) : OrderContext =
