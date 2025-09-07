@@ -548,11 +548,11 @@ Shape: {filter.Shape |> Option.defaultValue ""}
 DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defaultValue ""}
 
 """
-        |> writeInfoMessage
+        |> writeDebugMessage
 
         let dsrs = Formulary.getDoseRules provider filter
 
-        writeInfoMessage $"Found: {dsrs |> Array.length} formulary dose rules"
+        writeDebugMessage $"Found: {dsrs |> Array.length} formulary dose rules"
         let form =
             { form with
                 Generics = dsrs |> DoseRule.generics
@@ -613,7 +613,7 @@ Shapes: {form.Shapes |> Array.length}
 DoseTypes: {form.DoseTypes |> Array.length}
 
 """
-        |> writeInfoMessage
+        |> writeDebugMessage
 
         Ok form
 
@@ -838,9 +838,6 @@ module Command =
 
 
     let processCmd provider cmd =
-        if Env.getItem "GENPRES_LOG" |> Option.map (fun s -> s = "1") |> Option.defaultValue false then
-            writeInfoMessage $"\nProcessing command: {cmd |> Command.toString}\n"
-
         let logger = Logging.getLogger()
 
         match cmd with
@@ -899,7 +896,7 @@ module Command =
 [<AutoOpen>]
 module ApiImpl =
 
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Shared.Api
 
 
@@ -910,10 +907,13 @@ module ApiImpl =
                 fun cmd ->
                     async {
                         try 
-                            return! cmd |> Command.processCmd provider
+                            writeInfoMessage $"Processing command: {cmd |> Command.toString}"
+                            let! result = Command.processCmd provider cmd
+                            writeInfoMessage $"Finished processing command: {cmd |> Command.toString}"
+                            return result
                         with 
                         | ex ->
-                            writeErrorMessage $"Error processing command: {ex.Message}"
+                            writeErrorMessage $"Error processing command: {cmd |> Command.toString}\n{ex.Message}"
                             return Error [| ex.Message |]
                     }
 
