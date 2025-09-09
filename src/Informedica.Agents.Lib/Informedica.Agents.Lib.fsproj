@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -6,7 +7,7 @@
   <ItemGroup>
     <Compile Include="Agent.fs" />
     <Compile Include="FileWriterAgent.fs" />
-  <Compile Include="FileDirectoryAgent.fs" />
+    <Compile Include="FileDirectoryAgent.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />

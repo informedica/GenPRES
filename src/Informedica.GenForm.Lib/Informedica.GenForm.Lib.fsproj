@@ -6,7 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Types.fs" />
-    <Compile Include="Utils.fs" /><Compile Include="Logging.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Logging.fs" />
     <Compile Include="Mapping.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="LimitTarget.fs" />

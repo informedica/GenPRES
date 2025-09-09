@@ -2,7 +2,7 @@ source https://api.nuget.org/v3/index.json
 framework: 9.0
 storage: none
 
-nuget FSharpPlus = 1.6.0-RC2
+nuget FSharpPlus 1.7.0
 
 nuget Fable.Core ~> 4
 nuget Fable.Remoting.Client ~> 7
@@ -25,8 +25,8 @@ nuget NJsonSchema
 
 nuget Saturn ~> 0
 
-nuget Fake.Core.Target ~> 5
-nuget Fake.IO.FileSystem ~> 5
+nuget Fake.Core.Target 6.1.3
+nuget Fake.IO.FileSystem 6.1.3
 
 nuget FSharp.Data
 nuget HtmlAgilityPack
@@ -40,7 +40,8 @@ nuget Markdig
 nuget Aether
 nuget ClosedXML = 0.97
 nuget ConsoleTables
-nuget IcedTasks
+nuget IcedTasks 0.11.9
+nuget System.Reactive 6.0.2
 
 nuget Unquote
 nuget Expecto ~> 10
