@@ -9,10 +9,10 @@ nuget Fable.Remoting.Client ~> 7
 nuget Fable.Remoting.Giraffe ~> 5
 nuget Fable.Browser.DOM
 nuget Fable.Fetch
-nuget Fable.Elmish ~> 4
-nuget Fable.Elmish.React ~> 4
+nuget Fable.Elmish ~> 5
+nuget Fable.Elmish.React ~> 5
 nuget Fable.Elmish.Debugger ~> 4
-nuget Fable.Elmish.HMR ~> 7
+nuget Fable.Elmish.HMR ~> 8
 nuget Fable.React.UseElmish
 nuget Fable.Mocha ~> 2
 nuget Fable.SimpleHttp
