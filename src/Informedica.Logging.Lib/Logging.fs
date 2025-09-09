@@ -399,6 +399,11 @@ module AgentLogging =
                     | RingBuffer rb -> RingBuffer.add (elapsed, ev) rb
                     | UnlimitedList bag -> bag.Add (elapsed, ev)
 
+                let clearMessages () =
+                    match storage with
+                    | RingBuffer rb -> RingBuffer.clear rb
+                    | UnlimitedList bag -> bag.Clear()
+
                 let iterMessages () : seq<float * Event> =
                     match storage with
                     | RingBuffer rb -> RingBuffer.toSeq rb
@@ -450,6 +455,7 @@ module AgentLogging =
                                     | Some oldPath, Some newP when not (String.Equals(oldPath, newP, StringComparison.Ordinal)) ->
                                         do! W.flushAsync writer
                                         W.close oldPath writer |> ignore
+                                        clearMessages ()
                                     | _ -> ()
                                     // Defer file creation until first actual log message
                                     reply.Reply(Ok ())

@@ -56,7 +56,12 @@ Target.create
 
         let deployDataPath = Path.combine deployPath "data"
         printfn $"Copying data to {deployDataPath} ..."
+
         Shell.copyDir deployDataPath dataPath (fun _ -> true)
+
+        let logPath = Path.combine deployDataPath "logs"
+        Shell.cleanDir logPath
+
         let result = System.IO.Directory.Exists(deployDataPath)
         printfn $"Copying data ... done: {result}"
     )

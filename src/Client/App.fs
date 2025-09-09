@@ -42,6 +42,7 @@ module private Elmish =
         }
 
 
+
     type Msg =
         | UrlChanged of string list
         | AcceptDisclaimer
@@ -332,7 +333,12 @@ module private Elmish =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
-            OrderContext = HasNotStartedYet
+            OrderContext = 
+                match med with
+                | None -> HasNotStartedYet
+                | Some m -> 
+                    OrderContext.empty |> OrderContext.setMedication m.medication m.route m.indication
+                    |> Resolved
             TreatmentPlan =
                 match pat with
                 | None -> HasNotStartedYet
@@ -514,7 +520,6 @@ module private Elmish =
                         | _ -> OrderContext.empty
                         |> OrderContext.setPatient p
                         |> Resolved
-
                 TreatmentPlan =
                     match p with
                     | None -> HasNotStartedYet
@@ -547,6 +552,19 @@ module private Elmish =
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
+                OrderContext =
+                    match med with
+                    | None -> state.OrderContext
+                    | Some m ->                        
+                        match state.OrderContext with
+                        | InProgress -> state.OrderContext
+                        | HasNotStartedYet -> 
+                            OrderContext.empty 
+                            |> OrderContext.setMedication m.medication m.route m.indication |> Resolved
+                        | Resolved ctx -> 
+                            ctx 
+                            |> OrderContext.setMedication m.medication m.route m.indication
+                            |> Resolved
                 Context =
                     { state.Context with
                         Localization =

@@ -14,7 +14,7 @@ module Logging
     open Informedica.Logging.Lib
     open Informedica.GenOrder.Lib
 
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
 
@@ -88,8 +88,8 @@ module Logging
         Directory.CreateDirectory(logDir) |> ignore
         
         let componentName = componentName |> Option.defaultValue "general"
-        let timestamp = DateTime.Now.ToString("yyyyMMdd_HHmm")
-        let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 8)
+        let timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")
+        let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 4)
         let fileName = $"genpres_{componentName}_{timestamp}_{shortGuid}.log"
         
         Path.Combine(logDir, fileName)
@@ -124,14 +124,16 @@ module Logging
         logger.Value
 
 
+    let loggingEnabled =
+        Env.getItem "GENPRES_LOG"
+        |> Option.map (fun s ->
+            match s.Trim().ToLowerInvariant() with
+            | "1" | "true" | "yes" | "on" -> true
+            | _ -> false)
+        |> Option.defaultValue false
+
+
     let setComponentName (componentName: string option) (logger: AgentLogging.AgentLogger) =
-        let loggingEnabled =
-            Env.getItem "GENPRES_LOG"
-            |> Option.map (fun s ->
-                match s.Trim().ToLowerInvariant() with
-                | "1" | "true" | "yes" | "on" -> true
-                | _ -> false)
-            |> Option.defaultValue false
 
         if loggingEnabled then
 
@@ -159,16 +161,3 @@ module Logging
         else async { () }
 
 
-    let inline report (logger: AgentLogging.AgentLogger) x =
-        async {
-            printfn "=== PRINTING REPORT ===\n\n"
-            // Give the agent time to process any pending messages
-            do! Async.Sleep(100)
-            let! msgs = logger.ReportAsync ()
-            printfn "Found %d messages to display" msgs.Length
-            msgs
-            |> Array.iter (printfn "%s")
-            printfn "=== END REPORT ===\n\n"
-        }
-        |> Async.Start
-        x

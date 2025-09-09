@@ -4077,7 +4077,7 @@ module Order =
                     { Name = "ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
                     { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
                     { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
-                    { Name = "final-solve"; Guard = (fun _ -> true); Run = solveStep }
+                    { Name = "final-solve"; Guard = (fun s -> s.DoseIsSolved |> not); Run = solveStep }
                 ]
                 |> runPipeline ord
             | ReCalcValues ord ->
