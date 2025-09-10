@@ -28,6 +28,9 @@ Before contributing, ensure you have the following installed:
 2. Clone your fork locally
 3. Set up the demo environment variables:
 
+**Important**: Proper environment variable setup is critical for the application to function correctly. Missing or incorrect environment variables can cause resource loading failures (see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44)).
+
+#### Option 1: Direct Export (Temporary)
 ```bash
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 export GENPRES_LOG=0
@@ -35,7 +38,28 @@ export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
 
-**Note**: `GENPRES_PROD=0` is mandatory for the demo version.
+#### Option 2: Using direnv (Recommended for Persistent Setup)
+Create a `.envrc` file in the project root:
+```bash
+# .envrc file
+export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
+export GENPRES_LOG=0
+export GENPRES_PROD=0
+export GENPRES_DEBUG=1
+```
+
+Then allow direnv to load the variables:
+```bash
+direnv allow
+```
+
+**Environment Variable Requirements**:
+- `GENPRES_URL_ID`: Google Sheet ID for demo data (required)
+- `GENPRES_PROD=0`: **Mandatory** for demo version - prevents production data access
+- `GENPRES_LOG=0`: Controls logging verbosity
+- `GENPRES_DEBUG=1`: Enables debug mode for development
+
+**Troubleshooting**: If you encounter "cannot find column" errors during startup, verify that all environment variables are properly set. Missing `GENPRES_URL_ID` or incorrect values can cause resource loading failures.
 
 4. Start the application:
 
@@ -227,7 +251,7 @@ This project uses an opt-in strategy for `.gitignore`:
 
 ### Environment Configuration
 
-For development, use these environment variables:
+For development, use these environment variables. Proper configuration is essential to avoid resource loading issues (see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44) for troubleshooting guidance):
 
 ```bash
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA  # Demo data URL
@@ -235,6 +259,23 @@ export GENPRES_LOG=0          # Logging level
 export GENPRES_PROD=0         # Must be 0 for demo version
 export GENPRES_DEBUG=1        # Enable debug mode
 ```
+
+#### Common Environment Variable Issues
+
+**Missing GENPRES_URL_ID**: Will cause "cannot find column" errors when the application tries to load resources from Google Sheets.
+
+**Incorrect GENPRES_PROD value**: Setting this to anything other than `0` in development may cause authentication or data access issues.
+
+#### Alternative Setup Methods
+
+Many developers prefer using tools like `direnv` for automatic environment variable loading:
+
+1. Install direnv: `brew install direnv` (macOS) or equivalent for your OS
+2. Create `.envrc` file in project root with the variables above
+3. Run `direnv allow` to enable automatic loading
+4. Variables will be loaded automatically when entering the project directory
+
+For other environment variable management approaches, see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44) for community discussions and recommendations.
 
 ## Community and Communication
 
