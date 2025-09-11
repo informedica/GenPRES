@@ -1,43 +1,50 @@
-# GenPRES Stateless Persistence Service Design Proposal
+# GenPRES Stateless Persistence Service Design
 
 ## Executive Summary
 
-Transform GenPRES into a **stateless persistence service** that provides sophisticated clinical decision support to Electronic Patient Data (EPD) systems. The service maintains no permanent patient data or clinical state, operating through temporary sessions where all patient context is provided by the EPD and all modifications are transferred back upon session completion. GenPRES preserves its full clinical calculation capabilities while eliminating persistent data storage responsibilities.
+GenPRES will be developped as a stateless persistence service for EHR integration. The service maintains zero permanent patient data, operates through temporary sessions where patient context is provided by the EHR, and returns all modifications upon session completion. Clinical calculation capabilities are preserved while eliminating persistent data storage.
 
 ## Core Design Principle: Stateless Persistence
 
 ### Definition
-**Stateless Persistence** means:
-- **Zero permanent patient storage**: No patient data, orders, or clinical decisions persisted beyond active sessions
-- **Temporary working sessions**: Rich clinical context maintained during prescription workflows
-- **Complete state transfer**: All session modifications returned to EPD system
-- **Resource-only caching**: Only institutional rules, formularies, and product data cached for performance
+Stateless Persistence implementation:
+- No permanent patient storage: Patient data, orders, or clinical decisions persist only during active sessions
+- Temporary working sessions: Clinical context maintained during prescription workflows
+- Complete state transfer: All session modifications returned to EHR system
+- Resource-only caching: Institutional rules, formularies, and product data cached for performance
 
 ### Service Boundary
 ```
 Session Lifecycle:
-EPD → [Start Session + Patient Data + Orders] → GenPRES Session
+EHR → [Start Session + Patient Data + Orders] → GenPRES Session
       ↓
 Active Session: GenPRES ←→ Clinician Interface (CRUD Operations)
       ↓
-EPD ← [Modified Orders + Clinical Decisions] ← Session End → [State Discarded]
+EHR ← [Modified Orders + Clinical Decisions] ← Session End → [State Discarded]
 ```
 
-GenPRES operates as a **computational clinical service** with temporary working memory but zero persistence responsibility.
+GenPRES operates as a computational clinical service with temporary working memory.
 
 ## Architectural Design
 
-### 1. EPD-Controlled Session Management
+### 1. EHR-Controlled Session Management
 
 #### Session Initiation
 ```fsharp
-type EpdSessionRequest = {
+type EhrSessionRequest = {
     SessionId: Guid
-    EpdSystemId: string           // Identifying which EPD system
-    EpdUserId: string            // EPD user reference (not stored)
-    EpdPatientId: string         // EPD patient reference (not stored)
+    EhrSystemId: string           // Identifying which EHR system
+    EhrUserId: string            // EHR user reference (not stored)
+    EhrPatientId: string         // EHR patient reference (not stored)
     PatientSnapshot: PatientData // Complete patient context for calculations
-    ExistingOrders: EpdOrder[]   // Current patient orders from EPD
+    ExistingOrders: EhrOrder[]   // Current patient orders from EHR
+    AuthorizationContext: {      // EHR-provided user permissions and restrictions
+        UserRole: ClinicalRole
+        Permissions: Permission[]
+        Restrictions: Restriction[]
+        DepartmentAccess: string[]
+        PatientAccessLevel: AccessLevel
+    }
     ClinicalContext: {
         Department: string
         Institution: string
@@ -58,10 +65,11 @@ type EpdSessionRequest = {
 
 type GenPresSession = {
     SessionId: Guid
-    EpdReference: EpdSystemId * EpdUserId * EpdPatientId  // References only
+    EhrReference: EhrSystemId * EhrUserId * EhrPatientId  // References only
+    AuthorizationContext: AuthorizationContext           // User permissions from EHR
     PatientContext: PatientData      // Temporary clinical context
     WorkingOrders: Map<OrderId, Order>    // Active order workspace
-    EpdOrderMapping: Map<EpdOrderId, GenPresOrderId>     // Order reference mapping
+    EhrOrderMapping: Map<EhrOrderId, GenPresOrderId>     // Order reference mapping
     ClinicalDecisions: ClinicalDecision[] // Treatment decisions made during session
     CreatedAt: DateTime
     LastActivity: DateTime
@@ -79,7 +87,7 @@ type SessionOperation =
     | SelectScenario of OrderId * ScenarioId
     | ValidateOrderSet
     | CalculateTreatmentPlan
-    | SyncToEpd                   // Manual sync during session
+    | SyncToEhr                   // Manual sync during session
     | FinalizeSession             // Complete and transfer all changes
 
 type SessionResponse = {
@@ -99,7 +107,7 @@ type SessionResponse = {
 ```fsharp
 type ClientState = {
     // NO PERSISTENT PATIENT DATA
-    ActiveSession: EpdSession option     // Temporary session context
+    ActiveSession: EhrSession option     // Temporary session context
     WorkingOrders: Map<OrderId, Order>   // Session-scoped orders
     
     // UI State Only
@@ -118,8 +126,8 @@ type ClientState = {
 }
 
 type ClientMessage =
-    | EpdSessionStarted of EpdSessionRequest
-    | EpdSessionClosed of SessionId
+    | EhrSessionStarted of EhrSessionRequest
+    | EhrSessionClosed of SessionId
     | OrderOperation of SessionId * OrderOperation
     | SessionSyncRequested of SessionId
     | SessionFinalized of SessionId
@@ -131,13 +139,13 @@ type ClientMessage =
 let SessionAwarePatientView props =
     match props.activeSession with
     | None -> 
-        // Display "Waiting for EPD session" state
-        WaitingForEpdView()
+        // Display "Waiting for EHR session" state
+        WaitingForEhrView()
     | Some session ->
         // Display patient context from session
         PatientView({
             patient = session.PatientContext
-            readonly = true  // Patient data managed by EPD
+            readonly = true  // Patient data managed by EHR
             orders = session.WorkingOrders
             onOrderOperation = props.onOrderOperation
         })
@@ -149,15 +157,15 @@ let SessionAwarePatientView props =
 ```fsharp
 type SessionStore = {
     ActiveSessions: Map<SessionId, GenPresSession>
-    SessionsByEpd: Map<EpdSystemId, SessionId[]>
+    SessionsByEhr: Map<EhrSystemId, SessionId[]>
     ExpirationQueue: PriorityQueue<SessionId, DateTime>
 }
 
 let sessionManager = {
-    CreateSession: EpdSessionRequest -> Async<Result<SessionResponse, string[]>>
+    CreateSession: EhrSessionRequest -> Async<Result<SessionResponse, string[]>>
     GetSession: SessionId -> Async<GenPresSession option>
     UpdateSession: SessionId -> SessionOperation -> Async<Result<SessionResponse, string[]>>
-    SyncSession: SessionId -> Async<Result<EpdSyncData, string[]>>
+    SyncSession: SessionId -> Async<Result<EhrSyncData, string[]>>
     FinalizeSession: SessionId -> Async<Result<FinalizedOrders, string[]>>
     CloseSession: SessionId -> Async<Result<unit, string[]>>
     CleanupExpiredSessions: unit -> Async<int>  // Returns number cleaned
@@ -171,21 +179,26 @@ let processSessionOperation sessionId operation = async {
     match sessionOpt with
     | None -> return Error [| "Session not found or expired" |]
     | Some session ->
-        // Apply operation to session state
-        let! updatedSession = applyOperation session operation
+        // Validate operation against user authorization context
+        let! authResult = validateOperation operation session.AuthorizationContext
+        match authResult with
+        | Error authErrors -> return Error authErrors
+        | Ok _ ->
+            // Apply operation to session state
+            let! updatedSession = applyOperation session operation
+            
+            // Recalculate affected orders using GenOrder.Lib
+            let! recalculatedOrders = recalculateOrders updatedSession.WorkingOrders
+            
+            // Validate complete order set
+            let! validationResults = validateOrderSet recalculatedOrders session.PatientContext
+            
+            // Update session with results
+            let! finalSession = updateSessionWithResults updatedSession recalculatedOrders validationResults
         
-        // Recalculate affected orders using GenOrder.Lib
-        let! recalculatedOrders = recalculateOrders updatedSession.WorkingOrders
-        
-        // Validate complete order set
-        let! validationResults = validateOrderSet recalculatedOrders session.PatientContext
-        
-        // Update session with results
-        let! finalSession = updateSessionWithResults updatedSession recalculatedOrders validationResults
-        
-        // Auto-sync to EPD if enabled
+        // Auto-sync to EHR if enabled
         let! syncResult = 
-            if session.AutoSync then syncToEpd finalSession
+            if session.AutoSync then syncToEhr finalSession
             else async { return Ok() }
         
         return Ok {
@@ -200,13 +213,13 @@ let processSessionOperation sessionId operation = async {
 }
 ```
 
-## EPD Integration Contract
+## EHR Integration Contract
 
 ### 1. Session Lifecycle API
 ```fsharp
-type IEpdIntegrationApi = {
+type IEhrIntegrationApi = {
     // Session Management
-    InitializeSession: EpdSessionRequest -> Async<Result<SessionInitResponse, string[]>>
+    InitializeSession: EhrSessionRequest -> Async<Result<SessionInitResponse, string[]>>
     CloseSession: SessionId -> Async<Result<SessionCloseResponse, string[]>>
     
     // Resource Management
@@ -215,7 +228,7 @@ type IEpdIntegrationApi = {
     
     // Session Operations
     ProcessOrderOperations: SessionId -> OrderOperation[] -> Async<Result<SessionResponse, string[]>>
-    SyncSessionToEpd: SessionId -> Async<Result<EpdSyncData, string[]>>
+    SyncSessionToEhr: SessionId -> Async<Result<EhrSyncData, string[]>>
     GetSessionStatus: SessionId -> Async<Result<SessionStatus, string[]>>
 }
 ```
@@ -235,7 +248,7 @@ type IClinicianApi = {
     ValidateAllOrders: SessionId -> Async<Result<ValidationResults, string[]>>
     
     // Session Control
-    RequestEpdSync: SessionId -> Async<Result<SyncStatus, string[]>>
+    RequestEhrSync: SessionId -> Async<Result<SyncStatus, string[]>>
 }
 ```
 
@@ -243,10 +256,10 @@ type IClinicianApi = {
 
 ### 1. Session Initialization Flow
 ```
-1. EPD → GenPRES: InitializeSession(patient_data, existing_orders, resources)
+1. EHR → GenPRES: InitializeSession(patient_data, existing_orders, resources)
 2. GenPRES: Create temporary session, load resources, validate existing orders
-3. GenPRES → EPD: SessionInitResponse(session_id, calculated_scenarios)
-4. EPD → Clinician: Open GenPRES interface with session_id
+3. GenPRES → EHR: SessionInitResponse(session_id, calculated_scenarios)
+4. EHR → Clinician: Open GenPRES interface with session_id
 ```
 
 ### 2. Active Session Flow
@@ -254,28 +267,28 @@ type IClinicianApi = {
 1. Clinician → GenPRES: Order CRUD operations via session_id
 2. GenPRES: Update session state, recalculate, validate
 3. GenPRES → Clinician: Updated scenarios and validation results
-4. Optional: GenPRES → EPD: Auto-sync if enabled
+4. Optional: GenPRES → EHR: Auto-sync if enabled
 ```
 
 ### 3. Session Finalization Flow
 ```
-1. Clinician/EPD → GenPRES: FinalizeSession(session_id)
+1. Clinician/EHR → GenPRES: FinalizeSession(session_id)
 2. GenPRES: Prepare complete order changeset
-3. GenPRES → EPD: FinalizedOrders(created, modified, deleted orders)
-4. EPD: Persist changes to patient record
+3. GenPRES → EHR: FinalizedOrders(created, modified, deleted orders)
+4. EHR: Persist changes to patient record
 5. GenPRES: Discard all session data (stateless achieved)
 ```
 
 ## Implementation Strategy
 
 ### Phase 1: Session Abstraction Layer
-**Wrap existing architecture without breaking changes:**
+Wrap existing architecture without breaking changes:
 ```fsharp
 // Wrap current patient state in session container
 type SessionContainer = {
-    Session: EpdSession
+    Session: EhrSession
     CurrentState: App.Elmish.State  // Existing state wrapped
-    EpdSyncHandler: EpdSyncHandler
+    EhrSyncHandler: EhrSyncHandler
 }
 
 // Add session awareness to existing components
@@ -288,8 +301,8 @@ let SessionAwareApp sessionContainer =
     |}
 ```
 
-### Phase 2: EPD Integration Endpoints
-**Add EPD APIs alongside existing functionality:**
+### Phase 2: EHR Integration Endpoints
+Add EHR APIs alongside existing functionality:
 ```fsharp
 // Extend existing ServerApi
 type IExtendedServerApi = {
@@ -297,63 +310,68 @@ type IExtendedServerApi = {
     processCommand: Command -> Async<Result<Response, string[]>>
     testApi: unit -> Async<string>
     
-    // New EPD integration API
-    initializeEpdSession: EpdSessionRequest -> Async<Result<SessionInitResponse, string[]>>
+    // New EHR integration API
+    initializeEhrSession: EhrSessionRequest -> Async<Result<SessionInitResponse, string[]>>
     processSessionOperation: SessionId -> SessionOperation -> Async<Result<SessionResponse, string[]>>
-    finalizeEpdSession: SessionId -> Async<Result<FinalizedOrders, string[]>>
+    finalizeEhrSession: SessionId -> Async<Result<FinalizedOrders, string[]>>
 }
 ```
 
 ### Phase 3: Complete Stateless Mode
-**Remove persistent patient storage, maintain only session-based operation:**
+Remove persistent patient storage, maintain only session-based operation:
 ```fsharp
 // Remove from client state
 type CleanClientState = {
     // REMOVED: Patient: Patient option
     // REMOVED: Persistent OrderContext
     
-    ActiveSession: EpdSession option    // Temporary only
+    ActiveSession: EhrSession option    // Temporary only
     WorkingOrders: Map<OrderId, Order>  // Session-scoped
     CachedResources: ResourceCache      // Institution data only
 }
 ```
 
-## Critical Assessment: Advantages of Stateless Persistence
+## Technical Analysis
 
-### ✅ **Major Benefits**
+### System Properties
 
-**1. Clear Responsibility Boundaries**
-- **EPD**: Patient data, authentication, long-term storage, regulatory compliance
-- **GenPRES**: Sophisticated calculations, clinical validation, order optimization
-- **Clean separation**: No overlap or confusion about data ownership
+**Responsibility Boundaries**
+- **EHR**: Patient data, authentication, authorization, long-term storage, regulatory compliance
+  - **Authentication**: Verifies user identity and maintains secure sessions
+  - **Authorization**: Determines user permissions, role-based access controls, and patient access rights
+  - **Session Context**: Provides complete authorization context to GenPRES so the service knows what the user can and cannot do
+- **GenPRES**: Clinical calculations, validation, order optimization
+  - **Authorization Enforcement**: Respects EHR-provided permissions when presenting options and validating operations
+  - **No Identity Management**: Relies entirely on EHR for user identity and access decisions
+- **Separation**: No overlap in data ownership or access control
 
-**2. Deployment and Scaling Advantages**
-- **Horizontal scaling**: Any GenPRES instance can handle any session
-- **No database management**: No patient database backup, recovery, or maintenance
-- **Multi-tenant ready**: Single instance serves multiple EPD systems safely
-- **Simplified compliance**: No PHI storage means reduced regulatory burden
+**Deployment Properties**
+- Horizontal scaling: Any GenPRES instance can handle any session
+- No database management: No patient database backup, recovery, or maintenance
+- Multi-tenant support: Single instance serves multiple EHR systems
+- Reduced compliance burden: No PHI storage
 
-**3. Enhanced Integration**
-- **EPD system flexibility**: Each EPD can integrate according to its workflow needs
-- **Version independence**: EPD and GenPRES can update independently
-- **Reduced coupling**: Changes to patient data models don't require GenPRES updates
+**Integration Properties**
+- EHR workflow integration: Each EHR integrates according to workflow requirements
+- Version independence: EHR and GenPRES update independently
+- Loose coupling: Patient data model changes don't require GenPRES updates
 
-### ⚠️ **Implementation Considerations**
+### Implementation Requirements
 
-**1. Session Management Requirements**
-- **Robust cleanup**: Must reliably discard expired sessions to maintain stateless guarantee
-- **Memory management**: Session data must be properly garbage collected
-- **Concurrent access**: Multiple clinicians potentially working on same patient orders
+**Session Management**
+- Session cleanup: Sessions must be reliably discarded to maintain stateless guarantee
+- Memory management: Session data must be garbage collected properly
+- Concurrent access: Multiple clinicians may work on same patient orders
 
-**2. Performance Optimization**
-- **Session-scoped caching**: Calculation results cached within session but discarded after
-- **Resource preloading**: Institutional data must be efficiently cached for session startup
-- **Network efficiency**: Balance between comprehensive data transfer and multiple round trips
+**Performance Optimization**
+- Session-scoped caching: Calculation results cached within session, discarded after
+- Resource preloading: Institutional data must be efficiently cached for session startup
+- Network efficiency: Balance comprehensive data transfer against multiple round trips
 
-**3. Reliability Patterns**
-- **Session recovery**: Handle service restarts during active sessions
-- **Timeout handling**: Graceful session expiration with EPD notification
-- **Error resilience**: Failed operations shouldn't corrupt session state
+**Reliability Patterns**
+- Session recovery: Handle service restarts during active sessions
+- Timeout handling: Session expiration with EHR notification
+- Error resilience: Failed operations must not corrupt session state
 
 ## Refactoring Strategy from Current Implementation
 
@@ -372,7 +390,7 @@ type ServiceState = {
 ### 2. Add Session Lifecycle to Existing APIs
 ```fsharp
 // Extend current ServerApi.fs
-let processEpdCommand sessionId command = async {
+let processEhrCommand sessionId command = async {
     let! session = getActiveSession sessionId
     match session with
     | Some sessionState ->
@@ -433,51 +451,47 @@ type SessionMetrics = {
     AverageSessionDuration: TimeSpan
     OrdersPerSession: float
     CalculationPerformance: PerformanceMetrics
-    EpdSyncSuccess: float
+    EhrSyncSuccess: float
     SessionCleanupRate: int
 }
 ```
 
-## Integration Benefits for EPD Systems
+## EHR Integration Properties
 
 ### 1. Data Sovereignty
-- **Complete control**: EPD maintains full ownership of patient data
-- **Compliance alignment**: GenPRES operations don't affect EPD compliance posture
-- **Audit integration**: All prescription activities flow through EPD audit systems
-- **Backup responsibility**: EPD handles all data backup and recovery
+- EHR maintains full ownership of patient data
+- GenPRES operations don't affect EHR compliance posture
+- All prescription activities flow through EHR audit systems
+- EHR handles all data backup and recovery
 
 ### 2. Workflow Integration
-- **Embedded experience**: GenPRES interface embedded in EPD workflow
-- **Context preservation**: Session maintains clinical context during prescription process
-- **Decision capture**: All clinical decisions transferred back to EPD for permanent storage
-- **Multi-user support**: EPD can manage concurrent access to patient orders
+- GenPRES interface embedded in EHR workflow
+- Session maintains clinical context during prescription process
+- All clinical decisions transferred back to EHR for permanent storage
+- EHR manages concurrent access to patient orders
 
-### 3. Operational Flexibility
-- **Independent deployment**: GenPRES and EPD can update on different schedules
-- **Shared resources**: Multiple EPD systems can share GenPRES instance efficiently
-- **Performance scaling**: GenPRES can be scaled independently based on calculation load
+### 3. Operational Properties
+- GenPRES and EHR can update on different schedules
+- Multiple EHR systems can share GenPRES instance
+- GenPRES can be scaled independently based on calculation load
 
-## Conclusion: True Stateless Persistence
+## Implementation Summary
 
-This design achieves **genuine stateless persistence** while preserving GenPRES's sophisticated clinical capabilities:
+### Stateless Architecture
+- No patient data persistence: All patient information discarded after session closure
+- No authentication storage: EHR handles all identity and access management
+- Complete state transfer: All order modifications returned to EHR
+- Session isolation: Each session independent with no cross-contamination
 
-### ✅ **Stateless Achieved**
-- **Zero patient data persistence**: All patient information discarded after session closure
-- **No authentication storage**: EPD handles all identity and access management
-- **Clean state transfer**: Complete order modifications returned to EPD
-- **Session isolation**: Each session independent with no cross-contamination
+### Clinical Functionality
+- Mathematical modeling during active sessions
+- Prescription workflows with session context
+- Cross-order validation within session scope
+- Real-time optimization and feedback
 
-### ✅ **Clinical Value Preserved**
-- **Complex calculations**: Full mathematical modeling during active sessions
-- **Treatment planning**: Comprehensive prescription workflows with session context
-- **Drug interaction checking**: Cross-order validation within session scope
-- **Real-time optimization**: Immediate feedback and scenario calculation
+### Integration Architecture
+- EHR maintains complete control over data and workflows
+- Shared computational resources without data coupling
+- Clear boundaries for compliance responsibilities
 
-### ✅ **Integration Excellence**
-- **EPD system autonomy**: Each EPD maintains complete control over its data and workflows
-- **Service efficiency**: Shared computational resources without data coupling
-- **Regulatory simplification**: Clear boundaries for compliance responsibilities
-
-**GenPRES becomes a "computational clinical service"** - providing sophisticated prescription support without any data persistence burden. This architecture enables wide adoption across different EPD systems while maintaining the clinical sophistication that makes GenPRES valuable to healthcare providers.
-
-The stateless persistence model represents an optimal balance between service-oriented architecture and clinical decision support functionality, enabling GenPRES to serve as a shared computational resource while preserving its core clinical value proposition.
+GenPRES functions as a computational clinical service providing prescription support without data persistence requirements. The architecture enables multi-EHR deployment while maintaining clinical calculation capabilities.
