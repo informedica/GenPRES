@@ -1,13 +1,13 @@
 # Domain-Constrained Option Solver — Architectural Design
+
 *(DDD + functional modeling; harmonized with `Informedica.GenSolver.Lib` Types + Equation + Solver; exact arithmetic with BigRational)*
 
-
 This architecture formalizes the process using **domain modeling with types**, constraint propagation, and option minimization strategies (as in the [GenSolver library](https://github.com/halcwb/GenPres2/tree/master/src/Informedica.GenSolver.Lib)).
-
 
 ## 1. Purpose
 
 Users in a specific domain (e.g., clinical prescription) must pick valid options from a bounded set of variables.  
+
 - **Rules** define what is allowed.  
 - Rules translate into **constraints** over the option sets.  
 - Constraints shape a **solution space**: the bounded context of valid scenarios.  
@@ -20,6 +20,7 @@ We help users construct **valid scenarios** by picking options for a bounded set
 A scenario is **solved** when every variable has a single feasible value.
 
 Engine-wise, we use an **equation-based fixpoint solver** over ranged/discrete domains, with **monotone pruning** only:
+
 - tightening **minimum/maximum**,
 - **increasing increment** (coarsening),
 - shrinking **discrete sets**.
@@ -54,7 +55,6 @@ If any variable’s feasible set becomes empty, the state is **illegal** (unsati
 | Property delta | `Property = MinProp | MaxProp | IncrProp | ValsProp` | What changed for a variable. |
 | Constraint item | `Constraint = { Name; Property }` | A single variable/property assertion. |
 | Solver step outcome | `SolveResult = Unchanged | Changed of List<Variable * Property Set> | Errored of Exceptions.Message list` | Fixpoint iteration uses these. |
-
 
 ---
 
@@ -93,7 +93,6 @@ type StepResult =
 
 ---
 
-
 ### 4. Constraints
 
 Constraints prune the solution space.
@@ -116,27 +115,28 @@ type Constraint =
 
 ## 5. Process Flow
 
-1.	Initialization
+1. Initialization
     - Start with full candidate sets (all options for all items).
-2.	Propagation
+2. Propagation
     - Apply constraints to prune options.
     - Detect illegal states: if any item’s set becomes empty → report conflict.
-3.	User Interaction
-    -	Present remaining (valid) options.
-    -	On pick → commit the choice, rerun propagation.
-4.	Minimization
-    -	If candidate sets are too large, apply incremental bucketing to reduce options while preserving validity.
-5.	Convergence
-    -	Repeat until each item has exactly one option → solved scenario.
+3. User Interaction
+    - Present remaining (valid) options.
+    - On pick → commit the choice, rerun propagation.
+4. Minimization
+    - If candidate sets are too large, apply incremental bucketing to reduce options while preserving validity.
+5. Convergence
+    - Repeat until each item has exactly one option → solved scenario.
 
 ---
 
 ## 6. Illegal State Handling
 
 An illegal state arises when Remaining[item] = ∅.
--	Report as Illegal (EmptyDomain item, reasons).
--	Reasons are collected during propagation (e.g., “Dose 100 mg removed because Frequency=q12h”).
--	Guarantees early detection and explainability.
+
+- Report as Illegal (EmptyDomain item, reasons).
+- Reasons are collected during propagation (e.g., “Dose 100 mg removed because Frequency=q12h”).
+- Guarantees early detection and explainability.
 
 ---
 
@@ -145,10 +145,10 @@ An illegal state arises when Remaining[item] = ∅.
 Large option sets (e.g., 10,000 doses) are minimized for UX and solver efficiency.
 
 Concepts
--	Bucket: a grouping of atomic options.
--	Policy: defines max buckets and increment ladder (e.g., 1 → 2 → 5 → 10 → 25 → 50 → 100).
--	Pinned Anchors: clinically meaningful values (e.g., 50 mg, 500 mg) always kept as distinct buckets.
 
+- Bucket: a grouping of atomic options.
+- Policy: defines max buckets and increment ladder (e.g., 1 → 2 → 5 → 10 → 25 → 50 → 100).
+- Pinned Anchors: clinically meaningful values (e.g., 50 mg, 500 mg) always kept as distinct buckets.
 
 ```fsharp
 type BucketId = BucketId of string
@@ -168,16 +168,18 @@ type MinPolicy =
 ```
 
 Workflow
-1.	Build buckets for each item’s Remaining set.
-2.	Escalate increment until #buckets ≤ maxBuckets.
-3.	Replace Remaining with chosen bucket members on user pick.
-4.	Rebuild buckets after each propagation.
+
+1. Build buckets for each item’s Remaining set.
+2. Escalate increment until #buckets ≤ maxBuckets.
+3. Replace Remaining with chosen bucket members on user pick.
+4. Rebuild buckets after each propagation.
 
 ### 7.1. Option explosion: “minimization” layer (à la increaseIncrement)
 
 The trick is to separate:
--	the solver domain (potentially dense, precise),
--	the presentation domain (coarse, small, friendly).
+
+- the solver domain (potentially dense, precise),
+- the presentation domain (coarse, small, friendly).
 
 We model a minimizer that coarsens an item’s candidate set according to a policy (caps, step escalation, clinically meaningful anchors), then keep a mapping back to the underlying atomic options so validity is preserved.
 
@@ -242,7 +244,6 @@ let buildBuckets (defs: Map<ItemId,ItemDef>) (policy: MinPolicy) (st: SolutionSt
 
 Key idea: the minimizer can keep pushing the increment (like your increaseIncrement) until the number of buckets ≤ policy.maxBuckets. You can also hard-pin important anchors (e.g., “50 mg”, min/max, formulary-preferred packs) so they always get their own bucket.
 
-
 ### 7.2. End to end loop
 
 ```fsharp
@@ -260,11 +261,12 @@ let step (defs, policy, constraints) (st: SolutionState) =
 ---
 
 ## 8. Architectural Patterns
--	Make illegal states unrepresentable: use discriminated unions and validated types.
--	Pure functions: choose and propagate are pure transformations.
--	Monotonic narrowing: Remaining sets only shrink → guarantees convergence.
--	Explainability: keep trace of removals for transparency.
--	Bounded contexts: keep solver focused (e.g., medication order); integrate with other contexts via events.
+
+- Make illegal states unrepresentable: use discriminated unions and validated types.
+- Pure functions: choose and propagate are pure transformations.
+- Monotonic narrowing: Remaining sets only shrink → guarantees convergence.
+- Explainability: keep trace of removals for transparency.
+- Bounded contexts: keep solver focused (e.g., medication order); integrate with other contexts via events.
 
 ### 8.1. Picking at bucket level (without losing rigor)
 
@@ -281,16 +283,15 @@ let chooseBucket (minz: Minimization) (item: ItemId) (bucket: BucketId) (st: Sol
 ```
 
 ### 8.2. Guardrails to avoid computational blow-ups
--	Monotonicity: only ever remove candidates. This guarantees convergence and enables incremental propagation (delta-based pruning).
--	Caps everywhere:
--	maxBuckets per item for UX,
--	maxBranching for any search/backtracking fallbacks (if you use them),
--	early Illegal when a domain empties.
--	Explainability: keep a compact removal trace (constraint IDs + summaries) so the UI can show “why an option vanished.”
 
+- Monotonicity: only ever remove candidates. This guarantees convergence and enables incremental propagation (delta-based pruning).
+- Caps everywhere:
+- maxBuckets per item for UX,
+- maxBranching for any search/backtracking fallbacks (if you use them),
+- early Illegal when a domain empties.
+- Explainability: keep a compact removal trace (constraint IDs + summaries) so the UI can show “why an option vanished.”
 
 ---
-
 
 # Current Implementation
 
@@ -300,7 +301,6 @@ This document aligns the domain/UX view with the **current engine implementation
 - `Equation` (single-equation solving loop, formatting/DTO, helpers)
 - `Solver` (equation-set fixpoint queue, replacement, logging)
 - **Exact arithmetic requirement:** atomic numeric values are `BigRational` (via `ValueUnit`), so options like `1/3` are uniquely representable.
-
 
 ## 1. Core Types (as implemented)
 
@@ -333,6 +333,7 @@ This document aligns the domain/UX view with the **current engine implementation
 - Quantitative relations (e.g., `Dose = Weight * DosePerKg`, `Total = A + B + C`) are **Equations** (`ProductEquation` / `SumEquation`).
 
 **User loop**
+
 1. Initialize variables with broad `ValueRange`s.
 2. Apply domain **Constraints** (e.g., remove `PO`, raise `Increment` to limit options).
 3. Run **equation solving** to convergence (Sections 3–4).
@@ -366,18 +367,21 @@ This document aligns the domain/UX view with the **current engine implementation
   - Rich operators for exact domain algebra: `^+`, `^-`, `^*`, `^/` (full `ValueRange` calculus).
   - “Min/Incr/Max only” operators: `@+`, `@-`, `@*`, `@/` (faster coarse pass).
 - Reordering trick: the equation is rotated so we can, in turn, solve for each variable via inverse operations, e.g.
+
   ```
   a = b + c + d  ⇒
   b = a - (c + d)
   c = a - (b + d)
   d = a - (b + c)
   ```
+
 - `calcVars` tries each rotation; **skips** a calc if:
   - the target var is already solved, or
   - it’s the last rotation and recent attempts were unchanged (optimization).
 - If a re-calculation produces a **strictly smaller** domain (respecting monotonicity), we record a `Changed` delta with precise `Property` differences via `Variable.ValueRange.diffWith`.
 
 ### 3.4. Fixpoint for a single equation
+
 - `solve onlyMinIncrMax log eq`:
   - Select operators `(@*,@/)` or `(^*,^/)` for product; `(@+,@-)` or `(^+,^- )` for sum.
   - Rotate variables; call tail-recursive `loop` until `calcVars` yields **None** (no more change).
@@ -392,6 +396,7 @@ This document aligns the domain/UX view with the **current engine implementation
 ## 4. Equation-Set Solver (`module Solver`)
 
 ### 4.1. Queue management
+
 - Input: list of `Equation`s (optionally “focused” with a particular variable via `solveVariable`).
 - `sortQue onlyMinMax` uses `Equation.count` to prefer equations likely to produce progress first.
 - `replace` propagates changed `Variable`s into other equations that contain them, splitting the set into:
@@ -399,6 +404,7 @@ This document aligns the domain/UX view with the **current engine implementation
   - `rst`: unaffected equations (remain in the accumulator).
 
 ### 4.2. Main loop
+
 ```
 loop:
   1) sort queue with sortQue
@@ -416,6 +422,7 @@ loop:
 - `solveVariable` focuses on equations touching a given variable (by `Name`) before entering the loop; `solveAll` runs the full set.
 
 ### 4.3. Logging & DTO
+
 - Extensive event logging around start/finish of solving and each calculation.
 - `Solver.printEqs` pretty-prints equations (exact vs short).
 - `Equation.Dto` supports round-tripping between runtime equations and serializable DTOs.
@@ -443,10 +450,12 @@ To avoid option explosion (e.g., thousands of discrete candidates):
 ## 7. BigRational Requirement (Exact Arithmetic)
 
 ### 7.1. Motivation
+
 - With floats/decimals, values like `1/3` cannot be represented exactly, so domain membership is ambiguous.
 - With **BigRational**, each atomic value is a fraction of arbitrary-precision integers → **unique identity** and stable equality/ordering.
 
 ### 7.2. Implications
+
 - Every `Minimum`, `Maximum`, `Increment`, `ValueSet` member is based on `BigRational` (via `ValueUnit`).
 - Sum/Product equation algebra (`^+`, `^-`, `^*`, `^/`) uses rational arithmetic.
 - Snap-to-increment and bound tightening always yield **exact** results.

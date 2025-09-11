@@ -28,10 +28,10 @@ GenPres2 is a **client-server web application**:
 
 - **Entry Point**: `src/Server/Server.fs`
 - **API Implementation**: `src/Server/ServerApi.fs`
-    - Implements protocol in `Shared.Api.IServerApi`
-    - Processes commands from the client, performs calculations/validations, and returns results
+  - Implements protocol in `Shared.Api.IServerApi`
+  - Processes commands from the client, performs calculations/validations, and returns results
 - **Agents & Domain Logic**: e.g., `src/Server/Scripts/OrderAgent.fsx`
-    - Uses F# MailboxProcessor (actor model) for concurrent/isolated processing (e.g., medication order calculations)
+  - Uses F# MailboxProcessor (actor model) for concurrent/isolated processing (e.g., medication order calculations)
 
 ### 2.3. Docker Hosting
 
@@ -40,6 +40,7 @@ GenPres2 is a **client-server web application**:
 - Entry point: runs `dotnet Server.dll` and exposes port 8085.
 
 **Example Docker Usage:**
+
 ```bash
 docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t halcwb/genpres .
 docker run -it -p 8080:8085 halcwb/genpres
@@ -67,8 +68,8 @@ docker run -it -p 8080:8085 halcwb/genpres
 ## 4. Configuration via Google Spreadsheets
 
 - **All rules, constraints, and medication data** (except local drug cache) are stored in Google Spreadsheets.
-    - URLs are constructed dynamically and downloaded as CSV.
-    - Example: `https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}`
+  - URLs are constructed dynamically and downloaded as CSV.
+  - Example: `https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet={sheet}`
 - **F# Modules** (e.g., `Informedica.Utils.Lib.Web.GoogleSheets`) handle fetching and parsing of spreadsheet data.
 - **Which spreadsheet to use** is controlled by the `GENPRES_URL_ID` environment variable.
 
@@ -77,14 +78,14 @@ docker run -it -p 8080:8085 halcwb/genpres
 ## 5. Local Medication Drug Repository
 
 - **Data Cache**: Proprietary cache files (not distributed publicly) containing medication product information.
-    - Used for fast lookup/calculation and offline use.
-    - Demo cache files are included for development.
-    - Path: `src/Server/data/cache/README.md` explains the folder usage.
+  - Used for fast lookup/calculation and offline use.
+  - Demo cache files are included for development.
+  - Path: `src/Server/data/cache/README.md` explains the folder usage.
 
 - **Drug Data Types and Logic**:
-    - Main types are defined in `src/Informedica.KinderFormularium.Lib/Drug.fs` and `src/Informedica.GenOrder.Lib/Types.fs`
-    - Includes types for Drug, Dose, Route, Schedule, and DrugOrder.
-    - Drug data can be loaded from local cache or generated from Google Sheets.
+  - Main types are defined in `src/Informedica.KinderFormularium.Lib/Drug.fs` and `src/Informedica.GenOrder.Lib/Types.fs`
+  - Includes types for Drug, Dose, Route, Schedule, and DrugOrder.
+  - Drug data can be loaded from local cache or generated from Google Sheets.
 
 ---
 
@@ -95,6 +96,7 @@ The [`Informedica.GenOrder.Lib`](Informedica.GenOrder.Lib.md) library is central
 ### Medication Cycle
 
 A medical order in GenPres2 supports the full medication cycle:
+
 1. **Lookup**: Identify available medication products, dosing, and preparation instructions.
 2. **Calculation**: Compute doses and preparation steps, which can be complex and depend on patient-specific factors.
 3. **Adjustment**: Support for cyclic updates as administered prescriptions may require additions or changes.
@@ -121,6 +123,7 @@ This model allows for flexible expression of doses (e.g., per kg bodyweight, per
 The library defines a comprehensive set of variables representing all relevant quantities in an order (e.g., dose quantity, concentration, rate, total, adjustments). These are mapped to equations that describe the relationships between them, enabling automated calculation and validation.
 
 **Example variable types:**
+
 - `ItemDoseQuantity`
 - `ComponentDoseTotal`
 - `OrderableDoseRate`
@@ -128,7 +131,8 @@ The library defines a comprehensive set of variables representing all relevant q
 - `OrderAdjust`
 
 **Example equation:**
-```
+
+```text
 ItemDoseQuantity = ItemComponentConcentration × ComponentDoseQuantity
 ```
 
@@ -177,8 +181,8 @@ These solutions collectively enable GenPres to provide a "one-click" prescriptio
 - **Client**: Open browser at `http://localhost:5173`.
 - **Production**: Deploy via Docker.
 - **Environmental Variables**:
-    - `GENPRES_URL_ID`: Google Spreadsheet ID for config/data
-    - `GENPRES_LOG`, `GENPRES_PROD`, `GENPRES_DEBUG`: Control logging, production/demo mode, etc.
+  - `GENPRES_URL_ID`: Google Spreadsheet ID for config/data
+  - `GENPRES_LOG`, `GENPRES_PROD`, `GENPRES_DEBUG`: Control logging, production/demo mode, etc.
 
 ---
 
@@ -217,10 +221,10 @@ These solutions collectively enable GenPres to provide a "one-click" prescriptio
 ## 10. File References
 
 - **See also**:
-    - [README.md](https://github.com/halcwb/GenPres2/blob/master/README.md)
-    - [Dockerfile](https://github.com/halcwb/GenPres2/blob/master/Dockerfile)
-    - [src/Server/ServerApi.fs](https://github.com/halcwb/GenPres2/blob/master/src/Server/ServerApi.fs)
-    - [src/Informedica.KinderFormularium.Lib/Drug.fs](https://github.com/halcwb/GenPres2/blob/master/src/Informedica.KinderFormularium.Lib/Drug.fs)
+  - [README.md](https://github.com/halcwb/GenPres2/blob/master/README.md)
+  - [Dockerfile](https://github.com/halcwb/GenPres2/blob/master/Dockerfile)
+  - [src/Server/ServerApi.fs](https://github.com/halcwb/GenPres2/blob/master/src/Server/ServerApi.fs)
+  - [src/Informedica.KinderFormularium.Lib/Drug.fs](https://github.com/halcwb/GenPres2/blob/master/src/Informedica.KinderFormularium.Lib/Drug.fs)
 
 ---
 

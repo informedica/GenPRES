@@ -1,6 +1,6 @@
 Fable.Browser.DOM
 Fable.Core
-Fable.Fetch
+# Fable.Fetch
 Fable.Elmish
 Fable.Elmish.React
 Fable.Elmish.Debugger
@@ -11,6 +11,6 @@ Fable.Remoting.Client
 Feliz
 Feliz.UseElmish
 Feliz.Markdown
-Fable.Promise
+# Fable.Promise
 Feliz.Router
 Fable.SimpleHttp
