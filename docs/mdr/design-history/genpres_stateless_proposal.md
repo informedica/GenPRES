@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-GenPRES will be developped as a stateless persistence service for EHR integration. The service maintains zero permanent patient data, operates through temporary sessions where patient context is provided by the EHR, and returns all modifications upon session completion. Clinical calculation capabilities are preserved while eliminating persistent data storage.
+GenPRES will be developed as a stateless persistence service for EHR integration. The service maintains zero permanent patient data, operates through temporary sessions where patient context is provided by the EHR, and returns all modifications upon session completion. Clinical calculation capabilities are preserved while eliminating persistent data storage.
 
 ## Core Design Principle: Stateless Persistence
 
