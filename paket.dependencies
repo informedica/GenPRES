@@ -8,7 +8,6 @@ nuget Fable.Core ~> 4
 nuget Fable.Remoting.Client ~> 7
 nuget Fable.Remoting.Giraffe ~> 5
 nuget Fable.Browser.DOM
-# nuget Fable.Fetch
 nuget Fable.Elmish ~> 5
 nuget Fable.Elmish.React ~> 5
 nuget Fable.Elmish.Debugger ~> 4
@@ -41,12 +40,8 @@ nuget Aether
 nuget ClosedXML = 0.97
 nuget ConsoleTables
 nuget IcedTasks 0.11.9
-# nuget System.Reactive 6.0.2
 
 nuget Unquote
 nuget Expecto ~> 10
 nuget Expecto.FsCheck
-# nuget Expecto.Hopac
 
-# have to add because of issue: https://github.com/fsprojects/Paket/issues/4197
-# nuget Microsoft.AspNetCore.Authentication.JwtBearer ~> 9

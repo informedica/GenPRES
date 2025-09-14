@@ -45,6 +45,13 @@ module Types =
             P97 : float
         }
 
+    type NormalValues = {
+        Weights : NormalValue list
+        Heights : NormalValue list
+        NeoWeights : NormalValue list
+        NeoHeights : NormalValue list
+    }
+
 
     type Ranges =
         {

@@ -113,10 +113,6 @@ module GenPres =
             isDemo: bool
             acceptDisclaimer: bool -> unit
             patient: Patient option
-            normalWeights: NormalValue list option
-            normalHeights: NormalValue list option
-            normalNeoWeights: NormalValue list option
-            normalNeoHeights: NormalValue list option
             updatePatient: Patient option -> unit
             updatePage: Global.Pages -> unit
             bolusMedication: Deferred<Intervention list>

@@ -21,10 +21,7 @@ module private Elmish =
         {
             Page : Global.Pages
             Patient: Patient option
-            NormalWeights : Deferred<NormalValue list>
-            NormalHeights : Deferred<NormalValue list>
-            NormalNeoWeights : Deferred<NormalValue list>
-            NormalNeoHeights : Deferred<NormalValue list>
+            NormalValues : Deferred<NormalValues>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
@@ -50,11 +47,7 @@ module private Elmish =
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
 
-        | LoadNormalWeights of AsyncOperationStatus<Result<NormalValue list, string>>
-        | LoadNormalHeights of AsyncOperationStatus<Result<NormalValue list, string>>
-        | LoadNormalNeoWeights of AsyncOperationStatus<Result<NormalValue list, string>>
-        | LoadNormalNeoHeights of AsyncOperationStatus<Result<NormalValue list, string>>
-
+        | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
         | LoadBolusMedication of AsyncOperationStatus<Result<BolusMedication list, string>>
         | LoadContinuousMedication of AsyncOperationStatus<Result<ContinuousMedication list, string>>
@@ -83,6 +76,7 @@ module private Elmish =
 
         | UpdateHospital of string
         | CloseSnackbar
+
 
     and ApiResponse = AsyncOperationStatus<Result<Api.Response, string []>>
 
@@ -156,7 +150,6 @@ module private Elmish =
     // * in: indication
     // * dt: dosetype
     let parseUrl sl =
-        Logging.log $"parsing url" sl
         match sl with
         | [] -> None, None, None, true, None
         | [ "patient"; Route.Query queryParams ] ->
@@ -267,11 +260,10 @@ module private Elmish =
                             None
                             dep
 
-                    Logging.log "parsed: " patient
                     patient
 
                 | _ ->
-                    Logging.warning "could not parse url to patient" sl
+                    Logging.warning "could not parse url to patient" (sl |> String.concat ";")
                     None
 
             let page =
@@ -326,10 +318,7 @@ module private Elmish =
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue Global.LifeSupport
             Patient = pat
-            NormalWeights = HasNotStartedYet
-            NormalHeights = HasNotStartedYet
-            NormalNeoWeights = HasNotStartedYet
-            NormalNeoHeights = HasNotStartedYet
+            NormalValues = HasNotStartedYet
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
@@ -363,11 +352,8 @@ module private Elmish =
 
         let cmds =
             Cmd.batch [
-                Cmd.ofMsg (pat |> UpdatePatient)
-                Cmd.ofMsg (LoadNormalWeights Started)
-                Cmd.ofMsg (LoadNormalHeights Started)
-                Cmd.ofMsg (LoadNormalNeoWeights Started)
-                Cmd.ofMsg (LoadNormalNeoHeights Started)
+                //Cmd.ofMsg (pat |> UpdatePatient)
+                Cmd.ofMsg (LoadNormalValues Started)
                 Cmd.ofMsg (LoadBolusMedication Started)
                 Cmd.ofMsg (LoadContinuousMedication Started)
                 Cmd.ofMsg (LoadProducts Started)
@@ -378,6 +364,19 @@ module private Elmish =
 
         initialState pat page lang discl med
         , cmds
+
+
+    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat : Patient option) =
+        match normalValues, pat with
+        | Resolved nv, Some p ->
+            p
+            |> Patient.applyNormalValues
+                (Some nv.Weights)
+                (Some nv.Heights)
+                (Some nv.NeoWeights)
+                (Some nv.NeoHeights)
+            |> Some
+        | _ -> pat
 
 
     let updateOrderContext state (ctx : OrderContext) =
@@ -451,7 +450,6 @@ module private Elmish =
             Logging.error "error" s
             state, Cmd.none
 
-
         match msg with
         | CloseSnackbar ->
             { state with
@@ -477,42 +475,34 @@ module private Elmish =
                 Context =  { state.Context with Hospital = hosp }
             }, Cmd.none
 
-        | UpdatePage p ->
+        | UpdatePage page ->
             // make sure that the order context is not in use
             // i.e. the order context should be "fresh"
-            if p = ContinuousMeds &&
+            if page = ContinuousMeds &&
                state.OrderContext |> Deferred.map(fun ctx -> ctx.Filter.Medication |> Option.isSome) |> Deferred.defaultValue true
                 then
                 { state with
-                    Page = p
+                    Page = page
                     OrderContext = HasNotStartedYet
                 }, Cmd.ofMsg (LoadUpdatedOrderContext Started)
             else
-                if p = Settings then
+                if page = Settings then
                     { state with
                         OrderContext = OrderContext.empty |> Resolved
                     }
                     , Cmd.ofMsg (LoadResourcesReloaded Started)
                 else
                     { state with
-                        Page = p
+                        Page = page
                     }, Cmd.none
 
-        | UpdatePatient p ->
-            let p =
-                p
-                |> Option.map (
-                    Patient.applyNormalValues
-                        (state.NormalWeights |> Deferred.toOption)
-                        (state.NormalHeights |> Deferred.toOption)
-                        (state.NormalNeoWeights |> Deferred.toOption)
-                        (state.NormalNeoHeights |> Deferred.toOption)
-                )
+        | UpdatePatient pat ->
+            let pat = pat |> applyNormalValues state.NormalValues
 
             { state with
-                Patient = p
+                Patient = pat
                 OrderContext =
-                    match p with
+                    match pat with
                     | None -> HasNotStartedYet
                     | Some p ->
                         match state.OrderContext with
@@ -521,7 +511,7 @@ module private Elmish =
                         |> OrderContext.setPatient p
                         |> Resolved
                 TreatmentPlan =
-                    match p with
+                    match pat with
                     | None -> HasNotStartedYet
                     | Some p ->
                         let tp = TreatmentPlan.create p [||]
@@ -532,7 +522,7 @@ module private Elmish =
                         |> Deferred.defaultValue tp
                         |> Resolved
                 Formulary =
-                    { Formulary.empty with Patient = p }
+                    { Formulary.empty with Patient = pat }
                     |> Resolved
                 Parenteralia =
                     Parenteralia.empty
@@ -551,7 +541,7 @@ module private Elmish =
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
-                Patient = pat
+                Patient =  pat 
                 OrderContext =
                     match med with
                     | None -> state.OrderContext
@@ -590,81 +580,22 @@ module private Elmish =
             Logging.error "cannot load localization" s
             state, Cmd.none
 
-        | LoadNormalWeights Started ->
+        | LoadNormalValues Started ->
             { state with
-                NormalWeights = InProgress
+                NormalValues = InProgress
             },
-            Cmd.fromAsync (GoogleDocs.loadNormalWeight LoadNormalWeights)
+            Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
 
-        | LoadNormalWeights (Finished (Ok weights)) ->
+        | LoadNormalValues (Finished (Ok normalValues)) ->
             { state with
-                Patient =
-                    state.Patient
-                    |> Option.map (
-                        Patient.applyNormalValues
-                            (Some weights)
-                            (state.NormalHeights |> Deferred.toOption)
-                            (state.NormalNeoWeights |> Deferred.toOption)
-                            (state.NormalNeoHeights |> Deferred.toOption)
-                    )
-                NormalWeights = weights |> Resolved
+                NormalValues = normalValues |> Resolved
             },
-            Cmd.none
+            Cmd.ofMsg (UpdatePatient state.Patient)
 
-        | LoadNormalWeights (Finished (Error s)) ->
-            Logging.error "cannot load normal weights" s
+        | LoadNormalValues (Finished (Error s)) ->
+            Logging.error "cannot load normal values" s
             state, Cmd.none
 
-        | LoadNormalHeights Started ->
-            { state with
-                NormalHeights = InProgress
-            },
-            Cmd.fromAsync (GoogleDocs.loadNormalHeight LoadNormalHeights)
-
-        | LoadNormalHeights (Finished (Ok heights)) ->
-
-            { state with
-                NormalHeights = heights |> Resolved
-            },
-            Cmd.none
-
-        | LoadNormalHeights (Finished (Error s)) ->
-            Logging.error "cannot load normal heights" s
-            state, Cmd.none
-
-        | LoadNormalNeoWeights Started ->
-            { state with
-                NormalNeoWeights = InProgress
-            },
-            Cmd.fromAsync (GoogleDocs.loadNormalNeoWeight LoadNormalNeoWeights)
-
-        | LoadNormalNeoWeights (Finished (Ok weights)) ->
-
-            { state with
-                NormalNeoWeights = weights |> Resolved
-            },
-            Cmd.none
-
-        | LoadNormalNeoWeights (Finished (Error s)) ->
-            Logging.error "cannot load normal neo weights" s
-            state, Cmd.none
-
-        | LoadNormalNeoHeights Started ->
-            { state with
-                NormalNeoHeights = InProgress
-            },
-            Cmd.fromAsync (GoogleDocs.loadNeoHeight LoadNormalNeoHeights)
-
-        | LoadNormalNeoHeights (Finished (Ok heights)) ->
-
-            { state with
-                NormalNeoHeights = heights |> Resolved
-            },
-            Cmd.none
-
-        | LoadNormalNeoHeights (Finished (Error s)) ->
-            Logging.error "cannot load normal neo heights" s
-            state, Cmd.none
 
         | LoadBolusMedication Started ->
             { state with
@@ -1153,10 +1084,6 @@ let View () =
                         isDemo = state.IsDemo
                         acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
                         patient = state.Patient
-                        normalWeights = state.NormalWeights |> Deferred.toOption
-                        normalHeights = state.NormalHeights |> Deferred.toOption
-                        normalNeoWeights = state.NormalNeoWeights |> Deferred.toOption
-                        normalNeoHeights = state.NormalNeoHeights |> Deferred.toOption
                         updatePage = UpdatePage >> dispatch
                         updatePatient = UpdatePatient >> dispatch
                         bolusMedication = bm

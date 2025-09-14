@@ -314,6 +314,14 @@ module Patient =
             state, Cmd.none
 
 
+        let canCalculate (pat: Patient option) : bool =
+            match pat with
+            | None -> false
+            | Some p ->
+                p.Weight.Measured.IsSome &&
+                p.Height.Measured.IsSome
+
+
         let show lang terms pat =
             let toString =
                 match terms with
@@ -352,7 +360,8 @@ module Patient =
         let context = React.useContext Global.context
         let lang = context.Localization
 
-        let isExpanded, setExpanded = React.useState true
+        let isExpanded, setExpanded = React.useState (props.patient |> canCalculate |> not)
+
         let depArr = [| box props.patient; box props.updatePatient; box lang |]
         let pat, dispatch =
             React.useElmish(
@@ -368,7 +377,10 @@ module Patient =
             )
             |> Deferred.defaultValue defVal
 
-        let handleChange = fun _ -> isExpanded |> not |> setExpanded
+        let handleChange = fun _ -> 
+            if props.patient |> canCalculate |> not then true |> setExpanded
+            else
+                isExpanded |> not |> setExpanded
 
         let createSelect label sel changeValue vs =
             Components.SimpleSelect.View({|
@@ -427,7 +439,7 @@ module Patient =
                 <Radio />
                 """
 
-            let handleChange =
+            let changeGender =
                 fun ev ->
                     handleChange ()
 
@@ -448,7 +460,7 @@ module Patient =
                     aria-labelledby="demo-row-radio-buttons-group-label"
                     name="row-radio-buttons-group"
                     value={ value }
-                    onChange={ handleChange }
+                    onChange={ changeGender }
                 >
                     <FormControlLabel value="male" control={ radio } label="Man" />
                     <FormControlLabel value="female" control={ radio } label="Vrouw" />

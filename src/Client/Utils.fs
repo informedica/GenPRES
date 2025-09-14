@@ -72,11 +72,11 @@ module GoogleDocs =
 
     open Fable.SimpleHttp
     open Shared
-
+    open Shared.Types
 
     let inline getUrl parseResponse msg url =
         async {
-            let! (statusCode, responseText) = Http.get url
+            let! statusCode, responseText = Http.get url
 
             let result =
                 match statusCode with
@@ -156,3 +156,34 @@ module GoogleDocs =
         dataEMLUrlId
         |> createUrl "height neo"
         |> getUrl NormalValues.parse msg
+
+
+    let loadNormalValues msg =
+        async {
+            let! weightsResult = loadNormalWeight id |> Async.StartChild
+            let! heightsResult = loadNormalHeight id |> Async.StartChild
+            let! neoWeightsResult = loadNormalNeoWeight id |> Async.StartChild
+            let! neoHeightsResult = loadNeoHeight id |> Async.StartChild
+
+            let! weights = weightsResult
+            let! heights = heightsResult
+            let! neoWeights = neoWeightsResult
+            let! neoHeights = neoHeightsResult
+
+            let result =
+                match weights, heights, neoWeights, neoHeights with
+                | Finished(Ok w), Finished(Ok h), Finished(Ok nw), Finished(Ok nh) ->
+                    { Weights = w
+                      Heights = h
+                      NeoWeights = nw
+                      NeoHeights = nh }
+                    |> Ok
+                    |> Finished
+                | Finished(Error e), _, _, _
+                | _, Finished(Error e), _, _
+                | _, _, Finished(Error e), _
+                | _, _, _, Finished(Error e) -> Error e |> Finished
+                | _ -> Error "Loading normal values did not finish correctly" |> Finished
+
+            return msg result
+        }
