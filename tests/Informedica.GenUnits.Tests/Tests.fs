@@ -400,7 +400,7 @@ module Tests =
              |> Expect.isTrue ""
             }
 
-            test "can add or subrract within the same unit group" {
+            test "can add or subtract within the same unit group" {
              (l5 + ml50) >? l5
              |> Expect.isTrue  ""
 
@@ -408,7 +408,7 @@ module Tests =
              |> Expect.isTrue ""
             }
 
-            test "cannot add or subrract with different unit groups" {
+            test "cannot add or subtract with different unit groups" {
              (fun _ -> (l5 + mg400) >? l5 |> ignore)
              |> Expect.throws ""
 
