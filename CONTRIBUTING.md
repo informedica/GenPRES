@@ -39,7 +39,7 @@ export GENPRES_DEBUG=1
 ```
 
 #### Option 2: Using direnv (Recommended for Persistent Setup)
-Create a `.envrc` file in the project root:
+Install [direnv](https://direnv.net/) and create a `.envrc` file in the project root:
 ```bash
 # .envrc file
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
