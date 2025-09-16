@@ -51,6 +51,8 @@ export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
 
+**Don't forget** to [hook direnv](https://direnv.net/docs/hook.html) to your shell!
+
 Then allow direnv to load the variables:
 
 ```bash
