@@ -31,6 +31,7 @@ Before contributing, ensure you have the following installed:
 **Important**: Proper environment variable setup is critical for the application to function correctly. Missing or incorrect environment variables can cause resource loading failures (see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44)).
 
 #### Option 1: Direct Export (Temporary)
+
 ```bash
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 export GENPRES_LOG=0
@@ -39,7 +40,9 @@ export GENPRES_DEBUG=1
 ```
 
 #### Option 2: Using direnv (Recommended for Persistent Setup)
+
 Install [direnv](https://direnv.net/) and create a `.envrc` file in the project root:
+
 ```bash
 # .envrc file
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
@@ -49,11 +52,13 @@ export GENPRES_DEBUG=1
 ```
 
 Then allow direnv to load the variables:
+
 ```bash
 direnv allow
 ```
 
 **Environment Variable Requirements**:
+
 - `GENPRES_URL_ID`: Google Sheet ID for demo data (required)
 - `GENPRES_PROD=0`: **Mandatory** for demo version - prevents production data access
 - `GENPRES_LOG=0`: Controls logging verbosity
@@ -61,13 +66,13 @@ direnv allow
 
 **Troubleshooting**: If you encounter "cannot find column" errors during startup, verify that all environment variables are properly set. Missing `GENPRES_URL_ID` or incorrect values can cause resource loading failures.
 
-4. Start the application:
+### Start the application
 
 ```bash
 dotnet run
 ```
 
-5. Open your browser to `http://localhost:5173`
+Open your browser to `http://localhost:5173`
 
 ## How to Contribute
 
@@ -100,6 +105,7 @@ This project follows specific organizational patterns:
 ### Coding Standards
 
 #### F# Development
+
 Follow our [F# Coding Instructions](.github/instructions/fsharp-coding.instructions.md) which include:
 
 - Use 4 spaces for indentation (no tabs)
@@ -112,9 +118,11 @@ Follow our [F# Coding Instructions](.github/instructions/fsharp-coding.instructi
 - Use property-based testing for complex logic
 
 #### Commit Messages
+
 Follow our [Commit Message Instructions](.github/instructions/commit-message.instructions.md):
 
 Use conventional commits format:
+
 ```
 <type>[optional scope]: <description>
 
@@ -126,11 +134,13 @@ Use conventional commits format:
 **Types**: `feat`, `fix`, `docs`, `style`, `refact`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
 **Scopes for GenPRES**:
+
 - Library scopes: `gensolver`, `genorder`, `genunits`, `zindex`, `utils`
 - Application scopes: `client`, `server`, `api`, `ui`, `config`
 - Infrastructure scopes: `deps`, `docker`, `github`, `build`, `deploy`
 
 **Examples**:
+
 ```
 feat(genorder): add pediatric dosage calculation
 fix(genunits): correct mg/ml to mmol/L conversion for NaCl
@@ -308,11 +318,18 @@ This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 
 ### Core Libraries
 
-- **GenSolver.Lib**: Constraint solving, equations, variables
-- **GenOrder.Lib**: Medical orders, prescriptions
-- **GenUnits.Lib**: Units of measure, calculations
-- **ZIndex.Lib**: Medication database, drug information
-- **Utils.Lib**: Shared utilities, common functions
+- **Informedica.Utils.Lib**: Shared utilities, common functions
+- **Informedica.Agents.Lib**: Implementations of the MailboxProcessor as Agent
+- **Informedica.Logging.Lib**: Logging library enabling concurrent logging
+- **Informedica.GenCore.Lib**: Domain modelling of core concepts
+- **Informedica.GenUnits.Lib**: Units of measure, calculations
+- **Informedica.GenSolver.Lib**: Constraint solving, equations, variables
+- **Informedica.ZIndex.Lib**: Medication database, drug *product* information
+- **Informedica.ZForm.Lib**: Medication database, drug *dosing* information
+- **Informedica.GenForm.Lib**: Domain library for all order constraint rules
+- **Informedica.GenOrder.Lib**: Medical orders, prescriptions
+- **Server**: The server library
+- **Client**: The webbased client UI
 
 ## Getting Help
 

@@ -4,13 +4,11 @@ The GenPRES project is an open source software initiative to enable a generic me
 
 This project is initially aimed at the Dutch medical setting, but can easily be applied to any medical setting.
 
-
 ---
 
-![](docs/pcm%20example.gif)
+![genpresdemo](docs/pcm%20example.gif)
 
 ---
-
 
 ## Background
 
@@ -22,16 +20,14 @@ In order to achieve a safe and efficient medication workflow the following human
 2. Calculations
 3. Verification of correct applications of rules and constraints and subsequent calculations
 
-
 With the assumption that software will not err in basic lookup and calculation activities, given the correct implementation, it can be assumed that such CDSS can achieve a significant reduction in medical errors and increase efficiency of workflow.
 
-The current solution runs at: http://genpres.nl.
+The current solution runs at: <http://genpres.nl>.
 
 Some more background information can be found at:
 
-- https://github.com/informedica/Informedica.GenPres.Lib/wiki/Informedica.GenOrder.Lib
-- https://medicatieveiligensnel.nl (website in Dutch, with a language banner!)
-
+- <https://github.com/informedica/Informedica.GenPres.Lib/wiki/Informedica.GenOrder.Lib>
+- <https://medicatieveiligensnel.nl> (website in Dutch, with a language banner!)
 
 ## Build
 
@@ -39,18 +35,15 @@ Some more background information can be found at:
 |:------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 | [![GitHub Actions](https://github.com/halcwb/GenPRES2/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPRES2/actions?query=branch%3Amaster) |
 
-
-
-
 ## Install pre-requisites
 
 You'll need to install the following pre-requisites in order to build SAFE applications.
 
 Current known build configuration
 
-* dotnet: 9.0.0
-* npm: 10.9.0
-* node: v22.11.0
+- dotnet: 9.0.0
+- npm: 10.9.0
+- node: v22.11.0
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
@@ -84,6 +77,7 @@ This will create a production ready docker image:
 ```bash
 docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t halcwb/genpres .
 ```
+
 **Note**: this will build using the local processor architecture.
 
 To build on a MacOs M1 and still want to publish for an ARM64
@@ -94,10 +88,9 @@ docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" --platform linux/a
 
 To run the docker image locally:
 
-```
+```bash
 docker run -it -p 8080:8085 [USERNAME]/genpres
 ```
-
 
 ## SAFE Stack Documentation
 
@@ -107,10 +100,9 @@ If you want to know more about the full Azure Stack and all of its components (i
 
 You will find more documentation about the used F# components at the following places:
 
-* [Saturn](https://saturnframework.org/)
-* [Fable](https://fable.io/docs/)
-* [Elmish](https://elmish.github.io/elmish/)
-
+- [Saturn](https://saturnframework.org/)
+- [Fable](https://fable.io/docs/)
+- [Elmish](https://elmish.github.io/elmish/)
 
 ## Collaboration
 
@@ -120,11 +112,11 @@ Some specifics:
 
 - An opt-in strategy is used in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around.
 - commits are tagged with
-    - chore: something that needs to be done
-    - feat: a new feature
-    - refact: a refactoring
-    - fix: a bug fix, or otherwise
-    - docs: documentation
-    - tests: testing code
+  - chore: something that needs to be done
+  - feat: a new feature
+  - refact: a refactoring
+  - fix: a bug fix, or otherwise
+  - docs: documentation
+  - tests: testing code
 
 For detailed commit message guidelines and conventions, see [commit-message.instructions.md](.github/instructions/commit-message.instructions.md).
