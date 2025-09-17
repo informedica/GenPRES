@@ -39,34 +39,52 @@ Some more background information can be found at:
 
 You'll need to install the following pre-requisites in order to build SAFE applications.
 
-Current known build configuration
-
-- dotnet: 9.0.0
-- npm: 10.9.0
-- node: v22.11.0
+- **.NET SDK**: 9.0.0 or later
+- **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
+- **npm**: 9.x, 10.x, 11.x, 18.x, or 22.x
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
-A demo cache file with medication product data is include in this repository. This contains some sample medication data from a much larger drug formulary database.
+A demo cache file with medication product data is included in this repository. This contains some sample medication data from a much larger drug formulary database.
 
 Before starting the application set the following environmental variables for a demo version of GenPRES:
 
-```batch
+**Unix/Linux/macOS (bash/zsh):**
+
+```bash
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 export GENPRES_LOG=0
 export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
 
+**Windows PowerShell:**
+
+```powershell
+$env:GENPRES_URL_ID="1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+$env:GENPRES_LOG="0"
+$env:GENPRES_PROD="0"
+$env:GENPRES_DEBUG="1"
+```
+
+**Windows Command Prompt:**
+
+```cmd
+set GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
+set GENPRES_LOG=0
+set GENPRES_PROD=0
+set GENPRES_DEBUG=1
+```
+
 **NOTE** `GENPRES_PROD=0` is mandatory to run the demo version. Otherwise the application will look for production files (that do not exist on the repository version).
 
 ## Starting the application
 
-Starting the application in developper mode is now super easy, just `dotnet run` spins up the entire application. Look for different targets by `dotnet run list`.
+Starting the application in developer mode is now super easy, just `dotnet run` spins up the entire application. Look for different targets by `dotnet run list`.
 
 Open a browser to `http://localhost:5173` to view the site.
 
-Additionally, an environmental variable can be set to use a different GenPRES data excel url:
+Additionally, an environment variable can be set to use a different GenPRES data excel url:
 `export GENPRES_URL_ID=<some url id>`. After starting the application, the url that is used will be
 printed to the terminal. If no env is set, the default url will be used.
 
@@ -75,15 +93,15 @@ printed to the terminal. If no env is set, the default url will be used.
 This will create a production ready docker image:
 
 ```bash
-docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t halcwb/genpres .
+docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t [USERNAME]/genpres .
 ```
 
 **Note**: this will build using the local processor architecture.
 
-To build on a MacOs M1 and still want to publish for an ARM64
+To build on a MacOS M1 and still want to publish for AMD64 (x86_64):
 
 ```bash
-docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" --platform linux/amd64 -t halcwb/genpres .
+docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" --platform linux/amd64 -t [USERNAME]/genpres .
 ```
 
 To run the docker image locally:
@@ -91,6 +109,8 @@ To run the docker image locally:
 ```bash
 docker run -it -p 8080:8085 [USERNAME]/genpres
 ```
+
+Open a browser to `http://localhost:8080` to view the site.
 
 ## SAFE Stack Documentation
 
@@ -108,15 +128,20 @@ You will find more documentation about the used F# components at the following p
 
 Any help or collaboration is welcome! You can fork this repository, post issues, ask questions or get on [slack](https://genpresworkspace.slack.com).
 
-Some specifics:
+Some specifics, for more detailed information look at the [CONTRIBUTING.md](CONTRIBUTING.md):
 
-- An opt-in strategy is used in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around.
+- **An opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around.
 - commits are tagged with
-  - chore: something that needs to be done
-  - feat: a new feature
-  - refact: a refactoring
-  - fix: a bug fix, or otherwise
-  - docs: documentation
-  - tests: testing code
+  - **feat**: A new feature for the user
+  - **fix**: A bug fix, note that this should not be used for documentation fixes or refactoring
+  - **docs**: Documentation only changes
+  - **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
+  - **refactor**: A code change that neither fixes a bug nor adds a feature
+  - **perf**: A code change that improves performance
+  - **test**: Adding missing tests or correcting existing tests
+  - **build**: Changes that affect the build system or external dependencies
+  - **ci**: Changes to CI configuration files and scripts
+  - **chore**: Other changes that don't modify src or test files
+  - **revert**: Reverts a previous commit
 
 For detailed commit message guidelines and conventions, see [commit-message.instructions.md](.github/instructions/commit-message.instructions.md).

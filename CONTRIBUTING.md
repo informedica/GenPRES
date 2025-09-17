@@ -18,9 +18,9 @@ GenPRES is an open source software initiative to enable a **Safe and Efficient**
 
 Before contributing, ensure you have the following installed:
 
-- **dotnet**: 9.0.0
-- **npm**: 10.9.0
-- **node**: v22.11.0
+- **.NET SDK**: 9.0.0 or later
+- **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
+- **npm**: 9.x, 10.x, 11.x, 18.x, or 22.x
 
 ### Setting Up the Development Environment
 

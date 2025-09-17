@@ -21,7 +21,7 @@ Use the conventional commits format for all commit messages:
 - **fix**: A bug fix, note that this should not be used for documentation fixes or refactoring
 - **docs**: Documentation only changes
 - **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
-- **refact**: A code change that neither fixes a bug nor adds a feature
+- **refactor**: A code change that neither fixes a bug nor adds a feature
 - **perf**: A code change that improves performance
 - **test**: Adding missing tests or correcting existing tests
 - **build**: Changes that affect the build system or external dependencies
