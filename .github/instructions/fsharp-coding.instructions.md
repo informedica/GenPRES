@@ -1,3 +1,8 @@
+---
+description: "Fsharp-instructions"
+applyTo: "**/*.fs,**/*.fsx"
+---
+
 # F# Coding Instructions
 
 ## General F# Guidelines
@@ -114,6 +119,47 @@ type MedicationStatus =
     | Suspended of reason: string
 ```
 
+### Type and Module Shadowing Pattern
+- Create specific modules for each domain type that shadow the type name
+- Define the type first at the top level, then create a module with the same name
+- This enables clean API usage like `let patient: Patient = Patient.create name birthDate`
+- Place constructor and core operations in the shadowing module
+
+```fsharp
+// Good - Type-first with shadowing module
+/// Represents a patient in the medical system
+type Patient = {
+    Id: PatientId
+    Name: string
+    BirthDate: DateTime option
+}
+
+/// Functions for working with Patient instances
+module Patient =
+    /// Creates a new patient with validation
+    let create name birthDate : Patient =
+        { Id = PatientId.generate(); Name = name; BirthDate = birthDate }
+    
+    /// Calculates the patient's age
+    let calculateAge currentDate (patient: Patient) =
+        // implementation
+    
+    /// Validates patient data
+    let validate (patient: Patient) =
+        // implementation
+
+// Usage becomes clean and intuitive:
+let patient: Patient = Patient.create "John Doe" (Some birthDate)
+let age = Patient.calculateAge DateTime.Now patient
+```
+
+#### Benefits of Type Shadowing
+- **Discoverability**: IntelliSense shows both type and related functions together
+- **Consistency**: Follows .NET and F# core library patterns (`List.create`, `Map.empty`, etc.)
+- **Type Safety**: Explicit return types in module functions ensure correctness
+- **Clean APIs**: Natural, readable code that expresses intent clearly
+
+
 ### Function Design
 - Keep functions small and focused on a single responsibility
 - Use partial application and currying effectively
@@ -188,6 +234,32 @@ let validateDosage dose maxDose =
 - Create separate test projects for each library
 - Test both success and failure paths
 - Create test utilities for common setup operations
+
+Example preferred test setup
+```fsharp
+open Expecto
+open Expecto.Flip
+
+
+let run = 
+    runTestsWithCLIArgs [] [||] 
+
+// prefered test setup using Expecto.Flip
+// enabling pipelining of the actual value to 
+// the expecto test with the message and expected value
+test "Example test" {
+    // GOOD
+    // explicit expected result
+    let exp = 1
+
+    // GOOD
+    1
+    // pipeline actual to test with
+    // message as interpolated string with exp
+    |> Expect.equal $"1 should be equal to {exp}" exp
+}
+|> run
+```
 
 #### Testing Framework and Structure
 - Use Expecto as the primary testing framework
@@ -372,6 +444,7 @@ test "floating point comparison with tolerance" {
 - Use units of measure for quantities (mg, kg, ml, etc.)
 - Make illegal states unrepresentable through type design
 - Leverage F#'s type system to encode business rules
+
 
 ### API Design
 - Use Railway Oriented Programming for complex workflows

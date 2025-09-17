@@ -183,9 +183,12 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
 [<RequireQualifiedAccess>]
 module Agent =
 
+
     /// <summary>
     /// Creates and starts a simple agent that processes messages of type 'T in a loop.
     /// The processor function is called for each message received.
+    /// This agent does not maintain state between messages and will
+    /// not reply.
     /// </summary>
     /// <param name="processor">A function to process each message.</param>
     /// <returns>An Agent instance.</returns>
@@ -200,12 +203,10 @@ module Agent =
         )
 
 
-    let create processor = createSimple processor
-
-
     /// <summary>
     /// Creates and starts a stateful agent that maintains state of type 'State.
     /// The processor function updates the state for each message received.
+    /// This agent does not reply to messages.
     /// </summary>
     /// <param name="initialState">The initial state value.</param>
     /// <param name="processor">A function to process each message and update the state.</param>
