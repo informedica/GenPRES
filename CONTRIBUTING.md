@@ -20,7 +20,7 @@ Before contributing, ensure you have the following installed:
 
 - **.NET SDK**: 9.0.0 or later
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
-- **npm**: 9.x, 10.x, 11.x, 18.x, or 22.x
+- **npm**: 10.x or later
 
 ### Setting Up the Development Environment
 
@@ -135,7 +135,7 @@ Use conventional commits format:
 [optional footer(s)]
 ```
 
-**Types**: `feat`, `fix`, `docs`, `style`, `refact`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 
 **Scopes for GenPRES**:
 

@@ -100,7 +100,7 @@ docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t [USERNAME]/genp
 
 **Note**: this will build using the local processor architecture.
 
-To build on a macOS M1 and still want to publish for AMD64 (x86_64):
+To build on macOS (M1/M2/Apple Silicon) and still want to publish for AMD64 (x86_64):
 
 ```bash
 docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" --platform linux/amd64 -t [USERNAME]/genpres .
