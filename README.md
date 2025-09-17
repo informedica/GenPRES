@@ -41,13 +41,13 @@ You'll need to install the following pre-requisites in order to build SAFE appli
 
 - **.NET SDK**: 9.0.0 or later
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
-- **npm**: 9.x, 10.x, 11.x, 18.x, or 22.x
+- **npm**: 10.x or later
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
 A demo cache file with medication product data is included in this repository. This contains some sample medication data from a much larger drug formulary database.
 
-Before starting the application set the following environmental variables for a demo version of GenPRES:
+Before starting the application set the following environment variables for a demo version of GenPRES:
 
 **Unix/Linux/macOS (bash/zsh):**
 
@@ -84,13 +84,15 @@ Starting the application in developer mode is now super easy, just `dotnet run` 
 
 Open a browser to `http://localhost:5173` to view the site.
 
-Additionally, an environment variable can be set to use a different GenPRES data excel url:
+Additionally, an environment variable can be set to use a different GenPRES data Excel URL:
 `export GENPRES_URL_ID=<some url id>`. After starting the application, the url that is used will be
 printed to the terminal. If no env is set, the default url will be used.
 
+For Windows users, see the environment variable setup section above for PowerShell and Command Prompt syntax.
+
 ### Deployment using Docker
 
-This will create a production ready docker image:
+This will create a production ready Docker image:
 
 ```bash
 docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t [USERNAME]/genpres .
@@ -98,13 +100,13 @@ docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" -t [USERNAME]/genp
 
 **Note**: this will build using the local processor architecture.
 
-To build on a MacOS M1 and still want to publish for AMD64 (x86_64):
+To build on a macOS M1 and still want to publish for AMD64 (x86_64):
 
 ```bash
 docker build --build-arg GENPRES_URL_ARG="your_secret_url_id" --platform linux/amd64 -t [USERNAME]/genpres .
 ```
 
-To run the docker image locally:
+To run the Docker image locally:
 
 ```bash
 docker run -it -p 8080:8085 [USERNAME]/genpres

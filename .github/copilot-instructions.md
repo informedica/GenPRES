@@ -14,6 +14,9 @@ This file is a concise set of instructions for automated coding agents working o
 - F# libraries under `src/` 
 - Tests: `tests/` (Expecto + FsCheck). Look for BigRational and ValueUnit tests.
 
+**Important: an opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around!!
+
+
 Also consult: [CONTRIBUTING.md](https://github.com/halcwb/GenPres2?tab=contributing-ov-file)
 
 ## Code standards

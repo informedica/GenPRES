@@ -97,6 +97,8 @@ Open your browser to `http://localhost:5173`
 
 ### Repository Structure
 
+**Important: an opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around!!
+
 This project follows specific organizational patterns:
 
 - **Library Structure**: Use the `Informedica.{Domain}.Lib` naming convention
