@@ -85,7 +85,7 @@ type VariableRole =
     | ItemDoseTotalAdjust
 
 /// Phase of order processing
-type OrderPhase =
+type OrderPart =
     | Prescription
     | Preparation
     | Administration
@@ -93,7 +93,7 @@ type OrderPhase =
 /// Prescription-specific variable relevance
 type PrescriptionVariableRelevance = {
     PrescriptionType: string
-    Phase: OrderPhase
+    OrderPart: OrderPart
     RelevantVariables: VariableRole list
     CriticalVariables: VariableRole list  // Must be solved for this phase
 }
@@ -133,7 +133,7 @@ module OrderVariableClassification =
         elif OrderVariable.isSolved ovar then IsSolved
         elif OrderVariable.hasValues ovar then HasValues
         elif ovar.Variable |> Variable.isMinIncrMax then CanHaveValues
-        elif ovar.Variable.Values |> Variable.ValueRange.isMinMax then Bounded
+        elif ovar.Variable |> Variable.isMinMax then Bounded
         else UnBounded
 
     /// Determine the constraint state of an OrderVariable
@@ -154,7 +154,7 @@ module VariableRelevanceTable =
         // Once prescription
         {
             PrescriptionType = "Once"
-            Phase = Prescription
+            OrderPart = Prescription
             RelevantVariables = [
                 OrderableDoseQuantity; OrderableDoseQuantityAdjust
                 ComponentDoseQuantity; ComponentDoseQuantityAdjust
@@ -165,7 +165,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Once"
-            Phase = Preparation
+            OrderPart = Preparation
             RelevantVariables = [
                 OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
                 ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
@@ -175,7 +175,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Once"
-            Phase = Administration
+            OrderPart = Administration
             RelevantVariables = [
                 OrderableQuantity; ComponentOrderableQuantity
                 ItemOrderableQuantity
@@ -186,7 +186,7 @@ module VariableRelevanceTable =
         // OnceTimed prescription
         {
             PrescriptionType = "OnceTimed"
-            Phase = Prescription
+            OrderPart = Prescription
             RelevantVariables = [
                 PrescriptionTime; OrderableDoseQuantity; OrderableDoseQuantityAdjust
                 OrderableDoseRate; OrderableDoseRateAdjust
@@ -198,7 +198,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "OnceTimed"
-            Phase = Preparation
+            OrderPart = Preparation
             RelevantVariables = [
                 OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
                 ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
@@ -208,7 +208,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "OnceTimed"
-            Phase = Administration
+            OrderPart = Administration
             RelevantVariables = [
                 OrderableQuantity; OrderableDoseRate
                 ComponentOrderableQuantity; ItemOrderableQuantity
@@ -219,7 +219,7 @@ module VariableRelevanceTable =
         // Discontinuous prescription
         {
             PrescriptionType = "Discontinuous"
-            Phase = Prescription
+            OrderPart = Prescription
             RelevantVariables = [
                 PrescriptionFrequency; OrderableDoseQuantity; OrderableDosePerTime
                 OrderableDoseQuantityAdjust; OrderableDosePerTimeAdjust
@@ -233,7 +233,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Discontinuous"
-            Phase = Preparation
+            OrderPart = Preparation
             RelevantVariables = [
                 OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
                 ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
@@ -243,7 +243,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Discontinuous"
-            Phase = Administration
+            OrderPart = Administration
             RelevantVariables = [
                 PrescriptionFrequency; OrderableQuantity
                 ComponentOrderableQuantity; ItemOrderableQuantity
@@ -254,7 +254,7 @@ module VariableRelevanceTable =
         // Continuous prescription
         {
             PrescriptionType = "Continuous"
-            Phase = Prescription
+            OrderPart = Prescription
             RelevantVariables = [
                 PrescriptionTime; OrderableDoseRate; OrderableDoseRateAdjust
                 ComponentDoseRate; ComponentDoseRateAdjust
@@ -265,7 +265,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Continuous"
-            Phase = Preparation
+            OrderPart = Preparation
             RelevantVariables = [
                 OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
                 ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
@@ -275,7 +275,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Continuous"
-            Phase = Administration
+            OrderPart = Administration
             RelevantVariables = [
                 OrderableQuantity; OrderableDoseRate
                 ComponentOrderableQuantity; ItemOrderableQuantity
@@ -286,7 +286,7 @@ module VariableRelevanceTable =
         // Timed prescription
         {
             PrescriptionType = "Timed"
-            Phase = Prescription
+            OrderPart = Prescription
             RelevantVariables = [
                 PrescriptionFrequency; PrescriptionTime
                 OrderableDoseQuantity; OrderableDosePerTime; OrderableDoseRate
@@ -301,7 +301,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Timed"
-            Phase = Preparation
+            OrderPart = Preparation
             RelevantVariables = [
                 OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
                 ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
@@ -311,7 +311,7 @@ module VariableRelevanceTable =
 
         {
             PrescriptionType = "Timed"
-            Phase = Administration
+            OrderPart = Administration
             RelevantVariables = [
                 PrescriptionFrequency; PrescriptionTime; OrderableQuantity; OrderableDoseRate
                 ComponentOrderableQuantity; ItemOrderableQuantity
@@ -320,17 +320,17 @@ module VariableRelevanceTable =
         }
     ]
 
-    /// Get relevant variables for a prescription type and phase
-    let getRelevantVariables (prescriptionType: string) (phase: OrderPhase) : VariableRole list =
+    /// Get relevant variables for a prescription type and the order part
+    let getRelevantVariables (prescriptionType: string) (part: OrderPart) : VariableRole list =
         prescriptionRelevance
-        |> List.filter (fun r -> r.PrescriptionType = prescriptionType && r.Phase = phase)
+        |> List.filter (fun r -> r.PrescriptionType = prescriptionType && r.OrderPart = part)
         |> List.collect (fun r -> r.RelevantVariables)
         |> List.distinct
 
-    /// Get critical variables for a prescription type and phase
-    let getCriticalVariables (prescriptionType: string) (phase: OrderPhase) : VariableRole list =
+    /// Get critical variables for a prescription type and the order part
+    let getCriticalVariables (prescriptionType: string) (phase: OrderPart) : VariableRole list =
         prescriptionRelevance
-        |> List.filter (fun r -> r.PrescriptionType = prescriptionType && r.Phase = phase)
+        |> List.filter (fun r -> r.PrescriptionType = prescriptionType && r.OrderPart = phase)
         |> List.collect (fun r -> r.CriticalVariables)
         |> List.distinct
 
@@ -366,7 +366,7 @@ module OrderStateClassification =
 /// State-aware command for processing orders
 type StateAwareCommand =
     | InitializeOrder of Order
-    | ProgressToNextPhase of Order * OrderPhase
+    | ProgressToNextPhase of Order * OrderPart
     | HandleClearedVariables of Order * VariableRole list
     | MaterializeChoices of Order * VariableRole list
     | FinalizeOrder of Order
@@ -377,14 +377,14 @@ type StateProcessingResult = {
     NewState: OrderState
     AvailableChoices: (VariableRole * OrderVariableState) list
     NextRecommendedAction: StateTransition option
-    PhaseCompletionStatus: (OrderPhase * bool) list
+    PhaseCompletionStatus: (OrderPart * bool) list
 }
 
 /// Enhanced OrderState with phase tracking
 type DetailedOrderState = {
     OverallState: OrderState
-    CurrentPhase: OrderPhase
-    CompletedPhases: OrderPhase list
+    CurrentPhase: OrderPart
+    CompletedPhases: OrderPart list
     PrescriptionType: string
     ClearedVariables: VariableRole list
     VariableStates: Map<VariableRole, OrderVariableState>
@@ -421,7 +421,7 @@ module StateHelpers =
         | _ -> None
 
     /// Get detailed state analysis of an order
-    let analyzeDetailedState (order: Order) : DetailedOrderState =
+    let rec analyzeDetailedState (order: Order) : DetailedOrderState =
         let prescriptionType =
             match order.Prescription with
             | Once -> "Once"
@@ -466,7 +466,7 @@ module StateHelpers =
         }
 
     /// Check if an order phase is complete
-    and isPhaseComplete (order: Order) (phase: OrderPhase) : bool =
+    and isPhaseComplete (order: Order) (phase: OrderPart) : bool =
         let prescriptionType =
             match order.Prescription with
             | Once -> "Once"
@@ -480,11 +480,11 @@ module StateHelpers =
         // Simplified logic - in full implementation would check each critical variable
         match phase with
         | Prescription -> Order.doseIsSolved order
-        | Preparation -> not (order.Orderable |> Orderable.isConcentrationCleared)
+        | Preparation -> failwith "not implemented yet" // not (order.Orderable |> Orderable.isConcentrationCleared)
         | Administration -> Order.isSolved order
 
     /// Get variables that need attention for the current phase
-    let getVariablesNeedingAttention (order: Order) (phase: OrderPhase) : VariableRole list =
+    let getVariablesNeedingAttention (order: Order) (phase: OrderPart) : VariableRole list =
         let state = analyzeDetailedState order
 
         VariableRelevanceTable.getRelevantVariables state.PrescriptionType phase

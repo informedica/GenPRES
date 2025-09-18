@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp"},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"}]}}
 
 #!markdown
 
@@ -118,13 +118,13 @@ let getQuantity =
             gpp.GenericProducts
             |> Array.tryHead
             |> Option.map (fun gp -> 
-                if gp.Substances |> Array.length <> 1 then 0m
+                if gp.Substances |> Array.length <> 1 then 0.
                 else 
                     gp.Substances[0].GenericQuantity                
             )
-            |> Option.defaultValue 0m
+            |> Option.defaultValue 0.
 
-    getFromGPP getter 0m
+    getFromGPP getter 0.
 
 
 let getUnit = 
