@@ -32,6 +32,7 @@ module Order =
             | ChangeFrequency of string option
             | ChangeTime of string option
             | ChangeSubstanceDoseQuantity of string option
+            | ChangeSubstanceDoseQuantityAdjust of string option
             | ChangeSubstancePerTime of string option
             | ChangeSubstancePerTimeAdjust of string option
             | ChangeSubstanceRate of string option
@@ -263,7 +264,42 @@ module Order =
                                                 }
                                         )
                                 }
+                        }
+                        |> UpdateOrderScenario
+                    { state with Order = None}, Cmd.ofMsg msg
+                | _ -> state, Cmd.none
 
+            | ChangeSubstanceDoseQuantityAdjust s ->
+                match state.Order with
+                | Some ord ->
+                    let msg =
+                        { ord with
+                            Orderable =
+                                { ord.Orderable with
+                                    Components =
+                                        ord.Orderable.Components
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
+                                            else
+                                                { cmp with
+                                                    Items =
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
+                                                            match state.SelectedItem with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
+                                                                    Dose =
+                                                                        { itm.Dose with
+                                                                            QuantityAdjust =
+                                                                                itm.Dose.QuantityAdjust
+                                                                                |> setOvar s
+                                                                        }
+                                                                }
+                                                            | _ -> itm
+                                                        )
+                                                }
+                                        )
+                                }
                         }
                         |> UpdateOrderScenario
                     { state with Order = None}, Cmd.ofMsg msg
@@ -715,6 +751,7 @@ module Order =
             <CardContent>
                 <Stack direction={"column"} spacing={3} >
                     {
+                        // component name
                         match state.Order with
                         | Some ord ->
                             if ord.Orderable.Components |> Array.length <= 1 then JSX.jsx $"<></>"
@@ -728,6 +765,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // component dose quantity
                         match state.Order with
                         | Some ord when ord.Orderable.Components |> Array.length > 1 &&
                                         itms |> Array.isEmpty ->
@@ -742,6 +780,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // substance name
                         match state.Order with
                         | Some ord ->
                             if ord.Orderable.Components |> Array.isEmpty ||
@@ -756,6 +795,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // frequency
                         match state.Order with
                         | Some ord ->
                             ord.Prescription.Frequency.Variable.Vals
@@ -767,6 +807,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // substance dose quantity
                         match substIndx, state.Order with
                         | Some i, Some ord when ord.Prescription.IsContinuous |> not &&
                                                 itms |> Array.length > 0 ->
@@ -789,6 +830,30 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // substance dose quantity adjust
+                        match substIndx, state.Order with
+                        | Some i, Some ord when (ord.Prescription.IsOnce || ord.Prescription.IsOnceTimed) &&
+                                                itms |> Array.length > 0 && useAdjust ->
+                            let label, vals =
+                                itms[i].Dose.QuantityAdjust.Variable.Vals
+                                |> Option.map (fun v ->
+                                    (Terms.``Order Adjusted dose``
+                                    |> getTerm "Keer Dosis"
+                                    |> fun s -> $"{s} ({v.Unit})"),
+                                    v.Value
+                                    |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}")
+                                    |> Array.distinctBy snd
+                                )
+                                |> Option.defaultValue ("", [||])
+
+                            vals
+                            |> select false label None (ChangeSubstanceDoseQuantityAdjust >> dispatch)
+                        | _ ->
+                            [||]
+                            |> select true "" None ignore
+                    }
+                    {
+                        // substance dose per time
                         match substIndx, state.Order with
                         | Some i, Some ord when ord.Prescription.IsContinuous |> not &&
                                                 itms |> Array.length > 0 ->
@@ -817,6 +882,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // substance dose rate
                         match substIndx, state.Order with
                         | Some i, Some ord when ord.Prescription.IsContinuous &&
                                                 itms |> Array.length > 0 ->
@@ -838,6 +904,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // orderable dose quantity
                         match state.Order with
                         | Some ord ->
                             ord.Orderable.Dose.Quantity.Variable.Vals
@@ -849,6 +916,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // substance component concentration
                         match substIndx, state.Order with
                         | Some i, Some ord ->
                             match itms |> Array.tryItem i with
@@ -890,6 +958,7 @@ module Order =
 
                     }
                     {
+                        // substance orderable concentration
                         match substIndx, state.Order with
                         | Some i, Some ord when itms |> Array.length > 0 &&
                                                 ord.Orderable.Components |> Array.length > 1 ->
@@ -902,6 +971,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // orderable dose rate
                         match state.Order with
                         | Some ord ->
                             ord.Orderable.Dose.Rate.Variable.Vals
@@ -913,6 +983,7 @@ module Order =
                             |> select true "" None ignore
                     }
                     {
+                        // administration time
                         match state.Order with
                         | Some ord ->
                             ord.Prescription.Time.Variable.Vals

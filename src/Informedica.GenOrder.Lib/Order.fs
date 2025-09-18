@@ -3228,6 +3228,7 @@ module Order =
                 n |> String.contains "_cmp_qty" |> not &&
                 n |> String.contains "_cmp_cnc" |> not &&
                 n |> String.contains "_orb_cnt" |> not &&
+                n |> String.contains "_orb_qty" |> not &&
                 n |> String.contains "_orb_cnc" |> not
             )
             |> List.exists OrderVariable.hasValues
@@ -3244,6 +3245,7 @@ module Order =
                 n |> String.contains "_cmp_qty" |> not &&
                 n |> String.contains "_cmp_cnc" |> not &&
                 n |> String.contains "_orb_cnt" |> not &&
+                n |> String.contains "_orb_qty" |> not &&
                 n |> String.contains "_orb_cnc" |> not
             )
             |> List.exists OrderVariable.hasValues
@@ -4039,7 +4041,7 @@ module Order =
 
         // Helper guards matching legacy active-pattern logic
         // NoValues is defined as: not empty, no values, and not solved
-        let isNoValues (s: OrderState) = (not s.IsEmpty) && (not s.HasValues) && (not s.DoseIsSolved)
+        let isNoValues (s: OrderState) = not s.IsEmpty && not s.HasValues && not s.DoseIsSolved
 
         // Core step functions
         let calcMinMaxStep increaseIncrement ord =
