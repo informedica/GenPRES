@@ -1,12 +1,16 @@
 #load "load.fsx"
 
+namespace Informedica.GenOrder.Lib.OrderState
+
+open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 open Informedica.GenOrder.Lib
+open Informedica.GenOrder.Lib.Types
 
 
 /// Represents the value state of an OrderVariable
 type VariableValueState =
-    /// Has not both an Lower and Upper Bound
+    /// Has not both a Lower and Upper Bound
     | UnBounded
     /// Has min/max bounds but no specific increment
     | Bounded
@@ -84,45 +88,58 @@ type VariableRole =
     | ItemDoseRateAdjust
     | ItemDoseTotalAdjust
 
-/// Phase of order processing
+/// Order parts (integral components, not sequential phases)
 type OrderPart =
-    | Prescription
-    | Preparation
-    | Administration
+    | Prescription  // Dosing information
+    | Preparation   // Component/concentration calculations
+    | Administration // Final quantities and rates
 
-/// Prescription-specific variable relevance
-type PrescriptionVariableRelevance = {
-    PrescriptionType: string
-    OrderPart: OrderPart
-    RelevantVariables: VariableRole list
-    CriticalVariables: VariableRole list  // Must be solved for this phase
+/// Corrected Order state progression
+type OrderState =
+    /// Order has no constraints applied
+    | NotConstraint
+    /// Constraints have been applied to OrderVariables
+    | ConstraintsApplied
+    /// Min/Max values have been calculated and order is ready to show
+    | MinMaxCalculated
+    /// Discrete values have been calculated, user can make selections
+    | ValuesCalculated
+    /// All OrderVariables are solved (single values)
+    | Solved
+    /// One or more OrderVariables have been cleared, requiring recalculation
+    | Cleared
+
+/// User selection action - can only pick ONE option at a time
+type UserSelection = {
+    VariableRole: VariableRole
+    SelectedValue: ValueUnit
 }
 
-/// Overall state of an Order
-type OrderState =
-    /// Order is initiated but not processed yet
-    | Empty
-    /// Constraints have been applied but there are no selectable values
-    | Constrained
-    /// Order has multiple options available for selection
-    | HasChoices
-    /// All prescription variables are solved, but preparation may need work
-    | PrescriptionSolved
-    /// All preparation variables are solved, but administration may need work
-    | PreparationSolved
-    /// All relevant variables are solved and order is ready
-    | FullySolved
-    /// A variable has been cleared and order needs recalculation
-    | RequiresRecalculation
-
-/// State transition operations
+/// State transition operations that follow the corrected flow
 type StateTransition =
-    | ApplyConstraints
-    | CalculateMinMax
-    | MaterializeValues
-    | SolveEquations
-    | ProcessCleared
-    | IncreaseIncrement of maxCount: int
+    | ApplyConstraints          // NotConstraint → ConstraintsApplied
+    | CalculateMinMax          // ConstraintsApplied → MinMaxCalculated
+    | MaterializeValues        // MinMaxCalculated → ValuesCalculated
+    | MakeSelection of UserSelection  // ValuesCalculated → (ValuesCalculated | Solved)
+    | ClearVariable of VariableRole   // Any state → Cleared
+    | RecalculateFromCleared   // Cleared → ValuesCalculated
+
+/// Represents a selectable option for the user
+type SelectableOption = {
+    VariableRole: VariableRole
+    AvailableValues: ValueUnit list
+    CurrentState: OrderVariableState
+}
+
+/// Result of order processing
+type OrderProcessingResult = {
+    Order: Order
+    CurrentState: OrderState
+    SelectableOptions: SelectableOption list
+    NextTransition: StateTransition option
+    CanProgress: bool
+    IsReadyForUser: bool  // True when state is MinMaxCalculated
+}
 
 /// Classification functions
 module OrderVariableClassification =
@@ -147,11 +164,18 @@ module OrderVariableClassification =
         ConstraintState = classifyConstraintState ovar
     }
 
-/// Variable relevance table by prescription type and phase
+/// Variable relevance by prescription type and order part
 module VariableRelevanceTable =
 
+    type PrescriptionVariableRelevance = {
+        PrescriptionType: string
+        OrderPart: OrderPart
+        RelevantVariables: VariableRole list
+        CriticalVariables: VariableRole list
+    }
+
     let prescriptionRelevance : PrescriptionVariableRelevance list = [
-        // Once prescription
+        // Once prescription - Prescription part
         {
             PrescriptionType = "Once"
             OrderPart = Prescription
@@ -163,6 +187,7 @@ module VariableRelevanceTable =
             CriticalVariables = [OrderableDoseQuantity]
         }
 
+        // Once prescription - Preparation part
         {
             PrescriptionType = "Once"
             OrderPart = Preparation
@@ -173,6 +198,7 @@ module VariableRelevanceTable =
             CriticalVariables = [OrderableQuantity]
         }
 
+        // Once prescription - Administration part
         {
             PrescriptionType = "Once"
             OrderPart = Administration
@@ -183,75 +209,7 @@ module VariableRelevanceTable =
             CriticalVariables = [OrderableQuantity]
         }
 
-        // OnceTimed prescription
-        {
-            PrescriptionType = "OnceTimed"
-            OrderPart = Prescription
-            RelevantVariables = [
-                PrescriptionTime; OrderableDoseQuantity; OrderableDoseQuantityAdjust
-                OrderableDoseRate; OrderableDoseRateAdjust
-                ComponentDoseQuantity; ComponentDoseQuantityAdjust
-                ItemDoseQuantity; ItemDoseQuantityAdjust
-            ]
-            CriticalVariables = [PrescriptionTime; OrderableDoseQuantity]
-        }
-
-        {
-            PrescriptionType = "OnceTimed"
-            OrderPart = Preparation
-            RelevantVariables = [
-                OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
-                ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
-            ]
-            CriticalVariables = [OrderableQuantity]
-        }
-
-        {
-            PrescriptionType = "OnceTimed"
-            OrderPart = Administration
-            RelevantVariables = [
-                OrderableQuantity; OrderableDoseRate
-                ComponentOrderableQuantity; ItemOrderableQuantity
-            ]
-            CriticalVariables = [OrderableQuantity; OrderableDoseRate]
-        }
-
-        // Discontinuous prescription
-        {
-            PrescriptionType = "Discontinuous"
-            OrderPart = Prescription
-            RelevantVariables = [
-                PrescriptionFrequency; OrderableDoseQuantity; OrderableDosePerTime
-                OrderableDoseQuantityAdjust; OrderableDosePerTimeAdjust
-                ComponentDoseQuantity; ComponentDosePerTime
-                ComponentDoseQuantityAdjust; ComponentDosePerTimeAdjust
-                ItemDoseQuantity; ItemDosePerTime
-                ItemDoseQuantityAdjust; ItemDosePerTimeAdjust
-            ]
-            CriticalVariables = [PrescriptionFrequency; OrderableDosePerTime]
-        }
-
-        {
-            PrescriptionType = "Discontinuous"
-            OrderPart = Preparation
-            RelevantVariables = [
-                OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
-                ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
-            ]
-            CriticalVariables = [OrderableQuantity]
-        }
-
-        {
-            PrescriptionType = "Discontinuous"
-            OrderPart = Administration
-            RelevantVariables = [
-                PrescriptionFrequency; OrderableQuantity
-                ComponentOrderableQuantity; ItemOrderableQuantity
-            ]
-            CriticalVariables = [PrescriptionFrequency; OrderableQuantity]
-        }
-
-        // Continuous prescription
+        // Continuous prescription - Prescription part
         {
             PrescriptionType = "Continuous"
             OrderPart = Prescription
@@ -263,134 +221,50 @@ module VariableRelevanceTable =
             CriticalVariables = [OrderableDoseRate]
         }
 
-        {
-            PrescriptionType = "Continuous"
-            OrderPart = Preparation
-            RelevantVariables = [
-                OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
-                ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
-            ]
-            CriticalVariables = [OrderableQuantity]
-        }
-
-        {
-            PrescriptionType = "Continuous"
-            OrderPart = Administration
-            RelevantVariables = [
-                OrderableQuantity; OrderableDoseRate
-                ComponentOrderableQuantity; ItemOrderableQuantity
-            ]
-            CriticalVariables = [OrderableQuantity; OrderableDoseRate]
-        }
-
-        // Timed prescription
-        {
-            PrescriptionType = "Timed"
-            OrderPart = Prescription
-            RelevantVariables = [
-                PrescriptionFrequency; PrescriptionTime
-                OrderableDoseQuantity; OrderableDosePerTime; OrderableDoseRate
-                OrderableDoseQuantityAdjust; OrderableDosePerTimeAdjust; OrderableDoseRateAdjust
-                ComponentDoseQuantity; ComponentDosePerTime; ComponentDoseRate
-                ComponentDoseQuantityAdjust; ComponentDosePerTimeAdjust; ComponentDoseRateAdjust
-                ItemDoseQuantity; ItemDosePerTime; ItemDoseRate
-                ItemDoseQuantityAdjust; ItemDosePerTimeAdjust; ItemDoseRateAdjust
-            ]
-            CriticalVariables = [PrescriptionFrequency; PrescriptionTime; OrderableDosePerTime]
-        }
-
-        {
-            PrescriptionType = "Timed"
-            OrderPart = Preparation
-            RelevantVariables = [
-                OrderableQuantity; ComponentOrderableQuantity; ComponentOrderableCount
-                ItemOrderableQuantity; ItemComponentConcentration; ItemOrderableConcentration
-            ]
-            CriticalVariables = [OrderableQuantity]
-        }
-
-        {
-            PrescriptionType = "Timed"
-            OrderPart = Administration
-            RelevantVariables = [
-                PrescriptionFrequency; PrescriptionTime; OrderableQuantity; OrderableDoseRate
-                ComponentOrderableQuantity; ItemOrderableQuantity
-            ]
-            CriticalVariables = [PrescriptionFrequency; PrescriptionTime; OrderableQuantity; OrderableDoseRate]
-        }
+        // Add other prescription types as needed...
     ]
 
-    /// Get relevant variables for a prescription type and the order part
+    /// Get relevant variables for a prescription type and order part
     let getRelevantVariables (prescriptionType: string) (part: OrderPart) : VariableRole list =
         prescriptionRelevance
         |> List.filter (fun r -> r.PrescriptionType = prescriptionType && r.OrderPart = part)
         |> List.collect (fun r -> r.RelevantVariables)
         |> List.distinct
 
-    /// Get critical variables for a prescription type and the order part
-    let getCriticalVariables (prescriptionType: string) (phase: OrderPart) : VariableRole list =
-        prescriptionRelevance
-        |> List.filter (fun r -> r.PrescriptionType = prescriptionType && r.OrderPart = phase)
-        |> List.collect (fun r -> r.CriticalVariables)
-        |> List.distinct
-
-/// Order state classification and transitions
+/// Order state classification following the corrected flow
 module OrderStateClassification =
 
-    /// Classify the overall state of an Order
+    /// Classify the overall state of an Order based on the corrected flow
     let classifyOrderState (order: Order) : OrderState =
-        if Order.isEmpty order then Empty
-        elif Order.hasValues order then HasChoices
-        elif Order.doseIsSolved order then
-            if Order.isCleared order then RequiresRecalculation
-            else PrescriptionSolved  // Could be further refined to check preparation/administration
-        elif Order.hasConstraints order then Constrained
-        else Empty
+        if Order.isCleared order then Cleared
+        elif Order.isSolved order then Solved
+        elif Order.hasValues order then ValuesCalculated
+        elif Order.hasConstraints order then
+            // Need to distinguish between ConstraintsApplied and MinMaxCalculated
+            // This would require checking if min/max calculations have been done
+            MinMaxCalculated  // Simplified - in practice would check calculation state
+        else NotConstraint
 
-    /// Determine what transitions are possible from current state
+    /// Determine valid transitions from current state
     let possibleTransitions (orderState: OrderState) : StateTransition list =
         match orderState with
-        | Empty -> [ApplyConstraints; CalculateMinMax]
-        | Constrained -> [CalculateMinMax; MaterializeValues]
-        | HasChoices -> [SolveEquations]
-        | PrescriptionSolved -> [MaterializeValues; SolveEquations]
-        | PreparationSolved -> [SolveEquations]
-        | RequiresRecalculation -> [ProcessCleared; ApplyConstraints]
-        | FullySolved -> []
+        | NotConstraint -> [ApplyConstraints]
+        | ConstraintsApplied -> [CalculateMinMax]
+        | MinMaxCalculated -> [MaterializeValues]
+        | ValuesCalculated -> [] // User must make selection or clear variable
+        | Solved -> [] // User can only clear variables
+        | Cleared -> [RecalculateFromCleared]
 
-    /// Determine the next recommended action
-    let recommendAction (order: Order) : StateTransition option =
+    /// Determine the next automatic transition (no user input required)
+    let nextAutomaticTransition (order: Order) : StateTransition option =
         let state = classifyOrderState order
-        possibleTransitions state |> List.tryHead
+        match state with
+        | NotConstraint -> Some ApplyConstraints
+        | ConstraintsApplied -> Some CalculateMinMax
+        | MinMaxCalculated -> Some MaterializeValues
+        | _ -> None
 
-/// State-aware command for processing orders
-type StateAwareCommand =
-    | InitializeOrder of Order
-    | ProgressToNextPhase of Order * OrderPart
-    | HandleClearedVariables of Order * VariableRole list
-    | MaterializeChoices of Order * VariableRole list
-    | FinalizeOrder of Order
-
-/// Result of state-aware processing
-type StateProcessingResult = {
-    Order: Order
-    NewState: OrderState
-    AvailableChoices: (VariableRole * OrderVariableState) list
-    NextRecommendedAction: StateTransition option
-    PhaseCompletionStatus: (OrderPart * bool) list
-}
-
-/// Enhanced OrderState with phase tracking
-type DetailedOrderState = {
-    OverallState: OrderState
-    CurrentPhase: OrderPart
-    CompletedPhases: OrderPart list
-    PrescriptionType: string
-    ClearedVariables: VariableRole list
-    VariableStates: Map<VariableRole, OrderVariableState>
-}
-
-/// Helper functions for working with the state model
+/// Helper functions for state processing
 module StateHelpers =
 
     /// Map OrderVariable to its role based on variable name patterns
@@ -420,97 +294,115 @@ module StateHelpers =
         | n when n.Contains("itm.dos.rte") -> Some ItemDoseRate
         | _ -> None
 
-    /// Get detailed state analysis of an order
-    let rec analyzeDetailedState (order: Order) : DetailedOrderState =
-        let prescriptionType =
-            match order.Prescription with
-            | Once -> "Once"
-            | OnceTimed _ -> "OnceTimed"
-            | Continuous _ -> "Continuous"
-            | Discontinuous _ -> "Discontinuous"
-            | Timed _ -> "Timed"
+    /// Extract selectable options from an order in ValuesCalculated state
+    let extractSelectableOptions (order: Order) : SelectableOption list =
+        order
+        |> Order.toOrdVars
+        |> List.choose (fun ovar ->
+            identifyVariableRole ovar
+            |> Option.bind (fun role ->
+                let state = OrderVariableClassification.classifyOrderVariable ovar
+                if state.ValueState = HasValues then
+                    // Extract available values from the OrderVariable
+                    ovar
+                    |> OrderVariable.getValSetValueUnit
+                    |> Option.map (fun vu ->
+                        {
+                            VariableRole = role
+                            AvailableValues = [vu] // Simplified - would extract all values
+                            CurrentState = state
+                        })
+                else None
+            ))
 
-        let ovars = order |> Order.toOrdVars
-        let variableStates =
-            ovars
-            |> List.choose (fun ovar ->
-                identifyVariableRole ovar
-                |> Option.map (fun role ->
-                    role, OrderVariableClassification.classifyOrderVariable ovar))
-            |> Map.ofList
+    /// Process a user selection by applying it to the order
+    let processUserSelection (order: Order) (selection: UserSelection) : Order =
+        // This would apply the selected value to the specific OrderVariable
+        // and then trigger a complete recalculation of all OrderVariables
+        // Implementation would depend on the specific OrderVariable type
+        order // Placeholder - actual implementation needed
 
-        let clearedVars =
-            variableStates
-            |> Map.toList
-            |> List.filter (fun (_, state) ->
-                state.ValueState = UnBounded)
-            |> List.map fst
+    /// Check if order is ready for user interaction
+    let isReadyForUser (order: Order) : bool =
+        let state = OrderStateClassification.classifyOrderState order
+        state = MinMaxCalculated
 
-        let completedPhases =
-            [Prescription; Preparation; Administration]
-            |> List.filter (isPhaseComplete order)
+    /// Process order through automatic state transitions until user input needed
+    let processToUserReady (order: Order) : OrderProcessingResult =
+        let rec processStep currentOrder =
+            let currentState = OrderStateClassification.classifyOrderState currentOrder
+            match OrderStateClassification.nextAutomaticTransition currentOrder with
+            | Some ApplyConstraints ->
+                let newOrder = currentOrder |> Order.applyConstraints
+                processStep newOrder
+            | Some CalculateMinMax ->
+                // This would call the appropriate min/max calculation
+                // For now, assume it results in MinMaxCalculated state
+                let newOrder = currentOrder // Placeholder
+                processStep newOrder
+            | Some MaterializeValues ->
+                // This would materialize discrete values
+                let newOrder = currentOrder // Placeholder
+                processStep newOrder
+            | None ->
+                // No more automatic transitions possible
+                {
+                    Order = currentOrder
+                    CurrentState = currentState
+                    SelectableOptions =
+                        if currentState = ValuesCalculated then
+                            extractSelectableOptions currentOrder
+                        else []
+                    NextTransition = None
+                    CanProgress = false
+                    IsReadyForUser = isReadyForUser currentOrder
+                }
 
-        let currentPhase =
-            if completedPhases |> List.contains Administration then Administration
-            elif completedPhases |> List.contains Preparation then Administration
-            elif completedPhases |> List.contains Prescription then Preparation
-            else Prescription
+        processStep order
 
-        {
-            OverallState = OrderStateClassification.classifyOrderState order
-            CurrentPhase = currentPhase
-            CompletedPhases = completedPhases
-            PrescriptionType = prescriptionType
-            ClearedVariables = clearedVars
-            VariableStates = variableStates
-        }
+/// Main processing interface following the corrected model
+module OrderProcessor =
 
-    /// Check if an order phase is complete
-    and isPhaseComplete (order: Order) (phase: OrderPart) : bool =
-        let prescriptionType =
-            match order.Prescription with
-            | Once -> "Once"
-            | OnceTimed _ -> "OnceTimed"
-            | Continuous _ -> "Continuous"
-            | Discontinuous _ -> "Discontinuous"
-            | Timed _ -> "Timed"
+    /// Process an order following the state machine model
+    let processOrder (order: Order) : OrderProcessingResult =
+        StateHelpers.processToUserReady order
 
-        let criticalVars = VariableRelevanceTable.getCriticalVariables prescriptionType phase
+    /// Apply a user selection and continue processing
+    let applyUserSelection (order: Order) (selection: UserSelection) : OrderProcessingResult =
+        let updatedOrder = StateHelpers.processUserSelection order selection
+        StateHelpers.processToUserReady updatedOrder
 
-        // Simplified logic - in full implementation would check each critical variable
-        match phase with
-        | Prescription -> Order.doseIsSolved order
-        | Preparation -> failwith "not implemented yet" // not (order.Orderable |> Orderable.isConcentrationCleared)
-        | Administration -> Order.isSolved order
+    /// Clear a variable and return to appropriate state
+    let clearVariable (order: Order) (variableRole: VariableRole) : OrderProcessingResult =
+        // This would clear the specified variable and recalculate
+        let clearedOrder = order // Placeholder implementation
+        StateHelpers.processToUserReady clearedOrder
 
-    /// Get variables that need attention for the current phase
-    let getVariablesNeedingAttention (order: Order) (phase: OrderPart) : VariableRole list =
-        let state = analyzeDetailedState order
+/// Usage example showing the corrected flow
+module UsageExample =
 
-        VariableRelevanceTable.getRelevantVariables state.PrescriptionType phase
-        |> List.filter (fun role ->
-            state.VariableStates
-            |> Map.tryFind role
-            |> Option.map (fun s -> s.ValueState <> IsSolved)
-            |> Option.defaultValue true)
+    let demonstrateOrderFlow (initialOrder: Order) =
+        // Step 1: Process order to user-ready state
+        let result1 = OrderProcessor.processOrder initialOrder
 
-    /// Process state-aware command
-    let processStateCommand (command: StateAwareCommand) : Result<StateProcessingResult, string> =
-        match command with
-        | InitializeOrder order ->
-            let state = analyzeDetailedState order
-            let choices =
-                state.VariableStates
-                |> Map.toList
-                |> List.filter (fun (_, s) -> s.ValueState = HasValues)
+        match result1.IsReadyForUser with
+        | true ->
+            printfn "Order ready for user at state: %A" result1.CurrentState
+            printfn "Available options: %d" result1.SelectableOptions.Length
 
-            Ok {
-                Order = order
-                NewState = state.OverallState
-                AvailableChoices = choices
-                NextRecommendedAction = OrderStateClassification.recommendAction order
-                PhaseCompletionStatus =
-                    [Prescription; Preparation; Administration]
-                    |> List.map (fun p -> p, isPhaseComplete order p)
-            }
-        | _ -> Error "Command processing not fully implemented"
+            // Step 2: User makes a selection (only ONE at a time)
+            match result1.SelectableOptions with
+            | option :: _ ->
+                let userSelection = {
+                    VariableRole = option.VariableRole
+                    SelectedValue = option.AvailableValues |> List.head
+                }
+
+                let result2 = OrderProcessor.applyUserSelection result1.Order userSelection
+                printfn "After selection, new state: %A" result2.CurrentState
+                printfn "Remaining options: %d" result2.SelectableOptions.Length
+
+            | [] ->
+                printfn "No selectable options available"
+        | false ->
+            printfn "Order not ready for user interaction"
