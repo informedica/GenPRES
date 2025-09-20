@@ -242,17 +242,6 @@ module Types =
             | SumMapping of string list
 
 
-        /// The different possible order types
-        type OrderType =
-            | AnyOrder
-            | ProcessOrder
-            | OnceOrder
-            | OnceTimedOrder
-            | ContinuousOrder
-            | DiscontinuousOrder
-            | TimedOrder
-
-
         /// Represents different types of property changes that can be applied to an order
         type OrderPropertyChange =
             | PrescriptionFrequency of (Frequency -> Frequency)
@@ -291,6 +280,17 @@ module Types =
             | SolveOrder of Order
 
 
+        /// The different possible order types
+        type DrugOrderType =
+            | AnyOrder
+            | ProcessOrder
+            | OnceOrder
+            | OnceTimedOrder
+            | ContinuousOrder
+            | DiscontinuousOrder
+            | TimedOrder
+
+
         /// The representation of a drug order that
         /// can be derived by a drug product inventory
         /// and the related dose rule. A DrugOrder maps
@@ -308,7 +308,7 @@ module Types =
                 // The route by which the order is applied
                 Route : string
                 // The type of order
-                OrderType : OrderType
+                OrderType : DrugOrderType
                 // The unit to adjust the dose with
                 AdjustUnit : Unit option
                 // The list of possible frequency values
@@ -326,8 +326,8 @@ module Types =
             }
         /// The product components that are used by the drug order.
         /// A product component maps to a Component in an Orderable.
-        /// The first component in the list is the main component. 
-        /// The drugorder quantities unit is the same as the unit used 
+        /// The first component in the list is the main component.
+        /// The drugorder quantities unit is the same as the unit used
         /// for the main component.
         and ProductComponent =
             {
