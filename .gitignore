@@ -113,6 +113,7 @@
 !/docs/mdr/risk-analysis/*.xlsx
 !docs/mdr/usability/
 !/docs/mdr/validation/
+!/docs/literature/
 
 # Add source files
 !/scripts/
