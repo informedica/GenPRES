@@ -697,7 +697,8 @@ DoseType: {ctx.Filter.DoseType}
 Diluent: {ctx.Filter.Diluent |> Option.defaultValue ""}
 SelectedComponents: {ctx.Filter.SelectedComponents |> printArray}
 Indications: {ctx.Filter.Indications |> printArray}
-Medications: {ctx.Filter.Generics |> printArray}
+Generics: {ctx.Filter.Generics |> printArray}
+Shapes: {ctx.Filter.Shapes |> printArray}
 Routes: {ctx.Filter.Routes |> printArray}
 DoseTypes: {ctx.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
 Diluents : {ctx.Filter.Diluents |> printArray}

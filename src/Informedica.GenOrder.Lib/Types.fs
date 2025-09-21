@@ -313,8 +313,6 @@ module Types =
                 AdjustUnit : Unit option
                 // The list of possible frequency values
                 Frequencies : ValueUnit option
-                // The list of possible rate values
-                Rates : ValueUnit option
                 // The min and/or max time for the infusion time
                 Time : MinMax
                 // The dose limits for a DrugOrder
