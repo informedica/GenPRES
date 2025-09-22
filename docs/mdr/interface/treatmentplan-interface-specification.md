@@ -121,28 +121,28 @@ This interface specification defines the complete data exchange protocol between
 
 This specification covers:
 
-Data structures for complete treatment plan communication
-Clinical workflow integration patterns
-G-Standard compliance requirements
-Session management protocols
-Validation and safety checking procedures
-Performance and scalability requirements
+- Data structures for complete treatment plan communication
+- Clinical workflow integration patterns
+- G-Standard compliance requirements
+- Session management protocols
+- Validation and safety checking procedures
+- Performance and scalability requirements
 
 ### 2.2 Objectives
 
-Define complete interface for treatment plan management
-Ensure G-Standard compliance for all medication-related data
-Establish clear separation of responsibilities between GenPRES and EHR
-Enable safe, efficient clinical workflows
-Support complex pediatric and critical care scenarios
+- Define complete interface for treatment plan management
+- Ensure G-Standard compliance for all medication-related data
+- Establish clear separation of responsibilities between GenPRES and EHR
+- Enable safe, efficient clinical workflows
+- Support complex pediatric and critical care scenarios
 
 ### 2.3 Out of Scope
 
-Internal EHR system architecture
-GenPRES internal calculation algorithms
-Network infrastructure requirements
-Specific vendor implementation details
-Clinical training and change management
+- Internal EHR system architecture
+- GenPRES internal calculation algorithms
+- Network infrastructure requirements
+- Specific vendor implementation details
+- Clinical training and change management
 
 ## 3. Core Architecture Principles
 
@@ -150,37 +150,37 @@ Clinical training and change management
 
 All medication orders are managed as cohesive treatment plans containing multiple order scenarios. This approach ensures:
 
-Clinical Context Preservation: Orders are evaluated within the complete treatment context
-Interaction Checking: Comprehensive drug-drug and drug-nutrient interaction analysis
-Resource Optimization: Efficient calculation of totals and clinical monitoring parameters
-Workflow Alignment: Matches clinical decision-making processes
+- Clinical Context Preservation: Orders are evaluated within the complete treatment context
+- Interaction Checking: Comprehensive drug-drug and drug-nutrient interaction analysis
+- Resource Optimization: Efficient calculation of totals and clinical monitoring parameters
+- Workflow Alignment: Matches clinical decision-making processes
 
 ### 3.2 Order Scenario Completeness
 
 Each scenario contains prescription, preparation, and administration instructions, providing:
 
-Implementation Readiness: Complete instructions for clinical staff
-Quality Assurance: Verification of all required clinical information
-Standardization: Consistent instruction format across all scenarios
-Traceability: Complete audit trail of clinical decisions
+- Implementation Readiness: Complete instructions for clinical staff
+- Quality Assurance: Verification of all required clinical information
+- Standardization: Consistent instruction format across all scenarios
+- Traceability: Complete audit trail of clinical decisions
 
 ### 3.3 G-Standard Compliance
 
 All medication products identified via GPK codes with dose rule validation ensures:
 
-Regulatory Compliance: Adherence to Dutch healthcare standards
-Interoperability: Consistent medication identification across systems
-Safety Validation: Automated dose checking against established clinical rules
-Quality Assurance: Verified medication data from authoritative sources
+- Regulatory Compliance: Adherence to Dutch healthcare standards
+- Interoperability: Consistent medication identification across systems
+- Safety Validation: Automated dose checking against established clinical rules
+- Quality Assurance: Verified medication data from authoritative sources
 
 ### 3.4 Stateless GenPRES
 
 EHR maintains all persistent data while GenPRES provides calculation and validation services:
 
-Data Sovereignty: EHR retains complete control over patient data
-Scalability: GenPRES instances can be scaled independently
-Security: Reduced data security risks through stateless operation
-Integration Flexibility: Multiple EHR systems can utilize shared GenPRES instances
+- Data Sovereignty: EHR retains complete control over patient data
+- Scalability: GenPRES instances can be scaled independently
+- Security: Reduced data security risks through stateless operation
+- Integration Flexibility: Multiple EHR systems can utilize shared GenPRES instances
 
 ## 4. System Overview
 
@@ -207,19 +207,19 @@ Integration Flexibility: Multiple EHR systems can utilize shared GenPRES instanc
 
 ### 4.2 Data Flow Overview
 
-Session Initiation: EHR provides complete patient context and existing treatments
-Treatment Planning: GenPRES calculates all possible order scenarios
-Clinical Review: Clinician selects and modifies scenarios as needed
-Validation: Complete treatment plan validated against G-Standard rules
-Finalization: EHR receives complete treatment plan with implementation instructions
-Session Closure: All temporary data discarded, persistent data remains in EHR
+- Session Initiation: EHR provides complete patient context and existing treatments
+- Treatment Planning: GenPRES calculates all possible order scenarios
+- Clinical Review: Clinician selects and modifies scenarios as needed
+- Validation: Complete treatment plan validated against G-Standard rules
+- Finalization: EHR receives complete treatment plan with implementation instructions
+- Session Closure: All temporary data discarded, persistent data remains in EHR
 
 ### 4.3 Integration Patterns
 
-RESTful API: Standard HTTP-based interface for maximum interoperability
-Event-Driven Updates: Real-time notifications for clinical alerts and status changes
-Session-Based Communication: Stateful sessions for complex treatment planning workflows
-Bulk Data Transfer: Efficient transfer of complete treatment plans and scenarios
+- RESTful API: Standard HTTP-based interface for maximum interoperability
+- Event-Driven Updates: Real-time notifications for clinical alerts and status changes
+- Session-Based Communication: Stateful sessions for complex treatment planning workflows
+- Bulk Data Transfer: Efficient transfer of complete treatment plans and scenarios
 
 ## 5. Data Exchange Specifications
 
@@ -279,8 +279,8 @@ type PhysicalMeasurement = {
 }
 ```
 
-Weight Units: Always in grams
-Height Units: Always in centimeters
+- Weight Units: Always in grams
+- Height Units: Always in centimeters
 
 #### 5.1.3 Clinical Status Enumerations
 
@@ -387,7 +387,7 @@ type Priority =
 #### 5.2.2 Order Request Structure
 
 ```fsharp
-fsharpand OrderRequest = {
+type OrderRequest = {
     // Clinical Intent
     Indication: string                     // Clinical indication (required)
     ClinicalGoal: ClinicalGoal option     // Specific therapeutic goal
@@ -426,7 +426,7 @@ fsharpand OrderRequest = {
 #### 5.2.3 Clinical Goals and Targets
 
 ```fsharp
-fsharpand ClinicalGoal =
+type ClinicalGoal =
     | SymptomControl of string             // Control specific symptom
     | TherapeuticLevel of range: float * float * unit: string // Target therapeutic level
     | PreventionTherapy of condition: string // Prevent specific condition
@@ -513,7 +513,7 @@ and ConstraintSeverity =
 The treatment plan response provides a complete, calculated treatment plan with all order scenarios, validation results, and clinical decision support information.
 
 ```fsharp
-fsharptype TreatmentPlanResponse = {
+type TreatmentPlanResponse = {
     // Session Reference
     SessionId: string                      // Original session identifier (required)
     ResponseTimestamp: DateTime            // When response was generated (required)
@@ -552,7 +552,7 @@ fsharptype TreatmentPlanResponse = {
 #### 5.3.1 Calculated Treatment Plan Structure
 
 ```fsharp
-fsharpand CalculatedTreatmentPlan = {
+type CalculatedTreatmentPlan = {
     // Plan Identity
     PlanId: string                        // Unique plan identifier (required)
     PatientId: string                     // EHR patient reference (required)
@@ -588,7 +588,7 @@ fsharpand CalculatedTreatmentPlan = {
 #### 5.3.2 Treatment Plan Validation
 
 ```fsharp
-fsharpand TreatmentPlanValidation = {
+type TreatmentPlanValidation = {
     // Overall Validation Status
     OverallStatus: ValidationStatus       // Pass | Warning | Error | Critical
     ValidationTimestamp: DateTime         // When validation was performed
@@ -652,7 +652,7 @@ and MessageCategory =
 #### 5.3.3 Clinical Alerts and Decision Support
 
 ```fsharp
-fsharpand ClinicalAlert = {
+type ClinicalAlert = {
     AlertId: string                      // Unique alert identifier
     AlertType: AlertType                 // Type of clinical alert
     Severity: AlertSeverity              // How urgent the alert is
@@ -703,7 +703,7 @@ and DismissibilityLevel =
 #### 5.3.4 Drug Interactions
 
 ```fsharp
-fsharpand DrugInteraction = {
+type DrugInteraction = {
     InteractionId: string               // Unique interaction identifier
     InteractionType: InteractionType    // Type of interaction (required)
     Severity: InteractionSeverity       // Clinical significance (required)
@@ -757,7 +757,7 @@ and EvidenceLevel =
 Each order scenario represents a complete, implementable medication order with all necessary clinical information.
 
 ```fsharp
-fsharptype CompleteOrderScenario = {
+type CompleteOrderScenario = {
     // Scenario Identification
     ScenarioId: string                    // Unique scenario identifier (required)
     ScenarioNumber: int                   // Display sequence number (required)
@@ -799,7 +799,7 @@ fsharptype CompleteOrderScenario = {
 #### 5.4.1 Medication Details Structure
 
 ```fsharp
-fsharpand MedicationDetails = {
+type MedicationDetails = {
     // Core Identification
     Generic: string                       // Generic medication name (required)
     Indication: string                    // Clinical indication (required)
@@ -835,7 +835,7 @@ and DoseType =
 #### 5.4.2 Rich Text Instructions
 
 ```fsharp
-fsharp// Rich text formatting for clinical instructions
+// Rich text formatting for clinical instructions
 and TextInstruction =
     | Normal of string                  // Normal text
     | Bold of string                    // Bold/emphasis text
@@ -847,7 +847,7 @@ and TextInstruction =
 #### 5.4.3 Complete Order Structure
 
 ```fsharp
-fsharpand CompleteOrder = {
+type CompleteOrder = {
     // Order Identity
     OrderId: string                     // Unique order identifier (required)
     OrderableId: string                 // What is being ordered (required)
