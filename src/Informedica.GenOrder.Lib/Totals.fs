@@ -98,7 +98,7 @@ module Totals =
                 item,
                 xs
                 |> Array.map snd
-                |> Array.reduce (^+)
+                |> Array.reduce (@+)
             )
             |> Array.choose (fun (n, tot) ->
                 match tot |> Variable.getUnit with

@@ -106,7 +106,6 @@ module DrugOrder =
             OrderType = AnyOrder
             AdjustUnit = None
             Frequencies = None
-            Rates = None
             Time = MinMax.empty
             Dose = None
             DoseCount = MinMax.empty
@@ -562,19 +561,19 @@ module DrugOrder =
                 | Some [ _; tu ] -> Some tu
                 | _ -> None
         
-            let setStandardDoseRate () =
-                match rateUnit with
-                | None -> ()
-                | Some u ->
-                    orbDto.Dose.Rate.Constraints.IncrOpt <- 1N/10N |> createSingleValueUnitDto u
-                    orbDto.Dose.Rate.Constraints.MinIncl <- true
-                    orbDto.Dose.Rate.Constraints.MinOpt <- 1N/10N |> createSingleValueUnitDto u
-                    orbDto.Dose.Rate.Constraints.MaxIncl <- true
-                    orbDto.Dose.Rate.Constraints.MaxOpt <- 1000N |> createSingleValueUnitDto u
-        
             let setOrbDoseRate (dl : DoseLimit option) =
+                let rates =
+                    [ 100N .. 10N .. 1000N ]
+                    |> List.append [ 50N .. 5N .. 95N ]
+                    |> List.append [ 10N .. 1N .. 49N ]
+                    |> List.append [ 1N / 10N .. 1N / 10N .. 99N / 10N ]
+                    |> List.toArray
+                    |> createValueUnitDto (rateUnit |> Option.defaultValue NoUnit)
+                
+                orbDto.Dose.Rate.Constraints.ValsOpt <- rates 
+                
                 match dl with
-                | None -> ()
+                | None -> () 
                 | Some dl ->
                     orbDto.Dose.Rate.Constraints |> MinMax.setConstraints None dl.Rate
                     orbDto.Dose.RateAdjust.Constraints |> MinMax.setConstraints None dl.RateAdjust
@@ -625,12 +624,10 @@ module DrugOrder =
             match d.OrderType with
             | AnyOrder | ProcessOrder -> ()
             | ContinuousOrder ->
-                setStandardDoseRate()
                 d.Dose |> setOrbDoseRate
             | OnceOrder ->
                 d.Dose |> setOrbDoseQty true
             | OnceTimedOrder ->
-                setStandardDoseRate()
                 d.Dose |> setOrbDoseRate
                 d.Dose |> setOrbDoseQty true
                 // Assume timed order always solution
@@ -639,7 +636,6 @@ module DrugOrder =
             | DiscontinuousOrder ->
                 d.Dose |> setOrbDoseQty false
             | TimedOrder ->
-                setStandardDoseRate()
                 setTimedOrderConstraints orbDto
                 d.Dose |> setOrbDoseRate
                 d.Dose |> setOrbDoseQty false

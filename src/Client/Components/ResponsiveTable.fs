@@ -171,6 +171,21 @@ module ResponsiveTable =
                     |> Seq.toArray
                 props.onSelectChange selectedIds
 
+        // Return an alternating class name based on the row index within the current page
+        let getRowClassName =
+            fun (pars: obj) ->
+                let idx: int = pars?indexRelativeToCurrentPage
+                if idx % 2 = 0 then "even" else "odd"
+
+        // Style for striped rows: apply background to even rows
+        let stripedSx: obj =
+            createObj [
+                "& .MuiDataGrid-row.even"
+                ==> createObj [
+                        "backgroundColor" ==> Mui.Colors.Grey.``100``
+                    ]
+            ]
+
         let rows =
             props.rows
             |> Array.filter (fun r ->
@@ -218,11 +233,13 @@ module ResponsiveTable =
                 </Box>
                 <div style={ {| height =props.height; width = "100%" |} }>
                     <DataGrid
+                        sx={stripedSx}
                         showToolbar={true}
                         checkboxSelection={props.checkboxSelection}
                         disableRowSelectionOnClick
                         rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
+                        getRowClassName={getRowClassName}
                         rows={rows}
                         slots={ {| toolbar = toolbar |} }
                         onRowClick={onRowClick}
