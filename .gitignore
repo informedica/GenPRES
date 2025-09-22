@@ -103,7 +103,8 @@
 !/docs/
 !/docs/*.xlsx
 !/docs/code-reviews/
-!docs/data-extraction/
+!/docs/literature/
+!/docs/data-extraction/
 !/docs/mdr/
 !/docs/mdr/design-history/
 !/docs/mdr/post-market/
@@ -113,7 +114,7 @@
 !/docs/mdr/risk-analysis/*.xlsx
 !docs/mdr/usability/
 !/docs/mdr/validation/
-!/docs/literature/
+!/docs/mdr/interface/
 
 # Add source files
 !/scripts/
