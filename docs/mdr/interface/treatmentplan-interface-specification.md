@@ -234,36 +234,38 @@ type EhrPatientContext = {
     Gender: Gender                          // Male | Female | UnknownGender (required)
 
     // Age Information
-    BirthDate: DateTime                     // Chronological age (required for pediatric)
+    BirthDate: DateTime                     // Birtdate (required)
     GestationalAge: GestationalAge option   // For neonatal/pediatric patients
 
     // Physical Measurements
-    Weight: PhysicalMeasurement            // Weight with percentile ranges (required)
-    Height: PhysicalMeasurement            // Height with percentile ranges (required)
+    Weight: PhysicalMeasurement             // Weight with percentile ranges (required)
+    Height: PhysicalMeasurement             // Height with percentile ranges (required)
 
     // Clinical Context
-    Department: string option              // ICK, NEO, ICU, HCK, etc. (required for filtering)
-    Diagnoses: string[]                    // ICD-10 or institutional diagnosis codes
-    Allergies: string[]                    // Known allergies and contraindications
+    Department: string option               // ICK, NEO, ICU, HCK, etc. (required for filtering)
+    Diagnoses: string[]                     // ICD-10 or institutional diagnosis codes
+    Allergies: string[]                     // Known allergies and contraindications
 
     // Access & Clinical Status
-    Access: VascularAccess[]               // Available vascular access options
-    RenalFunction: RenalFunction option    // Renal function status for dose adjustment
+    Access: VascularAccess[]                // Available vascular access options
+    RenalFunction: RenalFunction option     // Renal function status for dose adjustment
     HepaticFunction: HepaticFunction option // Hepatic function for drug metabolism
 
     // Treatment Context
-    ActiveTreatments: ExistingTreatment[]  // Current non-GenPRES treatments
-    ClinicalFlags: string[]                // Special considerations and warnings
+    ActiveTreatments: ExistingTreatment[]   // Current non-GenPRES treatments
+    ClinicalFlags: string[]                 // Special considerations and warnings
 
     // Monitoring Requirements
-    LaboratoryValues: LaboratoryValue[]    // Recent relevant lab values
-    VitalSigns: VitalSign[]                // Current vital signs if relevant
+    LaboratoryValues: LaboratoryValue[]     // Recent relevant lab values
+    VitalSigns: VitalSign[]                 // Current vital signs if relevant
 }
 ```
 
 #### 5.1.1 Age and Development Data Structures
 
 ```fsharp
+type Gender = Male | Female | UnknownGender
+
 type GestationalAge = {
     Weeks: int                            // Gestational weeks (20-45)
     Days: int                             // Additional days (0-6)
@@ -297,11 +299,11 @@ type RenalFunction =
     | EGFR of min: int option * max: int option    // eGFR range in mL/min/1.73m²
     | IntermittentHemoDialysis                     // Intermittent hemodialysis
     | ContinuousHemoDialysis                       // Continuous hemodialysis
-    | PeritonealDialysis                          // Peritoneal dialysis
-    | AcuteKidneyInjury of stage: int             // AKI stage 1-3
+    | PeritonealDialysis                           // Peritoneal dialysis
+    | AcuteKidneyInjury of stage: int              // AKI stage 1-3
 
 type HepaticFunction =
-    | Normal                               // Normal hepatic function
+    | Normal                              // Normal hepatic function
     | ChildPughA                          // Child-Pugh Class A
     | ChildPughB                          // Child-Pugh Class B
     | ChildPughC                          // Child-Pugh Class C
@@ -312,7 +314,7 @@ type HepaticFunction =
 
 ```fsharp
 type LaboratoryValue = {
-    TestName: string                       // Laboratory test name
+    TestName: string                      // Laboratory test name
     Value: float                          // Numeric result
     Unit: string                          // Unit of measure
     ReferenceRange: string option         // Normal range for patient
@@ -335,34 +337,34 @@ The treatment plan request initiates a clinical session and specifies the clinic
 ```fsharp
 type TreatmentPlanRequest = {
     // Session Management
-    SessionId: string                      // EHR-generated session identifier (required)
-    RequestType: RequestType               // Type of planning session (required)
-    RequestTimestamp: DateTime             // When request was initiated (required)
+    SessionId: string                               // EHR-generated session identifier (required)
+    RequestType: RequestType                        // Type of planning session (required)
+    RequestTimestamp: DateTime                      // When request was initiated (required)
 
     // Clinical Intent
-    TreatmentGoals: string[]               // Clinical objectives and outcomes
-    Duration: TimeSpan option              // Expected treatment duration
-    Priority: Priority                     // Clinical priority level (required)
-    ClinicalIndications: string[]          // Primary clinical indications
+    TreatmentGoals: string[]                        // Clinical objectives and outcomes
+    Duration: TimeSpan option                       // Expected treatment duration
+    Priority: Priority                              // Clinical priority level (required)
+    ClinicalIndications: string[]                   // Primary clinical indications
 
     // Current Treatment Plan
-    ExistingScenarios: OrderScenario[]     // Current order scenarios (for modifications)
+    ExistingScenarios: OrderScenario[]              // Current order scenarios (for modifications)
 
     // New Order Requests
-    NewOrderRequests: OrderRequest[]       // Requested new medications
+    NewOrderRequests: OrderRequest[]                // Requested new medications
 
     // Modification Requests
-    ModificationRequests: ScenarioModification[]  // Changes to existing scenarios
+    ModificationRequests: ScenarioModification[]    // Changes to existing scenarios
 
     // Clinical Constraints
-    GlobalConstraints: TreatmentConstraint[]      // Plan-wide limitations
-    InstitutionalPolicies: Policy[]        // Hospital-specific requirements
+    GlobalConstraints: TreatmentConstraint[]        // Plan-wide limitations
+    InstitutionalPolicies: Policy[]                 // Hospital-specific requirements
 
     // Authorization Context
-    PrescriberContext: PrescriberContext   // Prescriber permissions and limitations (required)
+    PrescriberContext: PrescriberContext            // Prescriber permissions and limitations (required)
 
     // Clinical Context
-    ClinicalSituation: ClinicalSituation   // Emergency, routine, chronic care, etc.
+    ClinicalSituation: ClinicalSituation            // Emergency, routine, chronic care, etc.
     MonitoringRequirements: MonitoringRequirement[] // Required clinical monitoring
 }
 ```
@@ -371,14 +373,14 @@ type TreatmentPlanRequest = {
 
 ```fsharp
 type RequestType =
-    | NewTreatmentPlan                     // Starting new medication therapy
-    | ModifyExisting                       // Modifying current plan
-    | ClinicalReview                       // Review without changes
-    | EmergencyModification                // Urgent changes required
-    | DiscontinueTreatment                 // Stopping current therapy
+    | NewTreatmentPlan                    // Starting new medication therapy
+    | ModifyExisting                      // Modifying current plan
+    | ClinicalReview                      // Review without changes
+    | EmergencyModification               // Urgent changes required
+    | DiscontinueTreatment                // Stopping current therapy
 
 type Priority =
-    | Routine                              // Standard clinical priority
+    | Routine                             // Standard clinical priority
     | Urgent                              // Needs prompt attention
     | Emergent                            // Emergency priority
     | STAT                                // Immediate priority
@@ -389,36 +391,37 @@ type Priority =
 ```fsharp
 type OrderRequest = {
     // Clinical Intent
-    Indication: string                     // Clinical indication (required)
-    ClinicalGoal: ClinicalGoal option     // Specific therapeutic goal
+    Indication: string                           // Clinical indication (required)
+    ClinicalGoal: ClinicalGoal option            // Specific therapeutic goal
 
     // Medication Specification
-    Generic: string option                 // Preferred generic name
-    Route: string option                   // Preferred administration route
-    Shape: string option                   // Preferred pharmaceutical form
+    Generic: string                              // Preferred generic name (required)
+    Route: string                                // Preferred administration route (required)
+    Shape: string                                // Preferred pharmaceutical form (required)
 
     // Dosing Intent
-    DoseType: DoseType option             // Dosing pattern preference
-    TargetDose: TargetDose option         // Intended therapeutic dose
-    TherapeuticRange: TherapeuticRange option // Target therapeutic levels
+    DoseType: DoseType option                    // Dosing pattern preference
+    TargetDose: TargetDose option                // Intended therapeutic dose
+    TherapeuticRange: TherapeuticRange option    // Target therapeutic levels
 
     // Temporal Constraints
-    StartDateTime: DateTime option         // Preferred start time
-    MaxDuration: TimeSpan option          // Maximum treatment duration
-    ReviewInterval: TimeSpan option       // How often to reassess
+    StartDateTime: DateTime option               // Preferred start time
+    MinDuration: TimeSpan option                 // Minimum treatment duration
+    MaxDuration: TimeSpan option                 // Maximum treatment duration
+    ReviewInterval: TimeSpan option              // How often to reassess
 
     // Product Preferences and Restrictions
-    ContraindicatedProducts: string[]     // Forbidden GPK codes
-    PreferredProducts: string[] option    // Preferred GPK codes
-    AvoidGenericSubstitution: bool        // Require specific product
+    ContraindicatedProducts: string[]            // Forbidden GPK codes
+    PreferredProducts: string[]                  // Preferred GPK codes
+    AvoidGenericSubstitution: bool               // Require specific product
 
     // Clinical Instructions
-    PrescriberNotes: string option        // Special prescriber instructions
-    PharmacyNotes: string option          // Instructions for pharmacy
-    NursingNotes: string option           // Instructions for nursing
+    PrescriberNotes: string option               // Special prescriber instructions
+    PharmacyNotes: string option                 // Instructions for pharmacy
+    NursingNotes: string option                  // Instructions for nursing
 
     // Monitoring Requirements
-    RequiredMonitoring: MonitoringRequirement[] // Clinical monitoring needed
+    RequiredMonitoring: MonitoringRequirement[]  // Clinical monitoring needed
     LaboratoryMonitoring: LaboratoryMonitoring[] // Lab tests required
 }
 ```
@@ -427,25 +430,25 @@ type OrderRequest = {
 
 ```fsharp
 type ClinicalGoal =
-    | SymptomControl of string             // Control specific symptom
+    | SymptomControl of string               // Control specific symptom
     | TherapeuticLevel of range: float * float * unit: string // Target therapeutic level
     | PreventionTherapy of condition: string // Prevent specific condition
-    | SupportiveTherapy of system: string  // Support organ system function
+    | SupportiveTherapy of system: string    // Support organ system function
 
-and TargetDose = {
-    MinEffectiveDose: float option         // Minimum effective dose
-    MaxSafeDose: float option             // Maximum safe dose
-    TypicalStartingDose: float option     // Usual starting dose
-    Unit: string                          // Dose unit
-    AdjustmentBasis: AdjustmentBasis option // kg, m², age, etc.
+type TargetDose = {
+    MinEffectiveDose: float option           // Minimum effective dose
+    MaxSafeDose: float option                // Maximum safe dose
+    TypicalStartingDose: float option        // Usual starting dose
+    Unit: string                             // Dose unit
+    AdjustmentBasis: AdjustmentBasis option  // kg, m², age, etc.
 }
 
-and AdjustmentBasis =
-    | BodyWeight                          // Dose per kg
-    | BodySurfaceArea                     // Dose per m²
-    | Age                                 // Age-based dosing
-    | RenalFunction                       // Renal function adjusted
-    | HepaticFunction                     // Hepatic function adjusted
+type AdjustmentBasis =
+    | BodyWeight                             // Dose per kg
+    | BodySurfaceArea                        // Dose per m²
+    | Age                                    // Age-based dosing
+    | RenalFunction                          // Renal function adjusted
+    | HepaticFunction                        // Hepatic function adjusted
 ```
 
 #### 5.2.4 Modification Requests
@@ -460,7 +463,7 @@ type ScenarioModification = {
     ReviewRequired: bool                  // Requires clinical review before implementation
 }
 
-and ModificationType =
+type ModificationType =
     | DoseAdjustment                      // Change dose amount or frequency
     | RouteChange                         // Change administration route
     | DurationModification                // Change treatment duration
@@ -469,12 +472,12 @@ and ModificationType =
     | Discontinuation                     // Stop this scenario
     | TemporaryHold                       // Temporarily suspend
 
-and ModificationParameters = {
-    NewDose: TargetDose option           // Modified dose parameters
-    NewRoute: string option              // New administration route
-    NewDuration: TimeSpan option         // Modified treatment duration
-    NewProduct: string option            // New GPK code
-    NewSchedule: Schedule option         // Modified administration schedule
+type ModificationParameters = {
+    NewDose: TargetDose option            // Modified dose parameters
+    NewRoute: string option               // New administration route
+    NewDuration: TimeSpan option          // Modified treatment duration
+    NewProduct: string option             // New GPK code
+    NewSchedule: Schedule option          // Modified administration schedule
     AdditionalInstructions: string option // Additional clinical instructions
 }
 ```
@@ -483,25 +486,25 @@ and ModificationParameters = {
 
 ```fsharp
 type TreatmentConstraint = {
-    ConstraintType: ConstraintType        // Type of constraint (required)
-    Value: float option                   // Numeric constraint value
-    Unit: string option                   // Constraint unit of measure
-    Description: string                   // Human-readable description (required)
+    ConstraintType: ConstraintType       // Type of constraint (required)
+    Value: float option                  // Numeric constraint value
+    Unit: string option                  // Constraint unit of measure
+    Description: string                  // Human-readable description (required)
     Justification: string option         // Clinical rationale
-    Severity: ConstraintSeverity          // How strictly to enforce
+    Severity: ConstraintSeverity         // How strictly to enforce
 }
 
-and ConstraintType =
-    | FluidRestriction                    // Maximum daily fluid volume
-    | SodiumRestriction                   // Maximum sodium intake
-    | VolumePerDose                       // Maximum volume per administration
-    | AdministrationFrequency             // Limits on dosing frequency
-    | RouteRestriction                    // Forbidden administration routes
-    | ProductAllergy                      // Specific product allergies
+type ConstraintType =
+    | FluidRestriction                   // Maximum daily fluid volume
+    | SodiumRestriction                  // Maximum sodium intake
+    | VolumePerDose                      // Maximum volume per administration
+    | AdministrationFrequency            // Limits on dosing frequency
+    | RouteRestriction                   // Forbidden administration routes
+    | ProductAllergy                     // Specific product allergies
     | TherapeuticDuplication             // Avoid duplicate therapies
     | InteractionAvoidance               // Avoid specific drug interactions
 
-and ConstraintSeverity =
+type ConstraintSeverity =
     | Advisory                           // Preference, can be overridden
     | Warning                            // Strong recommendation
     | Mandatory                          // Must be enforced
@@ -515,37 +518,37 @@ The treatment plan response provides a complete, calculated treatment plan with 
 ```fsharp
 type TreatmentPlanResponse = {
     // Session Reference
-    SessionId: string                      // Original session identifier (required)
-    ResponseTimestamp: DateTime            // When response was generated (required)
-    ProcessingDuration: TimeSpan           // Time taken for calculation
+    SessionId: string                              // Original session identifier (required)
+    ResponseTimestamp: DateTime                    // When response was generated (required)
+    ProcessingDuration: TimeSpan                   // Time taken for calculation
 
     // Complete Treatment Plan
-    TreatmentPlan: CalculatedTreatmentPlan // Complete calculated plan (required)
+    TreatmentPlan: CalculatedTreatmentPlan         // Complete calculated plan (required)
 
     // Validation Results
-    PlanValidation: TreatmentPlanValidation // Comprehensive validation results (required)
+    PlanValidation: TreatmentPlanValidation        // Comprehensive validation results (required)
 
     // Clinical Decision Support
-    ClinicalAlerts: ClinicalAlert[]        // Safety alerts and warnings
-    DrugInteractions: DrugInteraction[]    // Drug-drug interactions
+    ClinicalAlerts: ClinicalAlert[]                // Safety alerts and warnings
+    DrugInteractions: DrugInteraction[]            // Drug-drug interactions
     ClinicalRecommendations: ClinicalRecommendation[] // Clinical guidance
 
     // Nutritional and Monitoring Totals
-    NutritionalTotals: NutritionalTotals   // Complete nutritional analysis
-    FluidBalance: FluidBalance             // Fluid intake calculations
-    ElectrolyteTotals: ElectrolyteTotals   // Electrolyte content analysis
-    ToxicityTotals: ToxicityTotals        // Excipient and additive content
+    NutritionalTotals: NutritionalTotals           // Complete nutritional analysis
+    FluidBalance: FluidBalance                     // Fluid intake calculations
+    ElectrolyteTotals: ElectrolyteTotals           // Electrolyte content analysis
+    ToxicityTotals: ToxicityTotals                 // Excipient and additive content
 
     // G-Standard Compliance
-    ComplianceStatus: GStandardCompliance  // G-Standard validation results (required)
+    ComplianceStatus: GStandardCompliance          // G-Standard validation results (required)
 
     // Implementation Support
     ImplementationGuidance: ImplementationGuidance // Instructions for clinical implementation
-    MonitoringPlan: MonitoringPlan         // Required clinical monitoring
+    MonitoringPlan: MonitoringPlan                 // Required clinical monitoring
 
     // Quality Metrics
-    PlanQualityMetrics: QualityMetric[]    // Plan quality indicators
-    CalculationConfidence: ConfidenceLevel // Confidence in calculations
+    PlanQualityMetrics: QualityMetric[]            // Plan quality indicators
+    CalculationConfidence: ConfidenceLevel         // Confidence in calculations
 }
 ```
 
@@ -554,34 +557,34 @@ type TreatmentPlanResponse = {
 ```fsharp
 type CalculatedTreatmentPlan = {
     // Plan Identity
-    PlanId: string                        // Unique plan identifier (required)
-    PatientId: string                     // EHR patient reference (required)
-    CreatedAt: DateTime                   // Plan creation timestamp (required)
-    CreatedBy: string                     // Prescriber identifier
-    ValidFrom: DateTime                   // When plan becomes valid
-    ValidUntil: DateTime option           // Plan expiration (if applicable)
-    Version: string                       // Plan version number
+    PlanId: string                          // Unique plan identifier (required)
+    PatientId: string                       // EHR patient reference (required)
+    CreatedAt: DateTime                     // Plan creation timestamp (required)
+    CreatedBy: string                       // Prescriber identifier
+    ValidFrom: DateTime                     // When plan becomes valid
+    ValidUntil: DateTime option             // Plan expiration (if applicable)
+    Version: string                         // Plan version number
 
     // Order Scenarios
-    Scenarios: CompleteOrderScenario[]    // All calculated scenarios (required)
-    Selected: CompleteOrderScenario option // Currently selected scenario
-    Filtered: CompleteOrderScenario[]     // User-filtered scenarios
-    Alternatives: CompleteOrderScenario[] // Alternative treatment options
+    Scenarios: CompleteOrderScenario[]      // All calculated scenarios (required)
+    Selected: CompleteOrderScenario option. // Currently selected scenario
+    Filtered: CompleteOrderScenario[]       // User-filtered scenarios
+    Alternatives: CompleteOrderScenario[]   // Alternative treatment options
 
     // Plan-Level Metadata
-    TreatmentComplexity: ComplexityLevel  // Overall complexity assessment
-    EstimatedDuration: TimeSpan option    // Expected treatment duration
+    TreatmentComplexity: ComplexityLevel    // Overall complexity assessment
+    EstimatedDuration: TimeSpan option      // Expected treatment duration
     AdministrationSchedule: ScheduleSummary // Overall administration schedule
 
     // Plan-Level Totals
-    TotalDailyVolume: float option        // Total mL/day across all scenarios
-    TotalDailyDoses: int option           // Total number of daily administrations
-    RequiredInfusionChannels: int option  // Number of IV channels needed
+    TotalDailyVolume: float option          // Total mL/day across all scenarios
+    TotalDailyDoses: int option             // Total number of daily administrations
+    RequiredInfusionChannels: int option    // Number of IV channels needed
 
     // Clinical Considerations
-    SpecialInstructions: string[]         // Plan-wide special instructions
-    ContraindicationOverrides: Override[] // Any overridden contraindications
-    ClinicalNotes: string[]               // Additional clinical notes
+    SpecialInstructions: string[]           // Plan-wide special instructions
+    ContraindicationOverrides: Override[]   // Any overridden contraindications
+    ClinicalNotes: string[]                 // Additional clinical notes
 }
 ```
 
@@ -590,31 +593,31 @@ type CalculatedTreatmentPlan = {
 ```fsharp
 type TreatmentPlanValidation = {
     // Overall Validation Status
-    OverallStatus: ValidationStatus       // Pass | Warning | Error | Critical
-    ValidationTimestamp: DateTime         // When validation was performed
+    OverallStatus: ValidationStatus           // Pass | Warning | Error | Critical
+    ValidationTimestamp: DateTime             // When validation was performed
 
     // Scenario-Level Validation
     ScenarioValidations: ScenarioValidation[] // Validation results per scenario
 
     // Plan-Level Validation
-    PlanLevelChecks: PlanLevelCheck[]     // Cross-scenario validation results
+    PlanLevelChecks: PlanLevelCheck[]         // Cross-scenario validation results
 
     // G-Standard Compliance
-    GStandardCompliance: GStandardValidation // G-Standard-specific validation
+    GStandardCompliance: GStandardValidation  // G-Standard-specific validation
 
     // Clinical Safety Validation
-    SafetyValidation: SafetyValidation    // Comprehensive safety checks
+    SafetyValidation: SafetyValidation        // Comprehensive safety checks
 
     // Completeness Validation
-    CompletenessChecks: CompletenessCheck[] // Required information validation
+    CompletenessChecks: CompletenessCheck[]   // Required information validation
 
     // Consistency Validation
-    ConsistencyChecks: ConsistencyCheck[] // Internal consistency validation
+    ConsistencyChecks: ConsistencyCheck[]     // Internal consistency validation
 }
 
 and ValidationStatus =
-    | Valid                               // All validations passed
-    | ValidWithWarnings                   // Valid but has warnings
+    | Valid                              // All validations passed
+    | ValidWithWarnings                  // Valid but has warnings
     | RequiresClinicalReview             // Needs clinician review
     | Invalid                            // Cannot be safely implemented
     | Critical                           // Critical safety issues identified
@@ -630,10 +633,10 @@ and ValidationMessage = {
     MessageType: MessageType             // Error | Warning | Info | Critical
     Category: MessageCategory            // Dosing | Safety | Interaction | etc.
     Message: string                      // Human-readable message (required)
-    TechnicalDetails: string option     // Technical validation details
-    GStandardReference: string option   // Related G-Standard rule reference
-    ClinicalRationale: string option    // Clinical explanation
-    RecommendedAction: string option    // Suggested resolution
+    TechnicalDetails: string option      // Technical validation details
+    GStandardReference: string option    // Related G-Standard rule reference
+    ClinicalRationale: string option     // Clinical explanation
+    RecommendedAction: string option     // Suggested resolution
 }
 
 and MessageType = Error | Warning | Info | Critical
@@ -677,11 +680,11 @@ type ClinicalAlert = {
 }
 
 and AlertType =
-    | DoseAlert                          // Dose-related alert
+    | DoseAlert                         // Dose-related alert
     | ContraindicationAlert             // Contraindication identified
-    | InteractionAlert                   // Drug interaction
-    | AllergyAlert                       // Allergy/adverse reaction risk
-    | AgeInappropriate                   // Age-inappropriate medication
+    | InteractionAlert                  // Drug interaction
+    | AllergyAlert                      // Allergy/adverse reaction risk
+    | AgeInappropriate                  // Age-inappropriate medication
     | RenalDoseAdjustment               // Renal dose adjustment needed
     | TherapeuticDuplication            // Duplicate therapy
     | HighRiskMedication                // High-risk medication alert
@@ -695,9 +698,9 @@ and AlertSeverity =
 
 and DismissibilityLevel =
     | Informational                     // Can be dismissed without action
-    | RequiresJustification            // Can be dismissed with reason
-    | RequiresAlternativeAction        // Must provide alternative
-    | NonDismissible                   // Cannot be dismissed
+    | RequiresJustification             // Can be dismissed with reason
+    | RequiresAlternativeAction         // Must provide alternative
+    | NonDismissible                    // Cannot be dismissed
 ```
 
 #### 5.3.4 Drug Interactions
@@ -705,7 +708,7 @@ and DismissibilityLevel =
 ```fsharp
 type DrugInteraction = {
     InteractionId: string               // Unique interaction identifier
-    InteractionType: InteractionType    // Type of interaction (required)
+    InteractionType: InteractionType    // Type of intera ction (required)
     Severity: InteractionSeverity       // Clinical significance (required)
 
     // Interacting Medications
@@ -728,7 +731,7 @@ type DrugInteraction = {
     // Evidence and References
     EvidenceLevel: EvidenceLevel        // Quality of evidence
     References: string[]                // Supporting references
-    GStandardReference: string option  // G-Standard interaction reference
+    GStandardReference: string option   // G-Standard interaction reference
 }
 
 and InteractionType =
@@ -759,40 +762,40 @@ Each order scenario represents a complete, implementable medication order with a
 ```fsharp
 type CompleteOrderScenario = {
     // Scenario Identification
-    ScenarioId: string                    // Unique scenario identifier (required)
-    ScenarioNumber: int                   // Display sequence number (required)
-    CreatedAt: DateTime                   // Scenario creation timestamp
-    LastCalculatedAt: DateTime            // Last recalculation timestamp
+    ScenarioId: string                              // Unique scenario identifier (required)
+    ScenarioNumber: int                             // Display sequence number (required)
+    CreatedAt: DateTime                             // Scenario creation timestamp
+    LastCalculatedAt: DateTime                      // Last recalculation timestamp
 
     // Medication Identification (G-Standard Compliant)
-    MedicationDetails: MedicationDetails  // Complete medication information (required)
+    MedicationDetails: MedicationDetails            // Complete medication information (required)
 
     // Complete Order Definition
-    Order: CompleteOrder                  // Full order specification (required)
+    Order: CompleteOrder                            // Full order specification (required)
 
     // Clinical Instructions (Ready for Implementation)
-    PrescriptionInstructions: TextInstruction[][] // How to prescribe (required)
-    PreparationInstructions: TextInstruction[][]  // How to prepare (required)
+    PrescriptionInstructions: TextInstruction[][]   // How to prescribe (required)
+    PreparationInstructions: TextInstruction[][]    // How to prepare (required)
     AdministrationInstructions: TextInstruction[][] // How to administer (required)
 
     // Product and Component Information
-    ProductDetails: ProductDetails        // Complete product information (required)
+    ProductDetails: ProductDetails                  // Complete product information (required)
 
     // Clinical Metadata
-    ClinicalFlags: ClinicalFlags         // Clinical decision indicators (required)
+    ClinicalFlags: ClinicalFlags                    // Clinical decision indicators (required)
 
     // Quality and Safety Indicators
-    CalculationQuality: QualityIndicators // Quality metrics for this scenario
-    SafetyProfile: SafetyProfile          // Safety assessment for this scenario
+    CalculationQuality: QualityIndicators           // Quality metrics for this scenario
+    SafetyProfile: SafetyProfile                    // Safety assessment for this scenario
 
     // Scenario-Specific Totals and Monitoring
-    ScenarioTotals: ScenarioTotals       // Nutritional and clinical totals (required)
+    ScenarioTotals: ScenarioTotals                  // Nutritional and clinical totals (required)
     MonitoringRequirements: MonitoringRequirement[] // Required monitoring for this scenario
 
     // Implementation Metadata
-    ImplementationComplexity: ComplexityLevel // Complexity assessment
-    EstimatedPreparationTime: TimeSpan option // Expected preparation time
-    RequiredResources: RequiredResource[]     // Needed clinical resources
+    ImplementationComplexity: ComplexityLevel       // Complexity assessment
+    EstimatedPreparationTime: TimeSpan option       // Expected preparation time
+    RequiredResources: RequiredResource[]           // Needed clinical resources
 }
 ```
 
@@ -801,35 +804,35 @@ type CompleteOrderScenario = {
 ```fsharp
 type MedicationDetails = {
     // Core Identification
-    Generic: string                       // Generic medication name (required)
-    Indication: string                    // Clinical indication (required)
-    Shape: string                         // Pharmaceutical form (required)
-    Route: string                         // Administration route (required)
+    Generic: string                      // Generic medication name (required)
+    Indication: string                   // Clinical indication (required)
+    Shape: string                        // Pharmaceutical form (required)
+    Route: string                        // Administration route (required)
     DoseType: DoseType                   // Dosing pattern (required)
 
     // G-Standard Identification
-    ProductIds: string[]                  // Associated GPK codes (required)
+    ProductIds: string[]                 // Associated GPK codes (required)
     PrimaryGPK: string option            // Primary GPK code if applicable
 
     // Clinical Classification
     TherapeuticClass: string option      // ATC therapeutic classification
     PharmacologicalClass: string option  // Pharmacological classification
-    ControlledSubstance: bool             // Is this a controlled substance
+    ControlledSubstance: bool            // Is this a controlled substance
     HighRiskMedication: bool             // Requires special safety precautions
 
     // Product Information
     Manufacturer: string option          // Product manufacturer
     ProductStrength: string option       // Strength/concentration
-    PackageInfo: string option          // Package size/type information
+    PackageInfo: string option           // Package size/type information
 }
 
 and DoseType =
-    | OnceTimed of string               // Single dose over specified time
-    | Once of string                    // Single dose administration
-    | Timed of string                   // Timed interval dosing
-    | Discontinuous of string           // Intermittent dosing
-    | Continuous of string              // Continuous infusion
-    | NoDoseType                        // Unspecified dosing pattern
+    | OnceTimed of string                // Single dose over specified time
+    | Once of string                     // Single dose administration
+    | Timed of string                    // Timed interval dosing
+    | Discontinuous of string            // Intermittent dosing
+    | Continuous of string               // Continuous infusion
+    | NoDoseType                         // Unspecified dosing pattern
 ```
 
 #### 5.4.2 Rich Text Instructions
@@ -878,19 +881,19 @@ and OrderType =
     | StandardOrder                     // Regular medication order
     | PRNOrder                          // As-needed medication order
     | StatOrder                         // One-time STAT order
-    | ContinuousInfusion               // Continuous IV infusion
-    | ParenteralNutrition              // PN/TPN order
-    | EnteralNutrition                 // Enteral feeding order
+    | ContinuousInfusion                // Continuous IV infusion
+    | ParenteralNutrition               // PN/TPN order
+    | EnteralNutrition                  // Enteral feeding order
 
 and OrderStatus =
-    | Draft                            // Order being created
-    | PendingReview                    // Awaiting clinical review
-    | ReadyForApproval                 // Ready for prescriber approval
-    | Approved                         // Approved by prescriber
-    | Active                           // Currently being administered
-    | Completed                        // Administration completed
-    | Discontinued                     // Order discontinued
-    | OnHold                           // Temporarily suspended
+    | Draft                             // Order being created
+    | PendingReview                     // Awaiting clinical review
+    | ReadyForApproval                  // Ready for prescriber approval
+    | Approved                          // Approved by prescriber
+    | Active                            // Currently being administered
+    | Completed                         // Administration completed
+    | Discontinued                      // Order discontinued
+    | OnHold                            // Temporarily suspended
 ```
 
 #### 5.4.4 Complete Orderable Structure
