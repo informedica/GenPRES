@@ -838,11 +838,10 @@ module Command =
 
 
     let processCmd provider cmd =
-        let logger = Logging.getLogger()
-
         match cmd with
         | OrderContextCmd ctxCmd ->
             async {
+                let logger = Logging.getSpecificLogger Logging.OrderLogger
                 do! logger |> Logging.setComponentName (Some "OrderContext")
                 return 
                     ctxCmd
@@ -852,6 +851,7 @@ module Command =
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
             async {
+                let logger = Logging.getSpecificLogger Logging.TherapyTreatmentPlanLogger
                 do! logger |> Logging.setComponentName (Some "TreatmentPlan")
                 return
                     tp
@@ -864,17 +864,19 @@ module Command =
 
         | TreatmentPlanCmd (FilterTreatmentPlan tp) ->
             async {
-            do! logger |> Logging.setComponentName (Some "TreatmentPlan")
-            return
-                tp
-                |> TreatmentPlan.calculateTotals
-                |> TreatmentPlanFiltered
-                |> TreatmentPlanResp
-                |> Ok
+                let logger = Logging.getSpecificLogger Logging.TherapyTreatmentPlanLogger            
+                do! logger |> Logging.setComponentName (Some "TreatmentPlan")
+                return
+                    tp
+                    |> TreatmentPlan.calculateTotals
+                    |> TreatmentPlanFiltered
+                    |> TreatmentPlanResp
+                    |> Ok
             }
 
         | FormularyCmd form ->
             async {
+                let logger = Logging.getSpecificLogger Logging.FormularyLogger
                 do! logger |> Logging.setComponentName (Some "Formulary")
                 return
                     form
@@ -884,6 +886,7 @@ module Command =
 
         | ParenteraliaCmd par ->
             async {
+                let logger = Logging.getSpecificLogger Logging.ParenteraliaLogger
                 do! logger |> Logging.setComponentName (Some "Parenteralia")
                 return
                     par

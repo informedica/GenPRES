@@ -114,14 +114,29 @@ module Logging
         |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 60.)
 
 
-    let mutable private logger = None //Informedica.GenOrder.Lib.OrderLogging.createAgentLogger config
+    type Loggers =
+        | RequestLogger
+        | OrderLogger
+        | ResourcesLogger
+        | FormularyLogger
+        | TherapyTreatmentPlanLogger
+        | ParenteraliaLogger
 
 
-    let getLogger () =
-        if logger.IsNone then
-            let instance = OrderLogging.createAgentLogger config
-            logger <- instance |> Some
-        logger.Value
+    let private loggers =
+        [ 
+            RequestLogger, OrderLogging.createAgentLogger config
+            OrderLogger, OrderLogging.createAgentLogger config
+            ResourcesLogger, OrderLogging.createAgentLogger config
+            FormularyLogger, OrderLogging.createAgentLogger config
+            TherapyTreatmentPlanLogger, OrderLogging.createAgentLogger config
+            ParenteraliaLogger, OrderLogging.createAgentLogger config 
+        ]
+        |> Map.ofList
+
+
+    let getSpecificLogger (loggerType: Loggers) =
+        loggers.[loggerType]
 
 
     let loggingEnabled =

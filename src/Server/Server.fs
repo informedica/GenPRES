@@ -56,11 +56,10 @@ let port =
     |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
 
 
-let logger = Logging.getLogger () 
-
-
 let provider =
-    logger 
+    let logger = Logging.getSpecificLogger Logging.ResourcesLogger
+
+    logger
     |> Logging.setComponentName (Some "Provider")
     |> Async.RunSynchronously
 
@@ -71,7 +70,7 @@ let provider =
 
 let logClientIP : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
-
+        let logger = Logging.getSpecificLogger Logging.RequestLogger
         let clientIP = getClientIP ctx
         let path = ctx.Request.Path.ToString()
         let method = ctx.Request.Method
@@ -109,8 +108,11 @@ type LoggerShutdown() =
             Task.CompletedTask
 
         member _.StopAsync(_) =
+            let logger = Logging.getSpecificLogger Logging.RequestLogger
+
             writeInfoMessage "Trying to Stop Server Async"
             try
+                // TODO: need to stop all loggers
                 logger.StopAsync() |> Async.StartAsTask :> Task
             with ex ->
                 writeDebugMessage $"Logger shutdown failed: {ex.Message}"
