@@ -12,16 +12,8 @@
 
 - [1. Executive Summary](#1-executive-summary)
   - [Key Features](#key-features)
-  - [Interface Benefits](#interface-benefits)
-- [2. Document Scope and Objectives](#2-document-scope-and-objectives)
-  - [2.1 Scope](#21-scope)
-  - [2.2 Objectives](#22-objectives)
-  - [2.3 Out of Scope](#23-out-of-scope)
 - [3. Core Architecture Principles](#3-core-architecture-principles)
-  - [3.1 FHIR-First Design](#31-fhir-first-design)
-  - [3.2 Treatment Plan as CarePlan](#32-treatment-plan-as-careplan)
-  - [3.3 G-Standard Through FHIR Coding](#33-g-standard-through-fhir-coding)
-  - [3.4 Stateless GenPRES with FHIR Persistence](#34-stateless-genpres-with-fhir-persistence)
+    - [3.4 Stateless GenPRES with FHIR Persistence](#34-stateless-genpres-with-fhir-persistence)
 - [4. System Overview](#4-system-overview)
   - [4.1 System Context Diagram](#41-system-context-diagram)
   - [4.2 Data Flow Overview](#42-data-flow-overview)
@@ -37,11 +29,16 @@
   - [6.1 Single-Product Once-Scenario](#61-single-product-once-scenario)
   - [6.2 Single-Product Once-Timed Scenario](#62-single-product-once-timed-scenario)
   - [6.3 Single-Product Discontinuous Scenario](#63-single-product-discontinuous-scenario)
+    - [6.3.1 Single-Product Discontinuous Specific Time Scenario](#631-single-product-discontinuous-specific-time-scenario)
   - [6.4 Single-Product Discontinuous-Timed Scenario](#64-single-product-discontinuous-timed-scenario)
   - [6.5 Single-Product Continuous Scenario](#65-single-product-continuous-scenario)
   - [6.6 Multi-Product Continuous Scenario](#66-multi-product-continuous-scenario)
   - [6.7 Multi-Product Once-Timed Scenario](#67-multi-product-once-timed-scenario)
-  - [6.8 Multi-Product with Reconstitution Discontinuous-Timed Scenario](#68-multi-product-with-reconstitution-discontinuous-timed-scenario)
+  - [6.8 Multi-Product with Reconstitution Once Scenario](#68-multi-product-with-reconstitution-once-scenario)
+  - [6.9 Multi-Product with Reconstitution Discontinuous-Timed Scenario](#69-multi-product-with-reconstitution-discontinuous-timed-scenario)
+  - [6.10 Multi-Product TPN Specific Scenario](#610-multi-product-tpn-specific-scenario)
+  - [6.11 Multi-Product Enteral Feeding Specific Scenario](#611-multi-product-enteral-feeding-specific-scenario)
+  - [6.12 Additional Recommended Scenarios](#612-additional-recommended-scenarios)
 
 ## 1. Executive Summary
 
@@ -55,76 +52,11 @@ This interface specification defines the complete FHIR R4-compliant data exchang
 - **Stateless GenPRES Operation**: EHR maintains all persistent data while GenPRES provides full treatment plan management
 - **OAuth2/SMART-on-FHIR Security**: Industry-standard healthcare authentication and authorization
 
-### Interface Benefits
-
-- **Interoperability**: FHIR-based communication ensuring standards compliance
-- **Regulatory Compliance**: Full G-Standard and IHE profile adherence
-- **Scalability**: Support for high-volume clinical environments
-- **Maintainability**: Clear separation of concerns between systems
-
-## 2. Document Scope and Objectives
-
-### 2.1 Scope
-
-This specification covers:
-
-- FHIR R4 resource structures for complete treatment plan communication
-- G-Standard compliance requirements integrated with FHIR coding systems
-- OAuth2/SMART-on-FHIR authentication and authorization
-- IHE Pharmacy profile compliance
-- Clinical workflow integration patterns
-- Session management protocols
-- Performance and scalability requirements
-
-### 2.2 Objectives
-
-- Define complete FHIR-compliant interface for treatment plan management
-- Ensure G-Standard compliance through proper FHIR coding and extensions
-- Establish OAuth2/SMART-on-FHIR security integration
-- Enable safe, efficient clinical workflows
-- Support complex pediatric and critical care scenarios
-- Maintain IHE profile compliance
-
-### 2.3 Out of Scope
-
-- Internal EHR system architecture
-- GenPRES internal calculation algorithms
-- Network infrastructure requirements
-- Specific vendor implementation details
-- Clinical training and change management
-
 ## 3. Core Architecture Principles
-
-### 3.1 FHIR-First Design
-
-All data exchanges use FHIR R4 resources with proper resource relationships:
-
-- **Resource Integrity**: Complete FHIR resource definitions with required elements
-- **Reference Consistency**: Proper use of resource references and contained resources
-- **Extension Usage**: G-Standard specific data through FHIR extensions
-- **Bundle Management**: Appropriate use of Bundle resources for transactions
-
-### 3.2 Treatment Plan as CarePlan
-
-Treatment plans are represented as FHIR CarePlan resources with:
-
-- **Clinical Context Preservation**: Orders evaluated within complete care context
-- **Activity Coordination**: MedicationRequest activities linked to CarePlan
-- **Goal Alignment**: Treatment goals expressed as Goal resources
-- **Workflow Integration**: Proper status management through CarePlan lifecycle
-
-### 3.3 G-Standard Through FHIR Coding
-
-G-Standard compliance achieved through FHIR coding systems:
-
-- **GPK Integration**: GPK codes in Medication.code.coding with G-Standard system URI
-- **Product Identification**: Complete product information in Medication resources
-- **Product Compounding**: Product compound quanties with G-Standard compliant unit specification
-- **Order Scheduling**: Order scheduling using G-Standard compliant time units
 
 ### 3.4 Stateless GenPRES with FHIR Persistence
 
-EHR maintains FHIR resources while GenPRES provides calculations, validation, checking:
+EHR maintains FHIR resources while GenPRES provides calculations, validation, and checking:
 
 - **Resource Sovereignty**: EHR controls all FHIR resource persistence
 - **Calculation Services**: GenPRES provides read-only calculation and validation
@@ -173,7 +105,7 @@ EHR maintains FHIR resources while GenPRES provides calculations, validation, ch
 ## 5. Data Exchange Specifications
 
 ### 5.1 Patient Context
-
+ 
 The patient context provides all clinical information necessary for accurate dose calculations and safety checking.
 
 ```fsharp
@@ -183,7 +115,7 @@ type PatientContext = {
     Gender: Gender                          // Male | Female | UnknownGender (required)
 
     // Age Information
-    BirthDate: DateTime                     // Birtdate (required)
+    BirthDate: DateTime                     // Birthdate (required)
     GestationalAge: GestationalAge option   // For neonatal/pediatric patients
 
     // Physical Measurements
@@ -269,7 +201,7 @@ type LaboratoryValue = {
 
 ### 5.2 Treatment Plan Request (EHR → GenPRES)
 
-The treatment plan request initiates a clinical session and with the overall intent that the entire treatment plan can be modified.
+The treatment plan request initiates a clinical session with the overall intent that the entire treatment plan can be modified.
 
 ```fsharp
 type TreatmentPlanRequest = {
@@ -281,7 +213,7 @@ type TreatmentPlanRequest = {
     PatientContext: PatientContext                  // Patient identification and relevant patient data
 
     // New Order Requests
-    TreatmentPaln: OrderScenario[]                  // Requested new medications
+    TreatmentPlan: OrderScenario[]                  // Requested new medications
 
     // Clinical Constraints
     GlobalConstraints: TreatmentConstraint[]        // Plan-wide limitations
@@ -336,6 +268,17 @@ and Schema =
 
 ## 6. Example Treatment Plan Scenarios
 
+Sample scenarios demonstrating various treatment plan configurations. Each scenario includes:
+
+- Patient Context
+- Scenario Context
+- Prescription Details
+- Preparation Instructions
+- Administration Instructions
+- Scheduling Information
+
+The text descriptions are the representation offered by GenPRES, while the YAML snippets represent the corresponding FHIR resource structure.
+
 ## 6.1 Single-Product Once-Scenario
 
 ```text
@@ -349,7 +292,7 @@ Indicaties: Pijn, acuut/post-operatief
 Medicatie: paracetamol
 Routes: RECTAAL
 Vorm: zetpil
-Doseer types: Once|Startdosering
+Doseer types: OnceTimed|Startdosering
 
 Voorschrift
 paracetamol 750 mg = 38,5 mg/kg (40 mg/kg/dosis)
@@ -399,6 +342,7 @@ schema:
     - exact-times: []
 ```
 
+
 ## 6.2 Single-Product Once-Timed Scenario
 
 ```text
@@ -428,13 +372,13 @@ Einde: n.v.t.
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Pijn, acuut/post-operatief"
 route: "INTRAVENEUS"
 shape: "infusievloeistof"
-dose-type: "Once|Startdosering"
+dose-type: "OnceTimed|Startdosering"
 
 order: "paracetamol"
 start-date: "2025-09-22T10:11:00Z"
@@ -491,13 +435,13 @@ Einde: 2025-09-29 10:11
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Milde tot matige pijn; koorts"
 route: "RECTAAL"
 shape: "zetpil"
-dose-type: "Discontinuous|onderhoud"
+dose-type: "Discontinuous|Onderhoud"
 
 order: "paracetamol"
 start-date: "2025-09-22T10:11:00Z"
@@ -524,6 +468,70 @@ schema:
     - exact-times: []
 ```
 
+### 6.3.1 Single-Product Discontinuous Specific Time Scenario
+
+```text
+Patient Context
+Geslacht: vrouwelijk
+Gestationele leeftijd: 32 weken, 3 dagen
+Weight: 1,8 kg
+Height: 42 cm
+
+Scenario Context
+Indicaties: Ernstige infectie, gram negatieve microorganismen
+Medicatie: gentamicine
+Routes: INTRAVENEUS
+Vorm: infusievloeistof
+Doseer types: Discontinuous|Onderhoud
+
+Voorschrift
+1 x/36 uur gentamicine 9 mg = 5 mg/kg/36 uur (5 mg/kg/36 uur)
+Bereiding
+infusievloeistof 9 mL gentamicine 1 mg/mL
+Toediening
+1 x/36 uur 9 mL gentamicine 9 mg in 9 mL
+Planning
+Start: 2025-09-22 10:11
+Einde: 2025-09-29 10:11
+```
+
+```yaml
+patient:
+    ehr-patient-id: "123456"
+    gender: "female"
+    weight: 1800 # grams
+    height: 42   # cm
+
+indication: "Ernstige infectie, gram negatieve microorganismen"
+route: "INTRAVENEUS"
+shape: "infusievloeistof"
+dose-type: "Discontinuous|Onderhoud"
+
+order: "gentamicine"
+start-date: "2025-09-22T10:11:00Z"
+stop-date: null
+
+products:
+    - gpk: "2345678" # gpk code for gentamicine 1 mg/mL infusievloeistof
+        quantity: 9
+        unit: "mL"
+
+administration:
+    quantity: 9
+    unit: "mL"
+
+schema:
+    - pattern: # discontinu 1x per 36 uur
+        frequency: 1
+        time: 36
+        unit: "uur"
+    - rate:
+        quantity: null
+        unit1: null
+        unit2: null
+    - exact-times: []
+```
+
 ## 6.4 Single-Product Discontinuous-Timed Scenario
 
 ```text
@@ -537,7 +545,7 @@ Indicaties: Pijn, acuut/post-operatief
 Medicatie: paracetamol
 Routes: INTRAVENEUS
 Vorm: infusievloeistof
-Doseer types: Timed|onderhoud
+Doseer types: Timed|Onderhoud
 
 Voorschrift
 4 x/dag paracetamol 175 mg = 63,6 mg/kg/dag (60 mg/kg/dag)
@@ -555,7 +563,7 @@ Exacte tijden: 10:00, 16:00, 22:00, 04:00
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Pijn, acuut/post-operatief"
@@ -563,9 +571,9 @@ route: "INTRAVENEUS"
 shape: "infusievloeistof"
 
 order: "paracetamol"
-start-date: 2025-09-22T10:08:00Z
-stop-date: 2025-09-29T10:11:00Z
-dose-type: "Timed|onderhoud"
+start-date: "2025-09-22T10:08:00Z"
+stop-date: "2025-09-29T10:11:00Z"
+dose-type: "Timed|Onderhoud"
 
 products:
     - gpk: "2345678" # gpk code for paracetamol 10 mg/mL infusievloeistof
@@ -605,7 +613,7 @@ Indicaties: Sedatie
 Medicatie: propofol
 Routes: INTRAVENEUS
 Vorm: emulsie voor injectie
-Doseer types: Continuous|continu
+Doseer types: Continuous|Continu
 
 Voorschrift
 propofol 3 mg/kg/uur (1 - 4 mg/kg/uur)
@@ -622,16 +630,16 @@ Einde:
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Sedatie"
 route: "INTRAVENEUS"
 shape: "emulsie voor injectie"
-dose-type: "Continuous|continu"
+dose-type: "Continuous|Continu"
 
 order: "propofol"
-start-date: 2025-09-22T10:08:00Z
+start-date: "2025-09-22T10:08:00Z"
 stop-date: null
 
 products:
@@ -669,7 +677,7 @@ Medicatie: noradrenaline
 Routes: INTRAVENEUS
 Vorm: concentraat voor oplossing voor infusie
 Verdunningsvorm: gluc 10%
-Doseer types: Continuous|continu
+Doseer types: Continuous|Continu
 
 Voorschrift
 noradrenaline 0,152 microg/kg/min (0,05 - 2 microg/kg/min)
@@ -687,16 +695,16 @@ Einde:
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Circulatoire insufficiëntie"
 route: "INTRAVENEUS"
 shape: "concentraat voor oplossing voor infusie"
-dose-type: "Continuous|continu"
+dose-type: "Continuous|Continu"
 
 order: "noradrenaline"
-start-date: 2025-09-22T10:08:00Z
+start-date: "2025-09-22T10:08:00Z"
 stop-date: null
 
 products:
@@ -716,7 +724,7 @@ schema:
         frequency: null
         time: null
         unit: null
-    - rate: # 1 mL/uur (15 uur)
+    - rate: # 1 mL/uur (50 uur)
         quantity: 1
         unit1: "mL"
         unit2: "uur"
@@ -737,7 +745,7 @@ Medicatie: amiodaron
 Routes: INTRAVENEUS
 Vorm: injectievloeistof
 Verdunningsvorm: gluc 10%
-Doseer types: Once|Startdosering
+Doseer types: OnceTimed|Startdosering
 
 Voorschrift
 amiodaron 54,6 mg = 4,96 mg/kg (5 mg/kg/dosis)
@@ -755,13 +763,13 @@ Einde: n.v.t.
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Ernstige therapieresistente hartritmestoornissen"
 route: "INTRAVENEUS"
 shape: "injectievloeistof"
-dose-type: "Once|Startdosering"
+dose-type: "OnceTimed|Startdosering"
 
 order: "amiodaron"
 start-date: "2025-09-22T10:11:00Z"
@@ -776,7 +784,7 @@ products:
         unit: "mL"
 
 administration:
-    quantity: 9.1 #9,1 mL amiodaron 300 mg in 50 mL = 54,6 mg (5 mg/kg/dosis)
+    quantity: 9.1 # 9,1 mL amiodaron 300 mg in 50 mL = 54,6 mg 
     unit: "mL"
 
 schema:
@@ -804,7 +812,7 @@ Indicaties: Reanimatie
 Medicatie: adrenaline
 Routes: INTRAVENEUS
 Vorm: injectievloeistof
-Doseer types: Once|eenmalig
+Doseer types: Once|Eenmalig
 
 Voorschrift
 adrenaline 0,04 mg = 0,01 mg/kg (0,01 mg/kg/dosis)
@@ -824,7 +832,7 @@ patient:
 indication: "Reanimatie"
 route: "INTRAVENEUS"
 shape: "injectievloeistof"
-dose-type: "Once|eenmalig"
+dose-type: "Once|Eenmalig"
 
 order: "adrenaline"
 start-date: "2025-09-22T10:11:00Z"
@@ -833,7 +841,7 @@ stop-date: null
 reconstitution:
     - gpk: "2345678" # gpk code for adrenaline 1 mg/mL injectievloeistof
         quantity: 1
-        unit: "ml"
+        unit: "mL"
     - gpk: "89879" # gpk code for NaCl0,9% voor oplossing  
         quantity: 9
         unit: "mL"
@@ -873,7 +881,7 @@ Medicatie: vancomycine
 Routes: INTRAVENEUS
 Vorm: poeder voor oplossing voor infusie
 Verdunningsvorm: gluc 5%
-Doseer types: Timed|onderhoud
+Doseer types: Timed|Onderhoud
 
 Voorschrift
 4 x/dag vancomycine 149 mg = 54,2 mg/kg/dag (60 mg/kg/dag)
@@ -888,13 +896,13 @@ Toediening
 patient:
     ehr-patient-id: "123456"
     gender: "male"
-    weight: 1100 # grams
+    weight: 11000 # grams
     height: 79   # cm
 
 indication: "Bacteriële infecties"
 route: "INTRAVENEUS"
 shape: "poeder voor oplossing voor infusie"
-dose-type: "Timed|onderhoud"
+dose-type: "Timed|Onderhoud"
 
 order: "vancomycine"
 start-date: "2025-09-22T10:11:00Z"
@@ -917,7 +925,7 @@ products:
         unit: "mL"
 
 administration:
-    quantity: 14.9 #14,9 mL vancomycine 500 mg in 50 mL = 149 mg
+    quantity: 14.9 # 14,9 mL vancomycine 500 mg in 50 mL = 149 mg
     unit: "mL"
 
 schema:
@@ -931,3 +939,176 @@ schema:
         unit2: "uur"
     - exact-times: []
 ```
+
+## 6.10 Multi-Product TPN Specific Scenario
+
+```text
+Patient Context
+Geslacht: mannelijk
+Weight: 11 kg
+Height: 79 cm
+
+Scenario Context
+Indicaties: Standaard Totale Parenterale Voeding
+Medicatie: TPV
+Routes: INTRAVENEUS
+Vorm: vloeistof voor infusie
+Doseer types: Timed|Onderhoud
+
+Voorschrift
+1 x/dag 900 mL = 900 mL/dag
+Bereiding
+vloeistof (Samenstelling C) 105 mL  
+vloeistof (NaCl 3%) 59,5 mL  
+vloeistof (KCl 7,4%) 20 mL  
+vloeistof (gluc 10%) 715,5 mL  
+Toediening
+1 x/dag 900 mL 45 mL/uur 20 uur
+Planning
+Start: 2025-09-22 17:00
+Einde: 2025-09-23 17:00
+```
+
+```yaml
+patient:
+    ehr-patient-id: "123456"
+    gender: "male"
+    weight: 11000 # grams
+    height: 79   # cm
+
+indication: "Standaard Totale Parenterale Voeding"
+route: "INTRAVENEUS"
+shape: "vloeistof voor infusie"
+dose-type: "Timed|Onderhoud"
+
+order: "TPV"
+start-date: "2025-09-22T10:11:00Z"
+stop-date: "2025-09-29T10:11:00Z"
+
+reconstitution: null
+
+products:
+    - gpk: "2345678" # gpk code for Samenstelling C vloeistof voor infusie
+        quantity: 105
+        unit: "mL"
+    - gpk: "3456789" # gpk code for NaCl 3% vloeistof voor infusie  
+        quantity: 59.5
+        unit: "mL"
+    - gpk: "4567890" # gpk code for KCl 7,4% vloeistof voor infusie  
+        quantity: 20
+        unit: "mL"
+    - gpk: "5678901" # gpk code for gluc 10% vloeistof voor infusie  
+        quantity: 715.5
+        unit: "mL"
+
+administration:
+    quantity: 900 # 900 mL
+    unit: "mL"
+
+schema:
+    - pattern: # 1 x per dag
+        frequency: 1
+        time: 1
+        unit: "dag"
+    - rate:
+        quantity: 45 # 45 mL/uur (15 min)
+        unit1: "mL"
+        unit2: "uur"
+    - exact-times: 
+        - "17:00"
+```
+
+## 6.11 Multi-Product Enteral Feeding Specific Scenario
+
+```text
+Patient Context
+Geslacht: vrouwelijk
+Weight: 3,8 kg
+Height: 53 cm
+
+Scenario Context
+Indicaties: Enterale voeding
+Medicatie: MM met BMF
+Routes: ORAAL
+Vorm: voeding
+Doseer types: Timed|Onderhoud
+
+Voorschrift
+8 x/dag 20 mL = 160 mL/dag
+Bereiding
+voeding (MM) 20 mL  
+voeding (Nutrilon Nenatal BMF pdr) 0,1 g  
+Toediening
+8 x/dag 20 mL
+Planning
+Start: 2025-09-22 17:00
+Einde: 2025-09-23 17:00
+```
+
+```yaml
+patient:
+    ehr-patient-id: "123456"
+    gender: "female"
+    weight: 3800 # grams
+    height: 53   # cm
+
+indication: "Enterale Voeding"
+route: "ORAAL"
+shape: "voeding"
+dose-type: "Timed|Onderhoud"
+
+order: "BMF met MM"
+start-date: "2025-09-22T10:11:00Z"
+stop-date: "2025-09-29T10:11:00Z"
+
+reconstitution: null
+
+products:
+    - gpk: "9999978" # gpk code 99999 for MM vloeistof voor voeding
+        quantity: 20
+        unit: "mL"
+    - gpk: "99999789" # gpk code 99999 for BMF poeder voor voeding  
+        quantity: 0.1
+        unit: "g"
+
+administration:
+    quantity: 20 # 20 mL
+    unit: "mL"
+
+schema:
+    - pattern: # 8 x per dag
+        frequency: 8
+        time: 1
+        unit: "dag"
+    - rate: null
+    - exact-times: 
+        - "07:00"
+        - "10:00"
+        - "13:00"
+        - "16:00"
+        - "19:00"
+        - "22:00"
+        - "01:00"
+        - "04:00"
+```
+
+## 6.12 Additional Recommended Scenarios
+
+The following scenarios are recommended to complete clinical coverage and should be validated end-to-end using the same structure as above (context → order → preparation → administration → schema):
+
+- Tapering continuous infusion (dose titration over time with step schedule)
+- Weight change mid-course requiring recalculation (plan update delta)
+- Renal dose adjustment path (baseline → impaired → dialysis)
+- Hepatic impairment adjustment path (Child-Pugh A/B/C)
+- Therapeutic drug monitoring feedback loop (lab-driven regimen change)
+- PRN (pro re nata) dosing with max per day constraints
+- Age transition boundary conditions (neonate → infant → child → adolescent)
+- Route change mid-course (e.g., IV to oral switch with bioequivalence)
+- Duplicate therapy detection and resolution (drug-class level)
+- Allergy/intolerance contraindication handling (alert and alternative)
+- Restricted product substitution rules (G-Standard compliant alternatives)
+- Smart reconstitution with multi-step dilutions (e.g., antibiotics for neonates)
+- Complex exact-times patterns across night shifts (24h clock rollover)
+- Multi-prescriber/multi-session conflict resolution and merge
+
+Each of these should be captured as a use case with clear acceptance criteria and linked to FHIR CarePlan/MedicationRequest representations, including G-Standard coding and IHE Pharmacy profile alignment.
