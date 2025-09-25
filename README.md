@@ -82,7 +82,7 @@ set GENPRES_DEBUG=1
 
 Starting the application in developer mode is now super easy, just `dotnet run` spins up the entire application. Look for different targets by `dotnet run list`.
 
-Open a browser to `http://localhost:5173` to view the site.
+Open a browser to <http://localhost:5173> to view the site.
 
 Additionally, an environment variable can be set to use a different GenPRES data Excel URL:
 `export GENPRES_URL_ID=<some url id>`. After starting the application, the url that is used will be
@@ -112,7 +112,7 @@ To run the Docker image locally:
 docker run -it -p 8080:8085 [USERNAME]/genpres
 ```
 
-Open a browser to `http://localhost:8080` to view the site.
+Open a browser to <http://localhost:8080> to view the site.
 
 ## SAFE Stack Documentation
 
