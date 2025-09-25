@@ -1112,3 +1112,26 @@ The following scenarios are recommended to complete clinical coverage and should
 - Multi-prescriber/multi-session conflict resolution and merge
 
 Each of these should be captured as a use case with clear acceptance criteria and linked to FHIR CarePlan/MedicationRequest representations, including G-Standard coding and IHE Pharmacy profile alignment.
+
+---
+
+## Document Revision History
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.3 | September 2025 | Solution Architecture Team | Initial complete specification |
+
+---
+
+## Document Approval
+
+| Role | Name | Signature | Date |
+|------|------|-----------|------|
+| Solution Architect | [Name] | [Signature] | [Date] |
+| Clinical Lead | [Name] | [Signature] | [Date] |
+| Integration Lead | [Name] | [Signature] | [Date] |
+| Security Officer | [Name] | [Signature] | [Date] |
+
+---
+
+*This document contains confidential and proprietary information. Distribution is restricted to authorized personnel only.*
