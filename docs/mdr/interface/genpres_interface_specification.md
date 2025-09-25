@@ -791,7 +791,75 @@ schema:
     - exact-times: []
 ```
 
-## 6.8 Multi-Product with Reconstitution Discontinuous-Timed Scenario
+## 6.8 Multi-Product with Reconstitution Once Scenario
+
+```text
+Patient Context
+Geslacht: mannelijk
+Weight: 3,9 kg
+Height: 54 cm
+
+Scenario Context
+Indicaties: Reanimatie
+Medicatie: adrenaline
+Routes: INTRAVENEUS
+Vorm: injectievloeistof
+Doseer types: Once|eenmalig
+
+Voorschrift
+adrenaline 0,04 mg = 0,01 mg/kg (0,01 mg/kg/dosis)
+Bereiding
+injectievloeistof 0,4 mL adrenaline 1 mg/10 mL
+Toediening
+0,4 mL adrenaline 0,04 mg in 0,4 mL
+```
+
+```yaml
+patient:
+    ehr-patient-id: "123456"
+    gender: "male"
+    weight: 3900 # grams
+    height: 54   # cm
+
+indication: "Reanimatie"
+route: "INTRAVENEUS"
+shape: "injectievloeistof"
+dose-type: "Once|eenmalig"
+
+order: "adrenaline"
+start-date: "2025-09-22T10:11:00Z"
+stop-date: null
+
+reconstitution:
+    - gpk: "2345678" # gpk code for adrenaline 1 mg/mL injectievloeistof
+        quantity: 1
+        unit: "ml"
+    - gpk: "89879" # gpk code for NaCl0,9% voor oplossing  
+        quantity: 9
+        unit: "mL"
+
+products:
+    - gpk: "2345678" # gpk code for adrenaline 0,1 mg/mL poeder voor oplossing voor infusie
+        quantity: 10
+        unit: "mL"
+
+administration:
+    quantity: 0.4 # 0,4 mL adrenaline 0,04 mg in 0,4 mL
+    unit: "mL"
+
+schema:
+    - pattern: # eenmalig
+        frequency: 1
+        time: null
+        unit: null
+    - rate:
+        quantity: null
+        unit1: null
+        unit2: null
+    - exact-times: []
+```
+
+## 6.9 Multi-Product with Reconstitution Discontinuous-Timed Scenario
 
 ```text
 Patient Context
@@ -849,11 +917,11 @@ products:
         unit: "mL"
 
 administration:
-    quantity: 14.9 #14,9 mL vancomycine 500 mg in 50 mL = 149 mg (54,2 mg/kg/dag)
+    quantity: 14.9 #14,9 mL vancomycine 500 mg in 50 mL = 149 mg
     unit: "mL"
 
 schema:
-    - pattern: # eenmalig
+    - pattern: # 4 x per dag
         frequency: 4
         time: 1
         unit: "dag"
