@@ -9,22 +9,22 @@
         "npm": "~9 || ~10 || ~11 || ~18 || ~22"
     },
     "devDependencies": {
-        "@types/node": "^24.0.3",
-        "@vitejs/plugin-react": "^5.0.0",
+        "@types/node": "^24.5.2",
+        "@vitejs/plugin-react": "^5.0.3",
         "autoprefixer": "^10.4.21",
-        "mocha": "^11.7.0",
-        "postcss": "^8.4.38",
-        "sass": "^1.89.2",
-        "vite": "^7.1.1",
-        "vite-plugin-inspect": "^11.3.2"
+        "mocha": "^11.7.2",
+        "postcss": "^8.5.6",
+        "sass": "^1.93.2",
+        "vite": "^7.1.7",
+        "vite-plugin-inspect": "^11.3.3"
     },
     "dependencies": {
-        "@emotion/react": "^11.11.4",
-        "@emotion/styled": "^11.11.5",
-        "@fontsource/roboto": "^5.2.6",
-        "@mui/icons-material": "^7.3.1",
-        "@mui/material": "^7.3.1",
-        "@mui/x-data-grid": "^8.10.0",
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.1",
+        "@fontsource/roboto": "^5.2.8",
+        "@mui/icons-material": "^7.3.2",
+        "@mui/material": "^7.3.2",
+        "@mui/x-data-grid": "^8.12.1",
         "react": "^19.1.1",
         "react-dom": "^19.1.1",
         "react-markdown": "^10.1.0"
