@@ -152,20 +152,20 @@ gantt
 
 | Name                 | Role                                     | Phase Focus     |   FTE |   Rate €/h |   Hours |   Cost € | Bucket    |
 |:---------------------|:-----------------------------------------|:----------------|------:|-----------:|--------:|---------:|:----------|
-| Dev 1.               | UI Lead (Fable/Elmish, SAFE)             | P1,P4C,UI       |  0.8  |        130 |     832 |   108160 | Core Devs |
-| Dev 2.               | Senior UI (SAFE/UX)                      | P1,P2B,P4C,UI   |  0.8  |        125 |     832 |   104000 | Core Devs |
-| Dev 3.               | Backend/SAFE Integration & Delivery      | P1,P3B,P6       |  0.5  |        140 |     520 |    72800 | Core Devs |
-| Dev 4.               | QA & Test Automation Lead                | P2B,P4B,P5,P6   |  0.6  |        110 |     624 |    68640 | Core Devs |
-| Dev 5.               | Code Quality & API Design                | P1B,Reviews     |  0.3  |        140 |     312 |    43680 | Core Devs |
-| Dev 6.               | Architecture Reviews & DDD               | P2A,P4A,Reviews |  0.3  |        160 |     312 |    49920 | Core Devs |
-| Dev 7.               | Performance & numerical checks           | P4B,P5          |  0.4  |        130 |     416 |    54080 | Core Devs |
-| Dev 8.               | Interop & resilience (FHIR/IHE adapters) | P3A,P6          |  0.4  |        120 |     416 |    49920 | Core Devs |
-| Dev 9.               | Tooling & code quality (Fantomas/FX)     | Reviews         |  0.1  |        100 |     104 |    10400 | Core Devs |
-| Dev 10.              | AI assist & doc gen (optional)           | Tooling         |  0.1  |        120 |     104 |    12480 | Core Devs |
-| Project Manager      | PM/Scrum Master                          | ALL             |  0.5  |        100 |     520 |    52000 | Support   |
-| DevOps/SRE           | CI/CD, observability, release            | P0,P5,P6        |  0.25 |        110 |     260 |    28600 | Support   |
-| Clinical Pharmacist  | Chemo governance & UAT                   | P4,P6           |  0.3  |        120 |     312 |    37440 | Support   |
-| Security Reviewer    | Threat modeling, ASVS L2                 | P0,P5           |  0.1  |        140 |     104 |    14560 | Support   |
+| Dev 1.               | UI Lead (Fable/Elmish, SAFE)             | P1,P4C,UI       |  0.8  |        x |     832 |   108160 | Core Devs |
+| Dev 2.               | Senior UI (SAFE/UX)                      | P1,P2B,P4C,UI   |  0.8  |        x |     832 |   104000 | Core Devs |
+| Dev 3.               | Backend/SAFE Integration & Delivery      | P1,P3B,P6       |  0.5  |        x |     520 |    72800 | Core Devs |
+| Dev 4.               | QA & Test Automation Lead                | P2B,P4B,P5,P6   |  0.6  |        x |     624 |    68640 | Core Devs |
+| Dev 5.               | Code Quality & API Design                | P1B,Reviews     |  0.3  |        x |     312 |    43680 | Core Devs |
+| Dev 6.               | Architecture Reviews & DDD               | P2A,P4A,Reviews |  0.3  |        x |     312 |    49920 | Core Devs |
+| Dev 7.               | Performance & numerical checks           | P4B,P5          |  0.4  |        x |     416 |    54080 | Core Devs |
+| Dev 8.               | Interop & resilience (FHIR/IHE adapters) | P3A,P6          |  0.4  |        x |     416 |    49920 | Core Devs |
+| Dev 9.               | Tooling & code quality (Fantomas/FX)     | Reviews         |  0.1  |        x |     104 |    10400 | Core Devs |
+| Dev 10.              | AI assist & doc gen (optional)           | Tooling         |  0.1  |        x |     104 |    12480 | Core Devs |
+| Project Manager      | PM/Scrum Master                          | ALL             |  0.5  |        x |     520 |    52000 | Support   |
+| DevOps/SRE           | CI/CD, observability, release            | P0,P5,P6        |  0.25 |        x |     260 |    28600 | Support   |
+| Clinical Pharmacist  | Chemo governance & UAT                   | P4,P6           |  0.3  |        x |     312 |    37440 | Support   |
+| Security Reviewer    | Threat modeling, ASVS L2                 | P0,P5           |  0.1  |        x |     104 |    14560 | Support   |
 
 ### Phase allocation (rough cut)
 
