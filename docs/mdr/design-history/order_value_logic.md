@@ -10,46 +10,46 @@ An `OrderVariable` pairs a solver `Variable` with a set of `Constraints`.
 Applying constraints and/or evaluations leads to recognizable states. The names below align with the current implementation in `OrderVariable`:
 
 - Unconstrained
-	- Meaning: the constraints record is effectively empty (no `Min`, `Max`, `Incr`, or `Values`).
-	- Code: `Constraints.isEmpty` returns true.
+  - Meaning: the constraints record is effectively empty (no `Min`, `Max`, `Incr`, or `Values`).
+  - Code: `Constraints.isEmpty` returns true.
 - NonZeroPositive
-	- Meaning: that the variable has a lower bound (`Minimum`) of > 0. Note that in this special case the `Value` unit can be unitless (`ZeroUnit`) as calculations with zero are independent of the unit of the value.
+  - Meaning: that the variable has a lower bound (`Minimum`) of > 0. Note that in this special case the `Value` unit can be unitless (`ZeroUnit`) as calculations with zero are independent of the unit of the value.
 - WithBounds
-	- Meaning: constraints define a minimum and/or maximum (and possibly an increment), but no discrete value set has been materialized yet.
-	- Code: `Constraints.toValueRange` produces a min/max (and optionally incr) range.
+  - Meaning: constraints define a minimum and/or maximum (and possibly an increment), but no discrete value set has been materialized yet.
+  - Code: `Constraints.toValueRange` produces a min/max (and optionally incr) range.
 
 - MinIncrMax (enumerable)
-	- Meaning: the variable’s `ValueRange` is in the min/incr/max form, which can be expanded into a discrete set of values.
-	- Code: `Variable.isMinIncrMax` checks shape; `OrderVariable.minIncrMaxToValues` materializes into a `ValueSet` (optionally pruned).
+  - Meaning: the variable’s `ValueRange` is in the min/incr/max form, which can be expanded into a discrete set of values.
+  - Code: `Variable.isMinIncrMax` checks shape; `OrderVariable.minIncrMaxToValues` materializes into a `ValueSet` (optionally pruned).
 
 - ValueSet (discrete)
-	- Meaning: the variable (or constraints) contains a discrete set of candidate values.
-	- Code: `Variable.hasValues` inspects the variable’s `ValueRange` for a non-empty `ValueSet`.
+  - Meaning: the variable (or constraints) contains a discrete set of candidate values.
+  - Code: `Variable.hasValues` inspects the variable’s `ValueRange` for a non-empty `ValueSet`.
 
 - HasValues
-	- Meaning: there are multiple selectable values remaining (cardinality > 1).
-	- Code: `OrderVariable.hasValues` delegates to `Variable.hasValues` with the >1 interpretation used by the order logic.
+  - Meaning: there are multiple selectable values remaining (cardinality > 1).
+  - Code: `OrderVariable.hasValues` delegates to `Variable.hasValues` with the >1 interpretation used by the order logic.
 
 - Solved
-	- Meaning: the system considers the variable “done”. This includes the single-value case, but also certain “default” shapes.
-	- Code: `OrderVariable.isSolved` is true if the variable is a single value OR is unrestricted OR is non‑zero‑positive. This is a deliberate shortcut used broadly in the order math.
+  - Meaning: the system considers the variable “done”. This includes the single-value case, but also certain “default” shapes.
+  - Code: `OrderVariable.isSolved` is true if the variable is a single value OR is unrestricted OR is non‑zero‑positive. This is a deliberate shortcut used broadly in the order math.
 
 - Cleared
-	- Meaning: values are cleared back to an unrestricted domain (not “empty set”).
-	- Code: `OrderVariable.isCleared` checks `Variable.isUnrestricted`; `OrderVariable.clear` resets values to unrestricted.
+  - Meaning: values are cleared back to an unrestricted domain (not “empty set”).
+  - Code: `OrderVariable.isCleared` checks `Variable.isUnrestricted`; `OrderVariable.clear` resets values to unrestricted.
 
 - Empty (shorthand used in order logic)
-	- Meaning: nothing concrete to pick yet; treated as “empty” for flow control.
-	- Code: `OrderVariable.isEmpty` is true if the variable is unrestricted, non‑zero‑positive, or has min‑exclusive‑zero.
+  - Meaning: nothing concrete to pick yet; treated as “empty” for flow control.
+  - Code: `OrderVariable.isEmpty` is true if the variable is unrestricted, non‑zero‑positive, or has min‑exclusive‑zero.
 
 Notes on terminology adjustments:
 
 - Replaced misspellings/ambiguous terms:
-	- `UnConstraint` → `Unconstrained`
-	- `NotContrstraint` → removed in favor of explicit notions above
-	- `Constraint` → “constraints applied” is implicit via `applyConstraints` and `isWithinConstraints`
-	- `CanHaveValues` → expressed as the `MinIncrMax` shape that can be materialized into a `ValueSet`
-	- `Cleared` now explicitly means “unrestricted”, not “empty set of values”
+  - `UnConstraint` → `Unconstrained`
+  - `NotContrstraint` → removed in favor of explicit notions above
+  - `Constraint` → “constraints applied” is implicit via `applyConstraints` and `isWithinConstraints`
+  - `CanHaveValues` → expressed as the `MinIncrMax` shape that can be materialized into a `ValueSet`
+  - `Cleared` now explicitly means “unrestricted”, not “empty set of values”
 
 Key operations (for reference):
 
@@ -76,7 +76,6 @@ It reviews `Informedica.GenOrder.Lib.Order.hasValues` and maps which variables a
 
 ### Meaning of “has values”
 
-
 An `OrderVariable` “has values” when its underlying `Variable` has a `ValueSet` with multiple selectable values (`Variable.hasValues` → `ValueRange.cardinality > 1`).
 
 - A single selectable value (cardinality = 1) is not considered “has values”.
@@ -100,11 +99,13 @@ Scope/caveats:
 - Uses `List.exists OrderVariable.hasValues` (true if any of the above has values).
 
 Included variables (explicitly checked):
+
 - `id.orb.dos.rte` (OrderableDoseRate)
 - `id.n.g.itm.dos.rte` (ItemDoseRate) — only for the first component’s first item
 - `id.n.g.itm.orb.cnc` (ItemOrderableConcentration) — only for the first component’s first item
 
 Excluded in this check:
+
 - All other variables; they are not considered by `hasValues` for Continuous prescriptions.
 
 ### Discontinuous prescriptions
@@ -114,38 +115,41 @@ Selection:
 - All order variables from `ord |> toOrdVars`
 - Filtered to those that have constraints: `List.filter OrderVariable.hasConstraints`
 - Excludes variables whose name contains any of:
-	- `_cmp_qty`
-	- `_cmp_cnc`
-	- `_orb_cnt`
-	- `_orb_cnc`
+  - `_cmp_qty`
+  - `_cmp_cnc`
+  - `_orb_cnt`
+  - `_orb_cnc`
 
 Evaluation:
 
 - `List.exists OrderVariable.hasValues` (true if any remaining variable has values).
 
 Included (subject to `OrderVariable.hasConstraints`):
+
 - Prescription-level: `id.pres.freq`, `id.pres.time` (noting equations refer to these as `pres.freq` and `pres.time`)
 - Order-level: `id.ord.adj`, `id.ord.time`
 - Orderable-level:
-	- `id.orb.qty`, `id.orb.ord.qty`
-	- `id.orb.dos.qty`, `id.orb.dos.tot`, `id.orb.dos.rte`
-	- Adjust variants: `id.orb.dos.qty.adj`, `id.orb.dos.tot.adj`, `id.orb.dos.rte.adj`
+  - `id.orb.qty`, `id.orb.ord.qty`
+  - `id.orb.dos.qty`, `id.orb.dos.tot`, `id.orb.dos.rte`
+  - Adjust variants: `id.orb.dos.qty.adj`, `id.orb.dos.tot.adj`, `id.orb.dos.rte.adj`
 - Component-level:
-	- `id.n.cmp.ord.cnt`
-	- `id.n.cmp.dos.qty`, `id.n.cmp.dos.tot`, `id.n.cmp.dos.rte`
-	- Adjust variants: `id.n.cmp.dos.qty.adj`, `id.n.cmp.dos.tot.adj`, `id.n.cmp.dos.rte.adj`
+  - `id.n.cmp.ord.cnt`
+  - `id.n.cmp.dos.qty`, `id.n.cmp.dos.tot`, `id.n.cmp.dos.rte`
+  - Adjust variants: `id.n.cmp.dos.qty.adj`, `id.n.cmp.dos.tot.adj`, `id.n.cmp.dos.rte.adj`
 - Item-level:
-	- `id.n.g.itm.orb.qty`
-	- `id.n.g.itm.dos.qty`, `id.n.g.itm.dos.tot`, `id.n.g.itm.dos.rte`
-	- Adjust variants: `id.n.g.itm.dos.qty.adj`, `id.n.g.itm.dos.tot.adj`, `id.n.g.itm.dos.rte.adj`
+  - `id.n.g.itm.orb.qty`
+  - `id.n.g.itm.dos.qty`, `id.n.g.itm.dos.tot`, `id.n.g.itm.dos.rte`
+  - Adjust variants: `id.n.g.itm.dos.qty.adj`, `id.n.g.itm.dos.tot.adj`, `id.n.g.itm.dos.rte.adj`
 
 Excluded by name filter (variables whose names contain these substrings are excluded):
+
 - `_cmp_qty` (e.g., `id.n.g.itm.cmp.qty`, `id.n.cmp.qty`)
 - `_cmp_cnc` (e.g., `id.n.g.itm.cmp.cnc`)
 - `_orb_cnt` (e.g., `id.n.cmp.orb.cnt`)
 - `_orb_cnc` (e.g., `id.n.g.itm.orb.cnc`, `id.n.cmp.orb.cnc`)
 
 Notes:
+
 - Unit-group conversion (`id.n.g.itm.cnv`) and sum variables are generally computed and may not surface as constrained `OrderVariable`s.
 
 ### Timed prescriptions
@@ -182,19 +186,19 @@ Included and excluded sets are the same as for Discontinuous prescriptions (subj
 
 - The function returns true if any relevant variable has multiple values to pick from (exists), not if all relevant variables do.
 - For Continuous, the check is narrowly scoped to:
-	- The drip rate of the orderable
-	- The first item’s dose rate
-	- The first item’s orderable concentration
+  - The drip rate of the orderable
+  - The first item’s dose rate
+  - The first item’s orderable concentration
 
 - For the other prescription types, relevance is decided by constraints presence and by excluding names containing the specified substrings.
 
 ### Known limitations and TODOs
 
 - Name-based exclusions are heuristic and currently marked with a TODO in code; they’re subject to change. The substrings roughly refer to:
-	- `_cmp_qty`: component quantity
-	- `_cmp_cnc`: component concentration
-	- `_orb_cnt`: orderable content/count
-	- `_orb_cnc`: orderable concentration
+  - `_cmp_qty`: component quantity
+  - `_cmp_cnc`: component concentration
+  - `_orb_cnt`: orderable content/count
+  - `_orb_cnc`: orderable concentration
 - For Continuous, only the first component and its first item are checked.
 - `hasValues` only considers ValueSets with cardinality > 1; range-only constraints won’t trip this check, even if user input may still be required elsewhere in the flow.
 - For the other prescription types, relevance is decided by constraints presence and by excluding names containing the specified substrings.
