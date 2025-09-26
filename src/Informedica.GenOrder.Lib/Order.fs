@@ -3165,8 +3165,9 @@ module Order =
         match (ord |> inf).Prescription with
         | Continuous _ ->
             [
-                // drip rate
-                ord.Orderable.Dose.Rate |> Rate.toOrdVar
+                // drip rate always has values or is solved
+                // ord.Orderable.Dose.Rate |> Rate.toOrdVar
+
                 // item dose rate
                 yield!
                     ord.Orderable.Components
@@ -3200,21 +3201,38 @@ module Order =
             )
             |> List.exists OrderVariable.hasValues
         | Timed _ ->
-            ord
-            |> toOrdVars
-            // TODO flesh out exact filtering criteria
-            |> List.filter OrderVariable.hasConstraints
-            |> List.filter (fun ovar ->
-                let n =
-                    ovar.Variable.Name
-                    |> Name.toString
+            let ordVars =
+                [
+                    yield!
+                        match ord.Prescription |> Prescription.toOrdVars with
+                        | Some frq, Some tme -> [frq; tme]
+                        | _ -> []
+                    // leave out Orderable.Dose.Rate because drip rate always has values or is solved
+                    ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
+                    ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+                    // get the rest
+                    yield!
+                        ord.Orderable.Components
+                        |> List.collect Orderable.Component.toOrdVars
+                ]
+                // TODO flesh out exact filtering criteria
+                |> List.filter OrderVariable.hasConstraints
+                |> List.filter (fun ovar ->
+                    let n =
+                        ovar.Variable.Name
+                        |> Name.toString
 
-                n |> String.contains "_cmp_qty" |> not &&
-                n |> String.contains "_cmp_cnc" |> not &&
-                n |> String.contains "_orb_cnt" |> not &&
-                n |> String.contains "_orb_cnc" |> not
-            )
-            |> List.exists OrderVariable.hasValues
+                    n |> String.contains "_cmp_qty" |> not &&
+                    n |> String.contains "_cmp_cnc" |> not &&
+                    n |> String.contains "_orb_cnt" |> not &&
+                    n |> String.contains "_orb_cnc" |> not
+                )
+
+            if ordVars |> List.isEmpty then 
+                ord.Orderable.Dose.Rate |> Rate.toOrdVar |> OrderVariable.isSolved |> not
+            else
+                ordVars
+                |> List.exists OrderVariable.hasValues
         | Once ->
             ord
             |> toOrdVars
@@ -3233,22 +3251,38 @@ module Order =
             )
             |> List.exists OrderVariable.hasValues
         | OnceTimed _ ->
-            ord
-            |> toOrdVars
-            // TODO flesh out exact filtering criteria
-            |> List.filter OrderVariable.hasConstraints
-            |> List.filter (fun ovar ->
-                let n =
-                    ovar.Variable.Name
-                    |> Name.toString
+            let ordVars =
+                [
+                    yield!
+                        match ord.Prescription |> Prescription.toOrdVars with
+                        | _, Some tme -> [tme]
+                        | _ -> []
+                    // leave out Orderable.Dose.Rate because drip rate always has values or is solved
+                    ord.Orderable.Dose.PerTime |> PerTime.toOrdVar
+                    ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
+                    // get the rest
+                    yield!
+                        ord.Orderable.Components
+                        |> List.collect Orderable.Component.toOrdVars
+                ]
+                // TODO flesh out exact filtering criteria
+                |> List.filter OrderVariable.hasConstraints
+                |> List.filter (fun ovar ->
+                    let n =
+                        ovar.Variable.Name
+                        |> Name.toString
 
-                n |> String.contains "_cmp_qty" |> not &&
-                n |> String.contains "_cmp_cnc" |> not &&
-                n |> String.contains "_orb_cnt" |> not &&
-                n |> String.contains "_orb_qty" |> not &&
-                n |> String.contains "_orb_cnc" |> not
-            )
-            |> List.exists OrderVariable.hasValues
+                    n |> String.contains "_cmp_qty" |> not &&
+                    n |> String.contains "_cmp_cnc" |> not &&
+                    n |> String.contains "_orb_cnt" |> not &&
+                    n |> String.contains "_orb_cnc" |> not
+                )
+
+            if ordVars |> List.isEmpty then 
+                ord.Orderable.Dose.Rate |> Rate.toOrdVar |> OrderVariable.isSolved |> not
+            else
+                ordVars
+                |> List.exists OrderVariable.hasValues
 
 
     let checkOrderDose pred op ord : bool =
