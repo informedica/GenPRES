@@ -3333,24 +3333,26 @@ module Order =
 
         match ord.Prescription with
         | Continuous tme ->
-            if isOr then rates |> List.exists checkRte
-            else rates |> List.forall checkRte
+            tme |> Time.toOrdVar |> pred &&
+            if isOr then rates |> List.exists checkRte else rates |> List.forall checkRte
         | Timed (freq, tme) ->
-            (tme |> Time.toOrdVar |> pred) &&
+            tme |> Time.toOrdVar |> pred &&
+            (if isOr then rates |> List.exists checkRte else rates |> List.forall checkRte) &&
             (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred) &&
             (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
             |> op <|
-            (if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm)
+            if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm
         | Discontinuous freq ->
             (freq |> Frequency.isCleared || freq |> Frequency.toOrdVar |> pred) &&
             (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
             |> op <|
-            (if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm)
+            if isOr then ptm |> List.exists checkPtm else ptm |> List.forall checkPtm
         | Once ->
             qty |> List.forall checkQty
         | OnceTimed tme ->
-            (tme |> Time.toOrdVar |> pred) &&
-            (if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty)
+            tme |> Time.toOrdVar |> pred &&
+            (if isOr then rates |> List.exists checkRte else rates |> List.forall checkRte) &&
+            if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty 
 
 
     let doseIsSolved = checkOrderDose OrderVariable.isSolved (&&)
@@ -4011,6 +4013,7 @@ module Order =
         IsEmpty: bool
         HasValues: bool
         DoseIsSolved: bool
+        OrderIsSolved: bool
         IsCleared: bool
         PrescriptionKind: PrescriptionKind
     }
@@ -4030,6 +4033,7 @@ module Order =
             IsEmpty = ord |> isEmpty
             HasValues = ord |> hasValues
             DoseIsSolved = ord |> doseIsSolved
+            OrderIsSolved = ord |> isSolved
             IsCleared = ord |> isCleared
             PrescriptionKind = kind
         }
@@ -4113,7 +4117,7 @@ module Order =
                     { Name = "ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
                     { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
                     { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
-                    { Name = "final-solve"; Guard = (fun s -> s.DoseIsSolved |> not); Run = solveStep }
+                    { Name = "final-solve"; Guard = (fun s -> s.OrderIsSolved |> not); Run = solveStep }
                 ]
                 |> runPipeline ord
             | ReCalcValues ord ->
