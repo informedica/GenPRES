@@ -41,6 +41,7 @@ module Order =
             | ChangeSubstanceOrderableConcentration of string option
             | ChangeOrderableDoseQuantity of string option
             | ChangeOrderableDoseRate of string option
+            | ChangeOrderableQuantity of string option
             | UpdateOrderScenario of Order
             | ResetOrderScenario
 
@@ -496,7 +497,6 @@ module Order =
                     { state with Order = None }, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
-
             | ChangeSubstanceOrderableConcentration s ->
                 match state.Order with
                 | Some ord ->
@@ -564,6 +564,23 @@ module Order =
                                                 ord.Orderable.Dose.Rate
                                                 |> setOvar s
                                         }
+                                }
+
+                        }
+                        |> UpdateOrderScenario
+                    { state with Order = None}, Cmd.ofMsg msg
+                | _ -> state, Cmd.none
+
+            | ChangeOrderableQuantity s ->
+                match state.Order with
+                | Some ord ->
+                    let msg =
+                        { ord with
+                            Orderable =
+                                { ord.Orderable with
+                                    OrderableQuantity =
+                                        ord.Orderable.OrderableQuantity
+                                        |> setOvar s
                                 }
 
                         }
@@ -910,7 +927,7 @@ module Order =
                             ord.Orderable.Dose.Quantity.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d} {v.Unit}"))
                             |> Option.defaultValue [||]
-                            |> select false "Totale Hoeveelheid" None (ChangeOrderableDoseQuantity >> dispatch)
+                            |> select false "Toedien Hoeveelheid" None (ChangeOrderableDoseQuantity >> dispatch)
                         | _ ->
                             [||]
                             |> select true "" None ignore
@@ -970,6 +987,19 @@ module Order =
                             [||]
                             |> select true "" None ignore
                     }
+                    {
+                        // orderable quantity
+                        match state.Order with
+                        | Some ord ->
+                            ord.Orderable.OrderableQuantity.Variable.Vals
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
+                            |> Option.defaultValue [||]
+                            |> select false "Bereiding Hoeveelheid" None (ChangeOrderableQuantity >> dispatch)
+                        | _ ->
+                            [||]
+                            |> select true "" None ignore
+                    }
+
                     {
                         // orderable dose rate
                         match state.Order with
