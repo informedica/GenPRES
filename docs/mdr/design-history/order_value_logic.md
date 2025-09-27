@@ -12,19 +12,17 @@ Applying constraints and/or evaluations leads to recognizable states. The names 
 - Unconstrained
   - Meaning: the constraints record is effectively empty (no `Min`, `Max`, `Incr`, or `Values`).
   - Code: `Constraints.isEmpty` returns true.
+
 - NonZeroPositive
   - Meaning: that the variable has a lower bound (`Minimum`) of > 0. Note that in this special case the `Value` unit can be unitless (`ZeroUnit`) as calculations with zero are independent of the unit of the value.
+
 - WithBounds
   - Meaning: constraints define a minimum and/or maximum (and possibly an increment), but no discrete value set has been materialized yet.
   - Code: `Constraints.toValueRange` produces a min/max (and optionally incr) range.
 
-- MinIncrMax (enumerable)
+- Enumerable
   - Meaning: the variable’s `ValueRange` is in the min/incr/max form, which can be expanded into a discrete set of values.
   - Code: `Variable.isMinIncrMax` checks shape; `OrderVariable.minIncrMaxToValues` materializes into a `ValueSet` (optionally pruned).
-
-- ValueSet (discrete)
-  - Meaning: the variable (or constraints) contains a discrete set of candidate values.
-  - Code: `Variable.hasValues` inspects the variable’s `ValueRange` for a non-empty `ValueSet`.
 
 - HasValues
   - Meaning: there are multiple selectable values remaining (cardinality > 1).
@@ -33,14 +31,6 @@ Applying constraints and/or evaluations leads to recognizable states. The names 
 - Solved
   - Meaning: the system considers the variable “done”. This includes the single-value case, but also certain “default” shapes.
   - Code: `OrderVariable.isSolved` is true if the variable is a single value OR is unrestricted OR is non‑zero‑positive. This is a deliberate shortcut used broadly in the order math.
-
-- Cleared
-  - Meaning: values are cleared back to an unrestricted domain (not “empty set”).
-  - Code: `OrderVariable.isCleared` checks `Variable.isUnrestricted`; `OrderVariable.clear` resets values to unrestricted.
-
-- Empty (shorthand used in order logic)
-  - Meaning: nothing concrete to pick yet; treated as “empty” for flow control.
-  - Code: `OrderVariable.isEmpty` is true if the variable is unrestricted, non‑zero‑positive, or has min‑exclusive‑zero.
 
 Notes on terminology adjustments:
 
