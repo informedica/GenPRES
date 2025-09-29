@@ -1,6 +1,5 @@
 //module Server
 
-open System
 open Giraffe
 open Saturn
 open Fable.Remoting.Server
@@ -104,10 +103,10 @@ let webApp =
 
 type LoggerShutdown() =
     interface IHostedService with
-        member _.StartAsync(_) =
+        member _.StartAsync _ =
             Task.CompletedTask
 
-        member _.StopAsync(_) =
+        member _.StopAsync _ =
             let logger = Logging.getSpecificLogger Logging.RequestLogger
 
             writeInfoMessage "Trying to Stop Server Async"

@@ -29,7 +29,7 @@ module SolverLogging =
 
 
     let private varsToStr vars =
-        $"""{vars |> List.map (Variable.toStringShort) |> String.concat ", "}"""
+        $"""{vars |> List.map Variable.toStringShort |> String.concat ", "}"""
 
 
     let rec printException = function

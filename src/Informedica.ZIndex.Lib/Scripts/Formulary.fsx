@@ -46,7 +46,7 @@ let prods =
             |> Array.filter (fun gp -> gp.Id = gpk)
             |> Array.map (fun gp ->
                 gp.Substances
-                |> Array.map ( _.GenericName)
+                |> Array.map _.GenericName
                 |> String.concat "/"
             )
             |> Array.distinct

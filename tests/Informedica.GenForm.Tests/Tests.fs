@@ -11,9 +11,6 @@ module Generators =
     open FsCheck
     open MathNet.Numerics
 
-    open Informedica.Utils.Lib.BCL
-
-
     let bigRGen (n, d) =
         let d = if d = 0 then 1 else d
         let n = abs(n) |> BigRational.FromInt

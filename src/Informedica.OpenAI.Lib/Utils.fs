@@ -5,7 +5,6 @@ module Utils =
 
     open System.Net.Http
     open System.Net.Http.Headers
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Newtonsoft.Json
 

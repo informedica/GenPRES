@@ -9,7 +9,6 @@ open Informedica.GenSolver.Lib
 open System
 open System.IO
 
-open Informedica.Utils.Lib.BCL
 open MathNet.Numerics
 
 
@@ -85,7 +84,7 @@ module Solve =
             incr
             |> Option.map (fun br ->
                 [|br|]
-                |> create (Increment.create) u
+                |> create Increment.create u
             )
 
         let var =

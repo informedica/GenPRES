@@ -1,9 +1,6 @@
 module Global
 
 open Feliz
-open Feliz.Router
-open Feliz.UseElmish
-open Elmish
 open Shared
 
 

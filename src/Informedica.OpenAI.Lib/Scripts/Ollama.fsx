@@ -15,7 +15,6 @@
 #load "../Ollama.fs"
 
 
-open System
 open Informedica.Utils.Lib.BCL
 open Informedica.OpenAI.Lib
 open Ollama.Operators

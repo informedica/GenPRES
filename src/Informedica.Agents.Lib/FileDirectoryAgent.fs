@@ -21,7 +21,7 @@ module FileDirectoryAgent =
     let private defaultPattern = "*"
 
     let private normalizeDir (pathOrDir: string) =
-        if String.IsNullOrWhiteSpace pathOrDir then 
+        if String.IsNullOrWhiteSpace pathOrDir then
             invalidArg (nameof pathOrDir) "Directory/path must not be null or empty"
         let p = Path.GetFullPath pathOrDir
         // If it's an existing directory, use it as-is
@@ -90,7 +90,7 @@ module FileDirectoryAgent =
                             File.Delete fp
                             deleted <- deleted + 1
                         with ex ->
-                            errors <- (sprintf "Failed delete %s: %s" fp ex.Message) :: errors
+                            errors <- $"Failed delete %s{fp}: %s{ex.Message}" :: errors
                     if errors.IsEmpty then Ok deleted
                     else
                         // Return partial success but include first error for visibility
@@ -124,7 +124,8 @@ module FileDirectoryAgent =
                 let! msg = inbox.Receive()
                 match msg with
                 | SetPolicy (dir, maxFiles, pattern) ->
-                    try setPolicyInternal state dir maxFiles pattern with ex -> eprintfn "FileDirectoryAgent SetPolicy error: %s" ex.Message
+                    try setPolicyInternal state dir maxFiles pattern with ex -> eprintfn
+                                                                                    $"FileDirectoryAgent SetPolicy error: %s{ex.Message}"
                     return! loop state
 
                 | RemovePolicy dir ->

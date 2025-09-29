@@ -4,9 +4,6 @@ namespace Informedica.OpenAI.Lib
 [<AutoOpen>]
 module Types =
 
-    open System
-
-
     type Message =
         {
             Role : string

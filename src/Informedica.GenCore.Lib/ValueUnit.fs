@@ -141,7 +141,7 @@ module ValueUnit =
         let inline calc3 vu1To vu2To vu3To resultTo calculation vu1 vu2 vu3 =
             result {
             if [vu1; vu2; vu3] |> List.forall isSingleValue |> not then
-                return! Error "value unit arugments must be all single value"
+                return! Error "value unit arguments must be all single value"
             else
                 let! v1 = vu1 |> vu1To
                 let! v2 = vu2 |> vu2To
@@ -161,7 +161,7 @@ module ValueUnit =
         let inline calc4 vu1To vu2To vu3To vu4To resultTo calculation vu1 vu2 vu3 vu4 =
             result {
             if [vu1; vu2; vu3; vu4] |> List.forall isSingleValue |> not then
-                return! Error "value unit arugments must be all single value"
+                return! Error "value unit arguments must be all single value"
 
             else
                 let! v1 = vu1 |> vu1To
@@ -308,5 +308,3 @@ module ValueUnit =
             let calcHaycock = calcBSA Calculations.BSA.calcHaycock
 
             let calcGehanAndGeorge = calcBSA Calculations.BSA.calcGehanAndGeorge
-
-

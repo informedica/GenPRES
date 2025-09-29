@@ -572,7 +572,7 @@ module Patient =
                 |> Array.map (fun k -> $"{k}", $"{k}")
                 |> createSelect
                     "Nierfunctie"
-                    (pat |> Option.bind (Patient.getRenalFunction))
+                    (pat |> Option.bind Patient.getRenalFunction)
                     (fun s -> handleChange (); s |> UpdateRenal |> dispatch)
 
             |]

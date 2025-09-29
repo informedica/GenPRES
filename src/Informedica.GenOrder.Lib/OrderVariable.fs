@@ -504,7 +504,7 @@ module OrderVariable =
     /// </summary>
     /// <param name="ovar">The OrderVariable</param>
     /// <remarks>
-    /// If the Constraints have an Increment and a ValueSet, then the
+    /// If the Constraints have an Increment and a ValueSet, then
     /// only the Increment is applied to the Variable.
     /// </remarks>
     let applyConstraints (ovar : OrderVariable) =
@@ -1977,7 +1977,7 @@ module OrderVariable =
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Total
 
         /// Materialize Min/Incr/Max of a Total into a ValueSet
-        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total    
+        let minIncrMaxToValues = toOrdVar >> minIncrMaxToValues None >> Total
 
 
     /// Type and functions that represent an adjusted quantity,
@@ -2385,4 +2385,3 @@ module OrderVariable =
 
         /// Set a TotalAdjust to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> TotalAdjust
-

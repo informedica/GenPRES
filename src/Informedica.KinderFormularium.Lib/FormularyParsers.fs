@@ -312,7 +312,7 @@ module FormularyParser =
             | _   -> (s1, s2) |> failParse
 
 
-        let split = (String.split "-") >> (List.map (String.trim))
+        let split = (String.split "-") >> (List.map String.trim)
 
         let parseAllWeight s =
 

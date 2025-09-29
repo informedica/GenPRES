@@ -17,7 +17,6 @@ module Tests =
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenCore.Lib.Patients
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
 
 

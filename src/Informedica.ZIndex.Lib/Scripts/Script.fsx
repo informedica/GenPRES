@@ -431,7 +431,7 @@ GenPresProduct.filter "natriumchloride" "" ""
 
 
 GenPresProduct.findByBrand "Picoprep"
-|> Array.collect (_.GenericProducts)
+|> Array.collect _.GenericProducts
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
     gp.Id, gp.Name, gp.Shape, gp.Route,
@@ -480,7 +480,7 @@ GenPresProduct.get []
         )
     )
 )
-|> Array.collect (_.GenericProducts)
+|> Array.collect _.GenericProducts
 |> Array.collect (fun gp ->
     gp.Substances
     |> Array.distinctBy _.SubstanceId

@@ -53,7 +53,7 @@ module Order =
         let [<Literal>] onceTimed = 7
 
 
-        // Get the equations from a google spreadsheet
+        // Get the equations from a Google spreadsheet
         let private getEquations_ indx =
             Web.getDataFromGenPres "Equations"
             |> Array.skip 1
@@ -585,7 +585,7 @@ module Order =
 
 
             /// Clear both the rate and rateAdjust of a Dose
-            /// by setting them to non zero positive
+            /// by setting them to non-zero positive
             let setRateToNonZeroPositive dos =
                 { (dos |> inf) with
                     Rate =
@@ -625,7 +625,7 @@ module Order =
 
 
             /// Clear both the quantity and quantityAdjust of a Dose
-            /// by setting them to non zero positive
+            /// by setting them to non-zero positive
             let setQuantityToNonZeroPositive dos =
                 { (dos |> inf) with
                     Quantity = dos.Quantity |> Quantity.setToNonZeroPositive
@@ -652,7 +652,7 @@ module Order =
 
 
             /// Clear both the per time and per time adjust of a Dose
-            /// by setting them to non zero positive
+            /// by setting them to non-zero positive
             let setPerTimeToNonZeroPositive dos =
                 { (dos |> inf) with
                     PerTime = dos.PerTime |> PerTime.setToNonZeroPositive
@@ -1064,7 +1064,7 @@ module Order =
 
 
             /// <summary>
-            /// Create a string list from a Item where each string is
+            /// Create a string list from an Item where each string is
             /// a variable name with the value range and the Unit
             /// </summary>
             let toString = toOrdVars >> List.map (OrderVariable.toString false)
@@ -1191,7 +1191,7 @@ module Order =
                 let itemDoseRateAdjustToMd = itemDoseRateAdjustTo true 3
 
 
-            /// Functions to create a Item Dto and vice versa.
+            /// Functions to create an Item Dto and vice versa.
             module Dto =
 
                 module Units = ValueUnit.Units

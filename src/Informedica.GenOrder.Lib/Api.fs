@@ -6,19 +6,19 @@ module Filters =
     open Informedica.GenForm.Lib.Resources
     open Informedica.Logging.Lib
 
-    let private logGenFormMessages (logger: Logger) (res: Informedica.GenForm.Lib.Types.GenFormResult<_>) =
+    let private logGenFormMessages (logger: Logger) (res: Types.GenFormResult<_>) =
         let msgs = Informedica.Utils.Lib.ValidatedResult.getMessages res
         msgs |> List.iter (fun m ->
             match m with
-            | Informedica.GenForm.Lib.Types.Info _ -> Logging.logInfo logger m
-            | Informedica.GenForm.Lib.Types.Warning _ -> Logging.logWarning logger m
-            | Informedica.GenForm.Lib.Types.ErrorMsg _ -> Logging.logError logger m
+            | Info _ -> Logging.logInfo logger m
+            | Warning _ -> Logging.logWarning logger m
+            | ErrorMsg _ -> Logging.logError logger m
         )
         res
 
     // Logger-injected variant
     let getPrescriptionRules (logger: Logger) (provider: IResourceProvider) =
-        Api.getPrescriptionRules provider 
+        Api.getPrescriptionRules provider
         >> fun res ->
             res
             |> logGenFormMessages logger
@@ -199,7 +199,6 @@ module OrderScenario =
 
 module OrderContext =
 
-    open System
     open ConsoleTables
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -827,10 +826,10 @@ Scenarios: {scenarios}
 
 
     let reloadResources logger provider ctx =
-        Api.reloadCache logger provider 
-        
-        ctx 
-        |> getScenarios logger provider 
+        Api.reloadCache logger provider
+
+        ctx
+        |> getScenarios logger provider
 
 
     let evaluate logger provider cmd =
@@ -843,7 +842,7 @@ Scenarios: {scenarios}
         | ResetOrderScenario ctx -> ctx |> processOrders logger ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
 
 
-    let logOrderContext (logger: Informedica.Logging.Lib.Logger) msg cmd =
+    let logOrderContext (logger: Logger) msg cmd =
         let log (s: string) = Logging.logDebug logger (Logging.OrderMessage.OrderEventMessage (Events.OrderScenario s))
 
         log $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"

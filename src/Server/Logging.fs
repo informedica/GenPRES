@@ -21,7 +21,7 @@ module Logging
     // Server-specific logging message types and helpers
     module ServerLogging =
 
-        open Informedica.Logging.Lib
+        module Logging = Informedica.Logging.Lib.Logging
 
         /// Messages used by the Server that can be logged
         type Message =
@@ -50,19 +50,19 @@ module Logging
 
     let getServerDataPath () =
         let assemblyPath = getAssemblyPath ()
-        let currentDir = 
+        let currentDir =
             if assemblyPath |> String.isNullOrWhiteSpace then
                 Environment.CurrentDirectory
             else
                 assemblyPath
-        
+
         // Navigate up from assembly location to find server root directory
         let rec findServerRoot dir =
             // First priority: Check for development scenario (Server.fs exists)
             if File.Exists(Path.Combine(dir, "Server.fs")) then
                 dir
             // Second priority: Check if we're in a typical development structure with data folder and Server.fs
-            elif Directory.Exists(Path.Combine(dir, "data")) && 
+            elif Directory.Exists(Path.Combine(dir, "data")) &&
                  File.Exists(Path.Combine(dir, "Server.fs")) then
                 dir
             else
@@ -71,27 +71,27 @@ module Logging
                     findServerRoot parent.FullName
                 else
                     // Last resort: Check for production scenario (Server.dll exists, but no Server.fs)
-                    if File.Exists(Path.Combine(currentDir, "Server.dll")) && 
+                    if File.Exists(Path.Combine(currentDir, "Server.dll")) &&
                        not (File.Exists(Path.Combine(currentDir, "Server.fs"))) then
                         currentDir
                     else
                         Environment.CurrentDirectory // Final fallback
-        
+
         findServerRoot currentDir
 
 
     let getRecommendedLogPath (componentName: string option) =
         let serverRoot = getServerDataPath ()
-        
+
         // Use Server's data directory structure
         let logDir = Path.Combine(serverRoot, "data", "logs")
         Directory.CreateDirectory(logDir) |> ignore
-        
+
         let componentName = componentName |> Option.defaultValue "general"
         let timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")
         let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 4)
         let fileName = $"genpres_{componentName}_{timestamp}_{shortGuid}.log"
-        
+
         Path.Combine(logDir, fileName)
 
 
@@ -124,19 +124,19 @@ module Logging
 
 
     let private loggers =
-        [ 
+        [
             RequestLogger, OrderLogging.createAgentLogger config
             OrderLogger, OrderLogging.createAgentLogger config
             ResourcesLogger, OrderLogging.createAgentLogger config
             FormularyLogger, OrderLogging.createAgentLogger config
             TherapyTreatmentPlanLogger, OrderLogging.createAgentLogger config
-            ParenteraliaLogger, OrderLogging.createAgentLogger config 
+            ParenteraliaLogger, OrderLogging.createAgentLogger config
         ]
         |> Map.ofList
 
 
     let getSpecificLogger (loggerType: Loggers) =
-        loggers.[loggerType]
+        loggers[loggerType]
 
 
     let loggingEnabled =
@@ -167,12 +167,10 @@ module Logging
 
                 started
                 |> function
-                | Ok _-> 
+                | Ok _->
                     writeDebugMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
                     //| None -> printfn "🖥️  Logger activated - Console only"
                 | Error s -> writeErrorMessage $"❌ Logger for {componentName} could not be activated:\n{s}\n"
             }
-        
+
         else async { () }
-
-

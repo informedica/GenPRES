@@ -11,7 +11,6 @@ module Tests =
 
         open Informedica.Logging.Lib
         open Expecto
-        open Expecto.Logging
         //open Expecto.Flip
 
         // Test message types
@@ -192,7 +191,7 @@ module Tests =
                 test "create should use correct formatter for message type" {
                     let formatters = [
                         typeof<TestMessage>, (fun (msg: IMessage) -> (msg :?> TestMessage).Text)
-                        typeof<NumberMessage>, (fun (msg: IMessage) -> string ((msg :?> NumberMessage).Value))
+                        typeof<NumberMessage>, (fun (msg: IMessage) -> string (msg :?> NumberMessage).Value)
                     ]
                     
                     let formatter = MessageFormatter.create formatters

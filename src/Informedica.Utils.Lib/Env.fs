@@ -4,8 +4,6 @@ namespace Informedica.Utils.Lib
 module Env =
 
     open System
-    open System.IO
-    open System.Linq
     open System.Collections.Generic
     open System.Diagnostics
     open System.Runtime.InteropServices

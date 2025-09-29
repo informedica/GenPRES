@@ -7,10 +7,8 @@ module AppTests =
     open Expecto
     open Informedica.GenOrder.Lib
 
-    open System
     open System.Net
     open System.Net.Http
-    open System.IO
     open Microsoft.AspNetCore.Builder
     open Microsoft.AspNetCore.Hosting
     open Microsoft.AspNetCore.TestHost
@@ -66,7 +64,7 @@ module AppTests =
         response
 
     let isOfType (contentType : string) (response : HttpResponseMessage) =
-        Expect.equal contentType (response.Content.Headers.ContentType.MediaType) ""
+        Expect.equal contentType response.Content.Headers.ContentType.MediaType ""
         response
 
     let readText (response : HttpResponseMessage) =

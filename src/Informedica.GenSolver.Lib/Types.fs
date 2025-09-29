@@ -4,8 +4,6 @@ namespace Informedica.GenSolver.Lib
 [<AutoOpen>]
 module rec Types =
 
-    open System
-
     open Informedica.GenUnits.Lib
 
     /// <summary>

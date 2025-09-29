@@ -63,7 +63,7 @@ let dr =
                         |> Some
                     Weight =
                       Units.Weight.kiloGram
-                      |> ValueUnit.singleWithValue (10N)
+                      |> ValueUnit.singleWithValue 10N
                       |> Some
                 }
             Indication = Some "Sedatie op de IC"
@@ -114,7 +114,7 @@ let pr =
                     |> Some
                 Weight =
                   Units.Weight.kiloGram
-                  |> ValueUnit.singleWithValue (40N)
+                  |> ValueUnit.singleWithValue 40N
                   |> Some
 //                RenalFunction = EGFR(Some 5, Some 5) |> Some
             }
@@ -134,7 +134,7 @@ pr.SolutionRules
         |> Some
     Weight =
       Units.Weight.kiloGram
-      |> ValueUnit.singleWithValue (22N)
+      |> ValueUnit.singleWithValue 22N
       |> Some
 //                RenalFunction = EGFR(Some 5, Some 5) |> Some
 }

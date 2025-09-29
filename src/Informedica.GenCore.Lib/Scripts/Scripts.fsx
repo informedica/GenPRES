@@ -27,9 +27,6 @@ module PatientScripts =
     open Informedica.GenCore.Lib
     open Informedica.GenCore.Lib.Patients
 
-    open System
-
-
     let fromAgeType = Patient.fromAgeType UnknownGender DateTime.Now
 
 

@@ -103,7 +103,7 @@ module Unquote =
     let min = create Units.Time.minute
     let week2 = create (Units.Time.nWeek 2N)
     let day14 = create (Units.Time.nDay 14N)
-    let dr20 = create (Units.Volume.droplet)
+    let dr20 = create Units.Volume.droplet
 
     let dr40 = create (Units.Volume.dropletWithDropsPerMl 40N)
 

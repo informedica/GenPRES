@@ -187,7 +187,7 @@ module Tests =
                     do! Async.Sleep 200
                     
                     Expect.isSome errorReceived "Should receive error event"
-                    Expect.stringContains (errorReceived.Value) "Test exception" "Should contain error message"
+                    Expect.stringContains errorReceived.Value "Test exception" "Should contain error message"
                     
                     agent |> Agent.dispose
                 }

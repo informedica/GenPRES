@@ -643,9 +643,6 @@ module Ollama =
 
     module Operators =
 
-        open Newtonsoft.Json
-
-
         let init model msg =
             printfn $"""Starting conversation with {model}
 
@@ -677,7 +674,7 @@ Options:
                 let msg = msg |> Message.user
 
                 msg
-                |> run conversation.Model (conversation.Messages |> List.map (_.Question))
+                |> run conversation.Model (conversation.Messages |> List.map _.Question)
                 |> fun msgs ->
                         let answer = msgs |> List.last
 

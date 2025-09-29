@@ -325,7 +325,7 @@ module Types =
         /// The product components that are used by the drug order.
         /// A product component maps to a Component in an Orderable.
         /// The first component in the list is the main component.
-        /// The drugorder quantities unit is the same as the unit used
+        /// The drug order quantities unit is the same as the unit used
         /// for the main component.
         and ProductComponent =
             {

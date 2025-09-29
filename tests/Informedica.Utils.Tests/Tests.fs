@@ -5,7 +5,6 @@ module Tests =
 
     open System
     open Expecto
-    open Expecto.Flip
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
 
@@ -18,9 +17,6 @@ module Tests =
 
     module String =
 
-        open Expecto
-
-        open Informedica.Utils.Lib.BCL
 
         [<Tests>]
         let tests =
@@ -279,9 +275,6 @@ module Tests =
 
     module EnvTests =
 
-        open Expecto
-        open Informedica.Utils.Lib
-
         [<Tests>]
         let tests =
             testList "Env" [
@@ -303,12 +296,12 @@ module Tests =
                     | None -> ()
 
                     // set and verify
-                    System.Environment.SetEnvironmentVariable(name, value)
+                    Environment.SetEnvironmentVariable(name, value)
                     let actual = Env.getItem name
                     Expect.equal actual (Some value) "getItem should return the value we set"
 
                     // clean up
-                    System.Environment.SetEnvironmentVariable(name, null)
+                    Environment.SetEnvironmentVariable(name, null)
                 }
 
                 test "getSystemInfo returns a readable multi-line summary" {
@@ -324,10 +317,7 @@ module Tests =
 
     module FileTests =
 
-        open System
         open System.IO
-        open Expecto
-        open Informedica.Utils.Lib
 
         [<Tests>]
         let tests =
@@ -367,11 +357,7 @@ module Tests =
 
     module Double =
 
-        open System
-        open Expecto
         open MathNet.Numerics
-
-        open Informedica.Utils.Lib.BCL
 
         [<Tests>]
         let tests =
@@ -567,10 +553,7 @@ module Tests =
 
     module BigRational =
 
-        open Expecto
-
         open MathNet.Numerics
-        open Informedica.Utils.Lib.BCL
 
         // Test calcCartesian function
         let testCalcCartesian () =
@@ -806,9 +789,7 @@ module Tests =
 
     module List =
 
-        open Expecto
         open Expecto.Flip
-        open Informedica.Utils.Lib
 
         [<Tests>]
         let tests =
@@ -872,10 +853,6 @@ module Tests =
 
     module Reflection =
 
-        open Expecto
-
-        open Informedica.Utils.Lib
-
         type TestUnion = TestUnion | AnotherTestUnion
 
         [<Tests>]
@@ -903,7 +880,6 @@ module Tests =
 
     module Csv =
 
-        open Expect
         open Expecto.Flip
 
         let inline parse<'T> dt (p : string -> 'T option) (s: string) =
@@ -1094,4 +1070,3 @@ module Tests =
                 tryGetColumnTests
                 parseCsvTests
             ]
-

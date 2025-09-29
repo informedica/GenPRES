@@ -23,7 +23,7 @@ module Utils =
 
 
         /// <summary>
-        /// Get data from a google sheet containing constraints
+        /// Get data from a Google sheet containing constraints
         /// </summary>
         /// <param name="sheet">The sheet to get</param>
         /// <returns>A array table of string arrays</returns>
@@ -31,7 +31,7 @@ module Utils =
 
 
         /// <summary>
-        /// Get data from a google sheet containing data for GenPres
+        /// Get data from a Google sheet containing data for GenPres
         /// </summary>
         /// <returns>A array table of string arrays</returns>
         let getDataFromGenPres =

@@ -70,15 +70,15 @@ module OrderLogging =
         | Events.SolverReplaceUnit (n, u) ->
             $"replaced {n |> Name.toString} unit with {u |> ValueUnit.unitToString}"
 
-        | Events.OrderSolveStarted o -> 
+        | Events.OrderSolveStarted o ->
             $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Started ==="
 
-        | Events.OrderSolveFinished o -> 
+        | Events.OrderSolveFinished o ->
             $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Finished ==="
 
         | Events.OrderScenario s -> s
         | Events.OrderScenarioWithNameValue (o, n, v) ->
-            let (Types.Id oid) = o.Id
+            let (Id oid) = o.Id
             $"Scenario {oid}: {n |> Name.toString} = {v}"
 
         | _ -> ""
@@ -108,9 +108,9 @@ module OrderLogging =
     let createLogger (baseLogger: Logger option) =
         let formatter = MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
-            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
         ]
-        
+
         match baseLogger with
         | Some logger -> logger
         | None -> Logging.createConsole formatter
@@ -120,7 +120,7 @@ module OrderLogging =
     let createFileLogger (path: string) =
         MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
-            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
         ]
         |> Logging.createFile path
 
@@ -130,7 +130,7 @@ module OrderLogging =
         let formatter =
             MessageFormatter.create [
                 typeof<OrderMessage>, formatOrderMessage
-                typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+                typeof<SolverMessage>, SolverLogging.formatSolverMessage
                 typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
             ]
         config
@@ -140,27 +140,27 @@ module OrderLogging =
 
     /// Convenience functions for logging order events
     let logOrderEvent (logger: Logger) (event: Events.Event) =
-        event 
-        |> OrderEventMessage 
+        event
+        |> OrderEventMessage
         |> Logging.logInfo logger
 
 
     let logOrderWarning (logger: Logger) (event: Events.Event) =
-        event 
-        |> OrderEventMessage 
+        event
+        |> OrderEventMessage
         |> Logging.logWarning logger
 
 
     let logOrderException (logger: Logger) (ex: Exceptions.Message) =
-        ex 
-        |> OrderException 
+        ex
+        |> OrderException
         |> Logging.logError logger
 
 
     /// Enhanced print function that can handle messages with context
     let printOrderMsgWithContext (msgs : ResizeArray<float * Event> option) (msg : Event) =
         match msg.Message with
-        | :? OrderMessage as m -> 
+        | :? OrderMessage as m ->
             match m with
             | OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
                 writeErrorMessage $"""
@@ -174,9 +174,9 @@ messages: {msgs.Value.Count}
                         |> Array.ofSeq
                         |> Array.choose (fun (_, m) ->
                             match m.Message with
-                            | :? Logging.SolverMessage as solverMsg ->
+                            | :? SolverMessage as solverMsg ->
                                 match solverMsg with
-                                | Logging.SolverMessage.ExceptionMessage m ->
+                                | SolverMessage.ExceptionMessage m ->
                                     match m with
                                     | Informedica.GenSolver.Lib.Types.Exceptions.SolverErrored (_, _, eqs) ->
                                         Some eqs
@@ -188,7 +188,7 @@ messages: {msgs.Value.Count}
                             writeInfoMessage $"found {xs |> Array.length}"; xs
                         |> Array.tryHead
                     | None -> None
-                
+
                 match eqs with
                 | Some eqs ->
                     let s = $"Terminated with {s}:\n{printOrderEqs o eqs}"
@@ -208,9 +208,9 @@ messages: {msgs.Value.Count}
     let create (f: string -> unit) =
         let formatter = MessageFormatter.create [
             typeof<OrderMessage>, formatOrderMessage
-            typeof<Logging.SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
         ]
-        
+
         {
             Log = fun event ->
                 event.Message

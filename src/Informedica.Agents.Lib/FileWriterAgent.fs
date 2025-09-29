@@ -23,7 +23,7 @@ module FileWriterAgent =
     // ---- Encoding helpers ----------------------------------------------------
 
 
-    let utf8NoBom : Encoding = new UTF8Encoding(false)
+    let utf8NoBom : Encoding = UTF8Encoding(false)
 
 
     /// Try to detect BOM-based encoding. Fallback to UTF-8 (no BOM).

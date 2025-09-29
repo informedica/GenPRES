@@ -32,7 +32,7 @@ module Utils =
                 msgs
                 |> List.map (fun msg ->
                     match msg with
-                    | Info _ 
+                    | Info _
                     | Warning _ -> msg
                     | ErrorMsg(_, exn) -> (s, exn) |> ErrorMsg
                 )
@@ -86,7 +86,7 @@ module Utils =
         /// Parse an array of strings in float format to an array of BigRational
         /// </summary>
         /// <remarks>
-        /// Uses ; as separator. Filters out non parsable strings.
+        /// Uses ; as separator. Filters out non-parsable strings.
         /// </remarks>
         /// <example>
         /// <code>

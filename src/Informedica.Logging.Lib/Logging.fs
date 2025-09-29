@@ -170,7 +170,6 @@ module AgentLogging =
     open System.Text
 
     open Informedica.Utils.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.Agents.Lib
 
     module W = FileWriterAgent

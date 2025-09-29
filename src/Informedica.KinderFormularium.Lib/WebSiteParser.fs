@@ -276,7 +276,7 @@ module WebSiteParser =
         |> fun meds ->
             let meds =
                 meds
-                |> List.sortBy (_.Generic.Trim().ToLower())
+                |> List.sortBy _.Generic.Trim().ToLower()
                 |> List.chunkBySize 20
 
             let n = ref 1
@@ -321,7 +321,7 @@ module WebSiteParser =
             |> List.toArray
             |> Array.collect (fun dose ->
                 dose.Routes
-                |> List.map (_.Name)
+                |> List.map _.Name
                 |> List.toArray
             )
         )

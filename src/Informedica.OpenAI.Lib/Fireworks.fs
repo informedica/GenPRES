@@ -1,16 +1,10 @@
 namespace Informedica.OpenAI.Lib
 
-open Informedica.OpenAI.Lib.OpenAI.Chat
-
-
 module Fireworks =
 
 
     open System
-    open NJsonSchema
     open Newtonsoft.Json
-    open Informedica.Utils.Lib.BCL
-
 
     type Models =
         {

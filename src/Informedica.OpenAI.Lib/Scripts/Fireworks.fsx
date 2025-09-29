@@ -15,7 +15,6 @@
 #load "../Ollama.fs"
 
 
-open System
 open Informedica.OpenAI.Lib
 open Fireworks.Operators
 

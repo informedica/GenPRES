@@ -5,8 +5,6 @@ namespace Informedica.Utils.Lib
 module ConsoleWriter =
 
     open System
-    open System.Text
-
 
     type Colors = {
         StandardFrontColor: ConsoleColor

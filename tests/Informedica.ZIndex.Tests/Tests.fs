@@ -8,7 +8,6 @@ module Tests =
     open Expecto.Flip
 
 
-    open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.ZIndex.Lib
 

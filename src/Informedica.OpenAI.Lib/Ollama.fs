@@ -6,7 +6,6 @@
 module Ollama =
 
     open System
-    open NJsonSchema
     open Newtonsoft.Json
     open Informedica.Utils.Lib.BCL
 
@@ -577,8 +576,6 @@ Can you try again answering?
     module Extract =
 
         open FSharpPlus
-        open FSharpPlus.Control
-
 
         let inline private getJson model zero (msg : Message) (msgs : Message list)  =
             msg

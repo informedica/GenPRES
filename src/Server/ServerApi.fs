@@ -830,12 +830,7 @@ module TreatmentPlan =
 
 module Command =
 
-    open System
     open Shared.Api
-    open Informedica.Utils.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
-    open Informedica.Logging.Lib
-
 
     let processCmd provider cmd =
         match cmd with

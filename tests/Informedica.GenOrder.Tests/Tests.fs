@@ -4,7 +4,6 @@ module Tests
     open Expecto
     open Expecto.Flip
 
-    open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenSolver.Lib
     open Informedica.GenForm.Lib
@@ -73,12 +72,10 @@ module Tests
 
     // --- New tests for fluent pipeline guard/order behavior ---
     module Pipeline =
-        open Informedica.GenOrder.Lib
         open Informedica.GenOrder.Lib.Order
-        open Informedica.GenOrder.Lib.OrderVariable
+
         module OV = Informedica.GenOrder.Lib.OrderVariable
         module Units = Informedica.GenUnits.Lib.Units
-        open Informedica.GenOrder.Lib.Types
 
         let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
 
@@ -668,9 +665,6 @@ module Tests
 
     // New: Equivalence tests comparing legacy pipeline logic with the new processPipeline
     module PipelineEquivalence =
-        open Informedica.GenOrder.Lib
-        open Informedica.GenOrder.Lib.Order
-        open Informedica.GenOrder.Lib.OrderVariable
         module OV = Informedica.GenOrder.Lib.OrderVariable
         module Units = Informedica.GenUnits.Lib.Units
 
@@ -694,8 +688,6 @@ module Tests
 
         // A minimal in-test legacy implementation mirroring the provided previous pipeline
         module Legacy =
-            open Informedica.Utils.Lib.BCL
-
             type PState =
                 | Processed of Order
                 | NotProcessed of Order

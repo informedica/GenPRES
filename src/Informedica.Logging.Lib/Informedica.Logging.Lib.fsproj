@@ -6,8 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Logging.fs" />
-    <None Include="\Scripts\load.fsx" />
-    <None Include="\Scripts\Scripts.fsx" />
+    <None Include=".\Scripts\load.fsx" />
+    <None Include=".\Scripts\Scripts.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />

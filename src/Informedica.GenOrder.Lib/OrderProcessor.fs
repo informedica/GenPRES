@@ -5,8 +5,6 @@ module OrderProcessor =
 
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineNoTime
-    open Informedica.GenUnits.Lib
-
     open Order
 
     module Quantity = OrderVariable.Quantity
@@ -313,10 +311,10 @@ module OrderProcessor =
                 $"\n=== PIPELINE STEP {step.Name} ===\n"
                 |> Events.OrderScenario
                 |> Logging.logInfo logger
-                
+
                 ord |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
                 step.Run ord
-                |> function 
+                |> function
                 | Ok ord ->
                     ord |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
                     Ok ord
@@ -324,7 +322,7 @@ module OrderProcessor =
                     $"Error in {step.Name}"
                     |> Events.OrderScenario
                     |> Logging.logInfo logger
-                    
+
                     Error (ord, msgs)
             else Ok ord
 
@@ -381,5 +379,3 @@ module OrderProcessor =
                 { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
             ]
             |> runPipeline ord
-
-

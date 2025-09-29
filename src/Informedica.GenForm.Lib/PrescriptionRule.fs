@@ -5,10 +5,7 @@ namespace Informedica.GenForm.Lib
 module PrescriptionRule =
 
     open Informedica.Utils.Lib.BCL
-    open Informedica.Logging.Lib
     open Informedica.GenUnits.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.Flip
-
     open GenFormResult
 
     module Limit = Informedica.GenCore.Lib.Ranges.Limit

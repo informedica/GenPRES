@@ -1121,5 +1121,5 @@ let View () =
     """
 
 
-let root = ReactDomClient.createRoot (document.getElementById ("genpres-app"))
+let root = ReactDomClient.createRoot (document.getElementById "genpres-app")
 root.render (View() |> toReact)

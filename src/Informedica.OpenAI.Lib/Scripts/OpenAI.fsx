@@ -14,7 +14,6 @@
 #load "../OpenAI.fs"
 
 
-open System
 open FSharpPlus
 open FSharpPlus.Data
 open Newtonsoft.Json
@@ -164,7 +163,7 @@ input
 
 let test model =
     [
-        for (text, exp) in Texts.testUnitTexts do
+        for text, exp in Texts.testUnitTexts do
             let un, _ =
                 State.run
                     (createDoseUnits model text)

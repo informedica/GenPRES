@@ -24,7 +24,6 @@ type ParallelismHelpers =
 
 module ValueUnit =
 
-    open System.Collections.Generic
     open Informedica.Utils.Lib.BCL
     open ValueUnit
 

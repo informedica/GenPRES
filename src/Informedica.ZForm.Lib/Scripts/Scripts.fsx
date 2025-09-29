@@ -3,8 +3,6 @@
 
 #time
 
-open System
-
 open Informedica.Utils.Lib
 open Informedica.ZIndex.Lib
 open Informedica.ZForm.Lib

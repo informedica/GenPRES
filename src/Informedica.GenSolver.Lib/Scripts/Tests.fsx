@@ -206,7 +206,6 @@ module Tests =
 
 
     open MathNet.Numerics
-    open Expecto
     open Expecto.Flip
 
     open Informedica.Utils.Lib.BCL

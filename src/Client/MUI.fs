@@ -1,7 +1,6 @@
 module Mui
 
 open Fable.Core
-open Fable.Core.JS
 
 module Icons =
 

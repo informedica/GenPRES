@@ -13,7 +13,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     let cts = new CancellationTokenSource()
 
     // Track the lifetime of the mailbox processing loop without starting a second loop
-    let tcs = new TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+    let tcs = TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
 
     let errEvent = Event<_>()
 
@@ -73,7 +73,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// <summary>
     /// Posts a message to the agent and synchronously waits for a reply.
     /// </summary>
-    member _.PostAndReply(messageBuilder: (AsyncReplyChannel<'Reply> -> 'T), ?timeout: int) : 'Reply =
+    member _.PostAndReply(messageBuilder: AsyncReplyChannel<'Reply> -> 'T, ?timeout: int) : 'Reply =
         match timeout with
         | Some t -> mbox.PostAndReply(messageBuilder, t)
         | None -> mbox.PostAndReply(messageBuilder)
@@ -96,13 +96,13 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// <summary>
     /// Starts the agent's processing loop.
     /// </summary>
-    member _.Start() =     
+    member _.Start() =
         mbox.Start()
 
     /// <summary>
     /// Starts the agent's processing loop immediately on the current thread.
     /// </summary>
-    member _.StartImmediate () = 
+    member _.StartImmediate () =
             mbox.StartImmediate()
 
     /// <summary>
@@ -157,7 +157,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// </summary>
     static member Start(body) =
         let mbox = new Agent<'T>(body)
-        
+
         mbox.Start ()
         mbox
 
@@ -262,7 +262,7 @@ module Agent =
             agent.Post msg
             true
         with
-        | ex -> 
+        | ex ->
             eprintfn $"cannot post {msg} because:\n{ex.ToString()}"
             false
 
@@ -357,7 +357,7 @@ module Agent =
     let getCurrentQueueLength (agent: Agent<_>)=
         agent.CurrentQueueLength
 
-    
+
     /// <summary>
     /// Disposes the agent and cancels its processing.
     /// </summary>
