@@ -9,7 +9,7 @@
 #load "../MinMax.fs"
 #load "../Patient.fs"
 
-
+open System
 
 module MeasureScripts =
 
