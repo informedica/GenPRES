@@ -173,7 +173,7 @@ let errorHandlingTests =
         testAsync "OnError event should fire when agent throws exception" {
             let mutable errorReceived = None
             
-            let agent = Agent.create (fun msg ->
+            let agent = Agent.createSimple (fun msg ->
                 match msg with
                 | ErrorMessage _ -> failwith "Test exception"
                 | _ -> ())
@@ -195,7 +195,7 @@ let errorHandlingTests =
             let mutable messageCount = 0
             let mutable errorCount = 0
             
-            let agent = Agent.create (fun msg ->
+            let agent = Agent.createSimple (fun msg ->
                 try
                     match msg with
                     | ErrorMessage _ -> failwith "Recoverable error"
@@ -283,7 +283,7 @@ let performanceTests =
     testList "Performance and Queue Tests" [
         
         test "QueueLength should reflect pending messages" {
-            let agent = Agent.create (fun msg ->
+            let agent = Agent.createSimple (fun msg ->
                 // Slow processing to build up queue
                 Thread.Sleep 100)
             
@@ -301,7 +301,7 @@ let performanceTests =
         testAsync "agent should handle high message throughput" {
             let mutable processedCount = 0
             
-            let agent = Agent.create (fun msg ->
+            let agent = Agent.createSimple (fun msg ->
                 Interlocked.Increment(&processedCount) |> ignore)
             
             let messageCount = 1000
@@ -323,7 +323,7 @@ let disposalTests =
     testList "Disposal and Cancellation" [
         
         test "disposed agent should not accept new messages" {
-            let agent = Agent.create (fun msg -> ())
+            let agent = Agent.createSimple (fun msg -> ())
             
             agent |> Agent.dispose
             
@@ -364,7 +364,7 @@ let propertyTests =
             (messages.Length <= 100) ==> lazy (
                 let mutable receivedMessages = []
                 
-                let agent = Agent.create (fun msg ->
+                let agent = Agent.createSimple (fun msg ->
                     receivedMessages <- msg :: receivedMessages)
                 
                 try
@@ -428,7 +428,7 @@ let edgeCaseTests =
     testList "Edge Cases" [
         
         testAsync "agent with no message processing should not crash" {
-            let agent = Agent.create (fun msg -> ())
+            let agent = Agent.createSimple (fun msg -> ())
             
             agent.Post "test"
             do! Async.Sleep 200
@@ -440,7 +440,7 @@ let edgeCaseTests =
         testAsync "agent receiving null messages should handle gracefully" {
             let mutable receivedNull = false
             
-            let agent = Agent.create (fun msg ->
+            let agent = Agent.createSimple (fun msg ->
                 if obj.ReferenceEquals(msg, null) then
                     receivedNull <- true)
             
