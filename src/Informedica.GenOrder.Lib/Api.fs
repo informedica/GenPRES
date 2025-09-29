@@ -319,7 +319,7 @@ module OrderContext =
                 |> DrugOrder.toOrderDto
                 |> Order.Dto.fromDto
                 |> CalcMinMax
-                |> Order.processPipeline logger (pr.DoseRule |> DoseRule.getNormDose)
+                |> OrderProcessor.processPipeline logger (pr.DoseRule |> DoseRule.getNormDose)
                 |> function
                 | Ok ord ->
                     let ord =
@@ -680,7 +680,7 @@ module OrderContext =
 Scenario Diluent: {sc.Diluent |> Option.defaultValue ""}
 Scenario Component: {sc.Component |> Option.defaultValue ""}
 Scenario Item: {sc.Item |> Option.defaultValue ""}
-Order State: {sc.Order |> Order.printState}
+Order State: {sc.Order |> OrderProcessor.printState}
 """
             | _ -> $"{ctx.Scenarios |> Array.length}"
 
@@ -784,7 +784,7 @@ Scenarios: {scenarios}
                             Order =
                                 sc.Order
                                 |> cmd
-                                |> Order.processPipeline logger None
+                                |> OrderProcessor.processPipeline logger None
                                 |> Result.defaultValue sc.Order
                         }
                         |> OrderScenario.setOrderTableFormat

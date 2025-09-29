@@ -106,7 +106,7 @@ module Tests
                 test "SolveOrder first ensures values before solving" {
                     let ord = mkConstrainedOrder ()
                     let before = countValues ord
-                    let res = Order.processPipeline noLogger None (SolveOrder ord)
+                    let res = OrderProcessor.processPipeline noLogger None (SolveOrder ord)
                     match res with
                     | Ok solved ->
                         let after = countValues solved
@@ -119,7 +119,7 @@ module Tests
                 test "CalcValues path only calculates values" {
                     let ord = mkConstrainedOrder ()
                     let before = countValues ord
-                    let res = Order.processPipeline noLogger None (CalcValues ord)
+                    let res = OrderProcessor.processPipeline noLogger None (CalcValues ord)
                     match res with
                     | Ok o ->
                         let after = countValues o
@@ -131,7 +131,7 @@ module Tests
 
                 test "CalcMinMax path runs when order is empty" {
                     let ord = mkEmptyOrder ()
-                    let res = Order.processPipeline noLogger None (CalcMinMax ord)
+                    let res = OrderProcessor.processPipeline noLogger None (CalcMinMax ord)
                     match res with
                     | Ok _ -> true |> Expect.isTrue "calc minmax ok"
                     | Error (o, _) -> (box o) |> Expect.isNotNull "Order returned with error"
@@ -149,7 +149,7 @@ module Tests
                         { ord0 with Prescription = Discontinuous (ord0.Prescription |> Prescription.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)) }
                         |> Order.OrderPropertyChange.proc [ PrescriptionFrequency (fun (Frequency f) -> Frequency (OrderVariable.clear f)) ]
                     let before = countValues ord
-                    let res = Order.processClearedOrder Logging.noOp ord
+                    let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
                     | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
                     | Error (o, _) -> Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
@@ -162,7 +162,7 @@ module Tests
                     let tme = ord0.Prescription |> Prescription.getTime |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
                     let ord = { ord0 with Prescription = Timed (frq, Time (OrderVariable.clear (let (Time tv) = tme in tv))) }
                     let before = countValues ord
-                    let res = Order.processClearedOrder Logging.noOp ord
+                    let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
                     | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
                     | Error (o, _) -> Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
@@ -175,7 +175,7 @@ module Tests
                     let ord = { ord0 with Prescription = Continuous tme }
                     let ord = ord |> Order.OrderPropertyChange.proc [ ComponentOrderableConcentration ("", fun (Concentration c) -> Concentration (OrderVariable.clear c)) ]
                     let before = countValues ord
-                    let res = Order.processClearedOrder Logging.noOp ord
+                    let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
                     | Ok o -> Expect.isTrue "Value count should not decrease" (countValues o >= before)
                     | Error (o, _) -> Expect.isTrue "Value count should not decrease (even on error)" (countValues o >= before)
@@ -703,15 +703,15 @@ module Tests
             let private calcValues logger (ord: Order) =
                 ord |> Order.minIncrMaxToValues false true logger |> Ok
 
-            let private isEmpty = function | IsEmpty -> true | _ -> false
-            let private noValues = function | NoValues -> true | _ -> false
-            let private hasValues = function | HasValues -> true | _ -> false
-            let private doseSolvedNotCleared = function | DoseSolvedNotCleared -> true | _ -> false
-            let private doseSolvedAndCleared = function | DoseSolvedAndCleared -> true | _ -> false
+            let private isEmpty = function | OrderProcessor.IsEmpty -> true | _ -> false
+            let private noValues = function | OrderProcessor.NoValues -> true | _ -> false
+            let private hasValues = function | OrderProcessor.HasValues -> true | _ -> false
+            let private doseSolvedNotCleared = function | OrderProcessor.DoseSolvedNotCleared -> true | _ -> false
+            let private doseSolvedAndCleared = function | OrderProcessor.DoseSolvedAndCleared -> true | _ -> false
 
             let private procCleared logger ord =
                 ord
-                |> Order.processClearedOrder logger
+                |> OrderProcessor.processClearedOrder logger
                 |> function
                    | Ok res -> Ok res
                    | Error _ -> Order.solveOrder true logger ord
@@ -722,7 +722,7 @@ module Tests
                    | Ok res -> Ok res
                    | Error (ord, errs) -> Error (ord, errs)
 
-            let private procIf msg pred procF (res: Result<PState, Order * Informedica.GenOrder.Lib.Order.GenSolverExceptionMsg list>) =
+            let private procIf msg pred procF (res: Result<PState, Order * OrderProcessor.GenSolverExceptionMsg list>) =
                 match res with
                 | Ok (Processed ord) -> Ok (Processed ord)
                 | Ok (NotProcessed ord) ->
@@ -776,49 +776,49 @@ module Tests
                 test "CalcMinMax on empty order" {
                     let ord = mkEmptyOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (CalcMinMax ord)
-                    let newR = Order.processPipeline noLogger None (CalcMinMax ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (CalcMinMax ord)
                     expectSameOutcome "empty-calcminmax" oldR newR
                 }
 
                 test "CalcValues on discontinuous order" {
                     let ord = mkDiscontinuousOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (CalcValues ord)
-                    let newR = Order.processPipeline noLogger None (CalcValues ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (CalcValues ord)
                     expectSameOutcome "disco-calcvalues" oldR newR
                 }
 
                 test "CalcValues on timed order" {
                     let ord = mkTimedOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (CalcValues ord)
-                    let newR = Order.processPipeline noLogger None (CalcValues ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (CalcValues ord)
                     expectSameOutcome "timed-calcvalues" oldR newR
                 }
 
                 test "SolveOrder on discontinuous order" {
                     let ord = mkDiscontinuousOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (SolveOrder ord)
-                    let newR = Order.processPipeline noLogger None (SolveOrder ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (SolveOrder ord)
                     expectSameOutcome "disco-solve" oldR newR
                 }
 
                 test "SolveOrder on timed order" {
                     let ord = mkTimedOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (SolveOrder ord)
-                    let newR = Order.processPipeline noLogger None (SolveOrder ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (SolveOrder ord)
                     expectSameOutcome "timed-solve" oldR newR
                 }
 
                 test "ReCalcValues on discontinuous order" {
                     let ord = mkDiscontinuousOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (ReCalcValues ord)
-                    let newR = Order.processPipeline noLogger None (ReCalcValues ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (ReCalcValues ord)
                     expectSameOutcome "disco-recalcvalues" oldR newR
                 }
 
                 test "ReCalcValues on timed order" {
                     let ord = mkTimedOrder ()
                     let oldR = Legacy.processPipeLine noLogger None (ReCalcValues ord)
-                    let newR = Order.processPipeline noLogger None (ReCalcValues ord)
+                    let newR = OrderProcessor.processPipeline noLogger None (ReCalcValues ord)
                     expectSameOutcome "timed-recalcvalues" oldR newR
                 }
             ]
