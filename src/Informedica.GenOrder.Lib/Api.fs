@@ -656,7 +656,7 @@ module OrderContext =
                     |> List.skip 1
                     |> List.map (_.Name >> Name.toString)
                     |> List.sort
-                    |> ((=) (ctx.Filter.SelectedComponents |> Array.sort |> Array.toList))
+                    |> (=) (ctx.Filter.SelectedComponents |> Array.sort |> Array.toList)
                     |> not
         )
         |> Option.defaultValue false
@@ -881,9 +881,10 @@ Scenarios: {scenarios}
         |> toString $"Order Context"
         |> log
 
+        (*
         ctx.Scenarios
-        |> Array.tryExactlyOne
-        |> Option.iter (_.Order >> Order.stringTable >> log)
+        |> Array.iter (_.Order >> Order.stringTable >> log)
+        *)
 
         log $"\n===\n"
         cmd

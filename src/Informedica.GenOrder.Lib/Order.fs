@@ -3972,6 +3972,9 @@ module Order =
                 ord |> solveOrder true logger
 
 
+    type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
+
+
     let (|IsEmpty|NoValues|HasValues|DoseSolvedNotCleared|DoseSolvedAndCleared|) ord =
         match ord with
         | _ when ord |> isEmpty -> IsEmpty
@@ -4039,9 +4042,6 @@ module Order =
         }
 
 
-    type GenSolverExceptionMsg = Informedica.GenSolver.Lib.Types.Exceptions.Message
-
-
     /// A processing step in the pipeline
     /// with a name, a guard function to check
     /// whether to run the step, and a run function
@@ -4066,11 +4066,22 @@ module Order =
 
         let runStep (step: Step) (ord: Order) =
             if step.Guard (classify ord) then
-                $"\n=== PIPELINE {step.Name} ===\n"
+                $"\n=== PIPELINE STEP {step.Name} ===\n"
                 |> Events.OrderScenario
                 |> Logging.logInfo logger
                 
+                ord |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
                 step.Run ord
+                |> function 
+                | Ok ord ->
+                    ord |> stringTable |> Events.OrderScenario |> Logging.logInfo logger
+                    Ok ord
+                | Error (ord, msgs) ->
+                    $"Error in {step.Name}"
+                    |> Events.OrderScenario
+                    |> Logging.logInfo logger
+                    
+                    Error (ord, msgs)
             else Ok ord
 
         let runPipeline (ord: Order) (steps: Step list) =
@@ -4100,37 +4111,34 @@ module Order =
 
         let applyConstraintsStep ord = ord |> applyConstraints |> Ok
 
-        let res =
-            match cmd with
-            | CalcMinMax ord ->
-                [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
-                |> runPipeline ord
-            | CalcValues ord ->
-                // Legacy behavior: only when NoValues (not for empty orders)
-                [ { Name = "calc-values"; Guard = isNoValues; Run = calcValuesStep } ]
-                |> runPipeline ord
-            | SolveOrder ord ->
-                // Legacy behavior: do NOT run min/max here; use values-only flow
-                [
-                    { Name = "ensure-values-1"; Guard = isNoValues; Run = calcValuesStep };
-                    { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                    { Name = "ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
-                    { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                    { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
-                    { Name = "final-solve"; Guard = (fun s -> s.OrderIsSolved |> not); Run = solveStep }
-                ]
-                |> runPipeline ord
-            | ReCalcValues ord ->
-                [
-                    { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
-                    { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
-                    { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
-                ]
-                |> runPipeline ord
+        match cmd with
+        | CalcMinMax ord ->
+            [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
+            |> runPipeline ord
+        | CalcValues ord ->
+            // Legacy behavior: only when NoValues (not for empty orders)
+            [ { Name = "calc-values"; Guard = isNoValues; Run = calcValuesStep } ]
+            |> runPipeline ord
+        | SolveOrder ord ->
+            // Legacy behavior: do NOT run min/max here; use values-only flow
+            [
+                { Name = "ensure-values-1"; Guard = isNoValues; Run = calcValuesStep };
+                { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                { Name = "ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
+                { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
+                { Name = "final-solve"; Guard = (fun s -> s.OrderIsSolved |> not); Run = solveStep }
+            ]
+            |> runPipeline ord
+        | ReCalcValues ord ->
+            [
+                { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
+                { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
+                { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
+            ]
+            |> runPipeline ord
 
-        // Match legacy tail: print end-of-pipeline marker and return
-        res
-        |> Result.map (fun o -> "\n=== END PIPELINE ===\n" |> writeDebugMessage; o)
+
 
 
 

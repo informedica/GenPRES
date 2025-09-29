@@ -9,14 +9,11 @@ An `OrderVariable` pairs a solver `Variable` with a set of `Constraints`.
 
 Applying constraints and/or evaluations leads to recognizable states. The names below align with the current implementation in `OrderVariable`:
 
-- Unconstrained
+- Unbounded
   - Meaning: the constraints record is effectively empty (no `Min`, `Max`, `Incr`, or `Values`).
   - Code: `Constraints.isEmpty` returns true.
 
-- NonZeroPositive
-  - Meaning: that the variable has a lower bound (`Minimum`) of > 0. Note that in this special case the `Value` unit can be unitless (`ZeroUnit`) as calculations with zero are independent of the unit of the value.
-
-- WithBounds
+- Bounded
   - Meaning: constraints define a minimum and/or maximum (and possibly an increment), but no discrete value set has been materialized yet.
   - Code: `Constraints.toValueRange` produces a min/max (and optionally incr) range.
 
