@@ -281,7 +281,7 @@ module Types =
 
 
         /// The different possible order types
-        type DrugOrderType =
+        type OrderType =
             | AnyOrder
             | ProcessOrder
             | OnceOrder
@@ -295,7 +295,7 @@ module Types =
         /// can be derived by a drug product inventory
         /// and the related dose rule. A DrugOrder maps
         /// to an Orderable and a Prescription.
-        type DrugOrder =
+        type MedicationOrder =
             {
                 // Identifies the specific drug order
                 Id:  string
@@ -308,7 +308,7 @@ module Types =
                 // The route by which the order is applied
                 Route : string
                 // The type of order
-                OrderType : DrugOrderType
+                OrderType : OrderType
                 // The unit to adjust the dose with
                 AdjustUnit : Unit option
                 // The list of possible frequency values

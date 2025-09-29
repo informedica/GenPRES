@@ -315,7 +315,7 @@ module OrderContext =
         let evaluateRule logger (pr : PrescriptionRule) =
             let eval pr drugOrder =
                 drugOrder
-                |> DrugOrder.toOrderDto
+                |> MedicationOrder.toOrderDto
                 |> Order.Dto.fromDto
                 |> CalcMinMax
                 |> OrderProcessor.processPipeline logger (pr.DoseRule |> DoseRule.getNormDose)
@@ -364,7 +364,7 @@ module OrderContext =
                     Error (ord, pr, m)
 
             pr
-            |> DrugOrder.fromRule
+            |> MedicationOrder.fromRule
             // Note: multiple solution rules can result in multiple drugorders
             |> Array.map (eval pr)
 

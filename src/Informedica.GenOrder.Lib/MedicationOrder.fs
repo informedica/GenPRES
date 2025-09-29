@@ -1,7 +1,7 @@
 namespace Informedica.GenOrder.Lib
 
 
-module DrugOrder =
+module MedicationOrder =
 
     open System
     open Informedica.Utils.Lib
