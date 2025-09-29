@@ -207,10 +207,10 @@ module Order =
                 | Some ord ->
                     let msg =
                         { ord with
-                            Prescription =
-                                { ord.Prescription with
+                            Schedule =
+                                { ord.Schedule with
                                     Frequency =
-                                        ord.Prescription.Frequency
+                                        ord.Schedule.Frequency
                                         |> setOvar s
                                 }
                         }
@@ -223,10 +223,10 @@ module Order =
                 | Some ord ->
                     let msg =
                         { ord with
-                            Prescription =
-                                { ord.Prescription with
+                            Schedule =
+                                { ord.Schedule with
                                     Time =
-                                        ord.Prescription.Time
+                                        ord.Schedule.Time
                                         |> setOvar s
                                 }
                         }
@@ -815,7 +815,7 @@ module Order =
                         // frequency
                         match state.Order with
                         | Some ord ->
-                            ord.Prescription.Frequency.Variable.Vals
+                            ord.Schedule.Frequency.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> string} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false (Terms.``Order Frequency`` |> getTerm "Frequentie") None (ChangeFrequency >> dispatch)
@@ -826,7 +826,7 @@ module Order =
                     {
                         // substance dose quantity
                         match substIndx, state.Order with
-                        | Some i, Some ord when ord.Prescription.IsContinuous |> not &&
+                        | Some i, Some ord when ord.Schedule.IsContinuous |> not &&
                                                 itms |> Array.length > 0 ->
                             let label, vals =
                                 itms[i].Dose.Quantity.Variable.Vals
@@ -849,7 +849,7 @@ module Order =
                     {
                         // substance dose quantity adjust
                         match substIndx, state.Order with
-                        | Some i, Some ord when (ord.Prescription.IsOnce || ord.Prescription.IsOnceTimed) &&
+                        | Some i, Some ord when (ord.Schedule.IsOnce || ord.Schedule.IsOnceTimed) &&
                                                 itms |> Array.length > 0 && useAdjust ->
                             let label, vals =
                                 itms[i].Dose.QuantityAdjust.Variable.Vals
@@ -872,7 +872,7 @@ module Order =
                     {
                         // substance dose per time
                         match substIndx, state.Order with
-                        | Some i, Some ord when ord.Prescription.IsContinuous |> not &&
+                        | Some i, Some ord when ord.Schedule.IsContinuous |> not &&
                                                 itms |> Array.length > 0 ->
                             let dispatch =
                                 if useAdjust then ChangeSubstancePerTimeAdjust >> dispatch
@@ -901,7 +901,7 @@ module Order =
                     {
                         // substance dose rate
                         match substIndx, state.Order with
-                        | Some i, Some ord when ord.Prescription.IsContinuous &&
+                        | Some i, Some ord when ord.Schedule.IsContinuous &&
                                                 itms |> Array.length > 0 ->
                             let dispatch = if useAdjust then ChangeSubstanceRateAdjust >> dispatch else ChangeSubstanceRate >> dispatch
 
@@ -1016,7 +1016,7 @@ module Order =
                         // administration time
                         match state.Order with
                         | Some ord ->
-                            ord.Prescription.Time.Variable.Vals
+                            ord.Schedule.Time.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 2} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> Array.distinctBy snd

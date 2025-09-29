@@ -38,7 +38,7 @@ module OrderLogging =
         let s = $"{s}."
 
         let mapping =
-            match o.Prescription with
+            match o.Schedule with
             | Continuous _ -> Order.Mapping.continuous
             | Once -> Order.Mapping.once
             | OnceTimed _ -> Order.Mapping.onceTimed

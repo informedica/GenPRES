@@ -146,8 +146,8 @@ module Tests
                     // Switch to Discontinuous and clear its frequency via the change API
                     let ord =
                         let hz = Units.per Units.Time.hour Units.Count.times
-                        { ord0 with Prescription = Discontinuous (ord0.Prescription |> Prescription.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)) }
-                        |> Order.OrderPropertyChange.proc [ PrescriptionFrequency (fun (Frequency f) -> Frequency (OrderVariable.clear f)) ]
+                        { ord0 with Schedule = Discontinuous (ord0.Schedule |> Schedule.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)) }
+                        |> Order.OrderPropertyChange.proc [ ScheduleFrequency (fun (Frequency f) -> Frequency (OrderVariable.clear f)) ]
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
@@ -158,9 +158,9 @@ module Tests
                 test "Timed TimeCleared re-applies time constraints and values" {
                     let ord0 = mkConstrainedOrder ()
                     let hz = Units.per Units.Time.hour Units.Count.times
-                    let frq = ord0.Prescription |> Prescription.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)
-                    let tme = ord0.Prescription |> Prescription.getTime |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
-                    let ord = { ord0 with Prescription = Timed (frq, Time (OrderVariable.clear (let (Time tv) = tme in tv))) }
+                    let frq = ord0.Schedule |> Schedule.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)
+                    let tme = ord0.Schedule |> Schedule.getTime |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
+                    let ord = { ord0 with Schedule = Timed (frq, Time (OrderVariable.clear (let (Time tv) = tme in tv))) }
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
@@ -171,8 +171,8 @@ module Tests
                 test "Continuous ConcentrationCleared resets and re-solves" {
                     let ord0 = mkConstrainedOrder ()
                     // Ensure continuous prescription with a valid time and clear a component orderable concentration
-                    let tme = ord0.Prescription |> Prescription.getTime |> Option.defaultValue (OV.Time.create (Name "t") Units.Time.hour)
-                    let ord = { ord0 with Prescription = Continuous tme }
+                    let tme = ord0.Schedule |> Schedule.getTime |> Option.defaultValue (OV.Time.create (Name "t") Units.Time.hour)
+                    let ord = { ord0 with Schedule = Continuous tme }
                     let ord = ord |> Order.OrderPropertyChange.proc [ ComponentOrderableConcentration ("", fun (Concentration c) -> Concentration (OrderVariable.clear c)) ]
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
@@ -544,12 +544,12 @@ module Tests
 
             dto.Orderable <- orbDto
 
-            dto.Prescription.Frequency.Constraints.ValsOpt <- d.Frequencies |> vuToDto
+            dto.Schedule.Frequency.Constraints.ValsOpt <- d.Frequencies |> vuToDto
 
-            dto.Prescription.Time.Constraints.MinIncl <- d.Time.Min.IsSome
-            dto.Prescription.Time.Constraints.MinOpt <- d.Time.Min |> limToDto
-            dto.Prescription.Time.Constraints.MaxIncl <- d.Time.Max.IsSome
-            dto.Prescription.Time.Constraints.MaxOpt <- d.Time.Max |> limToDto
+            dto.Schedule.Time.Constraints.MinIncl <- d.Time.Min.IsSome
+            dto.Schedule.Time.Constraints.MinOpt <- d.Time.Min |> limToDto
+            dto.Schedule.Time.Constraints.MaxIncl <- d.Time.Max.IsSome
+            dto.Schedule.Time.Constraints.MaxOpt <- d.Time.Max |> limToDto
 
             if d.AdjustUnit
             |> Option.map (ValueUnit.Group.eqsGroup Units.Weight.kiloGram)
@@ -598,7 +598,7 @@ module Tests
                     let dto = DrugOrder.toOrderDto drugOrder
 
                     dto.Id |> Expect.equal "should match Id" drugOrder.Id
-                    dto.Prescription.IsDiscontinuous |> Expect.isTrue "should be discontinuous"
+                    dto.Schedule.IsDiscontinuous |> Expect.isTrue "should be discontinuous"
                     dto.Orderable.Name |> Expect.equal "should match Name" drugOrder.Name
                     dto.Orderable.Components |> Expect.hasLength "should have 2 components" 2
                     dto.Orderable.Components[0].Items |> Expect.hasLength "should have 3 items in first component" 2
@@ -619,8 +619,8 @@ module Tests
                     |> Expect.equal "should be equal" ord2.Id
                     ord1.Route
                     |> Expect.equal "should be equal" ord2.Route
-                    ord1.Prescription 
-                    |> Expect.equal "should be equal" ord2.Prescription
+                    ord1.Schedule 
+                    |> Expect.equal "should be equal" ord2.Schedule
                     ord1.Orderable.Name
                     |> Expect.equal "should be equal" ord2.Orderable.Name
 

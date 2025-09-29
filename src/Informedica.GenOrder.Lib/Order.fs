@@ -13,7 +13,6 @@ module Order =
 
     open System
     open MathNet.Numerics
-    open ConsoleTables
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineNoTime
@@ -442,7 +441,7 @@ module Order =
                 }
 
             /// <summary>
-            /// Set the norm dose adjustments to a Dose 
+            /// Set the norm dose adjustments to a Dose
             /// by finding the nearest value in the dose's
             /// NormQuantityAdjust or NormPerTimeAdjust
             /// </summary>
@@ -2272,7 +2271,7 @@ module Order =
 
 
     [<RequireQualifiedAccess>]
-    module Prescription =
+    module Schedule =
 
 
         module Frequency = OrderVariable.Frequency
@@ -2333,35 +2332,35 @@ module Order =
         let isTimed = function | Timed _ -> true | _ -> false
 
 
-        let hasFrequency pr =
-            pr |> isDiscontinuous || pr |> isTimed
+        let hasFrequency schedule =
+            schedule |> isDiscontinuous || schedule |> isTimed
 
 
-        let hasTime pr =
-            pr |> isTimed || pr |> isOnceTimed || pr |> isContinuous
+        let hasTime schedule =
+            schedule |> isTimed || schedule |> isOnceTimed || schedule |> isContinuous
 
 
-        let getFrequency pr =
-            match pr with
+        let getFrequency schedule =
+            match schedule with
             | Discontinuous frq
             | Timed (frq, _) -> Some frq
             | _ -> None
 
 
-        let getTime pr =
-            match pr with
+        let getTime schedule =
+            match schedule with
             | Continuous tme
             | Timed (_, tme) -> Some tme
             | _ -> None
 
 
         /// <summary>
-        /// Return a Prescription as a Frequency OrderVariable option
+        /// Return a Schedule as a Frequency OrderVariable option
         /// and a Time OrderVariable option
         /// </summary>
-        /// <param name="prs">The Prescription</param>
-        let toOrdVars prs =
-            match prs with
+        /// <param name="schedule">The Schedule</param>
+        let toOrdVars schedule =
+            match schedule with
             | Once -> None, None
             | Continuous tme
             | OnceTimed tme ->
@@ -2374,14 +2373,14 @@ module Order =
 
 
         /// <summary>
-        /// Create a new Prescription from a list of OrderVariables using
-        /// an old Prescription.
+        /// Create a new Schedule from a list of OrderVariables using
+        /// an old Schedule.
         /// </summary>
         /// <param name="ovars">The list of OrderVariables</param>
-        /// <param name="prs">The old Prescription</param>
-        let fromOrdVars ovars prs =
-            match prs with
-            | Once -> prs
+        /// <param name="schedule">The old Schedule</param>
+        let fromOrdVars ovars schedule =
+            match schedule with
+            | Once -> schedule
             | Continuous tme ->
                 tme |> Time.fromOrdVar ovars |> Continuous
             | OnceTimed tme ->
@@ -2395,11 +2394,11 @@ module Order =
 
 
         /// <summary>
-        /// Apply constraints to a Prescription
+        /// Apply constraints to a Schedule
         /// </summary>
-        let applyConstraints prs =
-            match prs with
-            | Once -> prs
+        let applyConstraints schedule =
+            match schedule with
+            | Once -> schedule
             | Continuous tme ->
                 tme |> Time.applyConstraints |> Continuous
             | OnceTimed tme ->
@@ -2413,11 +2412,11 @@ module Order =
 
 
         /// <summary>
-        /// Return a list of strings from a Prescription where each string is
+        /// Return a list of strings from a Schedule where each string is
         /// a variable name with the value range and the Unit
         /// </summary>
-        let toString (prs: Prescription) =
-                match prs with
+        let toString (schedule: Schedule) =
+                match schedule with
                 | Once -> ["eenmalig"]
                 | Continuous tme -> [ tme |> Time.toString  ]
                 | OnceTimed tme -> [tme |> Time.toString]
@@ -2430,8 +2429,8 @@ module Order =
         /// Return a list of strings from a Prescription where each string is
         /// a variable name with the value range and the Unit
         /// </summary>
-        let toStringWithConstraints (prs: Prescription) =
-                match prs with
+        let toStringWithConstraints (schedule: Schedule) =
+                match schedule with
                 | Once -> ["eenmalig"]
                 | Continuous tme -> [ tme |> Time.toStringWithConstraints ]
                 | OnceTimed tme -> [tme |> Time.toStringWithConstraints]
@@ -2444,8 +2443,8 @@ module Order =
                     ]
 
 
-        let isSolved (prs : Prescription) =
-            prs
+        let isSolved (schedule : Schedule) =
+            schedule
             |> toOrdVars
             |> function
                 | Some ovar1, Some ovar2 ->
@@ -2456,37 +2455,37 @@ module Order =
                 | None, None -> true
 
 
-        let frequencyIsSolved prs =
-            prs
+        let frequencyIsSolved schedule =
+            schedule
             |> toOrdVars
             |> function
                 | Some ovar, _ -> ovar |> OrderVariable.isSolved
                 | _ -> true
 
 
-        let timeIsSolved prs =
-            prs
+        let timeIsSolved schedule =
+            schedule
             |> toOrdVars
             |> function
                 | _, Some ovar -> ovar |> OrderVariable.isSolved
                 | _ -> true
 
 
-        let applyToFrequency f (prs : Prescription) =
-            match prs with
+        let applyToFrequency f (schedule : Schedule) =
+            match schedule with
             | Discontinuous frq -> frq |> f |> Discontinuous
             | Timed (frq, tme) -> (frq |> f, tme) |> Timed
-            | _ -> prs
+            | _ -> schedule
 
 
-        let frequencyIsCleared (prs: Prescription) =
-            match prs |> toOrdVars with
+        let frequencyIsCleared (schedule: Schedule) =
+            match schedule |> toOrdVars with
             | Some frq, _ -> frq |> OrderVariable.isCleared
             | _ -> false
 
 
-        let applyToTime f prs =
-            match prs with
+        let applyToTime f schedule =
+            match schedule with
             | OnceTimed tme ->
                 tme |> f |> OnceTimed
             | Continuous tme ->
@@ -2494,7 +2493,7 @@ module Order =
             | Timed (frq, tme) ->
                 (frq, tme |> f)
                 |> Timed
-            | _ -> prs
+            | _ -> schedule
 
 
         let setMinTime = applyToTime Time.setMinValue
@@ -2503,7 +2502,7 @@ module Order =
         module Print =
 
 
-                let frequencyTo md (p : Prescription) =
+                let frequencyTo md (p : Schedule) =
                     let toStr =
                         if md then Frequency.toValueUnitMarkdown -1
                         else Frequency.toValueUnitString -1
@@ -2519,11 +2518,11 @@ module Order =
                 let frequencyToMd = frequencyTo true
 
 
-                let timeTo md prec (p : Prescription) =
+                let timeTo md prec (schedule : Schedule) =
                     let toStr =
                         if md then Time.toValueUnitMarkdown prec
                         else Time.toValueUnitMarkdown prec
-                    match p with
+                    match schedule with
                     | Continuous tme -> tme |> toStr
                     | OnceTimed tme -> tme |> toStr
                     | Timed (_, tme) -> tme |> toStr
@@ -2536,13 +2535,13 @@ module Order =
                 let timeToMd = timeTo true
 
 
-                let prescriptionTo md (p : Prescription) =
-                    match p with
+                let prescriptionTo md (schedule : Schedule) =
+                    match schedule with
                     | Once -> "eenmalig"
-                    | Continuous _ -> $"continu {p |> timeTo md -1}"
-                    | OnceTimed _ -> p |> timeTo md -1
-                    | Discontinuous _ -> p |> frequencyToString
-                    | Timed _     -> $"{p |> frequencyToString} {p |> timeTo md -1}"
+                    | Continuous _ -> $"continu {schedule |> timeTo md -1}"
+                    | OnceTimed _ -> schedule |> timeTo md -1
+                    | Discontinuous _ -> schedule |> frequencyToString
+                    | Timed _     -> $"{schedule |> frequencyToString} {schedule |> timeTo md -1}"
 
 
                 let prescriptionToString = prescriptionTo false
@@ -2596,10 +2595,10 @@ module Order =
                        |> raise
 
 
-            let toDto pres =
+            let toDto schedule =
                 let dto = Dto ()
 
-                match pres with
+                match schedule with
                 | Once -> dto.IsOnce <- true
                 | Continuous time ->
                     dto.IsContinuous <- true
@@ -2619,11 +2618,11 @@ module Order =
 
 
             /// <summary>
-            /// Create a Prescription Dto
+            /// Create a Schedule Dto
             /// </summary>
-            /// <param name="n">The name of the Prescription</param>
+            /// <param name="n">The name of the Schedule</param>
             /// <remarks>
-            /// Defaults to a Discontinuous Prescription
+            /// Defaults to a Discontinuous Schedule
             /// </remarks>
             let dto n =
                 let dto  = Dto ()
@@ -2639,7 +2638,7 @@ module Order =
                 dto
 
 
-            /// Make the Prescription Dto Once
+            /// Make the Schedule Dto Once
             let setToOnce (dto : Dto) =
                 dto.IsOnce <- true
                 dto.IsOnceTimed <- false
@@ -2650,7 +2649,7 @@ module Order =
                 dto
 
 
-            /// Make the Prescription Dto OnceTimed
+            /// Make the Schedule Dto OnceTimed
             let setToOnceTimed (dto : Dto) =
                 dto.IsOnce <- false
                 dto.IsOnceTimed <- true
@@ -2661,7 +2660,7 @@ module Order =
                 dto
 
 
-            /// Make the Prescription Dto Continuous
+            /// Make the Schedule Dto Continuous
             let setToContinuous (dto : Dto) =
                 dto.IsOnce <- false
                 dto.IsOnceTimed <- false
@@ -2672,7 +2671,7 @@ module Order =
                 dto
 
 
-            /// Make the Prescription Dto Discontinuous
+            /// Make the Schedule Dto Discontinuous
             let setToDiscontinuous (dto : Dto) =
                 dto.IsOnce <- false
                 dto.IsOnceTimed <- false
@@ -2683,7 +2682,7 @@ module Order =
                 dto
 
 
-            /// Make the Prescription Dto Timed
+            /// Make the Schedule Dto Timed
             let setToTimed (dto : Dto) =
                 dto.IsOnce <- false
                 dto.IsOnceTimed <- false
@@ -2749,17 +2748,17 @@ module Order =
 
         let applyToFrequency f ord =
             { (ord |> inf) with
-                Prescription =
-                    ord.Prescription
-                    |> Prescription.applyToFrequency f
+                Schedule =
+                    ord.Schedule
+                    |> Schedule.applyToFrequency f
             }
 
 
         let applyToTime f ord =
             { (ord |> inf) with
-                Prescription =
-                    ord.Prescription
-                    |> Prescription.applyToTime f
+                Schedule =
+                    ord.Schedule
+                    |> Schedule.applyToTime f
             }
 
 
@@ -2807,8 +2806,8 @@ module Order =
 
         let apply ord propChange =
             match propChange with
-            | PrescriptionFrequency f -> ord |> applyToFrequency f
-            | PrescriptionTime f -> ord |> applyToTime f
+            | ScheduleFrequency f -> ord |> applyToFrequency f
+            | ScheduleTime f -> ord |> applyToTime f
             | OrderableQuantity f ->
                 { (ord |> inf) with
                     Order.Orderable.OrderableQuantity =
@@ -2951,16 +2950,16 @@ module Order =
     /// <param name="id">The id of the Order</param>
     /// <param name="adj_qty">The adjust quantity of the Order</param>
     /// <param name="orb">The Orderable of the Order</param>
-    /// <param name="prs">The Prescription of the Order</param>
+    /// <param name="sch">The Schedule of the Order</param>
     /// <param name="rte">The Route of the Order</param>
     /// <param name="tme">The Time of the Order</param>
     /// <param name="sts">The StartStop of the Order</param>
-    let create id adj_qty orb prs rte tme sts =
+    let create id adj_qty orb sch rte tme sts =
         {
             Id = id
             Adjust = adj_qty
             Orderable = orb
-            Prescription = prs
+            Schedule = sch
             Route = rte
             Duration = tme
             StartStop = sts
@@ -2972,9 +2971,9 @@ module Order =
     /// </summary>
     /// <param name="id">The id of the Order</param>
     /// <param name="orbN">The name of the Orderable</param>
-    /// <param name="str_prs">A function to create a Prescription with a Name</param>
+    /// <param name="str_sch">A function to create a Schedule with a Name</param>
     /// <param name="route">The Route of the Order</param>
-    let createNew id orbN str_prs route =
+    let createNew id orbN str_sch route =
         let orb = Orderable.createNew id orbN
         let n = [id] |> Name.create
 
@@ -2984,14 +2983,14 @@ module Order =
         let tme =
             Time.create (n |> Name.add Mapping.ord) Unit.NoUnit
 
-        let prs =
+        let sch =
             n
             |> Name.add Mapping.prs
-            |> str_prs
+            |> str_sch
 
         let sts = DateTime.Now  |> StartStop.Start
 
-        create (id |> Id.create) adj orb prs route tme sts
+        create (id |> Id.create) adj orb sch route tme sts
 
 
     /// Get the Adjust quantity of an `Order`
@@ -3009,7 +3008,7 @@ module Order =
     let toString ord =
         [ (ord |> inf).Adjust |> Quantity.toString ]
         |> List.append ("Orderable"::(ord.Orderable |> Orderable.toString))
-        |> List.append ("Prescription"::(ord.Prescription |> Prescription.toString))
+        |> List.append ("Schedule"::(ord.Schedule |> Schedule.toString))
         |> List.append ("Route"::[ord.Route])
         |> List.filter (String.isNullOrWhiteSpace >> not)
 
@@ -3021,7 +3020,7 @@ module Order =
     let toStringWithConstraints ord =
         [ (ord |> inf).Adjust |> Quantity.toStringWithConstraints ]
         |> List.append ("Orderable"::(ord.Orderable |> Orderable.toStringWithConstraints))
-        |> List.append ("Prescription"::(ord.Prescription |> Prescription.toStringWithConstraints))
+        |> List.append ("Schedule"::(ord.Schedule |> Schedule.toStringWithConstraints))
         |> List.append ("Route"::[ord.Route])
         |> List.filter (String.isNullOrWhiteSpace >> not)
 
@@ -3091,16 +3090,16 @@ module Order =
         let adj_qty = (ord |> inf).Adjust |> Quantity.toOrdVar
         let ord_tme = ord.Duration |> Time.toOrdVar
 
-        let prs_vars =
-            ord.Prescription
-            |> Prescription.toOrdVars
+        let sch_vars =
+            ord.Schedule
+            |> Schedule.toOrdVars
             |> fun  (f, t) ->
                 [f; t]
                 |> List.choose id
         [
             adj_qty
             ord_tme
-            yield! prs_vars
+            yield! sch_vars
             yield! ord.Orderable |> Orderable.toOrdVars
         ]
 
@@ -3115,7 +3114,7 @@ module Order =
         { (ord |> inf) with
             Adjust = ord.Adjust |> Quantity.fromOrdVar ovars
             Duration = ord.Duration |> Time.fromOrdVar ovars
-            Prescription = ord.Prescription |> Prescription.fromOrdVars ovars
+            Schedule = ord.Schedule |> Schedule.fromOrdVars ovars
             Orderable = ord.Orderable |> Orderable.fromOrdVars ovars
         }
 
@@ -3128,7 +3127,7 @@ module Order =
         { (ord |> inf) with
             Adjust = ord.Adjust |> Quantity.applyConstraints
             Duration = ord.Duration |> Time.applyConstraints
-            Prescription = ord.Prescription |> Prescription.applyConstraints
+            Schedule = ord.Schedule |> Schedule.applyConstraints
             Orderable = ord.Orderable |> Orderable.applyConstraints
         }
 
@@ -3160,9 +3159,8 @@ module Order =
         >> List.forall OrderVariable.isSolved
 
 
-
     let hasValues ord =
-        match (ord |> inf).Prescription with
+        match (ord |> inf).Schedule with
         | Continuous _ ->
             [
                 // drip rate always has values or is solved
@@ -3204,7 +3202,7 @@ module Order =
             let ordVars =
                 [
                     yield!
-                        match ord.Prescription |> Prescription.toOrdVars with
+                        match ord.Schedule |> Schedule.toOrdVars with
                         | Some frq, Some tme -> [frq; tme]
                         | _ -> []
                     // leave out Orderable.Dose.Rate because drip rate always has values or is solved
@@ -3228,7 +3226,7 @@ module Order =
                     n |> String.contains "_orb_cnc" |> not
                 )
 
-            if ordVars |> List.isEmpty then 
+            if ordVars |> List.isEmpty then
                 ord.Orderable.Dose.Rate |> Rate.toOrdVar |> OrderVariable.isSolved |> not
             else
                 ordVars
@@ -3254,7 +3252,7 @@ module Order =
             let ordVars =
                 [
                     yield!
-                        match ord.Prescription |> Prescription.toOrdVars with
+                        match ord.Schedule |> Schedule.toOrdVars with
                         | _, Some tme -> [tme]
                         | _ -> []
                     // leave out Orderable.Dose.Rate because drip rate always has values or is solved
@@ -3278,7 +3276,7 @@ module Order =
                     n |> String.contains "_orb_cnc" |> not
                 )
 
-            if ordVars |> List.isEmpty then 
+            if ordVars |> List.isEmpty then
                 ord.Orderable.Dose.Rate |> Rate.toOrdVar |> OrderVariable.isSolved |> not
             else
                 ordVars
@@ -3331,7 +3329,7 @@ module Order =
 
         let isOr = true |> op <| false
 
-        match ord.Prescription with
+        match ord.Schedule with
         | Continuous tme ->
             tme |> Time.toOrdVar |> pred &&
             if isOr then rates |> List.exists checkRte else rates |> List.forall checkRte
@@ -3352,7 +3350,7 @@ module Order =
         | OnceTimed tme ->
             tme |> Time.toOrdVar |> pred &&
             (if isOr then rates |> List.exists checkRte else rates |> List.forall checkRte) &&
-            if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty 
+            if isOr then qty |> List.exists checkQty else qty |> List.forall checkQty
 
 
     let doseIsSolved = checkOrderDose OrderVariable.isSolved (&&)
@@ -3496,7 +3494,7 @@ module Order =
                     |> solve minMax printErr logger
 
         let mapping =
-            match ord.Prescription with
+            match ord.Schedule with
             | Once -> Mapping.once
             | Continuous _ -> Mapping.continuous
             | OnceTimed _ -> Mapping.onceTimed
@@ -3577,7 +3575,7 @@ module Order =
         let maxQtyCount = maxQtyCount |> BigRational.fromInt
         let maxRateCount = maxRateCount |> BigRational.fromInt
 
-        if (ord |> inf).Prescription |> Prescription.isContinuous then ord
+        if (ord |> inf).Schedule |> Schedule.isContinuous then ord
         else
             let orbQty = ord.Orderable.OrderableQuantity |> Quantity.toOrdVar
             // the increments used to increase
@@ -3624,7 +3622,7 @@ module Order =
 
     let maximizeRate logger ord =
         // only maximize for timed orders
-        if (ord |> inf).Prescription |> Prescription.isTimed |> not then ord
+        if (ord |> inf).Schedule |> Schedule.isTimed |> not then ord
         else
             match ord.Orderable.Dose.Rate |> Rate.toOrdVar with
             | rte when rte |> OrderVariable.isSolved |> not ->
@@ -3654,10 +3652,10 @@ module Order =
 
 
     let minimizeTime logger (ord: Order) =
-        if ord.Prescription |> Prescription.isTimed |> not then ord
+        if ord.Schedule |> Schedule.isTimed |> not then ord
         else
             { (ord |> inf) with
-                Prescription = ord.Prescription |> Prescription.setMinTime
+                Schedule = ord.Schedule |> Schedule.setMinTime
             }
             |> solveOrder false logger
             |> Result.defaultValue ord
@@ -3693,7 +3691,7 @@ module Order =
                         let n =
                             if useAll then None
                             else
-                                match ord.Prescription with
+                                match ord.Schedule with
                                 | Continuous _ -> 100
                                 | Once
                                 | Discontinuous _ -> 10
@@ -3772,8 +3770,6 @@ module Order =
         )
 
 
-
-
     module Print =
 
         open Informedica.GenOrder.Lib
@@ -3805,11 +3801,11 @@ module Order =
                         $"{s}/dosis"
 
                 let freq =
-                    ord.Prescription
-                    |> Prescription.Print.frequencyTo printMd
+                    ord.Schedule
+                    |> Schedule.Print.frequencyTo printMd
 
                 let pres =
-                    match ord.Prescription with
+                    match ord.Schedule with
                     | Continuous _ ->
                         if itms |> Array.isEmpty then
                             [|
@@ -4014,25 +4010,25 @@ module Order =
                     |> Array.collect id
 
                 let adm =
-                    match ord.Prescription with
+                    match ord.Schedule with
                     | Once
                     | OnceTimed _
                     | Discontinuous _
                     | Timed _ ->
                         let tme =
-                            ord.Prescription
-                            |> Prescription.Print.timeToString 2
+                            ord.Schedule
+                            |> Schedule.Print.timeToString 2
 
                         if itms |> Array.isEmpty then
                             [|
                                 [|
                                     // the frequency
-                                    if ord.Prescription |> Prescription.hasFrequency then freq
+                                    if ord.Schedule |> Schedule.hasFrequency then freq
 
                                     ord.Orderable
                                     |> Orderable.Print.doseQuantityTo printMd -1
                                     // if timed add rate and time
-                                    if ord.Prescription |> Prescription.hasTime then
+                                    if ord.Schedule |> Schedule.hasTime then
                                         ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                         tme //ord.Prescription |> Prescription.Print.timeToMd -1
                                 |]
@@ -4042,7 +4038,7 @@ module Order =
                             |> Array.mapi (fun i itm ->
                                 [|
                                     // the frequency
-                                    if ord.Prescription |> Prescription.hasFrequency then
+                                    if ord.Schedule |> Schedule.hasFrequency then
                                        if i = 0 then
                                            freq
                                            ord.Orderable |> Orderable.Print.doseQuantityTo printMd -1
@@ -4068,7 +4064,7 @@ module Order =
                                             ""
 
                                     // if timed then add rate and time
-                                    if ord.Prescription |> Prescription.hasTime &&
+                                    if ord.Schedule |> Schedule.hasTime &&
                                        itmQty |> String.notEmpty then
                                         if i = 0 then
                                             "="
@@ -4083,8 +4079,8 @@ module Order =
                             )
                     | Continuous _ ->
                         let tme =
-                            ord.Prescription
-                            |> Prescription.Print.timeToString 2
+                            ord.Schedule
+                            |> Schedule.Print.timeToString 2
 
                         let orbQty = ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
 
@@ -4174,7 +4170,7 @@ module Order =
             member val Id = id with get, set
             member val Adjust = OrderVariable.Dto.dto () with get, set
             member val Orderable = Orderable.Dto.dto id n with get, set
-            member val Prescription = Prescription.Dto.dto n with get, set
+            member val Schedule = Schedule.Dto.dto n with get, set
             member val Route = "" with get, set
             member val Duration = OrderVariable.Dto.dto () with get, set
             member val Start = DateTime.now () with get, set
@@ -4186,13 +4182,13 @@ module Order =
             let adj_qty = dto.Adjust |> Quantity.fromDto
             let ord_tme = dto.Duration |> Time.fromDto
             let orb = dto.Orderable |> Orderable.Dto.fromDto
-            let prs = dto.Prescription |> Prescription.Dto.fromDto
+            let sch = dto.Schedule |> Schedule.Dto.fromDto
             let sts =
                 match dto.Stop with
                 | Some dt -> (dto.Start, dt) |> StartStop.StartStop
                 | None -> dto.Start |> StartStop.Start
 
-            create id adj_qty orb prs dto.Route ord_tme sts
+            create id adj_qty orb sch dto.Route ord_tme sts
 
 
         let toDto ord =
@@ -4203,7 +4199,7 @@ module Order =
             dto.Adjust <- ord.Adjust |> Quantity.toDto
             dto.Duration <- ord.Duration |> Time.toDto
             dto.Orderable <- ord.Orderable |> Orderable.Dto.toDto
-            dto.Prescription <- ord.Prescription |> Prescription.Dto.toDto
+            dto.Schedule <- ord.Schedule |> Schedule.Dto.toDto
             dto.Route <- ord.Route
             let start, stop =
                 match ord.StartStop with
@@ -4222,10 +4218,10 @@ module Order =
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        /// <param name="str_prs">A function to create a Prescription with a Name</param>
-        let dto id orbN rte cmps str_prs =
+        /// <param name="str_sch">A function to create an Order with Name and Schedule</param>
+        let dto id orbN rte cmps str_sch =
             let dto =
-                createNew id orbN str_prs rte
+                createNew id orbN str_sch rte
                 |> toDto
 
             dto.Orderable.Components <-
@@ -4244,11 +4240,11 @@ module Order =
         let cleanDose (dto : Dto) =
             dto.Duration |> OrderVariable.Dto.cleanVariable
 
-            if dto.Prescription.IsDiscontinuous || dto.Prescription.IsTimed then
-                dto.Prescription.Frequency |> OrderVariable.Dto.cleanVariable
-            if dto.Prescription.IsTimed then
-                dto.Prescription.Time |> OrderVariable.Dto.cleanVariable
-            if not dto.Prescription.IsContinuous then
+            if dto.Schedule.IsDiscontinuous || dto.Schedule.IsTimed then
+                dto.Schedule.Frequency |> OrderVariable.Dto.cleanVariable
+            if dto.Schedule.IsTimed then
+                dto.Schedule.Time |> OrderVariable.Dto.cleanVariable
+            if not dto.Schedule.IsContinuous then
                 dto.Orderable.OrderableQuantity |> OrderVariable.Dto.cleanVariable
 
             dto.Orderable.Dose |> Dose.Dto.clean
@@ -4276,7 +4272,7 @@ module Order =
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
         let continuous id orbN rte cmps  =
-            Prescription.continuous Unit.NoUnit Unit.NoUnit
+            Schedule.continuous Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 
 
@@ -4288,7 +4284,7 @@ module Order =
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
         let once id orbN rte cmps =
-            Prescription.once Unit.NoUnit Unit.NoUnit
+            Schedule.once Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 
 
@@ -4300,7 +4296,7 @@ module Order =
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
         let onceTimed id orbN rte cmps =
-            Prescription.onceTimed Unit.NoUnit Unit.NoUnit
+            Schedule.onceTimed Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 
 
@@ -4312,7 +4308,7 @@ module Order =
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
         let discontinuous id orbN rte cmps =
-            Prescription.discontinuous Unit.NoUnit Unit.NoUnit
+            Schedule.discontinuous Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 
 
@@ -4324,42 +4320,42 @@ module Order =
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
         let timed id orbN rte cmps=
-            Prescription.timed Unit.NoUnit Unit.NoUnit
+            Schedule.timed Unit.NoUnit Unit.NoUnit
             |> dto id orbN rte cmps
 
 
         let setToOnce (dto : Dto) =
-            dto.Prescription <-
-                dto.Prescription
-                |> Prescription.Dto.setToOnce
+            dto.Schedule <-
+                dto.Schedule
+                |> Schedule.Dto.setToOnce
             dto
 
 
         let setToOnceTimed (dto : Dto) =
-            dto.Prescription <-
-                dto.Prescription
-                |> Prescription.Dto.setToOnceTimed
+            dto.Schedule <-
+                dto.Schedule
+                |> Schedule.Dto.setToOnceTimed
             dto
 
 
         let setToContinuous (dto : Dto) =
-            dto.Prescription <-
-                dto.Prescription
-                |> Prescription.Dto.setToContinuous
+            dto.Schedule <-
+                dto.Schedule
+                |> Schedule.Dto.setToContinuous
             dto
 
 
         let setToDiscontinuous (dto : Dto) =
-            dto.Prescription <-
-                dto.Prescription
-                |> Prescription.Dto.setToDiscontinuous
+            dto.Schedule <-
+                dto.Schedule
+                |> Schedule.Dto.setToDiscontinuous
             dto
 
 
         let setToTimed (dto : Dto) =
-            dto.Prescription <-
-                dto.Prescription
-                |> Prescription.Dto.setToTimed
+            dto.Schedule <-
+                dto.Schedule
+                |> Schedule.Dto.setToTimed
             dto
 
 

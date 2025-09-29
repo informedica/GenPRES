@@ -86,9 +86,9 @@ module TreatmentPlan =
                 |> Array.map _.Order
                 |> Array.mapi (fun i o ->
                     let freq =
-                        if o.Prescription.IsDiscontinuous || o.Prescription.IsTimed then
-                            o.Prescription.Frequency.Variable.Vals |> getVal
-                        else if o.Prescription.IsContinuous then
+                        if o.Schedule.IsDiscontinuous || o.Schedule.IsTimed then
+                            o.Schedule.Frequency.Variable.Vals |> getVal
+                        else if o.Schedule.IsContinuous then
                             o.Orderable.Dose.Rate.Variable.Vals |> getVal
                         else ""
 
@@ -100,14 +100,14 @@ module TreatmentPlan =
                         | _ -> [||]
 
                     let qty =
-                        if o.Prescription.IsDiscontinuous ||
-                           o.Prescription.IsTimed ||
-                           o.Prescription.IsOnce ||
-                           o.Prescription.IsOnceTimed then
+                        if o.Schedule.IsDiscontinuous ||
+                           o.Schedule.IsTimed ||
+                           o.Schedule.IsOnce ||
+                           o.Schedule.IsOnceTimed then
                             itms
                             |> Array.map _.Dose.Quantity.Variable.Vals
                             |> parseVals
-                        else if o.Prescription.IsContinuous then
+                        else if o.Schedule.IsContinuous then
                             itms
                             |> Array.tryHead
                             |> Option.map (fun i -> i.OrderableQuantity.Variable.Vals |> getVal)
@@ -115,28 +115,28 @@ module TreatmentPlan =
                         else ""
 
                     let sol =
-                        if o.Prescription.IsDiscontinuous ||
-                           o.Prescription.IsTimed ||
-                           o.Prescription.IsOnce ||
-                           o.Prescription.IsOnceTimed
+                        if o.Schedule.IsDiscontinuous ||
+                           o.Schedule.IsTimed ||
+                           o.Schedule.IsOnce ||
+                           o.Schedule.IsOnceTimed
                             then
                             o.Orderable.Dose.Quantity.Variable.Vals |> getVal
-                        else if o.Prescription.IsContinuous then
+                        else if o.Schedule.IsContinuous then
                             o.Orderable.OrderableQuantity.Variable.Vals |> getVal
                         else ""
 
                     let dose =
-                        if o.Prescription.IsDiscontinuous || o.Prescription.IsTimed then
+                        if o.Schedule.IsDiscontinuous || o.Schedule.IsTimed then
                             itms
                             |> Array.map _.Dose.PerTimeAdjust.Variable.Vals
                             |> parseVals
-                        else if o.Prescription.IsContinuous then
+                        else if o.Schedule.IsContinuous then
                             itms
                             |> Array.tryHead
                             |> Option.map (fun i -> i.Dose.RateAdjust.Variable.Vals |> getVal)
                             |> Option.defaultValue ""
 
-                        else if o.Prescription.IsOnce || o.Prescription.IsOnceTimed then
+                        else if o.Schedule.IsOnce || o.Schedule.IsOnceTimed then
                             itms
                             |> Array.map _.Dose.QuantityAdjust.Variable.Vals
                             |> parseVals

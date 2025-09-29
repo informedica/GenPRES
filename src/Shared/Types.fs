@@ -8,7 +8,7 @@ module Types =
     open System
 
 
-    [<Measure>] type gram 
+    [<Measure>] type gram
     [<Measure>] type cm
     [<Measure>] type m
     [<Measure>] type kg
@@ -158,7 +158,7 @@ module Types =
         }
 
 
-    type Prescription =
+    type Schedule =
         {
             IsOnce: bool
             IsOnceTimed: bool
@@ -228,7 +228,7 @@ module Types =
             Id: string
             Adjust: OrderVariable
             Orderable: Orderable
-            Prescription: Prescription
+            Schedule: Schedule
             Route: string
             Duration: OrderVariable
             Start: DateTime

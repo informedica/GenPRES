@@ -201,7 +201,7 @@ module Mappers =
             dto
 
 
-        let mapToPrescription (dto : Order.Prescription.Dto.Dto) : Prescription =
+        let mapToPrescription (dto : Order.Schedule.Dto.Dto) : Schedule =
             Models.Order.Prescription.create
                 dto.IsOnce
                 dto.IsOnceTimed
@@ -212,8 +212,8 @@ module Mappers =
                 (dto.Time |> mapToOrderVariable)
 
 
-        let mapFromPrescription (prescription : Prescription) : Order.Prescription.Dto.Dto =
-            let dto = Order.Prescription.Dto.Dto ()
+        let mapFromPrescription (prescription : Schedule) : Order.Schedule.Dto.Dto =
+            let dto = Order.Schedule.Dto.Dto ()
             dto.IsOnce <- prescription.IsOnce
             dto.IsOnceTimed <- prescription.IsOnceTimed
             dto.IsDiscontinuous <- prescription.IsDiscontinuous
@@ -230,7 +230,7 @@ module Mappers =
                 dto.Id
                 (dto.Adjust |> mapToOrderVariable)
                 (dto.Orderable |> (mapToOrderable sns))
-                (dto.Prescription |> mapToPrescription)
+                (dto.Schedule |> mapToPrescription)
                 dto.Route
                 (dto.Duration |> mapToOrderVariable)
                 dto.Start
@@ -242,7 +242,7 @@ module Mappers =
 
             dto.Adjust <- order.Adjust |> mapFromOrderVariable
             dto.Orderable <- order.Orderable |> mapFromOrderable order.Id order.Orderable.Name
-            dto.Prescription <- order.Prescription |> mapFromPrescription
+            dto.Schedule <- order.Schedule |> mapFromPrescription
             dto.Route <- order.Route
             dto.Duration <- order.Duration |> mapFromOrderVariable
             dto.Start <- order.Start

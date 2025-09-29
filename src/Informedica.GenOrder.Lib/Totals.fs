@@ -85,13 +85,13 @@ module Totals =
 
             [|
                 for o in ords do
-                    let vol = getVolume tu o.Prescription o.Orderable.Dose
+                    let vol = getVolume tu o.Schedule o.Orderable.Dose
                     if vol.IsSome then "volume", vol.Value
 
                     for cmp in o.Orderable.Components do
                         for itm in cmp.Items do
                             if itm.Name |> Name.toString = name then
-                                itm.Name |> Name.toString, getDosePerTime fu tu o.Prescription itm.Dose
+                                itm.Name |> Name.toString, getDosePerTime fu tu o.Schedule itm.Dose
             |]
             |> Array.groupBy fst
             |> Array.map (fun (item, xs) ->

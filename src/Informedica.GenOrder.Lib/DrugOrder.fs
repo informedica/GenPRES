@@ -657,11 +657,11 @@ module DrugOrder =
 
         /// Set prescription-level constraints (frequency and time)
         let setPrescriptionConstraints (dto : Order.Dto.Dto) (d : DrugOrder) =
-            dto.Prescription.Frequency.Constraints.ValsOpt <- d.Frequencies |> vuToDto
-            dto.Prescription.Time.Constraints.MinIncl <- d.Time.Min.IsSome
-            dto.Prescription.Time.Constraints.MinOpt <- d.Time.Min |> limToDto
-            dto.Prescription.Time.Constraints.MaxIncl <- d.Time.Max.IsSome
-            dto.Prescription.Time.Constraints.MaxOpt <- d.Time.Max |> limToDto
+            dto.Schedule.Frequency.Constraints.ValsOpt <- d.Frequencies |> vuToDto
+            dto.Schedule.Time.Constraints.MinIncl <- d.Time.Min.IsSome
+            dto.Schedule.Time.Constraints.MinOpt <- d.Time.Min |> limToDto
+            dto.Schedule.Time.Constraints.MaxIncl <- d.Time.Max.IsSome
+            dto.Schedule.Time.Constraints.MaxOpt <- d.Time.Max |> limToDto
 
         /// Set patient adjustment constraints (weight/BSA based)
         let setAdjustmentConstraints (dto : Order.Dto.Dto) (d : DrugOrder) =

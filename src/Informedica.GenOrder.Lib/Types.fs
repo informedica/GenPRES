@@ -215,7 +215,7 @@ module Types =
                 // The orderable item being prescribed
                 Orderable: Orderable
                 // How the Orderable is prescribed
-                Prescription: Prescription
+                Schedule: Schedule
                 // The route of administration of the order
                 Route: string
                 // The duration of an order
@@ -226,7 +226,7 @@ module Types =
 
 
         /// Type that represents different prescription patterns
-        and Prescription =
+        and Schedule =
             | Once
             | OnceTimed of Time
             | Continuous of Time
@@ -244,8 +244,8 @@ module Types =
 
         /// Represents different types of property changes that can be applied to an order
         type OrderPropertyChange =
-            | PrescriptionFrequency of (Frequency -> Frequency)
-            | PrescriptionTime of (Time -> Time)
+            | ScheduleFrequency of (Frequency -> Frequency)
+            | ScheduleTime of (Time -> Time)
 
             | OrderableQuantity of (Quantity -> Quantity)
             | OrderableDoseCount of (Count -> Count)

@@ -17,8 +17,8 @@ module OrderProcessor =
 
 
     let (|FrequencyCleared|RateCleared|TimeCleared|ConcentrationCleared|DoseQuantityCleared|DosePerTimeCleared|NotCleared|) (ord: Order) =
-        let frq = ord.Prescription |> Prescription.getFrequency
-        let tme = ord.Prescription |> Prescription.getTime
+        let frq = ord.Schedule |> Schedule.getFrequency
+        let tme = ord.Schedule |> Schedule.getTime
 
         match frq |> Option.map Frequency.isCleared |> Option.defaultValue false,
               ord.Orderable.Dose |> Dose.isRateCleared,
@@ -41,7 +41,7 @@ module OrderProcessor =
         ord
         |> OrderPropertyChange.proc
             [
-                PrescriptionFrequency Frequency.setToNonZeroPositive
+                ScheduleFrequency Frequency.setToNonZeroPositive
 
                 OrderableDose Dose.setPerTimeToNonZeroPositive
                 ComponentDose ("", Dose.setPerTimeToNonZeroPositive)
@@ -49,7 +49,7 @@ module OrderProcessor =
             ]
         |> OrderPropertyChange.proc
             [
-                PrescriptionFrequency Frequency.setStandardValues
+                ScheduleFrequency Frequency.setStandardValues
             ]
 
 
@@ -57,8 +57,8 @@ module OrderProcessor =
         ord
         |> OrderPropertyChange.proc
             [
-                if ord.Prescription |> Prescription.hasTime then
-                    PrescriptionTime OrderVariable.Time.setToNonZeroPositive
+                if ord.Schedule |> Schedule.hasTime then
+                    ScheduleTime OrderVariable.Time.setToNonZeroPositive
                     OrderableDose Dose.setRateToNonZeroPositive
 
                 OrderableDose Dose.setQuantityToNonZeroPositive
@@ -84,8 +84,8 @@ module OrderProcessor =
                 ComponentDose ("", Dose.applyQuantityMaxConstraints)
                 OrderableDoseCount OrderVariable.Count.applyConstraints
 
-                if ord.Prescription |> Prescription.hasTime then
-                    PrescriptionTime OrderVariable.Time.applyConstraints
+                if ord.Schedule |> Schedule.hasTime then
+                    ScheduleTime OrderVariable.Time.applyConstraints
                     OrderableDose Dose.setStandardRateConstraints
 
                 // if the orderable doesn't have a max constraint, then
@@ -106,7 +106,7 @@ module OrderProcessor =
                 ComponentDose ("", Dose.setRateToNonZeroPositive)
                 ItemDose ("", "", Dose.setRateToNonZeroPositive)
                 // clear time
-                PrescriptionTime Time.setToNonZeroPositive
+                ScheduleTime Time.setToNonZeroPositive
             ]
         |> OrderPropertyChange.proc
             [
@@ -116,7 +116,7 @@ module OrderProcessor =
                 ComponentDose ("", Dose.applyRateConstraints)
                 ItemDose ("", "", Dose.applyRateConstraints)
                 // apply time constraints again
-                PrescriptionTime Time.applyConstraints
+                ScheduleTime Time.applyConstraints
             ]
 
 
@@ -139,7 +139,7 @@ module OrderProcessor =
             $"===> no match for {kind} cleared " |> writeWarningMessage
             ord |> stringTable |> Events.OrderScenario |> Logging.logWarning logger
 
-        match (ord |> inf).Prescription with
+        match (ord |> inf).Schedule with
         | Continuous _ ->
             match ord with
             | TimeCleared
@@ -269,7 +269,7 @@ module OrderProcessor =
     /// Classify an order into an OrderState
     let classify (ord: Order) : OrderState =
         let kind =
-            match ord.Prescription with
+            match ord.Schedule with
             | Once -> PKOnce
             | OnceTimed _ -> PKOnceTimed
             | Discontinuous _ -> PKDiscontinuous

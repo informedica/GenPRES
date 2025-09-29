@@ -422,7 +422,7 @@ module OrderContext =
     open Informedica.Logging.Lib
     open Helpers
 
-    module Prescription = Order.Prescription
+    module Prescription = Order.Schedule
 
 
     let create logger provider (pat : Patient) =
@@ -896,7 +896,7 @@ module Formulary =
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
-    module Prescription = Order.Prescription
+    module Prescription = Order.Schedule
 
 
     let getDoseRules provider filter =
