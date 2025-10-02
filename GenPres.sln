@@ -11,6 +11,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{08CCFCF6-2248-43ED-A6EF-E972A2DA0E6A}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
+		scripts\Expecto.fsx = scripts\Expecto.fsx
 		src\Client\package-lock.json = src\Client\package-lock.json
 		src\Client\package.json = src\Client\package.json
 	EndProjectSection
