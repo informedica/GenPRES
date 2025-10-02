@@ -12,11 +12,12 @@ fsi.AddPrinter<System.DateTime> _.ToShortDateString()
 #r "nuget: Aether"
 #r "nuget: Markdig"
 #r "nuget: ClosedXML"
-
+#r "nuget: FsToolkit.ErrorHandling"
 #r "nuget: ConsoleTables, 2.4.2"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Logging.Lib/bin/Debug/net9.0/Informedica.Logging.Lib.dll"
 #r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
 #r "../../Informedica.GenCore.Lib/bin/Debug/net9.0/Informedica.GenCore.Lib.dll"
 #r "../../Informedica.GenSolver.Lib/bin/Debug/net9.0/Informedica.GenSolver.Lib.dll"

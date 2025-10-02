@@ -18,7 +18,7 @@ module ValueUnit =
 
 
     /// <summary>
-    /// Check if a Unit is an adjust unit, i.e.
+    /// Check if a Unit is an adjust unit, i.e.,
     /// kg or m2.
     /// </summary>
     /// <param name="u">The Unit</param>
@@ -385,7 +385,7 @@ module OrderVariable =
 
 
     /// <summary>
-    /// Map a function f to the Values (i.e. ValueUnit) of the Variable
+    /// Map a function f to the Values (i.e., ValueUnit) of the Variable
     /// of the OrderVariable
     /// </summary>
     /// <param name="f">The function to map</param>
@@ -437,7 +437,7 @@ module OrderVariable =
     let eqsName ovar1 ovar2 = (ovar1 |> getName) = (ovar2 |> getName)
 
 
-    /// Get the names of a list of OrderVariables as a comma separated string
+    /// Get the names of a list for OrderVariables as a comma-separated string
     let getNames ovars =
         ovars
         |> List.map _.Variable
@@ -581,7 +581,7 @@ module OrderVariable =
 
     /// <summary>
     /// Convert the `Variable` of an `OrderVariable` to a given `Unit`.
-    /// Note the first unit is replaced by the given unit, all other
+    /// Note the first unit is replaced by the given unit; all other
     /// units are kept.
     /// Example: mg/kg/day to g/kg/day when u = g
     /// </summary>
@@ -613,7 +613,7 @@ module OrderVariable =
 
     /// <summary>
     /// Convert the `Variable` of an `OrderVariable` to a given time `Unit`.
-    /// Note the last unit is replaced by the given time unit, all other
+    /// Note the last unit is replaced by the given time unit; all other
     /// units are kept.
     /// Example: mg/kg/day to mg/kg/week when tu = week
     /// </summary>
@@ -626,7 +626,7 @@ module OrderVariable =
                 if u1 = ZeroUnit || u1 = NoUnit then u1
                 else
                     match u1 |> ValueUnit.getUnits |> List.rev with
-                    // assume last unit is a time unit
+                    // assume the last unit is a time unit
                     | _ :: rest ->
                         match tu::rest |> List.rev with
                         | u::rest ->
@@ -729,7 +729,7 @@ module OrderVariable =
         |> String.replace "*" "/"
 
 
-    /// Helper function to get a markdown string representation of the ValueRange of
+    /// Helper function to get a Markdown string representation of the ValueRange of
     /// the Variable of an OrderVariable
     let toValueUnitMarkdown get (prec : int) x =
         x
@@ -858,7 +858,7 @@ module OrderVariable =
 
 
     /// Check whether the Values of the Variable of an OrderVariable
-    /// are cleared, i.e. unrestricted
+    /// are cleared, i.e., unrestricted
     let isCleared (ovar : OrderVariable) =
         ovar.Variable |> Variable.isUnrestricted
 
@@ -892,7 +892,7 @@ module OrderVariable =
 
 
     /// Check whether the Values of the Variable of an OrderVariable
-    /// are empty, i.e. unrestricted, non-zero positive or have an exclusive Minimum of zero
+    /// are empty, i.e., unrestricted, non-zero positive or have an exclusive Minimum of zero
     let isEmpty (ovar : OrderVariable) =
         ovar.Variable
         |> Variable.isUnrestricted ||
@@ -903,7 +903,7 @@ module OrderVariable =
 
 
     /// Check whether the Values of the Variable of an OrderVariable
-    /// are set, i.e. have a distinct set of values
+    /// are set, i.e., have a distinct set of values
     let hasValues (ovar: OrderVariable) =
         ovar.Variable
         |> Variable.hasValues
@@ -1139,7 +1139,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Count
+        /// Get a ValueUnit Markdown representation of a Count
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
@@ -1232,7 +1232,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Time
+        /// Get a ValueUnit Markdown representation of a Time
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         /// Check whether a Time has Constraints that
@@ -1339,7 +1339,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Frequency
+        /// Get a ValueUnit Markdown representation of a Frequency
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         /// Check whether a Frequency has Constraints that
@@ -1476,7 +1476,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Concentration
+        /// Get a ValueUnit Markdown representation of a Concentration
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
@@ -1583,7 +1583,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Quantity
+        /// Get a ValueUnit Markdown representation of a Quantity
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
@@ -1724,7 +1724,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a PerTime
+        /// Get a ValueUnit Markdown representation of a PerTime
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
@@ -1828,7 +1828,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Rate
+        /// Get a ValueUnit Markdown representation of a Rate
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
 
@@ -1948,7 +1948,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a Total
+        /// Get a ValueUnit Markdown representation of a Total
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         /// Check whether a Total has constraints
@@ -1981,7 +1981,7 @@ module OrderVariable =
 
 
     /// Type and functions that represent an adjusted quantity,
-    /// i.e., an amount per adjust unit (for example: mg/kg)
+    /// i.e., an amount per adjust unit (for example, mg/kg)
     module QuantityAdjust =
 
 
@@ -2043,7 +2043,7 @@ module OrderVariable =
         /// Get a ValueUnit string representation of a QuantityAdjust
         let toValueUnitString = toValueUnitString toOrdVar
 
-        /// Get a ValueUnit markdown representation of a QuantityAdjust
+        /// Get a ValueUnit Markdown representation of a QuantityAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         let hasConstraints = toOrdVar >> hasConstraints
@@ -2077,7 +2077,7 @@ module OrderVariable =
 
 
     /// Type and functions that represent an adjusted per-time value,
-    /// i.e., an amount per adjust unit per time (for example: mg/kg/day)
+    /// i.e., an amount per adjust unit per time (for example, mg/kg/day)
     module PerTimeAdjust =
 
 
@@ -2153,7 +2153,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a PerTimeAdjust
+        /// Get a ValueUnit Markdown representation of a PerTimeAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         /// Check whether a PerTimeAdjust has constraints
@@ -2189,7 +2189,7 @@ module OrderVariable =
 
 
     /// Type and functions that represent an adjusted rate,
-    /// i.e., an amount per adjust unit per time (for example: mL/kg/h)
+    /// i.e., an amount per adjust unit per time (for example, mL/kg/h)
     module RateAdjust =
 
 
@@ -2264,7 +2264,7 @@ module OrderVariable =
         let toValueUnitString = toValueUnitString toOrdVar
 
 
-        /// Get a ValueUnit markdown representation of a RateAdjust
+        /// Get a ValueUnit Markdown representation of a RateAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         /// Check whether a RateAdjust has constraints
@@ -2300,7 +2300,7 @@ module OrderVariable =
 
 
     /// Type and functions that represent an adjusted total,
-    /// i.e., an amount per adjust unit (for example: mL/kg)
+    /// i.e., an amount per adjust unit (for example, mL/kg)
     module TotalAdjust =
 
 
@@ -2360,7 +2360,7 @@ module OrderVariable =
         /// Get a ValueUnit string representation of a TotalAdjust
         let toValueUnitString = toValueUnitString toOrdVar
 
-        /// Get a ValueUnit markdown representation of a TotalAdjust
+        /// Get a ValueUnit Markdown representation of a TotalAdjust
         let toValueUnitMarkdown = toValueUnitMarkdown toOrdVar
 
         let hasConstraints = toOrdVar >> hasConstraints

@@ -199,7 +199,7 @@ module Order =
 
 
     /// Types and functions to deal
-    /// with an `Orderable`, i.e. something
+    /// with an `Orderable`, i.e., something
     /// that can be ordered.
     [<RequireQualifiedAccess>]
     module Orderable =
@@ -671,7 +671,7 @@ module Order =
             /// <Summary>
             /// Set the dose unit for all variables in a Dose
             /// This is the first unit of the full dose unit
-            /// e.g. for mg/kg/day this is mg
+            /// e.g., for mg/kg/day this is mg
             /// </Summary>
             /// <param name="du">The dose unit</param>
             /// <param name="dos">The Dose</param>
@@ -3150,7 +3150,7 @@ module Order =
 
 
     /// Check whether all OrderVariables in an Order are solved
-    /// (i.e. have a single value within their constraints)
+    /// (i.e., have a single value within their constraints)
     /// and have constraints
     /// NOTE: an OrderVariable without constraints is considered solved
     let isSolved =
@@ -4027,7 +4027,7 @@ module Order =
 
                                     ord.Orderable
                                     |> Orderable.Print.doseQuantityTo printMd -1
-                                    // if timed add rate and time
+                                    // if timed, add rate and time
                                     if ord.Schedule |> Schedule.hasTime then
                                         ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                         tme //ord.Prescription |> Prescription.Print.timeToMd -1
@@ -4063,7 +4063,7 @@ module Order =
                                             ""
                                             ""
 
-                                    // if timed then add rate and time
+                                    // if timed, then add rate and time
                                     if ord.Schedule |> Schedule.hasTime &&
                                        itmQty |> String.notEmpty then
                                         if i = 0 then
@@ -4155,7 +4155,7 @@ module Order =
 
 
         /// <summary>
-        /// Print an Order to a markdown string using an array of strings
+        /// Print an Order to a Markdown string using an array of strings
         /// to pick the Orderable Items to print.
         /// </summary>
         let printOrderToMd printAdj =

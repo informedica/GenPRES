@@ -178,7 +178,7 @@ module WrappedString =
         let fromString = Name.createExc
 
 
-        /// Return a Name as string list
+        /// Return a Name as a string list
         let toStringList =
             Name.toString
             >> (String.replace "[" "")

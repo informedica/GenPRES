@@ -542,7 +542,7 @@ module MedicationOrder =
             | Some _ ->
                 orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
 
-        /// Set dose constraints on orderable based on order type
+        /// Set dose-constraints on orderable based on order-type
         let setOrderableDoseConstraints (orbDto : Order.Orderable.Dto.Dto) (d : MedicationOrder) =
             let orderableUnit =
                 d.Components
@@ -647,7 +647,7 @@ module MedicationOrder =
             // Set basic orderable constraints
             setOrderableConstraints orbDto d
 
-            // Set dose constraints based on order type
+            // Set dose-constraints based on order-type
             setOrderableDoseConstraints orbDto d
 
             // Create and set component DTOs

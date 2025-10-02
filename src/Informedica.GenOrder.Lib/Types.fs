@@ -216,7 +216,7 @@ module Types =
                 Orderable: Orderable
                 // How the Orderable is prescribed
                 Schedule: Schedule
-                // The route of administration of the order
+                // The route of administration for the order
                 Route: string
                 // The duration of an order
                 Duration: Time

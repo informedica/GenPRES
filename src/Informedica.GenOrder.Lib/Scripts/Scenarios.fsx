@@ -6,7 +6,6 @@
 
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_LOG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
 
 #load "load.fsx"
@@ -18,11 +17,36 @@ open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
 
+module GenFormResult =
+
+    let defaultValue value res =
+        res
+        |> Result.map fst
+        |> Result.defaultValue value
+
+    let get res =
+        res
+        |> Result.map fst
+        |> Result.get
+
+
+let provider : Resources.IResourceProvider =
+    Api.getCachedProviderWithDataUrlId
+        OrderLogging.noOp
+        "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+
+
 // TODO: could be used to precalc all possible
 // prescriptions for a patient
 let createScenarios (ctx: OrderContext) =
     let getRules filter =
-        { ctx with Filter = filter } |> OrderContext.getRules
+        { ctx with Filter = filter }
+        |> OrderContext.getRules OrderLogging.noOp provider
+        |> fun (ctx, res) ->
+            ctx,
+            res
+            |> GenFormResult.get
+
 
     let print ctx =
         let g = ctx.Filter.Generic
@@ -38,7 +62,8 @@ let createScenarios (ctx: OrderContext) =
             let ctx =
                 ctx
                 |> OrderContext.UpdateOrderContext
-                |> OrderContext.evaluate
+                |> OrderContext.evaluate OrderLogging.noOp provider
+                |> GenFormResult.get
                 |> OrderContext.Command.get
 
             if ctx.Scenarios |> Array.isEmpty |> not then ctx
@@ -48,11 +73,11 @@ let createScenarios (ctx: OrderContext) =
             printfn $"\n=== ERROR\n{e}===\n"
             ctx
 
-    let pr = eval ctx ""
+    let ctx = eval ctx ""
 
     [
-        for g in pr.Filter.Generics do
-            let pr, rules = { pr.Filter with Generic = Some g } |> getRules
+        for g in ctx.Filter.Generics do
+            let pr, rules = { ctx.Filter with Generic = Some g } |> getRules
 
             if rules |> Array.isEmpty |> not then
                 g |> eval pr
@@ -97,15 +122,13 @@ let pickScenario n (ctx : OrderContext) =
 
 open Patient.Optics
 
+let printCtx = OrderContext.toString
 
-let printCtx = OrderContext.printCtx
-
-
-Product.Enteral.get ()
 
 let dro =
     Patient.newBorn
-    |> PrescriptionRule.get
+    |> Api.getPrescriptionRules provider
+    |> GenFormResult.get
     |> Array.filter (fun pr ->
         pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
@@ -113,11 +136,14 @@ let dro =
     |> MedicationOrder.fromRule
     |> Array.head
 
+
 dro.Dose
+
 
 let ord =
     Patient.newBorn
-    |> PrescriptionRule.get
+    |> Api.getPrescriptionRules provider
+    |> GenFormResult.get
     |> Array.filter (fun pr ->
         pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
@@ -127,11 +153,14 @@ let ord =
     |> MedicationOrder.toOrderDto
     |> Order.Dto.fromDto
 
+
 ord |> Order.printTable ConsoleTables.Format.Minimal
+
 
 Patient.teenager
 |> Patient.setWeight (33m |> Kilogram |> Some)
-|> PrescriptionRule.get
+    |> Api.getPrescriptionRules provider
+    |> GenFormResult.get
 |> Array.filter (fun pr ->
     pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling E"
 )
@@ -147,7 +176,8 @@ Patient.teenager
 
 Patient.teenager
 |> Patient.setWeight (33m |> Kilogram |> Some)
-|> PrescriptionRule.get
+    |> Api.getPrescriptionRules provider
+    |> GenFormResult.get
 |> Array.filter (fun pr ->
     pr.DoseRule.Generic |> String.equalsCapInsens "noradrenaline"
 )
@@ -162,27 +192,21 @@ Patient.teenager
 
 Patient.infant
 |> Patient.setWeight (6m |> Kilogram |> Some)
-|> OrderContext.create
+|> OrderContext.create OrderLogging.noOp provider
 |> fun ctx ->
     { ctx with
         OrderContext.Filter.Generic = Some "Samenstelling B"
     }
 |> OrderContext.UpdateOrderContext
-|> OrderContext.evaluate
-|> fun cmd ->
-    let ctx = cmd |> OrderContext.Command.get
+|> OrderContext.evaluate OrderLogging.noOp provider
+|> fun res ->
+    let ctx =
+        res
+        |> GenFormResult.get
+        |> OrderContext.Command.get
+
     ctx.Scenarios
     |> Array.item 0
     |> _.Order
     |> Order.print
     |> ignore
-
-
-Patient.infant
-|> Patient.setWeight (6m |> Kilogram |> Some)
-|> OrderContext.create
-|> fun ctx ->
-    { ctx with
-        OrderContext.Filter.Generic = Some "Samenstelling B"
-    }
-|> OrderContext.getRules
