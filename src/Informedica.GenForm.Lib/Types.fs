@@ -617,8 +617,6 @@ module Types =
         | ErrorMsg of (string * exn option)
         interface IMessage
 
-    
-    type GenFormResult<'T> = 
+
+    type GenFormResult<'T> =
         ValidatedResult<'T, Message>
-
-

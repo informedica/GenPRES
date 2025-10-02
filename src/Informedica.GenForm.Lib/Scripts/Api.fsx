@@ -12,7 +12,10 @@ open Informedica.GenForm.Lib.Resources
 
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 
-let provider : IResourceProvider = Api.getCachedProviderWithDataUrlId "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+let provider : IResourceProvider =
+        Api.getCachedProviderWithDataUrlId
+            FormLogging.noOp
+            "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
 
 
 provider.GetResourceInfo () |> ignore

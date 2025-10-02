@@ -142,8 +142,8 @@ module RenalRule =
                 )
             |> createOkNoMsgs
         with
-        | exn -> 
-            createError "Error in RenalRule.getDetails: " exn 
+        | exn ->
+            createError "Error in RenalRule.getDetails: " exn
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -177,7 +177,7 @@ module RenalRule =
             |> EGFR |> Some
 
 
-    let map (data: RenalRuleData[], msgs) : GenFormResult<_> =
+    let map (data: RenalRuleData[], _) : GenFormResult<_> =
         data
         |> Array.filter (fun r ->
             r.Generic <> "" &&

@@ -1,11 +1,13 @@
 
 #time
 
-open System
-Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA")
-Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-
 #load "load.fsx"
+
+open System
+let dataUrlId = "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
+
 
 #load "../Types.fs"
 #load "../Utils.fs"
@@ -20,37 +22,36 @@ Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 #load "../SolutionRule.fs"
 #load "../RenalRule.fs"
 #load "../PrescriptionRule.fs"
+#load "../FormLogging.fs"
+#load "../Api.fs"
 
 
+open FsToolkit.ErrorHandling
 open Informedica.GenForm.Lib
 
 
-let ``checked`` =
-    DoseRule.get ()
+module GenFormResult =
+
+    let defaultValue value res =
+        res
+        |> Result.map fst
+        |> Result.defaultValue value
+
+
+let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.ignore dataUrlId
+
+
+let checkedRules =
+    Api.getDoseRules provider
     |> Array.filter (fun dr -> true
     //    dr.Generic = "abatacept" &&
     //    dr.Shape = "" &&
     //    dr.Route = "iv"
     )
-    |> Check.checkAll Patient.patient
+    |> Check.checkAll
+            (provider.GetRouteMappings ())
+            Patient.patient
 
 
-``checked``
+checkedRules
 |> Array.iter (printfn "%s")
-
-DoseRule.get ()
-|> Array.item 2
-|> Check.matchWithZIndex Patient.patient |> ignore
-|> fun r ->
-    r.zindex.
-    Array.length
-
-
-DoseRule.get ()
-|> Array.distinct
-|> Array.length
-
-
-DoseRule.get ()
-|> DoseRule.Print.toMarkdown
-|> printfn "%s"

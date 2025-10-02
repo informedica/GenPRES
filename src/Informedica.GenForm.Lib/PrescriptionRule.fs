@@ -233,7 +233,7 @@ module PrescriptionRule =
             |> Seq.sort
             |> Seq.toList
             |> List.map Warning
-            |> createOk prs 
+            |> createOk prs
 
 
     /// Get all matching PrescriptionRules for a given Patient.
@@ -243,7 +243,7 @@ module PrescriptionRule =
         |> filter dataUrlId doseRules solutionRules routeMapping
 
 
-    /// Filter the Products in a PrescriptionRule to match the
+    /// Filter the Products in a PrescriptionRule to match
     /// the given ShapeQuantities and Substances.
     let filterProducts
         (cmpItems: ComponentItem list)

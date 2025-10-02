@@ -19,39 +19,40 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 #load "../Product.fs"
 #load "../Filter.fs"
 #load "../DoseRule.fs"
+#load "../Check.fs"
 #load "../SolutionRule.fs"
 #load "../RenalRule.fs"
 #load "../PrescriptionRule.fs"
-
+#load "../FormLogging.fs"
+#load "../Api.fs"
 
 
 open MathNet.Numerics
+open FsToolkit.ErrorHandling
 open Informedica.Utils.Lib
-open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
 
-Informedica.ZIndex.Lib.GenericProduct.get []
-|> Array.filter (fun gp ->
-    gp.Name |> String.startsWithCapsInsensitive "nitroprusside"
-)
+module GenFormResult =
 
-Informedica.ZIndex.Lib.GenericProduct.get []
-|> Array.filter (fun gp ->
-    gp.Id = 141658
-)
+    let defaultValue value res =
+        res
+        |> Result.map fst
+        |> Result.defaultValue value
 
 
-Product.get ()
-|> Array.filter (fun p ->
-    p.Generic = "nitroprusside"
-)
+let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.ignore dataUrlId
+
+
+// Usage
+provider.GetProducts ()
+|> Array.filter (fun p -> p.Generic = "nitroprusside")
 
 
 let dr =
-    DoseRule.get ()
-    |> DoseRule.filter
+    provider.GetDoseRules ()
+    |> Api.filterDoseRules provider
         { Filter.doseFilter with
             Patient =
                 { Patient.patient with
@@ -77,10 +78,16 @@ let dr =
 
 dr
 |> DoseRule.addShapeLimits
+    (provider.GetRouteMappings ())
+    (provider.GetShapeRoutes ())
 
-let details = DoseRule.getDoseRuleDetails dataUrlId
 
-details
+let doseRuleData =
+    DoseRule.getData dataUrlId
+    |> GenFormResult.defaultValue [||]
+
+
+doseRuleData
 |> Array.filter (fun dr ->
     dr.Generic = "Samenstelling C" &&
     dr.DoseType = "timed" &&
@@ -88,10 +95,9 @@ details
 )
 
 
-Mapping.filterRouteShapeUnit dr.Route dr.Shape NoUnit
 
 
-SolutionRule.get ()
+provider.GetSolutionRules ()
 |> Array.filter (fun sr ->
     sr.Generic = "amikacine" &&
     sr.Route =  "intraveneus" &&
@@ -119,8 +125,10 @@ let pr =
 //                RenalFunction = EGFR(Some 5, Some 5) |> Some
             }
     }
-    |> PrescriptionRule.filter
+    |> Api.filterPrescriptionRules provider
+    |> GenFormResult.defaultValue [||]
     |> Array.head
+
 
 pr.SolutionRules
 
@@ -138,17 +146,17 @@ pr.SolutionRules
       |> Some
 //                RenalFunction = EGFR(Some 5, Some 5) |> Some
 }
-|> PrescriptionRule.get
+|> Api.getPrescriptionRules provider
+|> GenFormResult.defaultValue [||]
 |> Array.last
-|> fun pr -> pr.DoseRule.DoseLimits |> Array.toList
+|> fun pr -> pr.DoseRule.ComponentLimits |> Array.toList
 
-pr[0].DoseRule.DoseLimits |> Array.length
-pr[0].RenalRules
 
 let printAllDoseRules () =
     let rs =
         Filter.doseFilter
-        |> PrescriptionRule.filter
+        |> Api.filterPrescriptionRules provider
+        |> GenFormResult.defaultValue [||]
         |> Array.map _.DoseRule
 
     let gs (rs : DoseRule[]) =
@@ -158,6 +166,7 @@ let printAllDoseRules () =
 
     DoseRule.Print.printGenerics gs rs
 
+Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 printAllDoseRules ()
 |> String.concat "\n\n  ---\n"
@@ -165,7 +174,7 @@ printAllDoseRules ()
 |> File.writeTextToFile "doserules.html"
 
 
-SolutionRule.get ()
+provider.GetSolutionRules ()
 |> Array.filter (fun sr -> sr.Generic = "adrenaline")
 |> SolutionRule.Print.toMarkdown ""
 
@@ -176,7 +185,8 @@ SolutionRule.get ()
         |> ValueUnit.singleWithValue 16N
         |> Some
 }
-|> PrescriptionRule.get
+|> Api.getPrescriptionRules provider
+|> GenFormResult.defaultValue [||]
 |> Array.filter (_.SolutionRules >> Array.isEmpty >> not)
 |> Array.item 1
 |> fun pr ->
@@ -184,33 +194,9 @@ SolutionRule.get ()
     |> SolutionRule.Print.toMarkdown "\n"
 
 
-DoseRule.get ()
+provider.GetDoseRules ()
 |> DoseRule.filter
+    (provider.GetRouteMappings ())
     { Filter.doseFilter with
         Route = Some "oraal"
     }
-
-
-Web.getDataFromSheet "" "DoseRules"
-|> fun data ->
-    let getColumn =
-        data
-        |> Array.head
-        |> Csv.getStringColumn
-
-    data
-    |> Array.tail
-    |> Array.take 10
-    |> Array.map (fun r ->
-        let get = getColumn r
-        let toBrOpt = BigRational.toBrs >> Array.tryHead
-
-        printfn $"{r[22]}"
-        printfn $"""{get "Generic"}: {get "Freqs"}"""
-    )
-
-
-DoseRule.get ()
-|> Array.filter (fun dr ->
-    dr.Route |> String.equalsCapInsens "rectaal"
-)

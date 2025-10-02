@@ -25,10 +25,6 @@
     <None Include="Scripts\Scripts.fsx" />
     <None Include="Scripts\Tests.fsx" />
     <None Include="Scripts\Check.fsx" />
-    <None Include="Scripts\Update.fsx" />
-    <None Include="Scripts\DoseRule.fsx" />
-    <None Include="Scripts\RenalRule.fsx" />
-    <None Include="Scripts\SolutionRule.fsx" />
     <None Include="Scripts\Api.fsx" />
   </ItemGroup>
   <ItemGroup>
