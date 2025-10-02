@@ -1403,7 +1403,7 @@ module rec Department =
         | PediatricDepartment s -> s |> fPed
 
 
-    let appl fAdultICU fPedICU fNeoICU fAdult fPed =
+    let apply fAdultICU fPedICU fNeoICU fAdult fPed =
         map
             AnyDepartment
             UnknownDepartment
@@ -1420,7 +1420,7 @@ module rec Department =
 
     let pediatricICU = PediatricICU
 
-    let anyPedictricICU = "" |> pediatricICU
+    let anyPediatricICU = "" |> pediatricICU
 
     let neonatalICU = NeonatalICU
 
@@ -1432,7 +1432,7 @@ module rec Department =
 
     let pediatricDepartment = PediatricDepartment
 
-    let anypediatricDepartment = "" |> pediatricDepartment
+    let anyPediatricDepartment = "" |> pediatricDepartment
 
     let any = AnyDepartment
 
@@ -1972,5 +1972,3 @@ module Patient =
             dto.VenousAccess <- pat.VenousAccess |> VenousAccess.toString
 
             dto
-
-

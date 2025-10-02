@@ -185,7 +185,7 @@ module ValueUnit =
         let inline calc4Opt vu1To vu2To vu3To vu4To resultTo calculation vu1 vu2 vu3 vu4 =
             result {
             if [vu1; vu2; vu3; vu4] |> List.forall (Option.map isSingleValue >> (Option.defaultValue true)) |> not then
-                return! Error "value unit arugments must be all single value"
+                return! Error "value unit arguments must be all single value"
 
             else
                 let! v1 = vu1 |> vu1To
