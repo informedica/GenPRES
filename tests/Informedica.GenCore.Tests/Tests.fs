@@ -644,7 +644,7 @@ module Tests =
 
         module EnteralAccessTests =
 
-            let enteralAccessGenerator n =
+            let enteralAccessGenerator _ =
                 Arb.generate<EnteralAccess> |> Gen.sample 0 10
 
             let samples =
@@ -678,7 +678,7 @@ module Tests =
 
         module VenousAccessTests =
 
-            let venousAccessGenerator n =
+            let venousAccessGenerator _ =
                 Arb.generate<VenousAccess> |> Gen.sample 0 10
 
             let samples =
@@ -1011,19 +1011,19 @@ module Tests =
                             |> Expect.isTrue "doesn't exceed 6"
                         }
 
-                        test "preterm < fullterm" {
+                        test "preterm < full-term" {
                             AgeWeeksDays.preterm <? AgeWeeksDays.fullTerm
-                            |> Expect.isTrue "preturm should be < fullterm"
+                            |> Expect.isTrue "preterm should be < full-term"
                         }
 
-                        test "fullterm >= fullterm" {
+                        test "full-term >= full-term" {
                             AgeWeeksDays.fullTerm >=? AgeWeeksDays.fullTerm
-                            |> Expect.isTrue "fullterm should be >= fullterm"
+                            |> Expect.isTrue "full-term should be >= full-term"
                         }
 
                         test "preterm <= preterm" {
                             AgeWeeksDays.preterm <=? AgeWeeksDays.preterm
-                            |> Expect.isTrue "preturm should be <= preterm"
+                            |> Expect.isTrue "preterm should be <= preterm"
                         }
 
                     ]
@@ -1086,4 +1086,3 @@ module Tests =
         //|> List.skip 4
         //|> List.take 1
         |> testList "GenCore"
-

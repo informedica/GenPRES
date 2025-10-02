@@ -5,8 +5,8 @@
 #r "nuget: Validus"
 
 
-#r "../../../src/Informedica.Utils.Lib/bin/Debug/net6.0/Informedica.Utils.Lib.dll"
-#r "../../../src/Informedica.GenUnits.Lib/bin/Debug/net6.0/Informedica.GenUnits.Lib.dll"
+#r "../../../src/Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../../src/Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
 
 
 open System
@@ -16,4 +16,3 @@ fsi.AddPrinter<DateTime>(fun dt -> dt.ToString("dd-MMM-yy"))
 
 let zindexPath = __SOURCE_DIRECTORY__ |> Path.combineWith "../../../"
 Environment.CurrentDirectory <- zindexPath
-
