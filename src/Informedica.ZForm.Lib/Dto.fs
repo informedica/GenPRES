@@ -144,7 +144,7 @@ module Dto =
         DR.load []
         printfn "Start loading ATCGroups ..."
         ATC.load ()
-        printfn "Finisched loading"
+        printfn "Finished loading"
 
 
 

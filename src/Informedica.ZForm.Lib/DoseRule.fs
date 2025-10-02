@@ -18,7 +18,7 @@ module DoseRule =
 
 
     /// <summary>
-    /// Functions that handles a DoseRange. A DoseRange models a
+    /// Functions that handles a DoseRange. A DoseRange models
     /// a medication dose range with lower and upper limits
     /// </summary>
     /// <remarks>
@@ -2336,7 +2336,7 @@ Synoniemen: {synonym}
         }
 
 
-    /// A markdown text configuration for a DoseRule.
+    /// A Markdown text configuration for a DoseRule.
     let mdConfig =
         {
             MainText = mdText
@@ -2352,7 +2352,7 @@ Synoniemen: {synonym}
     /// Convert a DoseRule to a string using a TextConfig.
     /// </summary>
     /// <param name="config">The textConfig</param>
-    /// <param name="printRules">Whether or not to print the original DoseRules</param>
+    /// <param name="printRules">Whether to print the original DoseRules</param>
     /// <param name="dr">The DoseRule</param>
     let toStringWithConfig (config: TextConfig) printRules (dr: DoseRule) =
         let gpsToString (gps: GenericProductLabel list) =
@@ -2435,7 +2435,7 @@ Synoniemen: {synonym}
         )
 
 
-    /// Get the markdown text of a DoseRule.
+    /// Get the Markdown text of a DoseRule.
     let toString = toStringWithConfig mdConfig
 
 

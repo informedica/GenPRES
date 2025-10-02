@@ -156,17 +156,17 @@ module GStand =
     /// Map GStand frequency string to a valid
     /// frequency `ValueUnit`.
     /// </summary>
-    /// <param name="fr">The frequency to map</param>
+    /// <param name="freq">The frequency to map</param>
     /// <returns>The mapped frequency</returns>
     /// <exception cref="System.Exception">Cannot parse freq value unit</exception>
     /// <example>
     /// <code>
-    /// let fr : ZIndexTypes.RuleFrequency = { Frequency = 1.; Time = "dag" }
+    /// let freq : ZIndexTypes.RuleFrequency = { Frequency = 1.; Time = "dag" }
     /// mapFreq fr
     /// // ValueUnit ([|1N|], CombiUnit (Count (Times 1N), OpPer, Time (Day 1N)))
     /// </code>
     /// </example>
-    let mapFreqToValueUnit (fr: ZIndexTypes.RuleFrequency) =
+    let mapFreqToValueUnit (freq: ZIndexTypes.RuleFrequency) =
         let map vu =
             match [
                       2N, ValueUnit.freqUnitPerNday 3N, ValueUnit.freqUnitPerNHour 36N
@@ -177,14 +177,14 @@ module GStand =
             | None -> vu
 
         let s =
-            fr.Frequency
+            freq.Frequency
             |> int
             |> BigRational.fromInt
             |> string
 
         let s = s + " X[Count]"
 
-        fr.Time
+        freq.Time
         |> parseTimeString
         |> (fun s' ->
             match s' |> String.trim |> String.split " " with
@@ -210,7 +210,7 @@ module GStand =
             |> ValueUnit.fromString
             |> function
             | Failure (err, _, _) ->
-                writeErrorMessage $"Cannot parse |{s}| freq value unit: {fr}\n{err}"
+                writeErrorMessage $"Cannot parse |{s}| freq value unit: {freq}\n{err}"
                 err |> failwith
             | Success (vu, _, _) -> vu
             |> map

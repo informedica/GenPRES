@@ -73,7 +73,7 @@ module DoseRule =
                     $"%s{min} - %s{max}"
                 | Some min, None ->
                     let min = Double.fixPrecision p min |> string
-                    sprintf "vanaf %s" min
+                    $"vanaf %s{min}"
                 | None, Some max ->
                     if max = 0. then ""
                     else

@@ -61,7 +61,6 @@ module Names =
     /// <summary>
     /// Get all the name lengths for a record in BST020T
     /// </summary>
-    /// <param name="id">The id of the record</param>
     /// <param name="itm">The item type</param>
     /// <param name="ln">The name length</param>
     let getItems itm ln =
@@ -129,5 +128,3 @@ module Names =
             getItems ConsumerContainer TwentyFive
             |> Array.map snd
         |> Memoization.memoize
-
-

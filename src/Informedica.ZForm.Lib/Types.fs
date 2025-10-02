@@ -177,7 +177,7 @@ module Types =
 
 
     /// A patient dosage, a patient category with
-    /// associated shape an substance dosages.
+    /// associated shape a substance dosages.
     type PatientDosage =
         {
             /// The patient group the doserules applies
@@ -393,5 +393,3 @@ module Types =
             SubstanceUnit : Unit Option
             TimeUnit : Unit Option
         }
-
-

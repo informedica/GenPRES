@@ -20,7 +20,7 @@ let dataUrl = "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
 
 
 let prods =
-    Web.GoogleSheets.getDataFromSheet dataUrl "Formulary"
+    Web.GoogleSheets.getCsvDataFromSheetSync dataUrl "Formulary"
     |> Array.skip 1
     |> Array.map (fun row -> row[0] |> int)
     |> Array.filter (fun gpk -> gpk < 90_000_000)
@@ -61,4 +61,3 @@ prods |> Array.iter (fun (name, shape, brands, genName) -> printfn $"{name}\t{sh
 
 
 GenPresProduct.findByGPK 21000
-

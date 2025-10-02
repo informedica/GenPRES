@@ -18,9 +18,7 @@
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\loadDLL.fsx" />
     <None Include="Scripts\GStand.fsx" />
-    <None Include="Scripts\Dto.fsx" />
     <None Include="Scripts\Scripts.fsx" />
-    <None Include="Scripts\Dto.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />

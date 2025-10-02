@@ -507,7 +507,7 @@ module Tests =
                         |> Array.map (fun s -> s.GenericUnit)
                     )
                 ) |> Array.distinct |> Array.sort
-                |> Array.length |> fun x -> x
+                |> Array.length
                 |> Expect.equal "should be 27" 27
             }
 
@@ -620,6 +620,3 @@ module Tests =
             GenPresProductTests.tests
         ]
         |> testList "ZIndex"
-
-
-
