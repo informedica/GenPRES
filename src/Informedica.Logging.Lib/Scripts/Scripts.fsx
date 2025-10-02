@@ -175,7 +175,7 @@ let basicLoggingTests =
             Logging.logInfo filteredLogger numberMsg  // Should be filtered out
             
             Expect.hasLength events 1 "Only TestMessage should pass through"
-            match events.[0].Message with
+            match events[0].Message with
             | :? TestMessage -> ()
             | _ -> failtest "Should be TestMessage"
         }

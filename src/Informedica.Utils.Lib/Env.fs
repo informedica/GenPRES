@@ -25,7 +25,7 @@ module Env =
                 | :? string as s -> s
                 | v -> v.ToString()
             // last one wins if duplicates appear (shouldn't for process scope)
-            if variables.ContainsKey(key) then variables.[key] <- value
+            if variables.ContainsKey(key) then variables[key] <- value
             else variables.Add(key, value)
         variables
 

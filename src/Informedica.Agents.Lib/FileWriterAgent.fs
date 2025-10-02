@@ -86,10 +86,10 @@ module FileWriterAgent =
     let removeWriter (st: State) (path: string) =
         match st.Writers.TryGetValue path with
         | true, w ->
-            try 
-                w.Flush() 
-                w.Dispose() 
-            with ex -> eprintfn $"Failed to dispose writer for: {path}\{ex.Message}" 
+            try
+                w.Flush()
+                w.Dispose()
+            with ex -> eprintfn $"Failed to dispose writer for: {path}\{ex.Message}"
 
             st.Writers.Remove path |> ignore
         | _ -> ()
@@ -118,7 +118,7 @@ module FileWriterAgent =
             | :? UnauthorizedAccessException as ex ->
                 if reopened then
                     // give up: surface error but don't crash the agent loop
-                    eprintfn "FileWriterAgent: write failed after reopen on '%s': %s" path ex.Message
+                    eprintfn $"FileWriterAgent: write failed after reopen on '%s{path}': %s{ex.Message}"
                 else
                     // Attempt to heal by reopening with permissive share & detected encoding
                     removeWriter st path
@@ -136,7 +136,7 @@ module FileWriterAgent =
                 match msg with
                 | Append (path, lines) ->
                     try writeLines state path lines
-                    with ex -> eprintfn "FileWriterAgent: unexpected error: %s" ex.Message
+                    with ex -> eprintfn $"FileWriterAgent: unexpected error: %s{ex.Message}"
                     return! loop state
                 | Flush reply ->
                     for w in state.Writers.Values do
@@ -149,7 +149,7 @@ module FileWriterAgent =
                         use _ = new FileStream(
                             path,
                             FileMode.Create,
-                            FileAccess.Write, 
+                            FileAccess.Write,
                             FileShare.ReadWrite ||| FileShare.Delete
                         )
                         ()
@@ -173,19 +173,19 @@ module FileWriterAgent =
                     reply.Reply(())
                     // exit
             }
-            
+
             loop { Writers = Dictionary() }
         )
 
 
-    let append path lines (writer : Agent<_>) = 
+    let append path lines (writer : Agent<_>) =
         (path, lines)
         |> Append
         |> writer.Post
         writer
 
 
-    let flush (writer: Agent<_>) = 
+    let flush (writer: Agent<_>) =
         writer.PostAndReply(fun rc -> Flush rc)
         writer
 
@@ -199,7 +199,7 @@ module FileWriterAgent =
         writer
 
 
-    let stop (writer: Agent<_>) = 
+    let stop (writer: Agent<_>) =
         writer.PostAndReply(fun rc -> Stop rc)
         writer
 
@@ -210,4 +210,3 @@ module FileWriterAgent =
 
     let stopAsync (writer: Agent<FileWriterMsg>) =
         writer.PostAndAsyncReply(fun rc -> Stop rc)
-

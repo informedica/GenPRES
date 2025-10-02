@@ -51,9 +51,6 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
             }
         ), true, cts.Token)
 
-    // Expose a task for async disposal to await; never start a second processing loop
-    let mutable running : Task = tcs.Task
-
     /// <summary>
     /// Event that is triggered when an unhandled exception occurs in the agent's processing loop.
     /// </summary>

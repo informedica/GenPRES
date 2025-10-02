@@ -901,8 +901,8 @@ module Tests =
                         
                         let content = readAllLines tempFile
                         Expect.equal content.Length 1000 "Should handle large content"
-                        Expect.equal content.[0] "Line 0" "First line should be correct"
-                        Expect.equal content.[999] "Line 999" "Last line should be correct"
+                        Expect.equal content[0] "Line 0" "First line should be correct"
+                        Expect.equal content[999] "Line 999" "Last line should be correct"
                         
                     finally
                         deleteFileIfExists tempFile

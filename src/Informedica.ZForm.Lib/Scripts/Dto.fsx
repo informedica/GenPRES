@@ -154,7 +154,7 @@ let createFormularium () =
 createFormularium ()
 |> Array.filter (fun r ->
     let xs = r |> String.splitAt ';'
-    xs.[2] = "" || xs.[3] = ""
+    xs[2] = "" || xs[3] = ""
 )
 
 // Write all possible Generic Products to a file

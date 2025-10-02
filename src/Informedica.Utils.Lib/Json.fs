@@ -31,8 +31,8 @@ module Json =
         override this.ReadJson(reader: JsonReader, _: Type, _: obj, _: JsonSerializer) =
             let jObject = JObject.Load(reader)
             let fromStr = Int32.parse >> BigInteger.fromInt >> BigRational.fromBigInt
-            let numerator = jObject.["Numerator"].ToString() |> fromStr
-            let denominator = jObject.["Denominator"].ToString() |> fromStr
+            let numerator = jObject["Numerator"].ToString() |> fromStr
+            let denominator = jObject["Denominator"].ToString() |> fromStr
             numerator / denominator :> obj
 
 

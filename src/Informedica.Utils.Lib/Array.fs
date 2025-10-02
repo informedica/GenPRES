@@ -150,10 +150,10 @@ module Array =
             let len = sorted.Length
             if len % 2 = 0 then
                 // Average of the two middle elements for even length array
-                (float sorted.[len / 2 - 1] + float sorted.[len / 2]) / 2.0
+                (float sorted[len / 2 - 1] + float sorted[len / 2]) / 2.0
             else
                 // Middle element for odd length array
-                float sorted.[len / 2]
+                float sorted[len / 2]
 
 
     /// Get the nearest index in an array to a target value.
