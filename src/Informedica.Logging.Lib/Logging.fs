@@ -79,7 +79,7 @@ module Logging =
         create (fun msg ->
             msg.Message
             |> formatter
-            |> fun s -> if not (String.IsNullOrEmpty s) then printfn "%s" s
+            |> fun s -> if not (String.IsNullOrEmpty s) then printfn $"%s{s}"
         )
 
 
@@ -233,7 +233,7 @@ module AgentLogging =
     }
 
 
-    type MessageStorate<'T> =
+    type MessageStorage<'T> =
         | RingBuffer of RingBuffer<'T>
         | UnlimitedList of ResizeArray<'T>
 
@@ -244,18 +244,18 @@ module AgentLogging =
 
         /// Default formatter that handles basic message types
         let defaultFormatter : IMessage -> string =
-            fun msg -> sprintf "%A" msg
+            fun msg -> $"%A{msg}"
 
 
         /// Default error handler that prints to stderr
         let defaultErrorHandler : LoggingError -> unit =
             function
             | FormatterError (ex, msg) ->
-                eprintfn "Formatter error for message %s: %s" (msg.GetType().Name) ex.Message
+                eprintfn $"Formatter error for message %s{msg.GetType().Name}: %s{ex.Message}"
             | FileWriteError (ex, operation) ->
-                eprintfn "File write error during %s: %s" operation ex.Message
+                eprintfn $"File write error during %s{operation}: %s{ex.Message}"
             | AgentError ex ->
-                eprintfn "Agent error: %s" ex.Message
+                eprintfn $"Agent error: %s{ex.Message}"
 
 
         /// Create default configuration with console-only logging
@@ -429,7 +429,7 @@ module AgentLogging =
                             Some [| header; text |]
                     with ex ->
                         errorHandler |> Option.iter (fun h -> h (FormatterError(ex, ev.Message)))
-                        Some [| sprintf "ERROR: Failed to format message: %s" ex.Message; "" |]
+                        Some [| $"ERROR: Failed to format message: %s{ex.Message}"; "" |]
 
                 let rec loop (path: string option) (level: Level) (fileInitialized: bool) =
                     async {
@@ -480,7 +480,7 @@ module AgentLogging =
                                         | Some p ->
                                             // Create the file lazily on first write by prepending a header
                                             if not fileInitialized then
-                                                let header = sprintf "Start logging %A: %s" level (DateTime.Now.ToShortTimeString())
+                                                let header = $"Start logging %A{level}: %s{DateTime.Now.ToShortTimeString()}"
                                                 Array.append [| header; "" |] lines
                                                 |> fun firstBatch -> W.append p firstBatch writer |> ignore
                                                 scheduleFlush ()
@@ -539,8 +539,8 @@ module AgentLogging =
                 loop None config.DefaultLevel false
             )
 
-        logger.Error.Add(fun ex -> eprintfn "Agent error: %s" ex.Message)
-        logger.OnError.Add(fun ex -> eprintfn "Agent body error: %s" ex.Message)
+        logger.Error.Add(fun ex -> eprintfn $"Agent error: %s{ex.Message}")
+        logger.OnError.Add(fun ex -> eprintfn $"Agent body error: %s{ex.Message}")
 
         let ensureNotDisposed () =
             if Interlocked.Read(&isDisposed) = 1L then invalidOp "Logger agent has been disposed"
@@ -562,7 +562,7 @@ module AgentLogging =
                     logger |> Agent.dispose
                     return Disposed
                 with ex ->
-                    eprintfn "Error during disposal: %s" ex.Message
+                    eprintfn $"Error during disposal: %s{ex.Message}"
                     return DisposeError ex
             else
                 return AlreadyDisposed
@@ -646,4 +646,3 @@ module AgentLogging =
         AgentLoggerDefaults.config
         |> AgentLoggerDefaults.withMaxMessages None
         |> createAgentLogger
-
