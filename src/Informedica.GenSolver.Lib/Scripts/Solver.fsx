@@ -1,5 +1,8 @@
 
+
 #load "load.fsx"
+
+
 #time
 
 
@@ -134,5 +137,3 @@ eqs
                 eqs |> Solver.printEqs true (fun s -> printfn $"{s}") |> ignore
             | Error _ -> failwith "errors"
     | Error _ -> failwith "errors"
-
-

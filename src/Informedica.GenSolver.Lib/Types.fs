@@ -7,7 +7,7 @@ module rec Types =
     open Informedica.GenUnits.Lib
 
     /// <summary>
-    /// Represents a non empty/null string identifying a `Variable`.
+    /// Represents a non-empty/null string identifying a `Variable`.
     /// `Name` can be no longer than 1000 characters and cannot be
     /// a null string
     /// </summary>
@@ -99,8 +99,8 @@ module rec Types =
 
     /// <summary>
     /// An equation is either a `ProductEquation`
-    /// or a `Sumequation`, the first variable is the
-    /// dependent variable, i.e. the result of the
+    /// or a `SumEquation`, the first variable is the
+    /// dependent variable, i.e., the result of the
     /// equation, the second part are the independent
     /// variables in the equation
     /// </summary>
@@ -122,7 +122,7 @@ module rec Types =
 
     /// <summary>
     /// Represents a constraint on a `Variable`.
-    /// I.e. either a set of values, or an increment,
+    /// I.e., either a set of values or an increment,
     /// minimum or maximum.
     /// </summary>
     type Constraint =
@@ -191,5 +191,3 @@ module rec Types =
             | ExceptionMessage of Exceptions.Message
             | SolverEventMessage of Events.Event
             interface IMessage
-
-

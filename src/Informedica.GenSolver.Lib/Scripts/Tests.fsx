@@ -6,9 +6,10 @@
 #r "nuget: Expecto.FsCheck"
 #r "nuget: Unquote"
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net8.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net8.0/Informedica.GenUnits.Lib.dll"
-#r "../../Informedica.GenSolver.Lib/bin/Debug/net8.0/Informedica.GenSolver.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Logging.Lib/bin/Debug/net9.0/Informedica.Logging.Lib.dll"
+#r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
+#r "../../Informedica.GenSolver.Lib/bin/Debug/net9.0/Informedica.GenSolver.Lib.dll"
 
 //#load "load.fsx"
 
@@ -206,6 +207,7 @@ module Tests =
 
 
     open MathNet.Numerics
+    open Expecto
     open Expecto.Flip
 
     open Informedica.Utils.Lib.BCL
@@ -770,7 +772,7 @@ module Tests =
 
 
                 let scenarios sheet =
-                    GoogleSheets.getDataFromSheet urlId sheet
+                    GoogleSheets.getCsvDataFromSheetSync urlId sheet
                     |> Array.skip 1
                     |> Array.map (fun row -> row[0])
                     |> Array.toList
@@ -1912,7 +1914,7 @@ module MinMaxTestScenarios =
 
 
     let scenarios sheet =
-        GoogleSheets.getDataFromSheet urlId sheet
+        GoogleSheets.getCsvDataFromSheetSync urlId sheet
         |> Array.skip 1
         |> Array.map (fun row -> row[0])
         |> Array.toList
@@ -2009,4 +2011,3 @@ module MinMaxTestScenarios =
         printTests div "/"
         printTests add "+"
         printTests sub "-"
-

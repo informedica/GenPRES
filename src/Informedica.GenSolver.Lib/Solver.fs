@@ -158,10 +158,10 @@ module Solver =
                         |> Exceptions.raiseExc (Some log) []
 
                 | eq::tail ->
-                    // need to calculate result first to enable tail call optimization
+                    // need to calculate a result first to enable tail call optimization
                     let q, r =
-                        // If the equation is already solved, or not solvable
-                        // just put it to  the accumulated equations and go on with the rest
+                        // If the equation is already solved or not solvable,
+                        // just put it to the accumulated equations and go on with the rest
                         if eq |> Equation.isSolvable |> not then
                             tail,
                             [ eq ]

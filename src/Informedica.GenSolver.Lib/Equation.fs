@@ -63,7 +63,7 @@ module Equation =
 
 
     /// <summary>
-    /// Create an `ProductEquation` with an **y** and
+    /// Create a `ProductEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time using the **fail** function.
     /// </summary>
@@ -71,7 +71,7 @@ module Equation =
 
 
     /// <summary>
-    /// Create an `SumEquation` with an **y** and
+    /// Create a `SumEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
     /// than one time using the **fail** function.
     /// </summary>
@@ -79,17 +79,17 @@ module Equation =
 
 
     /// <summary>
-    /// Create an `ProductEquation` with an **y** and
+    /// Create a `ProductEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
-    /// than one time raising an exception.
+    /// than one time, raising an exception.
     /// </summary>
     let createProductEqExc = createProductEq id (Exceptions.raiseExc None [])
 
 
     /// <summary>
-    /// Create an `SumEquation` with an **y** and
+    /// Create a `SumEquation` with an **y** and
     /// **xs**. Fails if a variable is added more
-    /// than one time raising an exception.
+    /// than one time, raising an exception.
     /// </summary>
     let createSumEqExc = createSumEq id (Exceptions.raiseExc None [])
 
@@ -200,7 +200,7 @@ module Equation =
     /// <summary>
     /// Make sure that the `Variables` in the
     /// `Equation` can only contain positive
-    /// non zero values.
+    /// non-zero values.
     /// </summary>
     let nonZeroOrNegative eq =
         let set c y xs =
@@ -279,8 +279,8 @@ module Equation =
 
     /// <summary>
     /// Check whether an equation will change by calc
-    /// This is not the same as `isSolved`!! If all
-    /// the variables are unrestricted than the equation
+    /// This is different from `isSolved`!! If all
+    /// the variables are unrestricted, then the equation
     /// is not solvable but is also not solved.
     /// </summary>
     let isSolvable = function
@@ -344,7 +344,7 @@ module Equation =
     let private calcVars log op1 op2 vars =
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list
-        // i.e. a = b + c + d -> b = a - (c + d)
+        // i.e., a = b + c + d -> b = a - (c + d)
         // op1 = (+) and op2 = (-)
         let calc op1 op2 xs =
             match xs with
@@ -367,8 +367,8 @@ module Equation =
                 | _, []
                 | _, [ _ ] -> n, acc
                 | i, y::xs ->
-                    // skip calculation if variable is already solved
-                    // or if this is the last calculation (i.e. previous calculations
+                    // skip calculation if the variable is already solved
+                    // or if this is the last calculation (i.e., previous calculations
                     // where unchanged)
                     (*
                     if y |> Variable.isSolved then None
@@ -458,7 +458,7 @@ module Equation =
         let reorder = List.rotations >> List.mapi (fun i x -> i, x)
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list
-        // i.e. a = b + c + d -> b = a - (c + d)
+        // i.e., a = b + c + d -> b = a - (c + d)
         // op1 = (+) and op2 = (-)
         if eq |> isSolved then eq, Unchanged
         else

@@ -243,15 +243,13 @@ module Solve =
             let eqs = eqs |> List.map (fun s -> $" {s}")
             let sumEqs =
                 eqs
-                |> List.filter (fun e ->
-                    e.Contains("sum")
-                )
+                |> List.filter _.Contains("sum")
+
             let eqs = eqs |> List.filter (fun e -> e.Contains("sum") |> not)
             let itmEqs =
                 eqs
-                |> List.filter (fun e ->
-                    e.Contains("itm")
-                )
+                |> List.filter _.Contains("itm")
+
             let cmpEqs =
                 eqs
                 |> List.filter (fun e ->
@@ -277,13 +275,12 @@ module Solve =
                     c.Items
                     |> List.collect (fun i ->
                         itmEqs
-                        |> List.map (fun s -> s.Replace(" cmp", $" {c.Name}").Replace(" itm", $" {i}"))
+                        |> List.map _.Replace(" cmp", $" {c.Name}").Replace(" itm", $" {i}")
                     )
                 let cmps =
                     cmpEqs
-                    |> List.map (fun s1 ->
-                        s1.Replace(" cmp", $" {c.Name}")
-                    )
+                    |> List.map _.Replace(" cmp", $" {c.Name}")
+
                 itms @ cmps @ acc
             ) []
             |> fun es ->

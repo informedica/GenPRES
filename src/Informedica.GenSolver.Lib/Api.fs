@@ -93,7 +93,7 @@ module Api =
 
 
     /// <summary>
-    /// Set all variables in a list of equations to a non zero or negative value
+    /// Set all variables in a list of equations to a non-zero or negative value
     /// </summary>
     /// <param name="eqs">The list of Equations</param>
     let nonZeroNegative eqs =

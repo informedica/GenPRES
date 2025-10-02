@@ -8,7 +8,7 @@ module Logger =
 
 
     /// Log a solver event with a specific level
-    let logMessage level (logger: Logger) (evt: Types.Events.Event) =
+    let logMessage level (logger: Logger) (evt: Events.Event) =
         evt
         |> SolverEventMessage
         |> Logging.logWith level logger
@@ -31,4 +31,3 @@ module Logger =
 
     /// Ignore logger for backward compatibility
     let noOp = Logging.noOp
-

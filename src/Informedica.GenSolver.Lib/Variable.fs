@@ -76,7 +76,7 @@ module Variable =
 
 
             /// <summary>
-            /// Create an `Increment` from a `ValueUnit`.
+            /// Creates an `Increment` from a `ValueUnit`.
             /// </summary>
             /// <param name="vu">The ValueUnit</param>
             /// <returns>An `Increment`</returns>
@@ -244,7 +244,7 @@ module Variable =
 
 
             /// <summary>
-            /// Check if the increment is empty, i.e. has no values
+            /// Check if the increment is empty, i.e., has no values
             /// </summary>
             let isEmpty (Increment incr) = incr |> ValueUnit.isEmpty
 
@@ -322,7 +322,7 @@ module Variable =
 
 
             /// <summary>
-            /// Create a `Minimum` that is
+            /// Creates a `Minimum` that is
             /// either inclusive or exclusive.
             /// </summary>
             /// <param name="isIncl">Whether the `Minimum` is inclusive or exclusive</param>
@@ -571,7 +571,7 @@ module Variable =
 
             /// <summary>
             /// Check if either the numerator or denominator of the `Minimum`
-            /// is too large, i.e. there is an 'overflow'.
+            /// is too large, i.e., there is an 'overflow'.
             /// </summary>
             /// <remarks>
             /// In theory a Minimum can have a numerator or denominator of any size.
@@ -655,7 +655,7 @@ module Variable =
             /// <summary>
             /// Get the markdown representation of a `Minimum`.
             /// </summary>
-            /// <param name="withUnit">whether or not to print the unit</param>
+            /// <param name="withUnit">whether to print the unit</param>
             /// <param name="prec">The precision</param>
             /// <param name="min">The minimum</param>
             let toMarkdown withUnit prec min =
@@ -921,7 +921,7 @@ module Variable =
 
             /// <summary>
             /// Check if either the numerator or denominator of the `Maximum`
-            /// is too large, i.e. there is an 'overflow'.
+            /// is too large, i.e., there is an 'overflow'.
             /// </summary>
             /// <remarks>
             /// In theory a Maximum can have a numerator or denominator of any size.
@@ -1011,7 +1011,7 @@ module Variable =
             let create vu =
                 if vu |> ValueUnit.isEmpty then
                     "ValueSet create cannot be empty"
-                    |> Exceptions.ValueRangeEmptyValueSet 
+                    |> Exceptions.ValueRangeEmptyValueSet
                     |> raiseExc []
 
                 else
@@ -2511,7 +2511,7 @@ module Variable =
 
 
         /// <summary>
-        /// Make a ValueRange non zero and non negative. I.e. with at least
+        /// Make a ValueRange non zero and non negative. I.e., with at least
         /// a minimum that excludes zero.
         /// </summary>
         /// <param name="vr">The ValueRange</param>
@@ -2947,8 +2947,8 @@ module Variable =
                 | _, _, _, _, true, _, Div -> createZero incl1 u1 u2
                 // a None divided by any nonzero Some value will be None
                 | None, _, Some _, _, false, false, Div -> None
-                // any value that is divided by an unlimited value will
-                // result in zero value that is exclusive, i.e. will
+                // any value divided by an unlimited value will
+                // result in zero value that is exclusive, i.e., will
                 // approach zero but never reach it
                 | Some _, _, None, _, false, false, Div -> createZero false u1 ZeroUnit
 
@@ -3601,14 +3601,14 @@ module Variable =
 
 
     /// Checks whether a `Variable` **v** is solved,
-    /// i.e. there is but one possible value left.
+    /// i.e., there is but one possible value left.
     let isSolved var =
         var |> getValueRange |> ValueRange.isValueSet
         && var |> count = 1
 
 
     /// Checks whether a `Variable` is *solvable*
-    /// i.e. can be further restricted to one value
+    /// i.e., can be further restricted to one value
     /// (or no values at all)
     let isSolvable = isSolved >> not
 

@@ -25,6 +25,6 @@ module Exceptions =
         match exn with
         | :? SolverException as m ->
             m.Data0
-            |> List.map (fun m -> m.ToString()) |> String.concat "\n"
+            |> List.map _.ToString() |> String.concat "\n"
         | _ ->
             exn.ToString()
