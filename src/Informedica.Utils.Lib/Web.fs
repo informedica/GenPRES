@@ -12,8 +12,8 @@ module Web =
         open System.Net.Http
 
 
-        /// Create a url to download a sheet from a google spreadsheet
-        /// The id is the unique id of the spreadsheet and the sheet is the name of the sheet
+        /// Create a url to download a sheet from a Google spreadsheet
+        /// The id is the unique id of the spreadsheet and sheet is the name of the sheet
         let createUrl sheet id =
             $"https://docs.google.com/spreadsheets/d/%s{id}/gviz/tq?tqx=out:csv&sheet=%s{sheet}"
 
@@ -39,7 +39,7 @@ module Web =
             }
 
 
-        let getCsvDataFromSheet = 
+        let getCsvDataFromSheet =
             getDataFromSheet Csv.parseCSV
 
 
@@ -50,4 +50,3 @@ module Web =
         let getCsvDataFromSheetSync dataUrlId sheet =
             getCsvDataFromSheet dataUrlId sheet
             |> Async.RunSynchronously
-

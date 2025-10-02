@@ -163,7 +163,7 @@ module String =
 
     /// Check whether **s1** starts with
     /// **s2** caps insensitive
-    let startsWithCapsInsens = startsWithEqs equalsCapInsens
+    let startsWithCapsInsensitive = startsWithEqs equalsCapInsens
 
 
     /// Create a regular expression from a string

@@ -145,7 +145,7 @@ module Csv =
         let testGetStringColumn () =
             test <@ getStringColumn [| "a"; "b" |] [| "1"; "2" |] "a" = "1" @>
             test <@ getStringColumn [| "a"; "b" |] [| "1"; "2" |] "b" = "2" @>
-            Assertions.raises<System.Exception> <@ getStringColumn [| "a"; "b" |] [| "1"; "2" |] "c" = "1" @>
+            raises<System.Exception> <@ getStringColumn [| "a"; "b" |] [| "1"; "2" |] "c" = "1" @>
 
 
         // Test all

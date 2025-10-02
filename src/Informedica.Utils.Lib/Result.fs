@@ -24,7 +24,7 @@ module Result =
 
         // Test get error
         let testGetError () =
-            Assertions.raises<System.Exception> <@ Error "error" |> get @>
+            raises<System.Exception> <@ Error "error" |> get @>
 
         // Test all
         let testAll () =
@@ -146,9 +146,9 @@ module ValidatedResult =
     let sequence (results: ValidatedResult<'T, 'Msg> list) : ValidatedResult<'T list, 'Msg> =
         let rec loop acc msgs = function
             | [] -> Ok (List.rev acc, msgs)
-            | Ok (value, newMsgs) :: rest -> 
+            | Ok (value, newMsgs) :: rest ->
                 loop (value :: acc) (msgs @ newMsgs) rest
-            | Error errorMsgs :: _ -> 
+            | Error errorMsgs :: _ ->
                 Error (msgs @ errorMsgs)
         loop [] [] results
 
@@ -186,7 +186,7 @@ module ValidatedResult =
         member _.ReturnFrom(x) = x
         member _.Bind(x, f) = bind f x
         member _.Zero() = createOkNoMsgs ()
-        
+
         member _.Combine(r1, r2) =
             match r1 with
             | Ok ((), msgs1) ->
@@ -220,7 +220,7 @@ module ValidatedResult =
 
     let tee f result =
         match result with
-        | Ok (value, msgs) -> 
+        | Ok (value, msgs) ->
             f value
             Ok (value, msgs)
         | Error msgs -> Error msgs
@@ -245,7 +245,7 @@ module ValidatedResult =
 
     let requireEmpty msg = function
         | [] -> createOkNoMsgs ()
-        | items -> createError [msg]
+        | _ -> createError [msg]
 
     let requireNotEmpty msg = function
         | [] -> createError [msg]
@@ -269,7 +269,7 @@ module ValidatedResult =
             test <@ result = Ok (10, ["original"; "doubled"]) @>
 
         let testBindError () =
-            let f x = createError ["error"]
+            let f _ = createError ["error"]
             let result = createOk 5 ["original"] |> bind f
             test <@ result = Error ["original"; "error"] @>
 

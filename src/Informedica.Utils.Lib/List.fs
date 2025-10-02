@@ -1,6 +1,6 @@
 namespace Informedica.Utils.Lib
 
-/// Additional utitilty functions
+/// Additional utility functions
 /// for lists
 [<RequireQualifiedAccess>]
 module List =
@@ -72,8 +72,8 @@ module List =
 
 
     /// <summary>
-    /// Generate all possible cyclic rotations of a list. Each rotation moves 
-    /// one element from its current position to the front, creating n different 
+    /// Generate all possible cyclic rotations of a list. Each rotation moves
+    /// one element from its current position to the front, creating n different
     /// arrangements where n is the length of the list.
     /// </summary>
     /// <param name="xs">The input list to rotate</param>
@@ -82,13 +82,13 @@ module List =
     /// <code>
     /// rotations [1; 2; 3]
     /// // Returns: [| [1; 2; 3]; [2; 1; 3]; [3; 1; 2] |]
-    /// 
+    ///
     /// rotations ["A"; "B"]
     /// // Returns: [| ["A"; "B"]; ["B"; "A"] |]
-    /// 
+    ///
     /// rotations [42]
     /// // Returns: [| [42] |]
-    /// 
+    ///
     /// rotations []
     /// // Returns: [| |]
     /// </code>
@@ -133,7 +133,7 @@ module List =
         |> List.collect id
         |> List.tryFind pred
 
-    /// Try find the first element with **n**
+    /// Try to find the first element with **n**
     /// in a list of list **xsl**
     /// with a function **get** to
     /// get **n** from an element

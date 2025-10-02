@@ -31,7 +31,7 @@ module StringBuilder =
     /// Append and format the given string as a new line to the StringBuilder.
     let appendLineFormat (fs : string) vs (sb : StringBuilder) = sb.AppendFormat(fs + "\n", (vs |> List.toArray))
 
-    /// Replace all occurences of the given string with the given string in the StringBuilder.
+    /// Replace all occurrences of the given string with the given string in the StringBuilder.
     let replace (s1 : string) s2 (sb : StringBuilder) = sb.Replace(s1, s2)
 
     /// Return the string representation of the StringBuilder.

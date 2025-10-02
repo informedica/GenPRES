@@ -233,9 +233,9 @@ module Tests =
                     |> equals false "returns false"
                 }
 
-                test "startsWithCapsInsens abc string with A string" {
+                test "startsWithCapsInsensitive abc string with A string" {
                     "abc"
-                    |> String.startsWithCapsInsens "A"
+                    |> String.startsWithCapsInsensitive "A"
                     |> equals true "returns true"
                 }
 
@@ -324,8 +324,8 @@ module Tests =
             testList "File.findParent" [
                 test "returns Some for a file in current directory" {
                     // Use this test file name as the sentinel
-                    let currentDir = Directory.GetCurrentDirectory()
-                    let fileName = "Informedica.Utils.Tests.dll" // built test assembly name typically in bin during run
+                    let _ = Directory.GetCurrentDirectory()
+                    let _ = "Informedica.Utils.Tests.dll" // built test assembly name typically in bin during run
                     // We can't rely on exact file presence; instead, write a temp file and clean up
                     let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
                     Directory.CreateDirectory(tempDir) |> ignore
@@ -398,7 +398,7 @@ module Tests =
                         |> Double.getPrecision n
                         |> (fun x ->
                             if a |> abs < 0. && x < n then
-                                printfn "decimals %i < precision %i for value %f" x n a
+                                printfn $"decimals %i{x} < precision %i{n} for value %f{a}"
                                 false
                             else true
                         )
@@ -558,7 +558,7 @@ module Tests =
         // Test calcCartesian function
         let testCalcCartesian () =
 
-            testList "testCalcCartesion" [
+            testList "testCalcCartesian" [
                 // Test empty arrays
                 testCase "calcCartesian with empty vs1 returns empty array" <| fun _ ->
                     let vs1 : BigRational[] = [||]
@@ -671,8 +671,6 @@ module Tests =
                     maxTest = 10000
                     arbitrary = [ typeof<Generators.BigRGenerator> ] }
 
-            let opMult f () = f (*)
-
             testList "BigRational" [
 
                 test "can parse a string number 1" {
@@ -687,7 +685,7 @@ module Tests =
                     |> (fun b ->
                         if b = 0. || Accuracy.areClose Accuracy.veryHigh a b then true
                         else
-                            printfn "%f <> %f" a b
+                            printfn $"%f{a} <> %f{b}"
                             false
                     )
 
@@ -993,7 +991,7 @@ module Tests =
             let cols = [|"a"; "b"; "c"|]
             let data = [|$"%i{intData}"; $"%f{floatData}"; $"%s{stringData}"|]
 
-            testList "tryGetColmun" [
+            testList "tryGetColumn" [
                 test "can get 'a' column" {
                     data
                     |> Csv.getColumn<int> Csv.Int32Data cols

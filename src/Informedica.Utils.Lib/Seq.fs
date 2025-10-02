@@ -177,7 +177,7 @@ module Seq =
             let act = seq {seq {1;2;3}; seq {5;7}; seq {9;11}} |> collectSeqs (fun x -> x % 2 = 0) |> Seq.toList
             test <@ act = exp @>
 
-        // Test toStrin_
+        // Test toString_
         let testToStringSeq_ () =
             test <@ toString_ "[|" "|]" ";" (seq {1;2;3}) = "[|1;2;3|]" @>
             test <@ toString_ "[|" "|]" ";" Seq.empty = "[||]" @>

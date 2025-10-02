@@ -43,11 +43,11 @@ module Env =
         let formatBytes (bytes: int64) =
             let b = float bytes
             let kb, mb, gb, tb = 1024.0, 1024.0 ** 2.0, 1024.0 ** 3.0, 1024.0 ** 4.0
-            if b >= tb then sprintf "%.2f TB" (b / tb)
-            elif b >= gb then sprintf "%.2f GB" (b / gb)
-            elif b >= mb then sprintf "%.2f MB" (b / mb)
-            elif b >= kb then sprintf "%.2f KB" (b / kb)
-            else sprintf "%d B" bytes
+            if b >= tb then $"%.2f{b / tb} TB"
+            elif b >= gb then $"%.2f{b / gb} GB"
+            elif b >= mb then $"%.2f{b / mb} MB"
+            elif b >= kb then $"%.2f{b / kb} KB"
+            else $"%d{bytes} B"
 
         let machine = Environment.MachineName
         let user = Environment.UserName
@@ -73,13 +73,12 @@ module Env =
 
         String.Join(
             Environment.NewLine,
-            [| sprintf "Machine: %s" machine
-               sprintf "User: %s" user
-               sprintf "OS: %s (%A)" osDesc osArch
-               sprintf ".NET: %s (%A)" framework procArch
-               sprintf "CPU cores: %d" cores
-               sprintf "Memory (GC total available): %s" totalAvailStr
-               sprintf "Memory (process working set): %s" workingSetStr
-               sprintf "Memory (managed heap): %s" managedHeapStr |]
+            [| $"Machine: %s{machine}"
+               $"User: %s{user}"
+               $"OS: %s{osDesc} (%A{osArch})"
+               $".NET: %s{framework} (%A{procArch})"
+               $"CPU cores: %d{cores}"
+               $"Memory (GC total available): %s{totalAvailStr}"
+               $"Memory (process working set): %s{workingSetStr}"
+               $"Memory (managed heap): %s{managedHeapStr}" |]
         )
-

@@ -34,7 +34,7 @@ open Informedica.GenForm.Lib
 
 Informedica.ZIndex.Lib.GenericProduct.get []
 |> Array.filter (fun gp ->
-    gp.Name |> String.startsWithCapsInsens "nitroprusside"
+    gp.Name |> String.startsWithCapsInsensitive "nitroprusside"
 )
 
 Informedica.ZIndex.Lib.GenericProduct.get []

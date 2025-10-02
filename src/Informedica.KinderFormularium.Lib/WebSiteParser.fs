@@ -272,7 +272,7 @@ module WebSiteParser =
             medications ()
             |> List.filter (fun m ->
                 ns |> List.exists (fun n ->
-                    m.Generic |> String.startsWithCapsInsens n))
+                    m.Generic |> String.startsWithCapsInsensitive n))
         |> fun meds ->
             let meds =
                 meds

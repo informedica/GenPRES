@@ -1582,7 +1582,7 @@ module Units =
             <| $"Cannot map combined unit %A{(u1, op, u2) |> CombiUnit}"
 
 
-    /// Try find a the unit details in the list of units
+    /// Try find unit details in the list of units
     /// for unit u
     /// Example: tryFind (Mass.kiloGram) = Some { ... }
     let tryFind u =
@@ -2544,7 +2544,7 @@ module ValueUnit =
 
 
     /// <summary>
-    /// Create a a ValueUnit from a single
+    /// Create a ValueUnit from a single
     /// value v and a unit u
     /// </summary>
     /// <example>
@@ -3156,10 +3156,10 @@ module ValueUnit =
     /// Calculate a ValueUnit by applying an operator op
     /// to ValueUnit vu1 and vu2. The operator can be addition,
     /// subtraction, multiplication or division.
-    /// The boolean b results in whether or not the result is
+    /// The boolean b results in whether the result is
     /// simplified.
     /// </summary>
-    /// <param name="b">Whether or not to simplify the result</param>
+    /// <param name="b">Whether to simplify the result</param>
     /// <param name="op">The operator to apply</param>
     /// <param name="vu1">The first ValueUnit</param>
     /// <param name="vu2">The second ValueUnit</param>
