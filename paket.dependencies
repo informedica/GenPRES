@@ -20,7 +20,7 @@ nuget Feliz.UseElmish
 nuget Feliz ~> 2
 nuget Feliz.Markdown
 nuget Feliz.Router
-nuget NJsonSchema
+nuget NJsonSchema 11.5.1
 
 nuget Saturn ~> 0
 
@@ -28,14 +28,14 @@ nuget Fake.Core.Target 6.1.3
 nuget Fake.IO.FileSystem 6.1.3
 
 nuget FSharp.Data
-nuget HtmlAgilityPack
+nuget HtmlAgilityPack 1.12.3
 nuget FParsec
-nuget FsToolkit.ErrorHandling
+nuget FsToolkit.ErrorHandling 5.1.0
 nuget MathNet.Numerics.FSharp
-nuget Microsoft.Net.Test.Sdk
+nuget Microsoft.Net.Test.Sdk 18.0.0
 nuget Validus
-nuget YoloDev.Expecto.TestSdk
-nuget Markdig
+nuget YoloDev.Expecto.TestSdk 0.15.5
+nuget Markdig 0.42.0
 nuget Aether
 nuget ClosedXML = 0.97
 nuget ConsoleTables
