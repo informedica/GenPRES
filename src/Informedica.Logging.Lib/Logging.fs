@@ -74,7 +74,7 @@ module Logging =
     let create (f: Event -> unit) : Logger = { Log = f }
 
 
-    /// Create a logger that prints to console using a message formatter
+    /// Create a logger that prints to the console using a message formatter
     let createConsole (formatter: IMessage -> string) : Logger =
         create (fun msg ->
             msg.Message
@@ -83,7 +83,7 @@ module Logging =
         )
 
 
-    /// Create a logger that writes to file using a message formatter
+    /// Create a logger that writes to a file using a message formatter
     let createFile path (formatter: IMessage -> string) : Logger =
         create (fun msg ->
             msg.Message
@@ -258,10 +258,10 @@ module AgentLogging =
                 eprintfn $"Agent error: %s{ex.Message}"
 
 
-        /// Create default configuration with console-only logging
+        /// Create a default configuration with console-only logging
         let config : AgentLoggerConfig = {
             Formatter = defaultFormatter
-            MaxMessages = Some 1000  // Keep last 1000 messages in memory
+            MaxMessages = Some 1000  // Keep the last 1000 messages in memory
             DefaultLevel = Level.Informative
             flushThreshold = 100
             FlushInterval = TimeSpan.FromSeconds(5.0)  // Auto-flush every 5 seconds
@@ -271,7 +271,7 @@ module AgentLogging =
         }
 
 
-        /// Create default configuration for high-performance logging
+        /// Create the default configuration for high-performance logging
         let highPerformance : AgentLoggerConfig = {
             Formatter = defaultFormatter
             MaxMessages = Some 5000  // Larger buffer for high throughput
@@ -297,7 +297,7 @@ module AgentLogging =
         }
 
 
-        /// Create default configuration for production use
+        /// Create the default configuration for production use
         let production : AgentLoggerConfig = {
             Formatter = defaultFormatter
             MaxMessages = Some 10_000  // Large buffer for production
@@ -310,43 +310,43 @@ module AgentLogging =
         }
 
 
-        /// Create a custom configuration with specified formatter
+        /// Create a custom configuration with a specified formatter
         let withFormatter (formatter: IMessage -> string) (config: AgentLoggerConfig) = {
             config with Formatter = formatter
         }
 
 
-        /// Create a configuration with custom message limit
+        /// Create a configuration with a custom message limit
         let withMaxMessages (maxMessages: int option) (config: AgentLoggerConfig) = {
             config with MaxMessages = maxMessages
         }
 
 
-        /// Create a configuration with custom default level
+        /// Create a configuration with a custom default level
         let withLevel (level: Level) (config: AgentLoggerConfig) = {
             config with DefaultLevel = level
         }
 
 
-        /// Create a configuration with custom flush interval
+        /// Create a configuration with a custom flush interval
         let withFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
             config with FlushInterval = interval
         }
 
 
-        /// Create a configuration with custom flush threshold
+        /// Create a configuration with a custom flush threshold
         let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) = {
             config with flushThreshold = threshold
         }
 
 
-        /// Create a configuration with custom minimum flush interval
+        /// Create a configuration with a custom minimum flush interval
         let withMinFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
             config with MinFlushInterval = interval
         }
 
 
-        /// Create a configuration with custom maximum flush interval
+        /// Create a configuration with a custom maximum flush interval
         let withMaxFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) = {
             config with MaxFlushInterval = interval
         }
@@ -456,7 +456,7 @@ module AgentLogging =
                                         W.close oldPath writer |> ignore
                                         clearMessages ()
                                     | _ -> ()
-                                    // Defer file creation until first actual log message
+                                    // Defer file creation until the first actual log message
                                     reply.Reply(Ok ())
                                 with ex -> reply.Reply(Error ex.Message)
                                 // Reset initialization state when (re)starting a path
@@ -478,7 +478,7 @@ module AgentLogging =
                                     | Some lines ->
                                         match path with
                                         | Some p ->
-                                            // Create the file lazily on first write by prepending a header
+                                            // Create the file lazily on first writing by prepending a header
                                             if not fileInitialized then
                                                 let header = $"Start logging %A{level}: %s{DateTime.Now.ToShortTimeString()}"
                                                 Array.append [| header; "" |] lines
@@ -548,14 +548,14 @@ module AgentLogging =
         let disposeAsync () = async {
             if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
                 try
-                    // First stop the logger agent gracefully
+                    // First, stop the logger agent gracefully
                     do! logger.PostAndAsyncReply(fun rc -> Stop rc)
 
-                    // Then cleanup the file writer
+                    // Then clean up the file writer
                     do! W.flushAsync writer
                     do! W.stopAsync writer
 
-                    // Finally cleanup other resources
+                    // Finally, clean up other resources
                     cts.Cancel()
                     cts.Dispose()
                     writer |> Agent.dispose

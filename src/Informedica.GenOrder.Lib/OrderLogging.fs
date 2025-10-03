@@ -16,6 +16,7 @@ module OrderLogging =
     module Units = ValueUnit.Units
     module Quantity = OrderVariable.Quantity
     module Name = Variable.Name
+    module Mapping = EquationMapping
 
 
     let printOrderEqs (o : Order) eqs =
@@ -39,13 +40,13 @@ module OrderLogging =
 
         let mapping =
             match o.Schedule with
-            | Continuous _ -> Order.Mapping.continuous
-            | Once -> Order.Mapping.once
-            | OnceTimed _ -> Order.Mapping.onceTimed
-            | Discontinuous _ -> Order.Mapping.discontinuous
-            | Timed _ -> Order.Mapping.timed
-            |> Order.Mapping.getEquations
-            |> Order.Mapping.getEqsMapping o
+            | Continuous _ -> Mapping.Literals.continuous
+            | Once -> Mapping.Literals.once
+            | OnceTimed _ -> Mapping.Literals.onceTimed
+            | Discontinuous _ -> Mapping.Literals.discontinuous
+            | Timed _ -> Mapping.Literals.timed
+            |> Mapping.getEquations
+            |> Mapping.getEqsMapping o
 
         try
             eqs

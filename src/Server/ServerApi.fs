@@ -319,9 +319,9 @@ module Mappers =
                 |> Option.map (fun rf ->
                     match rf with
                     | EGFR(min, max) -> Informedica.GenForm.Lib.Types.RenalFunction.EGFR(min, max)
-                    | IntermittendHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
-                    | ContinuousHemoDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
-                    | PeritionealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
+                    | IntermittentHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.IntermittentHemodialysis
+                    | ContinuousHemodialysis -> Informedica.GenForm.Lib.Types.RenalFunction.ContinuousHemodialysis
+                    | PeritonealDialysis -> Informedica.GenForm.Lib.Types.RenalFunction.PeritonealDialysis
                 )
         }
         |> Patient.calcPMAge
@@ -741,7 +741,7 @@ module OrderContext =
                 | Api.ReloadResources _ -> ctx |> OrderContext.ReloadResources
             |> OrderContext.logOrderContext logger "start eval"
             |> OrderContext.evaluate logger provider
-            |> ValidatedResult.get 
+            |> ValidatedResult.get
             |> OrderContext.logOrderContext logger "finish eval"
 
         match cmd with
@@ -836,9 +836,9 @@ module Command =
         match cmd with
         | OrderContextCmd ctxCmd ->
             async {
-                let logger = Logging.getSpecificLogger Logging.OrderLogger
+                let logger = Logging.getLogger Logging.OrderLogger
                 do! logger |> Logging.setComponentName (Some "OrderContext")
-                return 
+                return
                     ctxCmd
                     |> OrderContext.evaluate logger.Logger provider
                     |> Result.map (OrderContextUpdated >> OrderContextResp)
@@ -846,7 +846,7 @@ module Command =
 
         | TreatmentPlanCmd (UpdateTreatmentPlan tp) ->
             async {
-                let logger = Logging.getSpecificLogger Logging.TherapyTreatmentPlanLogger
+                let logger = Logging.getLogger Logging.TherapyTreatmentPlanLogger
                 do! logger |> Logging.setComponentName (Some "TreatmentPlan")
                 return
                     tp
@@ -859,7 +859,7 @@ module Command =
 
         | TreatmentPlanCmd (FilterTreatmentPlan tp) ->
             async {
-                let logger = Logging.getSpecificLogger Logging.TherapyTreatmentPlanLogger            
+                let logger = Logging.getLogger Logging.TherapyTreatmentPlanLogger
                 do! logger |> Logging.setComponentName (Some "TreatmentPlan")
                 return
                     tp
@@ -871,7 +871,7 @@ module Command =
 
         | FormularyCmd form ->
             async {
-                let logger = Logging.getSpecificLogger Logging.FormularyLogger
+                let logger = Logging.getLogger Logging.FormularyLogger
                 do! logger |> Logging.setComponentName (Some "Formulary")
                 return
                     form
@@ -881,7 +881,7 @@ module Command =
 
         | ParenteraliaCmd par ->
             async {
-                let logger = Logging.getSpecificLogger Logging.ParenteraliaLogger
+                let logger = Logging.getLogger Logging.ParenteraliaLogger
                 do! logger |> Logging.setComponentName (Some "Parenteralia")
                 return
                     par
@@ -904,12 +904,12 @@ module ApiImpl =
             processCommand =
                 fun cmd ->
                     async {
-                        try 
+                        try
                             writeInfoMessage $"Processing command: {cmd |> Command.toString}"
                             let! result = Command.processCmd provider cmd
                             writeInfoMessage $"Finished processing command: {cmd |> Command.toString}"
                             return result
-                        with 
+                        with
                         | ex ->
                             writeErrorMessage $"Error processing command: {cmd |> Command.toString}\n{ex.Message}"
                             return Error [| ex.Message |]

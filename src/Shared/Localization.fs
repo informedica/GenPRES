@@ -71,8 +71,6 @@ type Terms =
 
 module Localization =
 
-    open System
-
 
     type Locales =
         | English

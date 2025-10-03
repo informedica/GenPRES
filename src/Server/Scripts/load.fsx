@@ -25,7 +25,7 @@
 // These can be loaded all at once.
 
 #load "../../Shared/Types.fs"
-#load "../../Shared/Data.fs"
+#load "../../Shared/Utils.fs"
 #load "../../Shared/Localization.fs"
 #load "../../Shared/Models.fs"
 #load "../../Shared/Api.fs"

@@ -42,7 +42,7 @@ let private createAgent (serverApi: IServerApi) = MailboxProcessor.Start(fun inb
                 let! result = serverApi.processCommand cmd
                 reply.Reply result
             with
-            | ex -> 
+            | ex ->
                 reply.Reply(Error [| ex.Message |])
             return! messageLoop()
 
@@ -95,11 +95,11 @@ let createOrderAgent (serverApi: IServerApi) : OrderAgent =
 
 
 // Create the ServerApi instance properly
-let provider = 
+let provider =
     System.Environment.GetEnvironmentVariable "GENPRES_URL_ID"
     |> Option.ofObj
     |> Option.defaultValue "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
-    |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId
+    |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId Informedica.GenForm.Lib.Logging.noOp
 
 
 let serverApi = ServerApi.ApiImpl.createServerApi provider
@@ -129,12 +129,12 @@ let testFormulary = Models.Formulary.empty
 async {
     let! result = orderAgent.ProcessCommand (FormularyCmd testFormulary)
     match result with
-    | Ok (FormularyResp formulary) -> 
+    | Ok (FormularyResp formulary) ->
         printfn "Successfully processed formulary command"
         printfn $"Found %d{formulary.Generics |> Array.length} generics"
-    | Ok _ -> 
+    | Ok _ ->
         printfn "Unexpected response type"
-    | Error errs -> 
+    | Error errs ->
         printfn "Error: %A" errs
 } |> Async.RunSynchronously
 
@@ -159,17 +159,17 @@ let testOrderContext = {
 
 async {
     let! result = orderAgent.ProcessCommand (
-        testOrderContext 
-        |> Api.UpdateOrderContext 
+        testOrderContext
+        |> Api.UpdateOrderContext
         |> OrderContextCmd
     )
     match result with
-    | Ok (OrderContextResp (OrderContextUpdated ctx)) -> 
+    | Ok (OrderContextResp (OrderContextUpdated ctx)) ->
         printfn "Successfully processed order context command"
         printfn "Updated context with %d scenarios" ctx.Scenarios.Length
-    | Ok _ -> 
+    | Ok _ ->
         printfn "Unexpected response type"
-    | Error errs -> 
+    | Error errs ->
         printfn "Error processing order context: %A" errs
 } |> Async.RunSynchronously
 
@@ -191,12 +191,12 @@ async {
         |> TreatmentPlanCmd
     )
     match result with
-    | Ok (TreatmentPlanResp (TreatmentPlanUpdated tp)) -> 
+    | Ok (TreatmentPlanResp (TreatmentPlanUpdated tp)) ->
         printfn "Successfully processed treatment plan command"
         printfn "Treatment plan has %d scenarios" tp.Scenarios.Length
-    | Ok _ -> 
+    | Ok _ ->
         printfn "Unexpected response type"
-    | Error errs -> 
+    | Error errs ->
         printfn "Error processing treatment plan: %A" errs
 } |> Async.RunSynchronously
 
@@ -208,15 +208,14 @@ let testParenteralia = Models.Parenteralia.empty
 async {
     let! result = orderAgent.ProcessCommand (ParenteraliaCmd testParenteralia)
     match result with
-    | Ok (ParentaraliaResp par) -> 
+    | Ok (ParentaraliaResp par) ->
         printfn "Successfully processed parenteralia command"
         printfn $"Found %d{par.Generics.Length} generics"
-    | Ok _ -> 
+    | Ok _ ->
         printfn "Unexpected response type"
-    | Error errs -> 
+    | Error errs ->
         printfn "Error processing parenteralia: %A" errs
 } |> Async.RunSynchronously
 
 
 printfn "OrderAgent testing completed!"
-

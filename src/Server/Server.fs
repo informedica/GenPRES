@@ -56,7 +56,7 @@ let port =
 
 
 let provider =
-    let logger = Logging.getSpecificLogger Logging.ResourcesLogger
+    let logger = Logging.getLogger Logging.ResourcesLogger
 
     logger
     |> Logging.setComponentName (Some "Provider")
@@ -69,20 +69,20 @@ let provider =
 
 let logClientIP : HttpHandler =
     fun (next : HttpFunc) (ctx : HttpContext) ->
-        let logger = Logging.getSpecificLogger Logging.RequestLogger
+        let logger = Logging.getLogger Logging.RequestLogger
         let clientIP = getClientIP ctx
         let path = ctx.Request.Path.ToString()
         let method = ctx.Request.Method
-        
+
         async {
             do!
-                logger 
-                |> Logging.setComponentName (Some "Client_Request")           
+                logger
+                |> Logging.setComponentName (Some "Client_Request")
             Logging.ServerLogging.logRequest logger method path clientIP
             return ()
         }
         |> Async.Start
-        
+
         // Continue with the next handler
         next ctx
 
@@ -107,7 +107,7 @@ type LoggerShutdown() =
             Task.CompletedTask
 
         member _.StopAsync _ =
-            let logger = Logging.getSpecificLogger Logging.RequestLogger
+            let logger = Logging.getLogger Logging.RequestLogger
 
             writeInfoMessage "Trying to Stop Server Async"
             try

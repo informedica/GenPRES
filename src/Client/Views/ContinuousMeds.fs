@@ -48,7 +48,7 @@ module ContinuousMeds =
                         cells =
                             [|
                                 {| field = "id"; value = $"{i + 1}.{m.Name}" |}
-                                {| field = "catagory"; value = $"{m.Catagory}" |}
+                                {| field = "catagory"; value = $"{m.Category}" |}
                                 {| field = "medication"; value = $"**{m.Name}**" |}
                                 {| field = "quantity"; value = $"{m.Quantity} {m.QuantityUnit}" |}
                                 {| field = "solution"; value = $"{m.Total} ml {m.Solution}" |}

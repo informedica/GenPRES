@@ -58,7 +58,7 @@ module Logging
 
         // Navigate up from assembly location to find server root directory
         let rec findServerRoot dir =
-            // First priority: Check for development scenario (Server.fs exists)
+            // First priority: Check for a development scenario (Server.fs exists)
             if File.Exists(Path.Combine(dir, "Server.fs")) then
                 dir
             // Second priority: Check if we're in a typical development structure with data folder and Server.fs
@@ -70,7 +70,7 @@ module Logging
                 if parent <> null then
                     findServerRoot parent.FullName
                 else
-                    // Last resort: Check for production scenario (Server.dll exists, but no Server.fs)
+                    // Last resort: Check for a production scenario (Server.dll exists, but no Server.fs)
                     if File.Exists(Path.Combine(currentDir, "Server.dll")) &&
                        not (File.Exists(Path.Combine(currentDir, "Server.fs"))) then
                         currentDir
@@ -135,7 +135,7 @@ module Logging
         |> Map.ofList
 
 
-    let getSpecificLogger (loggerType: Loggers) =
+    let getLogger (loggerType: Loggers) =
         loggers[loggerType]
 
 
@@ -169,7 +169,7 @@ module Logging
                 |> function
                 | Ok _->
                     writeDebugMessage $"💾 Logger for {componentName} activated - Writing to: {path}\n"
-                    //| None -> printfn "🖥️  Logger activated - Console only"
+                    //| None -> printfn "🖥️ Logger activated - Console only"
                 | Error s -> writeErrorMessage $"❌ Logger for {componentName} could not be activated:\n{s}\n"
             }
 

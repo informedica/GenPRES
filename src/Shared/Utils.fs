@@ -170,7 +170,7 @@ module NormalValues =
 
     let gcs =
         [
-            // Pedicatric
+            // Pediatric
             5 * 12,
             [
                 "Eye Opening",

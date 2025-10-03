@@ -70,7 +70,7 @@ module EmergencyList =
                     hosp = item.Hospital
                 )
                 |> List.distinctBy (fun item -> 
-                    item.Catagory, item.Name, item.InterventionDoseText)
+                    item.Category, item.Name, item.InterventionDoseText)
                 |> List.toArray
                 |> Array.mapi (fun i m ->
                     let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
@@ -81,7 +81,7 @@ module EmergencyList =
                         cells =
                             [|
                                 {| field = "id"; value = $"{i + 1}" |}
-                                {| field = "catagory"; value = $"{m.Catagory}" |}
+                                {| field = "catagory"; value = $"{m.Category}" |}
                                 {| field = "intervention"; value = $"**{m.Name}**" |}
                                 {| field = "calculated"; value = if b then $"*{m.SubstanceDoseText}*" else m.SubstanceDoseText  |}
                                 {| field = "preparation"; value =  if b then "" else $"*{m.InterventionDoseText}*" |}

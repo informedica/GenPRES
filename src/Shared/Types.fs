@@ -121,9 +121,9 @@ module Types =
 
     and RenalFunction =
         | EGFR of int option * int option
-        | IntermittendHemoDialysis
-        | ContinuousHemoDialysis
-        | PeritionealDialysis
+        | IntermittentHemodialysis // intermittent hemodialysis
+        | ContinuousHemodialysis
+        | PeritonealDialysis
 
 
     type ValueUnit =
@@ -260,7 +260,7 @@ module Types =
     and BolusMedication =
         {
             Hospital: string
-            Catagory: string
+            Category: string
             Generic: string
             MinWeight: float
             MaxWeight: float
@@ -275,7 +275,7 @@ module Types =
     and ContinuousMedication =
         {
             Hospital: string
-            Catagory: string
+            Category: string
             Indication: string
             DoseType: string
             Medication: string
@@ -298,11 +298,11 @@ module Types =
     type Intervention =
         {
             Hospital: string
-            // The intervention catagory
+            // The intervention category
             // == Intervention ==
             // Indication for the intervention
-            Catagory: string
-            // Name of the intervantion
+            Category: string
+            // Name of the intervention
             Name: string
             // == Patient --
             // minWeight
@@ -368,15 +368,10 @@ module Types =
 
     /// Possible Dose Types.
     type DoseType =
-        /// A Once only Dose
         | Once of string
-        /// A Maintenance Dose
         | Discontinuous of string
-        /// A Continuous Dose
         | Continuous of string
-        /// A discontinuous per time
         | Timed of string
-        /// A once per time
         | OnceTimed of string
         | NoDoseType
 
@@ -450,7 +445,7 @@ module Types =
         {
             DemoVersion: bool
             Filter: Filter
-            // NOTE: Maybe not Patient but PatientInfo as things can change, i.e. age, weight, length
+            // NOTE: Maybe not Patient but PatientInfo as things can change, i.e., age, weight, length
             Patient: Patient
             Scenarios: OrderScenario []
             Intake: Totals

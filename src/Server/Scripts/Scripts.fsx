@@ -20,9 +20,9 @@ let tryGetEnv key =
     | x -> Some x
 
 
-let serverApi = 
+let serverApi =
     async {
-        do! Logging.getLogger () |> Logging.activateLogger (Some "ServerApi")
+        let! logger = Logging.getLogger Logging.FormularyLogger |> Logging.setComponentName (Some "ServerApi")
         Console.WriteLine "logger activated"
         let provider = ()
             (*
@@ -35,9 +35,9 @@ let serverApi =
     } |> Async.RunSynchronously
 
 
+(*
 printfn "start"
 async { do! (Logging.getLogger ()).StartAsync (Some "Test.log") Level.Informative |> Async.Ignore }
 |> Async.RunSynchronously
 printfn "stop"
-
-
+*)

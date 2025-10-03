@@ -114,8 +114,8 @@ module Utils =
 
         /// Calculates the number of decimal digits that
         /// should be shown according to a precision
-        /// number n that specifies the number of non
-        /// zero digits in the decimals.
+        /// number n that specifies the number of
+        /// non-zero digits in the decimals.
         /// * 66.666 |> getPrecision 1 = 0
         /// * 6.6666 |> getPrecision 1 = 0
         /// * 0.6666 |> getPrecision 1 = 1
@@ -128,7 +128,7 @@ module Utils =
         /// * 6.6666 |> getPrecision 1 = 0
         /// * 6.6666 |> getPrecision 2 = 1
         /// * 6.6666 |> getPrecision 3 = 2
-        /// etc
+        /// etc.
         /// If n < 0 then n = 0 is used.
         let getPrecision n f = // ToDo fix infinity case
             let n = if n < 0 then 0 else n
@@ -146,12 +146,12 @@ module Utils =
                 if (int s[0]) > 0 then
                     p
                 else
-                    // calculate the the first occurance of a non-zero decimal digit
+                    // calculate the first occurrence of a non-zero decimal digit
                     let c = (s[1] |> String.countFirstChar '0')
                     c + p
 
         /// Fix the precision of a float f to
-        /// match a minimum of non zero digits n
+        /// match a minimum of non-zero digits n
         /// * 66.666 |> fixPrecision 1 = 67
         /// * 6.6666 |> fixPrecision 1 = 7
         /// * 0.6666 |> fixPrecision 1 = 0.7
@@ -164,7 +164,7 @@ module Utils =
         /// * 6.6666 |> fixPrecision 1 = 7
         /// * 6.6666 |> fixPrecision 2 = 6.7
         /// * 6.6666 |> fixPrecision 3 = 6.67
-        /// etc
+        /// etc.
         /// If n < 0 then n = 0 is used.
         let fixPrecision n (f: float) = Math.Round(f, f |> getPrecision n)
 
@@ -199,7 +199,7 @@ module Utils =
                 []
 
 
-        /// Get the nearest index in an list to a target value.
+        /// Get the nearest index in a list to a target value.
         /// Returns the index of the element that has the smallest absolute difference from the target.
         /// Throws an exception if the list is empty.
         let inline nearestIndex x xs =
@@ -299,7 +299,7 @@ module Models =
                     failwith $"birthdate: {bdt} cannot be after current date: {now}"
                 // calculated last birthdate and number of years ago
                 let last, yrs =
-                    // set day one day back if not a leap year and birthdate is at Feb 29 in a leap year
+                    // set day one day back if not a leap year, and the birthdate is at Feb 29 in a leap year
                     let day =
                         if (bdt.Month = 2 && bdt.Day = 29) |> not then bdt.Day
                         else if DateTime.IsLeapYear(now.Year) then bdt.Day
@@ -315,7 +315,7 @@ module Models =
                         else
                             cur.AddYears(-1), cur.Year - bdt.Year - 1
                 // printfn $"last birthdate: {last|> printDate}"
-                // calculate number of months since last birth date
+                // calculate the number of months since last birthdate
                 let mos =
                     [ 1..11 ]
                     |> List.fold
@@ -480,9 +480,9 @@ module Models =
                     | _, Some max when max <= 30 -> options[2]
                     | _, Some max when max <= 50 -> options[1]
                     | _ -> options[0]
-                | IntermittendHemoDialysis -> options[4]
-                | ContinuousHemoDialysis -> options[5]
-                | PeritionealDialysis -> options[6]
+                | IntermittentHemodialysis -> options[4]
+                | ContinuousHemodialysis -> options[5]
+                | PeritonealDialysis -> options[6]
 
 
             let optionToRenal s =
@@ -490,9 +490,9 @@ module Models =
                 | s when s = options[1] -> EGFR(Some 30, Some 50)
                 | s when s = options[2] -> EGFR(Some 10, Some 30)
                 | s when s = options[3] -> EGFR(None, Some 10)
-                | s when s = options[4] -> IntermittendHemoDialysis
-                | s when s = options[5] -> ContinuousHemoDialysis
-                | s when s = options[6] -> PeritionealDialysis
+                | s when s = options[4] -> IntermittentHemodialysis
+                | s when s = options[5] -> ContinuousHemodialysis
+                | s when s = options[6] -> PeritonealDialysis
                 | _ -> EGFR(Some 50, None)
 
 
@@ -693,11 +693,11 @@ module Models =
             | None, Some w, None, Some h -> sqrt (float w * (h |> float) / 3600.) |> Math.fixPrecision 2 |> Some
 
 
-        let applyNormalValues 
-            (normalWeights : NormalValue list option) 
-            (normalHeights : NormalValue list option) 
-            (normalNeoWeights : NormalValue list option) 
-            (normalNeoHeights: NormalValue list option) 
+        let applyNormalValues
+            (normalWeights : NormalValue list option)
+            (normalHeights : NormalValue list option)
+            (normalNeoWeights : NormalValue list option)
+            (normalNeoHeights: NormalValue list option)
             (pat: Patient) =
 
             let wghts =
@@ -730,18 +730,18 @@ module Models =
                     let forGender = forGender age nvs
 
                     match pat.Gender with
-                    | UnknownGender -> 
+                    | UnknownGender ->
                         let mw = "M" |> forGender
                         let fw = "F" |> forGender
                         // take the average of two genders
                         mw
-                        |> Option.bind (fun (mp3, mm, mp97) -> 
-                            fw 
-                            |> Option.map (fun (fp3, fm, fp97) -> 
+                        |> Option.bind (fun (mp3, mm, mp97) ->
+                            fw
+                            |> Option.map (fun (fp3, fm, fp97) ->
                                 (fp3 + mp3) / 2.
                                 , (fm + mm) / 2.
                                 , (fp97 + mp97) / 2.
-                            )   
+                            )
                         )
                     | _ ->
                         if pat.Gender = Female then "F" else "M"
@@ -752,14 +752,14 @@ module Models =
                 | None -> None, None
                 | Some age ->
                     match pat |> getPostConceptionalAgeInDays with
-                    | Some days -> 
+                    | Some days ->
                         let pcAgeInWeeks = (days |> float) / 7.
 
-                        let weight = 
-                            normalNeoWeights 
+                        let weight =
+                            normalNeoWeights
                             |> nearest pcAgeInWeeks
                             |> Option.map (fun (p3, m, p97) ->
-                                let m = 
+                                let m =
                                     wghts
                                     |> List.nearestIndex (int m)
                                     |> fun idx -> wghts[idx]
@@ -770,7 +770,7 @@ module Models =
                             )
 
                         let height =
-                            normalNeoHeights 
+                            normalNeoHeights
                             |> nearest pcAgeInWeeks
                             |> Option.map (fun (p3, m, p97) ->
                                 let m =
@@ -784,11 +784,11 @@ module Models =
                             )
 
                         weight, height
-                    | None -> 
+                    | None ->
                         let ageInYears = age |> Age.calcYears
 
-                        let weight = 
-                            normalWeights 
+                        let weight =
+                            normalWeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
                                 let m =
@@ -799,10 +799,10 @@ module Models =
                                 int p3 * 1000<gram>,
                                 m,
                                 int p97 * 1000<gram>
-                            )                        
+                            )
 
-                        let height = 
-                            normalHeights 
+                        let height =
+                            normalHeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
                                 let m =
@@ -813,25 +813,25 @@ module Models =
                                 int p3 * 1<cm>,
                                 m,
                                 int p97 * 1<cm>
-                            )                       
+                            )
 
                         weight, height
 
-            { pat with 
-                Weight = 
-                    { pat.Weight with 
+            { pat with
+                Weight =
+                    { pat.Weight with
                         EstimatedP3 = ew |> Option.map (fun (p3, _, _) -> p3)
                         Estimated = ew |> Option.map (fun (_, m, _) -> m)
                         EstimatedP97 = ew |> Option.map (fun (_, _, p97) -> p97)
                         Measured = pat.Weight.Measured |> Option.orElse (ew |> Option.map (fun (_, m, _) -> m))
                     }
-                Height = 
-                    { pat.Height with 
+                Height =
+                    { pat.Height with
                         EstimatedP3 = eh |> Option.map (fun (p3, _, _) -> p3)
-                        Estimated = eh |> Option.map (fun (p3, m, p97) -> m)
+                        Estimated = eh |> Option.map (fun (_, m, _) -> m)
                         EstimatedP97 = eh |> Option.map (fun (_, _, p97) -> p97)
                         Measured = pat.Height.Measured |> Option.orElse (eh |> Option.map (fun (_, m, _) -> m))
-                    } 
+                    }
             }
 
 
@@ -852,9 +852,9 @@ module Models =
 
             [
                 match pat.Gender with
-                | Male -> 
+                | Male ->
                     if isAdult then Some "Man" else Some "Jongen"
-                | Female -> 
+                | Female ->
                     if isAdult then Some "Vrouw" else Some "Meisje"
                 | UnknownGender -> Some "Onbekend geslacht"
                 |> bold
@@ -943,7 +943,7 @@ module Models =
         let emptyIntervention =
             {
                 Hospital = ""
-                Catagory = ""
+                Category = ""
                 Name = ""
                 MinWeightKg = None
                 MaxWeightKg = None
@@ -1005,7 +1005,7 @@ module Models =
 
             { Intervention.emptyIntervention with
                 Hospital = hosp
-                Catagory = indication
+                Category = indication
                 Name = name
                 InterventionDose = Some m
                 SubstanceDoseText = doseTextFn m
@@ -1043,14 +1043,14 @@ module Models =
 
 
         let calcFluidBolus wght =
-            let d, _ = 
+            let d, _ =
                 if wght < 3. then
                     calcDoseVol wght 20. 1. 0. 1000.
                 else
                     calcDoseVol wght 10. 1. 0. 500.
 
             { Intervention.emptyIntervention with
-                Catagory = "reanimatie"
+                Category = "reanimatie"
                 Name = "vaatvulling"
                 SubstanceDose = Some d
                 SubstanceDoseUnit = "ml"
@@ -1058,7 +1058,7 @@ module Models =
                 SubstanceDoseText = $"%A{d} ml NaCl 0.9%%"
                 SubstanceDoseAdjust = d / wght |> Math.fixPrecision 1 |> Some
                 SubstanceDoseAdjustUnit = "ml/kg"
-                Text = 
+                Text =
                     if wght < 3. then
                         "20 ml/kg"
                     else
@@ -1106,7 +1106,7 @@ module Models =
 
                     | true, false -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg (max %A{bolus.MaxDose} %s{bolus.Unit})"
                     | false, true -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg (min %A{bolus.MinDose} %s{bolus.Unit})"
-                    | false, false -> 
+                    | false, false ->
                         if bolus.MinDose = bolus.MaxDose then
                             $"%A{bolus.MinDose} %s{bolus.Unit}"
                         else
@@ -1114,7 +1114,7 @@ module Models =
 
             { Intervention.emptyIntervention with
                 Hospital = bolus.Hospital
-                Catagory = bolus.Catagory
+                Category = bolus.Category
                 Name = bolus.Generic
                 Quantity = Some c
                 QuantityUnit = bolus.Unit
@@ -1126,14 +1126,14 @@ module Models =
                 SubstanceMinDose = if bolus.MinDose = 0. then None else Some bolus.MinDose
                 SubstanceMaxDose = if bolus.MaxDose = 0. then None else Some bolus.MaxDose
                 SubstanceDoseUnit = bolus.Unit
-                SubstanceDoseAdjust = 
-                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then None 
+                SubstanceDoseAdjust =
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then None
                     else Some(d / wght |> Math.fixPrecision 1)
-                SubstanceNormDoseAdjust = 
-                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then None 
+                SubstanceNormDoseAdjust =
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then None
                     else Some bolus.NormDose
-                SubstanceDoseAdjustUnit = 
-                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then "" 
+                SubstanceDoseAdjustUnit =
+                    if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then ""
                     else $"{bolus.Unit}/kg"
                 SubstanceDoseText =
                     if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then
@@ -1147,7 +1147,7 @@ module Models =
         let createBolus hosp indication medication minWght maxWght dose min max conc unit remark =
             {
                 Hospital = hosp
-                Catagory = indication
+                Category = indication
                 Generic = medication
                 MinWeight = minWght
                 MaxWeight = maxWght
@@ -1331,7 +1331,7 @@ module Models =
             =
             {
                 Hospital = hospital
-                Catagory = catagory
+                Category = catagory
                 Indication = indication
                 DoseType = dosetype
                 Medication = medication
@@ -1417,7 +1417,7 @@ module Models =
 
             contMeds
             |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
-            |> List.sortBy (fun med -> med.Catagory, med.Medication)
+            |> List.sortBy (fun med -> med.Category, med.Medication)
             |> List.collect (fun med ->
                 let vol = med.Total
                 // TODO: really ugly hack to meet specific dose calc
@@ -1436,7 +1436,7 @@ module Models =
                     [
                         { Intervention.emptyIntervention with
                             Hospital = med.Hospital
-                            Catagory = med.Catagory
+                            Category = med.Category
                             Name = med.Medication
                             Quantity = Some qty
                             QuantityUnit = med.Unit
