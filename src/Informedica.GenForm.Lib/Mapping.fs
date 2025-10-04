@@ -9,7 +9,6 @@ module Mapping =
     open Informedica.GenUnits.Lib
 
     open GenFormResult
-    open Informedica.ZForm.Lib.Utils.Web
 
 
     module Constants =

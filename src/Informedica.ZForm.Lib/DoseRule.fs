@@ -289,6 +289,26 @@ module DoseRule =
             let exclMaxAbsBSALens =
                 DoseRange.AbsBSA_ >-> fst_ >-> MinMax.exclMaxLens
 
+        let private vuToStr vu =
+            let milliGram = Units.Mass.milliGram
+
+            let gram = Units.Mass.gram
+            let day = Units.Time.day
+
+            let per = ValueUnit.per
+            let convertTo = ValueUnit.convertTo
+
+            let milliGramPerDay = milliGram |> per day
+            let gramPerDay = gram |> per day
+
+            vu
+            |> (fun vu ->
+                match vu |> ValueUnit.get with
+                | v, u when v >= [| 1000N |] && u = milliGram -> vu |> convertTo gram
+                | v, u when v >= [| 1000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
+                | _ -> vu
+            )
+            |> ValueUnit.toStringDecimalDutchShortWithPrec 2
 
 
         /// <summary>
@@ -355,7 +375,7 @@ module DoseRule =
                     nb / (nub |> MinMax.one) |> optRate, ab / (aub |> MinMax.one) |> optRate
 
             let mmToStr =
-                MinMax.toString "van (incl) " "van (excl) " "tot (incl) " "tot (excl) "
+                MinMax.toString vuToStr "van (incl) " "van (excl) " "tot (incl) " "tot (excl) "
 
             norm |> mmToStr
             >+ (nw |> mmToStr)

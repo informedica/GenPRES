@@ -427,7 +427,6 @@ module MinMax =
     module Calculator =
 
 
-
         let minGTmax gt gte isMinIncl isMaxIncl max min =
             if max |> isMaxIncl && min |> isMinIncl then
                 min |> gt <| max
@@ -999,11 +998,11 @@ module MinMax =
                 dto
 
 
-    /// TODO: this makes no sense in this lib!!!
     /// Turn a `MinMax` to a string with
     /// `mins` and `maxs` as annotations
     /// for resp. the min and max value.
-    let toString minInclStr minExclStr maxInclStr maxExclStr { Min = min; Max = max } =
+    let toString vuToStr minInclStr minExclStr maxInclStr maxExclStr { Min = min; Max = max } =
+        (*
         let vuToStr vu =
             let milliGram = Units.Mass.milliGram
 
@@ -1024,6 +1023,7 @@ module MinMax =
                 | _ -> vu
             )
             |> ValueUnit.toStringDecimalDutchShortWithPrec 2
+        *)
 
         let minToString min =
             match min with

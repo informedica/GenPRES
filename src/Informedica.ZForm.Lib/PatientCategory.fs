@@ -4,6 +4,7 @@
 module PatientCategory =
 
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
     open Aether
@@ -170,7 +171,13 @@ module PatientCategory =
             if s |> String.isNullOrWhiteSpace then sl
             else sl + (if sl = "" then " " else  ", ") + l + s
 
-        let mmToStr = MinMax.toString "van " "van " "tot " "tot "
+        let mmToStr =
+            MinMax.toString
+                (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+                "van "
+                "van "
+                "tot "
+                "tot "
 
         ""
         >+ ("Zwangerschapsduur: ", ga |> MinMax.gestAgeToString)

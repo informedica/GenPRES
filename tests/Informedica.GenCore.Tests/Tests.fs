@@ -295,8 +295,14 @@ module Tests =
 
         module MinMax = MinMax.Optics
 
+
         let mmToStr =
-            MinMax.toString "van (incl) " "van (incl) " "tot (incl) " "tot (excl) "
+            MinMax.toString
+                (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+                "van (incl) "
+                "van (incl) "
+                "tot (incl) "
+                "tot (excl) "
 
 
         let createValueUnit (d: decimal) u =

@@ -37,7 +37,7 @@ module SolutionRule =
         routeMapping
         (parenteral : Product[])
         products
-        : GenFormResult<_> 
+        : GenFormResult<_>
         =
         try
 
@@ -214,7 +214,7 @@ module SolutionRule =
                 )
             |> createOkNoMsgs
         with
-        | exn -> 
+        | exn ->
             createError "Error in SolutionRule.getResult: " exn
 
 
@@ -284,10 +284,32 @@ module SolutionRule =
         module MinMax = MinMax
         module Limit = Limit
 
+        let private vuToStr vu =
+            let milliGram = Units.Mass.milliGram
+
+            let gram = Units.Mass.gram
+            let day = Units.Time.day
+
+            let per = ValueUnit.per
+            let convertTo = ValueUnit.convertTo
+
+            let milliGramPerDay = milliGram |> per day
+            let gramPerDay = gram |> per day
+
+            vu
+            |> (fun vu ->
+                match vu |> ValueUnit.get with
+                | v, u when v >= [| 1000N |] && u = milliGram -> vu |> convertTo gram
+                | v, u when v >= [| 1000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
+                | _ -> vu
+            )
+            |> ValueUnit.toStringDecimalDutchShortWithPrec 2
+
+
 
         /// Get the string representation of a SolutionLimit.
         let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
-            let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
+            let mmToStr = MinMax.toString vuToStr "min. " "min. " "max. " "max. "
 
             let loc =
                 match sr.PatientCategory.Location with
@@ -464,6 +486,7 @@ module SolutionRule =
                                                     sel.Weight
                                                     |> MinMax.convertTo Units.Weight.kiloGram
                                                     |> MinMax.toString
+                                                        vuToStr
                                                         "van "
                                                         "van "
                                                         "tot "
@@ -483,10 +506,11 @@ module SolutionRule =
                                         let dose =
                                             sel.Dose
                                             |> MinMax.toString
-                                                    "van "
-                                                    "van "
-                                                    "tot "
-                                                    "tot "
+                                                vuToStr
+                                                "van "
+                                                "van "
+                                                "tot "
+                                                "tot "
 
                                         let dt =
                                             let s = sel.DoseType |> DoseType.toDescription
