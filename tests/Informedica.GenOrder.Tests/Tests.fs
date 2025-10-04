@@ -13,7 +13,7 @@ module Tests
 
     // Original test data used by several tests below
     let testDrugOrders = [
-        { MedicationOrder.drugOrder with
+        { MedicationOrder.order with
             Id = "DO1"
             Name = "Test Drug Order 1"
             OrderType = DiscontinuousOrder
@@ -50,7 +50,7 @@ module Tests
                 }
             ] 
         }
-        { MedicationOrder.drugOrder with
+        { MedicationOrder.order with
             Id = "DO2"
             Name = "Test Drug Order 2"
             OrderType = TimedOrder
@@ -569,7 +569,7 @@ module Tests
         
         let tests = testList "DrugOrder" [
             test "drugOrder default values" {
-                let drugOrder = MedicationOrder.drugOrder
+                let drugOrder = MedicationOrder.order
                 drugOrder.Id |> Expect.equal "should be empty" ""
                 drugOrder.Name |> Expect.equal "should be empty" ""
                 drugOrder.Components |> Expect.isEmpty "should be empty"

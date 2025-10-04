@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":".NET"},{"name":"csharp"},{"name":"html","languageName":"HTML"},{"name":"vscode","aliases":["frontend"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":".NET"},{"name":"csharp"},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"},{"name":"vscode","aliases":["frontend"]}]}}
 
 #!markdown
 
@@ -38,13 +38,13 @@ Now define a drug order. In this example a paracetamol suppository with the foll
 // Paracetamol supp example
 // First define the drug order
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "paracetamol"
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with 
+                    MedicationOrder.productComponent with 
                         Name = "paracetamol"
                         Shape = "supp"
                         Quantities = 
@@ -54,7 +54,7 @@ Now define a drug order. In this example a paracetamol suppository with the foll
                         Substances =
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "paracetamol"
                                         Concentrations = 
                                             [| 60N; 120N; 240N; 500N; 1000N |]
@@ -67,7 +67,7 @@ Now define a drug order. In this example a paracetamol suppository with the foll
         Route = "rect"
         OrderType = DiscontinuousOrder
 }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto
@@ -80,13 +80,13 @@ Another paracetamol example. However now we have a paracetamol solution. This me
 
 // Paracetamol drink
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "paracetamol"
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with 
+                    MedicationOrder.productComponent with 
                         Name = "paracetamol"
                         Shape = "drink"
                         Quantities = 
@@ -96,7 +96,7 @@ Another paracetamol example. However now we have a paracetamol solution. This me
                         Substances =
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "paracetamol"
                                         Concentrations = 
                                             [| 24N |]
@@ -113,7 +113,7 @@ Another paracetamol example. However now we have a paracetamol solution. This me
             |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
             |> Some
 }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto
@@ -130,13 +130,13 @@ Now do this for a more complicated example in which a ``Component``, i.e. a prod
 // Drug with multiple items
 // cotrimoxazol for infection
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "cotrimoxazol"
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with 
+                    MedicationOrder.productComponent with 
                         Name = "cotrimoxazol"
                         Shape = "tablet"
                         Quantities = 
@@ -147,7 +147,7 @@ Now do this for a more complicated example in which a ``Component``, i.e. a prod
                         Substances =
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "sulfamethoxazol"
                                         Concentrations = 
                                             [| 100N; 400N; 800N |]
@@ -155,7 +155,7 @@ Now do this for a more complicated example in which a ``Component``, i.e. a prod
                                             |> Some
                                 }
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "trimethoprim"
                                         Concentrations = 
                                             [| 20N; 80N; 160N |]
@@ -172,7 +172,7 @@ Now do this for a more complicated example in which a ``Component``, i.e. a prod
             |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
             |> Some
 }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto
@@ -186,13 +186,13 @@ The same *cotrimoxazol* example, but now contained in a drinkable solution.
 // Drug with multiple items
 // cotrimoxazol drink for infection
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "cotrimoxazol"
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with 
+                    MedicationOrder.productComponent with 
                         Name = "cotrimoxazol"
                         Shape = "drink"
                         Quantities = 
@@ -202,7 +202,7 @@ The same *cotrimoxazol* example, but now contained in a drinkable solution.
                         Substances =
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "sulfamethoxazol"
                                         Concentrations = 
                                             [| 40N |]
@@ -210,7 +210,7 @@ The same *cotrimoxazol* example, but now contained in a drinkable solution.
                                             |> Some
                                 }
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "trimethoprim"
                                         Concentrations = 
                                             [| 8N |]
@@ -227,7 +227,7 @@ The same *cotrimoxazol* example, but now contained in a drinkable solution.
             |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
             |> Some
 }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto
@@ -245,7 +245,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
 // Dopamin infusion calculate scenario's 
 // with a number of standard solutions
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "dopamin infusion"
         Quantities = 
@@ -255,7 +255,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with
+                    MedicationOrder.productComponent with
                         Name = "dopamin"
                         Shape = "infusion fluid"
                         Quantities = 
@@ -266,7 +266,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
                         Substances = 
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "dopamin"
                                         Concentrations = 
                                             [| 40N |]
@@ -276,7 +276,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
                             ]
                 }
                 { 
-                    DrugOrder.productComponent with
+                    MedicationOrder.productComponent with
                         Name = "saline"
                         Shape = "infusion fluid"
                         Quantities = 
@@ -287,7 +287,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
                         Substances = 
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "sodium"
                                         Concentrations = 
                                             [| 155N / 1000N |]
@@ -295,7 +295,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
                                             |> Some
                                 }
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "chloride"
                                         Concentrations = 
                                             [| 155N / 1000N |]
@@ -308,7 +308,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
         Route = "iv"
         OrderType = ContinuousOrder
 }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto
@@ -322,7 +322,7 @@ A different way to calculate the same dopamine pump infusion order.
 // Dopamin infusion calculate scenario's 
 // with a fixed infusion - dose rate
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "dopamin infusion"
         Quantities = 
@@ -332,7 +332,7 @@ A different way to calculate the same dopamine pump infusion order.
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with
+                    MedicationOrder.productComponent with
                         Name = "dopamin"
                         Shape = "infusion fluid"
                         Quantities = 
@@ -343,7 +343,7 @@ A different way to calculate the same dopamine pump infusion order.
                         Substances = 
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "dopamin"
                                         Concentrations = 
                                             [| 40N |]
@@ -353,7 +353,7 @@ A different way to calculate the same dopamine pump infusion order.
                             ]
                 }
                 { 
-                    DrugOrder.productComponent with
+                    MedicationOrder.productComponent with
                         Name = "saline"
                         Shape = "infusion fluid"
                         Quantities = 
@@ -364,7 +364,7 @@ A different way to calculate the same dopamine pump infusion order.
                         Substances = 
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "sodium"
                                         Concentrations = 
                                             [| 155N / 1000N |]
@@ -372,7 +372,7 @@ A different way to calculate the same dopamine pump infusion order.
                                             |> Some
                                 }
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "chloride"
                                         Concentrations = 
                                             [| 155N / 1000N |]
@@ -385,7 +385,7 @@ A different way to calculate the same dopamine pump infusion order.
         Route = "iv"
         OrderType = ContinuousOrder
 }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto
@@ -398,13 +398,13 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
 
 // gentamicin
 {
-    DrugOrder.drugOrder with
+    MedicationOrder.order with
         Id = "1"
         Name = "gentamicin"
         Components = 
             [
                 { 
-                    DrugOrder.productComponent with
+                    MedicationOrder.productComponent with
                         Name = "gentamicin"
                         Shape = "infusion fluid"
                         Quantities = 
@@ -415,7 +415,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
                         Substances = 
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "gentamicin"
                                         Concentrations = 
                                             [| 10N; 40N |]
@@ -425,7 +425,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
                             ]
                 }
                 { 
-                    DrugOrder.productComponent with
+                    MedicationOrder.productComponent with
                         Name = "saline"
                         Shape = "infusion fluid"
                         Quantities = 
@@ -436,7 +436,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
                         Substances = 
                             [
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "sodium"
                                         Concentrations = 
                                             [| 155N / 1000N |]
@@ -444,7 +444,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
                                             |> Some
                                 }
                                 {
-                                    DrugOrder.substanceItem with
+                                    MedicationOrder.substanceItem with
                                         Name = "chloride"
                                         Concentrations = 
                                             [| 155N / 1000N |]
@@ -461,7 +461,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
             |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
             |> Some
     }
-|> DrugOrder.toOrderDto
+|> MedicationOrder.toOrderDto
 |> fun dto -> 
     printfn "%A" dto
     dto

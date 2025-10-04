@@ -96,7 +96,7 @@ module MedicationOrder =
 
 
     /// An empty DrugOrder record.
-    let drugOrder =
+    let order =
         {
             Id = ""
             Name = ""
@@ -307,7 +307,7 @@ module MedicationOrder =
 
     /// Create a DrugOrder from patient information and dose rules
     let create (pat : Patient) au dose (dr : DoseRule) (sr: SolutionRule option) =
-        { drugOrder with
+        { order with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> String.toLower
             Components =
