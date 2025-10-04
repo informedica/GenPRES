@@ -322,10 +322,10 @@ module private Elmish =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
-            OrderContext = 
+            OrderContext =
                 match med with
                 | None -> HasNotStartedYet
-                | Some m -> 
+                | Some m ->
                     OrderContext.empty |> OrderContext.setMedication m.medication m.route m.indication
                     |> Resolved
             TreatmentPlan =
@@ -446,9 +446,12 @@ module private Elmish =
 
     let update (msg: Msg) (state: State) =
         let processOk = processApiMsg state
-        let processError s =
-            Logging.error "error" s
-            state, Cmd.none
+        let processError err (state, cmd) =
+            Logging.error "error" err
+            { state with
+                SnackbarMsg = "Er ging iets mis, herladen"
+                SnackbarOpen = true
+            }, cmd
 
         match msg with
         | CloseSnackbar ->
@@ -541,18 +544,18 @@ module private Elmish =
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
-                Patient =  pat 
+                Patient =  pat
                 OrderContext =
                     match med with
                     | None -> state.OrderContext
-                    | Some m ->                        
+                    | Some m ->
                         match state.OrderContext with
                         | InProgress -> state.OrderContext
-                        | HasNotStartedYet -> 
-                            OrderContext.empty 
+                        | HasNotStartedYet ->
+                            OrderContext.empty
                             |> OrderContext.setMedication m.medication m.route m.indication |> Resolved
-                        | Resolved ctx -> 
-                            ctx 
+                        | Resolved ctx ->
+                            ctx
                             |> OrderContext.setMedication m.medication m.route m.indication
                             |> Resolved
                 Context =
@@ -718,7 +721,9 @@ module private Elmish =
                     |> loadOrderContext LoadResourcesReloaded
 
         | LoadResourcesReloaded (Finished (Ok msg)) -> msg |> processOk
-        | LoadResourcesReloaded (Finished (Error err)) -> err |> processError
+        | LoadResourcesReloaded (Finished (Error err)) ->
+            (state, Cmd.none)
+            |> processError err
 
         | LoadUpdatedOrderContext Started ->
             match state.Patient with
@@ -741,7 +746,11 @@ module private Elmish =
                     |> loadOrderContext LoadUpdatedOrderContext
 
         | LoadUpdatedOrderContext (Finished (Ok msg)) -> msg |> processOk
-        | LoadUpdatedOrderContext (Finished (Error err)) -> err |> processError
+        | LoadUpdatedOrderContext (Finished (Error err)) ->
+            Logging.error "error in LoadUpdatedOrderContext" err
+            ({ state with OrderContext = HasNotStartedYet },
+            LoadUpdatedOrderContext Started |> Cmd.ofMsg)
+            |> processError err
 
         | LoadSelectedOrderScenario Started ->
             match state.OrderContext with
@@ -756,7 +765,10 @@ module private Elmish =
                 |> loadOrderContext LoadSelectedOrderScenario
 
         | LoadSelectedOrderScenario (Finished (Ok msg)) -> msg |> processOk
-        | LoadSelectedOrderScenario (Finished (Error err)) -> err |> processError
+        | LoadSelectedOrderScenario (Finished (Error err)) ->
+            ({ state with OrderContext = HasNotStartedYet },
+            LoadUpdatedOrderContext Started |> Cmd.ofMsg)
+            |> processError err
 
         | LoadUpdatedOrderScenario Started ->
             match state.OrderContext with
@@ -771,12 +783,14 @@ module private Elmish =
                 |> loadOrderContext LoadUpdatedOrderScenario
 
         | LoadUpdatedOrderScenario (Finished (Ok msg)) -> msg |> processOk
-        | LoadUpdatedOrderScenario (Finished (Error err)) -> err |> processError
+        | LoadUpdatedOrderScenario (Finished (Error err)) ->
+            ({ state with OrderContext = HasNotStartedYet },
+            LoadUpdatedOrderContext Started |> Cmd.ofMsg)
+            |> processError err
 
         | LoadRefreshedOrderScenario Started ->
             match state.OrderContext with
             | HasNotStartedYet ->
-                Logging.error "select order scenario doesn't match state" state
                 state, Cmd.none
             | InProgress -> state, Cmd.none
             | Resolved ctx ->
@@ -786,7 +800,10 @@ module private Elmish =
                 |> loadOrderContext LoadRefreshedOrderScenario
 
         | LoadRefreshedOrderScenario (Finished (Ok msg)) -> msg |> processOk
-        | LoadRefreshedOrderScenario (Finished (Error err)) -> err |> processError
+        | LoadRefreshedOrderScenario (Finished (Error err)) ->
+            ({ state with OrderContext = HasNotStartedYet },
+            LoadUpdatedOrderContext Started |> Cmd.ofMsg)
+            |> processError err
 
         | TreatmentPlanCommand tpCmd ->
             match tpCmd with
@@ -832,7 +849,10 @@ module private Elmish =
                     |> loadTreatmentPlan LoadUpdatedTreatmentPlan
 
         | LoadUpdatedTreatmentPlan (Finished (Ok msg)) -> msg |> processOk
-        | LoadUpdatedTreatmentPlan (Finished (Error err)) -> err |> processError
+        | LoadUpdatedTreatmentPlan (Finished (Error err)) ->
+            ({ state with TreatmentPlan = HasNotStartedYet },
+            LoadUpdatedTreatmentPlan Started |> Cmd.ofMsg)
+            |> processError err
 
         | LoadFilteredTreatmentPlan Started ->
             match state.Patient with
@@ -852,7 +872,10 @@ module private Elmish =
                     |> loadTreatmentPlan LoadFilteredTreatmentPlan
 
         | LoadFilteredTreatmentPlan (Finished (Ok msg)) -> msg |> processOk
-        | LoadFilteredTreatmentPlan (Finished (Error err)) -> err |> processError
+        | LoadFilteredTreatmentPlan (Finished (Error err)) ->
+            ({ state with TreatmentPlan = HasNotStartedYet },
+            LoadUpdatedTreatmentPlan Started |> Cmd.ofMsg)
+            |> processError err
 
         | LoadFormulary Started ->
             let form =

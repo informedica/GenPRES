@@ -48,7 +48,7 @@ module Autocomplete =
         <Autocomplete
             sx={ {| minWidth = 300 |} }
             id={props.label}
-//            disabled={props.isLoading |> not}
+            blurOnSelect
             value={props.selected |> Option.defaultValue ""}
             onChange={handleChange}
             options={props.values}

@@ -768,11 +768,11 @@ module OrderContext =
                     | OrderContext.UpdateOrderScenario newCtx -> newCtx |> map
                     | OrderContext.ResetOrderScenario newCtx -> newCtx |> map
                     | OrderContext.ReloadResources newCtx -> newCtx |> map
+                |> Ok
             with
             | e ->
                 writeErrorMessage $"errored:\n{e}"
-                ctx
-            |> Ok
+                raise e
 
 
 module TreatmentPlan =
