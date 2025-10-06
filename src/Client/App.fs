@@ -31,7 +31,7 @@ module private Elmish =
             Parenteralia: Deferred<Parenteralia>
             Localization : Deferred<string [][]>
             Hospitals : Deferred<string []>
-            Context : Global.Context
+            Context : Context
             ShowDisclaimer: bool
             IsDemo : bool
             SnackbarMsg : string
@@ -268,11 +268,11 @@ module private Elmish =
 
             let page =
                 match paramsMap |> Map.tryFind "pg" with
-                | Some s when s = "el" -> Some Global.LifeSupport
-                | Some s when s = "cm" -> Some Global.ContinuousMeds
-                | Some s when s = "pr" -> Some Global.Prescribe
-                | Some s when s = "fm" -> Some Global.Formulary
-                | Some s when s = "pe" -> Some Global.Parenteralia
+                | Some s when s = "el" -> Some LifeSupport
+                | Some s when s = "cm" -> Some ContinuousMeds
+                | Some s when s = "pr" -> Some Prescribe
+                | Some s when s = "fm" -> Some Formulary
+                | Some s when s = "pe" -> Some Parenteralia
                 | _ -> None
 
             let lang =
@@ -316,7 +316,7 @@ module private Elmish =
     let initialState pat page lang discl (med : {| medication: string option; route: string option; indication: string option; dosetype: DoseType option |} option) =
         {
             ShowDisclaimer = discl
-            Page = page |> Option.defaultValue Global.LifeSupport
+            Page = page |> Option.defaultValue LifeSupport
             Patient = pat
             NormalValues = HasNotStartedYet
             BolusMedication = HasNotStartedYet

@@ -1,4 +1,4 @@
-module Tests 
+module Tests
 
     open MathNet.Numerics
     open Expecto
@@ -35,7 +35,7 @@ module Tests
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 50N |] )
                             Dose = DoseLimit.limit |> Some
                         }
-                    ] 
+                    ]
                 }
                 { Medication.productComponent with
                     Name = "Component B"
@@ -46,9 +46,9 @@ module Tests
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 150N |] )
                             Dose = DoseLimit.limit |> Some
                         }
-                    ] 
+                    ]
                 }
-            ] 
+            ]
         }
         { Medication.order with
             Id = "DO2"
@@ -64,9 +64,9 @@ module Tests
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 200N |] )
                             Dose = DoseLimit.limit |> Some
                         }
-                    ] 
+                    ]
                 }
-            ] 
+            ]
         }
     ]
 
@@ -83,7 +83,7 @@ module Tests
     module Pipeline =
         open Informedica.GenOrder.Lib.Order
 
-        module OV = Informedica.GenOrder.Lib.OrderVariable
+        module OV = OrderVariable
         module Units = Informedica.GenUnits.Lib.Units
 
         let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
@@ -94,19 +94,19 @@ module Tests
                 testDrugOrders
                 |> List.tryFind (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
                 |> Option.defaultValue (testDrugOrders |> List.head)
-            drugOrder 
-            |> Medication.toOrderDto 
-            |> Order.Dto.fromDto 
+            drugOrder
+            |> Medication.toOrderDto
+            |> Dto.fromDto
             |> Result.get
 
         // Also a minimal empty order for CalcMinMax path
         let private mkEmptyOrder () =
-            Order.Dto.discontinuous "T" "Test" "PO" [] |> Order.Dto.fromDto
+            Dto.discontinuous "T" "Test" "PO" [] |> Dto.fromDto
             |> Result.get
 
         let private countValues (o: Order) =
             o
-            |> Order.toOrdVars
+            |> toOrdVars
             |> List.filter OrderVariable.hasValues
             |> List.length
 
@@ -157,7 +157,7 @@ module Tests
                     let ord =
                         let hz = Units.per Units.Time.hour Units.Count.times
                         { ord0 with Schedule = Discontinuous (ord0.Schedule |> Schedule.getFrequency |> Option.defaultValue (OV.Frequency.create (Name "frq") hz)) }
-                        |> Order.OrderPropertyChange.proc [ ScheduleFrequency (fun (Frequency f) -> Frequency (OrderVariable.clear f)) ]
+                        |> OrderPropertyChange.proc [ ScheduleFrequency (fun (Frequency f) -> Frequency (OrderVariable.clear f)) ]
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
@@ -183,7 +183,7 @@ module Tests
                     // Ensure continuous prescription with a valid time and clear a component orderable concentration
                     let tme = ord0.Schedule |> Schedule.getTime |> Option.defaultValue (OV.Time.create (Name "t") Units.Time.hour)
                     let ord = { ord0 with Schedule = Continuous tme }
-                    let ord = ord |> Order.OrderPropertyChange.proc [ ComponentOrderableConcentration ("", fun (Concentration c) -> Concentration (OrderVariable.clear c)) ]
+                    let ord = ord |> OrderPropertyChange.proc [ ComponentOrderableConcentration ("", fun (Concentration c) -> Concentration (OrderVariable.clear c)) ]
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
                     match res with
@@ -227,7 +227,7 @@ module Tests
             |> Option.map (fun p ->
                 p.Quantities
                 |> Option.map ValueUnit.getUnit
-                , 
+                ,
                 p.Divisible
             )
             |> function
@@ -236,7 +236,7 @@ module Tests
                     1N/d
                     |> createSingleValueUnitDto u
             | _ -> ()
-                
+
             orbDto.DoseCount.Constraints
             |>  MinMax.setConstraints None d.DoseCount
 
@@ -334,7 +334,7 @@ module Tests
                 | None -> ()
 
             // TODO: not good, can vary per product!!
-            orbDto.Dose.Quantity.Constraints.IncrOpt <- 
+            orbDto.Dose.Quantity.Constraints.IncrOpt <-
                 d.Components
                 |> List.tryHead
                 |> Option.bind (fun p ->
@@ -579,7 +579,7 @@ module Tests
     // Add your test modules here
     module DrugOrderTests =
 
-        
+
         let tests = testList "DrugOrder" [
             test "drugOrder default values" {
                 let drugOrder = Medication.order
@@ -629,7 +629,7 @@ module Tests
                     |> Expect.equal "should be equal" ord2.Id
                     ord1.Route
                     |> Expect.equal "should be equal" ord2.Route
-                    ord1.Schedule 
+                    ord1.Schedule
                     |> Expect.equal "should be equal" ord2.Schedule
                     ord1.Orderable.Name
                     |> Expect.equal "should be equal" ord2.Orderable.Name
@@ -644,14 +644,14 @@ module Tests
                     printfn $"{drugOrder.Components[0].Dose}"
                     ord1.Orderable.Dose.Quantity
                     |> Expect.notEqual "should NOT be equal" ord2.Orderable.Dose.Quantity
-                }   
+                }
 
             ]
         ]
 
     // Add more test modules as needed
     module TypeTests =
-        
+
         let tests = testList "Types" [
             test "OrderVariable can be created" {
                 let constraints = {
@@ -678,7 +678,7 @@ module Tests
 
     // New: Equivalence tests comparing legacy pipeline logic with the new processPipeline
     module PipelineEquivalence =
-        module OV = Informedica.GenOrder.Lib.OrderVariable
+        module OV = OrderVariable
         module Units = Informedica.GenUnits.Lib.Units
 
         let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
@@ -830,4 +830,3 @@ module Tests
                     expectSameOutcome "timed-recalcvalues" oldR newR
                 }
             ]
-

@@ -244,7 +244,7 @@ module Prescribe =
                 </Backdrop>
                 """
 
-        let typoGraphy (items : Types.TextItem[]) =
+        let typoGraphy (items : TextItem[]) =
             let print item =
                 match item with
                 | Normal s ->

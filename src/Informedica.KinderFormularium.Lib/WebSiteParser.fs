@@ -45,7 +45,7 @@ module WebSiteParser =
         |> List.distinctBy (fun m -> m.Id, m.Generic.Trim().ToLower())
 
 
-    let medications : unit -> Drug.Drug list = Memoization.memoizeN _medications
+    let medications : unit -> Drug.Drug list = memoizeN _medications
 
 
     let drugUrl = sprintf "https://www.kinderformularium.nl/geneesmiddel/%s/%s?nolayout"
@@ -312,7 +312,7 @@ module WebSiteParser =
             ds
 
 
-    let getFormulary : unit -> Drug.Drug [] = Memoization.memoizeN _getFormulary
+    let getFormulary : unit -> Drug.Drug [] = memoizeN _getFormulary
 
     let getRoutes () =
         getFormulary () //|> Array.length

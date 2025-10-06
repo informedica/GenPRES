@@ -96,7 +96,7 @@ let createOrderAgent (serverApi: IServerApi) : OrderAgent =
 
 // Create the ServerApi instance properly
 let provider =
-    System.Environment.GetEnvironmentVariable "GENPRES_URL_ID"
+    Environment.GetEnvironmentVariable "GENPRES_URL_ID"
     |> Option.ofObj
     |> Option.defaultValue "16ftzbk2CNtPEq3KAOeP7LEexyg3B-E5w52RPOyQVVks"
     |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId Informedica.GenForm.Lib.Logging.noOp
@@ -160,7 +160,7 @@ let testOrderContext = {
 async {
     let! result = orderAgent.ProcessCommand (
         testOrderContext
-        |> Api.UpdateOrderContext
+        |> UpdateOrderContext
         |> OrderContextCmd
     )
     match result with

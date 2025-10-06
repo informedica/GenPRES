@@ -40,7 +40,7 @@ module Intake =
     |]
 
 
-    let private typoGraphy (items : Types.TextItem[]) =
+    let private typoGraphy (items : TextItem[]) =
         let variant = "body2"
         let print item =
             match item with

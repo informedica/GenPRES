@@ -428,7 +428,7 @@ module BigRational =
                         let baseIdx = i * m
                         if v1.IsZero then
                             // fill the whole row with zero
-                            System.Array.Fill(res, BigRational.Zero, baseIdx, m)
+                            Array.Fill(res, BigRational.Zero, baseIdx, m)
                         else
                             for j = 0 to m - 1 do
                                 let v2 = vs2[j]

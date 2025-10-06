@@ -25,8 +25,8 @@ This application has not been certified as a medical device and is not intended 
 
     [<JSX.Component>]
     let View(props: {|
-            languages : Shared.Localization.Locales []
-            switchLang : Shared.Localization.Locales -> unit
+            languages : Localization.Locales []
+            switchLang : Localization.Locales -> unit
             localizationTerms : Deferred<string [] []>
             accept : bool -> unit
         |}) =

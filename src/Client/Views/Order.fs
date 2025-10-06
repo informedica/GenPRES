@@ -46,7 +46,7 @@ module Order =
             | ResetOrderScenario
 
 
-        let init (ctx : Deferred<Types.OrderContext>) =
+        let init (ctx : Deferred<OrderContext>) =
             let ord, cmp, itm =
                 match ctx with
                 | Resolved ctx ->
@@ -606,9 +606,9 @@ module Order =
     [<JSX.Component>]
     let View (props:
         {|
-            orderContext: Deferred<Types.OrderContext>
-            updateOrderScenario: Types.OrderContext -> unit
-            refreshOrderScenario : Types.OrderContext -> unit
+            orderContext: Deferred<OrderContext>
+            updateOrderScenario: OrderContext -> unit
+            refreshOrderScenario : OrderContext -> unit
             closeOrder : unit -> unit
             localizationTerms : Deferred<string [] []>
         |}) =
@@ -736,7 +736,7 @@ module Order =
 
         let fixPrecision n d =
             (d |> float)
-            |> Utils.Math.fixPrecision n
+            |> Math.fixPrecision n
             |> string
 
         let onClickOk =
