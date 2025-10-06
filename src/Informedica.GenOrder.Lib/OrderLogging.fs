@@ -88,6 +88,8 @@ module OrderLogging =
     let printOrderException = function
         | Exceptions.OrderCouldNotBeSolved(s, o) ->
             $"Order could not be solved: {s} for order {o.Orderable.Name |> Name.toString}"
+        | Exceptions.OrderCouldNotBeCreated exn ->
+            $"Order could not be created:\n%A{exn}"
 
 
     /// Format order messages using the IMessage interface

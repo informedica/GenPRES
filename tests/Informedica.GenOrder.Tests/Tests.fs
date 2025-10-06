@@ -70,6 +70,15 @@ module Tests
         }
     ]
 
+    module Result =
+
+        let get result =
+            match result with
+            | Ok value -> value
+            | Error err ->
+                failwith $"{err}"
+
+
     // --- New tests for fluent pipeline guard/order behavior ---
     module Pipeline =
         open Informedica.GenOrder.Lib.Order
@@ -85,11 +94,15 @@ module Tests
                 testDrugOrders
                 |> List.tryFind (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
                 |> Option.defaultValue (testDrugOrders |> List.head)
-            drugOrder |> Medication.toOrderDto |> Order.Dto.fromDto
+            drugOrder 
+            |> Medication.toOrderDto 
+            |> Order.Dto.fromDto 
+            |> Result.get
 
         // Also a minimal empty order for CalcMinMax path
         let private mkEmptyOrder () =
             Order.Dto.discontinuous "T" "Test" "PO" [] |> Order.Dto.fromDto
+            |> Result.get
 
         let private countValues (o: Order) =
             o
@@ -603,10 +616,10 @@ module Tests
 
                 test "ToDto reference function to OrderDto" {
                     let drugOrder = testDrugOrders |> List.head
-                    let ord1 = Medication.toOrderDto drugOrder |> Order.Dto.fromDto
+                    let ord1 = Medication.toOrderDto drugOrder |> Order.Dto.fromDto |> Result.get
 
                     // Check if the dto the same as ToOrderDto.toOrderDto
-                    let ord2 = ToOrderDto.toOrderDto drugOrder |> Order.Dto.fromDto
+                    let ord2 = ToOrderDto.toOrderDto drugOrder |> Order.Dto.fromDto |> Result.get
 
                     ord1.Adjust
                     |> Expect.equal "should be equal" ord2.Adjust
@@ -676,15 +689,18 @@ module Tests
             |> List.find (fun d -> match d.OrderType with | DiscontinuousOrder -> true | _ -> false)
             |> Medication.toOrderDto
             |> Order.Dto.fromDto
+            |> Result.get
 
         let private mkTimedOrder () =
             testDrugOrders
             |> List.find (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
             |> Medication.toOrderDto
             |> Order.Dto.fromDto
+            |> Result.get
 
         let private mkEmptyOrder () =
             Order.Dto.discontinuous "E" "Empty" "PO" [] |> Order.Dto.fromDto
+            |> Result.get
 
         // A minimal in-test legacy implementation mirroring the provided previous pipeline
         module Legacy =

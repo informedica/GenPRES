@@ -3976,6 +3976,8 @@ module Order =
 
     module Dto =
 
+        open ConsoleWriter.NewLineNoTime
+
         type Dto (id , n) =
             member val Id = id with get, set
             member val Adjust = OrderVariable.Dto.dto () with get, set
@@ -3988,18 +3990,27 @@ module Order =
 
 
         let fromDto (dto : Dto) =
-            let id = dto.Id |> Id.create
-            let adj_qty = dto.Adjust |> Quantity.fromDto
-            let ord_tme = dto.Duration |> Time.fromDto
-            let orb = dto.Orderable |> Orderable.Dto.fromDto
-            let sch = dto.Schedule |> Schedule.Dto.fromDto
-            let sts =
-                match dto.Stop with
-                | Some dt -> (dto.Start, dt) |> StartStop.StartStop
-                | None -> dto.Start |> StartStop.Start
+            try
+                let id = dto.Id |> Id.create
+                let adj_qty = dto.Adjust |> Quantity.fromDto
+                let ord_tme = dto.Duration |> Time.fromDto
+                let orb = dto.Orderable |> Orderable.Dto.fromDto
+                let sch = dto.Schedule |> Schedule.Dto.fromDto
+                let sts =
+                    match dto.Stop with
+                    | Some dt -> (dto.Start, dt) |> StartStop.StartStop
+                    | None -> dto.Start |> StartStop.Start
 
-            create id adj_qty orb sch dto.Route ord_tme sts
+                create id adj_qty orb sch dto.Route ord_tme sts
+                |> Ok
+            with
+            | exn ->
+                $"Couldn not create an Order from a dto with:\n{exn}"
+                |> writeErrorMessage 
 
+                exn
+                |> Exceptions.OrderCouldNotBeCreated
+                |> Error
 
         let toDto ord =
             let id = (ord |> inf).Id |> Id.toString
@@ -4172,5 +4183,6 @@ module Order =
         let toString dto =
             dto
             |> fromDto
-            |> toString
+            |> Result.map toString
+            |> Result.defaultValue []
             |> String.concat "\n"

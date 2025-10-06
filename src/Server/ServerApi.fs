@@ -334,12 +334,13 @@ module Mappers =
         { mappedCtx with
             Scenarios =
                 ctx.Scenarios
-                |> Array.mapi (fun i sc ->
-                    let ord =
-                        sc.Order
-                        |> Order.mapFromSharedToOrder
-                        |> Order.Dto.fromDto
+                |> Array.collect (fun sc ->
+                        match sc.Order |> Order.mapFromSharedToOrder |> Order.Dto.fromDto with
+                        | Ok ord -> [| (sc, ord) |]  
+                        | Error _ -> [||]
 
+                )
+                |> Array.mapi (fun i (sc, ord) ->
                     OrderScenario.create
                         i
                         sc.Indication

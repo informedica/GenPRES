@@ -31,5 +31,7 @@ module Exceptions =
                 match m.Data0 with
                 | Exceptions.OrderCouldNotBeSolved(m, o) ->
                     $"{o} could not be resolved because: {m}"
+                | Exceptions.OrderCouldNotBeCreated exn ->
+                    $"Order could not be created:\n{exn}"
             | _ ->
                 exn.ToString()

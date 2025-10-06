@@ -529,6 +529,7 @@ module Types =
 
             /// Messages for order-related exceptions
             type Message =
+                | OrderCouldNotBeCreated of Exception
                 | OrderCouldNotBeSolved of string * Order
 
 
