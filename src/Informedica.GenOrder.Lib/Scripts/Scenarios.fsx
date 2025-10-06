@@ -133,7 +133,7 @@ let dro =
         pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
     |> Array.head
-    |> MedicationOrder.fromRule
+    |> Medication.fromRule
     |> Array.head
 
 
@@ -148,9 +148,9 @@ let ord =
         pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
     |> Array.head
-    |> MedicationOrder.fromRule
+    |> Medication.fromRule
     |> Array.head
-    |> MedicationOrder.toOrderDto
+    |> Medication.toOrderDto
     |> Order.Dto.fromDto
 
 
@@ -165,9 +165,9 @@ Patient.teenager
     pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling E"
 )
 |> Array.head
-|> MedicationOrder.fromRule
+|> Medication.fromRule
 |> Array.head
-|> MedicationOrder.toOrderDto
+|> Medication.toOrderDto
 |> Order.Dto.fromDto
 |> Order.print
 |> ignore
@@ -182,9 +182,9 @@ Patient.teenager
     pr.DoseRule.Generic |> String.equalsCapInsens "noradrenaline"
 )
 |> Array.head
-|> MedicationOrder.fromRule
+|> Medication.fromRule
 |> Array.head
-|> MedicationOrder.toOrderDto
+|> Medication.toOrderDto
 |> Order.Dto.fromDto
 |> Order.print
 |> ignore
