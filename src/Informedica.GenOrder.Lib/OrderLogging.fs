@@ -165,6 +165,8 @@ module OrderLogging =
         match msg.Message with
         | :? OrderMessage as m ->
             match m with
+            | OrderException(Exceptions.OrderCouldNotBeCreated exn) -> 
+                $"Order couldn not be created:\n{exn}"
             | OrderException (Exceptions.OrderCouldNotBeSolved(s, o)) ->
                 writeErrorMessage $"""
 printing error for order {o.Orderable.Name |> Name.toString}

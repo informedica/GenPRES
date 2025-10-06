@@ -84,9 +84,9 @@ module Tests
         open Informedica.GenOrder.Lib.Order
 
         module OV = OrderVariable
-        module Units = Informedica.GenUnits.Lib.Units
+        module Units = Units
 
-        let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
+        let private noLogger = Logging.noOp
 
         // Build an Order from testDrugOrders with realistic constraints to enable value calculation
         let private mkConstrainedOrder () =
@@ -679,7 +679,7 @@ module Tests
     // New: Equivalence tests comparing legacy pipeline logic with the new processPipeline
     module PipelineEquivalence =
         module OV = OrderVariable
-        module Units = Informedica.GenUnits.Lib.Units
+        module Units = Units
 
         let private noLogger = Informedica.GenOrder.Lib.Logging.noOp
 
