@@ -13,35 +13,35 @@ module Tests
 
     // Original test data used by several tests below
     let testDrugOrders = [
-        { MedicationOrder.order with
+        { Medication.order with
             Id = "DO1"
             Name = "Test Drug Order 1"
             OrderType = DiscontinuousOrder
             Frequencies = ValueUnit.create Units.Time.day [| 1N .. 4N |] |> Some
             Components = [
-                { MedicationOrder.productComponent with
+                { Medication.productComponent with
                     Name = "Component A"
                     Shape = "injectievloeistof"
                     Divisible = Some 1N
                     Quantities = Some (ValueUnit.create Units.Volume.milliLiter [| 2N |])
                     Substances = [
-                        { MedicationOrder.substanceItem with
+                        { Medication.substanceItem with
                             Name = "Substance A1"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 100N |] )
                             Dose = DoseLimit.limit |> Some
                         }
-                        { MedicationOrder.substanceItem with
+                        { Medication.substanceItem with
                             Name = "Substance A2"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 50N |] )
                             Dose = DoseLimit.limit |> Some
                         }
                     ] 
                 }
-                { MedicationOrder.productComponent with
+                { Medication.productComponent with
                     Name = "Component B"
                     Shape = "injectievloeistof"
                     Substances = [
-                        { MedicationOrder.substanceItem with
+                        { Medication.substanceItem with
                             Name = "Substance B1"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 150N |] )
                             Dose = DoseLimit.limit |> Some
@@ -50,16 +50,16 @@ module Tests
                 }
             ] 
         }
-        { MedicationOrder.order with
+        { Medication.order with
             Id = "DO2"
             Name = "Test Drug Order 2"
             OrderType = TimedOrder
             Components = [
-                { MedicationOrder.productComponent with
+                { Medication.productComponent with
                     Name = "Component C"
                     Shape = "Syrup"
                     Substances = [
-                        { MedicationOrder.substanceItem with
+                        { Medication.substanceItem with
                             Name = "Substance C1"
                             Concentrations = Some (ValueUnit.create Units.Mass.milliGram [| 200N |] )
                             Dose = DoseLimit.limit |> Some
@@ -85,7 +85,7 @@ module Tests
                 testDrugOrders
                 |> List.tryFind (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
                 |> Option.defaultValue (testDrugOrders |> List.head)
-            drugOrder |> MedicationOrder.toOrderDto |> Order.Dto.fromDto
+            drugOrder |> Medication.toOrderDto |> Order.Dto.fromDto
 
         // Also a minimal empty order for CalcMinMax path
         let private mkEmptyOrder () =
@@ -185,14 +185,14 @@ module Tests
         module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
         module Limit = Informedica.GenCore.Lib.Ranges.Limit
 
-        open Informedica.GenOrder.Lib.MedicationOrder
+        open Informedica.GenOrder.Lib.Medication
 
         /// <summary>
         /// Map a DrugOrder record to a DrugOrderDto record.
         /// The DrugOrder will map the constraints of the DrugOrderDto.
         /// </summary>
         /// <param name="d">The DrugOrder to convert</param>
-        let toOrderDto (d : MedicationOrder) =
+        let toOrderDto (d : Medication) =
             let vuToDto = Option.bind (ValueUnit.Dto.toDto false "English")
 
             let limToDto = Option.map Limit.getValueUnit >> vuToDto
@@ -569,21 +569,21 @@ module Tests
         
         let tests = testList "DrugOrder" [
             test "drugOrder default values" {
-                let drugOrder = MedicationOrder.order
+                let drugOrder = Medication.order
                 drugOrder.Id |> Expect.equal "should be empty" ""
                 drugOrder.Name |> Expect.equal "should be empty" ""
                 drugOrder.Components |> Expect.isEmpty "should be empty"
             }
 
             test "productComponent default values" {
-                let cmp = MedicationOrder.productComponent
+                let cmp = Medication.productComponent
                 cmp.Name |> Expect.equal "should be empty" ""
                 cmp.Shape |> Expect.equal "should be empty" ""
                 cmp.Substances |> Expect.isEmpty "should be empty"
             }
 
             test "substanceItem default values" {
-                let substance = MedicationOrder.substanceItem
+                let substance = Medication.substanceItem
                 substance.Name |> Expect.equal "should be empty" ""
                 substance.Concentrations |> Expect.isNone "should be None"
                 substance.Dose |> Expect.isNone "should be None"
@@ -592,7 +592,7 @@ module Tests
             testList "ToDto" [
                 test "ToDto converts DrugOrder to OrderDto" {
                     let drugOrder = testDrugOrders |> List.head
-                    let dto = MedicationOrder.toOrderDto drugOrder
+                    let dto = Medication.toOrderDto drugOrder
 
                     dto.Id |> Expect.equal "should match Id" drugOrder.Id
                     dto.Schedule.IsDiscontinuous |> Expect.isTrue "should be discontinuous"
@@ -603,7 +603,7 @@ module Tests
 
                 test "ToDto reference function to OrderDto" {
                     let drugOrder = testDrugOrders |> List.head
-                    let ord1 = MedicationOrder.toOrderDto drugOrder |> Order.Dto.fromDto
+                    let ord1 = Medication.toOrderDto drugOrder |> Order.Dto.fromDto
 
                     // Check if the dto the same as ToOrderDto.toOrderDto
                     let ord2 = ToOrderDto.toOrderDto drugOrder |> Order.Dto.fromDto
@@ -674,13 +674,13 @@ module Tests
         let private mkDiscontinuousOrder () =
             testDrugOrders
             |> List.find (fun d -> match d.OrderType with | DiscontinuousOrder -> true | _ -> false)
-            |> MedicationOrder.toOrderDto
+            |> Medication.toOrderDto
             |> Order.Dto.fromDto
 
         let private mkTimedOrder () =
             testDrugOrders
             |> List.find (fun d -> match d.OrderType with | TimedOrder -> true | _ -> false)
-            |> MedicationOrder.toOrderDto
+            |> Medication.toOrderDto
             |> Order.Dto.fromDto
 
         let private mkEmptyOrder () =

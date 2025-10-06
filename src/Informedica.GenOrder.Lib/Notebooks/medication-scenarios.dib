@@ -4,7 +4,7 @@
 
 #!markdown
 
-# Examples for use of the `Informedica.GenOrder.Lib` library
+# Basic Medication Scenarios with the `Informedica.GenOrder.Lib` library
 
 #!markdown
 
@@ -19,6 +19,16 @@ open MathNet.Numerics
 
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
+
+#!markdown
+
+## 1. En empty Medication Scenario
+
+Start with an empty Medication Scenario defined by `MedciationOrder.order`. This can be transformed to an Order.Dto and then turned into a regular `Order`.
+
+#!fsharp
+
+MedicationOrder.order
 
 #!markdown
 

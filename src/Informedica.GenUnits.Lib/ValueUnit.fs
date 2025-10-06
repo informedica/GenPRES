@@ -1579,10 +1579,10 @@ module Units =
 
 
     /// <summary>
-    /// Creates a Unit from a string s, if possible
+    /// Creates a Unit from a string s, if possible,
     /// otherwise returns None. Note will take care of
     /// the n value of a unit! So, for example, the unit
-    /// 36 hour can be parsed correctly.
+    /// 36 hours can be parsed correctly.
     /// </summary>
     /// <example>
     /// fromString "36 hours" = Some (Time (Hour 36N))

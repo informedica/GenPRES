@@ -295,7 +295,7 @@ module Types =
         /// can be derived by a drug product inventory
         /// and the related dose rule. A DrugOrder maps
         /// to an Orderable and a Prescription.
-        type MedicationOrder =
+        type Medication =
             {
                 // Identifies the specific drug order
                 Id:  string
