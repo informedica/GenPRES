@@ -55,7 +55,7 @@ module TreatmentPlan =
             | Some v ->
                 match v.Value with
                 | [| (_, s) |] ->
-                    let s = s |> float |> Utils.Math.fixPrecision 3
+                    let s = s |> float |> Math.fixPrecision 3
                     $"{s} {v.Unit}"
                 | _ -> ""
             | None -> ""

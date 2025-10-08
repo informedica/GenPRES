@@ -1,245 +1,6 @@
 namespace Shared
 
 
-module Utils =
-
-    open System
-    open Shared.Types
-
-
-    module Measures =
-
-        let toGram (x: int) = x * 1<gram>
-
-        let toCm (x: int) = x * 1<cm>
-
-
-    module String =
-
-        /// Apply `f` to string `s`
-        let apply f (s: string) = f s
-
-        /// Utility to enable type inference
-        let get = apply id
-
-        /// Count the number of times that a
-        /// string t starts with character c
-        let countFirstChar c t =
-            let _, count =
-                if String.IsNullOrEmpty(t) then
-                    (false, 0)
-                else
-                    t
-                    |> Seq.fold
-                        (fun (flag, dec) c' -> if c' = c && flag then (true, dec + 1) else (false, dec))
-                        (true, 0)
-
-            count
-
-        /// Check if string `s2` contains string `s1`
-        let contains = fun (s1: string) (s2: string) -> (s2 |> get).Contains(s1)
-
-
-        let toLower s = (s |> get).ToLower()
-
-
-        let toUpper s = (s |> get).ToUpper()
-
-
-        let replace (s1: string) (s2: string) s = (s |> get).Replace(s1, s2)
-
-
-        let trim (s: string) = s.Trim()
-
-
-        /// Get a substring starting at `start` with length `length`
-        let subString start length s =
-            if start < 0 || s |> String.length < start + length || start + length < 0  then ""
-            else
-                let s' = if length < 0 then start + length else start
-                let l' = if length < 0 then -1 * length else length
-                s.Substring(s', l')
-
-
-        /// Get the first character of a string
-        /// as a string
-        let firstStringChar = subString 0 1
-
-
-        /// Get the length of s
-        let length s =
-            (s |> get).Length
-
-
-        /// Return the rest of a string as a string
-        let restString s =
-            if s = "" then ""
-            else
-                subString 1 ((s |> length) - 1) s
-
-
-        /// Removes the last 'n' characters from the input string 's'.
-        /// If the resulting string length is less than 0, an empty string is returned.
-        ///
-        /// Parameters:
-        ///   - n: Number of characters to remove from the end of the string.
-        ///   - s: Input string.
-        ///
-        /// Returns:
-        ///   - Modified string with the last 'n' characters removed.
-        let remove n s =
-            let l = String.length s - n
-            if l < 0 then "" else s |> subString 0 l
-
-
-        /// Make the first char of a string upper case
-        let firstToUpper = firstStringChar >> toUpper
-
-
-        /// Make the first character upper and the rest lower of a string
-        let capitalize s =
-            if s = "" then ""
-            else
-                (s |> firstToUpper) + (s |> restString |> toLower)
-
-
-    module Math =
-
-
-        let roundBy s n =
-            (n / s) |> round |> double |> (fun f -> f * s)
-
-
-        let roundBy0_5 = roundBy 0.5
-
-        /// Calculates the number of decimal digits that
-        /// should be shown according to a precision
-        /// number n that specifies the number of
-        /// non-zero digits in the decimals.
-        /// * 66.666 |> getPrecision 1 = 0
-        /// * 6.6666 |> getPrecision 1 = 0
-        /// * 0.6666 |> getPrecision 1 = 1
-        /// * 0.0666 |> getPrecision 1 = 2
-        /// * 0.0666 |> getPrecision 0 = 0
-        /// * 0.0666 |> getPrecision 1 = 2
-        /// * 0.0666 |> getPrecision 2 = 3
-        /// * 0.0666 |> getPrecision 3 = 4
-        /// * 6.6666 |> getPrecision 0 = 0
-        /// * 6.6666 |> getPrecision 1 = 0
-        /// * 6.6666 |> getPrecision 2 = 1
-        /// * 6.6666 |> getPrecision 3 = 2
-        /// etc.
-        /// If n < 0 then n = 0 is used.
-        let getPrecision n f = // ToDo fix infinity case
-            let n = if n < 0 then 0 else n
-
-            if f = 0. || n = 0 then
-                n
-            else
-                let s = (f |> abs |> string).Split([| '.' |])
-
-                // calculate number of remaining decimal digits (after '.')
-                let p = n - (if s[0] = "0" then 0 else s[0].Length)
-
-                let p = if p < 0 then 0 else p
-
-                if (int s[0]) > 0 then
-                    p
-                else
-                    // calculate the first occurrence of a non-zero decimal digit
-                    let c = (s[1] |> String.countFirstChar '0')
-                    c + p
-
-        /// Fix the precision of a float f to
-        /// match a minimum of non-zero digits n
-        /// * 66.666 |> fixPrecision 1 = 67
-        /// * 6.6666 |> fixPrecision 1 = 7
-        /// * 0.6666 |> fixPrecision 1 = 0.7
-        /// * 0.0666 |> fixPrecision 1 = 0.07
-        /// * 0.0666 |> fixPrecision 0 = 0
-        /// * 0.0666 |> fixPrecision 1 = 0.07
-        /// * 0.0666 |> fixPrecision 2 = 0.067
-        /// * 0.0666 |> fixPrecision 3 = 0.0666
-        /// * 6.6666 |> fixPrecision 0 = 7
-        /// * 6.6666 |> fixPrecision 1 = 7
-        /// * 6.6666 |> fixPrecision 2 = 6.7
-        /// * 6.6666 |> fixPrecision 3 = 6.67
-        /// etc.
-        /// If n < 0 then n = 0 is used.
-        let fixPrecision n (f: float) = Math.Round(f, f |> getPrecision n)
-
-
-    module List =
-
-
-        let create x = x :: []
-
-
-        let inline findNearestMax n ns =
-            match ns with
-            | [] -> n
-            | _ ->
-                let n = if n > (ns |> List.max) then ns |> List.max else n
-
-                ns
-                |> List.sort
-                |> List.rev
-                |> List.fold (fun x a -> if (a - x) < (n - x) then x else a) n
-
-
-        let removeDuplicates xs =
-            xs
-            |> List.fold
-                (fun xs x ->
-                    if xs |> List.exists ((=) x) then
-                        xs
-                    else
-                        [ x ] |> List.append xs
-                )
-                []
-
-
-        /// Get the nearest index in a list to a target value.
-        /// Returns the index of the element that has the smallest absolute difference from the target.
-        /// Throws an exception if the list is empty.
-        let inline nearestIndex x xs =
-            match xs with
-            | [] -> invalidArg "xs" "Array cannot be empty to calculate nearest value."
-            | _ ->
-                let deltas = xs |> List.map ((-) x) |> List.map abs
-                let minDelta = deltas |> List.min
-                deltas |> List.findIndex ((=) minDelta)
-
-
-    module DateTime =
-
-
-        let apply f (dt: DateTime) = f dt
-
-
-        let get = apply id
-
-
-        let optionToDate (yr: int option) mo dy =
-            match yr, mo, dy with
-            | Some y, Some m, Some d -> DateTime(y, m, d) |> Some
-            | _ -> None
-
-
-        let dateDiff dt1 dt2 = (dt1 |> get) - (dt2 |> get)
-
-
-        let dateDiffDays dt1 dt2 = (dateDiff dt1 dt2).Days
-
-
-        let dateDiffMonths dt1 dt2 =
-            (dateDiffDays dt1 dt2) |> float |> (fun x -> x / 365.) |> ((*) 12.)
-
-
-        let dateDiffYearsMonths dt1 dt2 =
-            let mos = (dateDiffMonths dt1 dt2) |> int
-            (mos / 12), (mos % 12)
-
 
 module Models =
 
@@ -248,7 +9,6 @@ module Models =
     module Patient =
 
         open System
-        open Utils
 
 
         module Age =
@@ -971,7 +731,6 @@ module Models =
 
     module EmergencyTreatment =
 
-        open Utils
 
 
         let calcDoseVol kg doserPerKg conc min max =
@@ -1305,7 +1064,6 @@ module Models =
 
     module ContinuousMedication =
 
-        open Utils
         open Shared
 
 
@@ -1459,7 +1217,6 @@ module Models =
 
     module Products =
 
-        open Utils
         open Shared
 
 
@@ -1493,8 +1250,6 @@ module Models =
 
     module NormalValues =
 
-
-        open Utils
         open Shared
 
 
@@ -1542,6 +1297,35 @@ module Models =
                     Language = l
                     Json = j
                 }
+
+
+            (*
+            /// <summary>
+            /// Get the user readable string version in Dutch with verbosity short and
+            /// value as decimal with a fixed precision
+            /// </summary>
+            /// <param name="prec">The precision</param>
+            /// <param name="vu">The ValueUnit</param>
+            /// <example>
+            /// <code>
+            /// toStringDecimalDutchShortWithPrec 2 (ValueUnit ([|1N/3N; 2N/3N; 3N/5N|], Mass (KiloGram 1N)))
+            /// = "0,33;0,67;0,6 kg"
+            /// </code>
+            /// </example>
+            let toStringDecimalDutchShortWithPrec prec (vu: ValueUnit) =
+                let v, u = vu.Value, vu.Unit
+
+                let vs =
+                    v
+                    |> Array.map (snd >> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
+                    |> Array.distinct
+                    |> Array.toReadableString
+
+                let us = u |> unitToReadableDutchString
+
+                vs + " " + us
+            *)
+
 
 
         module Variable =

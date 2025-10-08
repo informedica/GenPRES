@@ -734,10 +734,8 @@ module Order =
                 </Box>
                 """
 
-        let fixPrecision n d =
-            (d |> float)
-            |> Math.fixPrecision n
-            |> string
+        let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
+
 
         let onClickOk =
             fun () -> props.closeOrder ()
