@@ -1252,8 +1252,6 @@ module Variable =
                 let count =
                     ValueUnit.getValue >> Array.length
 
-
-
                 if vu |> count <= 3 then
                     $"""{vu |> ValueUnit.toDelimitedString prec}"""
                 else
@@ -1273,7 +1271,7 @@ module Variable =
                         |> String.replace $"|{u}|" ""
                         |> String.trim
 
-                    $"{first1} .. {last1 |> ValueUnit.toDelimitedString prec}"
+                    $"{first1} - {last1 |> ValueUnit.toDelimitedString prec}"
 
 
         module Property =
@@ -2840,7 +2838,7 @@ module Variable =
                         | None, None -> ""
                         | Some min, None -> $"{min |> minToStr true} .."
                         | None, Some max -> $".. {max |> maxToStr}"
-                        | Some min, Some max -> $"{min |> minToStr false} .. {max |> maxToStr}"
+                        | Some min, Some max -> $"{min |> minToStr false} - {max |> maxToStr}"
 
                     match vs with
                     | Some vs -> $"{vs |> ValueSet.toMarkdown prec}"

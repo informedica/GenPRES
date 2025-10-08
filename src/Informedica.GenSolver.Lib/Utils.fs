@@ -31,6 +31,7 @@ module Utils =
 
         open MathNet.Numerics
 
+        open Informedica.Utils.Lib
         open Informedica.Utils.Lib.BCL
 
         open Informedica.GenUnits.Lib
@@ -92,22 +93,24 @@ module Utils =
                             CombiUnit(acc, OpPer, u)
                         ) u
 
-            vu
-            |> getValue
-            |> withUnit u
-            |> toStringDecimalDutchShortWithPrec prec
-            |> String.split " "
-            |> function
-            | v::u ->
-                let u = u |> String.concat " "
-                let v =
-                    v
-                    |> String.split ";"
-                    |> List.map (sprintf "#%s#")
-                    |> String.concat ", "
+            let vu =
+                vu
+                |> getValue
+                |> withUnit u
 
-                $"{v} |{u}|"
-            | s -> s |> String.concat " "
+            let v, u = vu |> get
+
+            let vs =
+                v
+                |> Array.map BigRational.toDecimal
+                |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
+                |> Array.distinct
+                |> String.concat ", "
+                |> sprintf "#%s#"
+
+            let us = u |> unitToReadableDutchString
+
+            $"{vs} |{us}|"
 
 
         module Operators =

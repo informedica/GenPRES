@@ -1,8 +1,8 @@
 // this first to FSI
 #load "../Types.fs"
 #load "../Localization.fs"
-#load "../Data.fs"
-#load "../Domain.fs"
+#load "../Utils.fs"
+#load "../Models.fs"
 
 open System
 open System.IO
@@ -35,6 +35,7 @@ let download url =
     }
 
 
+open Models
 
 createUrl "emergencylist" dataUrlId
 |> download
@@ -52,9 +53,3 @@ createUrl "continuousmeds" dataUrlId
 |> ContinuousMedication.calculate 10.
 
 
-let a = 12.
-NormalValues.ageWeight
-|> List.rev
-|> List.tryFind (fun (n, _) -> n <= a)
-
-List.scan

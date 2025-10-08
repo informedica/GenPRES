@@ -292,25 +292,6 @@ module Decimal =
 
 
     //----------------------------------------------------------------------------
-    // Parsing
-    //----------------------------------------------------------------------------
-
-    /// Get the double value of a string
-    /// using `InvariantCulture`
-    let parse (s : string) = Decimal.Parse(s, CultureInfo.InvariantCulture)
-
-
-    /// Get a `float Option` from a string
-    let tryParse (s : string) =
-        let style = NumberStyles.Any
-        let cult = CultureInfo.InvariantCulture
-        match Decimal.TryParse(s, style, cult) with
-        | true, v -> Some v
-        | false, _ -> None
-
-
-
-    //----------------------------------------------------------------------------
     // Precision
     //----------------------------------------------------------------------------
 
@@ -382,10 +363,22 @@ module Decimal =
 
     /// Returns a string representation of a decimal in Dutch format
     let toStringNumberNL p (d: decimal) = 
-        d.ToString("N" + p, CultureInfo.InvariantCulture)
-        |> String.replace "," "|"  // temp replacement
-        |> String.replace "." ","  // decimal separator
-        |> String.replace "|" "."  // thousands separator
+        let invariantStr = d.ToString("F" + p, CultureInfo.InvariantCulture)
+        let parts = invariantStr.Split('.')
+        let integerPart = parts[0]
+        let decimalPart = if parts.Length > 1 then parts[1] else ""
+        
+        // Add thousands separators
+        let formattedInteger = 
+            integerPart
+            |> Seq.rev
+            |> Seq.chunkBySize 3
+            |> Seq.map (Seq.rev >> Seq.map string >> String.concat "")
+            |> Seq.rev
+            |> String.concat " "
+        
+        if String.IsNullOrEmpty(decimalPart) then formattedInteger
+        else formattedInteger + "," + decimalPart
 
 
     /// Returns a string representation of a decimal in Dutch format without trailing zeros

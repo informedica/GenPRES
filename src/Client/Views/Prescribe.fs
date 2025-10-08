@@ -266,10 +266,10 @@ module Prescribe =
                     JSX.jsx
                         $"""
                     <Typography
-                    color={Mui.Colors.Grey.``700``}
+                    color={Mui.Colors.Grey.``600``}
                     display="inline"
                     >
-                    <strong> {s} </strong>
+                    <strong>{s}</strong>
                     </Typography>
                     """
 

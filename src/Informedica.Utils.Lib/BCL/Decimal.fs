@@ -107,8 +107,23 @@ module Decimal =
 
 
     /// Returns a string representation of a decimal in Dutch format
-    let toStringNumberNL p (d: decimal) = d.ToString("N" + p, CultureInfo.GetCultureInfo("nl"))
-
+    let toStringNumberNL p (d: decimal) = 
+        let invariantStr = d.ToString("F" + p, CultureInfo.InvariantCulture)
+        let parts = invariantStr.Split('.')
+        let integerPart = parts[0]
+        let decimalPart = if parts.Length > 1 then parts[1] else ""
+        
+        // Add thousands separators
+        let formattedInteger = 
+            integerPart
+            |> Seq.rev
+            |> Seq.chunkBySize 3
+            |> Seq.map (Seq.rev >> Seq.map string >> String.concat "")
+            |> Seq.rev
+            |> String.concat " "
+        
+        if String.IsNullOrEmpty(decimalPart) then formattedInteger
+        else formattedInteger + "," + decimalPart
 
     /// Returns a string representation of a decimal in Dutch format without trailing zeros
     let toStringNumberNLWithoutTrailingZeros =
