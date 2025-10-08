@@ -4,12 +4,12 @@ namespace Informedica.GenForm.Lib
 
 module PrescriptionRule =
 
+
+    open Informedica.GenCore.Lib.Ranges
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
-    open GenFormResult
 
-    module Limit = Informedica.GenCore.Lib.Ranges.Limit
-    module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
+    open Utils
 
 
     let adjustDoseLimitToPatient (freq : ValueUnit option) (pat : Patient) (dl : DoseLimit) =
@@ -233,7 +233,7 @@ module PrescriptionRule =
             |> Seq.sort
             |> Seq.toList
             |> List.map Warning
-            |> createOk prs
+            |> GenFormResult.createOk prs
 
 
     /// Get all matching PrescriptionRules for a given Patient.

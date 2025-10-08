@@ -36,6 +36,14 @@ let provider : Resources.IResourceProvider =
         "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
 
 
+// shadow the original function to just get the result
+module Order =
+
+    module Dto =
+
+        let fromDto = Order.Dto.fromDto >> (function | Ok ord -> ord | Error _ -> failwith "couldn not get result")
+
+
 // TODO: could be used to precalc all possible
 // prescriptions for a patient
 let createScenarios (ctx: OrderContext) =

@@ -8,7 +8,7 @@ module Mapping =
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
 
-    open GenFormResult
+    open Utils
 
 
     module Constants =
@@ -46,9 +46,9 @@ module Mapping =
 
                         f getString getFloat
                     )
-                    |> createOkNoMsgs
+                    |> GenFormResult.createOkNoMsgs
         with
-        | exn -> createError "getData" exn
+        | exn -> GenFormResult.createError "getData" exn
 
 
     let getRouteMapping dataUrlId =
@@ -58,7 +58,7 @@ module Mapping =
                 Short = get "ShortDutch"
             }
         |> getData dataUrlId Constants.routesSheet
-        |> mapErrorSource "getRouteMapping"
+        |> GenFormResult.mapErrorSource "getRouteMapping"
 
 
     let getUnitMapping dataUrlId =
@@ -70,7 +70,7 @@ module Mapping =
                 Group = get "Group"
             }
         |> getData dataUrlId Constants.unitsSheet
-        |> mapErrorSource "getUnitMapping"
+        |> GenFormResult.mapErrorSource "getUnitMapping"
 
 
     let mapUnit (mapping : UnitMapping array) s =
@@ -177,7 +177,7 @@ module Mapping =
                             )
                     }
         |> getData dataUrlId Constants.shapeRouteSheet
-        |> mapErrorSource "getShapeRoutes"
+        |> GenFormResult.mapErrorSource "getShapeRoutes"
 
 
     let filterShapeRoutes routeMapping (mapping : ShapeRoute []) rte shape unt =
@@ -210,4 +210,4 @@ module Mapping =
         fun get _ ->
             get "Shape"
         |> getData dataUrlId Constants.validShapesSheet
-        |> mapErrorSource "getValidShapesResult"
+        |> GenFormResult.mapErrorSource "getValidShapesResult"

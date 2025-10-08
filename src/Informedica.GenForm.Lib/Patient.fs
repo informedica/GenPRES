@@ -19,6 +19,7 @@ module Gender =
     open Informedica.Utils.Lib.BCL
 
 
+
     /// Map a string to a Gender.
     let fromString s =
         let s = s |> String.toLower |> String.trim
@@ -63,6 +64,9 @@ module PatientCategory =
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
     module MinMax = Informedica.GenCore.Lib.Ranges.MinMax
     module Conversions = Informedica.GenCore.Lib.Conversions
+
+
+    open Utils
 
 
     let empty : PatientCategory =
@@ -130,8 +134,8 @@ module PatientCategory =
         ([| patCat |],
         [|
             fun (p: PatientCategory) -> filter.Patient.Department |> eqs p.Department
-            fun (p: PatientCategory) -> filter.Patient.Age |> Utils.MinMax.inRange p.Age
-            fun (p: PatientCategory) -> filter.Patient.Weight |> Utils.MinMax.inRange p.Weight
+            fun (p: PatientCategory) -> filter.Patient.Age |> MinMax.inRange p.Age
+            fun (p: PatientCategory) -> filter.Patient.Weight |> MinMax.inRange p.Weight
             fun (p: PatientCategory) ->
                 match filter.Patient.Weight, filter.Patient.Height with
                 | Some w, Some h ->
@@ -151,7 +155,7 @@ module PatientCategory =
                             if filter.Patient.GestAge.IsSome &&
                                p.GestAge = MinMax.empty &&
                                p.PMAge = MinMax.empty then
-                                filter.Patient.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
+                                filter.Patient.GestAge.Value >=? ValueUnit.ageFullTerm
                             else
                                 filter.Patient.GestAge
                                 // if no gest age assume full term
@@ -406,6 +410,8 @@ module Patient =
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
     module Conversions = Informedica.GenCore.Lib.Conversions
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
+
+    open Utils
 
     /// An empty Patient.
     let patient =

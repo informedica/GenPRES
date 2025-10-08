@@ -10,7 +10,7 @@ module SolutionRule =
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
-    open GenFormResult
+    open Utils
 
 
     module SolutionLimit =
@@ -212,10 +212,10 @@ module SolutionRule =
 
                     }
                 )
-            |> createOkNoMsgs
+            |> GenFormResult.createOkNoMsgs
         with
         | exn ->
-            createError "Error in SolutionRule.getResult: " exn
+            GenFormResult.createError "Error in SolutionRule.getResult: " exn
 
 
     /// <summary>
@@ -281,8 +281,8 @@ module SolutionRule =
     module Print =
 
 
-        module MinMax = MinMax
         module Limit = Limit
+
 
         let private vuToStr vu =
             let milliGram = Units.Mass.milliGram
@@ -309,7 +309,7 @@ module SolutionRule =
 
         /// Get the string representation of a SolutionLimit.
         let printSolutionLimit (sr: SolutionRule) (limit: SolutionLimit) =
-            let mmToStr = MinMax.toString vuToStr "min. " "min. " "max. " "max. "
+            let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
 
             let loc =
                 match sr.PatientCategory.Location with
@@ -486,7 +486,6 @@ module SolutionRule =
                                                     sel.Weight
                                                     |> MinMax.convertTo Units.Weight.kiloGram
                                                     |> MinMax.toString
-                                                        vuToStr
                                                         "van "
                                                         "van "
                                                         "tot "
@@ -506,7 +505,6 @@ module SolutionRule =
                                         let dose =
                                             sel.Dose
                                             |> MinMax.toString
-                                                vuToStr
                                                 "van "
                                                 "van "
                                                 "tot "

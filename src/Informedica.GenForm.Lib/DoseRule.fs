@@ -1,67 +1,6 @@
 namespace Informedica.GenForm.Lib
 
 
-module DoseLimit =
-
-
-    open Informedica.GenCore.Lib.Ranges
-    open Informedica.GenUnits.Lib
-
-
-    /// An empty DoseLimit.
-    let limit =
-        {
-            DoseLimitTarget = NoLimitTarget
-            AdjustUnit = None
-            DoseUnit = NoUnit
-            Quantity = MinMax.empty
-            NormQuantityAdjust = None
-            QuantityAdjust = MinMax.empty
-            PerTime = MinMax.empty
-            NormPerTimeAdjust = None
-            PerTimeAdjust = MinMax.empty
-            Rate = MinMax.empty
-            RateAdjust = MinMax.empty
-        }
-
-
-    /// <summary>
-    /// Check whether an adjust is used in
-    /// the DoseLimit.
-    /// </summary>
-    /// <remarks>
-    /// If any of the adjust values is not None
-    /// then an adjust is used.
-    /// </remarks>
-    let useAdjust (dl : DoseLimit) =
-        [
-            dl.NormQuantityAdjust = None
-            dl.QuantityAdjust = MinMax.empty
-            dl.NormPerTimeAdjust = None
-            dl.PerTimeAdjust = MinMax.empty
-            dl.RateAdjust = MinMax.empty
-        ]
-        |> List.forall id
-        |> not
-
-
-    let hasNoLimits (dl : DoseLimit) =
-        { limit with
-            DoseLimitTarget = dl.DoseLimitTarget
-            AdjustUnit = dl.AdjustUnit
-            DoseUnit = dl.DoseUnit
-        } = dl
-
-
-    let isSubstanceLimit (dl : DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isSubstanceTarget
-
-
-    let isComponentLimit (dl : DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isComponentTarget
-
-
-    let isShapeLimit (dl : DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isShapeTarget
-
-
 module DoseRule =
 
     open System

@@ -11,6 +11,8 @@ module Check =
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenForm.Lib
 
+    open Utils
+
     module GStand = Informedica.ZForm.Lib.GStand
     module Dosage = Informedica.ZForm.Lib.DoseRule.Dosage
     module RuleFinder = Informedica.ZIndex.Lib.RuleFinder

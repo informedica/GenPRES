@@ -174,6 +174,7 @@ module PatientCategory =
         let mmToStr =
             MinMax.toString
                 (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+                (ValueUnit.toStringDecimalDutchShortWithPrec 2)
                 "van "
                 "van "
                 "tot "

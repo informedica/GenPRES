@@ -11,7 +11,7 @@ module RenalRule =
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
-    open GenFormResult
+    open Utils
 
 
     module DoseReduction =
@@ -140,10 +140,10 @@ module RenalRule =
                         MaxRateAdj = get "MaxRateAdj" |> toBrOpt
                     }
                 )
-            |> createOkNoMsgs
+            |> GenFormResult.createOkNoMsgs
         with
         | exn ->
-            createError "Error in RenalRule.getDetails: " exn
+            GenFormResult.createError "Error in RenalRule.getDetails: " exn
 
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
@@ -320,7 +320,7 @@ module RenalRule =
                 rf
                 limits
         )
-        |> createOkNoMsgs
+        |> GenFormResult.createOkNoMsgs
 
 
     let get dataUrlId : GenFormResult<_> =

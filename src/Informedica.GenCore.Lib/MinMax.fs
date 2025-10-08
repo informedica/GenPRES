@@ -1001,29 +1001,7 @@ module MinMax =
     /// Turn a `MinMax` to a string with
     /// `mins` and `maxs` as annotations
     /// for resp. the min and max value.
-    let toString vuToStr minInclStr minExclStr maxInclStr maxExclStr { Min = min; Max = max } =
-        (*
-        let vuToStr vu =
-            let milliGram = Units.Mass.milliGram
-
-            let gram = Units.Mass.gram
-            let day = Units.Time.day
-
-            let per = ValueUnit.per
-            let convertTo = ValueUnit.convertTo
-
-            let milliGramPerDay = milliGram |> per day
-            let gramPerDay = gram |> per day
-
-            vu
-            |> (fun vu ->
-                match vu |> ValueUnit.get with
-                | v, u when v >= [| 1000N |] && u = milliGram -> vu |> convertTo gram
-                | v, u when v >= [| 1000N |] && u = milliGramPerDay -> vu |> convertTo gramPerDay
-                | _ -> vu
-            )
-            |> ValueUnit.toStringDecimalDutchShortWithPrec 2
-        *)
+    let toString vuToStr valToStr minInclStr minExclStr maxInclStr maxExclStr { Min = min; Max = max } =
 
         let minToString min =
             match min with
@@ -1040,7 +1018,7 @@ module MinMax =
         | Some min_, Some max_ when Limit.eq min_ max_ ->
             min_ |> Limit.getValueUnit |> vuToStr
         | Some min_, Some max_ ->
-            $"%s{min_ |> Limit.getValueUnit |> vuToStr} - %s{max_ |> Limit.getValueUnit |> vuToStr}"
+            $"%s{min_ |> Limit.getValueUnit |> valToStr} - %s{max_ |> Limit.getValueUnit |> vuToStr}"
         | Some min_, None -> min_ |> minToString
         | None, Some max_ -> max_ |> maxToString
 

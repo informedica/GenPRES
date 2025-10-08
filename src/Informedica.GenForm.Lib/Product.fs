@@ -12,8 +12,7 @@ module Product =
 
     open Informedica.GenUnits.Lib
 
-    open GenFormResult
-
+    open Utils
 
     module GenPresProduct = Informedica.ZIndex.Lib.GenPresProduct
     module ATCGroup = Informedica.ZIndex.Lib.ATCGroup
@@ -37,7 +36,6 @@ module Product =
             | _ -> AnyAccess
 
 
-
     module ShapeRoute =
 
 
@@ -50,11 +48,9 @@ module Product =
             |> Option.defaultValue false
 
 
-
     module Reconstitution =
 
 
-        open Utils
 
         let get dataUrlId : GenFormResult<_> =
             try
@@ -91,9 +87,9 @@ module Product =
                                 |> Array.map String.trim
                         }
                     )
-                |> createOkNoMsgs
+                |> GenFormResult.createOkNoMsgs
             with
-            | exn -> createError "Reconstiution.get" exn
+            | exn -> GenFormResult.createError "Reconstiution.get" exn
 
 
         let filter routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
@@ -221,9 +217,9 @@ module Product =
                                 )
                         }
                     )
-                |> createOkNoMsgs
+                |> GenFormResult.createOkNoMsgs
             with
-            | exn -> createError "Enteral.get" exn
+            | exn -> GenFormResult.createError "Enteral.get" exn
 
 
     module Parenteral =
@@ -338,9 +334,9 @@ module Product =
                                 )
                         }
                     )
-                |> createOkNoMsgs
+                |> GenFormResult.createOkNoMsgs
             with
-            | exn -> createError "Parenteral.get" exn
+            | exn -> GenFormResult.createError "Parenteral.get" exn
 
 
     let create gen rte substs =
@@ -548,9 +544,9 @@ module Product =
                         }
                     )
             |> StopWatch.clockFunc "retrieved formulary products"
-            |> createOkNoMsgs
+            |> GenFormResult.createOkNoMsgs
         with
-        | exn -> createError "FormularyProducts" exn
+        | exn -> GenFormResult.createError "FormularyProducts" exn
 
 
     let get

@@ -160,6 +160,9 @@ module Resources =
         }
 
 
+    let inline delay f = fun () -> f
+
+
     /// Default resource configuration using the standard get functions
     let defaultResourceConfig dataUrlId =
         {

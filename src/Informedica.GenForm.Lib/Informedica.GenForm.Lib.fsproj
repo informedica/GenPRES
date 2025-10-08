@@ -11,11 +11,12 @@
     <Compile Include="Mapping.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="LimitTarget.fs" />
+    <Compile Include="DoseLimit.fs" />
     <Compile Include="DoseType.fs" />
     <Compile Include="Product.fs" />
     <Compile Include="Filter.fs" />
-    <Compile Include="DoseRule.fs" />
-    <Compile Include="Check.fs" />
+    <Compile Include="DoseRule.fs" /><Compile Include="Check.fs" />
+    
     <Compile Include="SolutionRule.fs" />
     <Compile Include="RenalRule.fs" />
     <Compile Include="PrescriptionRule.fs" />

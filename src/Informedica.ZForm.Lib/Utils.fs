@@ -9,7 +9,10 @@ module MinMax =
     open Informedica.GenCore.Lib.Ranges
 
 
-    let private toString = MinMax.toString (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+    let private toString = 
+        MinMax.toString 
+            (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+            (ValueUnit.toStringDecimalDutchShortWithPrec 2)
 
 
     /// Print a MinIncrMax value as an age string.

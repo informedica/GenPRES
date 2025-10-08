@@ -238,41 +238,41 @@ module Tests
             | _ -> ()
 
             orbDto.DoseCount.Constraints
-            |>  MinMax.setConstraints None d.DoseCount
+            |>  setConstraints None d.DoseCount
 
             orbDto.OrderableQuantity.Constraints.ValsOpt <- d.Quantities |> vuToDto
 
             let setOrbDoseRate (dl : DoseLimit) =
 
                 orbDto.Dose.Rate.Constraints
-                |> MinMax.setConstraints
+                |> setConstraints
                     None
                     dl.Rate
 
                 orbDto.Dose.RateAdjust.Constraints
-                |> MinMax.setConstraints
+                |> setConstraints
                     None
                     dl.RateAdjust
 
             let setOrbDoseQty isOnce (dl : DoseLimit) =
                 orbDto.Dose.Quantity.Constraints
-                |> MinMax.setConstraints
+                |> setConstraints
                     None
                     dl.Quantity
 
                 orbDto.Dose.QuantityAdjust.Constraints
-                |> MinMax.setConstraints
+                |> setConstraints
                     dl.NormQuantityAdjust
                     dl.QuantityAdjust
 
                 if not isOnce then
                     orbDto.Dose.PerTime.Constraints
-                    |> MinMax.setConstraints
+                    |> setConstraints
                         None
                         dl.PerTime
 
                     orbDto.Dose.PerTimeAdjust.Constraints
-                    |> MinMax.setConstraints
+                    |> setConstraints
                         dl.NormPerTimeAdjust
                         dl.PerTimeAdjust
 
@@ -378,12 +378,12 @@ module Tests
                         match p.Solution with
                         | Some sl ->
                             cmpDto.OrderableQuantity.Constraints
-                            |> MinMax.setConstraints
+                            |> setConstraints
                                 sl.Quantities
                                 sl.Quantity
 
                             cmpDto.OrderableConcentration.Constraints
-                            |> MinMax.setConstraints
+                            |> setConstraints
                                 None
                                 sl.Concentration
                         | None -> ()
@@ -391,39 +391,39 @@ module Tests
                         let setDoseRate (dl : DoseLimit) =
                             if dl.Rate |> MinMax.isEmpty |> not then
                                 cmpDto.Dose.Rate.Constraints
-                                |> MinMax.setConstraints
+                                |> setConstraints
                                     None
                                     dl.Rate
 
                             if dl.RateAdjust |> MinMax.isEmpty |> not then
                                 cmpDto.Dose.RateAdjust.Constraints
-                                |> MinMax.setConstraints
+                                |> setConstraints
                                     None
                                     dl.RateAdjust
 
                         let setDoseQty (dl : DoseLimit) =
                             if dl.Quantity |> MinMax.isEmpty |> not then
                                 cmpDto.Dose.Quantity.Constraints
-                                |> MinMax.setConstraints
+                                |> setConstraints
                                     None
                                     dl.Quantity
                             if dl.QuantityAdjust |> MinMax.isEmpty |> not ||
                                dl.NormQuantityAdjust |> Option.isSome then
                                 cmpDto.Dose.QuantityAdjust.Constraints
-                                |> MinMax.setConstraints
+                                |> setConstraints
                                     dl.NormQuantityAdjust
                                     dl.QuantityAdjust
 
                             if dl.PerTime |> MinMax.isEmpty |> not then
                                 cmpDto.Dose.PerTime.Constraints
-                                |> MinMax.setConstraints
+                                |> setConstraints
                                     None
                                     dl.PerTime
 
                             if dl.PerTimeAdjust |> MinMax.isEmpty |> not ||
                                dl.NormPerTimeAdjust |> Option.isSome then
                                 cmpDto.Dose.PerTimeAdjust.Constraints
-                                |> MinMax.setConstraints
+                                |> setConstraints
                                     dl.NormPerTimeAdjust
                                     dl.PerTimeAdjust
 
@@ -463,12 +463,12 @@ module Tests
                                 match s.Solution with
                                 | Some sl ->
                                     itmDto.OrderableQuantity.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         sl.Quantities
                                         sl.Quantity
 
                                     itmDto.OrderableConcentration.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         None
                                         sl.Concentration
                                 | None -> ()
@@ -476,33 +476,33 @@ module Tests
                                 let setDoseRate (dl : DoseLimit) =
 
                                     itmDto.Dose.Rate.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         None
                                         dl.Rate
 
                                     itmDto.Dose.RateAdjust.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         None
                                         dl.RateAdjust
 
                                 let setDoseQty (dl : DoseLimit) =
                                     itmDto.Dose.Quantity.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         None
                                         dl.Quantity
 
                                     itmDto.Dose.QuantityAdjust.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         dl.NormQuantityAdjust
                                         dl.QuantityAdjust
 
                                     itmDto.Dose.PerTime.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         None
                                         dl.PerTime
 
                                     itmDto.Dose.PerTimeAdjust.Constraints
-                                    |> MinMax.setConstraints
+                                    |> setConstraints
                                         dl.NormPerTimeAdjust
                                         dl.PerTimeAdjust
 

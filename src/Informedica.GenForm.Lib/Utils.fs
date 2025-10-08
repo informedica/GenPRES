@@ -2,16 +2,12 @@ namespace Informedica.GenForm.Lib
 
 
 
-[<AutoOpen>]
 module Utils =
 
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineNoTime
-
-
-    let inline delay f = fun () -> f
 
 
     module Message =
@@ -304,21 +300,11 @@ module Utils =
                     | _ -> ""
 
 
-            let minToString min =
-                match min with
-                | Inclusive vu -> $"{minInclStr}{vu |> vuToStr}"
-                | Exclusive vu -> $"{minExclStr}{vu |> vuToStr}"
-
-            let maxToString min =
-                match min with
-                | Inclusive vu -> $"{maxInclStr}{vu |> vuToStr}"
-                | Exclusive vu -> $"{maxExclStr}{vu |> vuToStr}"
-
-            match min, max with
-            | None, None -> ""
-            | Some min_, Some max_ when Limit.eq min_ max_ ->
-                min_ |> Limit.getValueUnit |> vuToStr
-            | Some min_, Some max_ ->
-                $"%s{min_ |> Limit.getValueUnit |> vuToVal} - %s{max_ |> Limit.getValueUnit |> vuToStr}"
-            | Some min_, None -> min_ |> minToString
-            | None, Some max_ -> max_ |> maxToString
+            MinMax.toString 
+                vuToStr 
+                vuToVal
+                minInclStr 
+                minExclStr 
+                maxInclStr 
+                maxExclStr 
+                { Min = min; Max = max } 

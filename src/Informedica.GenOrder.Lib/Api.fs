@@ -418,6 +418,7 @@ module OrderContext =
 
 
     open Informedica.Logging.Lib
+    open Utils
     open Helpers
 
     module Prescription = Order.Schedule

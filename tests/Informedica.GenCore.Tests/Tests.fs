@@ -299,6 +299,7 @@ module Tests =
         let mmToStr =
             MinMax.toString
                 (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+                (ValueUnit.toStringDecimalDutchShortWithPrec 2)
                 "van (incl) "
                 "van (incl) "
                 "tot (incl) "
