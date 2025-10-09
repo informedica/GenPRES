@@ -147,6 +147,7 @@ module private Elmish =
     // * dp: department
     // * md: medication
     // * rt: route
+    // * sh: shape
     // * in: indication
     // * dt: dosetype
     let parseUrl sl =
@@ -293,9 +294,10 @@ module private Elmish =
 
             let med =
                 {|
+                    indication = paramsMap |> Map.tryFind "in"
                     medication = paramsMap |> Map.tryFind "md"
                     route = paramsMap |> Map.tryFind "rt"
-                    indication = paramsMap |> Map.tryFind "in"
+                    shape = paramsMap |> Map.tryFind "sh"
                     dosetype =
                         paramsMap
                         |> Map.tryFind "dt"
@@ -313,7 +315,7 @@ module private Elmish =
             None, None, None, true, None
 
 
-    let initialState pat page lang discl (med : {| medication: string option; route: string option; indication: string option; dosetype: DoseType option |} option) =
+    let initialState pat page lang discl (med : {| indication: string option; medication: string option; route: string option; shape: string option; dosetype: DoseType option |} option) =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue LifeSupport
@@ -326,7 +328,7 @@ module private Elmish =
                 match med with
                 | None -> HasNotStartedYet
                 | Some m ->
-                    OrderContext.empty |> OrderContext.setMedication m.medication m.route m.indication
+                    OrderContext.empty |> OrderContext.setMedication m.indication m.medication m.route m.shape m.dosetype
                     |> Resolved
             TreatmentPlan =
                 match pat with
@@ -553,10 +555,11 @@ module private Elmish =
                         | InProgress -> state.OrderContext
                         | HasNotStartedYet ->
                             OrderContext.empty
-                            |> OrderContext.setMedication m.medication m.route m.indication |> Resolved
+                            |> OrderContext.setMedication m.indication m.medication m.route m.shape m.dosetype 
+                            |> Resolved
                         | Resolved ctx ->
                             ctx
-                            |> OrderContext.setMedication m.medication m.route m.indication
+                            |> OrderContext.setMedication m.indication m.medication m.route m.shape m.dosetype
                             |> Resolved
                 Context =
                     { state.Context with

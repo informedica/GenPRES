@@ -19,12 +19,23 @@ module DoseType =
         | NoDoseType -> 100
 
 
+    let eqs doseType1 doseType2 =
+        match doseType1, doseType2 with
+        | Once txt1, Once txt2 
+        | OnceTimed txt1, OnceTimed txt2
+        | Discontinuous txt1, Discontinuous txt2
+        | Timed txt1, Timed txt2
+        | Continuous txt1, Continuous txt2 -> txt1 |> String.equalsCapInsens txt2
+        | NoDoseType, NoDoseType -> true
+        | _ -> false
+
+
     let eqsType doseType1 doseType2 =
         match doseType1, doseType2 with
         | Once _, Once _
         | OnceTimed _, OnceTimed _
-        | Timed _, Timed _
         | Discontinuous _, Discontinuous _
+        | Timed _, Timed _
         | Continuous _, Continuous _
         | NoDoseType, NoDoseType -> true
         | _ -> false

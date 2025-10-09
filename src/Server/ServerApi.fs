@@ -331,8 +331,8 @@ module Mappers =
 
         let mappedCtx = OrderContext.create logger provider pat
 
-        let setFilter itm items =
-            match items |> Array.tryFind (fun x -> Some x = itm) with
+        let setFilter eqs itm items =
+            match items |> Array.tryFind (fun x -> itm |> Option.map (eqs x) |> Option.defaultValue false) with
             | Some x -> itm, [| x |]
             | None   -> None, items
 
@@ -367,12 +367,12 @@ module Mappers =
                 )
 
             Filter =
-                let ind, inds = mappedCtx.Filter.Indications |> setFilter ctx.Filter.Indication
-                let gen, gens = mappedCtx.Filter.Generics |> setFilter ctx.Filter.Medication
-                let rte, rtes = mappedCtx.Filter.Routes |> setFilter ctx.Filter.Route
-                let shp, shps = mappedCtx.Filter.Shapes |> setFilter ctx.Filter.Shape
-                let dtp, dtps = mappedCtx.Filter.DoseTypes |> setFilter (ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType)
-
+                let ind, inds = mappedCtx.Filter.Indications |> setFilter String.equalsCapInsens ctx.Filter.Indication
+                let gen, gens = mappedCtx.Filter.Generics |> setFilter String.equalsCapInsens ctx.Filter.Medication
+                let rte, rtes = mappedCtx.Filter.Routes |> setFilter String.equalsCapInsens ctx.Filter.Route
+                let shp, shps = mappedCtx.Filter.Shapes |> setFilter String.equalsCapInsens ctx.Filter.Shape
+                let dtp, dtps = mappedCtx.Filter.DoseTypes |> setFilter DoseType.eqs (ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType)
+                
                 { mappedCtx.Filter with
                     Indication = ind
                     Indications = inds
@@ -383,7 +383,9 @@ module Mappers =
                     Shape = shp
                     Shapes = shps
                     DoseType = dtp
-                    DoseTypes = dtps
+                    DoseTypes = 
+                        if dtps |> Array.length = 1 then dtps 
+                        else ctx.Filter.DoseTypes |> Array.map mapFromSharedDoseTypeToOrderDoseType
                     Diluents = ctx.Filter.Diluents
                     Components = ctx.Filter.Components
                     Diluent = ctx.Filter.Diluent

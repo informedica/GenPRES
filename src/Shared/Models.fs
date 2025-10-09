@@ -1669,13 +1669,15 @@ module Models =
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
 
 
-        let setMedication med rte ind ctx : OrderContext =
+        let setMedication ind med rte shp dtp ctx : OrderContext =
             { ctx with
                 Filter =
                     { ctx.Filter with
+                        Indication = ind
                         Medication = med
                         Route = rte
-                        Indication = ind
+                        Shape = shp
+                        DoseType = dtp
                     }
             }
 
