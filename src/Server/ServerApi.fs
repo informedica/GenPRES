@@ -331,6 +331,11 @@ module Mappers =
 
         let mappedCtx = OrderContext.create logger provider pat
 
+        let setFilter itm items =
+            match items |> Array.tryFind (fun x -> Some x = itm) with
+            | Some x -> itm, [| x |]
+            | None   -> None, items
+
         { mappedCtx with
             Scenarios =
                 ctx.Scenarios
@@ -362,40 +367,25 @@ module Mappers =
                 )
 
             Filter =
+                let ind, inds = mappedCtx.Filter.Indications |> setFilter ctx.Filter.Indication
+                let gen, gens = mappedCtx.Filter.Generics |> setFilter ctx.Filter.Medication
+                let rte, rtes = mappedCtx.Filter.Routes |> setFilter ctx.Filter.Route
+                let shp, shps = mappedCtx.Filter.Shapes |> setFilter ctx.Filter.Shape
+                let dtp, dtps = mappedCtx.Filter.DoseTypes |> setFilter (ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType)
+
                 { mappedCtx.Filter with
-                    Indications =
-                        if ctx.Filter.Indication |> Option.isSome then
-                            [| ctx.Filter.Indication |> Option.defaultValue "" |]
-                        else
-                            mappedCtx.Filter.Indications
-                    Generics =
-                        if ctx.Filter.Medication |> Option.isSome then
-                            [| ctx.Filter.Medication |> Option.defaultValue "" |]
-                        else
-                            mappedCtx.Filter.Generics
-                    Routes =
-                        if ctx.Filter.Route |> Option.isSome then
-                            [| ctx.Filter.Route |> Option.defaultValue "" |]
-                        else
-                            mappedCtx.Filter.Routes
-                    Shapes =
-                        if ctx.Filter.Shape |> Option.isSome then
-                            [| ctx.Filter.Shape |> Option.defaultValue "" |]
-                        else
-                            mappedCtx.Filter.Shapes
-                    DoseTypes =
-                        if ctx.Filter.DoseType |> Option.isSome then
-                            [| ctx.Filter.DoseType |> Option.defaultValue NoDoseType |]
-                            |> Array.map mapFromSharedDoseTypeToOrderDoseType
-                        else
-                            mappedCtx.Filter.DoseTypes
+                    Indication = ind
+                    Indications = inds
+                    Generic = gen
+                    Generics = gens
+                    Route = rte
+                    Routes = rtes
+                    Shape = shp
+                    Shapes = shps
+                    DoseType = dtp
+                    DoseTypes = dtps
                     Diluents = ctx.Filter.Diluents
                     Components = ctx.Filter.Components
-                    Indication = ctx.Filter.Indication
-                    Generic = ctx.Filter.Medication
-                    Shape = ctx.Filter.Shape
-                    Route = ctx.Filter.Route
-                    DoseType = ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType
                     Diluent = ctx.Filter.Diluent
                     SelectedComponents = ctx.Filter.SelectedComponents
                 }
