@@ -732,6 +732,8 @@ module Models =
     module EmergencyTreatment =
 
 
+        let toStr = decimal >> Decimal.toStringNumberNLWithoutTrailingZeros
+
 
         let calcDoseVol kg doserPerKg conc min max =
             let d =
@@ -772,31 +774,31 @@ module Models =
             }
 
 
-        let calcTube s =
+        let calcTube n =
             let textfn m =
-                $"%.1f{m - 0.5} - %.1f{m} - %.1f{m + 0.5}"
+                $"%s{m - 0.5 |> toStr} - %s{m |> toStr} - %s{m + 0.5 |> toStr}"
 
             let formula age =
-                s + age / 4. |> Math.roundBy0_5 |> (fun m -> if m > 7. then 7. else m)
+                n + age / 4. |> Math.roundBy0_5 |> fun m -> if m > 7. then 7. else m
 
             calcIntervention
                 ""
                 "reanimatie"
-                $"""tube ({if s = 3.5 then "met" else "zonder"} cuff) maat"""
-                $"%A{s} + leeftijd / 4"
+                $"""tube ({if n = 3.5 then "met" else "zonder"} cuff) maat"""
+                $"%s{n |> toStr} + leeftijd / 4"
                 formula
                 textfn
 
         let calcOralLength =
             let formula age = 12. + age / 2. |> Math.roundBy0_5
-            let textfn m = $"%A{m} cm"
+            let textfn m = $"%s{m |> toStr} cm"
 
             calcIntervention "" "reanimatie" "tube lengte oraal" "12 + leeftijd / 2" formula textfn
 
 
         let calcNasalLength =
             let formula age = 15. + age / 2. |> Math.roundBy0_5
-            let textfn m = $"%A{m} cm"
+            let textfn m = $"%s{m |> toStr} cm"
 
             calcIntervention "" "reanimatie" "tube lengte nasaal" "15 + leeftijd / 2" formula textfn
 
@@ -814,7 +816,7 @@ module Models =
                 SubstanceDose = Some d
                 SubstanceDoseUnit = "ml"
                 SubstanceMaxDose = Some 500.
-                SubstanceDoseText = $"%A{d} ml NaCl 0.9%%"
+                SubstanceDoseText = $"%s{d |> toStr} ml NaCl 0.9%%"
                 SubstanceDoseAdjust = d / wght |> Math.fixPrecision 1 |> Some
                 SubstanceDoseAdjustUnit = "ml/kg"
                 Text =
@@ -832,7 +834,7 @@ module Models =
             let formula wght =
                 joules |> List.findNearestMax (wght * 4.)
 
-            let textfn m = $"{m} joule"
+            let textfn m = $"%s{m |> toStr} joule"
 
             calcIntervention "" "reanimatie" "defibrillatie" "4 joule/kg" formula textfn
 
@@ -841,11 +843,12 @@ module Models =
             let formula wght =
                 joules |> List.findNearestMax (wght * 2.)
 
-            let textfn m = $"{m} joule"
+            let textfn m = $"%s{m |> toStr} joule"
             calcIntervention "" "reanimatie" "cardioversie" "2 joule/kg" formula textfn
 
 
         let calcBolusMedication wght (bolus: BolusMedication) =
+            let toStr = decimal >> Decimal.toStringNumberNLWithoutTrailingZeros
             let d, v, c =
                 let d, v =
                     calcDoseVol wght bolus.NormDose bolus.Concentration bolus.MinDose bolus.MaxDose
@@ -861,15 +864,15 @@ module Models =
                     s
                 else
                     match bolus.MinDose = 0., bolus.MaxDose = 0. with
-                    | true, true -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg"
+                    | true, true -> $"%s{bolus.NormDose |> toStr} %s{bolus.Unit}/kg"
 
-                    | true, false -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg (max %A{bolus.MaxDose} %s{bolus.Unit})"
-                    | false, true -> $"%A{bolus.NormDose} %s{bolus.Unit}/kg (min %A{bolus.MinDose} %s{bolus.Unit})"
+                    | true, false -> $"%s{bolus.NormDose |> toStr} %s{bolus.Unit}/kg (max %A{bolus.MaxDose} %s{bolus.Unit})"
+                    | false, true -> $"%s{bolus.NormDose |> toStr} %s{bolus.Unit}/kg (min %A{bolus.MinDose} %s{bolus.Unit})"
                     | false, false ->
                         if bolus.MinDose = bolus.MaxDose then
-                            $"%A{bolus.MinDose} %s{bolus.Unit}"
+                            $"%s{bolus.MinDose |> toStr} %s{bolus.Unit}"
                         else
-                            $"%A{bolus.NormDose} %s{bolus.Unit}/kg (%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
+                            $"%s{bolus.NormDose |> toStr} %s{bolus.Unit}/kg (%A{bolus.MinDose} - %A{bolus.MaxDose} %s{bolus.Unit})"
 
             { Intervention.emptyIntervention with
                 Hospital = bolus.Hospital
@@ -880,7 +883,7 @@ module Models =
                 TotalUnit = "ml"
                 InterventionDose = Some v
                 InterventionDoseUnit = "ml"
-                InterventionDoseText = $"{v} ml van {c} {bolus.Unit}/ml"
+                InterventionDoseText = $"%s{v |> toStr} ml van %s{c |> toStr} {bolus.Unit}/ml"
                 SubstanceDose = Some d
                 SubstanceMinDose = if bolus.MinDose = 0. then None else Some bolus.MinDose
                 SubstanceMaxDose = if bolus.MaxDose = 0. then None else Some bolus.MaxDose
@@ -896,9 +899,9 @@ module Models =
                     else $"{bolus.Unit}/kg"
                 SubstanceDoseText =
                     if bolus.MinDose = bolus.MaxDose && bolus.MinDose > 0. then
-                        $"{d} {bolus.Unit}"
+                        $"%s{d |> toStr} {bolus.Unit}"
                     else
-                        $"{d} {bolus.Unit} ({d / wght |> Math.fixPrecision 1} {bolus.Unit}/kg)"
+                        $"%s{d |> toStr} {bolus.Unit} (%s{d / wght |> Math.fixPrecision 1 |> toStr} {bolus.Unit}/kg)"
                 Text = adv bolus.Remark
             }
 
@@ -958,7 +961,7 @@ module Models =
                         "tube maat"
                         "< 1 kg: 2.5, 1-3 kg: 3.0"
                         (fun w -> if w < 1. then 2.5 else 3)
-                        (fun f -> $"%.1f{f}")
+                        (fun f -> $"%s{f |> toStr}")
                         weight.Value
 
                     calcIntervention
@@ -967,7 +970,7 @@ module Models =
                         "tube lengte oraal"
                         "6.632 + 1.822 x ln(kg)"
                         (fun w -> 6.632 + 1.822 * System.Math.Log(w))
-                        (fun f -> $"%.1f{f} cm")
+                        (fun f -> $"%s{f |> toStr} cm")
                         weight.Value
 
                     calcIntervention
@@ -976,7 +979,7 @@ module Models =
                         "tube lengte nasaal"
                         "(45 + 1.15 x \u221A (gram)) / 10"
                         (fun w -> (45. + 1.15 * System.Math.Sqrt(w * 1000.)) / 10.)
-                        (fun f -> $"%.1f{f} cm")
+                        (fun f -> $"%s{f |> toStr} cm")
                         weight.Value
 
                     calcIntervention
@@ -985,7 +988,7 @@ module Models =
                         "navel lijn maat"
                         "< 1.5 kg: 3,5 anders 5 "
                         (fun w -> if w < 1.5 then 3.5 else 5.)
-                        (fun f -> $"%A{f} French")
+                        (fun f -> $"%s{f |> toStr} French")
                         weight.Value
 
                     if weight.Value < 1.5 then
@@ -995,7 +998,7 @@ module Models =
                             "navel arterie lijn lengte"
                             "kg x 4 + 7"
                             (fun w -> w * 4. + 7.)
-                            (fun f -> $"%.1f{f} cm")
+                            (fun f -> $"%s{f |> toStr} cm")
                             weight.Value
                     else
                         calcIntervention
@@ -1004,7 +1007,7 @@ module Models =
                             "navel arterie lijn lengte"
                             "kg x 2.5 + 9.7"
                             (fun w -> w * 2.5 + 9.7)
-                            (fun f -> $"%.1f{f} cm")
+                            (fun f -> $"%s{f |> toStr} cm")
                             weight.Value
 
                     calcIntervention
@@ -1013,7 +1016,7 @@ module Models =
                         "navel vene lijn lengte"
                         "kg x 1.5 + 5.5"
                         (fun w -> w * 1.5 + 5.5)
-                        (fun f -> $"%.1f{f} cm")
+                        (fun f -> $"%s{f |> toStr} cm")
                         weight.Value
                     // fluid bolus
                     if weight |> Option.isSome then
@@ -1065,6 +1068,9 @@ module Models =
     module ContinuousMedication =
 
         open Shared
+
+
+        let toStr = decimal >> Decimal.toStringNumberNLWithoutTrailingZeros
 
 
         let create
@@ -1166,12 +1172,12 @@ module Models =
 
                     1. * t * u
 
-                let d = (f * qty / vol / wght) |> Math.fixPrecision 2
+                let d = f * qty / vol / wght |> Math.fixPrecision 2
 
                 d, doseU
 
 
-            let printAdv min max unit = $"%A{min} - %A{max} %s{unit}"
+            let printAdv min max unit = $"%s{min |> toStr} - %s{max |> toStr} %s{unit}"
 
             contMeds
             |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
@@ -1208,8 +1214,8 @@ module Models =
                             SubstanceDoseAdjustUnit = u
                             SubstanceMinDoseAdjust = Some med.MinDose
                             SubstanceMaxDoseAdjust = Some med.MaxDose
-                            SubstanceDoseText = $"1 mL/uur = {d} {u}"
-                            Text = (printAdv med.MinDose med.MaxDose med.DoseUnit)
+                            SubstanceDoseText = $"1 mL/uur = %s{d |> toStr} {u}"
+                            Text = printAdv med.MinDose med.MaxDose med.DoseUnit
                         }
                     ]
             )
