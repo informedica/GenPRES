@@ -13,18 +13,6 @@ module SolutionRule =
     open Utils
 
 
-    module SolutionLimit =
-
-
-        /// An empty SolutionLimit.
-        let limit =
-            {
-                SolutionLimitTarget = NoLimitTarget
-                Quantity = MinMax.empty
-                Quantities = None
-                Concentration = MinMax.empty
-            }
-
 
     let fromTupleInclExcl = MinMax.fromTuple Inclusive Exclusive
 
@@ -117,13 +105,13 @@ module SolutionRule =
                                             AnyAccess
                                 Age =
                                     (r.MinAge, r.MaxAge)
-                                    |> fromTupleInclExcl (Some Utils.Units.day)
+                                    |> fromTupleInclExcl (Some Units.day)
                                 Weight =
                                     (r.MinWeight, r.MaxWeight)
-                                    |> fromTupleInclExcl (Some Utils.Units.weightGram)
+                                    |> fromTupleInclExcl (Some Units.weightGram)
                                 GestAge =
                                     (r.MinGestAge, r.MaxGestAge)
-                                    |> fromTupleInclExcl (Some Utils.Units.day)
+                                    |> fromTupleInclExcl (Some Units.day)
                             }
                         Dose =
                             (r.MinDose, r.MaxDose)

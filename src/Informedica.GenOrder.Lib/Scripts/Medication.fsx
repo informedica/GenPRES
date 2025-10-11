@@ -10,6 +10,9 @@ System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15Fuv
 
 #load "load.fsx"
 
+open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
+open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
@@ -22,12 +25,22 @@ let valueUnitOptToString =
     Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 2)
     >> Option.defaultValue ""
 
+
+let minMaxToString (minMax : MinMax) =
+    if minMax = MinMax.empty then ""
+    else
+        minMax
+        |> MinMax.toString
+            "min "
+            "min "
+            "max "
+            "max "
+
+
 // have to add this to Informedica.GenForm.Lib
 module DoseLimit =
 
-    open Informedica.
-
-    let printMinMaxDose perDose (minMax : MinMax) =
+    let minMaxToString perDose (minMax : MinMax) =
         if minMax = MinMax.empty then ""
         else
             minMax
@@ -39,7 +52,7 @@ module DoseLimit =
             |> fun s ->
                 $"{s}{perDose}"
 
-    let printNormDose perDose vu =
+    let normDoseToString perDose vu =
         match vu with
         | None    -> ""
         | Some vu ->
@@ -47,34 +60,53 @@ module DoseLimit =
 
 
     let toString (dl: DoseLimit) =
+        let perDose = "/dosis"
+        let emptyS = ""
         [
-            let perDose = "/dosis"
-            let emptyS = ""
-            [
-                $"{dl.Rate |> printMinMaxDose emptyS}"
-                $"{dl.RateAdjust |> printMinMaxDose emptyS}"
+            $"{dl.Rate |> minMaxToString emptyS}"
+            $"{dl.RateAdjust |> minMaxToString emptyS}"
 
-                $"{dl.NormPerTimeAdjust |> printNormDose emptyS} " +
-                $"{dl.PerTimeAdjust |> printMinMaxDose emptyS}"
+            $"{dl.NormPerTimeAdjust |> normDoseToString emptyS} " +
+            $"{dl.PerTimeAdjust |> minMaxToString emptyS}"
 
-                $"{dl.PerTime |> printMinMaxDose emptyS}"
+            $"{dl.PerTime |> minMaxToString emptyS}"
 
-                $"{dl.NormQuantityAdjust |> printNormDose perDose} " +
-                $"{dl.QuantityAdjust |> printMinMaxDose perDose}"
+            $"{dl.NormQuantityAdjust |> normDoseToString perDose} " +
+            $"{dl.QuantityAdjust |> minMaxToString perDose}"
 
-                $"{dl.Quantity |> printMinMaxDose perDose}"
-            ]
-            |> List.map String.trim
-            |> List.filter (String.IsNullOrEmpty >> not)
-            |> String.concat ", "
+            $"{dl.Quantity |> minMaxToString perDose}"
         ]
+        |> List.map String.trim
+        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> String.concat ", "
 
+
+module SolutionLimit =
+
+    let minMaxToString (minMax : MinMax) =
+        if minMax = MinMax.empty then ""
+        else
+            minMax
+            |> MinMax.toString
+                "min "
+                "min "
+                "max "
+                "max "
+
+    let toString (sl: SolutionLimit) =
+        [
+            sl.Concentration |> minMaxToString
+        ]
+        |> String.concat "\n"
 
 
 let limitOptToString =
-    Option.map (DoseLimit.toString false)
+    Option.map DoseLimit.toString
     >> Option.defaultValue ""
 
+let solutionLimitOptToString =
+    Option.map SolutionLimit.toString
+    >> Option.defaultValue ""
 
 
 module SubstanceItem =
@@ -93,17 +125,135 @@ module SubstanceItem =
         [
             "Name", subst.Name
             "Concentrations", subst.Concentrations |> valueUnitOptToString
-            "Dose", subst.Dose
+            "Dose", subst.Dose |> limitOptToString
+            "Solution", subst.Solution |> solutionLimitOptToString
         ]
 
 
+SubstanceItem.create
+    "paracetamol"
+    ([| 60N; 120N; 240N; 500N |] |> ValueUnit.withUnit (Units.Mass.milliGram |> Units.per (Units.General.general "stuk")) |> Some)
+    None
+    None
+|> SubstanceItem.toString
+
+
+module ProductComponent =
+
+    let create
+        nme
+        shp
+        qts
+        div
+        dos
+        sol
+        sbs
+        : ProductComponent
+        =
+        {
+            Name = nme
+            Shape = shp
+            Quantities = qts
+            Divisible = div
+            Dose = dos
+            Solution = sol
+            Substances = sbs
+        }
+
+    let toString (prodCmp : ProductComponent) =
+        [
+            "Name", prodCmp.Name
+            "Shape", prodCmp.Shape
+            "Quantities", prodCmp.Quantities |> valueUnitOptToString
+            "Divisible", prodCmp.Divisible |> BigRational.optToString
+            "Dose", prodCmp.Dose |> limitOptToString
+            "Solution", prodCmp.Solution |> solutionLimitOptToString
+            "Substances", ""
+        ]
+        ,
+        prodCmp.Substances |> List.map SubstanceItem.toString
+
+
 let toString (med: Medication) =
-    [
-        "Id", med.Id
-        "Name", med.Name
-        "Adjust", med.Adjust |> valueUnitOptToString
-    ]
-    |> List.map (fun (n, v) -> $"{n}: {v}")
+    med.Components
+    |> List.collect (fun prodCmp ->
+        let sl, il = prodCmp |> ProductComponent.toString
+        [
+            sl |> List.map (fun (n, v) -> $"\t{n}: {v}")
+            yield!
+                il
+                |> List.map (fun si ->
+                    si
+                    |> List.map (fun (n, v) -> $"\t\t{n}: {v}")
+                    |> List.append [ "" ]
+                )
+        ]
+    )
+    |> List.append (
+        [
+            "Id", med.Id
+            "Name", med.Name
+            "Quantities", med.Quantities |> valueUnitOptToString
+            "Route", med.Route
+            "OrderType", $"{med.OrderType}"
+            "Adjust", med.Adjust |> valueUnitOptToString
+            "AdjustUnit", med.AdjustUnit |> Option.map Units.toStringEngShort |> Option.defaultValue ""
+            "Frequencies", med.Frequencies |> valueUnitOptToString
+            "Time", med.Time |> minMaxToString
+            "Dose", med.Dose |> limitOptToString
+            "DoseCount", med.DoseCount |> minMaxToString
+            "Components", ""
+        ]
+        |> List.map (fun (n, v) -> [ $"{n}: {v}" ])
+    )
+    |> List.collect id
 
 order
 |> toString
+
+
+{
+    Medication.order with
+        Id = "1"
+        Name = "cotrimoxazol"
+        Components =
+            [
+                {
+                    Medication.productComponent with
+                        Name = "cotrimoxazol"
+                        Shape = "tablet"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Count.times
+                            |> Some
+                        Divisible = Some (1N)
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "sulfamethoxazol"
+                                        Concentrations =
+                                            [| 100N; 400N; 800N |]
+                                            |> ValueUnit.withUnit Units.Mass.milliGram
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "trimethoprim"
+                                        Concentrations =
+                                            [| 20N; 80N; 160N |]
+                                            |> ValueUnit.withUnit Units.Mass.milliGram
+                                            |> Some
+                                }
+                            ]
+                }
+            ]
+        Route = "or"
+        OrderType = DiscontinuousOrder
+        Frequencies =
+            [|2N |]
+            |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
+            |> Some
+}
+|> toString
+|> List.iter (printfn "%s")

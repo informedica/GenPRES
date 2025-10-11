@@ -12,11 +12,49 @@ module Medication =
     open Informedica.GenForm.Lib
     open Informedica.GenForm.Lib.Utils
     open Informedica.GenCore.Lib.Ranges
+    open Utils
 
     module Limit = Limit
 
 
     let private tryHead m = Array.map m >> Array.tryHead >> Option.defaultValue ""
+
+
+    let valueUnitOptToString =
+        Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 2)
+        >> Option.defaultValue ""
+
+
+    let minMaxToString (minMax : MinMax) =
+        if minMax = MinMax.empty then ""
+        else
+            minMax
+            |> MinMax.toString
+                "min "
+                "min "
+                "max "
+                "max "
+
+
+    let limitOptToString =
+        let toStr =
+            DoseLimit.toString
+            >> List.map String.trim
+            >> List.filter (String.isNullOrWhiteSpace >> not)
+            >> String.concat ", "
+        Option.map toStr
+        >> Option.defaultValue ""
+
+
+    let solutionLimitOptToString =
+        let toStr =
+            SolutionLimit.toString
+            >> List.map String.trim
+            >> List.filter (String.isNullOrWhiteSpace >> not)
+            >> String.concat ", "
+
+        Option.map toStr
+        >> Option.defaultValue ""
 
 
     /// <summary>
@@ -93,6 +131,87 @@ module Medication =
         createValueUnitDto u [| br |]
 
 
+    module SubstanceItem =
+
+
+        /// An empty Substance Item record.
+        let item =
+            {
+                Name = ""
+                Concentrations = None
+                Dose = None
+                Solution = None
+            }
+
+
+        let create nme conc dos sol =
+            {
+                Name = nme
+                Concentrations = conc
+                Dose = dos
+                Solution = sol
+            }
+
+
+        let toString (subst: SubstanceItem) =
+            [
+                "Name", subst.Name
+                "Concentrations", subst.Concentrations |> valueUnitOptToString
+                "Dose", subst.Dose |> limitOptToString
+                "Solution", subst.Solution |> solutionLimitOptToString
+            ]
+
+
+    module ProductComponent =
+
+
+        /// An empty Product Component record.
+        let cmp =
+            {
+                Name = ""
+                Shape = ""
+                Quantities = None
+                Divisible = None
+                Solution = None
+                Dose = None
+                Substances = []
+            }
+
+        let create
+            nme
+            shp
+            qts
+            div
+            dos
+            sol
+            sbs
+            : ProductComponent
+            =
+            {
+                Name = nme
+                Shape = shp
+                Quantities = qts
+                Divisible = div
+                Dose = dos
+                Solution = sol
+                Substances = sbs
+            }
+
+        let toString (prodCmp : ProductComponent) =
+            [
+                "Name", prodCmp.Name
+                "Shape", prodCmp.Shape
+                "Quantities", prodCmp.Quantities |> valueUnitOptToString
+                "Divisible", prodCmp.Divisible |> BigRational.optToString
+                "Dose", prodCmp.Dose |> limitOptToString
+                "Solution", prodCmp.Solution |> solutionLimitOptToString
+                "Substances", ""
+            ]
+            ,
+            prodCmp.Substances |> List.map SubstanceItem.toString
+
+
+
     /// An empty DrugOrder record.
     let order =
         {
@@ -111,27 +230,10 @@ module Medication =
         }
 
 
-    /// An empty Product Component record.
-    let productComponent =
-        {
-            Name = ""
-            Shape = ""
-            Quantities = None
-            Divisible = None
-            Solution = None
-            Dose = None
-            Substances = []
-        }
+    let productComponent = ProductComponent.cmp
 
 
-    /// An empty Substance Item record.
-    let substanceItem =
-        {
-            Name = ""
-            Concentrations = None
-            Dose = None
-            Solution = None
-        }
+    let substanceItem = SubstanceItem.item
 
 
     /// Shorthand for Units.stringWithGroup to append the unit group to a unit.
@@ -221,7 +323,7 @@ module Medication =
                             Solution = None
                         }
                     )
-                    |> Array.toList            
+                    |> Array.toList
             }
         )
         |> Array.toList
@@ -359,6 +461,41 @@ module Medication =
             pr.SolutionRules
             |> Array.map Some
             |> Array.map create
+
+
+    let toString (med: Medication) =
+        med.Components
+        |> List.collect (fun prodCmp ->
+            let sl, il = prodCmp |> ProductComponent.toString
+            [
+                sl |> List.map (fun (n, v) -> $"\t{n}: {v}")
+                yield!
+                    il
+                    |> List.map (fun si ->
+                        si
+                        |> List.map (fun (n, v) -> $"\t\t{n}: {v}")
+                        |> List.append [ "" ]
+                    )
+            ]
+        )
+        |> List.append (
+            [
+                "Id", med.Id
+                "Name", med.Name
+                "Quantities", med.Quantities |> valueUnitOptToString
+                "Route", med.Route
+                "OrderType", $"{med.OrderType}"
+                "Adjust", med.Adjust |> valueUnitOptToString
+                "AdjustUnit", med.AdjustUnit |> Option.map Units.toStringEngShort |> Option.defaultValue ""
+                "Frequencies", med.Frequencies |> valueUnitOptToString
+                "Time", med.Time |> minMaxToString
+                "Dose", med.Dose |> limitOptToString
+                "DoseCount", med.DoseCount |> minMaxToString
+                "Components", ""
+            ]
+            |> List.map (fun (n, v) -> [ $"{n}: {v}" ])
+        )
+        |> List.collect id
 
 
     module OrderDtoHelpers =

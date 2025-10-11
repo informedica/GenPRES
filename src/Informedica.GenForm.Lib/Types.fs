@@ -494,7 +494,6 @@ module Types =
         }
 
 
-
     /// A DoseLimit for a Shape or Substance.
     type RenalLimit =
         {
