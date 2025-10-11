@@ -26,9 +26,9 @@ module EquationMapping =
         let [<Literal>] cmp = "cmp" //Orderable.Literals.comp
         let [<Literal>] orb = "orb" //Orderable.Literals.orderable
         let [<Literal>] dos = "dos" //Orderable.Literals.dose
-        let [<Literal>] prs = "prs" //"Prescription"
-        let [<Literal>] ord = "ord" // "Order"
-        let [<Literal>] adj = "adj" // "Adjust"
+        let [<Literal>] sch = "sch" // Schedule
+        let [<Literal>] ord = "ord" // Order
+        let [<Literal>] adj = "adj" // Adjust
 
         let [<Literal>] discontinuous = 3
         let [<Literal>] continuous = 4

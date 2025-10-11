@@ -30,11 +30,11 @@ Start with an empty Medication Scenario defined by `MedciationOrder.order`. This
 
 Medication.order
 |> Medication.toOrderDto
-|> Order.Dto.fromDto
+//|> Order.Dto.fromDto
 
 #!markdown
 
-Now define a drug order. In this example a paracetamol suppository with the following constraints:
+Now define a medication order. In this example a paracetamol suppository with the following constraints:
 
 - There are supps with concentrations of 60, 120, 240 500 and 1000 mg per piece
 - You can give the supp 2 to 4 times a day

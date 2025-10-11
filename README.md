@@ -64,7 +64,7 @@ export GENPRES_DEBUG=1
 **Windows PowerShell:**
 
 ```powershell
-$env:GENPRES_URL_ID="1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA"
+$env:GENPRES_URL_ID="1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
 $env:GENPRES_LOG="0"
 $env:GENPRES_PROD="0"
 $env:GENPRES_DEBUG="1"
@@ -73,7 +73,7 @@ $env:GENPRES_DEBUG="1"
 **Windows Command Prompt:**
 
 ```cmd
-set GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
+set GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
 set GENPRES_LOG=0
 set GENPRES_PROD=0
 set GENPRES_DEBUG=1

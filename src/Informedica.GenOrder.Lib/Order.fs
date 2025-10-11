@@ -2795,7 +2795,7 @@ module Order =
 
         let sch =
             n
-            |> Name.add Mapping.Literals.prs
+            |> Name.add Mapping.Literals.sch
             |> str_sch
 
         let sts = DateTime.Now  |> StartStop.Start
@@ -3976,7 +3976,6 @@ module Order =
 
     module Dto =
 
-        open ConsoleWriter.NewLineNoTime
 
         type Dto (id , n) =
             member val Id = id with get, set
@@ -4005,12 +4004,13 @@ module Order =
                 |> Ok
             with
             | exn ->
-                $"Couldn not create an Order from a dto with:\n{exn}"
-                |> writeErrorMessage 
+                $"Could not create an Order from a dto with:\n{exn}"
+                |> writeErrorMessage
 
                 exn
                 |> Exceptions.OrderCouldNotBeCreated
                 |> Error
+
 
         let toDto ord =
             let id = (ord |> inf).Id |> Id.toString

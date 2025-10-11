@@ -211,7 +211,6 @@ module Medication =
             prodCmp.Substances |> List.map SubstanceItem.toString
 
 
-
     /// An empty DrugOrder record.
     let order =
         {
@@ -813,9 +812,9 @@ module Medication =
 
 
     /// <summary>
-    /// Convert a DrugOrder to an Order DTO for the solver system
+    /// Convert a Medication order to an Order DTO for the solver system
     /// </summary>
-    /// <param name="d">The DrugOrder to convert</param>
+    /// <param name="d">The Medication order to convert</param>
     let toOrderDto (d : Medication) =
         // Create the base DTO structure
         let dto = OrderDtoHelpers.createBaseOrderDto d
