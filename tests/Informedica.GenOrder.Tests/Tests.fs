@@ -1,5 +1,6 @@
 module Tests
 
+    open System
     open MathNet.Numerics
     open Expecto
     open Expecto.Flip
@@ -10,6 +11,8 @@ module Tests
     open Informedica.GenOrder.Lib
 
     // --- New tests for fluent pipeline guard/order behavior ---
+
+    Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4")
 
     // Original test data used by several tests below
     let testDrugOrders = [

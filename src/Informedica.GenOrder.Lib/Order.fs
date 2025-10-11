@@ -2312,55 +2312,55 @@ module Order =
         module Print =
 
 
-                let frequencyTo md (p : Schedule) =
-                    let toStr =
-                        if md then Frequency.toValueUnitMarkdown -1
-                        else Frequency.toValueUnitString -1
-                    match p with
-                    | Timed (frq, _)
-                    | Discontinuous frq -> frq |> toStr
-                    | _ -> ""
+            let frequencyTo md (p : Schedule) =
+                let toStr =
+                    if md then Frequency.toValueUnitMarkdown -1
+                    else Frequency.toValueUnitString -1
+                match p with
+                | Timed (frq, _)
+                | Discontinuous frq -> frq |> toStr
+                | _ -> ""
 
 
-                let frequencyToString = frequencyTo false
+            let frequencyToString = frequencyTo false
 
 
-                let frequencyToMd = frequencyTo true
+            let frequencyToMd = frequencyTo true
 
 
-                let timeTo md prec (schedule : Schedule) =
-                    let toStr =
-                        if md then Time.toValueUnitMarkdown prec
-                        else Time.toValueUnitMarkdown prec
-                    match schedule with
-                    | Continuous tme -> tme |> toStr
-                    | OnceTimed tme -> tme |> toStr
-                    | Timed (_, tme) -> tme |> toStr
-                    | _ -> ""
+            let timeTo md prec (schedule : Schedule) =
+                let toStr =
+                    if md then Time.toValueUnitMarkdown prec
+                    else Time.toValueUnitMarkdown prec
+                match schedule with
+                | Continuous tme -> tme |> toStr
+                | OnceTimed tme -> tme |> toStr
+                | Timed (_, tme) -> tme |> toStr
+                | _ -> ""
 
 
-                let timeToString = timeTo false
+            let timeToString = timeTo false
 
 
-                let timeToMd = timeTo true
+            let timeToMd = timeTo true
 
 
-                let prescriptionTo md (schedule : Schedule) =
-                    match schedule with
-                    | Once -> "eenmalig"
-                    | Continuous _ -> $"continu {schedule |> timeTo md -1}"
-                    | OnceTimed _ -> schedule |> timeTo md -1
-                    | Discontinuous _ -> schedule |> frequencyToString
-                    | Timed _     -> $"{schedule |> frequencyToString} {schedule |> timeTo md -1}"
+            let prescriptionTo md (schedule : Schedule) =
+                match schedule with
+                | Once -> "eenmalig"
+                | Continuous _ -> $"continu {schedule |> timeTo md -1}"
+                | OnceTimed _ -> schedule |> timeTo md -1
+                | Discontinuous _ -> schedule |> frequencyToString
+                | Timed _     -> $"{schedule |> frequencyToString} {schedule |> timeTo md -1}"
 
 
-                let prescriptionToString = prescriptionTo false
+            let prescriptionToString = prescriptionTo false
 
 
-                let prescriptionToMd = prescriptionTo true
+            let prescriptionToMd = prescriptionTo true
 
 
-        /// Helper functions for the Prescription Dto
+        /// Helper functions for the Schedule Dto
         module Dto =
 
 
@@ -2781,9 +2781,9 @@ module Order =
     /// </summary>
     /// <param name="id">The id of the Order</param>
     /// <param name="orbN">The name of the Orderable</param>
-    /// <param name="str_sch">A function to create a Schedule with a Name</param>
+    /// <param name="nmeToSch">A function to create a Schedule with a Name</param>
     /// <param name="route">The Route of the Order</param>
-    let createNew id orbN str_sch route =
+    let createNew id orbN nmeToSch route =
         let orb = Orderable.createNew id orbN
         let n = [id] |> Name.create
 
@@ -2796,7 +2796,7 @@ module Order =
         let sch =
             n
             |> Name.add Mapping.Literals.sch
-            |> str_sch
+            |> nmeToSch
 
         let sts = DateTime.Now  |> StartStop.Start
 
@@ -4039,10 +4039,10 @@ module Order =
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        /// <param name="str_sch">A function to create an Order with Name and Schedule</param>
-        let dto id orbN rte cmps str_sch =
+        /// <param name="nmeToSch">A function to create an Order with Name and Schedule</param>
+        let private dto id orbN rte cmps nmeToSch =
             let dto =
-                createNew id orbN str_sch rte
+                createNew id orbN nmeToSch rte
                 |> toDto
 
             dto.Orderable.Components <-
