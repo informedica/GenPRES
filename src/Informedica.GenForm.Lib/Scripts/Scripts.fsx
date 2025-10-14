@@ -5,7 +5,7 @@
 #load "load.fsx"
 
 open System
-let dataUrlId = "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+let dataUrlId = "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 
@@ -14,10 +14,11 @@ Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 #load "../Utils.fs"
 #load "../Mapping.fs"
 #load "../Patient.fs"
-#load "../LimitTarget.fs"
-#load "../DoseType.fs"
 #load "../Product.fs"
 #load "../Filter.fs"
+#load "../LimitTarget.fs"
+#load "../DoseLimit.fs"
+#load "../DoseType.fs"
 #load "../DoseRule.fs"
 #load "../Check.fs"
 #load "../SolutionRule.fs"
@@ -42,7 +43,27 @@ module GenFormResult =
         |> Result.defaultValue value
 
 
-let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.ignore dataUrlId
+let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.noOp dataUrlId
+
+
+provider.GetShapeRoutes()
+|> Array.filter (_.Route >> ((=) "auriculair"))
+|> Array.filter (_.Shape >> ((=) "oordruppels"))
+
+
+provider.GetShapeRoutes()
+|> Array.filter (_.Route >> ((=) "intraveneus"))
+|> Array.filter (_.Shape >> ((=) "poeder voor oplossing voor infusie"))
+
+
+provider.GetDoseRules ()
+|> Array.filter (_.DoseType >> _.IsOnce)
+|> Array.filter (_.Generic >> ((=) "albutrepenonacog alfa"))
+
+
+provider.GetDoseRules ()
+|> Array.filter (_.DoseType >> _.IsOnce)
+|> Array.filter (_.Generic >> ((=) "vancomycine"))
 
 
 // Usage

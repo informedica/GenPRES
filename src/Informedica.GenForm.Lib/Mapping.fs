@@ -115,6 +115,7 @@ module Mapping =
 
         fun getStr getFlt ->
             let un = getStr "Unit" |> mapUnit |> Option.defaultValue NoUnit
+            let du = getStr "DoseUnit" |> mapUnit |> Option.defaultValue un
 
             {
                 Route = getStr "Route"
@@ -122,33 +123,33 @@ module Mapping =
                 Unit = un
                 DoseUnit = getStr "DoseUnit" |> mapUnit |> Option.defaultValue NoUnit
                 MinDoseQty =
-                    if un = NoUnit then None
+                    if du = NoUnit then None
                     else
                         getFlt "MinDoseQty"
                         |> Option.bind BigRational.fromFloat
-                        |> Option.map (ValueUnit.singleWithUnit un)
+                        |> Option.map (ValueUnit.singleWithUnit du)
                 MaxDoseQty =
-                    if un = NoUnit then None
+                    if du = NoUnit then None
                     else
                         getFlt "MaxDoseQty"
                         |> Option.bind BigRational.fromFloat
-                        |> Option.map (ValueUnit.singleWithUnit un)
+                        |> Option.map (ValueUnit.singleWithUnit du)
                 MinDoseQtyPerKg =
-                    if un = NoUnit then None
+                    if du = NoUnit then None
                     else
-                        let un = un |> Units.per Units.Weight.kiloGram
+                        let du = du |> Units.per Units.Weight.kiloGram
 
                         getFlt "MinDoseQtyKg"
                         |> Option.bind BigRational.fromFloat
-                        |> Option.map (ValueUnit.singleWithUnit un)
+                        |> Option.map (ValueUnit.singleWithUnit du)
                 MaxDoseQtyPerKg =
-                    if un = NoUnit then None
+                    if du = NoUnit then None
                     else
-                        let un = un |> Units.per Units.Weight.kiloGram
+                        let du = du |> Units.per Units.Weight.kiloGram
 
                         getFlt "MaxDoseQtyKg"
                         |> Option.bind BigRational.fromFloat
-                        |> Option.map (ValueUnit.singleWithUnit un)
+                        |> Option.map (ValueUnit.singleWithUnit du)
                 Divisibility =
                     getFlt "Divisible"
                     |> Option.bind BigRational.fromFloat
@@ -156,26 +157,6 @@ module Mapping =
                 Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                 IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
             }
-            |> fun rs ->
-                match rs.DoseUnit with
-                | NoUnit -> rs
-                | du ->
-                    { rs with
-                        MinDoseQty =
-                            getFlt "MinDoseQty"
-                            |> Option.bind (fun v ->
-                                v
-                                |> BigRational.fromFloat
-                                |> Option.map (ValueUnit.singleWithUnit du)
-                            )
-                        MaxDoseQty =
-                            getFlt "MaxDoseQty"
-                            |> Option.bind (fun v ->
-                                v
-                                |> BigRational.fromFloat
-                                |> Option.map (ValueUnit.singleWithUnit du)
-                            )
-                    }
         |> getData dataUrlId Constants.shapeRouteSheet
         |> GenFormResult.mapErrorSource "getShapeRoutes"
 
@@ -184,15 +165,15 @@ module Mapping =
         let mapRoute = mapRoute routeMapping
 
         mapping
-        |> Array.filter (fun xs ->
+        |> Array.filter (fun sr ->
             let eqsRte =
                 rte |> String.isNullOrWhiteSpace ||
-                rte |> String.trim |> String.equalsCapInsens xs.Route ||
-                xs.Route |> mapRoute |> Option.map (String.equalsCapInsens (rte |> String.trim)) |> Option.defaultValue false
-            let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens xs.Shape
+                rte |> String.trim |> String.equalsCapInsens sr.Route ||
+                sr.Route |> mapRoute |> Option.map (String.equalsCapInsens (rte |> String.trim)) |> Option.defaultValue false
+            let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens sr.Shape
             let eqsUnt =
                 unt = NoUnit ||
-                unt |> Units.eqsUnit xs.Unit
+                unt |> Units.eqsUnit sr.Unit
             eqsRte && eqsShp && eqsUnt
         )
 

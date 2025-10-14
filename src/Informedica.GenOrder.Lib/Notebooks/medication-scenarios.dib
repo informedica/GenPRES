@@ -16,21 +16,52 @@ First load all the required references and source files
 
 open System
 open MathNet.Numerics
+open ConsoleTables
 
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 
+let printMed med = 
+    printfn "\nMedication:"
+    med
+    |> Medication.toString
+    |> String.concat "\n"
+    |> printfn "%s"
+
+    med
+
+let printOrder =
+    function 
+    | Ok ord ->
+        let ord = ord |> Order.applyConstraints
+        printfn "\nOrder:"
+        ord
+        |> Order.printTable Format.MarkDown
+
+        ord
+    | Error err ->
+        failwith "There was an error:\n{err}"
+
 #!markdown
 
-## 1. En empty Medication Scenario
+## 1. An empty Medication Scenario
 
 Start with an empty Medication Scenario defined by `MedciationOrder.order`. This can be transformed to an Order.Dto and then turned into a regular `Order`.
 
 #!fsharp
 
-Medication.order
+// Medication has to have at least a name and order type
+{ Medication.order with 
+    Name = "Test"
+    OrderType = OnceOrder 
+}
+|> printMed
 |> Medication.toOrderDto
-//|> Order.Dto.fromDto
+|> Order.Dto.fromDto
+|> printOrder
+|> Order.solveMinMax false OrderLogging.noOp
+|> printOrder
+|> ignore
 
 #!markdown
 
@@ -44,6 +75,32 @@ Now define a medication order. In this example a paracetamol suppository with th
 - The max adjusted dose total is 90 mg/kg/day
 
 **Note** The code will create an Order DTO that can be used with the constraint solver to calculate valid dosing scenarios.
+
+#!markdown
+
+## 2. A simple Medication Scenario
+
+Cutanuous medication with only a frequency constraint
+
+#!fsharp
+
+{ Medication.order with
+    Name = "aciclovir"
+    Route = "cutaan"
+    OrderType = DiscontinuousOrder
+    Frequencies = 
+        5N 
+        |> ValueUnit.singleWithUnit
+            (Units.Count.times |> Units.per Units.Time.day) 
+        |> Some
+}
+|> printMed
+|> Medication.toOrderDto
+|> Order.Dto.fromDto
+|> printOrder
+|> Order.solveMinMax false OrderLogging.noOp
+|> printOrder
+|> ignore
 
 #!fsharp
 
