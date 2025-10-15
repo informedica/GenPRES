@@ -66,6 +66,10 @@ provider.GetDoseRules ()
 |> Array.filter (_.Generic >> ((=) "vancomycine"))
 
 
+provider.GetDoseRules ()
+|> Array.filter (_.DoseType >> _.IsOnce)
+|> Array.filter (_.ComponentLimits >> Array.exists (fun cl -> cl.Products |> Array.exists _.RequiresReconstitution))
+
 // Usage
 provider.GetProducts ()
 |> Array.filter (fun p -> p.Generic = "nitroprusside")
