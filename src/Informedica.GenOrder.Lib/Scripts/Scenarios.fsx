@@ -3,18 +3,24 @@
 
 // load demo or product cache
 
+open System
 
-System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
+Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")
+Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4")
+
+Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
+
 
 #load "load.fsx"
 
-open MathNet.Numerics
+
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
+
+open Patient.Optics
 
 
 module GenFormResult =
@@ -33,15 +39,8 @@ module GenFormResult =
 let provider : Resources.IResourceProvider =
     Api.getCachedProviderWithDataUrlId
         OrderLogging.noOp
-        "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I"
+        "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
 
-
-// shadow the original function to just get the result
-module Order =
-
-    module Dto =
-
-        let fromDto = Order.Dto.fromDto >> (function | Ok ord -> ord | Error _ -> failwith "couldn not get result")
 
 
 // TODO: could be used to precalc all possible
@@ -55,14 +54,13 @@ let createScenarios (ctx: OrderContext) =
             res
             |> GenFormResult.get
 
-
-    let print ctx =
+    let noEval ctx =
         let g = ctx.Filter.Generic
         let i = ctx.Filter.Indication
         let r = ctx.Filter.Route
         let d = ctx.Filter.DoseType
-        printfn $"=== no evaluation of {g} {i} {r} {d} ==="
-        ctx
+        ($"=== no evaluation of {g} {i} {r} {d} ===", ctx)
+        |> Error
 
     let eval ctx s =
         printfn $"evaluating {s}"
@@ -74,14 +72,12 @@ let createScenarios (ctx: OrderContext) =
                 |> GenFormResult.get
                 |> OrderContext.Command.get
 
-            if ctx.Scenarios |> Array.isEmpty |> not then ctx
-            else ctx |> print
+            if ctx.Scenarios |> Array.isEmpty |> not then Ok ctx
+            else ctx |> noEval
         with
         | e ->
-            printfn $"\n=== ERROR\n{e}===\n"
-            ctx
-
-    let ctx = eval ctx ""
+            ($"\n=== ERROR\n{e}===\n", ctx)
+            |> Error
 
     [
         for g in ctx.Filter.Generics do
@@ -111,8 +107,164 @@ let createScenarios (ctx: OrderContext) =
                                     if rules |> Array.isEmpty |> not then
                                         $"{g}, {i}, {r}, {d}" |> eval pr
 
-                                    else pr |> print
+                                    else
+                                        pr |> noEval
     ]
+
+
+
+let printScenarios path (scs: Result<OrderContext,(string * OrderContext)> list) =
+    let append s = File.appendTextToFile path $"{s}\n"
+
+    let printMd sl =
+        sl
+        |> Array.collect id
+        |> String.concat " "
+        |> String.replace "#" "**"
+        |> String.replace "|" "*"
+
+    "# Infant\n" |> append
+
+    scs
+    |> List.filter _.IsOk
+    |> List.filter (fun r ->
+        match r with
+        | Ok ctx -> ctx.Scenarios |> Array.length > 0
+        | _ -> false
+    )
+    |> List.map (function | Ok ctx -> ctx | Error _ -> failwith "no ctx")
+    |> List.toArray
+    |> Array.collect _.Scenarios
+    |> Array.groupBy _.Name
+    |> Array.map (fun (n, scs) ->
+        {|
+            name = n
+            indications =
+                scs
+                |> Array.groupBy _.Indication
+                |> Array.map (fun (i, scs) ->
+                    {|
+                        indication = i
+                        routes =
+                            scs
+                            |> Array.groupBy _.Route
+                            |> Array.map (fun (r, scs) ->
+                                {|
+                                    route = r
+                                    doseTypes =
+                                        scs
+                                        |> Array.groupBy _.DoseType
+                                        |> Array.map (fun (dt, scs) ->
+                                            {|
+                                                doseType = dt |> DoseType.toDescription
+                                                shapes =
+                                                    scs
+                                                    |> Array.groupBy _.Shape
+                                                    |> Array.map (fun (s, scs) ->
+                                                        {|
+                                                            shape = s
+                                                            orders =
+                                                                scs
+                                                                |> Array.map (fun sc ->
+                                                                    {|
+                                                                        pres = sc.Prescription |> printMd
+                                                                        prep = sc.Preparation |>  printMd
+                                                                        adms = sc.Administration |> printMd
+                                                                    |}
+                                                                )
+                                                        |}
+                                                    )
+                                            |}
+                                        )
+                                |}
+                            )
+                    |}
+                )
+        |}
+    )
+    |> fun rs ->
+        "<details>" |> append
+        "<summary>Inhoudsopgave</summary>\n" |> append
+
+        rs
+    |> Array.map (fun r ->
+        let l =
+            r.name
+            |> String.replace " " "-"
+            |> String.replace "/" ""
+            |> String.replace "(" ""
+            |> String.replace ")" ""
+            |> String.replace "." ""
+            |> String.replace "," ""
+            |> String.replace "%" ""
+            |> String.replace ":" ""
+            |> String.replace ";" ""
+            |> String.toLower
+            |> String.trim
+
+        $"- [{r.name}](#{l})" |> append
+        "" |> append
+        r
+    )
+    |> fun rs ->
+        "</details>\n" |> append
+
+        rs
+    |> Array.iter (fun r ->
+        $"\n## {r.name}" |> append
+
+        r.indications
+        |> Array.iter (fun r ->
+            $"\n### {r.indication}" |> append
+
+            r.routes
+            |> Array.iter (fun r ->
+                $"\n#### {r.route}" |> append
+
+                r.doseTypes
+                |> Array.iter (fun r ->
+                    $"\n##### {r.doseType}" |> append
+
+                    r.shapes
+                    |> Array.iter (fun r ->
+                        if r.shape |> String.notEmpty then
+                            $"\n*{r.shape}*" |> append
+
+                        r.orders
+                        |> Array.iter (fun r ->
+                            "" |> append
+                            if r.pres |> String.notEmpty then $"- 💊 {r.pres}" |> append
+                            if r.prep |> String.notEmpty then $"- 🧪 {r.prep}" |> append
+                            if r.adms |> String.notEmpty then $"- 💉 {r.adms}" |> append
+                            "" |> append                        )
+                    )
+                )
+
+            )
+        )
+
+        "---" |> append
+    )
+
+
+let infantScenarios =
+    Patient.infant
+    |> Patient.setWeight (10m |> Kilogram |> Some)
+    |> OrderContext.create OrderLogging.noOp provider
+    |> createScenarios
+
+
+infantScenarios
+|> List.filter _.IsError
+|> List.filter (fun r ->
+    match r with
+    | Ok ctx -> ctx.Scenarios |> Array.length > 0
+    | _ -> false
+)
+|> List.length
+
+
+infantScenarios |> printScenarios "infant.md"
 
 
 let pickScenario n (ctx : OrderContext) =
@@ -128,9 +280,17 @@ let pickScenario n (ctx : OrderContext) =
     }
 
 
-open Patient.Optics
 
 let printCtx = OrderContext.toString
+
+
+
+// shadow the original function to just get the result
+module Order =
+
+    module Dto =
+
+        let fromDto : (Order.Dto.Dto -> Order) = Order.Dto.fromDto >> (function | Ok ord -> ord | Error _ -> failwith "couldn not get result")
 
 
 let dro =

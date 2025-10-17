@@ -13,7 +13,7 @@ module Patient =
     open Informedica.GenForm.Lib
     open Informedica.GenUnits.Lib
 
-    type Patient =Types.Patient
+    type Patient = Types.Patient
     type Access = Location
 
 
@@ -269,5 +269,3 @@ module Patient =
         |> setWeight (70m |> Kilogram |> Some)
         |> setHeight (180 |> Centimeter |> Some)
         |> setDepartment (Some "ICK")
-
-

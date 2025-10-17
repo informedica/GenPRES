@@ -739,10 +739,13 @@ module DoseRule =
                             Max = rsu.MaxDoseQty |> Option.map Limit.Inclusive
                         }
                     QuantityAdjust =
-                        {
-                            Min = rsu.MinDoseQtyPerKg |> Option.map Limit.Inclusive
-                            Max = rsu.MaxDoseQtyPerKg |> Option.map Limit.Inclusive
-                        }
+                        match dr.AdjustUnit with
+                        | Some unt when unt |> Units.eqsUnit Units.Weight.kiloGram ->
+                            {
+                                Min = rsu.MinDoseQtyPerKg |> Option.map Limit.Inclusive
+                                Max = rsu.MaxDoseQtyPerKg |> Option.map Limit.Inclusive
+                            }
+                        | _ -> DoseLimit.limit.QuantityAdjust
                 }
                 |> fun dl ->
                     if droplets |> Option.isNone then dl
