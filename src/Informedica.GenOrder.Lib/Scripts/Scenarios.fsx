@@ -62,8 +62,8 @@ let createScenarios (ctx: OrderContext) =
         ($"=== no evaluation of {g} {i} {r} {d} ===", ctx)
         |> Error
 
-    let eval ctx s =
-        printfn $"evaluating {s}"
+    let eval ctx (s : string) =
+        // printfn $"evaluating {s}"
         try
             let ctx =
                 ctx
@@ -113,7 +113,7 @@ let createScenarios (ctx: OrderContext) =
 
 
 
-let printScenarios path (scs: Result<OrderContext,(string * OrderContext)> list) =
+let printScenarios path pat (scs: Result<OrderContext,(string * OrderContext)> list) =
     let append s = File.appendTextToFile path $"{s}\n"
 
     let printMd sl =
@@ -123,7 +123,7 @@ let printScenarios path (scs: Result<OrderContext,(string * OrderContext)> list)
         |> String.replace "#" "**"
         |> String.replace "|" "*"
 
-    "# Infant\n" |> append
+    $"# %s{pat |> Patient.toString}\n" |> append
 
     scs
     |> List.filter _.IsOk
@@ -247,24 +247,67 @@ let printScenarios path (scs: Result<OrderContext,(string * OrderContext)> list)
     )
 
 
-let infantScenarios =
-    Patient.infant
-    |> Patient.setWeight (10m |> Kilogram |> Some)
-    |> OrderContext.create OrderLogging.noOp provider
-    |> createScenarios
+let scenarios =
+    [
+        "Newborn",
+        Patient.newBorn
+        |> Patient.setWeight (3m |> Kilogram |> Some)
+
+        "Infant",
+        Patient.infant
+        |> Patient.setWeight (10m |> Kilogram |> Some)
+
+        "Toddler",
+        Patient.toddler
+
+        "Child",
+        Patient.child
+        |> Patient.setWeight (20m |> Kilogram |> Some)
+
+        "Teenager",
+        Patient.teenager
+
+        "Adult",
+        Patient.adult
+    ]
+    |> List.map (fun (s, p) ->
+        async {
+            let scs =
+                p
+                |> OrderContext.create OrderLogging.noOp provider
+                |> createScenarios
+            return
+                s, scs
+        }
+    )
+    |> Async.Parallel
+    |> Async.RunSynchronously
 
 
-infantScenarios
-|> List.filter _.IsError
-|> List.filter (fun r ->
-    match r with
-    | Ok ctx -> ctx.Scenarios |> Array.length > 0
-    | _ -> false
+scenarios
+|> Array.iter (fun (n, ctxs) ->
+    let pat =
+        match n with
+        | _ when n = "Newborn" ->
+            Patient.newBorn
+            |> Patient.setWeight (3m |> Kilogram |> Some)
+        | _ when n = "Infant" ->
+            Patient.infant
+            |> Patient.setWeight (10m |> Kilogram |> Some)
+        | _ when n = "Toddler" ->
+            Patient.toddler
+        | _ when n = "Child" ->
+            Patient.child
+            |> Patient.setWeight (20m |> Kilogram |> Some)
+        | _ when n = "Teenager" ->
+            Patient.teenager
+        | _ when n = "Adult" ->
+            Patient.adult
+        | _ -> failwith $"not recognized: {n}"
+
+    ctxs
+    |> printScenarios $"{n}.md" pat
 )
-|> List.length
-
-
-infantScenarios |> printScenarios "infant.md"
 
 
 let pickScenario n (ctx : OrderContext) =
