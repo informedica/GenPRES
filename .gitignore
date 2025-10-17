@@ -104,6 +104,7 @@
 !/docs/*.xlsx
 !/docs/code-reviews/
 !/docs/literature/
+!/docs/scenarios/
 !/docs/data-extraction/
 !/docs/mdr/
 !/docs/mdr/design-history/
