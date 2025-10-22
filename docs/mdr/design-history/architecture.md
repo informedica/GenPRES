@@ -1,16 +1,16 @@
-# GenPres2 Architecture Overview
+# GenPres Architecture Overview
 
-This document describes the architecture of the GenPres2 application, a clinical decision support system (CDSS) for medication prescribing. The system is written entirely in F# and built with the SAFE Stack (Saturn, Azure, Fable, Elmish).
+This document describes the architecture of the GenPres application, a clinical decision support system (CDSS) for order management. The system is written entirely in F# and built with the SAFE Stack (Saturn, Azure, Fable, Elmish).
 
 ---
 
 ## 1. High-Level Architecture
 
-GenPres2 is a **client-server web application**:
+GenPres is a **client-server web application**:
 
 - **Server**: Runs in .NET (F#), can be hosted in a Docker container. Exposes a web API.
 - **Client**: F# (Fable) compiled to JavaScript, runs in the browser.
-- **Configuration**: All configuration and medication rules are maintained in Google Spreadsheets.
+- **Configuration**: All configuration and medication rules are (currently) maintained in Google Spreadsheets.
 - **Local Drug Repository**: Drug data is cached locally in text files for performance and offline access.
 
 ---

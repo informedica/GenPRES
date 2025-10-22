@@ -212,48 +212,58 @@ order
 |> toString
 
 
-{
-    Medication.order with
-        Id = "1"
-        Name = "cotrimoxazol"
-        Components =
-            [
-                {
-                    Medication.productComponent with
-                        Name = "cotrimoxazol"
-                        Shape = "tablet"
-                        Quantities =
-                            1N
-                            |> ValueUnit.singleWithUnit Units.Count.times
-                            |> Some
-                        Divisible = Some (1N)
-                        Substances =
-                            [
-                                {
-                                    Medication.substanceItem with
-                                        Name = "sulfamethoxazol"
-                                        Concentrations =
-                                            [| 100N; 400N; 800N |]
-                                            |> ValueUnit.withUnit Units.Mass.milliGram
-                                            |> Some
-                                }
-                                {
-                                    Medication.substanceItem with
-                                        Name = "trimethoprim"
-                                        Concentrations =
-                                            [| 20N; 80N; 160N |]
-                                            |> ValueUnit.withUnit Units.Mass.milliGram
-                                            |> Some
-                                }
-                            ]
-                }
-            ]
-        Route = "or"
-        OrderType = DiscontinuousOrder
-        Frequencies =
-            [|2N |]
-            |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
-            |> Some
-}
+let cotrim =
+    {
+        Medication.order with
+            Id = "1"
+            Name = "cotrimoxazol"
+            Components =
+                [
+                    {
+                        Medication.productComponent with
+                            Name = "cotrimoxazol"
+                            Shape = "tablet"
+                            Quantities =
+                                1N
+                                |> ValueUnit.singleWithUnit Units.Count.times
+                                |> Some
+                            Divisible = Some (1N)
+                            Substances =
+                                [
+                                    {
+                                        Medication.substanceItem with
+                                            Name = "sulfamethoxazol"
+                                            Concentrations =
+                                                [| 100N; 400N; 800N |]
+                                                |> ValueUnit.withUnit Units.Mass.milliGram
+                                                |> Some
+                                    }
+                                    {
+                                        Medication.substanceItem with
+                                            Name = "trimethoprim"
+                                            Concentrations =
+                                                [| 20N; 80N; 160N |]
+                                                |> ValueUnit.withUnit Units.Mass.milliGram
+                                                |> Some
+                                    }
+                                ]
+                    }
+                ]
+            Route = "or"
+            OrderType = DiscontinuousOrder
+            Frequencies =
+                [|2N |]
+                |> ValueUnit.withUnit (Units.Count.times |> Units.per Units.Time.day)
+                |> Some
+    }
+
+
+cotrim
 |> toString
 |> List.iter (printfn "%s")
+
+
+cotrim
+|> Medication.toOrderDto
+|> Order.Dto.fromDto
+|> Result.map Order.toString
