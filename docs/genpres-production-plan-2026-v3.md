@@ -1,10 +1,14 @@
 # GenPRES — Productionization Plan (Detailed) — F# Distributed Server–Client
 
+## Version 4: With Technical Workshops & Work Package Definition
+
 **Start date:** 2026-01-01 · **Duration:** ~26 weeks · **Stack:** F# end‑to‑end (Server: Giraffe/Saturn; Client: SAFE/Fable/Elmish)
+
+> **Note**: This document uses role-based placeholders (e.g., "F# Performance Expert", "Fable/UI Lead") instead of specific individual names to focus on required expertise rather than particular persons. Organizations can map these roles to available team members based on skills and availability.
 
 ## 1) Current State & Gaps
 
-- **Core calculation engine** (order math with `OrderVariable` semantics) exists and supports “enter in any order” solving with precise units and BigRationals; selection flow hinges on `hasValues` vs `isSolved` distinctions and name‑based exclusions in some prescription types.
+- **Core calculation engine** (order math with `OrderVariable` semantics) exists and supports "enter in any order" solving with precise units and BigRationals; selection flow hinges on `hasValues` vs `isSolved` distinctions and name‑based exclusions in some prescription types.
 - **Data sources** are currently **Google Spreadsheets** configured via `GENPRES_URL_ID` with sheets for **Routes, Units, ShapeRoute, ValidShapes, Reconstitution, Enteral feeding (EntFeeding), Parenterals (ParentMeds)** and rule sets (**DoseRules, SolutionRules, RenalRules**). This creates governance and validation gaps for production.
 - **Sessioning** is not yet stateless w.r.t. PHI; the **stateless proposal** defines clear EHR/GenPRES boundaries, required session lifecycle, and ops properties; needs implementation.
 - **Processor**: a **MailboxProcessor** wrapper around `GenOrder.Lib` is proposed to centralize resource access, health, and reload; not yet implemented.
@@ -12,9 +16,147 @@
 
 > **Implication:** Move from demo/prototype data + ad‑hoc validation to a governed **Knowledge Registry** with formal validation and versioning; implement **stateless session** boundaries and an **EHR adapter**; add **chemo regimen planning** and **feeding** views.
 
-## 2) Scope — Missing Requirements to Implement (with acceptance criteria)
+## 2) Technical Workshops & Work Package Definition
 
-### 2.1 Stateless Session Management (Server + Client)
+### Purpose
+
+Organize focused workshops to gather expertise, discuss architecture/implementation approaches, and produce clearly delimited work packages that can be distributed to developers with specific expertise.
+
+### Workshop Schedule (Weeks 1-3 of Phase 0/1)
+
+#### Core Technical Workshops
+
+**W1: Project Structure & Governance** (Day 2-3)
+
+- **Participants**: F# API Expert, F# Backend Expert, Interop Specialist, PM
+- **Objectives**:
+  - Establish common GenPRES project structure for cooperation
+  - Define CI/CD pipelines, documentation standards
+  - Set up PR review processes, issue tracking, contribution guidelines
+  - Align with F# OSS best practices (FAKE, Paket/NuGet, Fantomas)
+- **Deliverables**:
+  - Monorepo vs multi-repo decision
+  - CI/CD templates (GitHub Actions/Azure DevOps)
+  - CONTRIBUTING.md, code review checklist
+  - Work packages: WP-01 (Repo setup), WP-02 (CI/CD), WP-03 (Doc framework)
+
+**W2: GenSolver Optimization & Performance** (Day 4-5)
+
+- **Participants**: Domain Lead, F# Performance Expert, Optimization Specialist (optional)
+- **Objectives**:
+  - Profile current solver bottlenecks (BigRational ops, constraint propagation)
+  - Explore optimization techniques (memoization, parallel solving, incremental computation)
+  - Define performance benchmarks and targets
+- **Deliverables**:
+  - Performance baseline metrics
+  - Optimization roadmap with specific techniques
+  - Work packages: WP-04 (Profiling harness), WP-05 (Algorithm optimizations), WP-06 (Caching layer)
+
+**W3: Domain Modeling Extension** (Day 8-9)
+
+- **Participants**: DDD/Architecture Expert, F# Domain Modeling Expert (if available), Clinical Pharmacist
+- **Objectives**:
+  - Review GenForm/GenOrder domain models
+  - Identify gaps for complex medication scenarios (tapers, alternating doses, PRN, ranges)
+  - Design type-safe extensions maintaining composability
+- **Deliverables**:
+  - Extended domain model specifications
+  - Migration strategy from current model
+  - Work packages: WP-07 (Core type extensions), WP-08 (Scenario validators), WP-09 (Domain tests)
+
+#### Specialized Component Workshops
+
+**W4: GenPRES Emergency List Integration** (Week 2)
+
+- **Participants**: Clinical Pharmacist, Backend team
+- **Objectives**:
+  - Define emergency medication workflows and constraints
+  - Design solver integration for stat/urgent orders
+  - Establish override patterns with audit
+- **Deliverables**:
+  - Emergency order specifications
+  - Work packages: WP-10 (Emergency rules), WP-11 (Override framework)
+
+**W5: Solver Deep Dive** (Week 2)
+
+- **Participants**: F# Performance Expert, Domain Lead, F# API Expert
+- **Objectives**:
+  - Implement comprehensive logging and telemetry
+  - Design error recovery strategies
+  - Establish solver state inspection tools
+- **Deliverables**:
+  - Logging specification (structured, levels, correlation)
+  - Error taxonomy and handling patterns
+  - Work packages: WP-12 (Telemetry), WP-13 (Error handling), WP-14 (Debugger tools)
+
+**W6: Units Library Refactoring** (Week 2)
+
+- **Participants**: F# Performance Expert, QA/Testing Expert
+- **Objectives**:
+  - Review current units implementation pain points
+  - Design improved API (builder pattern, conversions, composite units)
+  - Plan backwards compatibility strategy
+- **Deliverables**:
+  - Units v2 API specification
+  - Migration guide
+  - Work packages: WP-15 (Core units refactor), WP-16 (Unit tests), WP-17 (Migration tooling)
+
+**W7: UI Architecture & Bindings** (Week 3)
+
+- **Participants**: Fable/UI Lead, Senior UI Developer, F# Backend Expert
+- **Objectives**:
+  - Evaluate JSX template approach vs alternatives
+  - Design component library for medical UI patterns
+  - Plan Fable 4 migration if applicable
+- **Deliverables**:
+  - UI component catalog
+  - JSX binding improvements
+  - Work packages: WP-18 (Component lib), WP-19 (Template engine), WP-20 (UI state management)
+
+**W8: Server Architecture & MCP Integration** (Week 3)
+
+- **Participants**: Interop Specialist, F# Backend Expert, AI/ML Integration Expert
+- **Objectives**:
+  - Design GenPRES server as Model Context Protocol (MCP) provider
+  - Define AI-friendly API surface
+  - Establish WebSocket/SSE patterns for real-time updates
+- **Deliverables**:
+  - MCP interface specification
+  - AI integration patterns
+  - Work packages: WP-21 (MCP server), WP-22 (AI adapters), WP-23 (Real-time layer)
+
+**W9: Interoperability & Standards** (Week 3)
+
+- **Participants**: Interop Specialist, Clinical team, EHR vendor reps
+- **Objectives**:
+  - Map GenPRES concepts to FHIR R4/R5 resources
+  - Design IHE Pharmacy workflow integration points
+  - Plan HL7v2 fallback for legacy systems
+- **Deliverables**:
+  - FHIR mapping specifications
+  - IHE conformance profile
+  - Work packages: WP-24 (FHIR adapters), WP-25 (IHE profiles), WP-26 (Legacy bridges)
+
+### Workshop Outputs → Work Package Distribution
+
+Each workshop produces 2-4 focused work packages with:
+
+- Clear acceptance criteria
+- Estimated effort (story points or hours)
+- Required expertise tags (e.g., #performance, #domain, #ui, #interop)
+- Dependencies on other packages
+- Assignable to specific developers based on expertise match
+
+### Integration with Development Phases
+
+- **Phase 0**: Execute workshops W1-W3 (foundational)
+- **Phase 1**: Execute workshops W4-W6 while implementing WP-01 through WP-09
+- **Phase 2**: Execute workshops W7-W9 while implementing solver and domain packages
+- **Phases 3-6**: Implement remaining work packages based on workshop outputs
+
+## 3) Scope — Missing Requirements to Implement (with acceptance criteria)
+
+### 3.1 Stateless Session Management (Server + Client)
 
 **Implement:**
 
@@ -28,7 +170,7 @@
 - Killing a pod during an active session and re‑issuing `Process` after `InitializeSession`+context replay resumes reliably; no PHI in storage or logs.  
 - Session TTL expiry triggers EHR notification hook; metrics show cleanup and max‑concurrency thresholds.
 
-### 2.2 MailboxProcessor around GenOrder.Lib
+### 3.2 MailboxProcessor around GenOrder.Lib
 
 **Implement:**
 
@@ -38,7 +180,7 @@
 
 - Hot reload of Dose/Solution/Renal/Product rules with no request failures; /health exposes `IsLoaded`, `LastReloaded`, queue depth.
 
-### 2.3 Knowledge Registry (replace Google Sheets) + Formal Validation
+### 3.3 Knowledge Registry (replace Google Sheets) + Formal Validation
 
 **Implement:**
 
@@ -52,7 +194,7 @@
 - Any missing column or invalid value blocks publish with a precise error (sheet, row, column, rule).  
 - A snapshot publish produces identical results to Sheets for a golden set of orders.
 
-### 2.4 EHR Interoperability (FHIR/IHE)
+### 3.4 EHR Interoperability (FHIR/IHE)
 
 **Implement:**
 
@@ -63,7 +205,7 @@
 
 - Conformance tests pass for bootstrap/finalize; rate‑limit & burst tests ≥100 req/s pass.
 
-### 2.5 Conditional Planning Engine (Chemotherapy)
+### 3.5 Conditional Planning Engine (Chemotherapy)
 
 **Implement:**
 
@@ -77,7 +219,7 @@
 - **Carboplatin AUC** dose matches Calvert; changes to weight/SCr force re‑approval.  
 - Gravimetric out‑of‑tolerance blocks label printing until remediated.
 
-### 2.6 Feeding Prescribing Views (Enteral & Parenteral)
+### 3.6 Feeding Prescribing Views (Enteral & Parenteral)
 
 **Implement (UI+calc):**
 
@@ -89,125 +231,231 @@
 
 - For a neonatal PN example, osmolarity limit violation prompts dilution or central‑line requirement; labels show composition and BUD.
 
-### 2.7 UI — Settings & Planning
+### 3.7 UI — Settings & Planning
 
 **Settings**: institution profile (units/routes), version pins, TTLs, alert thresholds (gravimetric %, cumulative dose caps), integration toggles (BCMA/pumps/robots).  
 **Planning**: regimen timeline (cycles/days), chair/bed capacity, lab‑gated readiness, pause/hold logic visualization; pediatric recalc prompts.
 
-### 2.8 Quality, Security & Compliance
+### 3.8 Quality, Security & Compliance
 
 - **Test strategy**: unit/integration/contract tests, golden data, chaos tests on session expiry/restart.  
 - **Security**: OWASP ASVS L2, NEN 7510/7513 logging & audit; GDPR data minimization (no PHI storage).
 
-## 3) Architecture (F#)
+## 4) Architecture (F#)
 
 - **Server**: .NET 9 F# (Giraffe/Saturn), `MailboxProcessor` for resource isolation, `IServerApi` implementation exposing session/EHR endpoints.
 - **Client**: SAFE/Elmish SPA; session‑aware containers; Settings/Planning/Feeding views.  
 - **Registry**: PostgreSQL (or equivalent), ingestion service, validator lib; snapshots feed the processor via `IResourceProvider`.
 
-## 4) Plan & Timeline
+## 5) Revised Plan & Timeline
 
 ```mermaid
 gantt
-    title GenPRES Productionization — Detailed Plan (Start: 2026-01-01)
+    title GenPRES Productionization — Workshop-Driven Plan (Start: 2026-01-01)
     dateFormat  YYYY-MM-DD
     excludes    weekends
 
-    section Phase 0 — Mobilize
-    Mobilize, repo/CI, DoD                 :p0, 2026-01-01, 7d
-
+    section Phase 0 — Mobilize & Workshops
+    Mobilize, repo/CI, DoD                 :p0a, 2026-01-01, 7d
+    Core Workshops (W1-W3)                 :p0b, 2026-01-02, 6d
+    
     section Phase 1 — Stateless Core & Processor
-    Session API & Session Store            :p1a, 2026-01-08, 21d
-    MailboxProcessor & Health/Reload       :p1b, 2026-01-15, 14d
+    Component Workshops (W4-W6)            :p1w, 2026-01-08, 7d
+    Session API & Session Store            :p1a, 2026-01-15, 21d
+    MailboxProcessor & Health/Reload       :p1b, 2026-01-22, 14d
+    Implement WP-01 to WP-09               :p1c, 2026-01-15, 21d
 
     section Phase 2 — Knowledge Registry & Validation
-    Schema/DDL & Ingestion                 :p2a, 2026-01-22, 28d
-    Validator Pipeline & Admin UI/CLI      :p2b, 2026-02-05, 28d
+    Architecture Workshops (W7-W9)         :p2w, 2026-01-20, 7d
+    Schema/DDL & Ingestion                 :p2a, 2026-02-05, 28d
+    Validator Pipeline & Admin UI/CLI      :p2b, 2026-02-12, 28d
+    Implement solver/domain WPs            :p2c, 2026-02-05, 28d
 
     section Phase 3 — EHR Interop
-    FHIR Bootstrap/Finalize Bundles        :p3a, 2026-02-26, 21d
-    Conformance Tests & Sandbox Integr.    :p3b, 2026-03-05, 21d
+    FHIR Bootstrap/Finalize Bundles        :p3a, 2026-03-05, 21d
+    Conformance Tests & Sandbox Integr.    :p3b, 2026-03-12, 21d
+    Implement interop WPs                  :p3c, 2026-03-05, 21d
 
     section Phase 4 — Conditional Planning (Chemo)
-    Regimen DSL + Compiler                 :p4a, 2026-03-20, 35d
-    Runtime (holds/caps/peds) + Safety     :p4b, 2026-03-27, 35d
-    Authoring UI & Scenario Generation     :p4c, 2026-03-27, 35d
+    Regimen DSL + Compiler                 :p4a, 2026-03-27, 35d
+    Runtime (holds/caps/peds) + Safety     :p4b, 2026-04-03, 35d
+    Authoring UI & Scenario Generation     :p4c, 2026-04-03, 35d
 
     section Phase 5 — Hardening & Ops
-    Perf/Chaos/Load Tuning                 :p5a, 2026-05-01, 21d
-    Dashboards/Alerts/SLOs                 :p5b, 2026-05-01, 21d
+    Perf/Chaos/Load Tuning                 :p5a, 2026-05-08, 21d
+    Dashboards/Alerts/SLOs                 :p5b, 2026-05-08, 21d
 
     section Phase 6 — Readiness & Launch
-    Clinical UAT & EHR SIT                 :p6a, 2026-05-22, 14d
-    Playbooks, Release, Training           :p6b, 2026-06-05, 7d
+    Clinical UAT & EHR SIT                 :p6a, 2026-05-29, 14d
+    Playbooks, Release, Training           :p6b, 2026-06-12, 7d
 ```
 
-## 5) Team — based on prior interest (“x” in your list)
+## 6) Team — based on required expertise
 
-- **Zaid Ajaj** (UI Lead), **Florian Verdonck** (UI), **Isaac Abraham** (Backend/SAFE), **Patrick Drechsler** (QA), **Kit Eason** (API/Code quality), **Mark Seeman** (Architecture), **Mathias Brandewinder** (Perf), **Houston Haynes** (Interop). Optional: **Dave Daw**, **Luis Quintanilla**.
+### Core Development Team
 
-## 6) Budget
+- **Fable/UI Lead** - W7 lead, UI work packages
+- **Senior UI Developer** - W7, UI components  
+- **F# Backend Expert** - W1, W7, W8, integration
+- **QA/Testing Expert** - W6, testing work packages
+- **F# API Expert** - W1, W5, code standards
+- **DDD/Architecture Expert** - W3 lead, domain modeling
+- **F# Performance Expert** - W2, W5, W6 lead
+- **Interop Specialist** - W1, W8, W9 lead
 
-### By person (26 weeks, 40 h/week)
+### Workshop Contributors
 
-| Name                 | Role                                     | Phase Focus     |   FTE |   Rate €/h |   Hours |   Cost € | Bucket    |
-|:---------------------|:-----------------------------------------|:----------------|------:|-----------:|--------:|---------:|:----------|
-| Dev 1.               | UI Lead (Fable/Elmish, SAFE)             | P1,P4C,UI       |  0.8  |        x |     832 |   108160 | Core Devs |
-| Dev 2.               | Senior UI (SAFE/UX)                      | P1,P2B,P4C,UI   |  0.8  |        x |     832 |   104000 | Core Devs |
-| Dev 3.               | Backend/SAFE Integration & Delivery      | P1,P3B,P6       |  0.5  |        x |     520 |    72800 | Core Devs |
-| Dev 4.               | QA & Test Automation Lead                | P2B,P4B,P5,P6   |  0.6  |        x |     624 |    68640 | Core Devs |
-| Dev 5.               | Code Quality & API Design                | P1B,Reviews     |  0.3  |        x |     312 |    43680 | Core Devs |
-| Dev 6.               | Architecture Reviews & DDD               | P2A,P4A,Reviews |  0.3  |        x |     312 |    49920 | Core Devs |
-| Dev 7.               | Performance & numerical checks           | P4B,P5          |  0.4  |        x |     416 |    54080 | Core Devs |
-| Dev 8.               | Interop & resilience (FHIR/IHE adapters) | P3A,P6          |  0.4  |        x |     416 |    49920 | Core Devs |
-| Dev 9.               | Tooling & code quality (Fantomas/FX)     | Reviews         |  0.1  |        x |     104 |    10400 | Core Devs |
-| Dev 10.              | AI assist & doc gen (optional)           | Tooling         |  0.1  |        x |     104 |    12480 | Core Devs |
-| Project Manager      | PM/Scrum Master                          | ALL             |  0.5  |        x |     520 |    52000 | Support   |
-| DevOps/SRE           | CI/CD, observability, release            | P0,P5,P6        |  0.25 |        x |     260 |    28600 | Support   |
-| Clinical Pharmacist  | Chemo governance & UAT                   | P4,P6           |  0.3  |        x |     312 |    37440 | Support   |
-| Security Reviewer    | Threat modeling, ASVS L2                 | P0,P5           |  0.1  |        x |     104 |    14560 | Support   |
+- **Optimization Specialist** (optional) - W2, optimization expertise
+- **F# Domain Modeling Expert** (if available) - W3, domain modeling
+- **AI/ML Integration Expert** (optional) - W8, AI/MCP integration
+- **Clinical Pharmacist** - W3, W4, validation
 
-### Phase allocation (rough cut)
+### Support Roles
 
-| Phase   |   Weight |   Budget € |
-|:--------|---------:|-----------:|
-| P0      |     0.04 |    28,267.20 |
-| P1      |     0.18 |   127,202.00   |
-| P2      |     0.22 |   155,470.00   |
-| P3      |     0.14 |    98,935.20 |
-| P4      |     0.26 |   183,737.00   |
-| P5      |     0.1  |    70,668.00   |
-| P6      |     0.06 |    42,400.80 |
+- **Project Manager** - Workshop coordination, WP tracking
+- **DevOps/SRE** - W1, infrastructure work packages
+- **Security Reviewer** - Security work packages
 
-_Scope exclusions_: EHR vendor fees, pump/robot integration licenses, external penetration test lab, production hosting.
+## 7) Budget (Updated with Workshop Allocation)
 
-## 7) Milestones & Exit Criteria
+### Workshop Phase (Weeks 1-3) - Additional Budget
 
-- **M1 (P1)**: Stateless sessions + MailboxProcessor online; E2E calc via Session API; /health & /reload functional.  
-- **M2 (P2)**: Knowledge Registry live; ingestion + validators; golden parity with Sheets on sample set.  
-- **M3 (P3)**: FHIR bootstrap/finalize round‑trip; conformance tests green at 100 req/s burst.  
-- **M4 (P4)**: Regimen DSL+engine with holds/caps; authoring UI; safety hard‑stops working.  
-- **M5 (P5)**: Perf/chaos tests, dashboards/alerts; SLOs documented.  
-- **M6 (P6)**: Clinical UAT with oncology pharmacist; go‑live playbooks and rollback.
+| Item                    | Hours | Rate €/h | Cost € |
+|:------------------------|------:|---------:|-------:|
+| Workshop Facilitation   |    80 |      140 | 11,200 |
+| Expert Consultation     |   120 |      160 | 19,200 |
+| Documentation           |    40 |      110 |  4,400 |
+| **Workshop Total**      |       |          | 34,800 |
 
-## 8) Deliverables
+### Development Team Budget (26 weeks, 40 h/week)
 
-- F# server & SAFE client, Docker images, Helm charts, runbooks; Registry DDL/migrations, ingestion & validator libs; Authoring UI; Settings/Planning/Feeding UIs; test suites; conformance packs.
+| Role                    | Description                              | Phase Focus     |   FTE |   Rate €/h |   Hours |   Cost € | Bucket    |
+|:------------------------|:-----------------------------------------|:----------------|------:|-----------:|--------:|---------:|:----------|
+| Fable/UI Lead           | UI Lead (Fable/Elmish, SAFE)            | P1,P4C,UI       |  0.8  |       130 |     832 |   108160 | Core Devs |
+| Senior UI Developer     | Senior UI (SAFE/UX)                     | P1,P2B,P4C,UI   |  0.8  |       125 |     832 |   104000 | Core Devs |
+| F# Backend Expert       | Backend/SAFE Integration & Delivery     | P1,P3B,P6       |  0.5  |       140 |     520 |    72800 | Core Devs |
+| QA/Testing Expert       | QA & Test Automation Lead               | P2B,P4B,P5,P6   |  0.6  |       110 |     624 |    68640 | Core Devs |
+| F# API Expert           | Code Quality & API Design               | P1B,Reviews     |  0.3  |       140 |     312 |    43680 | Core Devs |
+| DDD/Architecture Expert | Architecture Reviews & DDD              | P2A,P4A,Reviews |  0.3  |       160 |     312 |    49920 | Core Devs |
+| F# Performance Expert   | Performance & numerical checks          | P4B,P5          |  0.4  |       130 |     416 |    54080 | Core Devs |
+| Interop Specialist      | Interop & resilience (FHIR/IHE adapters)| P3A,P6          |  0.4  |       120 |     416 |    49920 | Core Devs |
+| F# Tooling Expert       | Tooling & code quality (Fantomas/FX)    | Reviews         |  0.1  |       100 |     104 |    10400 | Core Devs |
+| AI/ML Integration Expert| AI assist & doc gen (optional)          | Tooling         |  0.1  |       120 |     104 |    12480 | Core Devs |
+| Project Manager         | PM/Scrum Master                         | ALL             |  0.5  |       100 |     520 |    52000 | Support   |
+| DevOps/SRE             | CI/CD, observability, release           | P0,P5,P6        |  0.25 |       110 |     260 |    28600 | Support   |
+| Clinical Pharmacist     | Chemo governance & UAT                  | P4,P6           |  0.3  |       120 |     312 |    37440 | Support   |
+| Security Reviewer       | Threat modeling, ASVS L2                | P0,P5           |  0.1  |       140 |     104 |    14560 | Support   |
+| **Subtotal**           |                                          |                 |       |            |         |   706680 |           |
+
+### Development Budget by Work Package Categories
+
+| WP Category              | Packages    | Est. Hours | Avg Rate €/h | Budget € |
+|:-------------------------|:------------|----------:|-------------:|---------:|
+| Infrastructure (WP 1-3)  | Repo/CI/Doc |       320 |          130 |   41,600 |
+| Solver Core (WP 4-6)     | Optimization|       480 |          140 |   67,200 |
+| Domain Model (WP 7-9)    | Extensions  |       400 |          150 |   60,000 |
+| Emergency (WP 10-11)     | Rules       |       240 |          125 |   30,000 |
+| Observability (WP 12-14) | Logging     |       280 |          130 |   36,400 |
+| Units Lib (WP 15-17)     | Refactor    |       320 |          135 |   43,200 |
+| UI Components (WP 18-20) | Frontend    |       520 |          130 |   67,600 |
+| Server/MCP (WP 21-23)    | Backend     |       480 |          140 |   67,200 |
+| Interop (WP 24-26)       | FHIR/IHE    |       560 |          145 |   81,200 |
+
+### Total Revised Budget
+
+- Original Development: €706,680
+- Workshop Phase: €34,800
+- **Total Project Budget: €741,480**
+
+## 8) Milestones & Exit Criteria (Workshop-Enhanced)
+
+- **M0 (Workshops)**: All 9 workshops completed; 26 work packages defined with clear owners.
+- **M1 (P1)**: Stateless sessions + MailboxProcessor online; E2E calc via Session API; WP-01 to WP-09 complete.
+- **M2 (P2)**: Knowledge Registry live; ingestion + validators; solver/domain WPs complete.
+- **M3 (P3)**: FHIR bootstrap/finalize round‑trip; interop WPs complete.
+- **M4 (P4)**: Regimen DSL+engine with holds/caps; UI WPs integrated.
+- **M5 (P5)**: Perf/chaos tests, dashboards/alerts; all WPs complete.
+- **M6 (P6)**: Clinical UAT with oncology pharmacist; go‑live playbooks.
+
+## 9) Deliverables (Enhanced)
+
+### Workshop Deliverables (New)
+
+- 26 detailed work packages with acceptance criteria
+- Architecture decision records (ADRs) from each workshop
+- Technical specifications for each component
+- Expertise mapping matrix (developer → work package)
+
+### Core Deliverables
+
+- F# server & SAFE client, Docker images, Helm charts
+- Registry DDL/migrations, ingestion & validator libs
+- MCP-enabled server for AI integration
+- Refactored units library with improved API
+- Component library for medical UI patterns
+- Comprehensive test suites and conformance packs
+- Emergency medication integration framework
+- Complete documentation and runbooks
+
+## 10) Risk Mitigation Through Workshops
+
+### Technical Risks Addressed
+
+- **Performance bottlenecks**: W2 establishes baseline and optimization path
+- **Domain complexity**: W3 with F# Domain Modeling Expert ensures proper modeling
+- **Integration challenges**: W9 maps standards early
+- **UI consistency**: W7 establishes component patterns upfront
+
+### Process Risks Addressed
+
+- **Coordination overhead**: W1 establishes clear governance
+- **Expertise gaps**: Workshops identify and fill knowledge gaps
+- **Scope creep**: Work packages have fixed boundaries
+- **Quality issues**: W5 establishes logging/monitoring early
 
 ---
 
-**Appendix — Validation Rules (excerpt)**  
+## Appendix A — Work Package Template
+
+Each work package from workshops includes:
+
+```yaml
+WP-ID: WP-XX
+Title: [Descriptive title]
+Workshop: W[1-9]
+Owner: [Primary developer]
+Expertise: [#tags]
+Dependencies: [WP-YY, WP-ZZ]
+Effort: [Story points or hours]
+Phase: [P0-P6]
+
+Description: |
+  Clear description of what needs to be built
+
+Acceptance Criteria:
+  - [ ] Specific measurable outcome 1
+  - [ ] Specific measurable outcome 2
+  - [ ] Test coverage ≥ 90%
+  - [ ] Documentation complete
+
+Technical Notes:
+  - Key decisions from workshop
+  - Preferred approaches/patterns
+  - Integration points
+```
+
+## Appendix B — Validation Rules (excerpt)
 
 - **Routes/Units** must exist and be mapped (no free‑text); **ShapeRoute** must define dose/timed/reconstitution flags per route/form.  
 - **RenalRules** only apply for age ≥28 days; enforce nephrology guidelines; rejection on out‑of‑range GFR.  
 - **Reconstitution** must list acceptable diluents; reject unknown diluent names.  
 - **EntFeeding/ParentMeds** numeric composition required; units normalized; osmolarity/line rules enforced at runtime.
 
-**Appendix — Safety Controls (excerpt)**  
+## Appendix C — Safety Controls (excerpt)
 
 - Vinca minibag enforcement, BCMA everywhere, gravimetric tolerances, two‑person checks, pump auto‑programming ACKs, intrathecal segregation.
 
-## Appendix — Expanded Chemotherapy Acceptance Pack
+## Appendix D — Expanded Chemotherapy Acceptance Pack
 
 ### A) Regimen Authoring & Compiler
 
@@ -216,13 +464,13 @@ _Scope exclusions_: EHR vendor fees, pump/robot integration licenses, external p
 
 ### B) Runtime Evaluator — Dose Calculation & Holds
 
-- **Carboplatin AUC**: Dose = AUC × (GFR + 25). Acceptance if computed dose matches Calvert formula ±0.1%. Change in SCr triggers recalculation and flags “re‑approval required”.
+- **Carboplatin AUC**: Dose = AUC × (GFR + 25). Acceptance if computed dose matches Calvert formula ±0.1%. Change in SCr triggers recalculation and flags "re‑approval required".
 - **Pediatric mg/m²**: For a child (BSA 0.6 m², protocol 75 mg/m²), correct dose 45 mg ± rounding. Max cap of 2 mg/kg enforced where specified.
-- **Renal hold**: If GFR < 30 mL/min/1.73 m², flagged “do not proceed”, order cannot be signed until override documented.
+- **Renal hold**: If GFR < 30 mL/min/1.73 m², flagged "do not proceed", order cannot be signed until override documented.
 
 ### C) Safety Hard‑stops & Never Events
 
-- **Vinca alkaloids**: Order in “syringe” form factor is blocked; minibag enforced. Attempt yields error “Vinca must be minibag — safety stop”.
+- **Vinca alkaloids**: Order in "syringe" form factor is blocked; minibag enforced. Attempt yields error "Vinca must be minibag — safety stop".
 - **Intrathecal segregation**: Any vinca marked contraindicated for intrathecal; cannot co‑sign with intrathecal cytarabine/methotrexate in same session.
 - **Anthracycline cumulative dose**: If cumulative doxorubicin > 550 mg/m², further cycles require cardiology override. Runtime evaluator enforces block.
 
@@ -238,7 +486,7 @@ _Scope exclusions_: EHR vendor fees, pump/robot integration licenses, external p
 
 ### F) Pediatric / Neonatal Specifics
 
-- **Neonatal PN**: For a 3 kg neonate, parenteral osmolarity > 900 mOsm/L flagged as “central line required” before sign‑off.
+- **Neonatal PN**: For a 3 kg neonate, parenteral osmolarity > 900 mOsm/L flagged as "central line required" before sign‑off.
 - **Cumulative lifetime anthracycline tracking**: Across multiple protocols, totals roll up per patient, enforced at runtime.
 
 ### G) Reporting & Audit
@@ -247,3 +495,6 @@ _Scope exclusions_: EHR vendor fees, pump/robot integration licenses, external p
 - **Regimen versioning**: Attempt to start a cycle with outdated regimen version triggers warning and requires confirmation.
 
 ---
+
+*End of Updated Production Plan v4*
+

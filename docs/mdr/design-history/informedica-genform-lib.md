@@ -4,6 +4,12 @@
   - [Overview](#overview)
   - [Product and Substance Data Structure](#product-and-substance-data-structure)
     - [Product and Substance Model](#product-and-substance-model)
+    - [Z-Index Product Structure](#z-index-product-structure)
+      - [1. GenPRES Product Level Unique Identifiers](#1-genpres-product-level-unique-identifiers)
+      - [2. Generic Product Level Unique Identifiers](#2-generic-product-level-unique-identifiers)
+      - [3. Prescription Product Level Unique Identifiers](#3-prescription-product-level-unique-identifiers)
+      - [4. Trade Product Level Unique Identifiers](#4-trade-product-level-unique-identifiers)
+      - [5. Consumer Product Level Unique Identifiers](#5-consumer-product-level-unique-identifiers)
   - [Reconstitution and Solution Rules Data Structure](#reconstitution-and-solution-rules-data-structure)
     - [Solution and Reconstitution Model](#solution-and-reconstitution-model)
     - [Reconstition Rules Table](#reconstition-rules-table)
@@ -35,6 +41,63 @@ When an object isn't required, the relationship is *1..n*, which means the relat
 ### Product and Substance Model
 
 ![Product and Substance model](https://docs.google.com/drawings/d/e/2PACX-1vS3xWXvNVpM6MHRH5aAJ0S-bliMviuW1fK0chOd1PA_i8TPDpBRB4MthbspBucUURaxu5vAUrQ3R5TU/pub?w=1614&h=1488)
+
+Products and substances are represented in the Informedica.Genform library using a structured data model. This model captures essential information about pharmaceutical products, including their generic names, brands, shapes, and associated substances. Then information is mapped from the Z-index and ParentMeds data sources. A Z-index is a comprehensive database of pharmaceutical products, while ParentMeds contains information about parent medications and their properties.
+
+### Z-Index Product Structure
+
+The Z-Index product structure defines products at 4 levels:
+
+1. Generic Product
+2. Prescription Product
+3. Trade Product
+4. Consumer Product
+
+An additional level can be defined above the Generic Product level, called a GenPRES Product. A GenPRES product can consist of multiple Generic Products.
+
+Each level has attributes that, together, makes them unique and identifiable.
+
+#### 1. GenPRES Product Level Unique Identifiers
+
+| Level | Unique Identifier | Description |
+|-------|-------------------|-------------|
+| GenPRES Product | Name | The combined name of Substance names from the Generic Products |
+| GenPRES Product | Shape | The common shape of alle Generic Products |
+
+#### 2. Generic Product Level Unique Identifiers
+
+| Level | Unique Identifier | Description |
+|-------|-------------------|-------------|
+| Generic Product | Shape | The Shape of the Generic Product |
+| Generic Product | Substances | The active substances |
+
+*Note*: A Generic Product contains one or more active substances. Along with the Name of the Substance the Quanity (= Concentration) and Unit also uniquely identify a Generic Product.
+
+#### 3. Prescription Product Level Unique Identifiers
+
+| Level | Unique Identifier | Description |
+|-------|-------------------|-------------|
+| Prescription Product | Quantity | The Quantity of the Prescription Product |
+
+A product quantity is added to the Generic Product to create a unique Prescription Product.
+
+#### 4. Trade Product Level Unique Identifiers
+
+| Level | Unique Identifier | Description |
+|-------|-------------------|-------------|
+| Trade Product | Brand | The Brand name of the Trade Product |
+| Trade Product | Company | The Company of the Trade Product |
+
+A Brand and Company is added to the Prescription Product to create a unique Trade Product. Furthermore, a Trade Product can have a specific set of additional substances, that are brand specific.
+
+#### 5. Consumer Product Level Unique Identifiers
+
+| Level | Unique Identifier | Description |
+|-------|-------------------|-------------|
+| Consumer Product | Quantity | The quantity per Container |
+| Consumer Product | Container | The Container type |
+
+A Container and Quantity is added to the Trade Product to create a unique Consumer Product. So, a Consumer Product can contain multiple Trade Products if the Container contains multiple units of the Trade Product.
 
 ## Reconstitution and Solution Rules Data Structure
 
