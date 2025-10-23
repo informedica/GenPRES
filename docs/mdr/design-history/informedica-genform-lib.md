@@ -1,8 +1,10 @@
 # Informedica.Genform Library Design History
 
 - [Informedica.Genform Library Design History](#informedicagenform-library-design-history)
+  - [Overview](#overview)
+  - [Product and Substance Data Structure](#product-and-substance-data-structure)
+    - [Product and Substance Model](#product-and-substance-model)
   - [Reconstitution and Solution Rules Data Structure](#reconstitution-and-solution-rules-data-structure)
-    - [Overview](#overview)
     - [Solution and Reconstitution Model](#solution-and-reconstitution-model)
     - [Reconstition Rules Table](#reconstition-rules-table)
     - [Solution Rules Table](#solution-rules-table)
@@ -10,11 +12,9 @@
     - [Dose Rules Model](#dose-rules-model)
     - [Table](#table)
 
-## Reconstitution and Solution Rules Data Structure
-
 The Informedica.Genform library contains data structures to represent reconstitution steps and solution rules for medications. These data structures are designed to facilitate the management and application of reconstitution and solution guidelines in a clinical setting.
 
-### Overview
+## Overview
 
 - Objects that are bold are required.
 - Atributes that are italic are conditionally required based on other attribute values.
@@ -29,6 +29,14 @@ Objects have the following relationships:
 - *1..1* : One to one relationship
 
 When an object isn't required, the relationship is *1..n*, which means the relationship passes to the next object.
+
+## Product and Substance Data Structure
+
+### Product and Substance Model
+
+![Product and Substance model](https://docs.google.com/drawings/d/e/2PACX-1vS3xWXvNVpM6MHRH5aAJ0S-bliMviuW1fK0chOd1PA_i8TPDpBRB4MthbspBucUURaxu5vAUrQ3R5TU/pub?w=1614&h=1488)
+
+## Reconstitution and Solution Rules Data Structure
 
 ### Solution and Reconstitution Model
 
