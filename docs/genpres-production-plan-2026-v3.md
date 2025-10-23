@@ -2,11 +2,60 @@
 
 ## Version 4: With Technical Workshops & Work Package Definition
 
+- [GenPRES — Productionization Plan (Detailed) — F# Distributed Server–Client](#genpres--productionization-plan-detailed--f-distributed-serverclient)
+  - [Version 4: With Technical Workshops \& Work Package Definition](#version-4-with-technical-workshops--work-package-definition)
+  - [1. Current State \& Gaps](#1-current-state--gaps)
+  - [2. Technical Workshops \& Work Package Definition](#2-technical-workshops--work-package-definition)
+    - [Purpose](#purpose)
+    - [Workshop Schedule (Weeks 1-3 of Phase 0/1)](#workshop-schedule-weeks-1-3-of-phase-01)
+      - [Core Technical Workshops](#core-technical-workshops)
+      - [Specialized Component Workshops](#specialized-component-workshops)
+    - [Workshop Outputs → Work Package Distribution](#workshop-outputs--work-package-distribution)
+    - [Integration with Development Phases](#integration-with-development-phases)
+  - [3. Scope — Missing Requirements to Implement (with acceptance criteria)](#3-scope--missing-requirements-to-implement-with-acceptance-criteria)
+    - [3.1 Stateless Session Management (Server + Client)](#31-stateless-session-management-server--client)
+    - [3.2 MailboxProcessor around GenOrder.Lib](#32-mailboxprocessor-around-genorderlib)
+    - [3.3 Knowledge Registry (replace Google Sheets) + Formal Validation](#33-knowledge-registry-replace-google-sheets--formal-validation)
+    - [3.4 EHR Interoperability (FHIR/IHE)](#34-ehr-interoperability-fhirihe)
+    - [3.5 Conditional Planning Engine (Chemotherapy)](#35-conditional-planning-engine-chemotherapy)
+    - [3.6 Feeding Prescribing Views (Enteral \& Parenteral)](#36-feeding-prescribing-views-enteral--parenteral)
+    - [3.7 UI — Settings \& Planning](#37-ui--settings--planning)
+    - [3.8 Quality, Security \& Compliance](#38-quality-security--compliance)
+  - [4. Architecture (F#)](#4-architecture-f)
+  - [5. Revised Plan \& Timeline](#5-revised-plan--timeline)
+  - [6. Team — based on required expertise](#6-team--based-on-required-expertise)
+    - [Core Development Team](#core-development-team)
+    - [Workshop Contributors](#workshop-contributors)
+    - [Support Roles](#support-roles)
+  - [7. Budget (Updated with Workshop Allocation)](#7-budget-updated-with-workshop-allocation)
+    - [Workshop Phase (Weeks 1-3) - Additional Budget](#workshop-phase-weeks-1-3---additional-budget)
+    - [Development Team Budget (26 weeks, 40 h/week)](#development-team-budget-26-weeks-40-hweek)
+    - [Development Budget by Work Package Categories](#development-budget-by-work-package-categories)
+    - [Total Revised Budget](#total-revised-budget)
+  - [8. Milestones \& Exit Criteria (Workshop-Enhanced)](#8-milestones--exit-criteria-workshop-enhanced)
+  - [9. Deliverables (Enhanced)](#9-deliverables-enhanced)
+    - [Workshop Deliverables (New)](#workshop-deliverables-new)
+    - [Core Deliverables](#core-deliverables)
+  - [10. Risk Mitigation Through Workshops](#10-risk-mitigation-through-workshops)
+    - [Technical Risks Addressed](#technical-risks-addressed)
+    - [Process Risks Addressed](#process-risks-addressed)
+  - [Appendix A — Work Package Template](#appendix-a--work-package-template)
+  - [Appendix B — Validation Rules (excerpt)](#appendix-b--validation-rules-excerpt)
+  - [Appendix C — Safety Controls (excerpt)](#appendix-c--safety-controls-excerpt)
+  - [Appendix D — Expanded Chemotherapy Acceptance Pack](#appendix-d--expanded-chemotherapy-acceptance-pack)
+    - [A. Regimen Authoring \& Compiler](#a-regimen-authoring--compiler)
+    - [B. Runtime Evaluator — Dose Calculation \& Holds](#b-runtime-evaluator--dose-calculation--holds)
+    - [C. Safety Hard‑stops \& Never Events](#c-safety-hardstops--never-events)
+    - [D. Workflow Controls](#d-workflow-controls)
+    - [E. Device Integration Hooks](#e-device-integration-hooks)
+    - [F. Pediatric / Neonatal Specifics](#f-pediatric--neonatal-specifics)
+    - [G. Reporting \& Audit](#g-reporting--audit)
+
 **Start date:** 2026-01-01 · **Duration:** ~26 weeks · **Stack:** F# end‑to‑end (Server: Giraffe/Saturn; Client: SAFE/Fable/Elmish)
 
 > **Note**: This document uses role-based placeholders (e.g., "F# Performance Expert", "Fable/UI Lead") instead of specific individual names to focus on required expertise rather than particular persons. Organizations can map these roles to available team members based on skills and availability.
 
-## 1) Current State & Gaps
+## 1. Current State & Gaps
 
 - **Core calculation engine** (order math with `OrderVariable` semantics) exists and supports "enter in any order" solving with precise units and BigRationals; selection flow hinges on `hasValues` vs `isSolved` distinctions and name‑based exclusions in some prescription types.
 - **Data sources** are currently **Google Spreadsheets** configured via `GENPRES_URL_ID` with sheets for **Routes, Units, ShapeRoute, ValidShapes, Reconstitution, Enteral feeding (EntFeeding), Parenterals (ParentMeds)** and rule sets (**DoseRules, SolutionRules, RenalRules**). This creates governance and validation gaps for production.
@@ -16,7 +65,7 @@
 
 > **Implication:** Move from demo/prototype data + ad‑hoc validation to a governed **Knowledge Registry** with formal validation and versioning; implement **stateless session** boundaries and an **EHR adapter**; add **chemo regimen planning** and **feeding** views.
 
-## 2) Technical Workshops & Work Package Definition
+## 2. Technical Workshops & Work Package Definition
 
 ### Purpose
 
@@ -154,7 +203,7 @@ Each workshop produces 2-4 focused work packages with:
 - **Phase 2**: Execute workshops W7-W9 while implementing solver and domain packages
 - **Phases 3-6**: Implement remaining work packages based on workshop outputs
 
-## 3) Scope — Missing Requirements to Implement (with acceptance criteria)
+## 3. Scope — Missing Requirements to Implement (with acceptance criteria)
 
 ### 3.1 Stateless Session Management (Server + Client)
 
@@ -241,13 +290,13 @@ Each workshop produces 2-4 focused work packages with:
 - **Test strategy**: unit/integration/contract tests, golden data, chaos tests on session expiry/restart.  
 - **Security**: OWASP ASVS L2, NEN 7510/7513 logging & audit; GDPR data minimization (no PHI storage).
 
-## 4) Architecture (F#)
+## 4. Architecture (F#)
 
 - **Server**: .NET 9 F# (Giraffe/Saturn), `MailboxProcessor` for resource isolation, `IServerApi` implementation exposing session/EHR endpoints.
 - **Client**: SAFE/Elmish SPA; session‑aware containers; Settings/Planning/Feeding views.  
 - **Registry**: PostgreSQL (or equivalent), ingestion service, validator lib; snapshots feed the processor via `IResourceProvider`.
 
-## 5) Revised Plan & Timeline
+## 5. Revised Plan & Timeline
 
 ```mermaid
 gantt
@@ -290,7 +339,7 @@ gantt
     Playbooks, Release, Training           :p6b, 2026-06-12, 7d
 ```
 
-## 6) Team — based on required expertise
+## 6. Team — based on required expertise
 
 ### Core Development Team
 
@@ -316,7 +365,7 @@ gantt
 - **DevOps/SRE** - W1, infrastructure work packages
 - **Security Reviewer** - Security work packages
 
-## 7) Budget (Updated with Workshop Allocation)
+## 7. Budget (Updated with Workshop Allocation)
 
 ### Workshop Phase (Weeks 1-3) - Additional Budget
 
@@ -367,7 +416,7 @@ gantt
 - Workshop Phase: €34,800
 - **Total Project Budget: €741,480**
 
-## 8) Milestones & Exit Criteria (Workshop-Enhanced)
+## 8. Milestones & Exit Criteria (Workshop-Enhanced)
 
 - **M0 (Workshops)**: All 9 workshops completed; 26 work packages defined with clear owners.
 - **M1 (P1)**: Stateless sessions + MailboxProcessor online; E2E calc via Session API; WP-01 to WP-09 complete.
@@ -377,7 +426,7 @@ gantt
 - **M5 (P5)**: Perf/chaos tests, dashboards/alerts; all WPs complete.
 - **M6 (P6)**: Clinical UAT with oncology pharmacist; go‑live playbooks.
 
-## 9) Deliverables (Enhanced)
+## 9. Deliverables (Enhanced)
 
 ### Workshop Deliverables (New)
 
@@ -397,7 +446,7 @@ gantt
 - Emergency medication integration framework
 - Complete documentation and runbooks
 
-## 10) Risk Mitigation Through Workshops
+## 10. Risk Mitigation Through Workshops
 
 ### Technical Risks Addressed
 
@@ -457,39 +506,39 @@ Technical Notes:
 
 ## Appendix D — Expanded Chemotherapy Acceptance Pack
 
-### A) Regimen Authoring & Compiler
+### A. Regimen Authoring & Compiler
 
 - **Acceptance**: Authoring UI allows definition of cycles (e.g., 21‑day CHOP), days (Day 1: cyclophosphamide, doxorubicin, vincristine; Day 5: prednisone taper), with support for pre‑medications, hydration, monitoring steps.
 - **Validation**: Attempt to save regimen missing hydration pre‑med step yields error. Attempt to assign drug not in formulary is blocked.
 
-### B) Runtime Evaluator — Dose Calculation & Holds
+### B. Runtime Evaluator — Dose Calculation & Holds
 
 - **Carboplatin AUC**: Dose = AUC × (GFR + 25). Acceptance if computed dose matches Calvert formula ±0.1%. Change in SCr triggers recalculation and flags "re‑approval required".
 - **Pediatric mg/m²**: For a child (BSA 0.6 m², protocol 75 mg/m²), correct dose 45 mg ± rounding. Max cap of 2 mg/kg enforced where specified.
 - **Renal hold**: If GFR < 30 mL/min/1.73 m², flagged "do not proceed", order cannot be signed until override documented.
 
-### C) Safety Hard‑stops & Never Events
+### C. Safety Hard‑stops & Never Events
 
 - **Vinca alkaloids**: Order in "syringe" form factor is blocked; minibag enforced. Attempt yields error "Vinca must be minibag — safety stop".
 - **Intrathecal segregation**: Any vinca marked contraindicated for intrathecal; cannot co‑sign with intrathecal cytarabine/methotrexate in same session.
 - **Anthracycline cumulative dose**: If cumulative doxorubicin > 550 mg/m², further cycles require cardiology override. Runtime evaluator enforces block.
 
-### D) Workflow Controls
+### D. Workflow Controls
 
 - **Two‑person verify**: At both prescription and compounding, system requires independent second sign‑off. Acceptance: one user cannot satisfy both roles.
 - **Gravimetric checks**: For compounding step, if measured ± system‑calc weight deviates by >10%, block label print and require supervisor override.
 
-### E) Device Integration Hooks
+### E. Device Integration Hooks
 
 - **Smart pump programming**: Export of infusion parameters (drug, rate, volume) as pump‑ready profile; acceptance when external pump simulator loads file with no manual edits.
 - **BCMA scanning**: Simulated nurse scan of patient wristband + drug vial must match system order; mismatch blocks administration.
 
-### F) Pediatric / Neonatal Specifics
+### F. Pediatric / Neonatal Specifics
 
 - **Neonatal PN**: For a 3 kg neonate, parenteral osmolarity > 900 mOsm/L flagged as "central line required" before sign‑off.
 - **Cumulative lifetime anthracycline tracking**: Across multiple protocols, totals roll up per patient, enforced at runtime.
 
-### G) Reporting & Audit
+### G. Reporting & Audit
 
 - **Audit log**: Every regimen publish, override, hold, and block event logged with user, timestamp, clinical justification.
 - **Regimen versioning**: Attempt to start a cycle with outdated regimen version triggers warning and requires confirmation.
