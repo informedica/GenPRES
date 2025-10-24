@@ -9,7 +9,16 @@
     - [Purpose](#purpose)
     - [Workshop Schedule (Weeks 1-3 of Phase 0/1)](#workshop-schedule-weeks-1-3-of-phase-01)
       - [Core Technical Workshops](#core-technical-workshops)
+        - [W1: Project Structure \& Governance (Day 2-3)](#w1-project-structure--governance-day-2-3)
+        - [W2: GenSolver Optimization \& Performance (Day 4-5)](#w2-gensolver-optimization--performance-day-4-5)
+        - [W3: Domain Modeling Extension (Day 8-9)](#w3-domain-modeling-extension-day-8-9)
       - [Specialized Component Workshops](#specialized-component-workshops)
+        - [W4: GenPRES Emergency List Integration (Week 2)](#w4-genpres-emergency-list-integration-week-2)
+        - [W5: Solver Deep Dive (Week 2)](#w5-solver-deep-dive-week-2)
+        - [W6: Units Library Refactoring (Week 2)](#w6-units-library-refactoring-week-2)
+        - [W7: UI Architecture \& Bindings (Week 3)](#w7-ui-architecture--bindings-week-3)
+        - [W8: Server Architecture \& MCP Integration (Week 3)](#w8-server-architecture--mcp-integration-week-3)
+        - [W9: Interoperability \& Standards (Week 3)](#w9-interoperability--standards-week-3)
     - [Workshop Outputs → Work Package Distribution](#workshop-outputs--work-package-distribution)
     - [Integration with Development Phases](#integration-with-development-phases)
   - [3. Scope — Missing Requirements to Implement (with acceptance criteria)](#3-scope--missing-requirements-to-implement-with-acceptance-criteria)
@@ -75,7 +84,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 
 #### Core Technical Workshops
 
-**W1: Project Structure & Governance** (Day 2-3)
+##### W1: Project Structure & Governance (Day 2-3)
 
 - **Participants**: F# API Expert, F# Backend Expert, Interop Specialist, PM
 - **Objectives**:
@@ -89,7 +98,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - CONTRIBUTING.md, code review checklist
   - Work packages: WP-01 (Repo setup), WP-02 (CI/CD), WP-03 (Doc framework)
 
-**W2: GenSolver Optimization & Performance** (Day 4-5)
+##### W2: GenSolver Optimization & Performance (Day 4-5)
 
 - **Participants**: Domain Lead, F# Performance Expert, Optimization Specialist (optional)
 - **Objectives**:
@@ -101,7 +110,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - Optimization roadmap with specific techniques
   - Work packages: WP-04 (Profiling harness), WP-05 (Algorithm optimizations), WP-06 (Caching layer)
 
-**W3: Domain Modeling Extension** (Day 8-9)
+##### W3: Domain Modeling Extension (Day 8-9)
 
 - **Participants**: DDD/Architecture Expert, F# Domain Modeling Expert (if available), Clinical Pharmacist
 - **Objectives**:
@@ -115,7 +124,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 
 #### Specialized Component Workshops
 
-**W4: GenPRES Emergency List Integration** (Week 2)
+##### W4: GenPRES Emergency List Integration (Week 2)
 
 - **Participants**: Clinical Pharmacist, Backend team
 - **Objectives**:
@@ -126,7 +135,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - Emergency order specifications
   - Work packages: WP-10 (Emergency rules), WP-11 (Override framework)
 
-**W5: Solver Deep Dive** (Week 2)
+##### W5: Solver Deep Dive (Week 2)
 
 - **Participants**: F# Performance Expert, Domain Lead, F# API Expert
 - **Objectives**:
@@ -138,7 +147,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - Error taxonomy and handling patterns
   - Work packages: WP-12 (Telemetry), WP-13 (Error handling), WP-14 (Debugger tools)
 
-**W6: Units Library Refactoring** (Week 2)
+##### W6: Units Library Refactoring (Week 2)
 
 - **Participants**: F# Performance Expert, QA/Testing Expert
 - **Objectives**:
@@ -150,7 +159,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - Migration guide
   - Work packages: WP-15 (Core units refactor), WP-16 (Unit tests), WP-17 (Migration tooling)
 
-**W7: UI Architecture & Bindings** (Week 3)
+##### W7: UI Architecture & Bindings (Week 3)
 
 - **Participants**: Fable/UI Lead, Senior UI Developer, F# Backend Expert
 - **Objectives**:
@@ -162,7 +171,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - JSX binding improvements
   - Work packages: WP-18 (Component lib), WP-19 (Template engine), WP-20 (UI state management)
 
-**W8: Server Architecture & MCP Integration** (Week 3)
+##### W8: Server Architecture & MCP Integration (Week 3)
 
 - **Participants**: Interop Specialist, F# Backend Expert, AI/ML Integration Expert
 - **Objectives**:
@@ -174,7 +183,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - AI integration patterns
   - Work packages: WP-21 (MCP server), WP-22 (AI adapters), WP-23 (Real-time layer)
 
-**W9: Interoperability & Standards** (Week 3)
+##### W9: Interoperability & Standards (Week 3)
 
 - **Participants**: Interop Specialist, Clinical team, EHR vendor reps
 - **Objectives**:
