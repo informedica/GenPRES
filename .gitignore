@@ -50,7 +50,7 @@
 
 # Add github folder
 !/.github
-!/.instructions/
+!/.github/instructions/
 !/.github/workflows/
 
 # Add devcontainer
