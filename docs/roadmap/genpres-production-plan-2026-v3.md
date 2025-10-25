@@ -79,7 +79,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 
 #### Core Technical Workshops
 
-##### W1: Project Structure & Governance (Day 2-3)
+##### W1: [Project Structure & Governance](w1-project-structure-and-governance.md) (Day 2-3)
 
 - **Participants**: F# API Expert, F# Backend Expert, Interop Specialist, PM
 - **Objectives**:
