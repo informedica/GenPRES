@@ -36,16 +36,11 @@
     - [Core Development Team](#core-development-team)
     - [Workshop Contributors](#workshop-contributors)
     - [Support Roles](#support-roles)
-  - [7. Budget (Updated with Workshop Allocation)](#7-budget-updated-with-workshop-allocation)
-    - [Workshop Phase (Weeks 1-3) - Additional Budget](#workshop-phase-weeks-1-3---additional-budget)
-    - [Development Team Budget (26 weeks, 40 h/week)](#development-team-budget-26-weeks-40-hweek)
-    - [Development Budget by Work Package Categories](#development-budget-by-work-package-categories)
-    - [Total Revised Budget](#total-revised-budget)
-  - [8. Milestones \& Exit Criteria (Workshop-Enhanced)](#8-milestones--exit-criteria-workshop-enhanced)
-  - [9. Deliverables (Enhanced)](#9-deliverables-enhanced)
+  - [7. Milestones \& Exit Criteria (Workshop-Enhanced)](#7-milestones--exit-criteria-workshop-enhanced)
+  - [8. Deliverables (Enhanced)](#8-deliverables-enhanced)
     - [Workshop Deliverables (New)](#workshop-deliverables-new)
     - [Core Deliverables](#core-deliverables)
-  - [10. Risk Mitigation Through Workshops](#10-risk-mitigation-through-workshops)
+  - [9. Risk Mitigation Through Workshops](#9-risk-mitigation-through-workshops)
     - [Technical Risks Addressed](#technical-risks-addressed)
     - [Process Risks Addressed](#process-risks-addressed)
   - [Appendix A — Work Package Template](#appendix-a--work-package-template)
@@ -376,58 +371,8 @@ gantt
 - **DevOps/SRE** - W1, infrastructure work packages
 - **Security Reviewer** - Security work packages
 
-## 7. Budget (Updated with Workshop Allocation)
 
-### Workshop Phase (Weeks 1-3) - Additional Budget
-
-| Item                    | Hours | Rate €/h | Cost € |
-|:------------------------|------:|---------:|-------:|
-| Workshop Facilitation   |    80 |      140 | 11,200 |
-| Expert Consultation     |   120 |      160 | 19,200 |
-| Documentation           |    40 |      110 |  4,400 |
-| **Workshop Total**      |       |          | 34,800 |
-
-### Development Team Budget (26 weeks, 40 h/week)
-
-| Role                    | Description                              | Phase Focus     |   FTE |   Rate €/h |   Hours |   Cost € | Bucket    |
-|:------------------------|:-----------------------------------------|:----------------|------:|-----------:|--------:|---------:|:----------|
-| Fable/UI Lead           | UI Lead (Fable/Elmish, SAFE)            | P1,P4C,UI       |  0.8  |       130 |     832 |   108160 | Core Devs |
-| Senior UI Developer     | Senior UI (SAFE/UX)                     | P1,P2B,P4C,UI   |  0.8  |       125 |     832 |   104000 | Core Devs |
-| F# Backend Expert       | Backend/SAFE Integration & Delivery     | P1,P3B,P6       |  0.5  |       140 |     520 |    72800 | Core Devs |
-| QA/Testing Expert       | QA & Test Automation Lead               | P2B,P4B,P5,P6   |  0.6  |       110 |     624 |    68640 | Core Devs |
-| F# API Expert           | Code Quality & API Design               | P1B,Reviews     |  0.3  |       140 |     312 |    43680 | Core Devs |
-| DDD/Architecture Expert | Architecture Reviews & DDD              | P2A,P4A,Reviews |  0.3  |       160 |     312 |    49920 | Core Devs |
-| F# Performance Expert   | Performance & numerical checks          | P4B,P5          |  0.4  |       130 |     416 |    54080 | Core Devs |
-| Interop Specialist      | Interop & resilience (FHIR/IHE adapters)| P3A,P6          |  0.4  |       120 |     416 |    49920 | Core Devs |
-| F# Tooling Expert       | Tooling & code quality (Fantomas/FX)    | Reviews         |  0.1  |       100 |     104 |    10400 | Core Devs |
-| AI/ML Integration Expert| AI assist & doc gen (optional)          | Tooling         |  0.1  |       120 |     104 |    12480 | Core Devs |
-| Project Manager         | PM/Scrum Master                         | ALL             |  0.5  |       100 |     520 |    52000 | Support   |
-| DevOps/SRE             | CI/CD, observability, release           | P0,P5,P6        |  0.25 |       110 |     260 |    28600 | Support   |
-| Clinical Pharmacist     | Chemo governance & UAT                  | P4,P6           |  0.3  |       120 |     312 |    37440 | Support   |
-| Security Reviewer       | Threat modeling, ASVS L2                | P0,P5           |  0.1  |       140 |     104 |    14560 | Support   |
-| **Subtotal**           |                                          |                 |       |            |         |   706680 |           |
-
-### Development Budget by Work Package Categories
-
-| WP Category              | Packages    | Est. Hours | Avg Rate €/h | Budget € |
-|:-------------------------|:------------|----------:|-------------:|---------:|
-| Infrastructure (WP 1-3)  | Repo/CI/Doc |       320 |          130 |   41,600 |
-| Solver Core (WP 4-6)     | Optimization|       480 |          140 |   67,200 |
-| Domain Model (WP 7-9)    | Extensions  |       400 |          150 |   60,000 |
-| Emergency (WP 10-11)     | Rules       |       240 |          125 |   30,000 |
-| Observability (WP 12-14) | Logging     |       280 |          130 |   36,400 |
-| Units Lib (WP 15-17)     | Refactor    |       320 |          135 |   43,200 |
-| UI Components (WP 18-20) | Frontend    |       520 |          130 |   67,600 |
-| Server/MCP (WP 21-23)    | Backend     |       480 |          140 |   67,200 |
-| Interop (WP 24-26)       | FHIR/IHE    |       560 |          145 |   81,200 |
-
-### Total Revised Budget
-
-- Original Development: €706,680
-- Workshop Phase: €34,800
-- **Total Project Budget: €741,480**
-
-## 8. Milestones & Exit Criteria (Workshop-Enhanced)
+## 7. Milestones & Exit Criteria (Workshop-Enhanced)
 
 - **M0 (Workshops)**: All 9 workshops completed; 26 work packages defined with clear owners.
 - **M1 (P1)**: Stateless sessions + MailboxProcessor online; E2E calc via Session API; WP-01 to WP-09 complete.
@@ -437,7 +382,7 @@ gantt
 - **M5 (P5)**: Perf/chaos tests, dashboards/alerts; all WPs complete.
 - **M6 (P6)**: Clinical UAT with oncology pharmacist; go‑live playbooks.
 
-## 9. Deliverables (Enhanced)
+## 8. Deliverables (Enhanced)
 
 ### Workshop Deliverables (New)
 
@@ -457,7 +402,7 @@ gantt
 - Emergency medication integration framework
 - Complete documentation and runbooks
 
-## 10. Risk Mitigation Through Workshops
+## 9. Risk Mitigation Through Workshops
 
 ### Technical Risks Addressed
 
