@@ -101,6 +101,7 @@
 
 # Add documentation
 !/docs/
+!/docs/roadmap/
 !/docs/*.xlsx
 !/docs/code-reviews/
 !/docs/literature/
