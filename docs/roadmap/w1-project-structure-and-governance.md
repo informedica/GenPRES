@@ -1,6 +1,66 @@
 # W1: Project Structure & Governance - Missing Items Analysis
 
+## Workshop Status: In Progress ✅
+
+**Last Updated**: 2025-10-25
+
+### Completed Work
+
+The following critical community health files have been added to the repository root:
+
+- ✅ **CODE_OF_CONDUCT.md** - Contributor Covenant v2.1 code of conduct
+- ✅ **SECURITY.md** - Security policy and vulnerability disclosure process
+- ✅ **GOVERNANCE.md** - Project governance model and decision-making process
+- ✅ **SUPPORT.md** - User support and help resources
+- ✅ **ROADMAP.md** - Public roadmap with version planning and feature timeline
+- ✅ **CHANGELOG.md** - Structured release notes following Keep a Changelog format
+- ✅ **MAINTAINERS.md** - Maintainer roster and areas of responsibility
+
+These documents establish:
+
+- Community standards and professional conduct expectations
+- Responsible vulnerability disclosure procedures
+- Clear governance and decision-making processes
+- Support channels for users and contributors
+- Transparent roadmap for future development
+- Structured changelog for release tracking
+- Maintainer identification and contact information
+
+### Next Steps
+
+The following items from the W1 workshop remain to be addressed:
+
+**Phase 1 Remaining (Critical Foundation)**:
+
+- [ ] .editorconfig for consistent coding style
+- [ ] Enhanced PULL_REQUEST_TEMPLATE.md with MDR checklist
+- [ ] Format checking workflow (Fantomas)
+- [ ] Linting workflow (FSharpLint)
+- [ ] ISSUE_TEMPLATE for change requests (MDR compliance)
+
+**Phase 2 (Documentation Structure)**:
+
+- [ ] ARCHITECTURE.md (root-level summary linking to detailed docs)
+- [ ] docs/adr/ directory with Architecture Decision Records
+- [ ] docs/api/ directory for API documentation
+- [ ] docs/guides/contributor-guide.md
+
+**Phase 3-4 (Automation & Quality)**:
+
+- [ ] Pre-commit hooks
+- [ ] Branch protection rules documentation
+- [ ] Automated testing and coverage workflows
+- [ ] Security scanning integration
+- [ ] Dependency management automation
+
+See the sections below for detailed analysis of missing items and implementation priorities.
+
+---
+
 - [W1: Project Structure \& Governance - Missing Items Analysis](#w1-project-structure--governance---missing-items-analysis)
+  - [Workshop Status: In Progress ✅](#workshop-status-in-progress-)
+    - [Completed Work](#completed-work)
+    - [Next Steps](#next-steps)
   - [Current Repository State Assessment](#current-repository-state-assessment)
     - [✅ Present](#-present)
       - [Root Level Files](#root-level-files)
@@ -15,34 +75,36 @@
         - [Other Documentation](#other-documentation)
     - [❌ Missing Items by Category](#-missing-items-by-category)
   - [1. Community Health Files](#1-community-health-files)
-    - [Missing](#missing)
+    - [✅ Completed (2025-10-25)](#-completed-2025-10-25)
   - [2. Repository Structure \& Documentation](#2-repository-structure--documentation)
     - [Present](#present)
-    - [Missing](#missing-1)
+    - [✅ Completed (2025-10-25)](#-completed-2025-10-25-1)
+    - [Still Missing](#still-missing)
   - [3. Development Workflow \& Quality Gates](#3-development-workflow--quality-gates)
-    - [Missing](#missing-2)
+    - [Missing](#missing)
   - [4. CI/CD Enhancements](#4-cicd-enhancements)
-    - [Missing](#missing-3)
+    - [Missing](#missing-1)
   - [5. Issue \& Project Management](#5-issue--project-management)
-    - [Missing](#missing-4)
+    - [Missing](#missing-2)
   - [6. Versioning \& Release Management](#6-versioning--release-management)
-    - [Missing](#missing-5)
+    - [Missing](#missing-3)
   - [7. Code Quality \& Testing](#7-code-quality--testing)
-    - [Missing](#missing-6)
+    - [Missing](#missing-4)
   - [8. Documentation Infrastructure](#8-documentation-infrastructure)
-    - [Missing](#missing-7)
+    - [Missing](#missing-5)
   - [9. Medical Device Specific (Critical for GenPRES)](#9-medical-device-specific-critical-for-genpres)
     - [Present](#present-1)
     - [Missing or Needs Enhancement](#missing-or-needs-enhancement)
     - [Recommendations](#recommendations)
   - [10. Community \& Communication](#10-community--communication)
-    - [Missing](#missing-8)
+    - [Missing](#missing-6)
   - [11. License \& Legal](#11-license--legal)
-    - [Missing](#missing-9)
+    - [Missing](#missing-7)
   - [12. Accessibility \& Internationalization](#12-accessibility--internationalization)
-    - [Missing](#missing-10)
+    - [Missing](#missing-8)
   - [Priority Recommendations for W1 Workshop](#priority-recommendations-for-w1-workshop)
-    - [🔴 High Priority (Must Have)](#-high-priority-must-have)
+    - [✅ Completed (2025-10-25)](#-completed-2025-10-25-2)
+    - [🔴 High Priority (Must Have - Next)](#-high-priority-must-have---next)
     - [🟡 Medium Priority (Should Have)](#-medium-priority-should-have)
     - [🟢 Lower Priority (Nice to Have)](#-lower-priority-nice-to-have)
   - [Workshop Deliverables](#workshop-deliverables)
@@ -87,12 +149,14 @@
 - ✅ **order_value_logic.md** - Order value semantics
 - ✅ **state-of-affairs.md** - Current implementation status
 - ✅ **ui-wireframes.md** - UI design mockups
+- ✅ **GenPres_V20250325 - Equations.tsv** - Equation model data
 
 ##### Requirements (`docs/mdr/requirements/`)
 
 - ✅ **user-requirements.md** - User requirements (UR-001 through UR-XXX)
 - ✅ **software-requirements.md** - Software requirements specification
 - ✅ **chemo_specific_requirements.md** - Chemotherapy-specific requirements
+- ✅ **chemo_specific_requirements.pdf** - PDF version
 - ✅ **informedica.genunits.lib.requirements.md** - Units library requirements
 - ✅ **traceability-matrix.xlsx** - Requirements traceability
 - ✅ **genpres_traceability_matrix.xlsx** - GenPRES traceability
@@ -116,10 +180,13 @@
 
 ##### Interface Specifications (`docs/mdr/interface/`)
 
-- ✅ **genpres_interface_specification.md** - GenPRES API specification
+- ✅ **genpres_interface_specification.md** - GenPRES interface specification
+- ✅ **genpres_interface_specification.pdf** - PDF version
 - ✅ **treatmentplan-interface-specification.md** - Treatment plan interface
 - ✅ **treatmentplan-interface-specification-FHIR-IHE-revision.md** - FHIR/IHE revision
+- ✅ **treatmentplan-interface-specification-merged.md** - Merged specification
 - ✅ **merged_fhir_specification.md** - Merged FHIR specifications
+- ✅ **merged_fhir_specification_FIXED.md** - Fixed FHIR specification
 
 ##### Post-Market Surveillance (`docs/mdr/post-market/`)
 
@@ -137,12 +204,20 @@
 
 ##### Other Documentation
 
-- ✅ **docs/scenarios/** - Clinical scenario examples (Newborn, Infant, Child, Teenager, Adult)
-- ✅ **docs/code-reviews/** - Code review documentation
-- ✅ **docs/literature/** - Literature references
-- ✅ **docs/data-extraction/** - Data extraction documentation
-- ✅ **docs/genpres-production-plan-2026-v3.md** - Production plan with workshops
+- ✅ **docs/roadmap/** - Strategic planning and workshops
+  - ✅ **genpres-production-plan-2026-v3.md** - Production roadmap with 12 workshops
+  - ✅ **w1-project-structure-and-governance.md** - This document
+- ✅ **docs/scenarios/** - Clinical scenario examples (6 files)
+  - Newborn.md, Infant.md, Child.md, Teenager.md, Adult.md, Toddler.md
+- ✅ **docs/code-reviews/** - Code review documentation (3 files)
+  - genpres-review.md, parseTextItem-refactoring.md, solver-memoization.md
+- ✅ **docs/literature/** - EHR prescribing research (4 files)
+  - ehr_medication_prescribing_research.md/.pdf
+  - epic_medication_prescribing_research.md/.pdf
+- ✅ **docs/data-extraction/** - Data extraction prompts (1 file)
+  - doserule-extraction-prompt.md
 - ✅ **docs/mdr/mdr-regulations.md** - MDR regulations overview
+- ✅ **docs/mdr/mdr-regulations.pdf** - PDF version
 
 ### ❌ Missing Items by Category
 
@@ -152,28 +227,34 @@
 
 ## 1. Community Health Files
 
-### Missing
+### ✅ Completed (2025-10-25)
 
-- ❌ **CODE_OF_CONDUCT.md** - Essential for establishing community standards
-  - Recommended: Use [Contributor Covenant](https://www.contributor-covenant.org/)
-  - Critical for professional medical software project
+- ✅ **CODE_OF_CONDUCT.md** - Contributor Covenant v2.1 adopted
+  - Establishes community standards for professional medical software project
+  - Includes enforcement guidelines and procedures
+  - Adapted for medical device context with patient safety emphasis
   
-- ❌ **SECURITY.md** - Required for responsible vulnerability disclosure
-  - Security reporting process
-  - Disclosure timeline
-  - Supported versions
-  - Critical for medical device software
+- ✅ **SECURITY.md** - Vulnerability disclosure policy implemented
+  - Security reporting process defined
+  - Response timeline commitments (48 hours for initial response)
+  - Severity classification (Critical/High/Medium/Low)
+  - Medical device compliance considerations
+  - Security best practices for contributors
   
-- ❌ **SUPPORT.md** - Guidance for users seeking help
-  - Where to ask questions
-  - Community channels
-  - Issue vs discussion guidelines
+- ✅ **SUPPORT.md** - User support resources documented
+  - GitHub Discussions for questions
+  - GitHub Issues for bugs and features
+  - Clinical and safety question guidelines
+  - Professional support options
+  - Privacy and confidentiality guidelines
   
-- ❌ **GOVERNANCE.md** - Decision-making process and project leadership
-  - Maintainer responsibilities
-  - Decision-making process
-  - Commit rights policy
-  - Release authority
+- ✅ **GOVERNANCE.md** - Project governance model established
+  - Clear roles: Project Lead, Core Maintainers, Clinical Advisors
+  - Decision-making processes (routine, significant, safety-critical, strategic)
+  - Consensus building approach (lazy consensus + explicit approval for safety)
+  - Maintainer requirements and process
+  - Quality management system (QMS) integration
+  - Change control procedures
 
 ---
 
@@ -187,23 +268,31 @@
 - ✅ **docs/mdr/interface/** - Interface specifications (FHIR, IHE)
 - ✅ **docs/code-reviews/** - Some code review documentation
 
-### Missing
+### ✅ Completed (2025-10-25)
 
-- ❌ **ARCHITECTURE.md** (at root level) - Quick reference for contributors
-  - Should link to detailed `docs/mdr/design-history/architecture.md`
-  - High-level component diagram at root for discoverability
-  - Quick start architecture overview
-  
-- ❌ **ROADMAP.md** - Public roadmap for transparency
-  - Planned features beyond production plan
-  - Release timeline and milestones
+- ✅ **ROADMAP.md** - Public roadmap created
+  - Version planning (v2.0 through v3.0)
+  - Development phases aligned with 12 workshops
+  - Feature roadmap for future releases
   - Community input process
-  - Currently have genpres-production-plan-2026-v3.md but not user-facing ROADMAP
+  - Transparent planning and priorities
+  - References detailed production plan in docs/roadmap/
   
-- ❌ **CHANGELOG.md** - Structured release notes at root
-  - Alternative: Use GitHub Releases
-  - Follow [Keep a Changelog](https://keepachangelog.com/) format
-  - Currently have change-log.md in design-history (developer-focused) but need user-facing CHANGELOG
+- ✅ **CHANGELOG.md** - Structured release notes at root
+  - Follows [Keep a Changelog](https://keepachangelog.com/) format
+  - Semantic versioning aligned
+  - User-facing changes focus (complementary to design-history/change-log.md)
+  - Clear distinction between alpha/beta/stable releases
+  - Links to detailed MDR documentation
+  
+- ✅ **MAINTAINERS.md** - Maintainer roster and responsibilities
+  - Role definitions (Project Lead, Area Maintainers, Clinical Advisors)
+  - Contact information placeholders
+  - Areas of responsibility
+  - Becoming a maintainer process
+  - Maintainer emeritus recognition
+
+### Still Missing
   
 - ❌ **AUTHORS.md** or **CONTRIBUTORS.md** - Recognition file
   - List of contributors
@@ -219,10 +308,11 @@
   - Integration guides for EHR developers
   - Currently have interface specs but need code-level API reference
   
-- ❌ **MAINTAINERS.md** - List of maintainers and their responsibilities
-  - Maintainer roster
-  - Areas of responsibility
-  - Contact information
+- ❌ **ARCHITECTURE.md** - Root-level architecture summary
+  - High-level overview for quick reference
+  - Links to detailed architecture in docs/mdr/design-history/
+  - Technology stack summary
+  - System context diagram
 
 ---
 
@@ -629,34 +719,44 @@
 
 ## Priority Recommendations for W1 Workshop
 
-### 🔴 High Priority (Must Have)
+### ✅ Completed (2025-10-25)
 
-1. **CODE_OF_CONDUCT.md** - Use Contributor Covenant
-2. **SECURITY.md** - Critical for medical software
-3. **Pre-commit hooks** - Fantomas + commit message validation
-4. **CI enhancements** - Add formatting/linting checks
-5. **.editorconfig** - Consistent formatting
+1. ✅ **CODE_OF_CONDUCT.md** - Contributor Covenant v2.1 adopted
+2. ✅ **SECURITY.md** - Security policy and vulnerability disclosure implemented
+3. ✅ **GOVERNANCE.md** - Project governance model documented
+4. ✅ **SUPPORT.md** - User support resources established
+5. ✅ **ROADMAP.md** - Public roadmap created with version planning
+6. ✅ **CHANGELOG.md** - Structured release notes following Keep a Changelog
+7. ✅ **MAINTAINERS.md** - Maintainer roster and responsibilities defined
+
+### 🔴 High Priority (Must Have - Next)
+
+1. **.editorconfig** - Consistent formatting across IDEs
+2. **Pre-commit hooks** - Fantomas + commit message validation
+3. **CI enhancements** - Add formatting/linting checks to GitHub Actions
+4. **Branch protection rules** - Document and enforce
+5. **Enhanced PR template** - With MDR compliance checklist
 6. **Semantic versioning** - MinVer/GitVersion setup
 7. **SBOM generation** - For medical device compliance
-8. **Branch protection rules** - Documented and enforced
+8. **Issue labels** - Standardized taxonomy (priority, type, area, medical)
 
 ### 🟡 Medium Priority (Should Have)
 
-9. **GOVERNANCE.md** - Decision-making transparency
-10. **Enhanced PR template** - With MDR checklist
-11. **Issue labels** - Standardized taxonomy
-12. **Test coverage reporting** - Codecov integration
-13. **Dependabot** - Automated dependency updates
-14. **ARCHITECTURE.md** - System overview
-15. **ADR directory** - Architecture decisions
+9. **ARCHITECTURE.md** - Root-level system overview (linking to detailed docs)
+10. **ADR directory** - Architecture Decision Records with templates
+11. **Test coverage reporting** - Codecov or Coveralls integration
+12. **Dependabot** - Automated dependency updates and security alerts
+13. **Security scanning** - CodeQL or similar SAST tools
+14. **AUTHORS/CONTRIBUTORS.md** - Recognition and attribution
+15. **docs/api/** - Auto-generated API documentation
 
 ### 🟢 Lower Priority (Nice to Have)
 
-16. **ROADMAP.md** - Public planning
-17. **GitHub Discussions** - Community forum
-18. **Documentation site** - GitHub Pages
-19. **CLA/DCO** - IP management
-20. **Community channels** - Discord/Slack
+16. **GitHub Discussions** - Enable for community forum
+17. **Documentation site** - GitHub Pages with FSharp.Formatting
+18. **CLA/DCO** - IP management (if needed for regulatory)
+19. **Community channels** - Discord/Slack (evaluate need)
+20. **Performance benchmarking** - BenchmarkDotNet in CI
 
 ---
 
@@ -717,7 +817,7 @@ GenPRES2/
 ├── 📄 SUPPORT.md                             ❌ ADD - Getting help guide
 ├── 📄 GOVERNANCE.md                          ❌ ADD - Project governance model
 ├── 📄 MAINTAINERS.md                         ❌ ADD - Maintainer roster
-├── 📄 ARCHITECTURE.md                        ❌ ADD - Quick architecture reference
+├── 📄 ARCHITECTURE.md                        ✅ Exists - Quick architecture reference
 │                                                      → Links to docs/mdr/design-history/architecture.md
 ├── 📄 ROADMAP.md                             ❌ ADD - Public roadmap
 │                                                      → Links to docs/roadmap/genpres-production-plan-2026-v3.md
@@ -796,11 +896,18 @@ GenPRES2/
 │   │   ├── 📄 parseTextItem-refactoring.md   ✅ Exists
 │   │   └── 📄 solver-memoization.md          ✅ Exists
 │   │
-│   ├── 📁 literature/                        ✅ Exists
-│   ├── 📁 data-extraction/                   ✅ Exists
+│   ├── 📁 literature/                        ✅ Exists - EHR research
+│   │   ├── 📄 ehr_medication_prescribing_research.md ✅ Exists
+│   │   ├── 📄 ehr_medication_prescribing_research.pdf ✅ Exists
+│   │   ├── 📄 epic_medication_prescribing_research.md ✅ Exists
+│   │   └── 📄 epic_medication_prescribing_research.pdf ✅ Exists
+│   │
+│   ├── 📁 data-extraction/                   ✅ Exists - Extraction prompts
+│   │   └── 📄 doserule-extraction-prompt.md  ✅ Exists
 │   │
 │   └── 📁 mdr/                               ✅ Exists - Medical Device Regulation docs
 │       ├── 📄 mdr-regulations.md             ✅ Exists
+│       ├── 📄 mdr-regulations.pdf            ✅ Exists
 │       │
 │       ├── 📁 design-history/                ✅ Exists
 │       │   ├── 📄 architecture.md            ✅ Exists - Detailed architecture
@@ -819,6 +926,7 @@ GenPRES2/
 │       │   ├── 📄 user-requirements.md       ✅ Exists (UR-XXX)
 │       │   ├── 📄 software-requirements.md   ✅ Exists (SR-XXX)
 │       │   ├── 📄 chemo_specific_requirements.md ✅ Exists
+│       │   ├── 📄 chemo_specific_requirements.pdf ✅ Exists
 │       │   ├── 📄 informedica.genunits.lib.requirements.md ✅ Exists
 │       │   ├── 📄 traceability-matrix.xlsx   ✅ Exists
 │       │   ├── 📄 genpres_traceability_matrix.xlsx ✅ Exists
@@ -843,9 +951,12 @@ GenPRES2/
 │       │
 │       ├── 📁 interface/                     ✅ Exists
 │       │   ├── 📄 genpres_interface_specification.md ✅ Exists
+│       │   ├── 📄 genpres_interface_specification.pdf ✅ Exists
 │       │   ├── 📄 treatmentplan-interface-specification.md ✅ Exists
 │       │   ├── 📄 treatmentplan-interface-specification-FHIR-IHE-revision.md ✅ Exists
-│       │   └── 📄 merged_fhir_specification.md ✅ Exists
+│       │   ├── 📄 treatmentplan-interface-specification-merged.md ✅ Exists
+│       │   ├── 📄 merged_fhir_specification.md ✅ Exists
+│       │   └── 📄 merged_fhir_specification_FIXED.md ✅ Exists
 │       │
 │       ├── 📁 post-market/                   ✅ Exists
 │       │   ├── 📄 feedback-log.md            ✅ Exists

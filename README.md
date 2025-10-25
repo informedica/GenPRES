@@ -7,6 +7,8 @@ This project is initially aimed at the Dutch medical setting, but can easily be 
 > **Open Source And [FAIR](https://www.go-fair.org/fair-principles/): because Safe and Efficient Healthcare is not a luxury**
 >
 
+**IMPORTANT**: This repository contains the source code and documentation for GenPRES. It does not include professional support services. Also, the repository is not intended for direct clinical use without appropriate validation and regulatory approval.
+
 ---
 
 ![genpresdemo](docs/pcm%20example.gif)
