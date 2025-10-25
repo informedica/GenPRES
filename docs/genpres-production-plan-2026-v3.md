@@ -88,9 +88,11 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 
 - **Participants**: F# API Expert, F# Backend Expert, Interop Specialist, PM
 - **Objectives**:
-  - Establish common GenPRES project structure for cooperation
+  - Establish common GenPRES project structure for open source collaboration
+  - Automated checks (pre-commit hooks, CI pipelines for formatting, testing, commit conventions)
   - Define CI/CD pipelines, documentation standards
   - Set up PR review processes, issue tracking, contribution guidelines
+  - Setup semantic versioning and release management
   - Align with F# OSS best practices (FAKE, Paket/NuGet, Fantomas)
 - **Deliverables**:
   - Monorepo vs multi-repo decision

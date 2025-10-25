@@ -1,7 +1,10 @@
-# FShharp Code Formatting Instructions
+# FSharp Code Formatting Instructions
+
+Block indentation should follow a general standard of 4 spaces per indentation level. Also, whatever is delimiting the scope (like `[` or `{` or `(`) should be aligned with the indentation level of the block when it is closed.
+`if then else` blocks, `match with` blocks, `let` bindings that span multiple lines, and function bodies should all follow this convention.
 
 ```fsharp
-// indentation by 4 spaces
+// Good: indentation by 4 spaces
 for i in 1..10 do
     printfn $"{i}"
 
@@ -15,12 +18,13 @@ let myList =
     ]
 
 
-// formatted
+// Fantomas formatted
 // cannot easily copy past additional 
 // elements to the list
 let myList = [ "first"; "second"; "third" ]
 
-// unformatted 
+// Good: indentation by 4 spaces
+// and aligned delimiters
 let myList =
     [
         "first"
@@ -35,7 +39,7 @@ let myList =
     ]
 
 
-// formatted
+// Fantomas formatted
 // cannot easily use the default indentation 
 // setting of the editor, als moving the first 
 // or last element to reorder is awkward
@@ -51,7 +55,8 @@ let myList =
       "third" ]
 
 
-// unformatted
+// Good: indentation by 4 spaces
+// and aligned delimiters
 type myRecord =
     {
         Name: string
@@ -60,7 +65,7 @@ type myRecord =
     }
 
 
-// formatted
+// Fantomas formatted
 // Same problem, just quicly moving record 
 // fields arround is not very easy
 type myRecord =
@@ -69,7 +74,8 @@ type myRecord =
       BirthDay: DateTime }
 
 
-// unformatted
+// Good : indentation by 4 spaces
+// and aligned delimiters
 myList
 |> List.append
     [
@@ -85,7 +91,7 @@ myList
     ]
 
 
-// formatted
+// Fantomas formatted
 myList
 |> List.append
     [ "first"
@@ -99,7 +105,8 @@ myList
       "third" ]
 
 
-// unformatted
+// Good : indentation by 4 spaces
+// and aligned delimiters
 vars
 |> List.sortBy(fun (_, xs) ->
     // some other code
@@ -111,7 +118,7 @@ vars
 )
 
 
-// unformatted
+// Fantomas formatted
 // again it is more difficult to see what is
 // the indented block container (in this case ")")
 // also separation betheen different subsections
@@ -121,9 +128,14 @@ vars
     // some other code
     xs |> List.iter (printfn "%A")
     xs |> List.tail |> List.sumBy Variable.count)
+```
 
+Also, try to put the simple cases on the `then` case on the same line, and use indentation for more complex cases in the `else` case.
 
-// if something simple then be done with it
+```fsharp
+
+// Good: simple then case on same line
+// more complex else case indented
 if b = 0 then []
 else
     // start a scope block
@@ -138,6 +150,7 @@ else
     ]
 
 
+// Fantomas formatted
 // used indentation on a very simple scope block
 if b = 0 then
     []
@@ -151,3 +164,15 @@ else
           else
               result |> Option.map (fun x -> x / 2) ]
 ```
+
+Try to put pipeline operators at the beginning of the line when breaking long pipelines.
+
+```fsharp
+// Good: pipeline indentation
+result
+|> Result.map (fun x -> x + 1)
+|> Result.toOption
+
+// Fantomas formatted
+result |> Result.map (fun x -> x + 1) |> Result.toOption
+````
