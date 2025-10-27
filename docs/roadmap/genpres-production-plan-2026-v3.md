@@ -109,8 +109,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 
 ##### W3: Domain Modeling Extension (Day 8-9)
 
-- **Participants**: DDD/Architecture Expert, F# Domain Modeling Expert (if available), Clinical Pharmacist
+- **Participants**: DDD/Architecture Expert, F# Domain Modeling Expert (if available), Clinical Expert
 - **Objectives**:
+  - Review existing domain model for GenSolver specifially modelling of Constraints in relation to Operational Knowledge Rules (like dose limits, renal adjustments)
   - Review GenForm/GenOrder domain models
   - Identify gaps for complex medication scenarios (tapers, alternating doses, PRN, ranges)
   - Design type-safe extensions maintaining composability
@@ -123,7 +124,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 
 ##### W4: GenPRES Emergency List Integration (Week 2)
 
-- **Participants**: Clinical Pharmacist, Backend team
+- **Participants**: Clinical Expert, Backend team
 - **Objectives**:
   - Define emergency medication workflows and constraints
   - Design solver integration for stat/urgent orders
@@ -363,14 +364,13 @@ gantt
 - **Optimization Specialist** (optional) - W2, optimization expertise
 - **F# Domain Modeling Expert** (if available) - W3, domain modeling
 - **AI/ML Integration Expert** (optional) - W8, AI/MCP integration
-- **Clinical Pharmacist** - W3, W4, validation
+- **Clinical Expert** - W3, W4, validation
 
 ### Support Roles
 
 - **Project Manager** - Workshop coordination, WP tracking
 - **DevOps/SRE** - W1, infrastructure work packages
 - **Security Reviewer** - Security work packages
-
 
 ## 7. Milestones & Exit Criteria (Workshop-Enhanced)
 
@@ -502,4 +502,3 @@ Technical Notes:
 ---
 
 *End of Updated Production Plan v4*
-
