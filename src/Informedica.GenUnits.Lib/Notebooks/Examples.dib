@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["C#","c#"]},{"name":"vscode","aliases":["frontend"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["C#","c#"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"},{"name":"vscode","aliases":["frontend"]}]}}
 
 #!markdown
 
@@ -176,7 +176,7 @@ All four basic arithmetic operations can be performed:
 
 #!fsharp
 
-let withValue v u = withValue v u
+let withValue v u = withValue [| v |] u
 
 "Calculating with counts:\n" |> printfn "%s"
 // - multiplication
@@ -190,10 +190,10 @@ times3 - times3 >>* ignore // = 0 times
 
 "You calculate any unit with times\n" |> printfn "%s"
 times3 * ml5 >>* ignore // 3 * 5 ml = 15 ml
-(Units.Time.hour |> withValue 36m) / times3 >>* ignore // 36 hr / 3 = 12 hr
+(Units.Time.hour |> withValue 36N) / times3 >>* ignore // 36 hr / 3 = 12 hr
 
 "But calculating with other units yield combi units"
-(Units.Mass.milliGram |> withValue 200m) / ml5 >>* ignore // 200 mg / 5 ml = 40 mg / ml
+(Units.Mass.milliGram |> withValue 200N) / ml5 >>* ignore // 200 mg / 5 ml = 40 mg / ml
 
 #!markdown
 
@@ -202,7 +202,12 @@ Addition and subtraction can only be performed within the same unitgroup:
 #!fsharp
 
 ml50 + l5    >>* ignore // = 5.05 l
-mg400 + ml50 >>* ignore // System.Exception: cannot add or subtract different units Mass (MilliGram 1N) Volume (MilliLiter 1N)
+
+try
+    mg400 + ml50 >>* ignore // System.Exception: cannot add or subtract different units Mass (MilliGram 1N) Volume (MilliLiter 1N)
+with 
+| exn ->
+    printfn "should fail"
 
 #!markdown
 

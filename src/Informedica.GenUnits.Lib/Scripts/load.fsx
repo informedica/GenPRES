@@ -6,6 +6,7 @@
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
 
+#load "../Utils.fs"
 #load "../ValueUnit.fs"
 #load "../Api.fs"
 
