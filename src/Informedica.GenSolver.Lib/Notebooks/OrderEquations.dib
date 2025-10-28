@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","aliases":["c#","C#"],"languageName":"C#"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"vscode","languageName":null,"aliases":["frontend"]}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["C#","c#"]},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"vscode","aliases":["frontend"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"value"}]}}
 
 #!fsharp
 
@@ -33,7 +33,7 @@ let printEqs = Solver.printEqs true procss
 
 let setProp n p eqs =
     let n = n |> Name.createExc
-    match eqs |> Api.setVariableValues true None n p with
+    match eqs |> Api.setVariableValues n p with
     | Some var ->
         eqs
         |> List.map (fun e ->
@@ -47,19 +47,18 @@ let setMaxIncl n max = max |> Maximum.create true |> MaxProp |> setProp n
 let setMaxExcl n max = max |> Maximum.create true |> MaxProp |> setProp n
 let setValues n vals = vals |> ValueSet.create |> ValsProp |> setProp n
 
+let logger = SolverLogging.noOp
+
 let solve n p eqs =
-    let logger = 
-        fun (s : string) ->
-            File.AppendAllLines("examples.log", [s])
-        |> SolverLogging.logger 
     let n = n |> Name.createExc
-    Api.solve true id logger None n p eqs
+    let s = fun _ eqs -> eqs 
+    Api.solve true s logger n p eqs
 
 let solveMinIncl n min = solve n (min |> Minimum.create true |> MinProp)
 let solveMinExcl n min = solve n (min |> Minimum.create false |> MinProp)
 let solveMaxIncl n max = solve n (max |> Maximum.create true |> MaxProp)
 let solveMaxExcl n max = solve n (max |> Maximum.create false |> MaxProp)
-let solveIncr n incr = solve n (set [incr] |> Increment.create |> IncrProp)
+let solveIncr n incr = solve n (incr |> Increment.create |> IncrProp)
 let solveValues n vals = solve n (vals |> ValueSet.create |> ValsProp)
 
 let init     = Api.init

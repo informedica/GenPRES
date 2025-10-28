@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","aliases":[]}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp"},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"}]}}
 
 #!markdown
 
@@ -37,7 +37,7 @@ module Minimum = ValueRange.Minimum
 module Maximum = ValueRange.Maximum
 module Increment = ValueRange.Increment
 module ValueSet = ValueRange.ValueSet
-module Units = ValueUnit.Units
+module Units = Informedica.GenUnits.Lib.Units
 
 
 let (|>>) r f = 
@@ -61,7 +61,7 @@ let printEqsWithUnits = function
 
 let setProp n p eqs =
     let n = n |> Name.createExc
-    match eqs |> Api.setVariableValues true n p with
+    match eqs |> Api.setVariableValues n p with
     | Some var ->
         eqs
         |> List.map (fun e ->
@@ -91,14 +91,12 @@ let setMaxIncl u n max = max |> createMaxIncl u |> MaxProp |> setProp n
 let setMaxExcl u n max = max |> createMaxExcl u |> MaxProp |> setProp n
 let setValues u n vals = vals |> createValSet u |> ValsProp |> setProp n
 
-let logger = 
-    fun (s : string) ->
-        File.AppendAllLines("examples.log", [s])
-    |> SolverLogging.logger 
+let logger = SolverLogging.noOp
 
 let solve n p eqs =
     let n = n |> Name.createExc
-    Api.solve true id logger n p eqs
+    let s = fun _ eqs -> eqs 
+    Api.solve true s logger n p eqs
 
 let solveAll = Api.solveAll false logger
 
@@ -114,6 +112,7 @@ let nonZeroNegative = Api.nonZeroNegative
 
 
 let solveCountMinIncl = solveMinIncl Units.Count.times
+let solveCountMinExcl = solveMinExcl Units.Count.times
 let solveCountMaxExcl = solveMaxExcl Units.Count.times
 let solveCountValues u n vals = solveValues Units.Count.times u n vals
 
@@ -165,7 +164,7 @@ We can limit the variables to a lower and upper limit.
 simpleEq |> Ok |> printEqs
 
 simpleEq
-|> solveCountMinIncl "b" 0N
+|> solveCountMinExcl "b" 0N
 |> printEqs
 |> solveCountMaxExcl "b" 5N
 |> printEqs |> ignore
@@ -179,7 +178,7 @@ We can now try to change variable ``a``.
 printfn "=== Try setting 10 to variable a will throw an exception ==="
 try
     simpleEq
-    |> solveCountMinIncl "b" 0N
+    |> solveCountMinExcl "b" 0N
     |>> solveCountMaxExcl "b" 5N
     |>> solveCountValues "a" [|10N|]
     |> printEqs |> ignore
@@ -188,7 +187,7 @@ with
 
 printfn "=== But setting 4 to variable a will succeed ==="
 simpleEq
-|> solveCountMinIncl "b" 0N
+|> solveCountMinExcl "b" 0N
 |>> solveCountMaxExcl "b" 5N
 |>> solveCountValues "a" [|4N|]
 |> printEqs |> ignore
@@ -196,7 +195,7 @@ simpleEq
 printfn "=== Try setting a max 10 to variable a will be ignored ==="
 try
     simpleEq
-    |> solveCountMinIncl "b" 0N
+    |> solveCountMinExcl "b" 0N
     |>> solveCountMaxExcl "b" 5N
     |>> solveCountMaxExcl "b" 10N
     |> printEqs |> ignore
@@ -205,7 +204,7 @@ with
 
 printfn "=== But setting a max 3 to variable a will succeed ==="
 simpleEq
-|> solveCountMinIncl "b" 0N
+|> solveCountMinExcl "b" 0N
 |>> solveCountMaxExcl "b" 5N
 |>> solveCountMaxExcl "b" 3N
 |> printEqs |> ignore
@@ -453,7 +452,7 @@ Limit ``b`` with a minimum inclusive of 0.
 #!fsharp
 
 prodEq1
-|> solveCountMinIncl "b" 0N
+|> solveCountMinExcl "b" 0N
 |> printEqs 
 |> ignore
 
@@ -464,8 +463,8 @@ Limit ``c`` as well to a minimum of inclusive 0
 #!fsharp
 
 prodEq1
-|> solveCountMinIncl "b" 0N
-|>> solveCountMinIncl "c" 0N
+|> solveCountMinExcl "b" 0N
+|>> solveCountMinExcl "c" 0N
 |> printEqs 
 |> ignore
 
@@ -478,8 +477,8 @@ Add a lower exclusive limit of 1 to ``a``.
 let solveCountMinExcl = solveMinExcl Units.Count.times
 
 prodEq1
-|> solveCountMinIncl "b" 0N
-|>> solveCountMinIncl "c" 0N
+|> solveCountMinExcl "b" 0N
+|>> solveCountMinExcl "c" 0N
 |>> solveCountMinExcl "a" 1N
 |> printEqs 
 |> ignore
@@ -491,8 +490,8 @@ Add an upper limit of exclusive 10 to ``a``.
 #!fsharp
 
 prodEq1
-|> solveCountMinIncl "b" 0N
-|>> solveCountMinIncl "c" 0N
+|> solveCountMinExcl "b" 0N
+|>> solveCountMinExcl "c" 0N
 |>> solveCountMinExcl "a" 1N
 |>> solveCountMaxExcl "a" 10N
 |> printEqs 
@@ -505,8 +504,8 @@ Add an exlusive upper limit of 2 to ``c``.
 #!fsharp
 
 prodEq1
-|> solveCountMinIncl "b" 0N
-|>> solveCountMinIncl "c" 0N
+|> solveCountMinExcl "b" 0N
+|>> solveCountMinExcl "c" 0N
 |>> solveCountMinExcl "a" 1N
 |>> solveCountMaxExcl "a" 10N
 |>> solveCountMaxExcl "c" 2N
