@@ -42,8 +42,6 @@
     <Compile Include="StopWatch.fs" />
     <None Include="Scripts/load.fsx" />
     <None Include="Scripts/Scripts.fsx" />
-    <None Include="Scripts\AI.fsx" />
-    <None Include="Scripts\Gemma.fsx" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
