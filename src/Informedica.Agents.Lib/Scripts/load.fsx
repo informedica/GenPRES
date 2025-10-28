@@ -10,6 +10,7 @@
 
 #load "../Agent.fs"
 #load "../FileWriterAgent.fs"
+#load "../FileDirectoryAgent.fs"
 
 open System
 open Informedica.Utils.Lib

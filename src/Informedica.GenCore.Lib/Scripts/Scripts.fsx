@@ -1,13 +1,6 @@
 
 #load "load.fsx"
 
-#load "../Measures.fs"
-#load "../Aether.fs"
-#load "../Validus.fs"
-#load "../Calculations.fs"
-#load "../ValueUnit.fs"
-#load "../MinMax.fs"
-#load "../Patient.fs"
 
 open System
 

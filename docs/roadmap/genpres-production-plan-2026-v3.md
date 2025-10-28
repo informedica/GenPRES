@@ -10,15 +10,16 @@
     - [Workshop Schedule (Weeks 1-3 of Phase 0/1)](#workshop-schedule-weeks-1-3-of-phase-01)
       - [Core Technical Workshops](#core-technical-workshops)
         - [W1: Project Structure \& Governance (Day 2-3)](#w1-project-structure--governance-day-2-3)
-        - [W2: GenSolver Optimization \& Performance (Day 4-5)](#w2-gensolver-optimization--performance-day-4-5)
-        - [W3: Domain Modeling Extension (Day 8-9)](#w3-domain-modeling-extension-day-8-9)
+        - [W2: Setting up MailboxProcessor Agent Architecture](#w2-setting-up-mailboxprocessor-agent-architecture)
+        - [W3: GenSolver Optimization \& Performance (Day 4-5)](#w3-gensolver-optimization--performance-day-4-5)
+        - [W4: Domain Modeling Extension (Day 8-9)](#w4-domain-modeling-extension-day-8-9)
       - [Specialized Component Workshops](#specialized-component-workshops)
-        - [W4: GenPRES Emergency List Integration (Week 2)](#w4-genpres-emergency-list-integration-week-2)
-        - [W5: Solver Deep Dive (Week 2)](#w5-solver-deep-dive-week-2)
-        - [W6: Units Library Refactoring (Week 2)](#w6-units-library-refactoring-week-2)
-        - [W7: UI Architecture \& Bindings (Week 3)](#w7-ui-architecture--bindings-week-3)
-        - [W8: Server Architecture \& MCP Integration (Week 3)](#w8-server-architecture--mcp-integration-week-3)
-        - [W9: Interoperability \& Standards (Week 3)](#w9-interoperability--standards-week-3)
+        - [W5: GenPRES Emergency List Integration (Week 2)](#w5-genpres-emergency-list-integration-week-2)
+        - [W6: Solver Deep Dive (Week 2)](#w6-solver-deep-dive-week-2)
+        - [W7: Units Library Refactoring (Week 2)](#w7-units-library-refactoring-week-2)
+        - [W8: UI Architecture \& Bindings (Week 3)](#w8-ui-architecture--bindings-week-3)
+        - [W9: Server Architecture \& MCP Integration (Week 3)](#w9-server-architecture--mcp-integration-week-3)
+        - [W10: Interoperability \& Standards (Week 3)](#w10-interoperability--standards-week-3)
     - [Workshop Outputs → Work Package Distribution](#workshop-outputs--work-package-distribution)
     - [Integration with Development Phases](#integration-with-development-phases)
   - [3. Scope — Missing Requirements to Implement (with acceptance criteria)](#3-scope--missing-requirements-to-implement-with-acceptance-criteria)
@@ -95,7 +96,20 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - CONTRIBUTING.md, code review checklist
   - Work packages: WP-01 (Repo setup), WP-02 (CI/CD), WP-03 (Doc framework)
 
-##### W2: GenSolver Optimization & Performance (Day 4-5)
+##### W2: Setting up MailboxProcessor Agent Architecture
+
+- **Participants**: F# Backend Expert, F# API Expert, DevOps/SRE
+- **Objectives**:
+  - Define architecture for MailboxProcessor-based session handling
+  - Design MailboxProcessor wrappers around service libraries
+  - Establish health/reload patterns
+- **Deliverables**:
+  - Foundational MailboxProcessor design
+  - MailboxProcessor lifecycle and error handling patterns
+  - MailboxProcessor Wrappers for GenOrder.Lib, GenForm.Lib, GenSolver.Lib
+  - Work packages: WP-04 (MailboxProcessor design), WP-05 (GenOrder.Lib wrapper), WP-06 (GenForm.Lib wrapper), WP-07 (GenSolver.Lib wrapper)
+  
+##### W3: GenSolver Optimization & Performance (Day 4-5)
 
 - **Participants**: Domain Lead, F# Performance Expert, Optimization Specialist (optional)
 - **Objectives**:
@@ -105,9 +119,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - Performance baseline metrics
   - Optimization roadmap with specific techniques
-  - Work packages: WP-04 (Profiling harness), WP-05 (Algorithm optimizations), WP-06 (Caching layer)
+  - Work packages: WP-08 (Profiling harness), WP-09 (Algorithm optimizations), WP-10 (Caching layer)
 
-##### W3: Domain Modeling Extension (Day 8-9)
+##### W4: Domain Modeling Extension (Day 8-9)
 
 - **Participants**: DDD/Architecture Expert, F# Domain Modeling Expert (if available), Clinical Expert
 - **Objectives**:
@@ -118,11 +132,11 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - Extended domain model specifications
   - Migration strategy from current model
-  - Work packages: WP-07 (Core type extensions), WP-08 (Scenario validators), WP-09 (Domain tests)
+  - Work packages: WP-11 (Core type extensions), WP-12 (Scenario validators), WP-13 (Domain tests)
 
 #### Specialized Component Workshops
 
-##### W4: GenPRES Emergency List Integration (Week 2)
+##### W5: GenPRES Emergency List Integration (Week 2)
 
 - **Participants**: Clinical Expert, Backend team
 - **Objectives**:
@@ -131,9 +145,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
   - Establish override patterns with audit
 - **Deliverables**:
   - Emergency order specifications
-  - Work packages: WP-10 (Emergency rules), WP-11 (Override framework)
+  - Work packages: WP-14 (Emergency rules), WP-15 (Override framework)
 
-##### W5: Solver Deep Dive (Week 2)
+##### W6: Solver Deep Dive (Week 2)
 
 - **Participants**: F# Performance Expert, Domain Lead, F# API Expert
 - **Objectives**:
@@ -143,9 +157,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - Logging specification (structured, levels, correlation)
   - Error taxonomy and handling patterns
-  - Work packages: WP-12 (Telemetry), WP-13 (Error handling), WP-14 (Debugger tools)
+  - Work packages: WP-16 (Telemetry), WP-17 (Error handling), WP-18 (Debugger tools)
 
-##### W6: Units Library Refactoring (Week 2)
+##### W7: Units Library Refactoring (Week 2)
 
 - **Participants**: F# Performance Expert, QA/Testing Expert
 - **Objectives**:
@@ -155,9 +169,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - Units v2 API specification
   - Migration guide
-  - Work packages: WP-15 (Core units refactor), WP-16 (Unit tests), WP-17 (Migration tooling)
+  - Work packages: WP-19 (Core units refactor), WP-20 (Unit tests), WP-21 (Migration tooling)
 
-##### W7: UI Architecture & Bindings (Week 3)
+##### W8: UI Architecture & Bindings (Week 3)
 
 - **Participants**: Fable/UI Lead, Senior UI Developer, F# Backend Expert
 - **Objectives**:
@@ -167,9 +181,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - UI component catalog
   - JSX binding improvements
-  - Work packages: WP-18 (Component lib), WP-19 (Template engine), WP-20 (UI state management)
+  - Work packages: WP-22 (Component lib), WP-23 (Template engine), WP-24 (UI state management)
 
-##### W8: Server Architecture & MCP Integration (Week 3)
+##### W9: Server Architecture & MCP Integration (Week 3)
 
 - **Participants**: Interop Specialist, F# Backend Expert, AI/ML Integration Expert
 - **Objectives**:
@@ -179,9 +193,9 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - MCP interface specification
   - AI integration patterns
-  - Work packages: WP-21 (MCP server), WP-22 (AI adapters), WP-23 (Real-time layer)
+  - Work packages: WP-25 (MCP server), WP-26 (AI adapters), WP-27 (Real-time layer)
 
-##### W9: Interoperability & Standards (Week 3)
+##### W10: Interoperability & Standards (Week 3)
 
 - **Participants**: Interop Specialist, Clinical team, EHR vendor reps
 - **Objectives**:
@@ -191,7 +205,7 @@ Organize focused workshops to gather expertise, discuss architecture/implementat
 - **Deliverables**:
   - FHIR mapping specifications
   - IHE conformance profile
-  - Work packages: WP-24 (FHIR adapters), WP-25 (IHE profiles), WP-26 (Legacy bridges)
+  - Work packages: WP-28 (FHIR adapters), WP-29 (IHE profiles), WP-30 (Legacy bridges)
 
 ### Workshop Outputs → Work Package Distribution
 
@@ -205,9 +219,9 @@ Each workshop produces 2-4 focused work packages with:
 
 ### Integration with Development Phases
 
-- **Phase 0**: Execute workshops W1-W3 (foundational)
-- **Phase 1**: Execute workshops W4-W6 while implementing WP-01 through WP-09
-- **Phase 2**: Execute workshops W7-W9 while implementing solver and domain packages
+- **Phase 0**: Execute workshops W1-W4 (foundational)
+- **Phase 1**: Execute workshops W5-W7 while implementing WP-01 through WP-13
+- **Phase 2**: Execute workshops W8-W10 while implementing solver and domain packages
 - **Phases 3-6**: Implement remaining work packages based on workshop outputs
 
 ## 3. Scope — Missing Requirements to Implement (with acceptance criteria)
@@ -313,16 +327,16 @@ gantt
 
     section Phase 0 — Mobilize & Workshops
     Mobilize, repo/CI, DoD                 :p0a, 2026-01-01, 7d
-    Core Workshops (W1-W3)                 :p0b, 2026-01-02, 6d
+    Core Workshops (W1-W4)                 :p0b, 2026-01-02, 6d
     
     section Phase 1 — Stateless Core & Processor
-    Component Workshops (W4-W6)            :p1w, 2026-01-08, 7d
+    Component Workshops (W5-W7)            :p1w, 2026-01-08, 7d
     Session API & Session Store            :p1a, 2026-01-15, 21d
     MailboxProcessor & Health/Reload       :p1b, 2026-01-22, 14d
-    Implement WP-01 to WP-09               :p1c, 2026-01-15, 21d
+    Implement WP-01 to WP-13               :p1c, 2026-01-15, 21d
 
     section Phase 2 — Knowledge Registry & Validation
-    Architecture Workshops (W7-W9)         :p2w, 2026-01-20, 7d
+    Architecture Workshops (W8-W10)        :p2w, 2026-01-20, 7d
     Schema/DDL & Ingestion                 :p2a, 2026-02-05, 28d
     Validator Pipeline & Admin UI/CLI      :p2b, 2026-02-12, 28d
     Implement solver/domain WPs            :p2c, 2026-02-05, 28d
@@ -350,32 +364,32 @@ gantt
 
 ### Core Development Team
 
-- **Fable/UI Lead** - W7 lead, UI work packages
-- **Senior UI Developer** - W7, UI components  
-- **F# Backend Expert** - W1, W7, W8, integration
-- **QA/Testing Expert** - W6, testing work packages
-- **F# API Expert** - W1, W5, code standards
-- **DDD/Architecture Expert** - W3 lead, domain modeling
-- **F# Performance Expert** - W2, W5, W6 lead
-- **Interop Specialist** - W1, W8, W9 lead
+- **Fable/UI Lead** - W8 lead, UI work packages
+- **Senior UI Developer** - W8, UI components  
+- **F# Backend Expert** - W1, W2, W8, W9, integration
+- **QA/Testing Expert** - W7, testing work packages
+- **F# API Expert** - W1, W2, W6, code standards
+- **DDD/Architecture Expert** - W4 lead, domain modeling
+- **F# Performance Expert** - W3, W6, W7 lead
+- **Interop Specialist** - W1, W9, W10 lead
 
 ### Workshop Contributors
 
-- **Optimization Specialist** (optional) - W2, optimization expertise
-- **F# Domain Modeling Expert** (if available) - W3, domain modeling
-- **AI/ML Integration Expert** (optional) - W8, AI/MCP integration
-- **Clinical Expert** - W3, W4, validation
+- **Optimization Specialist** (optional) - W3, optimization expertise
+- **F# Domain Modeling Expert** (if available) - W4, domain modeling
+- **AI/ML Integration Expert** (optional) - W9, AI/MCP integration
+- **Clinical Expert** - W4, W5, validation
 
 ### Support Roles
 
 - **Project Manager** - Workshop coordination, WP tracking
-- **DevOps/SRE** - W1, infrastructure work packages
+- **DevOps/SRE** - W1, W2, infrastructure work packages
 - **Security Reviewer** - Security work packages
 
 ## 7. Milestones & Exit Criteria (Workshop-Enhanced)
 
-- **M0 (Workshops)**: All 9 workshops completed; 26 work packages defined with clear owners.
-- **M1 (P1)**: Stateless sessions + MailboxProcessor online; E2E calc via Session API; WP-01 to WP-09 complete.
+- **M0 (Workshops)**: All 10 workshops completed; 30 work packages defined with clear owners.
+- **M1 (P1)**: Stateless sessions + MailboxProcessor online; E2E calc via Session API; WP-01 to WP-13 complete.
 - **M2 (P2)**: Knowledge Registry live; ingestion + validators; solver/domain WPs complete.
 - **M3 (P3)**: FHIR bootstrap/finalize round‑trip; interop WPs complete.
 - **M4 (P4)**: Regimen DSL+engine with holds/caps; UI WPs integrated.
@@ -386,7 +400,7 @@ gantt
 
 ### Workshop Deliverables (New)
 
-- 26 detailed work packages with acceptance criteria
+- 30 detailed work packages with acceptance criteria
 - Architecture decision records (ADRs) from each workshop
 - Technical specifications for each component
 - Expertise mapping matrix (developer → work package)
@@ -406,17 +420,17 @@ gantt
 
 ### Technical Risks Addressed
 
-- **Performance bottlenecks**: W2 establishes baseline and optimization path
-- **Domain complexity**: W3 with F# Domain Modeling Expert ensures proper modeling
-- **Integration challenges**: W9 maps standards early
-- **UI consistency**: W7 establishes component patterns upfront
+- **Performance bottlenecks**: W3 establishes baseline and optimization path
+- **Domain complexity**: W4 with F# Domain Modeling Expert ensures proper modeling
+- **Integration challenges**: W10 maps standards early
+- **UI consistency**: W8 establishes component patterns upfront
 
 ### Process Risks Addressed
 
 - **Coordination overhead**: W1 establishes clear governance
 - **Expertise gaps**: Workshops identify and fill knowledge gaps
 - **Scope creep**: Work packages have fixed boundaries
-- **Quality issues**: W5 establishes logging/monitoring early
+- **Quality issues**: W6 establishes logging/monitoring early
 
 ---
 
@@ -427,7 +441,7 @@ Each work package from workshops includes:
 ```yaml
 WP-ID: WP-XX
 Title: [Descriptive title]
-Workshop: W[1-9]
+Workshop: W[1-10]
 Owner: [Primary developer]
 Expertise: [#tags]
 Dependencies: [WP-YY, WP-ZZ]

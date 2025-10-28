@@ -9,6 +9,13 @@
 #r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
 #r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
 
+#load "../Measures.fs"
+#load "../Aether.fs"
+#load "../Validus.fs"
+#load "../Calculations.fs"
+#load "../ValueUnit.fs"
+#load "../MinMax.fs"
+#load "../Patient.fs"
 
 open System
 open Informedica.Utils.Lib

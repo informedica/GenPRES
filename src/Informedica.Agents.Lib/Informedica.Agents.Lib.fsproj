@@ -9,8 +9,6 @@
     <Compile Include="FileWriterAgent.fs" />
     <Compile Include="FileDirectoryAgent.fs" />
     <None Include="./Scripts/load.fsx" />
-    <None Include="./Scripts/Agent.fsx" />
-    <None Include="./Scripts/FileWriterAgent.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
