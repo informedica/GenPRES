@@ -7,8 +7,8 @@
 #r "nuget: Expecto.FsCheck"
 #r "nuget: Unquote"
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net6.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net6.0/Informedica.GenUnits.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
 
 #load "../../../scripts/Expecto.fsx"
 #load "load.fsx"
@@ -46,12 +46,11 @@ module Tests =
             }
 
             test "table BST has at least 562831 records" {
-                Zindex.BST921T.records ()
+                Zindex.BST922T.records ()
                 |> Array.length |> fun x -> x >= 562831
                 |> Expect.isTrue "should be more than 562831"
 
             }
-
         ] 
 
 
@@ -135,14 +134,14 @@ module Tests =
             }
 
             test "should have genpresproducts" {
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.length
                 |> fun x -> Expect.isGreaterThan "have more than 100" (x, 100)
             }
 
             test "can take 200 genpresproducts" {
                 // GenPres product
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Seq.sortBy (fun gpp -> gpp.Name, gpp.Shape, gpp.Routes)
                 |> Seq.map (fun gpp -> $"""{gpp.Name}, {gpp.Shape}, {gpp.Routes |> String.concat "/"}""")
                 |> Seq.take 200
@@ -151,12 +150,11 @@ module Tests =
             }
 
             test "should have paracetmol products" {
-                GenPresProduct.filter true "paracetamol" "" "oraal"
+                GenPresProduct.filter "paracetamol" "" "oraal"
                 |> Array.map GenPresProduct.toString
                 |> Array.exists (String.containsCapsInsens "paracetamol")
                 |> Expect.isTrue "should exist paracetamol"
             }
-
         ]
 
 
@@ -185,7 +183,7 @@ module Tests =
             )
 
         let rts =
-            DoseRule.get()
+            DoseRule.get []
             |> Array.collect (fun dr ->
                 dr.Routes
             ) |> Array.sort |> Array.distinct
@@ -194,14 +192,14 @@ module Tests =
 
             test "should be > 1000 rules" {
                 // Dose rules
-                DoseRule.get ()
+                DoseRule.get []
                 |> Array.length
                 |> fun l -> l > 1000
                 |> Expect.isTrue "should have > 1000 rules"
             }
 
             test "can print 100 dose rules" {
-                DoseRule.get ()
+                DoseRule.get []
                 |> Array.take 100
                 |> Array.map DoseRule.toString2
                 |> Array.length 
@@ -210,7 +208,7 @@ module Tests =
 
             test "should have different dose units" {
                 // Get all possible dose units
-                DoseRule.get()
+                DoseRule.get []
                 |> Array.map (fun dr -> dr.Unit)
                 |> Array.distinct
                 |> Array.length |> fun x -> x >= 10
@@ -219,7 +217,7 @@ module Tests =
 
             test "should have 3 gender possibilities" {
                 // Get all possible patient gender
-                DoseRule.get()
+                DoseRule.get []
                 |> Array.map (fun dr -> dr.Gender)
                 |> Array.distinct
                 |> Array.length
@@ -229,7 +227,7 @@ module Tests =
             test "should have doserules for pcm oral" {
                 // Get all dose rules for the filter
                 RuleFinder.createFilter None None None None "PARACETAMOL" "tablet" "ORAAL"
-                |> RuleFinder.find true
+                |> RuleFinder.find []
                 |> RuleFinder.convertToResult
                 |> Option.isSome
                 |> Expect.isTrue "should be true" 
@@ -289,20 +287,20 @@ module Tests =
             }
 
             test "has doserules with frequencies with more than 24 x day" {
-                DoseRule.get()
+                DoseRule.get []
                 |> Array.filter (fun dr ->
                     dr.Freq.Time |> String.equalsCapInsens "per dag" &&
-                    dr.Freq.Frequency > 24m
+                    dr.Freq.Frequency > 24.
                 )
                 |> Array.isEmpty
                 |> Expect.isFalse "should be false"
             }
 
             test "has frequencies 'eenmalig' with freq > 1" {
-                DoseRule.get ()
+                DoseRule.get []
                 |> Array.filter (fun dr ->
                     dr.Freq.Time |> String.contains "eenmalig" &&
-                    dr.Freq.Frequency > 1.0m
+                    dr.Freq.Frequency > 1.0
                 )
                 |> Array.map (DoseRule.toString ", ")
                 |> Array.isEmpty 
@@ -311,31 +309,31 @@ module Tests =
 
             test "should have NOT doserule result for pcm 1 yr 10kg (multiple shapes)" {
                 // Get all dose rules for age 12 months weight 10 kg paracetamol rect
-                RuleFinder.createFilter (Some 12m) (Some 10m) None None "paracetamol" "" ""
-                |> RuleFinder.find true
+                RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "" ""
+                |> RuleFinder.find []
                 |> RuleFinder.convertToResult
                 |> Expect.isNone "should NOT be there"
             }
 
             test "should have doserule result for pcm drank 1 yr 10kg" {
                 // Get all dose rules for age 12 months weight 10 kg paracetamol rect
-                RuleFinder.createFilter (Some 12m) (Some 10m) None None "paracetamol" "drank" ""
-                |> RuleFinder.find true
+                RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "drank" ""
+                |> RuleFinder.find []
                 |> RuleFinder.convertToResult
                 |> Expect.isSome "should be there"
             }
 
             test "should have doserules with freq = 'eenmalig'" {
-                DoseRule.get ()
+                DoseRule.get []
                 |> Array.filter (fun dr ->
-                    dr.Freq.Time = "eenmalig" && dr.Freq.Frequency > 1.0m
+                    dr.Freq.Time = "eenmalig" && dr.Freq.Frequency > 1.0
                 )
                 |> (Array.isEmpty >> not)
                 |> Expect.isTrue "should not be empty"
             }
 
             test "has dose rules without trade or consumer products" {
-                DoseRule.get ()
+                DoseRule.get []
                 |> Array.filter (fun dr ->
                     dr.PrescriptionProduct |> Array.length > 0 &&
                     dr.TradeProduct |> Array.length = 0
@@ -347,7 +345,7 @@ module Tests =
             test "doserules for diclofenac are unique per route and patient category" {
                 let rs =
                     RuleFinder.createFilter None None None None "diclofenac" "" ""
-                    |> RuleFinder.find true
+                    |> RuleFinder.find []
                     |> Array.map (fun dr ->
                         (dr.Routes |> Array.map RuleFinder.createRoute, dr)
                     )
@@ -425,7 +423,7 @@ module Tests =
             test "there are doserules for pcm intradermaal for testing" {
                 // Get dose result routes for paracetamol
                 // contains intradermal route??
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.filter (fun gpp ->
                     gpp.Name |> String.equalsCapInsens "paracetamol"
                 )
@@ -433,7 +431,7 @@ module Tests =
                     gpp.GenericProducts
                     |> Array.map (fun gp ->
                         RuleFinder.createFilter None None None (Some gp.Id) "" "" ""
-                        |> RuleFinder.find true
+                        |> RuleFinder.find []
                         |> RuleFinder.convertToResult
                     )
                 )
@@ -451,7 +449,7 @@ module Tests =
 
             test "doserules with route 'parenteraal' do not exist" {
                 // Look for parenteral dose rules (should not exist?)
-                DoseRule.get ()
+                DoseRule.get []
                 |> Array.filter (fun dr ->
                     let parent =
                         dr.Routes
@@ -468,13 +466,13 @@ module Tests =
 
     module GenPresProductTests =
 
-        let tot = GenPresProduct.get true |> Array.length
+        let tot = GenPresProduct.get [] |> Array.length
 
 
         let tests = testList "GenPresProduct" [
 
             test "filter with empty filter should same amount as all" {
-                GenPresProduct.filter true "" "" ""
+                GenPresProduct.filter "" "" ""
                 |> Array.length
                 |>Expect.equal "should be the same amount" tot
 
@@ -490,13 +488,13 @@ module Tests =
             }
 
             test "should have amoxicilline" {
-                GenPresProduct.filter true "amoxicilline" "" "intraveneus"
+                GenPresProduct.filter "amoxicilline" "" "intraveneus"
                 |> Array.isEmpty
                 |> Expect.isFalse "should not be empty"
             }
 
             test "should be unique by name, shape and routes" {
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.map (fun gpp -> gpp.Name, gpp.Shape, gpp.Routes)
                 |> Array.distinct 
                 |> Array.length
@@ -504,10 +502,10 @@ module Tests =
             }
 
             test "should not have duplicate name shape" {
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.filter (fun gpp ->
                     let dbls =
-                        GenPresProduct.get true
+                        GenPresProduct.get []
                         |> Array.filter (fun gpp_ -> gpp.Name = gpp_.Name && gpp.Shape = gpp_.Shape)
                     dbls |> Array.length > 1
                 )
@@ -516,7 +514,7 @@ module Tests =
             }
 
             test "should have 27 substance generic units" {
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.collect (fun gpp ->
                     gpp.GenericProducts
                     |> Array.collect (fun gp ->
@@ -544,14 +542,14 @@ module Tests =
             }
 
             test "should not have products without generic products" {
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.tryFind (fun gpp -> gpp.GenericProducts |> Array.isEmpty)
                 |> Expect.isNone "should not be found"
             }
 
             test "GenPresProduct name should be always a substance(s)" {
                 // check if each substance exists
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.forall (fun gpp ->
                     let ss =
                         gpp.GenericProducts
@@ -577,7 +575,7 @@ module Tests =
 
             test "at least 2232 products have bar codes" {
                 // get barcodes
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.collect (fun gpp -> gpp.GenericProducts)
                 |> Array.collect (fun gp ->
                 //    gp.Label,
@@ -600,11 +598,10 @@ module Tests =
                 |> Array.filter (snd >> Array.isEmpty >> not)
                 |> Array.length |> fun x -> x >= 2232
                 |> Expect.isTrue "should be at least 2232"
-
             }
 
             test "insuline has correct unit" {
-                GenPresProduct.get true
+                GenPresProduct.get []
                 |> Array.collect (fun gpp -> gpp.GenericProducts)
                 |> Array.filter (fun gp ->
                     gp.Name
@@ -624,9 +621,7 @@ module Tests =
                     gp.Id = 130055
                 )
                 |> Expect.isNone "should be none"
-
             }
-
         ]
 
 
@@ -670,8 +665,8 @@ GenPresProduct.getRoutes()
 )
 
 
-RuleFinder.createFilter (Some 12m) (Some 10m) None None "paracetamol" "drank" "oraal"
-|> RuleFinder.find true
+RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "drank" "oraal"
+|> RuleFinder.find []
 |> RuleFinder.convertToResult
 
 ""

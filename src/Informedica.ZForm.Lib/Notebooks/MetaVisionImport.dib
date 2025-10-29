@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":null,"items":[{"name":"csharp","languageName":"C#","aliases":["c#","cs"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"html","languageName":"HTML"},{"name":"sql","languageName":"SQL"},{"name":"kql","languageName":"KQL"},{"name":"mermaid","languageName":"Mermaid"},{"name":"httpRequest","languageName":"http"},{"name":"value"}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["c#","cs"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"httpRequest","languageName":"http"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"kql","languageName":"KQL"},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"sql","languageName":"SQL"},{"name":"value"},{"name":"http","languageName":"HTTP"}]}}
 
 #!markdown
 
@@ -17,16 +17,17 @@
 
 #!fsharp
 
-#load "../Scripts/load2.fsx"
+#load "../Scripts/loadDLL.fsx"
 
-
+open System
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
-open Informedica.ZForm.Lib.Utils
+open Informedica.ZForm.Lib
 open Informedica.ZIndex.Lib
 
+Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
-type GenPresProduct = GenPresProduct.GenPresProduct
+printfn $"{Environment.CurrentDirectory}"
 
 #!markdown
 
@@ -78,8 +79,8 @@ let filter gpps =
     gpps
     |> Array.filter (hasNoUnit >> not)
     |> Array.map (fun gpp ->
-        { gpp
-            with GenericProducts =
+        { gpp with 
+            GenericProducts =
                 gpp.GenericProducts
                 |> Array.filter (fun gp ->
                     gp.Substances
@@ -108,9 +109,7 @@ let isSolution (gpps : GenPresProduct []) =
 let print file xs =
     xs
     |> String.concat "\n"
-    |> File.writeTextToFile $"data/output/{file}"
-
-    xs
+    //|> File.writeTextToFile $"{file}"
 
 #!markdown
 
@@ -181,10 +180,10 @@ Names.getItems Names.Shape Names.Fifty
         ExternalCode = id
         DoseFormName = s |> String.capitalize
         Routes =
-            GenPresProduct.get true
+            GenPresProduct.get []
             |> Array.tryFind (fun gpp -> gpp.Shape = s)
             |> function
-            | Some gpp -> gpp.Route
+            | Some gpp -> gpp.Routes
             | None -> [||]
         OrderingType =
             mapping
@@ -241,7 +240,7 @@ These medications have more than one active substance
 
 #!fsharp
 
-GenPresProduct.get true
+GenPresProduct.get []
 |> Array.filter isMultiple
 |> Array.map (fun gpp -> $"{gpp.Name}\t{gpp.Shape}")
 |> Array.sort
@@ -255,7 +254,7 @@ In this case a substance has no quantity and no unit.
 
 #!fsharp
 
-GenPresProduct.get true
+GenPresProduct.get []
 |> Array.filter hasNoUnit
 |> Array.collect (fun gpp -> gpp.GenericProducts)
 |> Array.sortBy (fun gp -> gp.Name)
@@ -274,11 +273,11 @@ GenPresProduct.get true
 #!fsharp
 
 // get medication
-GenPresProduct.get true
+GenPresProduct.get []
 |> Array.filter (hasNoUnit >> not)
 |> Array.map (fun gpp ->
-    { gpp
-        with GenericProducts = 
+    { gpp with 
+        GenericProducts = 
             gpp.GenericProducts 
             |> Array.filter (fun gp -> 
                 gp.Substances
@@ -381,7 +380,7 @@ The following fields have to be defined:
 
 #!fsharp
 
-GenPresProduct.get true
+GenPresProduct.get []
 |> filter
 |> Array.groupBy (fun gpp ->
     let name =
@@ -455,7 +454,7 @@ GenPresProduct.get true
             |> String.concat ";"
         Routes =
             gpps
-            |> Array.collect (fun gpp -> gpp.Route)
+            |> Array.collect (fun gpp -> gpp.Routes)
             |> Array.distinct
             |> Array.map capitalize
             |> String.concat ";"

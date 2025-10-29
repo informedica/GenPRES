@@ -28,13 +28,15 @@ module Tests =
     open Informedica.GenCore.Lib.Ranges
     open Informedica.ZForm.Lib
 
+    module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
 
     let vuFromStr v u = 
-        ValueUnit.valueUnitFromZIndexString v u
+        ValueUnit.unitFromZIndexString u
+        |> ValueUnit.singleWithValue v
         |> Some
 
 
-    module MinIncrMaxTests =
+    module MinMaxTests =
 
         open Informedica.GenUnits.Lib
         open Informedica.GenCore.Lib
@@ -61,15 +63,15 @@ module Tests =
 
 
         let ageRange =
-            MinIncrMax.empty
-            |> MinIncrMax.Optics.setMin ageInclOneMo
-            |> MinIncrMax.Optics.setMax ageExclOneYr
+            MinMax.empty
+            |> MinMax.Optics.setMin ageInclOneMo
+            |> MinMax.Optics.setMax ageExclOneYr
 
 
-        let tests = testList "MinIncrMax" [
+        let tests = testList "MinMax" [
             test "ageToString" {
                 ageRange
-                |> MinIncrMax.ageToString
+                |> MinMax.ageToString
                 |> Expect.equal "should equal" "van 1 maand - tot 1 jaar"
             }
         ]
@@ -87,16 +89,14 @@ module Tests =
                 Informedica.ZIndex.Lib.Names.getShapeUnits ()
                 |> Array.append (Informedica.ZIndex.Lib.Names.getGenericUnits ())
                 |> Array.distinct
-                |> Array.map (fun s -> s, s |> Mapping.stringToUnit (Mapping.getUnitMapping ()))
-                |> Array.filter (fst >> (<>) "NIET VAN TOEPASSING")
-                |> Array.filter (fst >> (<>) "n.v.t.")
-                |> Array.forall (snd >> (<>) NoUnit)
+                |> Array.map Mapping.stringToUnit
+                |> Array.forall ((<>) NoUnit)
                 |> Expect.isTrue "should all have a unit"
             }
 
             test "all routes can be mapped" {
                 let gpp =
-                    Informedica.ZIndex.Lib.GenPresProduct.get true
+                    Informedica.ZIndex.Lib.GenPresProduct.get []
                     |> Array.collect (fun gpp -> gpp.Routes)
                     |> Array.distinct
                     |> Array.sort
@@ -107,7 +107,7 @@ module Tests =
                     |> Array.filter (snd >> ((=) Route.NoRoute))
 
                 let dr =
-                    Informedica.ZIndex.Lib.DoseRule.get ()
+                    Informedica.ZIndex.Lib.DoseRule.get []
                     |> Array.collect (fun dr -> dr.Routes)
                     |> Array.distinct
                     |> Array.sort
@@ -122,12 +122,12 @@ module Tests =
             }
 
             test "all frequencies can be mapped" {
-                Informedica.ZIndex.Lib.DoseRule.get ()
+                Informedica.ZIndex.Lib.DoseRule.get []
                 |> Array.map (fun dr -> dr.Freq.Frequency, dr.Freq.Time |> String.replace "per " "")
                 |> Array.distinct
                 |> Array.map (fun (v, s) -> v, s, Mapping.mapFrequency v s)
                 |> Array.filter (fun (_, _, u) -> u |> Option.isNone)
-                |> Expect.equal "should be true" [| 99.99m, "dag", None |]
+                |> Expect.equal "should be true" [| 99.99, "dag", None |]
             }
         ]
 
@@ -143,7 +143,7 @@ module Tests =
         let setMinAge =
             fun (dto : Dto.Dto) ->
                 dto.Age.HasMin <- true
-                dto.Age.Min.Value <- [|1m|]
+                dto.Age.Min.Value <- [|1N|]
                 dto.Age.Min.Unit <- "maand"
                 dto.Age.Min.Group <- "Time"
                 dto.Age.Min.Language <- "dutch"
@@ -156,7 +156,7 @@ module Tests =
                 // group defaults to general when no unit can be found in group
                 // ToDo: need to fix this behaviour
                 dto.Age.HasMin <- true
-                dto.Age.Min.Value <- [|1m|]
+                dto.Age.Min.Value <- [|1N|]
                 dto.Age.Min.Unit <- "m"
                 dto.Age.Min.Group <- "Time"
                 dto.Age.Min.Language <- "dutch"
@@ -168,7 +168,7 @@ module Tests =
                 // need to check for the correct units
                 // ToDo!!
                 dto.Age.HasMin <- true
-                dto.Age.Min.Value <- [|1m|]
+                dto.Age.Min.Value <- [|1N|]
                 dto.Age.Min.Unit <- "g"
                 dto.Age.Min.Group <- "Mass"
                 dto.Age.Min.Language <- "dutch"
@@ -269,23 +269,23 @@ module Tests =
         let addValues  =
             fun (dto : Dto.Dto) ->
                 dto.Norm.HasMin <- true
-                dto.Norm.Min.Value <- [|1m|]
+                dto.Norm.Min.Value <- [|1N|]
                 dto.Norm.Min.Unit <- "mg"
                 dto.Norm.Min.Group <- "mass"
 
                 dto.Norm.HasMax <- true
-                dto.Norm.Max.Value <- [|10m|]
+                dto.Norm.Max.Value <- [|10N|]
                 dto.Norm.Max.Unit <- "mg"
                 dto.Norm.Max.Group <- "mass"
 
                 dto.NormWeight.HasMin <- true
-                dto.NormWeight.Min.Value <- [|0.01m|]
+                dto.NormWeight.Min.Value <- [|1N / 1_000N|]
                 dto.NormWeight.Min.Unit <- "mg"
                 dto.NormWeight.Min.Group <- "mass"
                 dto.NormWeightUnit <- "kg"
 
                 dto.NormWeight.HasMax <- true
-                dto.NormWeight.Max.Value <- [|1m|]
+                dto.NormWeight.Max.Value <- [|1N|]
                 dto.NormWeight.Max.Unit <- "mg"
                 dto.NormWeight.Max.Group <- "mass"
                 dto.NormWeightUnit <- "kg"
@@ -319,24 +319,24 @@ module Tests =
 
             test "can create a dose range" {
                 DoseRange.empty
-                |> setMaxNormDose (vuFromStr 10m "milligram")
-                |> setMaxAbsDose (vuFromStr 100m "milligram")
+                |> setMaxNormDose (vuFromStr 10N "milligram")
+                |> setMaxAbsDose (vuFromStr 100N "milligram")
                 |> drToStr
                 |> Expect.equal "should be a range" "tot 10 mg maximaal tot 100 mg"
             }
 
             test "can create a dose range with a rate" {
                 DoseRange.empty
-                |> setMinNormDose (vuFromStr 10m "milligram")
-                |> setMaxNormDose (vuFromStr 100m "milligram")
+                |> setMinNormDose (vuFromStr 10N "milligram")
+                |> setMaxNormDose (vuFromStr 100N "milligram")
                 |> DoseRange.toString (Some ValueUnit.Units.hour)
                 |> Expect.equal "should be a rate" "van 10 mg/uur - tot 100 mg/uur"
             }
 
             test "can create a dose range with a rate per kg" {
                 DoseRange.empty
-                |> setMinNormPerKgDose (vuFromStr 0.001m "milligram")
-                |> setMaxNormPerKgDose (vuFromStr 1.m "milligram")
+                |> setMinNormPerKgDose (vuFromStr (1N / 1_000N) "milligram")
+                |> setMaxNormPerKgDose (vuFromStr 1N "milligram")
                 |> DoseRange.convertTo (ValueUnit.Units.mcg)
                 |> DoseRange.toString (Some ValueUnit.Units.hour)
                 |> Expect.equal "should be a rate" "van 1 microg/kg/uur - tot 1000 microg/kg/uur"
@@ -345,8 +345,8 @@ module Tests =
 
             test "can covert a unit" {
                 DoseRange.empty
-                |> setMaxNormDose (vuFromStr 1.m "milligram")
-                |> setMinNormDose (vuFromStr 0.001m "milligram")
+                |> setMaxNormDose (vuFromStr 1N "milligram")
+                |> setMinNormDose (vuFromStr (1N / 1_000N) "milligram")
                 |> DoseRange.convertTo (ValueUnit.Units.mcg)
                 |> drToStr
                 |> Expect.equal "should be a rate with a different unit" "van 1 microg - tot 1000 microg"
@@ -396,7 +396,7 @@ module Tests =
 
     let tests =
         [
-            MinIncrMaxTests.tests
+            MinMaxTests.tests
             MappingTests.tests
             PatientTests.tests
             DoseRangeTests.tests
@@ -419,15 +419,13 @@ module Temp =
 
 
     open Aether
+    open MathNet.Numerics
 
     open Informedica.GenUnits.Lib
     open Informedica.ZForm.Lib
 
 
-
-    let vuFromStr v u = 
-        ValueUnit.valueUnitFromZIndexString v u
-        |> Some
+    let vuFromStr = Tests.vuFromStr
 
 
     module DosageTests =
@@ -448,25 +446,25 @@ module Temp =
 
         let toString () =
             Dosage.empty
-            |> setNormMinStartDose (vuFromStr 10.m "milligram")
-            |> setAbsMaxStartDose (vuFromStr 1.m "gram")
-            |> setNormMinSingleDose (vuFromStr 10.m "milligram")
-            |> setAbsMaxSingleDose (vuFromStr 1.m "gram")
+            |> setNormMinStartDose (vuFromStr 10N "milligram")
+            |> setAbsMaxStartDose (vuFromStr 1N "gram")
+            |> setNormMinSingleDose (vuFromStr 10N "milligram")
+            |> setAbsMaxSingleDose (vuFromStr 1N "gram")
             |> Dosage.toString true
 
 
         let convert () =
             Dosage.empty
-            |> setNormMinSingleDose (vuFromStr 0.01m "milligram")
-            |> setNormMaxSingleDose (vuFromStr 1.m "milligram")
+            |> setNormMinSingleDose (vuFromStr (1N / 100N) "milligram")
+            |> setNormMaxSingleDose (vuFromStr 1N "milligram")
             |> Dosage.convertSubstanceUnitTo (ValueUnit.Units.mcg)
             |> Dosage.toString false
 
 
         let convertRate () =
             Dosage.empty
-            |> setNormMinRateDose (vuFromStr 0.01m "milligram")
-            |> setNormMaxRateDose (vuFromStr 1.m "milligram")
+            |> setNormMinRateDose (vuFromStr (1N / 100N) "milligram")
+            |> setNormMaxRateDose (vuFromStr 1N "milligram")
             |> setRateUnit (ValueUnit.Units.hour)
             |> Dosage.convertSubstanceUnitTo (ValueUnit.Units.mcg)
             |> Dosage.convertRateUnitTo (ValueUnit.Units.min)
@@ -481,14 +479,14 @@ module Temp =
 
         let toString () =
             PatientCategory.empty
-            |> Patient.setInclMinGestAge (28.m  |> ValueUnit.ageInWk |> Some)
-            |> Patient.setExclMaxGestAge (33.m  |> ValueUnit.ageInWk |> Some)
-            |> Patient.setExclMinAge (1.m |> ValueUnit.ageInMo |> Some)
-            |> Patient.setInclMaxAge (120.m |> ValueUnit.ageInWk |> Some)
-            |> Patient.setInclMinWeight (0.15m  |> ValueUnit.weightInKg |> Some)
-            |> Patient.setInclMaxWeight (4.00m  |> ValueUnit.weightInKg |> Some)
-            |> Patient.setInclMinBSA (0.15m  |> ValueUnit.bsaInM2 |> Some)
-            |> Patient.setInclMaxBSA (1.00m  |> ValueUnit.bsaInM2 |> Some)
+            |> Patient.setInclMinGestAge (28.  |> ValueUnit.ageInWk |> Some)
+            |> Patient.setExclMaxGestAge (33.  |> ValueUnit.ageInWk |> Some)
+            |> Patient.setExclMinAge (1. |> ValueUnit.ageInMo |> Some)
+            |> Patient.setInclMaxAge (120. |> ValueUnit.ageInWk |> Some)
+            |> Patient.setInclMinWeight (0.15  |> ValueUnit.weightInKg |> Some)
+            |> Patient.setInclMaxWeight (4.0  |> ValueUnit.weightInKg |> Some)
+            |> Patient.setInclMinBSA (0.15  |> ValueUnit.bsaInM2 |> Some)
+            |> Patient.setInclMaxBSA (1.0  |> ValueUnit.bsaInM2 |> Some)
             |> (fun p -> p |> (Optic.set PatientCategory.Gender_) Gender.Male)
             |> PatientCategory.toString
 
@@ -506,7 +504,7 @@ module Temp =
         module DR = Informedica.ZIndex.Lib.DoseRule
         module GPP = Informedica.ZIndex.Lib.GenPresProduct
 
-        let cfg = { UseAll = true ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
+        let cfg = { GPKs = [] ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
 
         let cfgmcg = { cfg with SubstanceUnit = (Some ValueUnit.Units.mcg) }
 
@@ -589,13 +587,13 @@ module Temp =
 
 
         let mapFrequency () =
-            DR.get ()
+            DR.get []
             |> Seq.map (fun dr -> dr.Freq)
             |> Seq.distinct
             |> Seq.sortBy (fun fr -> fr.Time, fr.Frequency)
-            |> Seq.map (fun fr -> fr, fr |> GStand.mapFreq)
+            |> Seq.map (fun fr -> fr, fr |> mapFreqToValueUnit)
             |> Seq.iter (fun (fr, vu) ->
-                printfn "%A %s = %s" fr.Frequency fr.Time (vu |> ValueUnit.toReadableDutchStringWithPrec 0)
+                printfn "%A %s = %s" fr.Frequency fr.Time (vu |> ValueUnit.toStringDecimalDutchShortWithPrec 0)
             )
 
         let tests () =
@@ -608,16 +606,16 @@ module Temp =
             |> printDoseRules
 
             // Doserules for newborn with 12?
-            GStand.createDoseRules cfg (Some 0.m) (Some 12.m) None None "paracetamol" "" "oraal"
+            GStand.createDoseRules cfg (Some 0.) (Some 12.) None None "paracetamol" "" "oraal"
             |> printDoseRules
 
             // Doserules for 100 mo and gpk = 167541
-            GStand.createDoseRules cfg (Some 100.m) None (None) (Some 167541) "" "" ""
+            GStand.createDoseRules cfg (Some 100.) None (None) (Some 167541) "" "" ""
             |> printDoseRules
             |> (printfn "%A")
 
             // Doserules for gentamicin
-            GStand.createDoseRules cfg (Some 0.m) (Some 1.5m) None None "gentamicine" "" "intraveneus"
+            GStand.createDoseRules cfg (Some 0.) (Some 1.5) None None "gentamicine" "" "intraveneus"
             |> printDoseRules
 
             // Doserules for fentanyl
@@ -634,30 +632,30 @@ module Temp =
 
             // Doserules for paracetamol
             RF.createFilter None None None None "paracetamol" "" ""
-            |> RF.find true
+            |> RF.find []
             |> getSubstanceDoses cfg
             |> Seq.iter (fun r ->
                 printfn "Indication %s" (r.indications |> String.concat ", ")
-                printfn "%s" (r.Dosage |> Dosage.toString true)
+                printfn "%s" (r.dosage |> Dosage.toString true)
             )
 
             // Doserules for gentamicin
             RF.createFilter None None None None "gentamicine" "" ""
-            |> RF.find true
+            |> RF.find []
             |> getPatients cfg
             |> Seq.iter (fun r ->
                 printfn "%s" (r.patientCategory |> PatientCategory.toString)
                 r.substanceDoses
                 |> Seq.iter (fun sd ->
                 printfn "Indication %s" (sd.indications |> String.concat ", ")
-                printfn "%s" (sd.Dosage |> Dosage.toString true)
+                printfn "%s" (sd.dosage |> Dosage.toString true)
                 )
             )
 
             // Doserules with frequency per hour
-            DR.get ()
+            DR.get []
             |> Seq.filter (fun dr ->
-                dr.Freq.Frequency = 1.m &&
+                dr.Freq.Frequency = 1. &&
                 dr.Freq.Time = "per uur" &&
                 dr.Routes = [|"intraveneus"|]
             )
@@ -667,11 +665,11 @@ module Temp =
             |> Seq.iter (printfn "%s")
 
             // Dose rules for salbutamol
-            DR.get ()
+            DR.get []
             |> Seq.filter (fun dr ->
                 dr.GenericProduct
                 |> Seq.map (fun gp -> gp.Name)
-                |> Seq.exists (String.startsWithCapsInsens "salbutamol")
+                |> Seq.exists (String.startsWithCapsInsensitive "salbutamol")
             )
             //|> Seq.collect (fun dr ->
             //    dr.GenericProduct
@@ -682,12 +680,12 @@ module Temp =
             |> Seq.iter (printfn "%A")
 
             // Doserules with fentanyl once
-            DR.get ()
+            DR.get []
             |> Seq.filter (fun dr ->
                 dr.GenericProduct
                 |> Seq.map (fun gp -> gp.Name)
-                |> Seq.exists (String.startsWithCapsInsens "fentanyl") &&
-                dr.Freq.Time |> String.startsWithCapsInsens "eenmalig"
+                |> Seq.exists (String.startsWithCapsInsensitive "fentanyl") &&
+                dr.Freq.Time |> String.startsWithCapsInsensitive "eenmalig"
             )
             //|> Seq.collect (fun dr ->
             //    dr.GenericProduct
@@ -698,11 +696,11 @@ module Temp =
             |> Seq.iter (printfn "%A")
 
             // Doserules for fentanyl
-            DR.get ()
+            DR.get []
             |> Seq.filter (fun dr ->
                 dr.GenericProduct
                 |> Seq.map (fun gp -> gp.Name)
-                |> Seq.exists (String.startsWithCapsInsens "fentanyl")
+                |> Seq.exists (String.startsWithCapsInsensitive "fentanyl")
             )
             //|> Seq.collect (fun dr ->
             //    dr.GenericProduct
@@ -713,7 +711,7 @@ module Temp =
             |> Seq.iter (printfn "%A")
 
             // GenPresProducts = paracetamol
-            GPP.get false
+            GPP.get []
             |> Seq.filter (fun gpp -> gpp.Name |> String.equalsCapInsens "paracetamol")
             |> Seq.iter (fun gpp ->
                 gpp
@@ -721,14 +719,14 @@ module Temp =
             )
 
             // All routes in doserules
-            DR.get ()
+            DR.get []
             |> Seq.collect (fun r -> r.Routes)
             |> Seq.distinct
             |> Seq.sort
             |> Seq.iter (printfn "%s")
 
             // GenPresProducts with route = parenteraal
-            GPP.get true
+            GPP.get []
             |> Seq.filter (fun gpp ->
                 gpp.Routes |> Seq.exists (fun r -> r |> String.equalsCapInsens "parenteraal")
             )
@@ -737,7 +735,7 @@ module Temp =
             |> Seq.iter (GPP.toString >> printfn "%s")
 
             // Filter GenPresProducts with route = oraal
-            GPP.filter true "" "" "oraal"
+            GPP.filter "" "" "oraal"
             |> Seq.length
             |> ignore
 

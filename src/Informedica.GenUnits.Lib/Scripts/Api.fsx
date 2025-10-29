@@ -70,6 +70,7 @@ module ValueUnit =
                         let b = vs2[j]
                         // (optional) handle division-by-zero as appropriate for your BR
                         a / b)
+                | _ -> failwith $"Unsupported operation: {op}"
             | _, 1 ->
                 let b0 = vs2[0]
                 match op with
@@ -81,6 +82,7 @@ module ValueUnit =
                 | BigRational.Div ->
                     // dividing by a single scalar
                     Array.init n (fun i -> vs1[i] / b0)
+                | _ -> failwith $"Unsupported operation: {op}"
             | _ ->
                 // General case: preallocate and use tight loops
                 let res = Array.zeroCreate<BigRational> (n * m)
@@ -122,6 +124,7 @@ module ValueUnit =
                             // (optional) if your BR throws on div-by-zero, guard here
                             res[baseIdx + j] <- v1 / v2
                     res
+                | _ -> failwith $"Unsupported operation: {op}"
 
     let calc_ calcF b op vu1 vu2 =
 
@@ -154,6 +157,7 @@ module ValueUnit =
                 | _ ->
                     failwith
                     <| $"cannot add or subtract different units %A{u1} %A{u2}"
+            | _ -> failwith $"Unsupported operation: {op}"
             |> fun u -> if b then simplifyUnit u else u
         // recreate valueunit with base value and combined unit
         v
