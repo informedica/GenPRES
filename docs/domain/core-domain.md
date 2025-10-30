@@ -1,14 +1,29 @@
 # The Core Domain Model
 
-The Core Domain Model aims to model the general concept of treating a *Patient* by applying *Interventions*, such as medication orders. This domain is independent of specific medical specialties or care settings. It provides the foundational abstractions and entities that other specialized domains can build upon.
+- [The Core Domain Model](#the-core-domain-model)
+  - [Domain Boundaries](#domain-boundaries)
+  - [The Order Management Cycle](#the-order-management-cycle)
+  - [Key Concepts](#key-concepts)
+  - [Rule-Based CDS](#rule-based-cds)
+  - [AI-Based CDS](#ai-based-cds)
+  - [Exposure and Outcome](#exposure-and-outcome)
+  - [Operational Knowledge Rules](#operational-knowledge-rules)
+    - [Rule Structure](#rule-structure)
+    - [Constraint Application](#constraint-application)
+    - [Formal Constraint Logic Programming Paradigm](#formal-constraint-logic-programming-paradigm)
+    - [Hybrid Architecture](#hybrid-architecture)
+    - [Rule Hierarchy](#rule-hierarchy)
+    - [Requirements](#requirements)
+
+The Core Domain Model aims to model the general concept of treating a *Patient* by applying *Orders*, such as medication orders. This domain is independent of specific medical specialties or care settings. It provides the foundational abstractions and entities that other specialized domains can build upon.
 
 ## Domain Boundaries
 
-The Core Domain is bounded by the application of *Interventions* to *Patients* within a clinical context. The primary aim of applying an *Intervention* to a specific *Patient* is either conditional or directly consequential to improving the outcome for that *Patient*.
+The Core Domain is bounded by the application of *Orders* to *Patients* within a clinical context. The primary aim of applying an *Order* to a specific *Patient* is either conditional or directly consequential to improving the outcome for that *Patient*.
 
-Which *Intervention* to apply to which *Patient* (and how and when) is governed by *Expert Knowledge* that must be operationalized into *Operational Knowledge Rules* that can be applied to specific *Interventions* on a *Patient* by a *Health Professional*.
+Which *Order* to apply to which *Patient* (and how and when) is governed by *Expert Knowledge* that must be operationalized into *Operational Knowledge Rules* that can be applied to specific *Orders* on a *Patient* by a *Health Professional*.
 
-## The Intervention Cycle
+## The Order Management Cycle
 
 ![Core Domain Graph](https://docs.google.com/drawings/d/e/2PACX-1vRmBkfmICA31yM16mYntvYppgCVr5PuZz80urei3J0m0YoZurKSDBtf8mSIH7xzv9sbGoMLIsOxG8kx/pub?w=1440&h=1080)
 
@@ -17,34 +32,38 @@ Which *Intervention* to apply to which *Patient* (and how and when) is governed 
 All concepts revolve around a *Patient* context. In addition to the *Patient*, the following stakeholders can be defined:
 
 - *Patients*: Represent the overall context in which a patient is treated, including relevant clinical data, demographics, and care settings.  
-- *Scientists*: Represent specific areas of medical knowledge, such as cardiology or oncology, that inform treatment decisions.  
-- *Health Professionals*: Represent specific roles of healthcare providers, such as physicians, nurses, or pharmacists, who perform *Interventions* on *Patients*.
+- *Scientists*: Representing specific areas of medical knowledge, such as cardiology or oncology, that inform treatment decisions.  
+- *Health Professionals*: Represent specific roles of healthcare providers, such as physicians, nurses, or pharmacists, who perform *Orders* on *Patients*.
 
-The *Intervention Cycle* starts with **1. Expert Knowledge**, which must be operationalized into **2. Operational Knowledge Rules** that can be applied to specific **3. Interventions** on a *Patient* by a *Health Professional*.
+The *Order Management Cycle* starts with:
 
-The *Intervention Cycle* consists of the following stages:
+- **1. Expert Knowledge**, which must be operationalized into
+- **2. Operational Knowledge Rules** that can be applied to specific
+- **3. Orders** on a *Patient* by a *Health Professional*.
 
-- **3. Interventions**: The set of actions taken to treat a *Patient*, such as medication orders, procedures, or therapies.  
-- **4. Validation**: The rules and checks that ensure *Interventions* are appropriate, safe, and effective for the *Patient*.  
-- **5. Planning**: The scheduling and coordination of *Interventions* to optimize patient care and resource utilization.  
-- **6. Preparation**: The logistics and processes involved in getting *Interventions* ready for administration to the *Patient*.  
-- **7. Administration**: The actual delivery of *Interventions* to the *Patient*, including monitoring and documentation.  
-- **8. Evaluation**: The assessment of *Intervention* outcomes to feed back into the current set of *Interventions* and to expand **1. Expert Knowledge** for future **2. Operational Knowledge Rules**.
+The *Order Management Cycle* consists of the following stages:
 
-There are two main types of *Clinical Decision Support (CDS)* rules that can be applied to *Interventions*:
+- **3. Orders**: The set of actions taken to treat a *Patient*, such as medication orders, procedures, or therapies.  
+- **4. Validation**: The rules and checks that ensure *Orders* are appropriate, safe, and effective for the *Patient*.  
+- **5. Planning**: The scheduling and coordination of *Orders* to optimize patient care and resource utilization.  
+- **6. Preparation**: The logistics and processes involved in getting *Orders* ready for administration to the *Patient*.  
+- **7. Administration**: The actual delivery of *Orders* to the *Patient*, including monitoring and documentation.  
+- **8. Evaluation**: The assessment of *Order* outcomes to feed back into the current set of *Orders* and to expand **1. Expert Knowledge** for future **2. Operational Knowledge Rules**.
+
+There are two main types of *Clinical Decision Support (CDS)* rules that can be applied to *Orders*:
 
 - *Rule-Based CDS*: CDS rules that are based on predefined logic and criteria, such as dosage limits or contraindications.  
 - *AI-Based CDS*: CDS rules that leverage artificial intelligence and machine learning to provide recommendations based on patient data and clinical patterns.
 
-It is important to note that *AI-Based CDS* can operate within the context of *Rule-Based CDS*, providing an additional layer of decision support that complements traditional rules. *AI-Based CDS* can also function independently, offering insights and recommendations, and thus contributing back to *Expert Knowledge*.
+It is important to note that *AI-Based CDS* can operate within the context of *Rule-Based CDS*, providing an additional layer of decision support where the traditional rules provide the safety rails. *AI-Based CDS* can also analyze [exposure and outcome](#exposure-and-outcome), offering insights and recommendations, and thus contributing back to *Expert Knowledge*.
 
 ## Rule-Based CDS
 
-*Rule-Based CDS* depends on the careful modeling, structuring, and translation of **1. Expert Knowledge** into **2. Operational Knowledge Rules** that can be applied to specific **3. Interventions** on a *Patient* by a *Health Professional*.
+*Rule-Based CDS* depends on the careful modeling, structuring, and translation of **1. Expert Knowledge** into **2. Operational Knowledge Rules** that can be applied to specific **3. Orders** on a *Patient* by a *Health Professional*.
 
-Once the **2. Operational Knowledge Rules** are defined, they can be applied in different stages of the *Intervention Cycle*. Application can be done in a number of ways:
+Once the **2. Operational Knowledge Rules** are defined, they can be applied in different stages of the *Order Management Cycle*. Application can be done in a number of ways:
 
-1. *Direct Application*: Rules are directly applied to *Interventions* during the **4. Validation**, **5. Planning**, **6. Preparation**, **7. Administration**, and **8. Evaluation** stages to ensure safety and efficacy.  
+1. *Direct Application*: Rules are applied immediately to each *Order*, automatically processing all required information so the order is valid and ready for **5. Planning**, **6. Preparation**, and **7. Administration**—ensuring safety (protocol- and rule-compliant) and efficiency (no lookups or manual calculations).  
 2. *Providing a Bounded Context for AI*: Rules define the constraints and parameters within which *AI-Based CDS* can operate, ensuring that AI recommendations align with established clinical guidelines and safety protocols.
 
 ## AI-Based CDS
@@ -53,13 +72,15 @@ Once the **2. Operational Knowledge Rules** are defined, they can be applied in 
 
 When replacing **7. Administration** and *Patient* with the term *Exposure*, and **8. Evaluation** with *Outcome*, the Core Domain Model can also be applied to other domains, such as epidemiology or public health, where exposures and outcomes are studied.
 
+## Exposure and Outcome
+
 ![Exposure Outcome Graph](https://docs.google.com/drawings/d/e/2PACX-1vSqjlp9H-KA8dGZMiq9etMjIvse7hd-2ALzg3PNuPjAQuYUNQ69MvsUXla85_7Dfi-iggKarKWSox0O/pub?w=1441&h=898)
 
-*Note.* The combined exposure of the administration of *Interventions* with specific patient characteristics and patient data in relation to outcomes is still largely unexplored territory that can lead to new insights in medical science. Historically, only direct patient-related data have been used to study outcomes, while administered *Interventions* are often missing or incomplete. By combining both patient data and *Intervention* data, new types of studies can be performed that may lead to new insights in medical science.
+The combined exposure of the administration of *Orders* with specific patient characteristics and patient data in relation to outcomes is still largely unexplored territory that can lead to new insights in medical science. Historically, only direct patient-related data have been used to study outcomes, while administered *Orders* are often missing or incomplete.
 
 ## Operational Knowledge Rules
 
-An *Operational Knowledge Rule* constrains the set of possible **3. Interventions** on a specific *Patient* to enable a *Health Professional* to narrow down options to the most appropriate one for that patient context. Constraints apply across the **4. Validation**, **5. Planning**, and **6. Preparation** stages of the *Intervention Cycle*.
+An *Operational Knowledge Rule* constrains the set of possible **3. Orders** on a specific *Patient* in such way that a *Health Professional* can narrow down options to the most appropriate ones for that patient context. Constraints can be derived from **4. Validation**, **5. Planning**, and **6. Preparation** stages of the *Order Management Cycle*.
 
 ### Rule Structure
 
@@ -80,7 +101,7 @@ Rules structure constraints with a "belong to" relationship:
 
 **Example**:
 
-- Unconstrained patient context → all interventions possible
+- Unconstrained patient context → all orders possible
 - Patient constrained to Female + specific age → indication "Contraception" becomes available
 - Same patient with Gender=Male → "Contraception" removed (no dose rule exists for Male + Contraception)
 
@@ -92,10 +113,10 @@ The system implements a **Constraint Satisfaction Problem (CSP)** following Cons
 
 **Monotonic Constraint Refinement:**
 
-- Start with all rules (maximum set ⊤)
+- Start with all rules (maximum `set ⊤`)
 - Apply patient constraints to filter matching rules
 - Extract valid options from remaining rules
-- Each constraint application only narrows the set (monotonic function f: D → D where D₁ ⊑ D₂ ⟹ f(D₁) ⊑ f(D₂))
+- Each constraint application only narrows the set (monotonic function `f: D → D where D₁ ⊑ D₂ ⟹ f(D₁) ⊑ f(D₂)`)
 - No valid solutions are lost (soundness)
 - Guaranteed convergence to fixed point
 
@@ -107,11 +128,13 @@ The system implements a **Constraint Satisfaction Problem (CSP)** following Cons
 
 **Lattice Theory for Quantitative Constraints:**
 
-Quantitative domains (Age, Weight, dose limits) form a lattice (D, ⊑):
+Quantitative domains (Age, Weight, dose limits) form a lattice (`D`, `⊑`):
 
+```text
 - ⊤ = unrestricted range (e.g., Age: 0-150 years)
 - ⊥ = empty set (over-constrained/invalid)
 - D₁ ⊑ D₂ means D₁ is more constrained (D₁ ⊆ D₂)
+```
 
 GenSolver applies monotone functions that:
 
@@ -125,7 +148,7 @@ GenSolver applies monotone functions that:
 
 The system uses a two-stage hybrid architecture combining categorical and quantitative constraint solving:
 
-```
+```text
 Filter Stage (Categorical CSP)
   └─ Patient attributes → filter DoseRules by PatientCategory
   └─ Product selection → filter by Generic, Shape, Route, Indication
@@ -145,7 +168,7 @@ Solver Stage (Quantitative Constraints)
 
 Rules are organized hierarchically for precedence:
 
-```
+```text
 DoseRule (most specific match)
 ├── Generic + Indication + Route + DoseType + PatientCategory
 ├── Optional refinements: Brand, Shape, GPKs, Department
