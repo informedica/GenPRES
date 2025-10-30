@@ -1,0 +1,112 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp"},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"}]}}
+
+#!markdown
+
+# Importing Z-Index files
+
+To import Z-Index files into your project, follow these steps.
+
+#!markdown
+
+## Load Dependencies and Verify the Source Directory
+
+Ensure that the source directory containing the Z-Index files is correctly specified in your configuration.
+
+#!fsharp
+
+#r "nuget: Fli, 1.111.11"
+
+#load "../Scripts/load.fsx"
+
+open System
+open Informedica.Utils.Lib
+open Informedica.ZIndex.Lib
+
+
+module File =
+    open System.IO
+
+    let getFileInfo (f: string) =
+        new FileInfo(f)
+
+    let timeStamp s =
+        s
+        |> getFileInfo
+        |> _.LastWriteTime
+
+
+printfn $"Source Directory: {__SOURCE_DIRECTORY__}"
+
+let sourcePath = 
+    __SOURCE_DIRECTORY__ 
+    |> Path.combineWith "../../../"
+
+// Check the path to the zindex
+if 
+    sourcePath
+    |> Path.combineWith FilePath.GStandPath
+    |> Path.combineWith "BST000T"
+    |> File.exists
+    then printfn $"Source Path: {sourcePath}"
+
+Environment.CurrentDirectory <- sourcePath
+
+// make sure that we are on production mode
+Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+
+if not (FilePath.useDemo ()) then printfn "Production Mode!"
+
+#!fsharp
+
+// Check the date time of the source 
+sourcePath
+|> Path.combineWith FilePath.GStandPath
+|> Path.combineWith "BST000T"
+|> File.timeStamp
+
+#!markdown
+
+## Clear the Current Cache and Reload Z-Index Data
+
+#!fsharp
+
+// Clear the cache
+Json.clearCache (FilePath.useDemo ())
+
+// Load all
+printfn "Loading GenPresProduct ..."
+GenPresProduct.load []
+printfn "Loading ATCGroup ..."
+ATCGroup.load ()
+printfn "Loading DoseRule ..."
+DoseRule.load []
+printfn "Loading Substance"
+Substance.load ()
+
+#!markdown
+
+## Copy the Generated Cache Files to the Server Data Target Directory
+
+#!fsharp
+
+// first check the target Directory
+sourcePath
+|> Path.combineWith "./src/Server/data/cache/README.md"
+|> File.exists
+
+// copy the cache files to the cache folder
+open Fli
+
+cli {
+    Shell BASH
+    WorkingDirectory sourcePath
+    Command "cp ./data/cache/*.cache ./src/Server/data/cache"
+}
+|> Command.execute
+
+// check one of the copied files to the target directory
+sourcePath
+|> Path.combineWith "./src/Server/data/cache/product.cache"
+|> File.exists
