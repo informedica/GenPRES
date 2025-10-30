@@ -42,6 +42,7 @@ printfn $"Notebook Directory: {__SOURCE_DIRECTORY__}"
 let sourcePath = 
     __SOURCE_DIRECTORY__ 
     |> Path.combineWith "../../../"
+    |> Path.getFullPath
 
 // Check the path to the zindex
 if 

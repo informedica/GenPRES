@@ -356,6 +356,21 @@ module Tests =
             ]
 
 
+    module PathTests =
+
+        [<Tests>]
+        let tests =
+            testList "Path" [
+                test "normalize converts path separators correctly" {
+                    Path.Tests.testNormalize ()
+                }
+
+                test "combineWith combines and resolves paths correctly" {
+                    Path.Tests.testCombineWith ()
+                }
+            ]
+
+
     module Double =
 
         open MathNet.Numerics
