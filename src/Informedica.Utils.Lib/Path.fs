@@ -20,6 +20,8 @@ module Path =
         Path.Combine(p1, p2)
 
 
+    let getFullPath = Path.GetFullPath
+
 
     module Tests =
 

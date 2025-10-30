@@ -12,7 +12,7 @@ To import Z-Index files into your project, follow these steps.
 
 ## Load Dependencies and Verify the Source Directory
 
-Ensure that the source directory containing the Z-Index files is correctly specified in your configuration.
+Copy the Z-Index files to the `data/zindex` folder. Ensure that the source directory containing the Z-Index files is correctly specified in your configuration. If there is a message "No Z-Index files, copy them first to data/zindex", it indicates that the files are not found in the expected location.
 
 #!fsharp
 
@@ -37,11 +37,12 @@ module File =
         |> _.LastWriteTime
 
 
-printfn $"Source Directory: {__SOURCE_DIRECTORY__}"
+printfn $"Notebook Directory: {__SOURCE_DIRECTORY__}"
 
 let sourcePath = 
     __SOURCE_DIRECTORY__ 
     |> Path.combineWith "../../../"
+    |> Path.getFullPath
 
 // Check the path to the zindex
 if 
@@ -50,6 +51,8 @@ if
     |> Path.combineWith "BST000T"
     |> File.exists
     then printfn $"Source Path: {sourcePath}"
+else
+    printfn "No Z-Index files, copy them first to data/zindex"
 
 Environment.CurrentDirectory <- sourcePath
 
