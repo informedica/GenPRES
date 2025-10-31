@@ -3600,7 +3600,7 @@ module Order =
                     |> Array.filter String.notEmpty
                     |> Array.choose findItem
 
-                let withBrackets s =
+                let withParens s =
                     if s |> String.isNullOrWhiteSpace then s
                     else
                         $"({s})"
@@ -3642,14 +3642,14 @@ module Order =
 
                                         if itm.Dose.RateAdjust |> RateAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseRateAdjustConstraints 3
-                                            |> withBrackets
+                                            |> withParens
                                     else
                                         itm
                                         |> Orderable.Item.Print.itemDoseRateTo printMd 3
 
                                         if itm.Dose.Rate |> Rate.isSolved then
                                             itm.Dose |> Dose.Print.doseRateConstraints 3
-                                            |> withBrackets
+                                            |> withParens
                                     |]
                             )
 
@@ -3682,9 +3682,9 @@ module Order =
                             |> Array.mapi (fun i itm ->
                                 // check whether the constraints are
                                 // per dose quantity or per doser per time
-                                let isPerDose = 
-                                    if useAdj then itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints
-                                    else itm.Dose.Quantity |> Quantity.hasConstraints
+                                let isPerDose = false
+                                    //if useAdj then itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints
+                                    //else itm.Dose.Quantity |> Quantity.hasConstraints
 
                                 [|
                                     // the frequency
@@ -3711,10 +3711,10 @@ module Order =
                                         if itm.Dose.PerTimeAdjust |> PerTimeAdjust.isSolved then
                                             [
                                                 itm.Dose |> Dose.Print.dosePerTimeAdjustConstraints 3
-                                                |> withBrackets
+                                                |> withParens
                                                 itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
                                                 |> addPerDosis
-                                                |> withBrackets
+                                                |> withParens
                                             ]
                                             |> List.tryFind String.notEmpty
                                             |> Option.defaultValue ""
@@ -3732,10 +3732,10 @@ module Order =
                                         if itm.Dose.PerTime |> PerTime.isSolved then
                                             [
                                                 itm.Dose |> Dose.Print.dosePerTimeConstraints 3
-                                                |> withBrackets
+                                                |> withParens
                                                 itm.Dose |> Dose.Print.doseQuantityConstraints 3
                                                 |> addPerDosis
-                                                |> withBrackets
+                                                |> withParens
                                             ]
                                             |> List.tryFind String.notEmpty
                                             |> Option.defaultValue ""
@@ -3776,13 +3776,13 @@ module Order =
                                         if itm.Dose.QuantityAdjust |> QuantityAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
                                             |> addPerDosis
-                                            |> withBrackets
+                                            |> withParens
 
                                     else
                                         if itm.Dose.Quantity |> Quantity.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityConstraints 3
                                             |> addPerDosis
-                                            |> withBrackets
+                                            |> withParens
 
                                 |]
                             )
@@ -3894,7 +3894,7 @@ module Order =
                                             "="
                                             ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                             tme //ord.Prescription |> Prescription.Print.timeToMd -1
-                                            |> withBrackets
+                                            |> withParens
                                         else
                                             ""
                                             ""
@@ -3929,7 +3929,7 @@ module Order =
                                             "="
                                         ord.Orderable |> Orderable.Print.doseRateTo printMd -1
                                         tme //ord.Prescription |> Prescription.Print.timeToMd -1
-                                        |> withBrackets
+                                        |> withParens
 
                                     else
                                         if orbQty |> String.notEmpty then
