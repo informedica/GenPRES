@@ -178,12 +178,31 @@ module ResponsiveTable =
                 if idx % 2 = 0 then "even" else "odd"
 
         // Style for striped rows: apply background to even rows
+        // Use lef border color blue to indicate selection
         let stripedSx: obj =
             createObj [
                 "& .MuiDataGrid-row.even"
                 ==> createObj [
                         "backgroundColor" ==> Mui.Colors.Grey.``100``
                     ]
+
+                "& .MuiDataGrid-row"
+                ==> createObj [
+                    "cursor" ==> "pointer"
+                    "transition" ==> "border-left 0.1s ease"
+                ]
+                
+                "& .MuiDataGrid-row.even:hover"
+                ==> createObj [
+                    "backgroundColor" ==> Mui.Colors.Grey.``100``
+                    "borderLeft" ==> "4px solid #1976d2"
+                ]
+
+                "& .MuiDataGrid-row.odd:hover"
+                ==> createObj [
+                    "backgroundColor" ==> "white"
+                    "borderLeft" ==> "4px solid #1976d2"
+                ]
             ]
 
         let rows =
