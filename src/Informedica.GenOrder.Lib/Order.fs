@@ -3680,6 +3680,12 @@ module Order =
                         else
                             itms
                             |> Array.mapi (fun i itm ->
+                                // check whether the constraints are
+                                // per dose quantity or per doser per time
+                                let isPerDose = 
+                                    if useAdj then itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints
+                                    else itm.Dose.Quantity |> Quantity.hasConstraints
+
                                 [|
                                     // the frequency
                                     if i = 0 then freq else ""
@@ -3692,7 +3698,12 @@ module Order =
                                     if useAdj then
                                         let s =
                                             itm
-                                            |> Orderable.Item.Print.itemDosePerTimeAdjustTo printMd 3
+                                            |> 
+                                            if isPerDose then
+                                                Orderable.Item.Print.itemDoseQuantityAdjustTo printMd 3
+                                            else
+                                                Orderable.Item.Print.itemDosePerTimeAdjustTo printMd 3
+
                                         if s |> String.notEmpty then
                                             "="
                                             s
@@ -3710,7 +3721,10 @@ module Order =
                                     else
                                         let s =
                                             itm
-                                            |> Orderable.Item.Print.itemDosePerTimeTo printMd 3
+                                            |> 
+                                            if isPerDose then Orderable.Item.Print.itemDoseQuantityTo printMd 3
+                                            else Orderable.Item.Print.itemDosePerTimeTo printMd 3
+                                            
                                         if s |> String.notEmpty then
                                             "="
                                             s
