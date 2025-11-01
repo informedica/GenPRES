@@ -91,12 +91,25 @@ module OrderScenario =
     open Informedica.GenOrder.Lib
 
 
-    let replace s =
-        s
-        |> String.replace "[" ""
-        |> String.replace "]" ""
-        |> String.replace "<" ""
-        |> String.replace ">" ""
+    let replace(tb : TextBlock) =
+        match tb with
+        | Valid s
+        | Caution s
+        | Warning s
+        | Alert s ->
+            if s |> String.isNullOrWhiteSpace then tb
+            else
+                let s = 
+                    s
+                    |> String.replace "[" ""
+                    |> String.replace "]" ""
+                    |> String.replace "<" ""
+                    |> String.replace ">" ""
+                match tb with
+                | Valid _ -> s |> Valid
+                | Caution _ -> s |> Caution
+                | Warning _ -> s |> Warning
+                | Alert _ -> s |> Alert
 
 
     let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl ids : OrderScenario
@@ -721,13 +734,13 @@ Scenarios: {scenarios}
                         if scs
                            |> Array.filter (fun sc ->
                                sc.Preparation
-                               |> Array.exists (Array.exists String.notEmpty))
+                               |> Array.exists (Array.exists Order.Print.textBlockIsEmpty >> not))
                            |> Array.length = 0 then scs
                         else
                             scs
                             |> Array.filter (fun sc ->
                                sc.Preparation
-                               |> Array.exists (Array.exists String.notEmpty)
+                               |> Array.exists (Array.exists Order.Print.textBlockIsEmpty >> not)
                             )
 
             |]

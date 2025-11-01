@@ -357,6 +357,13 @@ module Types =
         | Italic of string
 
 
+    type TextBlock =
+        | Valid of TextItem []
+        | Caution of TextItem []
+        | Warning of TextItem []
+        | Alert of TextItem []
+
+
     type Product =
         {
             Indication: string
@@ -430,9 +437,9 @@ module Types =
             Diluents : string []
             Components: string []
             Items: string []
-            Prescription: TextItem [][][]
-            Preparation: TextItem [][][]
-            Administration: TextItem [][][]
+            Prescription: TextBlock [][]
+            Preparation: TextBlock [][]
+            Administration: TextBlock [][]
             Order: Order
             UseAdjust: bool
             UseRenalRule: bool

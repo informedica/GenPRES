@@ -413,6 +413,13 @@ module Types =
     type Product = Informedica.GenForm.Lib.Types.Product
 
 
+    type TextBlock =
+        | Valid of string 
+        | Caution of string 
+        | Warning of string 
+        | Alert of string 
+
+
     /// <summary>
     /// The representation of an order scenario with prescription,
     /// preparation, and administration information
@@ -444,11 +451,11 @@ module Types =
             // The list of substances to print out
             Items : string []
             // The prescription instructions
-            Prescription : string[][]
+            Prescription : TextBlock[][]
             // The preparation instructions
-            Preparation : string[][]
+            Preparation : TextBlock[][]
             // The administration instructions
-            Administration : string[][]
+            Administration : TextBlock[][]
             // The order itself
             Order : Order
             // Whether to use adjust calculations

@@ -10,8 +10,8 @@
     <Compile Include="../Shared/Localization.fs" />
     <Compile Include="../Shared/Models.fs" />
     <Compile Include="../Shared/Api.fs" />
-    <Compile Include="Logging.fs" />
-    <Compile Include="ServerApi.fs" />
+    <Compile Include="Logging.fs" /><Compile Include="ServerApi.fs" />
+    
     <Compile Include="Server.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\Scripts.fsx" />

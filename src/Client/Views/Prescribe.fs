@@ -244,41 +244,50 @@ module Prescribe =
                 </Backdrop>
                 """
 
-        let typoGraphy (items : TextItem[]) =
-            let print item =
-                match item with
-                | Normal s ->
-                    JSX.jsx
-                        $"""
-                    <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
-                    """
-                | Bold s ->
-                    JSX.jsx
-                        $"""
-                    <Typography
-                    color={Mui.Colors.BlueGrey.``700``}
-                    display="inline"
-                    >
-                    <strong> {s} </strong>
-                    </Typography>
-                    """
-                | Italic s ->
-                    JSX.jsx
-                        $"""
-                    <Typography
-                    color={Mui.Colors.Grey.``600``}
-                    display="inline"
-                    >
-                    <strong>{s}</strong>
-                    </Typography>
-                    """
+        let typoGraphy (textBlock : TextBlock) =
+            let print tb =
+                let items, color =
+                    match tb with
+                    | Valid items -> items, Mui.Colors.Green.``700``
+                    | Caution items -> items, Mui.Colors.Blue.``700``
+                    | Warning items -> items, Mui.Colors.Orange.``900``
+                    | Alert items -> items, Mui.Colors.Red.``700``
 
+                items 
+                |> Array.map (fun item ->
+                    match item with
+                    | Normal s ->
+                        JSX.jsx
+                            $"""
+                        <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
+                        """
+                    | Bold s ->
+                        JSX.jsx
+                            $"""
+                        <Typography
+                        color={color}
+                        display="inline"
+                        >
+                        <strong> {s} </strong>
+                        </Typography>
+                        """
+                    | Italic s ->
+                        JSX.jsx
+                            $"""
+                        <Typography
+                        color={Mui.Colors.Grey.``600``}
+                        display="inline"
+                        >
+                        <strong>{s}</strong>
+                        </Typography>
+                        """
+                )
             JSX.jsx
                 $"""
             import Typography from '@mui/material/Typography';
 
             <Box display="inline" >
-                {items |> Array.map print |> unbox |> React.fragment}
+                {textBlock |> print |> unbox |> React.fragment}
             </Box>
             """
 
@@ -313,7 +322,7 @@ module Prescribe =
                         |> props.updateTreatmentPlan
                     | _ -> ()
 
-                let item key icon prim sec =
+                let item key icon prim (sec : TextBlock [][]) =
                     let rows =
                         let cells row =
                             row
@@ -325,11 +334,43 @@ module Prescribe =
                                     """
                             )
 
+                        let getItems tb =
+                            match tb with
+                            | Valid itms 
+                            | Caution itms
+                            | Warning itms
+                            | Alert itms -> 
+                                itms
+                                |> Array.append [| " " |> Normal |]
+
+                        // get the max alert level
+                        let maxTb (xs: TextBlock [][]) =
+                            xs
+                            |> Array.collect (fun tbs ->
+                                tbs
+                                |> Array.map (fun tb ->
+                                    match tb with
+                                    | Valid _ -> 0
+                                    | Caution _ -> 1
+                                    | Warning _ -> 2
+                                    | Alert _ -> 3
+                                )
+                            )
+                            |> Array.max
+                            |> function
+                            | 0 -> Valid
+                            | 1 -> Caution
+                            | 2 -> Warning
+                            | 3 -> Alert
+                            | i -> failwith $"not a valid textblock: {i}"
+
                         let sec =
                              if not isMobile then sec
                              else
+                                // flatten the TextBlock [] [] to a single TextBlock
                                 let add xs =
-                                    let plus = [| [| "+ " |> Normal |] |]
+                                    let plus = [| [| " + " |> Normal |] |]
+
                                     xs
                                     |> Array.fold (fun acc x ->
                                         if acc |> Array.isEmpty then x
@@ -338,14 +379,14 @@ module Prescribe =
                                             |> Array.append plus
                                             |> Array.append acc
                                     ) [||]
-                                [|
-                                    [|
-                                        sec
-                                        |> add
-                                        |> Array.collect id
-                                        //|> Array.collect id
-                                    |]
-                                |]
+                                    |> Array.collect id
+
+                                sec
+                                |> Array.map (Array.map getItems)
+                                |> add
+                                |> (sec |> maxTb)
+                                |> Array.singleton
+                                |> Array.singleton
 
                         sec
                         |> Array.mapi (fun i row ->

@@ -3585,6 +3585,43 @@ module Order =
         open Informedica.GenOrder.Lib
 
 
+        let wrap tb ovar s =
+            if ovar |> OrderVariable.isWithinConstraints then s |> Valid
+            else s |> tb
+
+
+        let unwrap tb =
+            match tb with
+            | Valid s
+            | Caution s
+            | Warning s
+            | Alert s -> s
+
+
+        let textBlockIsEmpty (tb : TextBlock) =
+            match tb with
+            | Valid s
+            | Caution s
+            | Warning s
+            | Alert s -> s |> String.isNullOrWhiteSpace
+
+
+        let textBlockWithParens tb =
+            match tb with
+            | Valid s
+            | Caution s
+            | Warning s
+            | Alert s ->
+                if s |> String.isNullOrWhiteSpace then tb
+                else
+                    let s = $"({s})"
+                    match tb with
+                    | Valid _ -> s |> Valid
+                    | Caution _ -> s |> Caution
+                    | Warning _ -> s |> Warning
+                    | Alert _ -> s |> Alert
+
+
         let printOrderToTableFormat
             useAdj
             printMd
@@ -3611,8 +3648,30 @@ module Order =
                         $"{s}/dosis"
 
                 let freq =
+                    let tb =
+                        if
+                            ord.Schedule
+                            |> Schedule.getFrequency
+                            |> Option.map (Frequency.toOrdVar >> OrderVariable.isWithinConstraints)
+                            |> Option.defaultValue true then Valid
+                        else Warning
+
                     ord.Schedule
                     |> Schedule.Print.frequencyTo printMd
+                    |> tb                    
+
+                let tme =
+                    let tb =
+                        if
+                            ord.Schedule
+                            |> Schedule.getTime
+                            |> Option.map (Time.toOrdVar >> OrderVariable.isWithinConstraints)
+                            |> Option.defaultValue true then Valid
+                        else Caution
+
+                    ord.Schedule
+                    |> Schedule.Print.timeToString 2
+                    |> tb                    
 
                 let pres =
                     match ord.Schedule with
@@ -3623,34 +3682,41 @@ module Order =
                                     // the orderable dose quantity
                                     ord.Orderable
                                     |> Orderable.Print.doseQuantityTo printMd -1
+                                    |> wrap Alert (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar)
+
                                     // the orderable dose adjust quantity
                                     if useAdj then
                                         ord.Orderable
                                         |> Orderable.Print.doseQuantityAdjustTo printMd 2
-
+                                        |> wrap Alert (ord.Orderable.Dose.QuantityAdjust |> QuantityAdjust.toOrdVar)
                                 |]
                             |]
                         else
                             itms
                             |> Array.map (fun itm ->
                                 [|
-                                    itm.Name |> Name.toString
+                                    itm.Name |> Name.toString |> Valid
+
                                     // item dose per rate
                                     if useAdj then
                                         itm
                                         |> Orderable.Item.Print.itemDoseRateAdjustTo printMd 3
+                                        |> wrap Alert (itm.Dose.RateAdjust |> RateAdjust.toOrdVar)
 
                                         if itm.Dose.RateAdjust |> RateAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseRateAdjustConstraints 3
                                             |> withParens
+                                            |> Valid
                                     else
                                         itm
                                         |> Orderable.Item.Print.itemDoseRateTo printMd 3
+                                        |> wrap Alert (itm.Dose.Rate |> Rate.toOrdVar)
 
                                         if itm.Dose.Rate |> Rate.isSolved then
                                             itm.Dose |> Dose.Print.doseRateConstraints 3
                                             |> withParens
-                                    |]
+                                            |> Valid
+                                |]
                             )
 
                     | Discontinuous _
@@ -3660,21 +3726,26 @@ module Order =
                                 [|
                                     // the frequency
                                     freq
+                                    
                                     // the orderable dose quantity
                                     ord.Orderable
-                                    |>
-                                    Orderable.Print.doseQuantityTo printMd -1
+                                    |> Orderable.Print.doseQuantityTo printMd -1
+                                    |> wrap Alert (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar)
+
                                     // the orderable dose adjust quantity
-                                    let s =
+                                    let tb =
                                         if useAdj then
                                             ord.Orderable
                                             |> Orderable.Print.dosePerTimeAdjustTo printMd 2
+                                            |> wrap Alert (ord.Orderable.Dose.PerTimeAdjust |> PerTimeAdjust.toOrdVar)
                                         else
                                             ord.Orderable
                                             |> Orderable.Print.dosePerTimeTo printMd -1
-                                    if s |> String.notEmpty then
-                                        "="
-                                        s
+                                            |> wrap Alert (ord.Orderable.Dose.PerTime |> PerTime.toOrdVar)
+                                    
+                                    if tb |> textBlockIsEmpty |> not then
+                                        "=" |> Valid
+                                        tb
                                 |]
                             |]
                         else
@@ -3682,31 +3753,36 @@ module Order =
                             |> Array.mapi (fun i itm ->
                                 // check whether the constraints are
                                 // per dose quantity or per doser per time
-                                let isPerDose = false
-                                    //if useAdj then itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints
-                                    //else itm.Dose.Quantity |> Quantity.hasConstraints
+                                let isPerDose = 
+                                    if useAdj then itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints
+                                    else itm.Dose.Quantity |> Quantity.hasConstraints
 
                                 [|
                                     // the frequency
-                                    if i = 0 then freq else ""
+                                    if i = 0 then freq else "" |> Valid
+
                                     // the name of the item
-                                    itm.Name |> Name.toString
+                                    itm.Name |> Name.toString |> Valid
+
                                     // the item dose quantity
                                     itm
                                     |> Orderable.Item.Print.itemDoseQuantityTo printMd 3
+                                    |> wrap Alert (itm.Dose.Quantity |> Quantity.toOrdVar)
 
                                     if useAdj then
-                                        let s =
-                                            itm
-                                            |> 
+                                        let tb =
                                             if isPerDose then
-                                                Orderable.Item.Print.itemDoseQuantityAdjustTo printMd 3
+                                                itm
+                                                |> Orderable.Item.Print.itemDoseQuantityAdjustTo printMd 3
+                                                |> wrap Alert (itm.Dose.QuantityAdjust |> QuantityAdjust.toOrdVar)
                                             else
-                                                Orderable.Item.Print.itemDosePerTimeAdjustTo printMd 3
+                                                itm
+                                                |> Orderable.Item.Print.itemDosePerTimeAdjustTo printMd 3
+                                                |> wrap Alert (itm.Dose.PerTimeAdjust |> PerTimeAdjust.toOrdVar)
 
-                                        if s |> String.notEmpty then
-                                            "="
-                                            s
+                                        if tb |> textBlockIsEmpty |> not then
+                                            "=" |> Valid
+                                            tb
 
                                         if itm.Dose.PerTimeAdjust |> PerTimeAdjust.isSolved then
                                             [
@@ -3718,16 +3794,21 @@ module Order =
                                             ]
                                             |> List.tryFind String.notEmpty
                                             |> Option.defaultValue ""
+                                            |> Valid
                                     else
-                                        let s =
-                                            itm
-                                            |> 
-                                            if isPerDose then Orderable.Item.Print.itemDoseQuantityTo printMd 3
-                                            else Orderable.Item.Print.itemDosePerTimeTo printMd 3
+                                        let tb =
+                                            if isPerDose then 
+                                                itm
+                                                |> Orderable.Item.Print.itemDoseQuantityTo printMd 3
+                                                |> wrap Alert (itm.Dose.Quantity |> Quantity.toOrdVar)
+                                            else 
+                                                itm
+                                                |> Orderable.Item.Print.itemDosePerTimeTo printMd 3
+                                                |> wrap Alert (itm.Dose.PerTime |> PerTime.toOrdVar)
                                             
-                                        if s |> String.notEmpty then
-                                            "="
-                                            s
+                                        if tb |> textBlockIsEmpty |> not then
+                                            "=" |> Valid
+                                            tb
 
                                         if itm.Dose.PerTime |> PerTime.isSolved then
                                             [
@@ -3739,6 +3820,7 @@ module Order =
                                             ]
                                             |> List.tryFind String.notEmpty
                                             |> Option.defaultValue ""
+                                            |> Valid
                                 |]
                             )
 
@@ -3750,11 +3832,15 @@ module Order =
                                     // the orderable dose quantity
                                     ord.Orderable
                                     |> Orderable.Print.doseQuantityTo printMd -1
+                                    |> wrap Alert (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar)
+
                                     // the orderable dose adjust quantity
                                     if useAdj then
-                                        "="
+                                        "=" |> Valid
+
                                         ord.Orderable
                                         |> Orderable.Print.doseQuantityAdjustTo printMd -1
+                                        |> wrap Alert (ord.Orderable.Dose.QuantityAdjust |> QuantityAdjust.toOrdVar)
 
                                 |]
                             |]
@@ -3762,27 +3848,33 @@ module Order =
                             itms
                             |> Array.map (fun itm ->
                                 [|
-                                    itm.Name |> Name.toString
+                                    itm.Name |> Name.toString |> Valid
+
                                     // the item dose quantity
                                     itm
                                     |> Orderable.Item.Print.itemDoseQuantityTo printMd 3
+                                    |> wrap Alert (itm.Dose.Quantity |> Quantity.toOrdVar)
 
                                     // the item dose adjust quantity
                                     if useAdj then
-                                        "="
+                                        "=" |> Valid
+
                                         itm
                                         |> Orderable.Item.Print.itemDoseQuantityAdjustTo printMd 3
+                                        |> wrap Alert (itm.Dose.QuantityAdjust |> QuantityAdjust.toOrdVar)
 
                                         if itm.Dose.QuantityAdjust |> QuantityAdjust.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityAdjustConstraints 3
                                             |> addPerDosis
                                             |> withParens
+                                            |> Valid
 
                                     else
                                         if itm.Dose.Quantity |> Quantity.isSolved then
                                             itm.Dose |> Dose.Print.doseQuantityConstraints 3
                                             |> addPerDosis
                                             |> withParens
+                                            |> Valid
 
                                 |]
                             )
@@ -3791,7 +3883,11 @@ module Order =
                     ord.Orderable.Components
                     |> List.toArray
                     |> Array.mapi (fun i1 c ->
-                        let cmpQty = c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
+                        let cmpQty = 
+                            c 
+                            |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
+                            |> wrap Caution (c.OrderableQuantity |> Quantity.toOrdVar)
+
                         let cItms =
                            c.Items
                            |> List.filter (fun i -> sns |> Array.exists (String.equalsCapInsens (i.Name |> Name.toString)))
@@ -3801,30 +3897,38 @@ module Order =
                             if i1 > 0 || cItms |> Array.isEmpty then
                                 [|
                                     [|
-                                        if cmpQty |> String.notEmpty then
-                                            if i1 = 0 && cItms |> Array.isEmpty |> not then c.Shape
+                                        if cmpQty |> textBlockIsEmpty |> not then
+                                            if i1 = 0 && cItms |> Array.isEmpty |> not then 
+                                                c.Shape |> Valid
                                             else
                                                 $"{c.Shape} ({c.Name |> Name.toString})"
+                                                |> Valid
+
                                             cmpQty
-                                            ""
-                                            ""
+                                            "" |> Valid
+                                            "" |> Valid
                                     |]
                                 |]
                             else
                                 cItms
                                 |> Array.mapi (fun i2 itm ->
                                     [|
-                                        if cmpQty |> String.notEmpty then
+                                        if cmpQty |> textBlockIsEmpty |> not then
                                             if i1 = 0 && i2 = 0 then
-                                                c.Shape
-                                                c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
-                                            else
-                                                ""
-                                                ""
+                                                c.Shape |> Valid
 
-                                            let itmQty = itm |> Orderable.Item.Print.itemComponentConcentrationTo printMd -1
-                                            if itmQty |> String.notEmpty then
-                                                itm.Name |> Name.toString
+                                                c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
+                                                |> wrap Caution (c.OrderableQuantity |> Quantity.toOrdVar)
+                                            else
+                                                "" |> Valid
+                                                "" |> Valid
+
+                                            let itmQty = 
+                                                itm |> Orderable.Item.Print.itemComponentConcentrationTo printMd -1
+                                                |> wrap Caution (itm.ComponentConcentration |> Concentration.toOrdVar)
+
+                                            if itmQty |> textBlockIsEmpty |> not then
+                                                itm.Name |> Name.toString |> Valid
                                                 itmQty
                                     |]
                                 )
@@ -3839,10 +3943,6 @@ module Order =
                     | OnceTimed _
                     | Discontinuous _
                     | Timed _ ->
-                        let tme =
-                            ord.Schedule
-                            |> Schedule.Print.timeToString 2
-
                         if itms |> Array.isEmpty then
                             [|
                                 [|
@@ -3851,9 +3951,14 @@ module Order =
 
                                     ord.Orderable
                                     |> Orderable.Print.doseQuantityTo printMd -1
+                                    |> wrap Alert (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar)
+
                                     // if timed, add rate and time
                                     if ord.Schedule |> Schedule.hasTime then
-                                        ord.Orderable |> Orderable.Print.doseRateTo printMd -1
+                                        ord.Orderable 
+                                        |> Orderable.Print.doseRateTo printMd -1
+                                        |> wrap Caution (ord.Orderable.Dose.Rate |> Rate.toOrdVar)
+
                                         tme //ord.Prescription |> Prescription.Print.timeToMd -1
                                 |]
                             |]
@@ -3865,78 +3970,106 @@ module Order =
                                     if ord.Schedule |> Schedule.hasFrequency then
                                        if i = 0 then
                                            freq
-                                           ord.Orderable |> Orderable.Print.doseQuantityTo printMd -1
+                                           
+                                           ord.Orderable 
+                                           |> Orderable.Print.doseQuantityTo printMd -1
+                                           |> wrap Alert (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar)
                                        else
-                                            ""
-                                            ""
+                                            "" |> Valid
+                                            "" |> Valid
                                     else
                                         if i = 0 then
                                             ord.Orderable |> Orderable.Print.doseQuantityTo printMd -1
+                                            |> wrap Alert (ord.Orderable.Dose.Quantity |> Quantity.toOrdVar)
                                         else
-                                            ""
+                                            "" |> Valid
 
                                     let itmQty = itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
                                     if itmQty |> String.notEmpty then
-                                        itm.Name |> Name.toString
-                                        itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
+                                        itm.Name |> Name.toString |> Valid
+
+                                        itm 
+                                        |> Orderable.Item.Print.orderableQuantityTo printMd 3
+                                        |> wrap Caution (itm.OrderableQuantity |> Quantity.toOrdVar)
 
                                         if i = 0 then
-                                            "in"
-                                            ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
+                                            "in" |> Valid
+
+                                            ord.Orderable 
+                                            |> Orderable.Print.orderableQuantityTo printMd -1
+                                            |> wrap Caution (ord.Orderable.OrderableQuantity |> Quantity.toOrdVar)
                                         else
-                                            ""
-                                            ""
+                                            "" |> Valid
+                                            "" |> Valid
 
                                     // if timed, then add rate and time
                                     if ord.Schedule |> Schedule.hasTime &&
                                        itmQty |> String.notEmpty then
                                         if i = 0 then
-                                            "="
-                                            ord.Orderable |> Orderable.Print.doseRateTo printMd -1
+                                            "=" |> Valid
+
+                                            ord.Orderable 
+                                            |> Orderable.Print.doseRateTo printMd -1
+                                            |> wrap Caution (ord.Orderable.Dose.Rate |> Rate.toOrdVar)
+
                                             tme //ord.Prescription |> Prescription.Print.timeToMd -1
-                                            |> withParens
+                                            |> textBlockWithParens
                                         else
-                                            ""
-                                            ""
-                                            ""
+                                            "" |> Valid
+                                            "" |> Valid
+                                            "" |> Valid
                                 |]
                             )
                     | Continuous _ ->
-                        let tme =
-                            ord.Schedule
-                            |> Schedule.Print.timeToString 2
-
-                        let orbQty = ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
+                        let orbQty = 
+                            ord.Orderable 
+                            |> Orderable.Print.orderableQuantityTo printMd -1
+                            |> wrap Caution (ord.Orderable.OrderableQuantity |> Quantity.toOrdVar)
 
                         if itms |> Array.isEmpty then
                             [|
                                 [|
                                     orbQty
-                                    ord.Orderable |> Orderable.Print.doseRateTo printMd -1
+                                    
+                                    ord.Orderable 
+                                    |> Orderable.Print.doseRateTo printMd -1
+                                    |> wrap Alert (ord.Orderable.Dose.Rate |> Rate.toOrdVar)
                                 |]
                             |]
                         else
                             itms
                             |> Array.mapi (fun i itm ->
                                 [|
-                                    itm.Name |> Name.toString
-                                    itm |> Orderable.Item.Print.orderableQuantityTo printMd 3
+                                    itm.Name |> Name.toString |> Valid
+
+                                    itm 
+                                    |> Orderable.Item.Print.orderableQuantityTo printMd 3
+                                    |> wrap Caution (itm.OrderableQuantity |> Quantity.toOrdVar)
 
                                     if i = 0 then
-                                        if orbQty |> String.notEmpty then
-                                            "in"
-                                            ord.Orderable |> Orderable.Print.orderableQuantityTo printMd -1
-                                            "="
-                                        ord.Orderable |> Orderable.Print.doseRateTo printMd -1
+                                        if orbQty |> textBlockIsEmpty |> not then
+                                            "in" |> Valid
+                                            
+                                            ord.Orderable 
+                                            |> Orderable.Print.orderableQuantityTo printMd -1
+                                            |> wrap Caution (ord.Orderable.OrderableQuantity |> Quantity.toOrdVar)
+
+                                            "=" |> Valid
+
+                                        ord.Orderable 
+                                        |> Orderable.Print.doseRateTo printMd -1
+                                        |> wrap Alert (ord.Orderable.Dose.Rate |> Rate.toOrdVar)
+                                        
                                         tme //ord.Prescription |> Prescription.Print.timeToMd -1
-                                        |> withParens
+                                        |> textBlockWithParens
 
                                     else
-                                        if orbQty |> String.notEmpty then
-                                            ""
-                                            ""
-                                            ""
-                                        ""
+                                        if orbQty |> textBlockIsEmpty |> not then
+                                            "" |> Valid
+                                            "" |> Valid 
+                                            "" |> Valid
+                                        
+                                        "" |> Valid
                                 |]
                             )
 
@@ -3952,7 +4085,9 @@ module Order =
                 let prs, prp, adm = ord |> printOrderToTableFormat useAdj printMd sns
                 let add xs =
                     let plus = [| " + " |]
+
                     xs
+                    |> Array.map (Array.map unwrap)
                     |> Array.fold (fun acc x ->
                         if acc |> Array.isEmpty then x
                         else
@@ -3965,7 +4100,6 @@ module Order =
                 prs |> add ,
                 prp |> add ,
                 adm |> add
-
 
 
         /// <summary>
