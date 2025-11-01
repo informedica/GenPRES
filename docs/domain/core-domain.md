@@ -15,7 +15,7 @@
     - [Rule Hierarchy](#rule-hierarchy)
     - [Requirements](#requirements)
 
-The Core Domain Model aims to model the general concept of treating a *Patient* by applying *Orders*, such as medication orders. This domain is independent of specific medical specialties or care settings. It provides the foundational abstractions and entities that other specialized domains can build upon.
+The Core Domain Model aims to model the general concept of treating a *Patient* by applying *Orders*, such as medication orders. The model is designed to be extensible to other types of *Orders* (e.g., procedures, therapies) and adaptable to various clinical contexts.
 
 ## Domain Boundaries
 
@@ -33,7 +33,10 @@ All concepts revolve around a *Patient* context. In addition to the *Patient*, t
 
 - *Patients*: Represent the overall context in which a patient is treated, including relevant clinical data, demographics, and care settings.  
 - *Scientists*: Representing specific areas of medical knowledge, such as cardiology or oncology, that inform treatment decisions.  
-- *Health Professionals*: Represent specific roles of healthcare providers, such as physicians, nurses, or pharmacists, who perform *Orders* on *Patients*.
+- *Health Professionals*: Represent specific roles of healthcare providers, such as:
+  - physicians,
+  - nurses, or
+  - pharmacists
 
 The *Order Management Cycle* starts with:
 
@@ -97,7 +100,7 @@ Each rule contains:
 
 ### Constraint Application
 
-Rules structure constraints with a "belong to" relationship:
+Rules structure constraints with a "belong to" or "match with" relationship:
 
 **Example**:
 
@@ -151,7 +154,7 @@ The system uses a two-stage hybrid architecture combining categorical and quanti
 ```text
 Filter Stage (Categorical CSP)
   └─ Patient attributes → filter DoseRules by PatientCategory
-  └─ Product selection → filter by Generic, Shape, Route, Indication
+  └─ Product selection → filter by Generic, Shape, Route, Indication and DoseType
   └─ Result: Subset of applicable rules
        ↓
 Solver Stage (Quantitative Constraints)
