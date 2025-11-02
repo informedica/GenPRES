@@ -283,11 +283,11 @@ module Order =
             /// Set min, max or median dose value
             /// </summary>
             /// <param name="set">The function to set the value</param>
-            /// <param name="prs">The prescription type</param>
+            /// <param name="sch">The prescription schedulee</param>
             /// <param name="dos">The Dose</param>
             /// <returns>The Dose with the value set</returns>
-            let setDose set prs dos =
-                match prs with
+            let setDose set sch dos =
+                match sch with
                 | Once
                 | OnceTimed _ ->
                     { (dos |> inf) with
@@ -326,6 +326,9 @@ module Order =
 
             /// Set the median dose value
             let setMedianDose = setDose OrderVariable.setMedianValue
+
+
+            let stepDose n = setDose (OrderVariable.stepValue n)
 
 
             /// <summary>
@@ -2628,6 +2631,10 @@ module Order =
             match propChange with
             | ScheduleFrequency f -> ord |> applyToFrequency f
             | ScheduleTime f -> ord |> applyToTime f
+            | OrderAdjust f ->
+                { ord with
+                    Adjust = ord.Adjust |> f
+                }
             | OrderableQuantity f ->
                 { (ord |> inf) with
                     Order.Orderable.OrderableQuantity =

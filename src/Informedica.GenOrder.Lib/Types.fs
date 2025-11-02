@@ -244,6 +244,7 @@ module Types =
 
     /// Represents different types of property changes that can be applied to an order
     type OrderPropertyChange =
+        | OrderAdjust of (Quantity -> Quantity)
         | ScheduleFrequency of (Frequency -> Frequency)
         | ScheduleTime of (Time -> Time)
 

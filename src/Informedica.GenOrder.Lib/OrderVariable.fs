@@ -788,6 +788,25 @@ module OrderVariable =
         }
 
 
+    let stepValue nTimes (ovar: OrderVariable) =
+        match ovar.Constraints.Incr with
+        | None -> ovar
+        | Some incr ->
+            let vr =
+                incr
+                |> Increment.toValueUnit
+                |> (*) (nTimes |> ValueUnit.singleWithUnit Units.Count.times)
+                |> ValueSet.create
+                |> ValSet
+
+            { ovar with
+                Variable =
+                    ovar.Variable 
+                    |> Variable.clear
+                    |> Variable.setValueRange vr
+            }
+
+
     /// Set the Values of the Variable of an OrderVariable
     /// to a given value range
     let setValueRange vr (ovar: OrderVariable) =

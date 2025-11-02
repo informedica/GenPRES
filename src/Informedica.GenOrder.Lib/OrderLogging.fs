@@ -144,6 +144,13 @@ module OrderLogging =
         |> Logging.createFile path
 
 
+    let createConsoleLogger () =
+        MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        |> Logging.createConsole
+
     /// Create an agent-based order logger
     let createAgentLogger config =
         let formatter =
