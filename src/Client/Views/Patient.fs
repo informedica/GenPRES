@@ -362,6 +362,21 @@ module Patient =
 
         let isExpanded, setExpanded = React.useState (props.patient |> canCalculate |> not)
 
+        // Auto-close accordion after 5 seconds when expanded
+        React.useEffect(
+            (fun () ->
+                if isExpanded then
+                    let timeoutId = 
+                        JS.setTimeout 
+                            (fun () -> setExpanded false) 
+                            5000
+                    React.createDisposable(fun () -> JS.clearTimeout timeoutId)
+                else
+                    React.createDisposable(fun () -> ())
+            ),
+            [| box isExpanded |]
+        )
+
         let depArr = [| box props.patient; box props.updatePatient; box lang |]
         let pat, dispatch =
             React.useElmish(
