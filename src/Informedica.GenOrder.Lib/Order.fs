@@ -3107,17 +3107,22 @@ module Order =
 
         let rates =
             [
-                ord.Orderable.Dose.Rate
-                // only look at item dose rates
-                yield!
-                    ord.Orderable.Components
-                    |> List.collect _.Items
-                    |> List.map _.Dose
-                    |> List.filter (fun d ->
-                        d.Rate |> Rate.isNonZeroPositive |> not &&
-                        (d.Rate |> Rate.hasConstraints || (d.RateAdjust |> RateAdjust.hasConstraints))
-                    )
-                    |> List.map _.Rate
+                if ord.Orderable.Dose.Rate |> Rate.isCleared |> not then
+                    ord.Orderable.Dose.Rate
+
+                // timed order doesn't calc itm dose rates!
+                if ord.Schedule.IsContinuous then
+                    // only look at item dose rates
+                    yield!
+                        ord.Orderable.Components
+                        |> List.collect _.Items
+                        |> List.map _.Dose
+                        |> List.filter (fun d ->
+                            d.Rate |> Rate.isNonZeroPositive |> not && 
+                            d.Rate |> Rate.isCleared |> not &&
+                            (d.Rate |> Rate.hasConstraints || d.RateAdjust |> RateAdjust.hasConstraints)
+                        )
+                        |> List.map _.Rate
             ]
 
         let qty =
@@ -3127,6 +3132,7 @@ module Order =
                     cmp.Dose.Quantity
                     for itm in cmp.Items do
                         if itm.Dose.Quantity |> Quantity.isNonZeroPositive |> not &&
+                           itm.Dose.Quantity |> Quantity.isCleared |> not  &&
                            (itm.Dose.Quantity |> Quantity.hasConstraints ||
                             itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints) then
                             itm.Dose.Quantity
@@ -3139,6 +3145,8 @@ module Order =
                     cmp.Dose.PerTime
                     for itm in cmp.Items do
                         if itm.Dose.PerTime |> PerTime.isNonZeroPositive |> not &&
+                           itm.Dose.PerTime |> PerTime.isCleared |> not &&
+                           itm.Dose.PerTimeAdjust |> PerTimeAdjust.isCleared |> not &&
                            (itm.Dose.PerTime |> PerTime.hasConstraints ||
                             itm.Dose.PerTimeAdjust |> PerTimeAdjust.hasConstraints) then
                             itm.Dose.PerTime
