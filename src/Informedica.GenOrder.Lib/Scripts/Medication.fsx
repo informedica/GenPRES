@@ -78,41 +78,41 @@ cotrim
 |> Result.map Order.toString
 
 
-let tpn = 
+let tpn =
     { Medication.order with
         Id = "f1adf475-919b-4b7d-9e26-6cc502b88e42"
         Name = "samenstelling c"
         Route = "INTRAVENEUS"
         OrderType = TimedOrder
         Adjust =
-            11N 
+            11N
             |> ValueUnit.singleWithUnit Units.Weight.kiloGram
             |> Some
         AdjustUnit = Units.Weight.kiloGram |> Some
-        Frequencies = 
+        Frequencies =
             1N
             |> ValueUnit.singleWithUnit (Units.Count.times |> Units.per Units.Time.day)
             |> Some
-        Time = 
-            { MinMax.empty with 
-                Min = 
-                    20N 
-                    |> ValueUnit.singleWithUnit Units.Time.hour 
+        Time =
+            { MinMax.empty with
+                Min =
+                    20N
+                    |> ValueUnit.singleWithUnit Units.Time.hour
                     |> Limit.inclusive
                     |> Some
                 Max =
-                    24N 
-                    |> ValueUnit.singleWithUnit Units.Time.hour 
+                    24N
+                    |> ValueUnit.singleWithUnit Units.Time.hour
                     |> Limit.inclusive
-                    |> Some                
+                    |> Some
             }
-        Dose = 
+        Dose =
             { DoseLimit.limit with
                 DoseLimitTarget = "vloeistof" |> LimitTarget.ShapeLimitTarget
                 AdjustUnit = Units.Weight.kiloGram |> Some
                 QuantityAdjust =
                     { MinMax.empty with
-                        Max = 
+                        Max =
                             (755N / 10N)
                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                             |> Limit.inclusive
@@ -120,7 +120,7 @@ let tpn =
                     }
             }
             |> Some
-        DoseCount = 
+        DoseCount =
             { MinMax.empty with
                 Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
                 Max = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
@@ -143,12 +143,12 @@ let tpn =
                                 AdjustUnit = Units.Weight.kiloGram |> Some
                                 QuantityAdjust =
                                     { MinMax.empty with
-                                        Min = 
+                                        Min =
                                             10N
                                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                                             |> Limit.inclusive
                                             |> Some
-                                        Max = 
+                                        Max =
                                             25N
                                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                                             |> Limit.inclusive
@@ -178,7 +178,7 @@ let tpn =
                                                 SolutionLimitTarget = "eiwit" |> LimitTarget.SubstanceLimitTarget
                                                 Concentration =
                                                     { MinMax.empty with
-                                                        Max = 
+                                                        Max =
                                                             (5N / 100N)
                                                             |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
                                                             |> Limit.inclusive
@@ -199,7 +199,7 @@ let tpn =
                                                 SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
                                                 Concentration =
                                                     { MinMax.empty with
-                                                        Max = 
+                                                        Max =
                                                             (5N / 10N)
                                                             |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
                                                             |> Limit.inclusive
@@ -220,7 +220,7 @@ let tpn =
                                                 SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
                                                 Concentration =
                                                     { MinMax.empty with
-                                                        Max = 
+                                                        Max =
                                                             (5N / 10N)
                                                             |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
                                                             |> Limit.inclusive
@@ -279,12 +279,12 @@ let tpn =
                                 AdjustUnit = Units.Weight.kiloGram |> Some
                                 QuantityAdjust =
                                     { MinMax.empty with
-                                        Min = 
+                                        Min =
                                             6N
                                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                                             |> Limit.inclusive
                                             |> Some
-                                        Max = 
+                                        Max =
                                             6N
                                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                                             |> Limit.inclusive
@@ -306,7 +306,7 @@ let tpn =
                                                 SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
                                                 Concentration =
                                                     { MinMax.empty with
-                                                        Max = 
+                                                        Max =
                                                             (5N / 10N)
                                                             |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
                                                             |> Limit.inclusive
@@ -341,12 +341,12 @@ let tpn =
                                 AdjustUnit = Units.Weight.kiloGram |> Some
                                 QuantityAdjust =
                                     { MinMax.empty with
-                                        Min = 
+                                        Min =
                                             2N
                                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                                             |> Limit.inclusive
                                             |> Some
-                                        Max = 
+                                        Max =
                                             2N
                                             |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
                                             |> Limit.inclusive
@@ -368,7 +368,7 @@ let tpn =
                                                 SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
                                                 Concentration =
                                                     { MinMax.empty with
-                                                        Max = 
+                                                        Max =
                                                             (5N / 10N)
                                                             |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
                                                             |> Limit.inclusive
@@ -433,10 +433,11 @@ let tpnConstraints =
         ScheduleFrequency OrderVariable.Frequency.applyConstraints
         ScheduleTime OrderVariable.Time.applyConstraints
 
-        ComponentOrderableQuantity ("", OrderVariable.Quantity.applyConstraints)
-
+        OrderableQuantity OrderVariable.Quantity.applyConstraints
         OrderableDoseCount OrderVariable.Count.applyConstraints
         OrderableDose Order.Orderable.Dose.applyConstraints
+
+        ComponentOrderableQuantity ("", OrderVariable.Quantity.applyConstraints)
 
         ItemOrderableConcentration ("", "", OrderVariable.Concentration.applyConstraints)
     ]
@@ -450,6 +451,7 @@ let tpnSettings =
 
 let logger = OrderLogging.createConsoleLogger ()
 
+
 tpn
 |> Medication.toOrderDto
 |> Order.Dto.fromDto
@@ -458,12 +460,18 @@ tpn
         ord
         |> Order.OrderPropertyChange.proc tpnConstraints
 //        |> Order.applyConstraints
-        |> Order.solveMinMax true Logging.noOp
-        |> Result.bind (Order.solveMinMax true logger)
 
-    ord 
+    ord
+    |> Order.printTable ConsoleTables.Format.Minimal
+
+    let ord =
+        ord
+        |> Order.solveMinMax true logger
+        //|> Result.bind (Order.solveMinMax true logger)
+
+    ord
     |> Result.iter (Order.printTable ConsoleTables.Format.Minimal)
-    
+
     ord
 )
 |> ignore
