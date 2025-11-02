@@ -1767,11 +1767,18 @@ module Order =
             >> List.exists Item.isOrderableConcentrationCleared
 
 
+        let isItemOrderableQuantityCleared =
+            getComponents
+            >> List.collect Component.getItems
+            >> List.exists Item.isOrderableQuantityCleared
+
+
         let isConcentrationCleared orb =
             if (orb |> inf).Components |> List.length <= 1 then false
             else
                 orb |> isComponentOrderableConcentrationCleared ||
-                orb |> isItemOrderableConcentrationCleared
+                orb |> isItemOrderableConcentrationCleared ||
+                orb |> isItemOrderableQuantityCleared
 
 
         let isOrderableQuantityCleared orb = (orb |> inf).OrderableQuantity |> Quantity.isCleared
