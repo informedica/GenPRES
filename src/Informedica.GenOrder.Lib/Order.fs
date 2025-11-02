@@ -1672,7 +1672,7 @@ module Order =
         let applyToComponent s = applyToComponents (_.Name >> Name.toString >> String.equalsCapInsens s)
 
 
-        let harmonizeItemConcentrations orb =
+        let harmonizeItemConcentrations logger orb =
             let mutable isHarmonized = false
 
             let orb =
@@ -1682,7 +1682,10 @@ module Order =
                         |> List.map (fun cmp ->
                             let b, cmp = cmp |> Component.harmonizeItemConcentrations
                             if b then
-                                writeWarningMessage $"Component indices harmonized for {cmp.Name}"
+                                $"Component indices harmonized for {cmp.Name}"
+                                |> Events.ComponentItemsHarmonized
+                                |> Logging.logInfo logger
+
                                 isHarmonized <- true
                             cmp
                         )
@@ -3311,7 +3314,7 @@ module Order =
     let rec solve minMax printErr logger (ord: Order) =
         let harmonize ord =
             ord.Orderable
-            |> Orderable.harmonizeItemConcentrations
+            |> Orderable.harmonizeItemConcentrations logger
             |> function
                 | false, _ -> ord |> Ok
                 | true, orb ->
@@ -3580,7 +3583,7 @@ module Order =
         applyConstraints
         >> solveMinMax true logger
         >> Result.bind (fun ord ->
-            if increaseIncrement then ord |> Ok
+            if not increaseIncrement then ord |> Ok
             else
                 ord
                 |> increaseIncrements logger 10 10

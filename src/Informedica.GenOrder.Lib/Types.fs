@@ -545,6 +545,7 @@ module Types =
         /// Events that can occur during order processing
         type Event =
             | MedicationCreated of string
+            | ComponentItemsHarmonized of string
             | SolverReplaceUnit of (Name * Unit)
             | OrderSolveStarted of Order
             | OrderSolveFinished of Order

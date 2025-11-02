@@ -92,6 +92,8 @@ module OrderLogging =
         | Events.MedicationCreated m ->
             $"Medication created: {m}"
 
+        | Events.ComponentItemsHarmonized s -> s
+
 
     let printOrderException = function
         | Exceptions.OrderCouldNotBeSolved(s, o) ->
