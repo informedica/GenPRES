@@ -229,6 +229,41 @@ module Medication =
         }
 
 
+    let toString (med: Medication) =
+        med.Components
+        |> List.collect (fun prodCmp ->
+            let sl, il = prodCmp |> ProductComponent.toString
+            [
+                sl |> List.map (fun (n, v) -> $"\t{n}: {v}")
+                yield!
+                    il
+                    |> List.map (fun si ->
+                        si
+                        |> List.map (fun (n, v) -> $"\t\t{n}: {v}")
+                        |> List.append [ "" ]
+                    )
+            ]
+        )
+        |> List.append (
+            [
+                "Id", med.Id
+                "Name", med.Name
+                "Quantities", med.Quantities |> valueUnitOptToString
+                "Route", med.Route
+                "OrderType", $"{med.OrderType}"
+                "Adjust", med.Adjust |> valueUnitOptToString
+                "AdjustUnit", med.AdjustUnit |> Option.map Units.toStringEngShort |> Option.defaultValue ""
+                "Frequencies", med.Frequencies |> valueUnitOptToString
+                "Time", med.Time |> minMaxToString
+                "Dose", med.Dose |> limitOptToString
+                "DoseCount", med.DoseCount |> minMaxToString
+                "Components", ""
+            ]
+            |> List.map (fun (n, v) -> [ $"{n}: {v}" ])
+        )
+        |> List.collect id
+
+
     let productComponent = ProductComponent.cmp
 
 
@@ -405,7 +440,7 @@ module Medication =
             }
 
 
-    /// Create a DrugOrder from patient information and dose rules
+    /// Create a Medication Order from patient information and dose rules
     let create (pat : Patient) au dose (dr : DoseRule) (sr: SolutionRule option) =
         { order with
             Id = Guid.NewGuid().ToString()
@@ -445,8 +480,9 @@ module Medication =
     /// <summary>
     /// Create DrugOrders from a PrescriptionRule
     /// </summary>
+    /// <param name="logger">The logger instance for logging medication creation events</param>
     /// <param name="pr">The PrescriptionRule to use</param>
-    let fromRule (pr : PrescriptionRule) =
+    let fromRule logger (pr : PrescriptionRule) =
         let au =
             pr.DoseRule.AdjustUnit
             |> Option.defaultValue Units.Weight.kiloGram
@@ -455,46 +491,24 @@ module Medication =
 
         let create = create pr.Patient au dose pr.DoseRule
 
-        if pr.SolutionRules |> Array.isEmpty then [| create  None |]
-        else
-            pr.SolutionRules
-            |> Array.map Some
-            |> Array.map create
+        let meds =
+            if pr.SolutionRules |> Array.isEmpty then [| create  None |]
+            else
+                pr.SolutionRules
+                |> Array.map Some
+                |> Array.map create
 
+        meds
+        |> Array.iter (fun med ->
+            med
+            |>toString
+            |> List.map (sprintf "%s")
+            |> String.concat "\n"
+            |> Events.MedicationCreated
+            |> Informedica.GenOrder.Lib.Logging.logInfo logger
+        )
 
-    let toString (med: Medication) =
-        med.Components
-        |> List.collect (fun prodCmp ->
-            let sl, il = prodCmp |> ProductComponent.toString
-            [
-                sl |> List.map (fun (n, v) -> $"\t{n}: {v}")
-                yield!
-                    il
-                    |> List.map (fun si ->
-                        si
-                        |> List.map (fun (n, v) -> $"\t\t{n}: {v}")
-                        |> List.append [ "" ]
-                    )
-            ]
-        )
-        |> List.append (
-            [
-                "Id", med.Id
-                "Name", med.Name
-                "Quantities", med.Quantities |> valueUnitOptToString
-                "Route", med.Route
-                "OrderType", $"{med.OrderType}"
-                "Adjust", med.Adjust |> valueUnitOptToString
-                "AdjustUnit", med.AdjustUnit |> Option.map Units.toStringEngShort |> Option.defaultValue ""
-                "Frequencies", med.Frequencies |> valueUnitOptToString
-                "Time", med.Time |> minMaxToString
-                "Dose", med.Dose |> limitOptToString
-                "DoseCount", med.DoseCount |> minMaxToString
-                "Components", ""
-            ]
-            |> List.map (fun (n, v) -> [ $"{n}: {v}" ])
-        )
-        |> List.collect id
+        meds
 
 
     module OrderDtoHelpers =

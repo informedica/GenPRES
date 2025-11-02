@@ -119,6 +119,7 @@ let printScenarios path pat (scs: Result<OrderContext,(string * OrderContext)> l
     let printMd sl =
         sl
         |> Array.collect id
+        |> Array.map Order.Print.unwrap
         |> String.concat " "
         |> String.replace "#" "**"
         |> String.replace "|" "*"
@@ -344,7 +345,7 @@ let dro =
         pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
     |> Array.head
-    |> Medication.fromRule
+    |> Medication.fromRule Logging.noOp
     |> Array.head
 
 
@@ -359,7 +360,7 @@ let ord =
         pr.DoseRule.Generic |> String.equalsCapInsens "MM met BMF"
     )
     |> Array.head
-    |> Medication.fromRule
+    |> Medication.fromRule Logging.noOp
     |> Array.head
     |> Medication.toOrderDto
     |> Order.Dto.fromDto
@@ -376,7 +377,7 @@ Patient.teenager
     pr.DoseRule.Generic |> String.equalsCapInsens "Samenstelling E"
 )
 |> Array.head
-|> Medication.fromRule
+|> Medication.fromRule Logging.noOp
 |> Array.head
 |> Medication.toOrderDto
 |> Order.Dto.fromDto
@@ -393,7 +394,7 @@ Patient.teenager
     pr.DoseRule.Generic |> String.equalsCapInsens "noradrenaline"
 )
 |> Array.head
-|> Medication.fromRule
+|> Medication.fromRule Logging.noOp
 |> Array.head
 |> Medication.toOrderDto
 |> Order.Dto.fromDto

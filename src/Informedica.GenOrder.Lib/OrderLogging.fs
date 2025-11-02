@@ -77,12 +77,20 @@ module OrderLogging =
         | Events.OrderSolveFinished o ->
             $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Finished ==="
 
+        | Events.OrderSolveConstraintsStarted (o, cs) ->
+            $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Constraints Started ({cs.Length} constraints) ==="
+
+        | Events.OrderSolveConstraintsFinished (o, cs) ->
+            $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Constraints Finished ({cs.Length} constraints) ==="
+
         | Events.OrderScenario s -> s
+
         | Events.OrderScenarioWithNameValue (o, n, v) ->
             let (Id oid) = o.Id
             $"Scenario {oid}: {n |> Name.toString} = {v}"
 
-        | _ -> ""
+        | Events.MedicationCreated m ->
+            $"Medication created: {m}"
 
 
     let printOrderException = function

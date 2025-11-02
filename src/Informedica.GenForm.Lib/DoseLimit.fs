@@ -116,6 +116,8 @@ module DoseLimit =
             let perDose = "/dosis"
             let emptyS = ""
             [
+                $"{dl.DoseLimitTarget |> LimitTarget.toString}"
+                
                 $"{dl.Rate |> printMinMaxDose emptyS}"
                 $"{dl.RateAdjust |> printMinMaxDose emptyS}"
 

@@ -375,7 +375,7 @@ module OrderContext =
                     Error (ord, pr, m)
 
             pr
-            |> Medication.fromRule
+            |> Medication.fromRule logger
             |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
             // Note: multiple solution rules can result in multiple drugorders
             |> Array.map (eval pr)
@@ -856,7 +856,11 @@ Scenarios: {scenarios}
 
 
     let logOrderContext (logger: Logger) msg cmd =
-        let log (s: string) = Logging.logDebug logger (Logging.OrderMessage.OrderEventMessage (Events.OrderScenario s))
+        let log (s: string) = 
+            s
+            |> Events.OrderScenario
+            |> Logging.OrderMessage.OrderEventMessage
+            |> Logging.logDebug logger 
 
         log $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
         let ctx = cmd |> Command.get
