@@ -373,76 +373,25 @@ module BigRational =
     let calcCartesian op (vs1: BigRational[]) (vs2: BigRational[]) : BigRational[] =
         let n = vs1.Length
         let m = vs2.Length
-        if n = 0 || m = 0 then
-            [||]
-        else
-            // Fast paths for broadcasting
-            match n, m with
-            | 1, _ ->
-                let a = vs1[0]
-                match op with
-                | Add -> Array.init m (fun j -> a + vs2[j])
-                | Sub -> Array.init m (fun j -> a - vs2[j])
-                | Mul ->
-                    if a.IsZero then Array.create m BigRational.Zero
-                    else Array.init m (fun j -> a * vs2[j])
-                | Div ->
-                    Array.init m (fun j ->
-                        let b = vs2[j]
-                        // (optional) handle division-by-zero as appropriate for your BR
-                        a / b)
-            | _, 1 ->
-                let b0 = vs2[0]
-                match op with
-                | Add -> Array.init n (fun i -> vs1[i] + b0)
-                | Sub -> Array.init n (fun i -> vs1[i] - b0)
-                | Mul ->
-                    if b0.IsZero then Array.create n BigRational.Zero
-                    else Array.init n (fun i -> vs1[i] * b0)
-                | Div ->
-                    // dividing by a single scalar
-                    Array.init n (fun i -> vs1[i] / b0)
-            | _ ->
-                // General case: preallocate and use tight loops
-                let res = Array.create (n * m) BigRational.Zero
-                match op with
-                | Add ->
-                    for i = 0 to n - 1 do
-                        let v1 = vs1[i]
-                        let baseIdx = i * m
-                        for j = 0 to m - 1 do
-                            res[baseIdx + j] <- v1 + vs2[j]
-                    res
-                | Sub ->
-                    for i = 0 to n - 1 do
-                        let v1 = vs1[i]
-                        let baseIdx = i * m
-                        for j = 0 to m - 1 do
-                            res[baseIdx + j] <- v1 - vs2[j]
-                    res
-                | Mul ->
-                    // Tiny optimization: if either side has many zeros, this helps avoid doing full multiplies
-                    // (still O(n*m), but cheaper work on zeros)
-                    for i = 0 to n - 1 do
-                        let v1 = vs1[i]
-                        let baseIdx = i * m
-                        if v1.IsZero then
-                            // fill the whole row with zero
-                            Array.Fill(res, BigRational.Zero, baseIdx, m)
-                        else
-                            for j = 0 to m - 1 do
-                                let v2 = vs2[j]
-                                res[baseIdx + j] <- if v2.IsZero then BigRational.Zero else v1 * v2
-                    res
-                | Div ->
-                    for i = 0 to n - 1 do
-                        let v1 = vs1[i]
-                        let baseIdx = i * m
-                        for j = 0 to m - 1 do
-                            let v2 = vs2[j]
-                            // (optional) if your BR throws on div-by-zero, guard here
-                            res[baseIdx + j] <- v1 / v2
-                    res
+        
+        match n, m with
+        | 0, _ | _, 0 -> [||]
+        | 1, m ->
+            let a = vs1[0]
+            Array.init m (fun x -> op a vs2[x])
+        | n, 1 ->
+            let b0 = vs2[0]
+            Array.init n (fun x -> op vs1[x] b0)
+        | _ ->
+            let res = Array.zeroCreate<_> (n * m)
+            if n = 0 || m = 0 then res else
+            for i = 0 to n - 1 do
+                let v1 = vs1[i]
+                let baseIdx = i * m
+                for j = 0 to m - 1 do
+                    res[baseIdx + j] <- op v1 vs2[j]
+            res
+
 
 
     /// Calculates the nearest multiple of the given `multiple` based on whether it's required

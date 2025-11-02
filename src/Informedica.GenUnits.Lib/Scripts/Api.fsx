@@ -30,6 +30,7 @@ module ValueUnit =
     let cartesianMap op (vs1: BigRational[]) (vs2: BigRational[]) : BigRational[] =
         let n = vs1.Length
         let m = vs2.Length
+        
         match n, m with
         | 0, _ | _, 0 -> [||]
         | 1, m ->
