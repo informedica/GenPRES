@@ -547,6 +547,8 @@ module Types =
             | MedicationCreated of string
             | ComponentItemsHarmonized of string
             | SolverReplaceUnit of (Name * Unit)
+            | OrderIncreaseQuantityIncrement of Order
+            | OrderIncreaseRateIncrement of Order
             | OrderSolveStarted of Order
             | OrderSolveFinished of Order
             | OrderSolveConstraintsStarted of Order * Constraint list

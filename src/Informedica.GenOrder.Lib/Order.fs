@@ -3414,12 +3414,19 @@ module Order =
             // only increase incr for volume units
             if orbQty.Variable
                |> Variable.getUnit
-               |> Option.map (ValueUnit.Group.unitToGroup >> ((=) Group.VolumeGroup) >> not)
+               |> Option.map (ValueUnit.Group.unitToGroup >> (=) Group.VolumeGroup >> not)
                |> Option.defaultValue false then ord
             else
-                ord
-                |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
-                |> solveMinMax false logger
+                let incrOrd = 
+                    ord
+                    |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
+
+                if ord = incrOrd then Ok ord
+                else
+                    incrOrd |> Events.OrderIncreaseQuantityIncrement |> Logging.logInfo logger
+
+                    incrOrd
+                    |> solveMinMax false logger
                 |> function
                 | Error (_, errs) ->
                     writeDebugMessage "Could not increase orderable quantity increment:"
@@ -3429,11 +3436,17 @@ module Order =
                     )
                     ord // original order
                 | Ok ord ->
-                    ord // increased increment order
-                    |> increaseRateIncrement
-                        maxRateCount
-                        (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
-                    |> solveMinMax false logger
+                    let incrOrd = 
+                        ord // increased increment order
+                        |> increaseRateIncrement
+                            maxRateCount
+                            (incrs (Units.Volume.milliLiter |> Units.per Units.Time.hour))
+                    if incrOrd = ord then Ok ord
+                    else
+                        incrOrd |> Events.OrderIncreaseRateIncrement |> Logging.logInfo logger
+
+                        incrOrd
+                        |> solveMinMax false logger
 
                     |> function
                     | Error (_, errs) ->
@@ -3579,11 +3592,11 @@ module Order =
     let isCleared = toOrdVars >> List.exists OrderVariable.isCleared
 
 
-    let calcMinMax logger normDose increaseIncrement =
+    let calcMinMax logger (normDose : Option<_>) increaseIncrement =
         applyConstraints
         >> solveMinMax true logger
         >> Result.bind (fun ord ->
-            if not increaseIncrement then ord |> Ok
+            if not increaseIncrement || normDose.IsSome then ord |> Ok
             else
                 ord
                 |> increaseIncrements logger 10 10

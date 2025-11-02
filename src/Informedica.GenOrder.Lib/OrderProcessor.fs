@@ -355,7 +355,7 @@ module OrderProcessor =
 
         match cmd with
         | CalcMinMax ord ->
-            [ { Name = "calc-minmax: calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
+            [ { Name = "calc-minmax: calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep true } ]
             |> runPipeline ord
         | CalcValues ord ->
             // Legacy behavior: only when NoValues (not for empty orders)
@@ -366,8 +366,8 @@ module OrderProcessor =
             [
                 { Name = "solve-order: ensure-values-1"; Guard = isNoValues; Run = calcValuesStep };
                 { Name = "solve-order: solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                { Name = "solve-order: ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
-                { Name = "solve-order: solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
+//                { Name = "solve-order: ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
+//                { Name = "solve-order: solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
                 { Name = "solve-order: process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
                 { Name = "solve-order: final-solve"; Guard = (fun s -> s.OrderIsSolved |> not); Run = solveStep }
             ]

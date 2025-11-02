@@ -94,6 +94,12 @@ module OrderLogging =
 
         | Events.ComponentItemsHarmonized s -> s
 
+        | Events.OrderIncreaseQuantityIncrement _ ->
+            $"increased quantity increment"
+
+        | Events.OrderIncreaseRateIncrement _ ->
+            $"increased rate increment"
+
 
     let printOrderException = function
         | Exceptions.OrderCouldNotBeSolved(s, o) ->
