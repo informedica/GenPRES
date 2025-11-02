@@ -37,8 +37,9 @@ module Order =
             | ChangeSubstancePerTimeAdjust of string option
             | ChangeSubstanceRate of string option
             | ChangeSubstanceRateAdjust of string option
-            | ChangeSubstanceComponentConcentration of string * string * string option
+            | ChangeSubstanceComponentConcentration of cmp: string * sbst: string * string option
             | ChangeSubstanceOrderableConcentration of string option
+            | ChangeSubstanceOrderableQuantity of string option
             | ChangeOrderableDoseQuantity of string option
             | ChangeOrderableDoseRate of string option
             | ChangeOrderableQuantity of string option
@@ -455,7 +456,6 @@ module Order =
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceComponentConcentration (cname, iname, s) ->
-                Logging.log "ChangeSubstanceComponentConcentration" (cname, iname, s)
                 match state.Order with
                 | Some ord ->
                     let msg =
@@ -518,6 +518,40 @@ module Order =
                                                                 { itm with
                                                                     OrderableConcentration =
                                                                         itm.OrderableConcentration
+                                                                        |> setOvar s
+                                                                }
+                                                            | _ -> itm
+                                                        )
+                                                }
+                                        )
+                                }
+
+                        }
+                        |> UpdateOrderScenario
+                    { state with Order = None }, Cmd.ofMsg msg
+                | _ -> state, Cmd.none
+
+            | ChangeSubstanceOrderableQuantity s ->
+                match state.Order with
+                | Some ord ->
+                    let msg =
+                        { ord with
+                            Orderable =
+                                { ord.Orderable with
+                                    Components =
+                                        ord.Orderable.Components
+                                        |> Array.mapi (fun i cmp ->
+                                            if i > 0 then cmp
+                                            else
+                                                { cmp with
+                                                    Items =
+                                                        cmp.Items
+                                                        |> Array.map (fun itm ->
+                                                            match state.SelectedItem with
+                                                            | Some subst when subst = itm.Name ->
+                                                                { itm with
+                                                                    OrderableQuantity =
+                                                                        itm.OrderableQuantity
                                                                         |> setOvar s
                                                                 }
                                                             | _ -> itm
@@ -975,12 +1009,27 @@ module Order =
                     {
                         // substance orderable concentration
                         match substIndx, state.Order with
-                        | Some i, Some ord when itms |> Array.length > 0 &&
+                        | Some i, Some ord when ord.Schedule.IsContinuous |> not &&
+                                                itms |> Array.length > 0 &&
                                                 ord.Orderable.Components |> Array.length > 1 ->
                             itms[i].OrderableConcentration.Variable.Vals
                             |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
                             |> Option.defaultValue [||]
                             |> select false $"{itms[i].Name |> String.capitalize} Concentratie" None (ChangeSubstanceOrderableConcentration >> dispatch)
+                        | _ ->
+                            [||]
+                            |> select true "" None ignore
+                    }
+                    {
+                        // substance orderable quantity
+                        match substIndx, state.Order with
+                        | Some i, Some ord when ord.Schedule.IsContinuous &&
+                                                itms |> Array.length > 0 &&
+                                                ord.Orderable.Components |> Array.length > 1 ->
+                            itms[i].OrderableQuantity.Variable.Vals
+                            |> Option.map (fun v -> v.Value |> Array.map (fun (s, d) -> s, $"{d |> fixPrecision 3} {v.Unit}"))
+                            |> Option.defaultValue [||]
+                            |> select false $"{itms[i].Name |> String.capitalize} Hoeveelheid" None (ChangeSubstanceOrderableQuantity >> dispatch)
                         | _ ->
                             [||]
                             |> select true "" None ignore

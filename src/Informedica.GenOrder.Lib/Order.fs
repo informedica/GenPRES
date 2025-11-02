@@ -1767,11 +1767,18 @@ module Order =
             >> List.exists Item.isOrderableConcentrationCleared
 
 
+        let isItemOrderableQuantityCleared =
+            getComponents
+            >> List.collect Component.getItems
+            >> List.exists Item.isOrderableQuantityCleared
+
+
         let isConcentrationCleared orb =
             if (orb |> inf).Components |> List.length <= 1 then false
             else
                 orb |> isComponentOrderableConcentrationCleared ||
-                orb |> isItemOrderableConcentrationCleared
+                orb |> isItemOrderableConcentrationCleared ||
+                orb |> isItemOrderableQuantityCleared
 
 
         let isOrderableQuantityCleared orb = (orb |> inf).OrderableQuantity |> Quantity.isCleared
@@ -3100,17 +3107,22 @@ module Order =
 
         let rates =
             [
-                ord.Orderable.Dose.Rate
-                // only look at item dose rates
-                yield!
-                    ord.Orderable.Components
-                    |> List.collect _.Items
-                    |> List.map _.Dose
-                    |> List.filter (fun d ->
-                        d.Rate |> Rate.isNonZeroPositive |> not &&
-                        (d.Rate |> Rate.hasConstraints || (d.RateAdjust |> RateAdjust.hasConstraints))
-                    )
-                    |> List.map _.Rate
+                if ord.Orderable.Dose.Rate |> Rate.isCleared |> not then
+                    ord.Orderable.Dose.Rate
+
+                // timed order doesn't calc itm dose rates!
+                if ord.Schedule.IsContinuous then
+                    // only look at item dose rates
+                    yield!
+                        ord.Orderable.Components
+                        |> List.collect _.Items
+                        |> List.map _.Dose
+                        |> List.filter (fun d ->
+                            d.Rate |> Rate.isNonZeroPositive |> not && 
+                            d.Rate |> Rate.isCleared |> not &&
+                            (d.Rate |> Rate.hasConstraints || d.RateAdjust |> RateAdjust.hasConstraints)
+                        )
+                        |> List.map _.Rate
             ]
 
         let qty =
@@ -3120,6 +3132,7 @@ module Order =
                     cmp.Dose.Quantity
                     for itm in cmp.Items do
                         if itm.Dose.Quantity |> Quantity.isNonZeroPositive |> not &&
+                           itm.Dose.Quantity |> Quantity.isCleared |> not  &&
                            (itm.Dose.Quantity |> Quantity.hasConstraints ||
                             itm.Dose.QuantityAdjust |> QuantityAdjust.hasConstraints) then
                             itm.Dose.Quantity
@@ -3132,6 +3145,8 @@ module Order =
                     cmp.Dose.PerTime
                     for itm in cmp.Items do
                         if itm.Dose.PerTime |> PerTime.isNonZeroPositive |> not &&
+                           itm.Dose.PerTime |> PerTime.isCleared |> not &&
+                           itm.Dose.PerTimeAdjust |> PerTimeAdjust.isCleared |> not &&
                            (itm.Dose.PerTime |> PerTime.hasConstraints ||
                             itm.Dose.PerTimeAdjust |> PerTimeAdjust.hasConstraints) then
                             itm.Dose.PerTime
@@ -3925,7 +3940,7 @@ module Order =
 
                                             let itmQty = 
                                                 itm |> Orderable.Item.Print.itemComponentConcentrationTo printMd -1
-                                                |> wrap Caution (itm.ComponentConcentration |> Concentration.toOrdVar)
+                                                |> wrap Warning (itm.ComponentConcentration |> Concentration.toOrdVar)
 
                                             if itmQty |> textBlockIsEmpty |> not then
                                                 itm.Name |> Name.toString |> Valid
@@ -3990,7 +4005,7 @@ module Order =
 
                                         itm 
                                         |> Orderable.Item.Print.orderableQuantityTo printMd 3
-                                        |> wrap Caution (itm.OrderableQuantity |> Quantity.toOrdVar)
+                                        |> wrap Warning (itm.OrderableQuantity |> Quantity.toOrdVar)
 
                                         if i = 0 then
                                             "in" |> Valid
@@ -4044,7 +4059,7 @@ module Order =
 
                                     itm 
                                     |> Orderable.Item.Print.orderableQuantityTo printMd 3
-                                    |> wrap Caution (itm.OrderableQuantity |> Quantity.toOrdVar)
+                                    |> wrap Warning (itm.OrderableQuantity |> Quantity.toOrdVar)
 
                                     if i = 0 then
                                         if orbQty |> textBlockIsEmpty |> not then

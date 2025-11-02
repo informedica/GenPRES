@@ -24,12 +24,12 @@ module OrderProcessor =
               ord.Orderable |> Orderable.isConcentrationCleared,
               ord.Orderable |> Orderable.isDoseQuantityCleared,
               ord.Orderable |> Orderable.isItemDosePerTimeCleared with
-        | true, false, false, false, false, false -> FrequencyCleared
-        | false, true, false, false, false, false -> RateCleared
-        | false, false, true, false, false, false -> TimeCleared
-        | false, false, false, true, false, false -> ConcentrationCleared
-        | false, false, false, false, true, false -> DoseQuantityCleared
-        | false, false, false, false, false, true -> DosePerTimeCleared
+        | true,  false, false, false, false, false -> FrequencyCleared
+        | false, true,  false, false, false, false -> RateCleared
+        | false, false, true,  false, false, false -> TimeCleared
+        | false, false, false, true,  false, false -> ConcentrationCleared
+        | false, false, false, false, true,  false -> DoseQuantityCleared
+        | false, false, false, false, false, true  -> DosePerTimeCleared
         | res ->
             $"{res} was not matched!" |> writeWarningMessage
             NotCleared
