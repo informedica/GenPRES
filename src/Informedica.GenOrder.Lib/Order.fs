@@ -3932,7 +3932,7 @@ module Order =
 
                                             let itmQty = 
                                                 itm |> Orderable.Item.Print.itemComponentConcentrationTo printMd -1
-                                                |> wrap Caution (itm.ComponentConcentration |> Concentration.toOrdVar)
+                                                |> wrap Warning (itm.ComponentConcentration |> Concentration.toOrdVar)
 
                                             if itmQty |> textBlockIsEmpty |> not then
                                                 itm.Name |> Name.toString |> Valid
@@ -3997,7 +3997,7 @@ module Order =
 
                                         itm 
                                         |> Orderable.Item.Print.orderableQuantityTo printMd 3
-                                        |> wrap Caution (itm.OrderableQuantity |> Quantity.toOrdVar)
+                                        |> wrap Warning (itm.OrderableQuantity |> Quantity.toOrdVar)
 
                                         if i = 0 then
                                             "in" |> Valid
@@ -4051,7 +4051,7 @@ module Order =
 
                                     itm 
                                     |> Orderable.Item.Print.orderableQuantityTo printMd 3
-                                    |> wrap Caution (itm.OrderableQuantity |> Quantity.toOrdVar)
+                                    |> wrap Warning (itm.OrderableQuantity |> Quantity.toOrdVar)
 
                                     if i = 0 then
                                         if orbQty |> textBlockIsEmpty |> not then
