@@ -3141,6 +3141,7 @@ module ValueUnit =
 
             Array.allPairs vs1 vs2
             |> Array.map (fun (v1, v2) -> v1 |> op <| v2)
+            |> Array.distinct
         // calculate new combi unit
         let u =
             match op with
