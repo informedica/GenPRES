@@ -724,11 +724,6 @@ let tpnConstraints =
     ]
 
 
-let tpnSettings =
-    [
-        OrderableDose (Order.Orderable.Dose.applyConstraints)
-    ]
-
 
 let logger = OrderLogging.createConsoleLogger ()
 
@@ -780,7 +775,7 @@ let run tpn =
                 |> applyPropChange
                     "Samenstelling C"
                     [
-                        ComponentOrderableQuantity ("Samenstelling C", OrderVariable.Quantity.setNthValue 519)
+                        ComponentOrderableQuantity ("Samenstelling C", OrderVariable.Quantity.setPercValue 50)
                     ]
             )
 
@@ -791,7 +786,7 @@ let run tpn =
                 |> applyPropChange
                     "KCl 7,4%"
                     [
-                        ComponentOrderableQuantity ("KCl 7,4%", OrderVariable.Quantity.setNthValue 30)
+                        ComponentOrderableQuantity ("KCl 7,4%", OrderVariable.Quantity.setPercValue 10)
                     ]
             )
 
@@ -802,7 +797,7 @@ let run tpn =
                 |> applyPropChange
                     "NaCl 3%"
                     [
-                        ComponentOrderableQuantity ("NaCl 3%", OrderVariable.Quantity.setNthValue 30)
+                        ComponentOrderableQuantity ("NaCl 3%", OrderVariable.Quantity.setPercValue 10)
                     ]
             )
 
@@ -813,7 +808,7 @@ let run tpn =
                 |> applyPropChange
                     "gluc 10%"
                     [
-                        ComponentOrderableQuantity ("gluc 10%", OrderVariable.Quantity.setNthValue 1)
+                        ComponentOrderableQuantity ("gluc 10%", OrderVariable.Quantity.setMaxValue)
                     ]
             )
 
@@ -821,5 +816,5 @@ let run tpn =
     )
 
 
-run tpnComplete
+run tpn
 |> ignore
