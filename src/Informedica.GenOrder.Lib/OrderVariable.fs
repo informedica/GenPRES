@@ -788,23 +788,53 @@ module OrderVariable =
         }
 
 
-    let stepValue nTimes (ovar: OrderVariable) =
-        match ovar.Constraints.Incr with
-        | None -> ovar
-        | Some incr ->
-            let vr =
-                incr
-                |> Increment.toValueUnit
-                |> (*) (nTimes |> ValueUnit.singleWithUnit Units.Count.times)
-                |> ValueSet.create
-                |> ValSet
+    let setNthValue nth (ovar: OrderVariable) =
+        let min, incr, max, vs =
+            ovar.Variable.Values
+            |> ValueRange.getMinIncrMaxOrValueSet
 
-            { ovar with
-                Variable =
-                    ovar.Variable 
-                    |> Variable.clear
-                    |> Variable.setValueRange vr
-            }
+        let vr =
+            match vs with
+            | Some vs ->
+                vs
+                |> Variable.ValueRange.ValueSet.map (fun vu ->
+                    vu
+                    |> ValueUnit.applyToValue (fun brs ->
+                        brs
+                        |> Array.tryItem nth
+                        |> Option.map Array.singleton
+                        |> Option.defaultValue brs
+                    )
+                )
+                |> ValSet
+            | None ->
+                match min, incr with
+                | Some min, Some incr ->
+                    let nthVal =
+                        nth - 1
+                        |> BigRational.fromInt
+                        |> ValueUnit.singleWithUnit Units.Count.times
+                        |> ((*) (incr |> Variable.ValueRange.Increment.toValueUnit))
+                        |> ((+) (min |> Variable.ValueRange.Minimum.toValueUnit))
+
+                    match max with
+                    | None ->
+                        nthVal
+                        |> Variable.ValueRange.ValueSet.create
+                        |> ValSet
+                    | Some max ->
+                        let nthMax = nthVal |> Variable.ValueRange.Maximum.create true
+                        if nthMax |> Variable.ValueRange.Maximum.maxGTmax max then max
+                        else nthMax
+                        |> Variable.ValueRange.Maximum.toValueUnit
+                        |> Variable.ValueRange.ValueSet.create
+                        |> ValSet
+
+                | _ -> ovar.Variable.Values
+
+        { ovar with
+            OrderVariable.Variable.Values = vr
+        }
 
 
     /// Set the Values of the Variable of an OrderVariable
@@ -1391,6 +1421,10 @@ module OrderVariable =
         /// to the median value
         let setMedianValue = apply setMedianValue
 
+        /// Set the Values (or use the increment)
+        /// to the nth value (if not > max)
+        let setNthValue nth = apply (setNthValue nth)
+
 
     /// Set standard frequency values based on the time unit (e.g., per day/week)
         let setStandardValues frq =
@@ -1543,6 +1577,11 @@ module OrderVariable =
         let setMedianValue = toOrdVar >> setMedianValue >> Concentration
 
 
+        /// Set the Values (or use the increment)
+        /// to the nth value (if not > max)
+        let setNthValue nth = toOrdVar >> setNthValue nth >> Concentration
+
+
         /// Set a Concentration to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Concentration
 
@@ -1664,6 +1703,11 @@ module OrderVariable =
 
         /// Set the median value for a Quantity
         let setMedianValue = toOrdVar >> setMedianValue >> Quantity
+
+
+        /// Set the Values (or use the increment)
+        /// to the nth value (if not > max)
+        let setNthValue nth = toOrdVar >> setNthValue nth >> Quantity
 
 
         /// Clear the values of a Quantity
@@ -1905,6 +1949,11 @@ module OrderVariable =
 
         /// Set the median value for a Rate
         let setMedianValue = toOrdVar >> setMedianValue >> Rate
+
+
+        /// Set the Values (or use the increment)
+        /// to the nth value (if not > max)
+        let setNthValue nth = toOrdVar >> setNthValue nth >> Rate
 
 
         /// Set a Rate to non-zero positive values

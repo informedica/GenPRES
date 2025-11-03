@@ -3274,7 +3274,7 @@ module Variable =
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
-                | _ -> create min incr max None
+                | _ -> create min incr max None // NOTE: need to set incr for correct min/max only calc
 
             // In any other case calculate min, incr and max
             | _ ->
@@ -3292,7 +3292,7 @@ module Variable =
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
-                | _ -> create min incr max None
+                | _ -> create min incr max None // NOTE: need to set incr for correct min/max only calc
 
 
         /// <summary>
