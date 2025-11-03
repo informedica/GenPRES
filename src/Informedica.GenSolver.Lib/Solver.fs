@@ -217,14 +217,15 @@ module Solver =
         | Some var -> eqs |> replace [var]
         |> function
         | rpl, rst ->
-            rpl
-            |> Events.SolverStartSolving
-            |> Logger.logInfo log
-
             try
                 match rpl with
                 | [] -> eqs |> Ok
-                | _  -> loop 0 rpl (Ok rst)
+                | _  -> 
+                    rpl
+                    |> Events.SolverStartSolving
+                    |> Logger.logInfo log
+                    
+                    loop 0 rpl (Ok rst)
             with
             | Exceptions.SolverException errs  ->
                  Error (rpl @ rst, errs)

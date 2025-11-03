@@ -355,27 +355,27 @@ module OrderProcessor =
 
         match cmd with
         | CalcMinMax ord ->
-            [ { Name = "calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep false } ]
+            [ { Name = "calc-minmax: calc-minmax"; Guard = (fun s -> s.IsEmpty); Run = calcMinMaxStep true } ]
             |> runPipeline ord
         | CalcValues ord ->
             // Legacy behavior: only when NoValues (not for empty orders)
-            [ { Name = "calc-values"; Guard = isNoValues; Run = calcValuesStep } ]
+            [ { Name = "calc-values: calc-values"; Guard = isNoValues; Run = calcValuesStep } ]
             |> runPipeline ord
         | SolveOrder ord ->
             // Legacy behavior: do NOT run min/max here; use values-only flow
             [
-                { Name = "ensure-values-1"; Guard = isNoValues; Run = calcValuesStep };
-                { Name = "solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                { Name = "ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
-                { Name = "solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
-                { Name = "process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
-                { Name = "final-solve"; Guard = (fun s -> s.OrderIsSolved |> not); Run = solveStep }
+                { Name = "solve-order: ensure-values-1"; Guard = isNoValues; Run = calcValuesStep };
+                { Name = "solve-order: solve-1"; Guard = (fun s -> s.HasValues); Run = solveStep };
+//                { Name = "solve-order: ensure-values-2"; Guard = isNoValues; Run = calcValuesStep };
+//                { Name = "solve-order: solve-2"; Guard = (fun s -> s.HasValues); Run = solveStep };
+                { Name = "solve-order: process-cleared"; Guard = (fun s -> s.DoseIsSolved && s.IsCleared); Run = processClearedStep };
+                { Name = "solve-order: final-solve"; Guard = (fun s -> s.OrderIsSolved |> not); Run = solveStep }
             ]
             |> runPipeline ord
         | ReCalcValues ord ->
             [
-                { Name = "apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
-                { Name = "calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
-                { Name = "calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
+                { Name = "recalc-values: apply-constraints"; Guard = (fun _ -> true); Run = applyConstraintsStep };
+                { Name = "recalc-values: calc-minmax"; Guard = (fun _ -> true); Run = calcMinMaxStep false };
+                { Name = "recalc-values: calc-values"; Guard = (fun _ -> true); Run = calcValuesStep }
             ]
             |> runPipeline ord

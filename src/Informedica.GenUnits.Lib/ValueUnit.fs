@@ -3138,9 +3138,15 @@ module ValueUnit =
         let v =
             let vs1 = vu1 |> toBaseValue
             let vs2 = vu2 |> toBaseValue
-
+            BigRational.calcCartesian op vs1 vs2
+            |> Array.distinct
+            
+            (*
             Array.allPairs vs1 vs2
             |> Array.map (fun (v1, v2) -> v1 |> op <| v2)
+            |> Array.distinct
+            *)
+
         // calculate new combi unit
         let u =
             match op with

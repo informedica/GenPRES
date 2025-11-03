@@ -6,7 +6,7 @@
 
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1s76xvQJXhfTpV15FuvTZfB-6pkkNTpSB30p51aAca8I")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4")
 
 #load "load.fsx"
 
@@ -18,198 +18,7 @@ open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 
 
-open Medication
-
-
-let valueUnitOptToString =
-    Option.map (ValueUnit.toStringDecimalDutchShortWithPrec 2)
-    >> Option.defaultValue ""
-
-
-let minMaxToString (minMax : MinMax) =
-    if minMax = MinMax.empty then ""
-    else
-        minMax
-        |> MinMax.toString
-            "min "
-            "min "
-            "max "
-            "max "
-
-
-// have to add this to Informedica.GenForm.Lib
-module DoseLimit =
-
-    let minMaxToString perDose (minMax : MinMax) =
-        if minMax = MinMax.empty then ""
-        else
-            minMax
-            |> MinMax.toString
-                "min "
-                "min "
-                "max "
-                "max "
-            |> fun s ->
-                $"{s}{perDose}"
-
-    let normDoseToString perDose vu =
-        match vu with
-        | None    -> ""
-        | Some vu ->
-            $"{vu |> Utils.ValueUnit.toString 3}{perDose}"
-
-
-    let toString (dl: DoseLimit) =
-        let perDose = "/dosis"
-        let emptyS = ""
-        [
-            $"{dl.Rate |> minMaxToString emptyS}"
-            $"{dl.RateAdjust |> minMaxToString emptyS}"
-
-            $"{dl.NormPerTimeAdjust |> normDoseToString emptyS} " +
-            $"{dl.PerTimeAdjust |> minMaxToString emptyS}"
-
-            $"{dl.PerTime |> minMaxToString emptyS}"
-
-            $"{dl.NormQuantityAdjust |> normDoseToString perDose} " +
-            $"{dl.QuantityAdjust |> minMaxToString perDose}"
-
-            $"{dl.Quantity |> minMaxToString perDose}"
-        ]
-        |> List.map String.trim
-        |> List.filter (String.isNullOrWhiteSpace >> not)
-        |> String.concat ", "
-
-
-module SolutionLimit =
-
-    let minMaxToString (minMax : MinMax) =
-        if minMax = MinMax.empty then ""
-        else
-            minMax
-            |> MinMax.toString
-                "min "
-                "min "
-                "max "
-                "max "
-
-    let toString (sl: SolutionLimit) =
-        [
-            sl.Concentration |> minMaxToString
-        ]
-        |> String.concat "\n"
-
-
-let limitOptToString =
-    Option.map DoseLimit.toString
-    >> Option.defaultValue ""
-
-let solutionLimitOptToString =
-    Option.map SolutionLimit.toString
-    >> Option.defaultValue ""
-
-
-module SubstanceItem =
-
-
-    let create nme conc dos sol =
-        {
-            Name = nme
-            Concentrations = conc
-            Dose = dos
-            Solution = sol
-        }
-
-
-    let toString (subst: SubstanceItem) =
-        [
-            "Name", subst.Name
-            "Concentrations", subst.Concentrations |> valueUnitOptToString
-            "Dose", subst.Dose |> limitOptToString
-            "Solution", subst.Solution |> solutionLimitOptToString
-        ]
-
-
-SubstanceItem.create
-    "paracetamol"
-    ([| 60N; 120N; 240N; 500N |] |> ValueUnit.withUnit (Units.Mass.milliGram |> Units.per (Units.General.general "stuk")) |> Some)
-    None
-    None
-|> SubstanceItem.toString
-
-
-module ProductComponent =
-
-    let create
-        nme
-        shp
-        qts
-        div
-        dos
-        sol
-        sbs
-        : ProductComponent
-        =
-        {
-            Name = nme
-            Shape = shp
-            Quantities = qts
-            Divisible = div
-            Dose = dos
-            Solution = sol
-            Substances = sbs
-        }
-
-    let toString (prodCmp : ProductComponent) =
-        [
-            "Name", prodCmp.Name
-            "Shape", prodCmp.Shape
-            "Quantities", prodCmp.Quantities |> valueUnitOptToString
-            "Divisible", prodCmp.Divisible |> BigRational.optToString
-            "Dose", prodCmp.Dose |> limitOptToString
-            "Solution", prodCmp.Solution |> solutionLimitOptToString
-            "Substances", ""
-        ]
-        ,
-        prodCmp.Substances |> List.map SubstanceItem.toString
-
-
-let toString (med: Medication) =
-    med.Components
-    |> List.collect (fun prodCmp ->
-        let sl, il = prodCmp |> ProductComponent.toString
-        [
-            sl |> List.map (fun (n, v) -> $"\t{n}: {v}")
-            yield!
-                il
-                |> List.map (fun si ->
-                    si
-                    |> List.map (fun (n, v) -> $"\t\t{n}: {v}")
-                    |> List.append [ "" ]
-                )
-        ]
-    )
-    |> List.append (
-        [
-            "Id", med.Id
-            "Name", med.Name
-            "Quantities", med.Quantities |> valueUnitOptToString
-            "Route", med.Route
-            "OrderType", $"{med.OrderType}"
-            "Adjust", med.Adjust |> valueUnitOptToString
-            "AdjustUnit", med.AdjustUnit |> Option.map Units.toStringEngShort |> Option.defaultValue ""
-            "Frequencies", med.Frequencies |> valueUnitOptToString
-            "Time", med.Time |> minMaxToString
-            "Dose", med.Dose |> limitOptToString
-            "DoseCount", med.DoseCount |> minMaxToString
-            "Components", ""
-        ]
-        |> List.map (fun (n, v) -> [ $"{n}: {v}" ])
-    )
-    |> List.collect id
-
-order
-|> toString
+let print sl = sl |> List.iter (printfn "%s")
 
 
 let cotrim =
@@ -259,11 +68,758 @@ let cotrim =
 
 
 cotrim
-|> toString
-|> List.iter (printfn "%s")
+|> Medication.toString
+|> print
 
 
 cotrim
 |> Medication.toOrderDto
 |> Order.Dto.fromDto
 |> Result.map Order.toString
+
+
+let tpnComplete =
+    { Medication.order with
+        Id = "f1adf475-919b-4b7d-9e26-6cc502b88e42"
+        Name = "samenstelling c"
+        Route = "INTRAVENEUS"
+        OrderType = TimedOrder
+        Adjust =
+            11N
+            |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+            |> Some
+        AdjustUnit = Units.Weight.kiloGram |> Some
+        Frequencies =
+            1N
+            |> ValueUnit.singleWithUnit (Units.Count.times |> Units.per Units.Time.day)
+            |> Some
+        Time =
+            { MinMax.empty with
+                Min =
+                    20N
+                    |> ValueUnit.singleWithUnit Units.Time.hour
+                    |> Limit.inclusive
+                    |> Some
+                Max =
+                    24N
+                    |> ValueUnit.singleWithUnit Units.Time.hour
+                    |> Limit.inclusive
+                    |> Some
+            }
+        Dose =
+            { DoseLimit.limit with
+                DoseLimitTarget = "vloeistof" |> LimitTarget.ShapeLimitTarget
+                AdjustUnit = Units.Weight.kiloGram |> Some
+                QuantityAdjust =
+                    { MinMax.empty with
+                        Max =
+                            (755N / 10N)
+                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                            |> Limit.inclusive
+                            |> Some
+                    }
+            }
+            |> Some
+        DoseCount =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Max = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+            }
+        Components =
+            [
+                // Samenstelling C component
+                {
+                    Medication.productComponent with
+                        Name = "Samenstelling C"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "Samenstelling C" |> LimitTarget.ComponentLimitTarget
+                                AdjustUnit = Units.Weight.kiloGram |> Some
+                                QuantityAdjust =
+                                    { MinMax.empty with
+                                        Min =
+                                            10N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                        Max =
+                                            25N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                    }
+                            }
+                            |> Some
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "energie"
+                                        Concentrations =
+                                            (32N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Energy.kiloCalorie |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "eiwit"
+                                        Concentrations =
+                                            (8N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "eiwit" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 100N)
+                                                            |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "natrium"
+                                        Concentrations =
+                                            (1N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "kalium"
+                                        Concentrations =
+                                            (2N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "calcium"
+                                        Concentrations =
+                                            (3N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "fosfaat"
+                                        Concentrations =
+                                            (2N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "magnesium"
+                                        Concentrations =
+                                            (1N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "chloor"
+                                        Concentrations =
+                                            (7N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                            ]
+                }
+                // NaCl 3% component
+                {
+                    Medication.productComponent with
+                        Name = "NaCl 3%"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "NaCl 3%" |> LimitTarget.ComponentLimitTarget
+                                AdjustUnit = Units.Weight.kiloGram |> Some
+                                QuantityAdjust =
+                                    { MinMax.empty with
+                                        Min =
+                                            6N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                        Max =
+                                            6N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                    }
+                            }
+                            |> Some
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "natrium"
+                                        Concentrations =
+                                            (5N / 10N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "chloor"
+                                        Concentrations =
+                                            (5N / 10N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                            ]
+                }
+                // KCl 7,4% component
+                {
+                    Medication.productComponent with
+                        Name = "KCl 7,4%"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "KCl 7,4%" |> LimitTarget.ComponentLimitTarget
+                                AdjustUnit = Units.Weight.kiloGram |> Some
+                                QuantityAdjust =
+                                    { MinMax.empty with
+                                        Min =
+                                            2N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                        Max =
+                                            2N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                    }
+                            }
+                            |> Some
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "kalium"
+                                        Concentrations =
+                                            1N
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "chloor"
+                                        Concentrations =
+                                            1N
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                            ]
+                }
+                // gluc 10% component
+                {
+                    Medication.productComponent with
+                        Name = "gluc 10%"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "energie"
+                                        Concentrations =
+                                            (4N / 10N)
+                                            |> ValueUnit.singleWithUnit (Units.Energy.kiloCalorie |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "koolhydraat"
+                                        Concentrations =
+                                            (1N / 10N)
+                                            |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                            ]
+                }
+            ]
+    }
+
+
+
+let tpn =
+    { Medication.order with
+        Id = "f1adf475-919b-4b7d-9e26-6cc502b88e42"
+        Name = "samenstelling c"
+        Route = "INTRAVENEUS"
+        OrderType = TimedOrder
+        Adjust =
+            11N
+            |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+            |> Some
+        AdjustUnit = Units.Weight.kiloGram |> Some
+        Frequencies =
+            1N
+            |> ValueUnit.singleWithUnit (Units.Count.times |> Units.per Units.Time.day)
+            |> Some
+        Time =
+            { MinMax.empty with
+                Min =
+                    20N
+                    |> ValueUnit.singleWithUnit Units.Time.hour
+                    |> Limit.inclusive
+                    |> Some
+                Max =
+                    24N
+                    |> ValueUnit.singleWithUnit Units.Time.hour
+                    |> Limit.inclusive
+                    |> Some
+            }
+        Dose =
+            { DoseLimit.limit with
+                DoseLimitTarget = "vloeistof" |> LimitTarget.ShapeLimitTarget
+                AdjustUnit = Units.Weight.kiloGram |> Some
+                QuantityAdjust =
+                    { MinMax.empty with
+                        Max =
+                            (755N / 10N)
+                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                            |> Limit.inclusive
+                            |> Some
+                    }
+            }
+            |> Some
+        DoseCount =
+            { MinMax.empty with
+                Min = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+                Max = 1N |> ValueUnit.singleWithUnit Units.Count.times |> Limit.inclusive |> Some
+            }
+        Components =
+            [
+                // Samenstelling C component
+                {
+                    Medication.productComponent with
+                        Name = "Samenstelling C"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "Samenstelling C" |> LimitTarget.ComponentLimitTarget
+                                AdjustUnit = Units.Weight.kiloGram |> Some
+                                QuantityAdjust =
+                                    { MinMax.empty with
+                                        Min =
+                                            10N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                        Max =
+                                            25N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                    }
+                            }
+                            |> Some
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "eiwit"
+                                        Concentrations =
+                                            (8N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "eiwit" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 100N)
+                                                            |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "natrium"
+                                        Concentrations =
+                                            (1N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                                {
+                                    Medication.substanceItem with
+                                        Name = "kalium"
+                                        Concentrations =
+                                            (2N / 100N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                            ]
+                }
+                // NaCl 3% component
+                {
+                    Medication.productComponent with
+                        Name = "NaCl 3%"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "NaCl 3%" |> LimitTarget.ComponentLimitTarget
+                                AdjustUnit = Units.Weight.kiloGram |> Some
+                                QuantityAdjust =
+                                    { MinMax.empty with
+                                        Min =
+                                            6N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                        Max =
+                                            6N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                    }
+                            }
+                            |> Some
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "natrium"
+                                        Concentrations =
+                                            (5N / 10N)
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "natrium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                            ]
+                }
+                // KCl 7,4% component
+                {
+                    Medication.productComponent with
+                        Name = "KCl 7,4%"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Dose =
+                            { DoseLimit.limit with
+                                DoseLimitTarget = "KCl 7,4%" |> LimitTarget.ComponentLimitTarget
+                                AdjustUnit = Units.Weight.kiloGram |> Some
+                                QuantityAdjust =
+                                    { MinMax.empty with
+                                        Min =
+                                            2N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                        Max =
+                                            2N
+                                            |> ValueUnit.singleWithUnit (Units.Volume.milliLiter |> Units.per Units.Weight.kiloGram)
+                                            |> Limit.inclusive
+                                            |> Some
+                                    }
+                            }
+                            |> Some
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "kalium"
+                                        Concentrations =
+                                            1N
+                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                        Solution =
+                                            { SolutionLimit.limit with
+                                                SolutionLimitTarget = "kalium" |> LimitTarget.SubstanceLimitTarget
+                                                Concentration =
+                                                    { MinMax.empty with
+                                                        Max =
+                                                            (5N / 10N)
+                                                            |> ValueUnit.singleWithUnit (Units.Molar.milliMole |> Units.per Units.Volume.milliLiter)
+                                                            |> Limit.inclusive
+                                                            |> Some
+                                                    }
+                                            }
+                                            |> Some
+                                }
+                            ]
+                }
+                // gluc 10% component
+                {
+                    Medication.productComponent with
+                        Name = "gluc 10%"
+                        Shape = "vloeistof"
+                        Quantities =
+                            1N
+                            |> ValueUnit.singleWithUnit Units.Volume.milliLiter
+                            |> Some
+                        Divisible = Some (1N)
+                        Substances =
+                            [
+                                {
+                                    Medication.substanceItem with
+                                        Name = "koolhydraat"
+                                        Concentrations =
+                                            (1N / 10N)
+                                            |> ValueUnit.singleWithUnit (Units.Mass.gram |> Units.per Units.Volume.milliLiter)
+                                            |> Some
+                                }
+                            ]
+                }
+            ]
+    }
+
+
+tpn
+|> Medication.toString
+|> print
+
+
+let tpnConstraints =
+    [
+        OrderAdjust OrderVariable.Quantity.applyConstraints
+
+        ScheduleFrequency OrderVariable.Frequency.applyConstraints
+        ScheduleTime OrderVariable.Time.applyConstraints
+
+        OrderableQuantity OrderVariable.Quantity.applyConstraints
+        OrderableDoseCount OrderVariable.Count.applyConstraints
+        OrderableDose Order.Orderable.Dose.applyConstraints
+
+        ComponentOrderableQuantity ("", OrderVariable.Quantity.applyConstraints)
+
+        ItemComponentConcentration ("", "", OrderVariable.Concentration.applyConstraints)
+        ItemOrderableConcentration ("", "", OrderVariable.Concentration.applyConstraints)
+    ]
+
+
+let tpnSettings =
+    [
+        OrderableDose (Order.Orderable.Dose.applyConstraints)
+    ]
+
+
+let logger = OrderLogging.createConsoleLogger ()
+
+
+let applyPropChange msg propChange ord =
+    printfn $"=== Apply PropChange {msg} ==="
+    let ord =
+        ord
+        |> Order.OrderPropertyChange.proc propChange
+    ord
+    |> Order.solveMinMax true Logging.noOp
+    |> function
+        | Ok ord -> ord
+        | _ ->
+            printfn $"=== ERROR {msg} ==="
+            ord
+    |> fun ord ->
+        ord
+        |> Order.printTable ConsoleTables.Format.Minimal
+
+        ord
+
+
+let run tpn =
+    tpn
+    |> Medication.toOrderDto
+    |> Order.Dto.fromDto
+    |> Result.map (fun ord ->
+        let ord =
+            ord
+            |> Order.OrderPropertyChange.proc tpnConstraints
+    //        |> Order.applyConstraints
+
+        ord
+        |> Order.printTable ConsoleTables.Format.Minimal
+
+        let ord =
+            ord
+            |> Order.solveMinMax true Logging.noOp //logger
+            //|> Result.bind (Order.solveMinMax true logger)
+
+        ord
+        |> Result.iter (Order.printTable ConsoleTables.Format.Minimal)
+
+        let ord =
+            ord
+            |> Result.map (fun ord ->
+                ord
+                |> applyPropChange
+                    "Samenstelling C"
+                    [
+                        ComponentOrderableQuantity ("Samenstelling C", OrderVariable.Quantity.setNthValue 519)
+                    ]
+            )
+
+        let ord =
+            ord
+            |> Result.map (fun ord ->
+                ord
+                |> applyPropChange
+                    "KCl 7,4%"
+                    [
+                        ComponentOrderableQuantity ("KCl 7,4%", OrderVariable.Quantity.setNthValue 30)
+                    ]
+            )
+
+        let ord =
+            ord
+            |> Result.map (fun ord ->
+                ord
+                |> applyPropChange
+                    "NaCl 3%"
+                    [
+                        ComponentOrderableQuantity ("NaCl 3%", OrderVariable.Quantity.setNthValue 30)
+                    ]
+            )
+
+        let ord =
+            ord
+            |> Result.map (fun ord ->
+                ord
+                |> applyPropChange
+                    "gluc 10%"
+                    [
+                        ComponentOrderableQuantity ("gluc 10%", OrderVariable.Quantity.setNthValue 1)
+                    ]
+            )
+
+        ord
+    )
+
+
+run tpnComplete
+|> ignore

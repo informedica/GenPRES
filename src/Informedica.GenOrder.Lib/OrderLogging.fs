@@ -77,12 +77,28 @@ module OrderLogging =
         | Events.OrderSolveFinished o ->
             $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Finished ==="
 
+        | Events.OrderSolveConstraintsStarted (o, cs) ->
+            $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Constraints Started ({cs.Length} constraints) ==="
+
+        | Events.OrderSolveConstraintsFinished (o, cs) ->
+            $"=== Order ({o.Orderable.Name |> Name.toString}) Solver Constraints Finished ({cs.Length} constraints) ==="
+
         | Events.OrderScenario s -> s
+
         | Events.OrderScenarioWithNameValue (o, n, v) ->
             let (Id oid) = o.Id
             $"Scenario {oid}: {n |> Name.toString} = {v}"
 
-        | _ -> ""
+        | Events.MedicationCreated m ->
+            $"Medication created: {m}"
+
+        | Events.ComponentItemsHarmonized s -> s
+
+        | Events.OrderIncreaseQuantityIncrement _ ->
+            $"increased quantity increment"
+
+        | Events.OrderIncreaseRateIncrement _ ->
+            $"increased rate increment"
 
 
     let printOrderException = function
@@ -127,6 +143,13 @@ module OrderLogging =
         ]
         |> Logging.createFile path
 
+
+    let createConsoleLogger () =
+        MessageFormatter.create [
+            typeof<OrderMessage>, formatOrderMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+        ]
+        |> Logging.createConsole
 
     /// Create an agent-based order logger
     let createAgentLogger config =

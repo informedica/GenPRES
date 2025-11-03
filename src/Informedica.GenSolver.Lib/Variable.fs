@@ -1021,6 +1021,7 @@ module Variable =
                         |> raiseExc []
                     else
                         vu
+                        |> ValueUnit.applyToValue Array.sort
                         |> ValueSet
 
 
@@ -3228,7 +3229,7 @@ module Variable =
             | Unrestricted, Unrestricted -> unrestricted
             | ValSet s1, ValSet s2 ->
                 if not onlyMinIncrMax ||
-                   (s1 |> ValueSet.count = 1 && (s2 |> ValueSet.count = 1)) then
+                   s1 |> ValueSet.count = 1 && s2 |> ValueSet.count = 1 then
                     ValueSet.calc op s1 s2
                     |> ValSet
                 else
@@ -3273,7 +3274,7 @@ module Variable =
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
-                | _ -> create min incr max None
+                | _ -> create min incr max None // NOTE: need to set incr for correct min/max only calc
 
             // In any other case calculate min, incr and max
             | _ ->
@@ -3291,7 +3292,7 @@ module Variable =
 
                 match min, incr, max with
                 | None, None, None -> unrestricted
-                | _ -> create min incr max None
+                | _ -> create min incr max None // NOTE: need to set incr for correct min/max only calc
 
 
         /// <summary>

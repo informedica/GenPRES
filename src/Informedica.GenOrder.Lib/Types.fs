@@ -244,6 +244,7 @@ module Types =
 
     /// Represents different types of property changes that can be applied to an order
     type OrderPropertyChange =
+        | OrderAdjust of (Quantity -> Quantity)
         | ScheduleFrequency of (Frequency -> Frequency)
         | ScheduleTime of (Time -> Time)
 
@@ -251,17 +252,17 @@ module Types =
         | OrderableDoseCount of (Count -> Count)
         | OrderableDose of (Dose -> Dose)
 
-        | ComponentQuantity of string * (Quantity -> Quantity)
-        | ComponentOrderableQuantity of string * (Quantity -> Quantity)
-        | ComponentOrderableCount of string * (Count -> Count)
-        | ComponentOrderableConcentration of string * (Concentration -> Concentration)
-        | ComponentDose of string * (Dose -> Dose)
+        | ComponentQuantity of cmp: string * (Quantity -> Quantity)
+        | ComponentOrderableQuantity of cmp: string * (Quantity -> Quantity)
+        | ComponentOrderableCount of cmp: string * (Count -> Count)
+        | ComponentOrderableConcentration of cmp: string * (Concentration -> Concentration)
+        | ComponentDose of cmp: string * (Dose -> Dose)
 
-        | ItemComponentQuantity of string * string * (Quantity -> Quantity)
-        | ItemComponentConcentration of string * string * (Concentration -> Concentration)
-        | ItemOrderableQuantity of string * string * (Quantity -> Quantity)
-        | ItemOrderableConcentration of string * string * (Concentration -> Concentration)
-        | ItemDose of string * string * (Dose -> Dose)
+        | ItemComponentQuantity of cmp: string * itm: string * (Quantity -> Quantity)
+        | ItemComponentConcentration of cmp: string * itm: string * (Concentration -> Concentration)
+        | ItemOrderableQuantity of cmp: string * itm: string * (Quantity -> Quantity)
+        | ItemOrderableConcentration of cmp: string * itm: string * (Concentration -> Concentration)
+        | ItemDose of cmp: string * itm: string * (Dose -> Dose)
 
 
     /// Type alias for MinMax from Informedica.GenForm.Lib.Types
@@ -414,10 +415,10 @@ module Types =
 
 
     type TextBlock =
-        | Valid of string 
-        | Caution of string 
-        | Warning of string 
-        | Alert of string 
+        | Valid of string
+        | Caution of string
+        | Warning of string
+        | Alert of string
 
 
     /// <summary>
@@ -544,7 +545,11 @@ module Types =
 
         /// Events that can occur during order processing
         type Event =
+            | MedicationCreated of string
+            | ComponentItemsHarmonized of string
             | SolverReplaceUnit of (Name * Unit)
+            | OrderIncreaseQuantityIncrement of Order
+            | OrderIncreaseRateIncrement of Order
             | OrderSolveStarted of Order
             | OrderSolveFinished of Order
             | OrderSolveConstraintsStarted of Order * Constraint list
