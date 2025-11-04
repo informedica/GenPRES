@@ -98,10 +98,6 @@ Before contributing, ensure you have the following installed:
 2. Clone your fork locally
 3. Set up the demo environment variables:
 
-**Important**: Proper environment variable setup is critical for the application to function correctly. Missing or incorrect environment variables can cause resource loading failures (see [Issue #44](https://github.com/informedica/GenPRES/issues/44)).
-
-#### Option 1: Direct Export (Temporary)
-
 ```bash
 export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
 export GENPRES_LOG=0
@@ -109,34 +105,7 @@ export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
 
-#### Option 2: Using direnv (Recommended for Persistent Setup)
-
-Install [direnv](https://direnv.net/) and create a `.envrc` file in the project root:
-
-```bash
-# .envrc file
-export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-export GENPRES_LOG=0
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-```
-
-**Don't forget** to [hook direnv](https://direnv.net/docs/hook.html) to your shell!
-
-Then allow direnv to load the variables:
-
-```bash
-direnv allow
-```
-
-**Environment Variable Requirements**:
-
-- `GENPRES_URL_ID`: Google Sheet ID for demo data (required)
-- `GENPRES_PROD=0`: **Mandatory** for demo version - prevents production data access
-- `GENPRES_LOG=0`: Controls logging verbosity
-- `GENPRES_DEBUG=1`: Enables debug mode for development
-
-**Troubleshooting**: If you encounter "cannot find column" errors during startup, verify that all environment variables are properly set. Missing `GENPRES_URL_ID` or incorrect values can cause resource loading failures.
+If you prefer, you can use direnv, as documented below.
 
 ### Start the application
 
