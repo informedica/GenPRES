@@ -41,13 +41,13 @@ module TreatmentPlan =
             |> Deferred.defaultValue defVal
 
         let columns = [|
-            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
-            {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "route"; headerName = "Route"; width = 150; filterable = true; sortable = true |}
-            {|  field = "frequency"; headerName = "Frequentie"; width = 150; filterable = false; sortable = false |}
-            {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
-            {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
+            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |} |> box
+            {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |} |> box
+            {|  field = "route"; headerName = "Route"; width = 150; filterable = true; sortable = true |} |> box
+            {|  field = "frequency"; headerName = "Frequentie"; width = 150; filterable = false; sortable = false |} |> box
+            {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |} |> box
+            {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} |> box //``type`` = "number"
+            {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 200; filterable = false; sortable = false |} |> box //``type`` = "number"
         |]
 
         let getVal (vals : ValueUnit option) =

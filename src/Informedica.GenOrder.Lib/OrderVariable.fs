@@ -789,51 +789,18 @@ module OrderVariable =
 
 
     let setNthValue nth (ovar: OrderVariable) =
-        let min, incr, max, vs =
-            ovar.Variable.Values
-            |> ValueRange.getMinIncrMaxOrValueSet
-
-        let vr =
-            match vs with
-            | Some vs ->
-                vs
-                |> Variable.ValueRange.ValueSet.map (fun vu ->
-                    vu
-                    |> ValueUnit.applyToValue (fun brs ->
-                        brs
-                        |> Array.tryItem nth
-                        |> Option.map Array.singleton
-                        |> Option.defaultValue brs
-                    )
-                )
-                |> ValSet
-            | None ->
-                match min, incr with
-                | Some min, Some incr ->
-                    let nthVal =
-                        nth - 1
-                        |> BigRational.fromInt
-                        |> ValueUnit.singleWithUnit Units.Count.times
-                        |> ((*) (incr |> Variable.ValueRange.Increment.toValueUnit))
-                        |> ((+) (min |> Variable.ValueRange.Minimum.toValueUnit))
-
-                    match max with
-                    | None ->
-                        nthVal
-                        |> Variable.ValueRange.ValueSet.create
-                        |> ValSet
-                    | Some max ->
-                        let nthMax = nthVal |> Variable.ValueRange.Maximum.create true
-                        if nthMax |> Variable.ValueRange.Maximum.maxGTmax max then max
-                        else nthMax
-                        |> Variable.ValueRange.Maximum.toValueUnit
-                        |> Variable.ValueRange.ValueSet.create
-                        |> ValSet
-
-                | _ -> ovar.Variable.Values
-
         { ovar with
-            OrderVariable.Variable.Values = vr
+            OrderVariable.Variable =
+                ovar.Variable
+                |> Variable.setNthValue nth
+        }
+
+
+    let setPercValue nth (ovar: OrderVariable) =
+        { ovar with
+            OrderVariable.Variable =
+                ovar.Variable
+                |> Variable.setPercValue nth
         }
 
 
@@ -1426,7 +1393,12 @@ module OrderVariable =
         let setNthValue nth = apply (setNthValue nth)
 
 
-    /// Set standard frequency values based on the time unit (e.g., per day/week)
+        /// Set the Values (or use the increment)
+        /// to the nth value (if not > max)
+        let setPercValue nth = apply (setPercValue nth)
+
+
+        /// Set standard frequency values based on the time unit (e.g., per day/week)
         let setStandardValues frq =
             let oldCs =
                 frq
@@ -1582,6 +1554,11 @@ module OrderVariable =
         let setNthValue nth = toOrdVar >> setNthValue nth >> Concentration
 
 
+        /// Set the Values (or use the increment)
+        /// to the percentage of all values (if not > max)
+        let setPercValue perc = toOrdVar >> setPercValue perc >> Concentration
+
+
         /// Set a Concentration to non-zero positive values
         let setToNonZeroPositive = toOrdVar >> setToNonZeroPositive >> Concentration
 
@@ -1708,6 +1685,11 @@ module OrderVariable =
         /// Set the Values (or use the increment)
         /// to the nth value (if not > max)
         let setNthValue nth = toOrdVar >> setNthValue nth >> Quantity
+
+
+        /// Set the Values (or use the increment)
+        /// to the percentage of all values (if not > max)
+        let setPercValue perc = toOrdVar >> setPercValue perc >> Quantity
 
 
         /// Clear the values of a Quantity
@@ -1954,6 +1936,11 @@ module OrderVariable =
         /// Set the Values (or use the increment)
         /// to the nth value (if not > max)
         let setNthValue nth = toOrdVar >> setNthValue nth >> Rate
+
+
+        /// Set the Values (or use the increment)
+        /// to the percentage of all values (if not > max)
+        let setPercValue perc = toOrdVar >> setPercValue perc >> Rate
 
 
         /// Set a Rate to non-zero positive values

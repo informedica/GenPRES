@@ -26,12 +26,12 @@ module EmergencyList =
             |> Deferred.defaultValue defVal
 
         let columns = [|
-            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |}
-            {|  field = "catagory"; headerName = Terms.``Emergency List Catagory`` |> getTerm "Category"; width = 200; filterable = true; sortable = true |}
-            {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 200; filterable = false; sortable = false |}
-            {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 200; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 400; filterable = false; sortable = false |}
+            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |} |> box
+            {|  field = "catagory"; headerName = Terms.``Emergency List Catagory`` |> getTerm "Category"; width = 200; filterable = true; sortable = true |} |> box
+            {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 200; filterable = true; sortable = true |} |> box
+            {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 200; filterable = false; sortable = false |} |> box
+            {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 200; filterable = false; sortable = false |} |> box //``type`` = "number"
+            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 400; filterable = false; sortable = false |} |> box
         |]
 
         let speakAct s =

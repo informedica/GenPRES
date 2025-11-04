@@ -24,13 +24,13 @@ module ContinuousMeds =
             |> Deferred.defaultValue defVal
 
         let columns = [|
-            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |}
-            {|  field = "catagory"; headerName = Terms.``Continuous Medication Catagory`` |> getTerm "Categorie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |}
-            {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |}
-            {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 230; filterable = false; sortable = false |} //``type`` = "number"
-            {|  field = "advice"; headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advies"; width = 190; filterable = false; sortable = false |}
+            {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |} |> box
+            {|  field = "catagory"; headerName = Terms.``Continuous Medication Catagory`` |> getTerm "Categorie"; width = 200; filterable = true; sortable = true |} |> box
+            {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |} |> box
+            {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 150; filterable = false; sortable = false |} |> box
+            {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 150; filterable = false; sortable = false |} |> box //``type`` = "number"
+            {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 230; filterable = false; sortable = false |} |> box //``type`` = "number"
+            {|  field = "advice"; headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advies"; width = 190; filterable = false; sortable = false |} |> box
         |]
 
         let rows =

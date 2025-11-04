@@ -623,6 +623,18 @@ module Medication =
 
         /// Set component dose constraints based on order type
         let setComponentDoseConstraints (cmpDto : Order.Orderable.Component.Dto.Dto) (d : Medication) (p : ProductComponent) =
+            let zero =
+                d.Components
+                |> List.tryHead
+                |> Option.bind (fun p ->
+                    p.Quantities
+                    |> Option.map ValueUnit.getUnit
+                    |> Option.bind (fun u ->
+                        0N |> createSingleValueUnitDto u
+                    )
+                )
+
+
             let setDoseRate (dl : DoseLimit) =
                 if dl.Rate |> MinMax.isEmpty |> not then
                     cmpDto.Dose.Rate.Constraints |> setConstraints None dl.Rate
@@ -632,6 +644,11 @@ module Medication =
             let setDoseQty (dl : DoseLimit) =
                 if dl.Quantity |> MinMax.isEmpty |> not then
                     cmpDto.Dose.Quantity.Constraints |> setConstraints None dl.Quantity
+                else 
+                    // dose quantities can only add up with the same unit
+                    // so this makes sure a dose quantity has a unit and
+                    // can be included in to the addition equation
+                    cmpDto.Dose.Quantity.Constraints.MinOpt <- zero
                 if dl.QuantityAdjust |> MinMax.isEmpty |> not || dl.NormQuantityAdjust |> Option.isSome then
                     cmpDto.Dose.QuantityAdjust.Constraints |> setConstraints dl.NormQuantityAdjust dl.QuantityAdjust
                 if dl.PerTime |> MinMax.isEmpty |> not then

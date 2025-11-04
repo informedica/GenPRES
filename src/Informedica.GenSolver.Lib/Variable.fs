@@ -5,17 +5,16 @@ namespace Informedica.GenSolver.Lib
 module Variable =
 
     open System
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open MathNet.Numerics
 
+    open Informedica.Utils.Lib.BCL
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.GenUnits.Lib
 
     let raiseExc errs m = m |> Exceptions.raiseExc None errs
 
 
     module Name =
-
-        open Informedica.Utils.Lib.BCL
 
 
         /// Create with continuation with **succ** function
@@ -69,7 +68,6 @@ module Variable =
     module ValueRange =
 
         open Informedica.Utils.Lib
-        open Informedica.Utils.Lib.BCL
 
 
         module Increment =
@@ -1329,6 +1327,7 @@ module Variable =
                 | MaxProp max -> $"..{max |> Maximum.toString exact}"
                 | IncrProp incr -> $"..{incr |> Increment.toString exact}.."
                 | ValsProp vs -> vs |> ValueSet.toString exact
+
 
 
         // === START ValueRange ===
@@ -3473,8 +3472,9 @@ module Variable =
     open ValueRange.Operators
 
     module Minimum = ValueRange.Minimum
-
     module Maximum = ValueRange.Maximum
+    module Increment = ValueRange.Increment
+    module ValueSet = ValueRange.ValueSet
 
 
     /// Create a `Variable` and passes
@@ -3737,7 +3737,6 @@ module Variable =
                 |> ValueRange.convertToUnit unit
         }
 
-
     /// <summary>
     /// Set the nearest value of a Variable
     /// </summary>
@@ -3749,6 +3748,93 @@ module Variable =
                 var.Values
                 |> ValueRange.setNearestValue vu
         }
+
+
+    let setNthValue nth (var: Variable) =
+        let min, incr, max, vs =
+            var.Values
+            |> ValueRange.getMinIncrMaxOrValueSet
+
+        let vr =
+            match vs with
+            | Some vs ->
+                vs
+                |> ValueSet.map (fun vu ->
+                    vu
+                    |> ValueUnit.applyToValue (fun brs ->
+                        brs
+                        |> Array.tryItem (nth - 1)
+                        |> Option.map Array.singleton
+                        |> Option.defaultValue brs
+                    )
+                )
+                |> ValSet
+
+            | None ->
+                match min, incr with
+                | Some min, Some incr ->
+                    let nthVal =
+                        nth
+                        |> BigRational.fromInt
+                        |> ValueUnit.singleWithUnit Units.Count.times
+                        |> (*) (incr |> Increment.toValueUnit)
+                        |> (+) (min |> Minimum.toValueUnit)
+
+                    match max with
+                    | None ->
+                        nthVal
+                        |> ValueSet.create
+                        |> ValSet
+                    | Some max ->
+                        let nthMax = nthVal |> Maximum.create true
+
+                        if nthMax |> Maximum.maxGTmax max then max
+                        else nthMax
+                        |> Maximum.toValueUnit
+                        |> ValueSet.create
+                        |> ValSet
+
+                | _ -> var.Values
+
+        { var with
+            Values = vr
+        }
+
+
+    let setPercValue perc (var : Variable) =
+        let nth =
+            match var.Values |> ValueRange.getMinIncrMaxOrValueSet with
+            | Some min, Some incr, Some max, None ->
+                let min, incr, max =
+                    min |> Minimum.toValueUnit,
+                    incr |> Increment.toValueUnit,
+                    max |> Maximum.toValueUnit
+                (max - min) / incr
+                |> ValueUnit.getValue
+                |> function
+                    | [| br |] when br.Denominator = 1I ->
+                        br
+                        |> BigRational.ToInt32
+                        |> Some
+                    | _ -> None
+            | None, None, None, Some vs ->
+                vs
+                |> ValueSet.count
+                |> Some
+            | _ -> None
+            |> function
+                | None -> None
+                | Some n ->
+                    let nth = n * perc / 100
+                    // cannot be 0
+                    let nth = if nth < 1 then 1 else nth
+                    // must be smaller than total count
+                    if nth > n then n else nth
+                    |> Some
+
+        match nth with
+        | None   -> var
+        | Some n -> var |> setNthValue n
 
 
     /// Set the minimum value of a Variable
