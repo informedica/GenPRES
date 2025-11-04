@@ -12,6 +12,76 @@ GenPRES is an open source software initiative to enable a **Safe and Efficient**
 
 **Important**: GenPRES is being developed to comply with Medical Device Regulation (MDR) certification guidelines. Documentation and processes related to MDR compliance will be added to the project as development progresses. Contributors should be aware that all code changes must adhere to medical device software development standards and quality requirements.
 
+## How to Contribute
+
+### Ways to Contribute
+
+- **Report bugs** by creating detailed issue reports
+- **Suggest features** through feature request issues
+- **Improve documentation** by fixing typos, adding examples, or clarifying instructions
+- **Submit code changes** via pull requests
+- **Help with testing** by running the application and reporting issues
+- **Join discussions** in our [Slack workspace](https://genpresworkspace.slack.com)
+
+### Before You Start
+
+1. Check existing issues to avoid duplicating work
+2. For significant changes, create an issue first to discuss the approach
+3. Join our [Slack workspace](https://genpresworkspace.slack.com) for questions and discussions
+
+## Issue Reporting
+
+Fill in information according to the appropriate template:
+
+- [Bug reports](./.github/ISSUE_TEMPLATE/bug_report.md)
+- [Feature requests](./.github/ISSUE_TEMPLATE/feature_request.md)
+
+## Pull Request Process
+
+### Before Submitting
+
+1. **Fork and Branch**: Create a feature branch from `master`
+2. **Follow Coding Standards**: Ensure your code follows our F# and commit message guidelines
+3. **Write Tests**: Include comprehensive tests for new functionality
+4. **Update Documentation**: Update relevant documentation and comments
+5. **Test Locally**: Run all tests and ensure the application builds successfully
+
+### Pull Request Template
+
+Documented in [the pull request template](./.github/PULL_REQUEST_TEMPLATE.md).
+
+### Review Process
+
+1. **Automated Checks**: Ensure all CI checks pass
+2. **Code Review**: Address feedback from maintainers
+3. **Testing**: Verify tests pass and coverage is maintained
+4. **Documentation**: Ensure documentation is updated appropriately
+
+## Community and Communication
+
+### Slack Workspace
+
+Join our [Slack workspace](https://genpresworkspace.slack.com) for:
+
+- **Questions**: Ask questions about the codebase or medical domain
+- **Discussions**: Participate in design discussions
+- **Collaboration**: Coordinate with other contributors
+- **Support**: Get help with setup or development issues
+
+### Code of Conduct
+
+- **Be Respectful**: Treat all contributors with respect and kindness
+- **Be Patient**: Remember that contributors have varying levels of experience
+- **Be Constructive**: Provide helpful feedback and suggestions
+- **Medical Focus**: Keep discussions focused on improving medication safety and efficiency
+
+## Getting Help
+
+- **Documentation**: Check the [README.md](README.md) for setup instructions
+- **Issues**: Search existing issues before creating new ones
+- **Slack**: Join our [workspace](https://genpresworkspace.slack.com) for real-time help
+- **Code Examples**: Look at existing code in the libraries for patterns and examples
+
 ## Getting Started
 
 ### Prerequisites
@@ -76,22 +146,31 @@ dotnet run
 
 Open your browser to `http://localhost:5173`
 
-## How to Contribute
+## Project Architecture
 
-### Ways to Contribute
+### Technology Stack
 
-- **Report bugs** by creating detailed issue reports
-- **Suggest features** through feature request issues
-- **Improve documentation** by fixing typos, adding examples, or clarifying instructions
-- **Submit code changes** via pull requests
-- **Help with testing** by running the application and reporting issues
-- **Join discussions** in our [Slack workspace](https://genpresworkspace.slack.com)
+This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 
-### Before You Start
+- **Server**: F# with [Saturn](https://saturnframework.org/)
+- **Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/)
+- **Testing**: Expecto with FsCheck for property-based testing
+- **Build**: .NET 9.0
 
-1. Check existing issues to avoid duplicating work
-2. For significant changes, create an issue first to discuss the approach
-3. Join our [Slack workspace](https://genpresworkspace.slack.com) for questions and discussions
+### Core Libraries
+
+- **Informedica.Utils.Lib**: Shared utilities, common functions
+- **Informedica.Agents.Lib**: Implementations of the MailboxProcessor as Agent
+- **Informedica.Logging.Lib**: Logging library enabling concurrent logging
+- **Informedica.GenCore.Lib**: Domain modelling of core concepts
+- **Informedica.GenUnits.Lib**: Units of measure, calculations
+- **Informedica.GenSolver.Lib**: Constraint solving, equations, variables
+- **Informedica.ZIndex.Lib**: Medication database, drug *product* information
+- **Informedica.ZForm.Lib**: Medication database, drug *dosing* information
+- **Informedica.GenForm.Lib**: Domain library for all order constraint rules
+- **Informedica.GenOrder.Lib**: Medical orders, prescriptions
+- **Server**: The server library
+- **Client**: The webbased client UI
 
 ## Code Contribution Guidelines
 
@@ -196,34 +275,6 @@ When contributing to medical functionality:
 - Profile before optimizing
 - Maintain functional approaches while being pragmatic about performance
 
-## Pull Request Process
-
-### Before Submitting
-
-1. **Fork and Branch**: Create a feature branch from `master`
-2. **Follow Coding Standards**: Ensure your code follows our F# and commit message guidelines
-3. **Write Tests**: Include comprehensive tests for new functionality
-4. **Update Documentation**: Update relevant documentation and comments
-5. **Test Locally**: Run all tests and ensure the application builds successfully
-
-### Pull Request Template
-
-Documented in [the pull request template](./.github/PULL_REQUEST_TEMPLATE.md).
-
-### Review Process
-
-1. **Automated Checks**: Ensure all CI checks pass
-2. **Code Review**: Address feedback from maintainers
-3. **Testing**: Verify tests pass and coverage is maintained
-4. **Documentation**: Ensure documentation is updated appropriately
-
-## Issue Reporting
-
-Fill in information according to the appropriate template:
-
-- [Bug reports](./.github/ISSUE_TEMPLATE/bug_report.md)
-- [Feature requests](./.github/ISSUE_TEMPLATE/feature_request.md)
-
 ## Development Workflow
 
 ### Git Workflow
@@ -270,57 +321,6 @@ Many developers prefer using tools like `direnv` for automatic environment varia
 4. Variables will be loaded automatically when entering the project directory
 
 For other environment variable management approaches, see [Issue #44](https://github.com/informedica/GenPRES/issues/44) for community discussions and recommendations.
-
-## Community and Communication
-
-### Slack Workspace
-
-Join our [Slack workspace](https://genpresworkspace.slack.com) for:
-
-- **Questions**: Ask questions about the codebase or medical domain
-- **Discussions**: Participate in design discussions
-- **Collaboration**: Coordinate with other contributors
-- **Support**: Get help with setup or development issues
-
-### Code of Conduct
-
-- **Be Respectful**: Treat all contributors with respect and kindness
-- **Be Patient**: Remember that contributors have varying levels of experience
-- **Be Constructive**: Provide helpful feedback and suggestions
-- **Medical Focus**: Keep discussions focused on improving medication safety and efficiency
-
-## Project Architecture
-
-### Technology Stack
-
-This project is built on the [SAFE Stack](https://safe-stack.github.io/):
-
-- **Server**: F# with [Saturn](https://saturnframework.org/)
-- **Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/)
-- **Testing**: Expecto with FsCheck for property-based testing
-- **Build**: .NET 9.0
-
-### Core Libraries
-
-- **Informedica.Utils.Lib**: Shared utilities, common functions
-- **Informedica.Agents.Lib**: Implementations of the MailboxProcessor as Agent
-- **Informedica.Logging.Lib**: Logging library enabling concurrent logging
-- **Informedica.GenCore.Lib**: Domain modelling of core concepts
-- **Informedica.GenUnits.Lib**: Units of measure, calculations
-- **Informedica.GenSolver.Lib**: Constraint solving, equations, variables
-- **Informedica.ZIndex.Lib**: Medication database, drug *product* information
-- **Informedica.ZForm.Lib**: Medication database, drug *dosing* information
-- **Informedica.GenForm.Lib**: Domain library for all order constraint rules
-- **Informedica.GenOrder.Lib**: Medical orders, prescriptions
-- **Server**: The server library
-- **Client**: The webbased client UI
-
-## Getting Help
-
-- **Documentation**: Check the [README.md](README.md) for setup instructions
-- **Issues**: Search existing issues before creating new ones
-- **Slack**: Join our [workspace](https://genpresworkspace.slack.com) for real-time help
-- **Code Examples**: Look at existing code in the libraries for patterns and examples
 
 ## Recognition
 
