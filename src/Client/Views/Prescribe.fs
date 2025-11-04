@@ -244,52 +244,6 @@ module Prescribe =
                 </Backdrop>
                 """
 
-        let typoGraphy (textBlock : TextBlock) =
-            let print tb =
-                let items, color =
-                    match tb with
-                    | Valid items -> items, Mui.Colors.Green.``700``
-                    | Caution items -> items, Mui.Colors.Blue.``700``
-                    | Warning items -> items, Mui.Colors.Orange.``900``
-                    | Alert items -> items, Mui.Colors.Red.``700``
-
-                items 
-                |> Array.map (fun item ->
-                    match item with
-                    | Normal s ->
-                        JSX.jsx
-                            $"""
-                        <Typography color={Mui.Colors.Grey.``700``} display="inline">{s}</Typography>
-                        """
-                    | Bold s ->
-                        JSX.jsx
-                            $"""
-                        <Typography
-                        color={color}
-                        display="inline"
-                        >
-                        <strong> {s} </strong>
-                        </Typography>
-                        """
-                    | Italic s ->
-                        JSX.jsx
-                            $"""
-                        <Typography
-                        color={Mui.Colors.Grey.``600``}
-                        display="inline"
-                        >
-                        <strong>{s}</strong>
-                        </Typography>
-                        """
-                )
-            JSX.jsx
-                $"""
-            import Typography from '@mui/material/Typography';
-
-            <Box display="inline" >
-                {textBlock |> print |> unbox |> React.fragment}
-            </Box>
-            """
 
         let displayScenario (pr : OrderContext) med (sc : OrderScenario) =
             if med |> Option.isNone then JSX.jsx $"""<></>"""
@@ -329,7 +283,7 @@ module Prescribe =
                             |> Array.mapi (fun i cell ->
                                     JSX.jsx $"""
                                     <TableCell key={i} sx = { {| pt=1; pr=2 |} }>
-                                        {cell |> typoGraphy}
+                                        {cell |> Mui.TypoGraphy.fromTextBlock}
                                     </TableCell>
                                     """
                             )

@@ -104,11 +104,13 @@ module Nutrion =
                         columns = columns
                         rows = rows
                         rowCreate = rowCreate
-                        height = "50vh"
+                        height = "53vh"
                         onRowClick = ignore
                         checkboxSelection = true
                         selectedRows = [||]
                         onSelectChange = ignore
+                        showToolbar = false
+                        showFooter = false
                     |})
                 }
             </Box>

@@ -310,6 +310,8 @@ module TreatmentPlan =
                     checkboxSelection = true
                     selectedRows = selectedRows
                     onSelectChange = filterOrders
+                    showToolbar = true
+                    showFooter = true
                 |})
             }
             <Modal open={modalOpen} onClose={handleModalClose} >
