@@ -4,6 +4,7 @@ namespace Views
 module ContinuousMeds =
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
 
@@ -23,12 +24,40 @@ module ContinuousMeds =
             )
             |> Deferred.defaultValue defVal
 
+        let renderQuantityCell =
+            fun (pars: obj) ->
+                let value: string = pars?value
+                value 
+                |> TextBlock.fromString 
+                |> Mui.TypoGraphy.fromTextBlock
+
+        let renderSolutionCell =
+            fun (pars: obj) ->
+                let value: string = pars?value
+                value 
+                |> TextBlock.fromString 
+                |> Mui.TypoGraphy.fromTextBlock
+
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false |} |> box
             {|  field = "catagory"; headerName = Terms.``Continuous Medication Catagory`` |> getTerm "Categorie"; width = 140; filterable = true; sortable = true |} |> box
             {|  field = "medication"; headerName = Terms.``Continuous Medication Medication`` |> getTerm "Medicatie"; width = 200; filterable = true; sortable = true |} |> box
-            {|  field = "quantity"; headerName = Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid"; width = 140; filterable = false; sortable = false |} |> box
-            {|  field = "solution"; headerName = Terms.``Continuous Medication Solution`` |> getTerm "Oplossing"; width = 140; filterable = false; sortable = false |} |> box //``type`` = "number"
+            createObj [
+                "field" ==> "quantity"
+                "headerName" ==> (Terms.``Continuous Medication Quantity`` |> getTerm "Hoeveelheid")
+                "width" ==> 140
+                "filterable" ==> false
+                "sortable" ==> false
+                "renderCell" ==> renderQuantityCell
+            ]
+            createObj [
+                "field" ==> "solution"
+                "headerName" ==> (Terms.``Continuous Medication Solution`` |> getTerm "Oplossing")
+                "width" ==> 140
+                "filterable" ==> false
+                "sortable" ==> false
+                "renderCell" ==> renderSolutionCell
+            ]
             {|  field = "dose"; headerName = Terms.``Continuous Medication Dose`` |> getTerm "Dosering"; width = 200; filterable = false; sortable = false |} |> box //``type`` = "number"
             {|  field = "advice"; headerName = Terms.``Continuous Medication Advice`` |> getTerm "Advies"; width = 200; filterable = false; sortable = false |} |> box
         |]

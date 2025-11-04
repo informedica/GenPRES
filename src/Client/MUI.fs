@@ -771,6 +771,10 @@ module Colors =
 
 module TypoGraphy =
 
+    open Shared.Types
+
+    open Feliz
+
     let create v text =
         JSX.jsx
             $"""
@@ -825,6 +829,55 @@ module TypoGraphy =
             >
             <strong>{text}</strong>
         </Typography>
+        """
+
+
+    let fromTextBlock (textBlock : TextBlock) = 
+        let print tb =
+            let items, color =
+                match tb with
+                | Valid items -> items, Colors.Green.``700``
+                | Caution items -> items, Colors.Blue.``700``
+                | Warning items -> items, Colors.Orange.``900``
+                | Alert items -> items, Colors.Red.``700``
+
+            items 
+            |> Array.map (fun item ->
+                match item with
+                | Normal s ->
+                    JSX.jsx
+                        $"""
+                    <Typography color={Colors.Grey.``700``} display="inline">{s}</Typography>
+                    """
+                | Bold s ->
+                    JSX.jsx
+                        $"""
+                    <Typography
+                    color={color}
+                    display="inline"
+                    >
+                    <strong> {s} </strong>
+                    </Typography>
+                    """
+                | Italic s ->
+                    JSX.jsx
+                        $"""
+                    <Typography
+                    color={Colors.Grey.``600``}
+                    display="inline"
+                    >
+                    <strong>{s}</strong>
+                    </Typography>
+                    """
+            )
+        JSX.jsx
+            $"""
+        import Box from '@mui/material/Box';
+        import Typography from '@mui/material/Typography';
+
+        <Box display="inline" >
+            {textBlock |> print |> unbox |> React.fragment}
+        </Box>
         """
 
 

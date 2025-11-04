@@ -6,6 +6,7 @@ module EmergencyList =
 
     open System
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
     open Shared.Types
@@ -26,12 +27,40 @@ module EmergencyList =
             )
             |> Deferred.defaultValue defVal
 
+        let renderCalculatedCell =
+            fun (pars: obj) ->
+                let value: string = pars?value
+                value 
+                |> TextBlock.fromString 
+                |> Mui.TypoGraphy.fromTextBlock
+
+        let renderPreparationCell =
+            fun (pars: obj) ->
+                let value: string = pars?value
+                value 
+                |> TextBlock.fromString 
+                |> Mui.TypoGraphy.fromTextBlock
+
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |} |> box
             {|  field = "catagory"; headerName = Terms.``Emergency List Catagory`` |> getTerm "Category"; width = 140; filterable = true; sortable = true |} |> box
             {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 300; filterable = true; sortable = true |} |> box
-            {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 180; filterable = false; sortable = false |} |> box
-            {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 180; filterable = false; sortable = false |} |> box //``type`` = "number"
+            createObj [
+                "field" ==> "calculated"
+                "headerName" ==> (Terms.``Emergency List Calculated`` |> getTerm "Berekend")
+                "width" ==> 180
+                "filterable" ==> false
+                "sortable" ==> false
+                "renderCell" ==> renderCalculatedCell
+            ]
+            createObj [
+                "field" ==> "preparation"
+                "headerName" ==> (Terms.``Emergency List Preparation`` |> getTerm "Bereiding")
+                "width" ==> 180
+                "filterable" ==> false
+                "sortable" ==> false
+                "renderCell" ==> renderPreparationCell
+            ]
             {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 300; filterable = false; sortable = false |} |> box
         |]
 
@@ -101,7 +130,7 @@ module EmergencyList =
                     id = cells[0]
                     catagory = cells[1].Replace("*", "")
                     intervention = cells[2].Replace("*", "")
-                    calculated = cells[3].Replace("*", "")
+                    calculated = cells[3].Replace("*", "") 
                     preparation = cells[4].Replace("*", "")
                     advice = cells[5].Replace("*", "")
                 |}

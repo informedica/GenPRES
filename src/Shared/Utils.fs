@@ -472,7 +472,7 @@ module TextBlock =
                     if pos < text.Length then
                         let remaining = text.Substring(pos)
                         if not (String.IsNullOrWhiteSpace remaining) then
-                            (Normal remaining) :: acc
+                            Normal remaining :: acc
                         else acc
                     else acc
                 else
@@ -482,11 +482,11 @@ module TextBlock =
                         if m.Index > pos then
                             let before = text.Substring(pos, m.Index - pos)
                             if not (String.IsNullOrWhiteSpace before) then
-                                (Bold m.Value) :: (Normal before) :: acc
+                                Bold m.Value :: Normal before :: acc
                             else
-                                (Bold m.Value) :: acc
+                                Bold m.Value :: acc
                         else
-                            (Bold m.Value) :: acc
+                            Bold m.Value :: acc
                     
                     buildItems (m.Index + m.Length) (matchIdx + 1) items
             
@@ -494,5 +494,5 @@ module TextBlock =
             let finalItems = 
                 if items |> List.isEmpty then [| Normal text |]
                 else items |> List.rev |> List.toArray
-            
+
             Valid finalItems

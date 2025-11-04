@@ -269,8 +269,6 @@ module ResponsiveTable =
                 else
                     createObj []
 
-            let getRowHeight = fun _ -> "auto"
-
             JSX.jsx
                 $"""
             import {{ DataGrid }} from '@mui/x-data-grid';
@@ -288,14 +286,17 @@ module ResponsiveTable =
                         rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         getRowClassName={getRowClassName}
-                        getRowHeight={getRowHeight}
+                        
                         rows={rows}
                         slots={slots}
                         onRowClick={onRowClick}
                         hideFooter={not props.showFooter}
                         initialState =
                             {
-                                {| columns = {| columnVisibilityModel = {| id = false |} |} |}
+                                {| 
+                                    columns = {| columnVisibilityModel = {| id = false |} |} 
+                                    density = "comfortable"
+                                |}
                             }
                         columns=
                             {
