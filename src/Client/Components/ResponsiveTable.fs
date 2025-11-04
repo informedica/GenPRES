@@ -111,7 +111,7 @@ module ResponsiveTable =
     let View (props :
         {|
             hideFilter : bool
-            columns : {|  field : string; headerName : string; width : int; filterable : bool; sortable : bool |}[]
+            columns : obj[]
             rows : {| cells : {| field: string; value: string |} []; actions : ReactElement option |} []
             rowCreate : string[] -> obj
             height : string
@@ -130,7 +130,11 @@ module ResponsiveTable =
                 if props.rows |> Array.isEmpty then None
                 else
                     props.columns
-                    |> Array.tryFind (fun c -> c.filterable)
+                    |> Array.choose (fun c ->
+                        let col = unbox<{| field: string; headerName: string; width: int; filterable: bool; sortable: bool |}> c
+                        if col.filterable then Some col else None
+                    )
+                    |> Array.tryHead
 
         let filter =
             columnFilter
@@ -219,7 +223,10 @@ module ResponsiveTable =
             )
 
         if isMobile then
-            {| columns = props.columns; rows = rows; filter = Some filter |}
+            let typedColumns =
+                props.columns
+                |> Array.map unbox<{| field: string; headerName: string; width: int; filterable: bool; sortable: bool |}>
+            {| columns = typedColumns; rows = rows; filter = Some filter |}
             |> CardTable
         else
             let rows =
@@ -270,10 +277,17 @@ module ResponsiveTable =
                             {
                                 props.columns
                                 |> Array.map (fun c ->
-                                    match c.field with
-                                    | s when s = "id" ->
-                                        {| c with hide = true |} |> box
-                                    | _ -> c |> box
+                                    // Try to get the field property if it exists as a simple column
+                                    try
+                                        let simpleCol = unbox<{| field: string |} > c
+                                        match simpleCol.field with
+                                        | "id" ->
+                                            createObj [
+                                                "field" ==> "id"
+                                                "hide" ==> true
+                                            ]
+                                        | _ -> c
+                                    with _ -> c // Already an object with custom properties
                                 )
                             }
                     />

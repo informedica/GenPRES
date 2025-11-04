@@ -822,7 +822,7 @@ let run
     )
 
 
-tpnComplete
-|> run 50 10 5 100
+tpn
+|> run 50 0 5 0
 |> ignore
 

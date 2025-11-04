@@ -3759,7 +3759,7 @@ module Variable =
             match vs with
             | Some vs ->
                 vs
-                |> ValueRange.ValueSet.map (fun vu ->
+                |> ValueSet.map (fun vu ->
                     vu
                     |> ValueUnit.applyToValue (fun brs ->
                         brs
@@ -3777,21 +3777,21 @@ module Variable =
                         nth
                         |> BigRational.fromInt
                         |> ValueUnit.singleWithUnit Units.Count.times
-                        |> ((*) (incr |> ValueRange.Increment.toValueUnit))
-                        |> ((+) (min |> ValueRange.Minimum.toValueUnit))
+                        |> (*) (incr |> Increment.toValueUnit)
+                        |> (+) (min |> Minimum.toValueUnit)
 
                     match max with
                     | None ->
                         nthVal
-                        |> ValueRange.ValueSet.create
+                        |> ValueSet.create
                         |> ValSet
                     | Some max ->
-                        let nthMax = nthVal |> ValueRange.Maximum.create true
+                        let nthMax = nthVal |> Maximum.create true
 
-                        if nthMax |> ValueRange.Maximum.maxGTmax max then max
+                        if nthMax |> Maximum.maxGTmax max then max
                         else nthMax
-                        |> ValueRange.Maximum.toValueUnit
-                        |> ValueRange.ValueSet.create
+                        |> Maximum.toValueUnit
+                        |> ValueSet.create
                         |> ValSet
 
                 | _ -> var.Values
