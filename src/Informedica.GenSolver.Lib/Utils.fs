@@ -105,7 +105,7 @@ module Utils =
                 |> Array.map BigRational.toDecimal
                 |> Array.map (Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision prec)
                 |> Array.distinct
-                |> String.concat ", "
+                |> String.concat "; "
                 |> sprintf "#%s#"
 
             let us = u |> unitToReadableDutchString
