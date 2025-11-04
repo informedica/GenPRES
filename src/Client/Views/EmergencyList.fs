@@ -8,6 +8,7 @@ module EmergencyList =
     open Fable.Core
     open Feliz
     open Shared
+    open Shared.Types
 
 
     [<JSX.Component>]
@@ -27,11 +28,11 @@ module EmergencyList =
 
         let columns = [|
             {|  field = "id"; headerName = "id"; width = 0; filterable = false; sortable = false;  |} |> box
-            {|  field = "catagory"; headerName = Terms.``Emergency List Catagory`` |> getTerm "Category"; width = 200; filterable = true; sortable = true |} |> box
-            {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 200; filterable = true; sortable = true |} |> box
-            {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 200; filterable = false; sortable = false |} |> box
-            {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 200; filterable = false; sortable = false |} |> box //``type`` = "number"
-            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 400; filterable = false; sortable = false |} |> box
+            {|  field = "catagory"; headerName = Terms.``Emergency List Catagory`` |> getTerm "Category"; width = 140; filterable = true; sortable = true |} |> box
+            {|  field = "intervention"; headerName = Terms.``Emergency List Intervention`` |> getTerm "Interventie"; width = 300; filterable = true; sortable = true |} |> box
+            {|  field = "calculated"; headerName = Terms.``Emergency List Calculated`` |> getTerm "Berekend"; width = 180; filterable = false; sortable = false |} |> box
+            {|  field = "preparation"; headerName = Terms.``Emergency List Preparation`` |> getTerm "Bereiding"; width = 180; filterable = false; sortable = false |} |> box //``type`` = "number"
+            {|  field = "advice"; headerName = Terms.``Emergency List Advice`` |> getTerm "Advies"; width = 300; filterable = false; sortable = false |} |> box
         |]
 
         let speakAct s =
@@ -116,6 +117,8 @@ module EmergencyList =
             checkboxSelection = false
             selectedRows = [||]
             onSelectChange = ignore
+            showToolbar = true
+            showFooter = true
         |})
 
 

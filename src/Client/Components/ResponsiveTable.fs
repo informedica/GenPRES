@@ -119,6 +119,8 @@ module ResponsiveTable =
             checkboxSelection : bool
             selectedRows : string []
             onSelectChange: string [] -> unit
+            showToolbar : bool
+            showFooter : bool
         |}) =
         let state, setState = React.useState [||]
 
@@ -207,6 +209,15 @@ module ResponsiveTable =
                     "backgroundColor" ==> "white"
                     "borderLeft" ==> "4px solid #1976d2"
                 ]
+                
+                "& .MuiDataGrid-cell"
+                ==> createObj [
+                    "whiteSpace" ==> "normal"
+                    "wordWrap" ==> "break-word"
+                    "lineHeight" ==> "1.5"
+                    "paddingTop" ==> "8px"
+                    "paddingBottom" ==> "8px"
+                ]
             ]
 
         let rows =
@@ -236,18 +247,29 @@ module ResponsiveTable =
                 |> Array.map props.rowCreate
 
             let toolbar () =
-                JSX.jsx
-                    $"""
-                import {{ GridToolbar }} from '@mui/x-data-grid';
+                if props.showToolbar then
+                    JSX.jsx
+                        $"""
+                    import {{ GridToolbar }} from '@mui/x-data-grid';
 
-                <GridToolbar printOptions = { {| hideFooter=true; hideToolbar=true |} } />
-                """
-                |> toReact
+                    <GridToolbar printOptions = { {| hideFooter=true; hideToolbar=true |} } />
+                    """
+                    |> toReact
+                else
+                    JSX.jsx "<></>" |> toReact
 
             let selectedRows =
                 props.selectedRows
                 |> fun ids ->
                     {| ``type`` = "include"; ids = ids |> Set.ofArray |}
+
+            let slots =
+                if props.showToolbar then
+                    createObj [ "toolbar" ==> toolbar ]
+                else
+                    createObj []
+
+            let getRowHeight = fun _ -> "auto"
 
             JSX.jsx
                 $"""
@@ -260,15 +282,17 @@ module ResponsiveTable =
                 <div style={ {| height =props.height; width = "100%" |} }>
                     <DataGrid
                         sx={stripedSx}
-                        showToolbar={true}
+                        showToolbar={props.showToolbar}
                         checkboxSelection={props.checkboxSelection}
                         disableRowSelectionOnClick
                         rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         getRowClassName={getRowClassName}
+                        getRowHeight={getRowHeight}
                         rows={rows}
-                        slots={ {| toolbar = toolbar |} }
+                        slots={slots}
                         onRowClick={onRowClick}
+                        hideFooter={not props.showFooter}
                         initialState =
                             {
                                 {| columns = {| columnVisibilityModel = {| id = false |} |} |}

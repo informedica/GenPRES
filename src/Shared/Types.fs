@@ -295,6 +295,19 @@ module Types =
         }
 
 
+    type TextItem =
+        | Normal of string
+        | Bold of string
+        | Italic of string
+
+
+    type TextBlock =
+        | Valid of TextItem []
+        | Caution of TextItem []
+        | Warning of TextItem []
+        | Alert of TextItem []
+
+
     type Intervention =
         {
             Hospital: string
@@ -349,19 +362,6 @@ module Types =
             SubstanceDoseText: string
             Text: string
         }
-
-
-    type TextItem =
-        | Normal of string
-        | Bold of string
-        | Italic of string
-
-
-    type TextBlock =
-        | Valid of TextItem []
-        | Caution of TextItem []
-        | Warning of TextItem []
-        | Alert of TextItem []
 
 
     type Product =
