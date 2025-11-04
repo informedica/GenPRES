@@ -97,7 +97,7 @@ Open your browser to `http://localhost:5173`
 
 ### Repository Structure
 
-**Important: an opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around!!
+**Important: an opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead of the other way around!!
 
 This project follows specific organizational patterns:
 
@@ -260,7 +260,7 @@ When requesting features, include:
 This project uses an opt-in strategy for `.gitignore`:
 
 - You must explicitly define what should be included
-- When adding new files, ensure they're properly included in git
+- When adding new files, ensure they're properly included in Git
 - Proprietary medication cache files are excluded for licensing reasons
 
 ### Environment Configuration
