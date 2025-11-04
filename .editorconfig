@@ -5,12 +5,18 @@ indent_style = space
 indent_size = 4
 charset = utf-8
 trim_trailing_whitespace = true
-insert_final_newline = false
+# Final newlines are necessary for a lot of unix tools to work as expected. See
+# https://stackoverflow.com/questions/729692/why-should-text-files-end-with-a-newline for more info.
+insert_final_newline = true
 max_line_length=120
 
-[*.fs]
+# Settings to get close to the style described in ./.github/instructions/fsharp-code-formatting.md
+# NOTE: neither if/then/else behaviour nor pipeline formatting is as desired.
+[*.{fs,fsx}]
 fsharp_multiline_bracket_style = aligned
 fsharp_align_function_signature_to_indentation = true
 fsharp_keep_max_number_of_blank_lines = 2
 fsharp_multi_line_lambda_closing_newline=true
 fsharp_max_value_binding_width=80
+fsharp_record_multiline_formatter = number_of_items
+fsharp_array_or_list_multiline_formatter = number_of_items
