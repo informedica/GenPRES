@@ -851,10 +851,9 @@ Scenarios: {scenarios}
                         prs
                         |> Array.map changeRuleProductsDivisible
                         |> evaluateRules logger
-                        |> processEvaluationResults
                     | results ->
                         results
-                        |> processEvaluationResults
+                    |> processEvaluationResults
                     |> filterScenariosByPreparation
             }
         |> updateFilterIfOneScenario
@@ -870,12 +869,12 @@ Scenarios: {scenarios}
 
     let evaluate logger provider cmd =
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios logger provider |> ValidatedResult.map UpdateOrderContext
-        | ReloadResources ctx -> ctx |> reloadResources logger provider |> ValidatedResult.map ReloadResources
+        | UpdateOrderContext ctx -> ctx |> getScenarios logger provider    |> ValidatedResult.map UpdateOrderContext
+        | ReloadResources ctx    -> ctx |> reloadResources logger provider |> ValidatedResult.map ReloadResources
         // TODO: need to implement validation
-        | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
-        | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
-        | ResetOrderScenario ctx -> ctx |> processScenarioOrder logger ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
+        | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues   |> SelectOrderScenario  |> ValidatedResult.createOkNoMsgs
+        | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder   |> UpdateOrderScenario  |> ValidatedResult.createOkNoMsgs
+        | ResetOrderScenario ctx  -> ctx |> processScenarioOrder logger ReCalcValues |> ResetOrderScenario   |> ValidatedResult.createOkNoMsgs
 
 
     let logOrderContext (logger: Logger) msg cmd =
