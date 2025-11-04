@@ -99,7 +99,7 @@ module OrderScenario =
         | Alert s ->
             if s |> String.isNullOrWhiteSpace then tb
             else
-                let s = 
+                let s =
                     s
                     |> String.replace "[" ""
                     |> String.replace "]" ""
@@ -275,6 +275,7 @@ module OrderContext =
 
         open Informedica.Logging.Lib
 
+        (*
         /// <summary>
         /// Increase the Orderable Quantity and Rate Increment of an Order.
         /// This allows speedy calculation by avoiding large amount
@@ -286,7 +287,7 @@ module OrderContext =
 
 
         let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
-
+        *)
 
         let changeRuleProductsDivisible pr =
             { pr with
@@ -317,82 +318,104 @@ module OrderContext =
 
 
         /// <summary>
+        /// Evaluates a single order against a prescription rule.
+        /// Processes the order through the pipeline and filters products based on results.
+        /// </summary>
+        /// <param name="logger">Logger for diagnostics</param>
+        /// <param name="pr">The prescription rule to evaluate against</param>
+        /// <param name="order">The order to evaluate</param>
+        /// <returns>Result containing the evaluated order and updated prescription rule, or error details</returns>
+        let evaluateOrder logger (pr: PrescriptionRule) order =
+            order
+            |> CalcMinMax
+            |> OrderProcessor.processPipeline logger (pr.DoseRule |> DoseRule.getNormDose)
+            |> function
+            | Ok ord ->
+                // Set dose units from substance limits
+                let ord =
+                    pr.DoseRule.ComponentLimits
+                    |> Array.collect _.SubstanceLimits
+                    |> Array.filter DoseLimit.isSubstanceLimit
+                    |> Array.fold (fun acc dl ->
+                        let sn =
+                            dl.DoseLimitTarget
+                            |> LimitTarget.substanceTargetToString
+                        acc
+                        |> Order.setDoseUnit sn dl.DoseUnit
+                    ) ord
+
+                // Extract component items for product filtering
+                let compItems =
+                    [
+                        for cmp in ord.Orderable.Components do
+                                let cmpQty =
+                                    cmp.ComponentQuantity
+                                    |> OrderVariable.Quantity.toOrdVar
+                                    |> OrderVariable.getValSetValueUnit
+                                if cmpQty.IsSome then
+                                    for itm in cmp.Items do
+                                        let itmQty =
+                                            itm.ComponentConcentration
+                                            |> OrderVariable.Concentration.toOrdVar
+                                            |> OrderVariable.getValSetValueUnit
+                                        if itmQty.IsSome then
+                                            {
+                                                ComponentName = cmp.Name |> Name.toString
+                                                ComponentQuantity = cmpQty.Value
+                                                ItemName = itm.Name |> Name.toString
+                                                ItemConcentration = itmQty.Value
+                                            }
+                    ]
+
+                let pr =
+                    pr
+                    |> PrescriptionRule.filterProducts compItems
+
+                Ok (ord, pr)
+            | Error (ord, m) ->
+                Error (ord, pr, m)
+
+        (*
+        /// <summary>
         /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
         /// multiple Orders, depending on the SolutionRules.
         /// </summary>
-        /// <param name="logger"></param>
-        /// <param name="pr"></param>
+        /// <param name="logger">Logger for diagnostics</param>
+        /// <param name="pr">The prescription rule to evaluate</param>
         /// <returns>
         /// An array of Results, containing the Order and the PrescriptionRule.
         /// </returns>
         let evaluateRule logger (pr : PrescriptionRule) =
-            let eval pr order =
-                order
-                |> CalcMinMax
-                |> OrderProcessor.processPipeline logger (pr.DoseRule |> DoseRule.getNormDose)
-                |> function
-                | Ok ord ->
-                    let ord =
-                        pr.DoseRule.ComponentLimits
-                        |> Array.collect _.SubstanceLimits
-                        |> Array.filter DoseLimit.isSubstanceLimit
-                        |> Array.fold (fun acc dl ->
-                            let sn =
-                                dl.DoseLimitTarget
-                                |> LimitTarget.substanceTargetToString
-                            acc
-                            |> Order.setDoseUnit sn dl.DoseUnit
-                        ) ord
-
-                    let compItems =
-                        [
-                            for cmp in ord.Orderable.Components do
-                                    let cmpQty =
-                                        cmp.ComponentQuantity
-                                        |> OrderVariable.Quantity.toOrdVar
-                                        |> OrderVariable.getValSetValueUnit
-                                    if cmpQty.IsSome then
-                                        for itm in cmp.Items do
-                                            let itmQty =
-                                                itm.ComponentConcentration
-                                                |> OrderVariable.Concentration.toOrdVar
-                                                |> OrderVariable.getValSetValueUnit
-                                            if itmQty.IsSome then
-                                                {
-                                                    ComponentName = cmp.Name |> Name.toString
-                                                    ComponentQuantity = cmpQty.Value
-                                                    ItemName = itm.Name |> Name.toString
-                                                    ItemConcentration = itmQty.Value
-                                                }
-                        ]
-
-                    let pr =
-                        pr
-                        |> PrescriptionRule.filterProducts compItems
-
-                    Ok (ord, pr)
-                | Error (ord, m) ->
-                    Error (ord, pr, m)
-
             pr
             |> Medication.fromRule logger
             |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
             // Note: multiple solution rules can result in multiple drugorders
-            |> Array.map (eval pr)
-
-
-        let evaluateRules (logger: Logger) prs =
-            prs
-            |> Array.map (fun pr ->
-                async {
-                    return
-                        pr
-                        |> evaluateRule logger
-                }
-            )
+            |> Array.map (fun ord -> async { return ord |> evaluateOrder logger pr })
             |> Async.Parallel
-            |> Async.RunSynchronously
-            |> Array.collect id
+        *)
+
+
+        /// <summary>
+        /// Evaluates multiple prescription rules in parallel.
+        /// Flattens all orders upfront and uses Array.Parallel for optimal performance.
+        /// </summary>
+        /// <param name="logger">Logger for diagnostics</param>
+        /// <param name="prs">Array of prescription rules to evaluate</param>
+        /// <returns>Array of successfully evaluated order-rule pairs</returns>
+        let evaluateRules (logger: Logger) prs =
+            // Flatten all orders from all prescription rules upfront
+            let ords =
+                prs
+                |> Array.collect (fun pr ->
+                    pr
+                    |> Medication.fromRule logger
+                    |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
+                    |> Array.map (fun ord -> ord, pr)
+                )
+
+            // Evaluate all orders in parallel using Array.Parallel for better performance
+            ords
+            |> Array.Parallel.map (fun (ord, pr) -> evaluateOrder logger pr ord)
             |> Array.filter Result.isOk
 
 
@@ -783,7 +806,7 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let processOrders (logger: Logger) cmd (ctx: OrderContext) =
+    let processScenarioOrder (logger: Logger) cmd (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None ->
             writeErrorMessage "No orders to proces in order context"
@@ -850,17 +873,17 @@ Scenarios: {scenarios}
         | UpdateOrderContext ctx -> ctx |> getScenarios logger provider |> ValidatedResult.map UpdateOrderContext
         | ReloadResources ctx -> ctx |> reloadResources logger provider |> ValidatedResult.map ReloadResources
         // TODO: need to implement validation
-        | SelectOrderScenario ctx -> ctx |> processOrders logger CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
-        | UpdateOrderScenario ctx -> ctx |> processOrders logger SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
-        | ResetOrderScenario ctx -> ctx |> processOrders logger ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
+        | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues |> SelectOrderScenario |> ValidatedResult.createOkNoMsgs
+        | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder |> UpdateOrderScenario |> ValidatedResult.createOkNoMsgs
+        | ResetOrderScenario ctx -> ctx |> processScenarioOrder logger ReCalcValues |> ResetOrderScenario |> ValidatedResult.createOkNoMsgs
 
 
     let logOrderContext (logger: Logger) msg cmd =
-        let log (s: string) = 
+        let log (s: string) =
             s
             |> Events.OrderScenario
             |> Logging.OrderMessage.OrderEventMessage
-            |> Logging.logDebug logger 
+            |> Logging.logDebug logger
 
         log $"\n\n=== {cmd |> Command.toString |> String.toUpper} {msg |> String.toUpper} ===\n"
         let ctx = cmd |> Command.get
