@@ -208,13 +208,7 @@ When contributing to medical functionality:
 
 ### Pull Request Template
 
-When creating a pull request, include:
-
-- **Description**: Clear description of what the PR does
-- **Motivation**: Why this change is needed
-- **Testing**: How you tested the changes
-- **Breaking Changes**: Any breaking changes and migration notes
-- **Related Issues**: Reference any related issues with `Fixes #123` or `Closes #456`
+Documented in [the pull request template](./.github/PULL_REQUEST_TEMPLATE.md).
 
 ### Review Process
 
@@ -225,24 +219,10 @@ When creating a pull request, include:
 
 ## Issue Reporting
 
-### Bug Reports
+Fill in information according to the appropriate template:
 
-When reporting bugs, include:
-
-- **Environment**: OS, .NET version, browser (if applicable)
-- **Steps to Reproduce**: Clear, numbered steps
-- **Expected vs Actual Behavior**: What should happen vs what actually happens
-- **Screenshots/Logs**: Any relevant visual evidence or error logs
-- **Medical Context**: If it's a medical calculation issue, include the specific scenario
-
-### Feature Requests
-
-When requesting features, include:
-
-- **Use Case**: Describe the medical or workflow scenario
-- **Proposed Solution**: Your suggested approach
-- **Alternatives**: Other approaches you've considered
-- **Safety Considerations**: Any patient safety implications
+- [Bug reports](./.github/ISSUE_TEMPLATE/bug_report.md)
+- [Feature requests](./.github/ISSUE_TEMPLATE/feature_request.md)
 
 ## Development Workflow
 
