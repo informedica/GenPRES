@@ -290,8 +290,8 @@ Want to contribute to GenPRES development?
 
 ## Questions?
 
-- **Roadmap questions**: [GitHub Discussions](https://github.com/halcwb/GenPRES2/discussions)
-- **Feature requests**: [GitHub Discussions - Ideas](https://github.com/halcwb/GenPRES2/discussions/categories/ideas)
+- **Roadmap questions**: [GitHub Discussions](https://github.com/informedica/GenPRES/discussions)
+- **Feature requests**: [GitHub Discussions - Ideas](https://github.com/informedica/GenPRES/discussions/categories/ideas)
 - **General support**: [SUPPORT.md](SUPPORT.md)
 
 ---
@@ -300,4 +300,4 @@ Want to contribute to GenPRES development?
 **Last Updated**: 2025-10-25
 **Next Review**: 2026-01-25
 
-For the most up-to-date information, see the [project GitHub repository](https://github.com/halcwb/GenPRES2).
+For the most up-to-date information, see the [project GitHub repository](https://github.com/informedica/GenPRES).

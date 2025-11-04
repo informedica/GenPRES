@@ -28,7 +28,7 @@ Before contributing, ensure you have the following installed:
 2. Clone your fork locally
 3. Set up the demo environment variables:
 
-**Important**: Proper environment variable setup is critical for the application to function correctly. Missing or incorrect environment variables can cause resource loading failures (see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44)).
+**Important**: Proper environment variable setup is critical for the application to function correctly. Missing or incorrect environment variables can cause resource loading failures (see [Issue #44](https://github.com/informedica/GenPRES/issues/44)).
 
 #### Option 1: Direct Export (Temporary)
 
@@ -265,7 +265,7 @@ This project uses an opt-in strategy for `.gitignore`:
 
 ### Environment Configuration
 
-For development, use these environment variables. Proper configuration is essential to avoid resource loading issues (see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44) for troubleshooting guidance):
+For development, use these environment variables. Proper configuration is essential to avoid resource loading issues (see [Issue #44](https://github.com/informedica/GenPRES/issues/44) for troubleshooting guidance):
 
 ```bash
 export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA  # Demo data URL
@@ -289,7 +289,7 @@ Many developers prefer using tools like `direnv` for automatic environment varia
 3. Run `direnv allow` to enable automatic loading
 4. Variables will be loaded automatically when entering the project directory
 
-For other environment variable management approaches, see [Issue #44](https://github.com/halcwb/GenPRES2/issues/44) for community discussions and recommendations.
+For other environment variable management approaches, see [Issue #44](https://github.com/informedica/GenPRES/issues/44) for community discussions and recommendations.
 
 ## Community and Communication
 
