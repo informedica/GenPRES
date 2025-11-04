@@ -3763,7 +3763,7 @@ module Variable =
                     vu
                     |> ValueUnit.applyToValue (fun brs ->
                         brs
-                        |> Array.tryItem nth
+                        |> Array.tryItem (nth - 1)
                         |> Option.map Array.singleton
                         |> Option.defaultValue brs
                     )
@@ -3774,7 +3774,7 @@ module Variable =
                 match min, incr with
                 | Some min, Some incr ->
                     let nthVal =
-                        nth - 1
+                        nth
                         |> BigRational.fromInt
                         |> ValueUnit.singleWithUnit Units.Count.times
                         |> ((*) (incr |> ValueRange.Increment.toValueUnit))
@@ -3787,6 +3787,7 @@ module Variable =
                         |> ValSet
                     | Some max ->
                         let nthMax = nthVal |> ValueRange.Maximum.create true
+
                         if nthMax |> ValueRange.Maximum.maxGTmax max then max
                         else nthMax
                         |> ValueRange.Maximum.toValueUnit
@@ -3825,7 +3826,9 @@ module Variable =
                 | None -> None
                 | Some n ->
                     let nth = n * perc / 100
-
+                    // cannot be 0
+                    let nth = if nth < 1 then 1 else nth
+                    // must be smaller than total count
                     if nth > n then n else nth
                     |> Some
 
