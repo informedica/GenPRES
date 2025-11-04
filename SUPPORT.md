@@ -15,9 +15,9 @@ Thank you for using GenPRES! This document provides guidance on how to get help 
    - `docs/` - Detailed documentation
 
 2. **Search existing resources**
-   - [GitHub Issues](https://github.com/halcwb/GenPRES2/issues) - Known bugs and feature requests
-   - [GitHub Discussions](https://github.com/halcwb/GenPRES2/discussions) - Past questions and discussions
-   - [Closed Issues](https://github.com/halcwb/GenPRES2/issues?q=is%3Aissue+is%3Aclosed) - Previously resolved problems
+   - [GitHub Issues](https://github.com/informedica/GenPRES/issues) - Known bugs and feature requests
+   - [GitHub Discussions](https://github.com/informedica/GenPRES/discussions) - Past questions and discussions
+   - [Closed Issues](https://github.com/informedica/GenPRES/issues?q=is%3Aissue+is%3Aclosed) - Previously resolved problems
 
 3. **Verify your setup**
    - Ensure you have the correct .NET version (see `global.json`)
@@ -28,7 +28,7 @@ Thank you for using GenPRES! This document provides guidance on how to get help 
 
 ### GitHub Discussions (Preferred)
 
-Use [GitHub Discussions](https://github.com/halcwb/GenPRES2/discussions) for:
+Use [GitHub Discussions](https://github.com/informedica/GenPRES/discussions) for:
 
 - **General questions** about using GenPRES
 - **Design discussions** and architectural questions
@@ -54,7 +54,7 @@ Use [GitHub Discussions](https://github.com/halcwb/GenPRES2/discussions) for:
 
 ### GitHub Issues
 
-Use [GitHub Issues](https://github.com/halcwb/GenPRES2/issues) **only** for:
+Use [GitHub Issues](https://github.com/informedica/GenPRES/issues) **only** for:
 
 - **Bug reports** - Something is broken or incorrect
 - **Feature requests** - Specific, well-defined new functionality
@@ -275,8 +275,8 @@ Violations will be removed and may result in access restrictions.
 
 ### Community
 
-- [GitHub Discussions](https://github.com/halcwb/GenPRES2/discussions)
-- [GitHub Issues](https://github.com/halcwb/GenPRES2/issues)
+- [GitHub Discussions](https://github.com/informedica/GenPRES/discussions)
+- [GitHub Issues](https://github.com/informedica/GenPRES/issues)
 - [Contribution Guidelines](CONTRIBUTING.md)
 
 ## Feedback on Support Process

@@ -38,7 +38,7 @@ Some more background information can be found at:
 
 |                                                                        GitHub Actions                                                                        |
 |:------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| [![GitHub Actions](https://github.com/halcwb/GenPRES2/workflows/Build%20master/badge.svg)](https://github.com/halcwb/GenPRES2/actions?query=branch%3Amaster) |
+| [![GitHub Actions](https://github.com/informedica/GenPRES/workflows/Build%20master/badge.svg)](https://github.com/informedica/GenPRES/actions?query=branch%3Amaster) |
 
 ## Install pre-requisites
 
