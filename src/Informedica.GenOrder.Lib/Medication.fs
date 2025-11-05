@@ -574,7 +574,12 @@ module Medication =
                 itmDto.Dose.RateAdjust.Constraints |> setConstraints None dl.RateAdjust
 
             let setDoseQty (dl : DoseLimit) =
-                itmDto.Dose.Quantity.Constraints |> setConstraints None dl.Quantity
+                let zero = 0N |> createSingleValueUnitDto dl.DoseUnit
+
+                if dl.Quantity |> MinMax.isEmpty then itmDto.Dose.Quantity.Constraints.MinOpt <- zero
+                else
+                    itmDto.Dose.Quantity.Constraints |> setConstraints None dl.Quantity
+
                 itmDto.Dose.QuantityAdjust.Constraints |> setConstraints dl.NormQuantityAdjust dl.QuantityAdjust
                 itmDto.Dose.PerTime.Constraints |> setConstraints None dl.PerTime
                 itmDto.Dose.PerTimeAdjust.Constraints |> setConstraints dl.NormPerTimeAdjust dl.PerTimeAdjust
@@ -644,7 +649,7 @@ module Medication =
             let setDoseQty (dl : DoseLimit) =
                 if dl.Quantity |> MinMax.isEmpty |> not then
                     cmpDto.Dose.Quantity.Constraints |> setConstraints None dl.Quantity
-                else 
+                else
                     // dose quantities can only add up with the same unit
                     // so this makes sure a dose quantity has a unit and
                     // can be included in to the addition equation
