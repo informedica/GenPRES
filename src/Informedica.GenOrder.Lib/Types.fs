@@ -38,14 +38,14 @@ module Types =
     /// </summary>
     and Constraints =
         {
-                // The minimum value constraint
-                Min : Minimum option
-                // The maximum value constraint
-                Max : Maximum option
-                // The increment constraint for stepping values
-                Incr : Increment option
-                // A set of allowed values
-                Values : ValueSet option
+            // The minimum value constraint
+            Min : Minimum option
+            // The maximum value constraint
+            Max : Maximum option
+            // The increment constraint for stepping values
+            Incr : Increment option
+            // A set of allowed values
+            Values : ValueSet option
         }
 
 

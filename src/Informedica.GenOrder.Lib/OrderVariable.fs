@@ -204,6 +204,7 @@ module OrderVariable =
         /// <param name="incr">An optional Increment</param>
         /// <param name="max">An optional Maximum</param>
         /// <param name="vs">An optional ValueSet</param>
+        /// <returns></returns>
         let create min incr max vs =
             {
                 Min = min
@@ -336,7 +337,7 @@ module OrderVariable =
         /// <param name="fVals">The function to map the Values</param>
         /// <param name="cs">The Constraints record</param>
         let map fMin fMax fIncr fVals (cs : Constraints) =
-            {
+            { cs with
                 Min = cs.Min |> Option.map fMin
                 Max = cs.Max |> Option.map fMax
                 Incr = cs.Incr |> Option.map fIncr
@@ -895,6 +896,7 @@ module OrderVariable =
             ovar.Constraints.Incr |> Option.map (Increment.toValueUnit >> ValueUnit.getUnit)
         ]
         |> List.choose id
+        |> List.filter ((<>) ZeroUnit)
         |> List.distinct
         |> List.tryHead
         |> function
