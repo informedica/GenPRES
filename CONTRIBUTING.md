@@ -68,7 +68,7 @@ Documented in [the pull request template](./.github/PULL_REQUEST_TEMPLATE.md).
 
 Authors must ensure that code works and meets requirements (including what was agreed in the implementation plan) before submitting a PR. In particular, they should be confident that there are no bugs or security vulnerabilities.
 
-Before marking PRs as ready for review, authors should review changes themselves, adding comments that highlighting important changes or providing justification for something that a reviewer would be likely to ask about.
+Before marking PRs as ready for review, authors should review changes themselves, adding comments that highlight important changes or providing justification for something that a reviewer would be likely to ask about.
 
 #### Reviewers
 
