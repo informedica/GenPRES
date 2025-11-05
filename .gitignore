@@ -29,8 +29,9 @@
 # Add global json
 !global.json
 
-# Add editor config
+# Add editor config and fantomasignore
 !.editorconfig
+!.fantomasignore
 
 # Add vscode config
 !/.vscode/
