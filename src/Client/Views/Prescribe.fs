@@ -290,33 +290,37 @@ module Prescribe =
 
                         let getItems tb =
                             match tb with
-                            | Valid itms 
+                            | Valid itms
                             | Caution itms
                             | Warning itms
-                            | Alert itms -> 
+                            | Alert itms ->
                                 itms
                                 |> Array.append [| " " |> Normal |]
 
                         // get the max alert level
                         let maxTb (xs: TextBlock [][]) =
-                            xs
-                            |> Array.collect (fun tbs ->
-                                tbs
-                                |> Array.map (fun tb ->
-                                    match tb with
-                                    | Valid _ -> 0
-                                    | Caution _ -> 1
-                                    | Warning _ -> 2
-                                    | Alert _ -> 3
+                            if xs |> Array.isEmpty then Valid
+                            else
+                                xs
+                                |> Array.collect (fun tbs ->
+                                    if tbs |> Array.isEmpty then [| 0 |]
+                                    else
+                                        tbs
+                                        |> Array.map (fun tb ->
+                                            match tb with
+                                            | Valid _ -> 0
+                                            | Caution _ -> 1
+                                            | Warning _ -> 2
+                                            | Alert _ -> 3
+                                        )
                                 )
-                            )
-                            |> Array.max
-                            |> function
-                            | 0 -> Valid
-                            | 1 -> Caution
-                            | 2 -> Warning
-                            | 3 -> Alert
-                            | i -> failwith $"not a valid textblock: {i}"
+                                |> Array.max
+                                |> function
+                                | 0 -> Valid
+                                | 1 -> Caution
+                                | 2 -> Warning
+                                | 3 -> Alert
+                                | i -> failwith $"not a valid textblock: {i}"
 
                         let sec =
                              if not isMobile then sec
