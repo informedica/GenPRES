@@ -167,11 +167,39 @@ When contributing to medical functionality:
 ### Git Workflow
 
 1. **Fork** the repository
-2. **Create a feature branch**: `git checkout -b feat/your-feature-name`
-3. **Make changes** following our coding guidelines
-4. **Commit** using conventional commit messages
-5. **Push** to your fork
-6. **Create a pull request** to the main repository
+2. **Clone** your fork locally: `git clone https://github.com/your-username/GenPRES.git`
+3. **Set up upstream remote**: `git remote add upstream https://github.com/informedica/GenPRES.git`
+4. **Before starting work**, sync your fork:
+
+   ```bash
+   git checkout master
+   git fetch upstream
+   git merge upstream/master
+   git push origin master
+   ```
+
+5. **Create a feature branch**: `git checkout -b feat/your-feature-name`
+6. **Make changes** following our coding guidelines
+7. **Commit** using conventional commit messages `git commit -m "feat(scope): description"`
+8. **Check** that you are still in sync with upstream:
+
+   ```bash
+   git fetch upstream
+   git merge upstream/master
+   ```
+
+9. **Push** to your fork `git push origin feat/your-feature-name`
+10. **Create a pull request** to the main repository
+11. **After PR is merged**, delete your feature branch locally and remotely:
+
+    ```bash
+    git checkout master
+    git pull upstream master
+    git push origin --delete feat/your-feature-name
+    git branch -d feat/your-feature-name
+    ```
+
+12. **Repeat** for new features or fixes
 
 ### Opt-in .gitignore Strategy
 
