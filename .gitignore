@@ -60,6 +60,7 @@
 !/.github
 !/.github/instructions/
 !/.github/workflows/
+!/.github/workflows/*
 !/.github/ISSUE_TEMPLATE/
 !/.github/PULL_REQUEST_TEMPLATE/
 
