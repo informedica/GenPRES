@@ -46,7 +46,7 @@ The process is meant to support productive develpoment, not be a hindrance to it
 - Reviewers may request that complex changes are split into smaller PRs, even if the original PR's diff is less than 200
 lines.
 - Certain changes can go straight to implementation PR, without needing an issue and implementation plan:
-  - Code changes less than 10 lines.
+  - Code changes less than 25 lines.
   - Documentation-only changes.
 - Reviewers will ask authors to rework or resubmit PRs that don't meet the above guidelines.
 
