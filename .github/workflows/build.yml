@@ -20,6 +20,12 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
+    - name: Tool restore
+      run: dotnet tool restore
+
+    - name: Format check
+      run: dotnet fantomas --check .
+
     - name: Test execution
       env:
         CI: true
