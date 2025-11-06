@@ -1,3 +1,24 @@
+## Overview
+
+Give a high-level description of the changes. You can refer back to the issue and/or plan.
+
+## Further information
+
+Add any additional information that you think is relevant here.
+
+## Divergence from plan
+
+Sometimes the planned approach isn't suitable. Significant changes should ideally be discussed with a maintainer before an implementation PR is made. (Even more ideally, the plan should be updated before an implementation PR is made.) We appreciate though that sometimes the overhead is not worth it. Either way, document any differences from the plan here.
+
+## Verification
+
+Guideline: in this section you're aiming to minimise the effort required, between you and the reviewer, for the reviewer to be confident that the implementation works. The effort you put into this section counts! So, if it'd be quicker for the reviewer to run changes than for you to document them here, let them do that. But equally, if you can quickly add notes that will convince a reviewer that the change works without them needing to do more than a cursory check, do that.
+
+- Briefly describe how you checked that your changes work, including manual and automated tests, discussing edge cases you considered.
+- If appropriate, add screenshots/GIFs that show the changes in the UI.
+- If appropriate, add log output that demonstrates the changes.
+- Briefly describe how a reviewer can see the changes for themselves when running the code locally.
+
 ## Author checklist
 
 > [!NOTE]
@@ -20,27 +41,6 @@ I confirm that I have:
 - [ ] Added appropriate automated tests.
 - [ ] Updated documentation appropriately.
 - [ ] Added comments that highlight important changes and add justification, where necessary. (Create the PR as a draft first, add your comments, then mark as ready for review.)
-
-## Overview
-
-Give a high-level description of the changes. You can refer back to the issue and/or plan.
-
-## Divergence from plan
-
-Sometimes the planned approach isn't suitable. Significant changes should ideally be discussed with a maintainer before an implementation PR is made. (Even more ideally, the plan should be updated before an implementation PR is made.) We appreciate though that sometimes the overhead is not worth it. Either way, document any differences from the plan here.
-
-## Verification
-
-Guideline: in this section you're aiming to minimise the effort required, between you and the reviewer, for the reviewer to be confident that the implementation works. The effort you put into this section counts! So, if it'd be quicker for the reviewer to run changes than for you to document them here, let them do that. But equally, if you can quickly add notes that will convince a reviewer that the change works without them needing to do more than a cursory check, do that.
-
-- Briefly describe how you checked that your changes work, including manual and automated tests, discussing edge cases you considered.
-- If appropriate, add screenshots/GIFs that show the changes in the UI.
-- If appropriate, add log output that demonstrates the changes.
-- Briefly describe how a reviewer can see the changes for themselves when running the code locally.
-
-## Further information
-
-Add any additional information that you think is relevant here.
 
 ## Reviewer checklist
 
