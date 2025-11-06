@@ -52,7 +52,9 @@
 # Add husky files
 !/.husky
 !/.husky/pre-commit
+!/.husky/commit-msg
 !/.husky/task-runner.json
+!/.husky/scripts/
 
 # Add github folder
 !/.github
