@@ -49,6 +49,11 @@
 !/.paket/
 !/.paket/Paket.Restore.targets
 
+# Add husky files
+!/.husky
+!/.husky/pre-commit
+!/.husky/task-runner.json
+
 # Add github folder
 !/.github
 !/.github/instructions/
