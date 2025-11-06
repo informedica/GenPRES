@@ -1,6 +1,10 @@
 name: Build master
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
@@ -16,19 +20,14 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Build
-      if: runner.os != 'Windows'
-      run: |
-        chmod +x ./build.sh
-        ./build.sh
+    - name: Tool restore
+      run: dotnet tool restore
+
+    - name: Format check
+      run: dotnet fantomas --check .
+
+    - name: Test execution
       env:
-        # Work around https://github.com/actions/setup-dotnet/issues/29
-        DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
         CI: true
-    - name: Build
-      if: runner.os == 'Windows'
-      run: ./build.cmd
-      env:
-        # Work around https://github.com/actions/setup-dotnet/issues/29
-        DOTNET_ROOT: ${{ runner.tool_cache }}/dncs/${{ matrix.dotnet }}/x64
-        CI: true
+        GENPRES_DEBUG: 1
+      run: dotnet run ServerTests
