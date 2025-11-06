@@ -1,7 +1,7 @@
 ## Author checklist
 
 > [!NOTE]
-> An issue and agreed implementation plan are necessary unless either fewer than 10 lines have been changed or only documentation has been changed.
+> An issue and agreed implementation plan are necessary unless either fewer than 25 lines have been changed or only documentation has been changed.
 
 I confirm that these changes:
 
