@@ -6,7 +6,7 @@
 #r "nuget: FParsec"
 
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
 
 #load "../Agent.fs"
 #load "../FileWriterAgent.fs"

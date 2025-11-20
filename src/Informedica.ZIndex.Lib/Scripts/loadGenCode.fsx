@@ -1,6 +1,6 @@
 
 #r "nuget: Newtonsoft.Json"
-#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
 
 open System
 open Informedica.Utils.Lib

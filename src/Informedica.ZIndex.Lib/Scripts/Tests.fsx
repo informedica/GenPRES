@@ -7,8 +7,8 @@
 #r "nuget: Expecto.FsCheck"
 #r "nuget: Unquote"
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.GenUnits.Lib/bin/Debug/net10.0/Informedica.GenUnits.Lib.dll"
 
 #load "../../../scripts/Expecto.fsx"
 #load "load.fsx"

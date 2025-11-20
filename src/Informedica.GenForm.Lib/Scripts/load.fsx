@@ -8,12 +8,12 @@
 #r "nuget: ClosedXML"
 #r "nuget: FsToolkit.ErrorHandling"
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.Logging.Lib/bin/Debug/net9.0/Informedica.Logging.Lib.dll"
-#r "../../Informedica.GenUnits.Lib/bin/Debug/net9.0/Informedica.GenUnits.Lib.dll"
-#r "../../Informedica.ZIndex.Lib/bin/Debug/net9.0/Informedica.ZIndex.Lib.dll"
-#r "../../Informedica.ZForm.Lib//bin/Debug/net9.0/Informedica.ZForm.Lib.dll"
-#r "../../Informedica.GenCore.Lib//bin/Debug/net9.0/Informedica.GenCore.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Logging.Lib/bin/Debug/net10.0/Informedica.Logging.Lib.dll"
+#r "../../Informedica.GenUnits.Lib/bin/Debug/net10.0/Informedica.GenUnits.Lib.dll"
+#r "../../Informedica.ZIndex.Lib/bin/Debug/net10.0/Informedica.ZIndex.Lib.dll"
+#r "../../Informedica.ZForm.Lib//bin/Debug/net10.0/Informedica.ZForm.Lib.dll"
+#r "../../Informedica.GenCore.Lib//bin/Debug/net10.0/Informedica.GenCore.Lib.dll"
 
 open System
 open Informedica.Utils.Lib

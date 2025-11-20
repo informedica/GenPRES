@@ -76,7 +76,7 @@ Target.create
         [
             "server", dotnet [ "run"; "--no-restore" ] serverPath
             "client",
-            dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "-e"; ".jsx"; "--run"; "npx"; "vite" ] clientPath
+            dotnet [ "fable"; "watch"; "--test:MSBuildCracker"; "-o"; "output"; "-s"; "-e"; ".jsx"; "--run"; "npx"; "vite" ] clientPath
         ]
         |> runParallel
     )

@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "paket": {
-      "version": "9.0.0",
+      "version": "10.0.0-alpha011",
       "commands": [
         "paket"
       ],
@@ -17,7 +17,7 @@
       "rollForward": false
     },
     "fable": {
-      "version": "4.25.0",
+      "version": "4.27.0",
       "commands": [
         "fable"
       ],
