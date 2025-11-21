@@ -25,6 +25,7 @@ COPY paket.references paket.references
 COPY paket.dependencies paket.lock ./
 
 FROM build AS app-build
+ENV HUSKY=0
 COPY Build.fsproj .
 COPY Build.fs .
 COPY Helpers.fs .

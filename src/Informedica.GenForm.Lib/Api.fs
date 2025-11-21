@@ -229,7 +229,7 @@ module Resources =
                         DoseRules = doseRules
                         SolutionRules = solutionRules
                         RenalRules = renalRules
-                        Messages = 
+                        Messages =
                             [|
                                 yield! unitMsgs
                                 yield! routeMsgs
@@ -365,7 +365,7 @@ module Api =
 
 
     let private logGenFormMessages (logger: Logger) provider =
-        (provider :> IResourceProvider).GetResourceInfo().Messages 
+        (provider :> IResourceProvider).GetResourceInfo().Messages
         |> Array.iter (fun m ->
             match m with
             | Info _ -> Logging.logInfo logger m
@@ -374,9 +374,9 @@ module Api =
         )
 
 
-    let getCachedProviderWithDataUrlId (logger: Logger) dataUrlId =  
+    let getCachedProviderWithDataUrlId (logger: Logger) dataUrlId =
             let provider = CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
-            
+
             provider
             |> logGenFormMessages logger
             provider
@@ -384,7 +384,7 @@ module Api =
 
     let reloadCache (logger: Logger) (provider : IResourceProvider) =
         match provider with
-        | :? CachedResourceProvider as cachedProvider -> 
+        | :? CachedResourceProvider as cachedProvider ->
             cachedProvider.ReloadCache()
             cachedProvider |> logGenFormMessages logger
         | _ -> failwith "Provider is not a CachedResourceProvider instance"
@@ -447,10 +447,26 @@ module Api =
     *)
 
 
-    let filterPrescriptionRules (provider: IResourceProvider) filter =
+    let filterPrescriptionRules (provider: IResourceProvider) filter : GenFormResult<PrescriptionRule array> =
         let doseRules = getDoseRules provider
         let solutionRules = getSolutionRules provider
         let routeMappings = getRouteMapping provider
         let renalRules = getRenalRules provider
 
-        PrescriptionRule.filter doseRules solutionRules renalRules routeMappings filter
+        let chunkSize =
+            let c = (doseRules |> Array.length) / 12
+            if c > 0 then c else 1
+
+        doseRules
+        |> Array.chunkBySize chunkSize
+        |> Array.map (fun rules ->
+            async {
+                return
+                   PrescriptionRule.filter rules solutionRules renalRules routeMappings filter
+            }
+        )
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> Utils.GenFormResult.foldResults
+
+        //PrescriptionRule.filter doseRules solutionRules renalRules routeMappings filter
