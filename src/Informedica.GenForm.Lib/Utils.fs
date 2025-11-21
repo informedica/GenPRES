@@ -44,6 +44,30 @@ module Utils =
         let createOkNoMsgs x  = createOk x []
 
 
+        /// <summary>
+        /// Fold an array of GenFormResults into a single GenFormResult with accumulated arrays and messages.
+        /// </summary>
+        /// <param name="results">Array of GenFormResults to fold</param>
+        /// <returns>A single GenFormResult containing all accumulated values and messages</returns>
+        /// <remarks>
+        /// If all results are Ok, returns Ok with concatenated arrays and all messages.
+        /// If any result is Error, returns Error with all accumulated messages.
+        /// </remarks>
+        let foldResults (results: GenFormResult<'T array> array) : GenFormResult<'T array> =
+            results
+            |> Array.fold (fun acc result ->
+                match acc, result with
+                | Ok (accValues, accMsgs), Ok (values, msgs) ->
+                    Ok (Array.append accValues values, accMsgs @ msgs)
+                | Ok (_, accMsgs), Error msgs ->
+                    Error (accMsgs @ msgs)
+                | Error accMsgs, Ok (_, msgs) ->
+                    Error (accMsgs @ msgs)
+                | Error accMsgs, Error msgs ->
+                    Error (accMsgs @ msgs)
+            ) (Ok ([||], []))
+
+
     module Web =
 
 
@@ -300,11 +324,11 @@ module Utils =
                     | _ -> ""
 
 
-            MinMax.toString 
-                vuToStr 
+            MinMax.toString
+                vuToStr
                 vuToVal
-                minInclStr 
-                minExclStr 
-                maxInclStr 
-                maxExclStr 
-                { Min = min; Max = max } 
+                minInclStr
+                minExclStr
+                maxInclStr
+                maxExclStr
+                { Min = min; Max = max }

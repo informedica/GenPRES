@@ -104,7 +104,7 @@ module Solver =
         else true
 
 
-    let solverLoop onlyMinIncrMax log sortQue n rpl rst =
+    let parallelLoop onlyMinIncrMax log sortQue n rpl rst =
 
         let solveE n eqs eq =
             try
@@ -217,61 +217,6 @@ module Solver =
                                 |> List.append rpl
 
                         loop n que acc
-
-                    (*
-                    let q, r =
-                        // If the equation is already solved or not solvable,
-                        // just put it to the accumulated equations and go on with the rest
-                        if eq |> Equation.isSolvable |> not then
-                            tail,
-                            [ eq ]
-                            |> List.append acc
-                            |> Ok
-                        // Else go solve the equation
-                        else
-                            match eq |> solveE n (acc @ que) with
-                            // Equation is changed, so every other equation can
-                            // be changed as well (if changed vars are in the other
-                            // equations) so start new
-                            | eq, Changed cs ->
-                                let vars = cs |> List.map fst
-                                // find all eqs with vars in acc and put these back on que
-                                acc
-                                |> replace vars
-                                |> function
-                                | rpl, rst ->
-                                    // replace vars in the que tail
-                                    let que =
-                                        tail
-                                        |> replace vars
-                                        |> function
-                                        | es1, es2 ->
-                                            es1
-                                            |> List.append es2
-                                            |> List.append rpl
-
-                                    que,
-                                    rst
-                                    |> List.append [ eq ]
-                                    |> Ok
-
-                            // Equation did not in fact change, so put it to
-                            // the accumulated equations and go on with the rest
-                            | eq, Unchanged ->
-                                tail,
-                                [eq]
-                                |> List.append acc
-                                |> Ok
-
-                            | eq, Errored m ->
-                                [],
-                                [eq] // TODO: check if this is right
-                                |> List.append acc
-                                |> List.append que
-                                |> fun eqs ->
-                                    Error (eqs, m)
-                        *)
-
 
         loop n rpl rst
 
@@ -397,8 +342,10 @@ module Solver =
                     |> Events.SolverStartSolving
                     |> Logger.logInfo log
 
-                    loop 0 rpl (Ok rst)
-                    //solverLoop onlyMinIncrMax log sortQue 0 rpl (Ok rst)
+                    if onlyMinIncrMax then
+                        loop 0 rpl (Ok rst)
+                    else
+                        parallelLoop onlyMinIncrMax log sortQue 0 rpl (Ok rst)
             with
             | Exceptions.SolverException errs  ->
                  Error (rpl @ rst, errs)
