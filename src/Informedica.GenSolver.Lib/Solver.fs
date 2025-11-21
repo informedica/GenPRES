@@ -104,6 +104,123 @@ module Solver =
         else true
 
 
+    let parallelLoop onlyMinIncrMax log sortQue n rpl rst =
+
+        let solveE n eqs eq =
+            try
+                Equation.solve onlyMinIncrMax log eq
+            with
+            | Exceptions.SolverException errs ->
+                (n, errs, eqs)
+                |> Exceptions.SolverErrored
+                |> Exceptions.raiseExc (Some log) errs
+            | e ->
+                let msg = $"didn't catch {e}"
+                writeErrorMessage msg
+
+                msg |> failwith
+
+        let rec loop n que acc =
+            match acc with
+            | Error _ -> acc
+            | Ok acc  ->
+                let n = n + 1
+                let c = que @ acc |> List.length
+                if c > 0 && n > c * Constants.MAX_LOOP_COUNT then
+                    writeErrorMessage $"too many loops: {n}"
+
+                    (n, que @ acc)
+                    |> Exceptions.SolverTooManyLoops
+                    |> Exceptions.raiseExc (Some log) []
+
+                let que = que |> sortQue onlyMinIncrMax
+
+                //(n, que)
+                //|> Events.SolverLoopedQue
+                //|> Logging.logInfo log
+
+                match que with
+                | [] ->
+                    match acc |> List.filter (Equation.check >> not) with
+                    | []      -> acc |> Ok
+                    | invalid ->
+                        writeErrorMessage "invalid equations"
+
+                        invalid
+                        |> Exceptions.SolverInvalidEquations
+                        |> Exceptions.raiseExc (Some log) []
+
+                | _ ->
+                    let que, acc =
+                        que
+                        |> List.partition Equation.isSolvable
+                        |> function
+                        | que, unsolv -> que, unsolv |> List.append acc
+
+                    let rpl, rst =
+                        let chunkSize =
+                            let c = (que |> List.length) / 12
+                            if c > 0 then c else 1
+
+                        que
+                        |> List.chunkBySize chunkSize
+                        |> List.map (fun eqs ->
+                            async {
+                                return eqs |> List.map (solveE n (acc @ que))
+                            }
+                        )
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> Array.toList
+                        |> List.collect id
+                        |> List.partition (snd >> function | Changed _ -> true | _ -> false)
+
+                    let rst, err =
+                        rst
+                        |> List.partition (snd >> function | Errored _ -> true | _ -> false)
+                        |> function
+                        | err, rst ->
+                            rst |> List.map fst,
+                            err
+                            |> List.choose (fun (_, sr) -> sr |> function | Errored m -> Some m | _ -> None)
+                            |> List.collect id
+
+                    if err |> List.isEmpty |> not then (que |> List.append acc, err) |> Error
+                    else
+                        let rpl, vars =
+                            rpl
+                            |> List.unzip
+
+                        let vars =
+                            vars
+                            |> List.choose (function
+                                | Changed vars -> Some vars
+                                | _ -> None
+                            )
+                            |> List.collect id
+                            |> List.fold (fun (vars : Variable list) (var, _) ->
+                                match vars |> List.tryFind (Variable.eqName var) with
+                                | None -> var::vars
+                                | Some v ->
+                                    let vNew = v |> Variable.setValueRange var.Values
+                                    vars |> List.replace (Variable.eqName vNew) vNew
+                            ) []
+
+                        let acc, que =
+                            acc
+                            |> List.append rst
+                            |> replace vars
+                            |> function
+                            | es1, es2 ->
+                                es2 |> Ok,
+                                es1
+                                |> List.append rpl
+
+                        loop n que acc
+
+        loop n rpl rst
+
+
     /// <summary>
     /// Solve a set of equations.
     /// </summary>
@@ -220,12 +337,15 @@ module Solver =
             try
                 match rpl with
                 | [] -> eqs |> Ok
-                | _  -> 
+                | _  ->
                     rpl
                     |> Events.SolverStartSolving
                     |> Logger.logInfo log
-                    
-                    loop 0 rpl (Ok rst)
+
+                    if onlyMinIncrMax then
+                        loop 0 rpl (Ok rst)
+                    else
+                        parallelLoop onlyMinIncrMax log sortQue 0 rpl (Ok rst)
             with
             | Exceptions.SolverException errs  ->
                  Error (rpl @ rst, errs)
