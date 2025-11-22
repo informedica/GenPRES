@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 # Install node
 # RUN curl -sL https://deb.nodesource.com/setup_14.x | bash
@@ -45,7 +45,7 @@ COPY src/Client src/Client
 RUN dotnet run bundle
 
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 COPY --from=app-build /workspace/deploy /app
 
 ENV GENPRES_LOG="1"

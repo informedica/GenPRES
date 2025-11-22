@@ -39,6 +39,7 @@ Target.create
             dotnet
                 [
                     "fable"
+                    "--test:MSBuildCracker"
                     "-o"
                     "output"
                     "-s"
