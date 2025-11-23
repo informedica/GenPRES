@@ -104,6 +104,9 @@ module Solver =
         else true
 
 
+    /// Solve equations in parallel.
+    /// Still an experimental feature.
+    /// May need to improve chunking mechanism.
     let parallelLoop onlyMinIncrMax log sortQue n rpl rst =
 
         let solveE n eqs eq =
@@ -158,6 +161,8 @@ module Solver =
                         | que, unsolv -> que, unsolv |> List.append acc
 
                     let rpl, rst =
+                        // TODO: need to calculate the optimal chunksize 
+                        // depending on the hardware
                         let chunkSize =
                             let c = (que |> List.length) / 12
                             if c > 0 then c else 1
@@ -342,9 +347,13 @@ module Solver =
                     |> Events.SolverStartSolving
                     |> Logger.logInfo log
 
+                    // switch to different mechanism to either
+                    // sequential solve equations or in parallel
                     if onlyMinIncrMax then
+                        // sequential avoiding unnescessary loops
                         loop 0 rpl (Ok rst)
                     else
+                        // more efficient with longer running calculations
                         parallelLoop onlyMinIncrMax log sortQue 0 rpl (Ok rst)
             with
             | Exceptions.SolverException errs  ->
