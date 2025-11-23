@@ -1,7 +1,7 @@
 
 #load "load.fsx"
 
-#r "../bin/Debug/net9.0/Informedica.GenForm.Lib.dll"
+#r "../bin/Debug/net10.0/Informedica.GenForm.Lib.dll"
 
 
 open Informedica.GenForm.Lib

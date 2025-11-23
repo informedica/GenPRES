@@ -4,8 +4,8 @@
 #r "nuget: Unquote"
 
 
-#r "../../Informedica.Utils.Lib/bin/Debug/net9.0/Informedica.Utils.Lib.dll"
-#r "../../Informedica.Agents.Lib/bin/Debug/net9.0/Informedica.Agents.Lib.dll"
+#r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
+#r "../../Informedica.Agents.Lib/bin/Debug/net10.0/Informedica.Agents.Lib.dll"
 
 
 #load "../Logging.fs"
