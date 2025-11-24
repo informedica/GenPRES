@@ -163,11 +163,11 @@ module TestSolver =
 
     let solve n p eqs =
         let n = n |> Name.createExc
-        Api.solve true (fun _ eqs -> eqs) logger n p eqs
+        Api.solve true true (fun _ eqs -> eqs) logger n p eqs
 
-    let solveAll = Api.solveAll false logger
+    let solveAll = Api.solveAll true false logger
 
-    let solveMinMax = Api.solveAll true logger
+    let solveMinMax = Api.solveAll false true logger
 
     let solveMinIncl u n min = solve n (min |> createMinIncl u |> MinProp)
     let solveMinExcl u n min = solve n (min |> createMinExcl u  |> MinProp)
@@ -792,7 +792,7 @@ module Tests =
 
 
             module ValueSetTests =
-            
+
                 module ValueSet = Variable.ValueRange.ValueSet
 
                 let create brs =

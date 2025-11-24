@@ -575,7 +575,7 @@ module DoseRule =
     let processDoseRuleData prods routeMapping (data, msgs) : GenFormResult<_> =
         let warnings = Collections.Generic.Dictionary<_, _>()
 
-        let data =
+        let grouped =
             data
             |> Array.filter doseRuleDataIsValid
             |> Array.groupBy (fun d ->
@@ -586,96 +586,64 @@ module DoseRule =
                 ,
                 d.Route
             )
-            |> Array.collect (fun ((gen, rte), rs) ->
-                rs
-                |> Array.collect (fun r ->
-                    let filtered =
-                        if r.GPKs |> Array.isEmpty then
-                            prods
-                            |> Product.filter
-                                routeMapping
-                                { Filter.doseFilter with
-                                    Generic = r.Component |> Some
-                                    Route = rte |> Some
+
+        let procesGroup ((gen: string, rte: string), rs: DoseRuleData[]) =
+            async {
+                return
+                    rs
+                    |> Array.collect (fun r ->
+                        let filtered =
+                            if r.GPKs |> Array.isEmpty then
+                                prods
+                                |> Product.filter
+                                    routeMapping
+                                    { Filter.doseFilter with
+                                        Generic = r.Component |> Some
+                                        Route = rte |> Some
+                                    }
+                            else
+                                prods
+                                |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
+
+                        if filtered |> Array.length = 0 then
+                            let key = $"{gen} {rte}"
+                            if warnings.ContainsKey(key) |> not then
+                                let msg =
+                                    $"{key}: no products found"
+                                warnings.Add(key, msg)
+
+                            [|
+                                { r with
+                                    Products =
+                                        [|
+                                            rs
+                                            |> Array.map _.Substance
+                                            |> Array.filter String.notEmpty
+                                            |> Array.distinct
+                                            |> Product.create gen rte
+                                        |]
                                 }
+                            |]
                         else
-                            prods
-                            |> Array.filter (fun p -> r.GPKs |> Array.exists (String.equalsCapInsens p.GPK))
-                        // make sure that all products have the same unit group
-                        (*
-                        |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
-                        |> Array.head
-                        |> snd
-                        *)
-
-                    if filtered |> Array.length = 0 then
-                        let key = $"{gen} {rte}"
-                        if warnings.ContainsKey(key) |> not then
-                            let msg =
-                                $"{key}: no products found"
-                            warnings.Add(key, msg)
-
-                        [|
-                            { r with
-                                Products =
-                                    [|
-                                        rs
-                                        |> Array.map _.Substance
-                                        |> Array.filter String.notEmpty
-                                        |> Array.distinct
-                                        |> Product.create gen rte
-                                    |]
-                            }
-                        |]
-                    else
-                        filtered
-                        // create doserule per shape
-                        |> Array.groupBy _.Shape
-                        |> Array.collect (fun (_, ps) ->
-                            // make sure that all products have the same unit group
-                            ps
-                            |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
-                            |> function
-                                | [|_, ps|] ->
-                                    ps
-                                    |> Array.map (fun product ->
-                                        { r with
-                                            Generic = gen
-                                            Shape = product.Shape |> String.toLower
-                                            Products =
-                                                if r.GPKs |> Array.length > 0 then ps
-                                                else
-                                                    ps
-                                                    |> Product.filter routeMapping
-                                                        { Filter.doseFilter with
-                                                            Generic = r.Component |> Some
-                                                            Shape = product.Shape |> Some
-                                                            Route = rte |> Some
-                                                        }
-                                        }
-                                    )
-                                    |> Array.distinct
-                                | xs ->
-                                    xs
-                                    |> Array.collect (fun (_, ps) ->
+                            filtered
+                            // create doserule per shape
+                            |> Array.groupBy _.Shape
+                            |> Array.collect (fun (_, ps) ->
+                                // make sure that all products have the same unit group
+                                ps
+                                |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
+                                |> function
+                                    | [|_, ps|] ->
                                         ps
                                         |> Array.map (fun product ->
-                                            let u =
-                                                product.ShapeUnit
-                                                |> Units.toString Units.Dutch Units.Short
-                                                |> String.removeTextBetweenBrackets
-                                                |> String.removeBrackets
-
                                             { r with
                                                 Generic = gen
-                                                Shape =
-                                                    $"{product.Shape |> String.toLower} ({u})"
+                                                Shape = product.Shape |> String.toLower
                                                 Products =
                                                     if r.GPKs |> Array.length > 0 then ps
                                                     else
                                                         ps
-                                                        |> Product.filter
-                                                            routeMapping
+                                                        |> Product.filter routeMapping
                                                             { Filter.doseFilter with
                                                                 Generic = r.Component |> Some
                                                                 Shape = product.Shape |> Some
@@ -684,12 +652,52 @@ module DoseRule =
                                             }
                                         )
                                         |> Array.distinct
-                                    )
+                                    | xs ->
+                                        xs
+                                        |> Array.collect (fun (_, ps) ->
+                                            ps
+                                            |> Array.map (fun product ->
+                                                let u =
+                                                    product.ShapeUnit
+                                                    |> Units.toString Units.Dutch Units.Short
+                                                    |> String.removeTextBetweenBrackets
+                                                    |> String.removeBrackets
 
-                        )
+                                                { r with
+                                                    Generic = gen
+                                                    Shape =
+                                                        $"{product.Shape |> String.toLower} ({u})"
+                                                    Products =
+                                                        if r.GPKs |> Array.length > 0 then ps
+                                                        else
+                                                            ps
+                                                            |> Product.filter
+                                                                routeMapping
+                                                                { Filter.doseFilter with
+                                                                    Generic = r.Component |> Some
+                                                                    Shape = product.Shape |> Some
+                                                                    Route = rte |> Some
+                                                                }
+                                                }
+                                            )
+                                            |> Array.distinct
+                                        )
 
-                )
-            )
+                            )
+
+                    )
+
+            }
+
+        let chunkSize = Parallel.totalWorders
+
+        let data =
+            grouped
+            |> Array.chunkBySize chunkSize
+            |> Array.collect (Array.map procesGroup)
+            |> Async.Parallel
+            |> Async.RunSynchronously
+            |> Array.collect id
 
         let msgs =
             warnings.Values |> Seq.toList
@@ -929,12 +937,16 @@ module DoseRule =
 
         let map data =
             result {
-                let! data, msgs = data |> processDoseRuleData prods routeMapping
+                let! data, msgs =
+                    fun () -> data |> processDoseRuleData prods routeMapping
+                    |> StopWatch.clockFunc $"process data {data |> fst |> Array.length}"
                 // split in ok and error results
                 let rules, errs =
-                    data
-                    |> Array.map (fun d -> d, d |> mapToDoseRule)
-                    |> Array.partition (snd >> Result.isOk)
+                    fun () ->
+                        data
+                        |> Array.map (fun d -> d, d |> mapToDoseRule)
+                        |> Array.partition (snd >> Result.isOk)
+                    |> StopWatch.clockFunc $"map to dose rules {data |> Array.length}"
                 // collect all messages
                 let msgs =
                     errs
@@ -947,24 +959,32 @@ module DoseRule =
                     |> List.append msgs
                 // process ok results
                 let rules =
-                    rules
-                    |> Array.map (fun (d, r) ->
-                        r |> Result.get, d
-                    )
-                    |> Array.groupBy fst
-                    |> Array.map (fun (dr, rs) ->
-                        dr |> addDoseLimits (rs |> Array.map snd)
-                    )
+                    fun () ->
+                        let chunkBySize = Parallel.totalWorders
+
+                        rules
+                        |> Array.chunkBySize chunkBySize
+                        |> Array.map (fun rs ->
+                            async {
+                                return
+                                    rs
+                                    |> Array.map (fun (d, r) ->
+                                        r |> Result.get, d
+                                    )
+                                    |> Array.groupBy fst
+                                    |> Array.map (fun (dr, rs) ->
+                                        dr |> addDoseLimits (rs |> Array.map snd)
+                                    )
+                            }
+                        )
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> Array.collect id
+
+                    |> StopWatch.clockFunc $"add dose limits {rules |> Array.length}"
+
                 return! Ok (rules, msgs)
             }
-
-            (*
-            processDoseRuleData prods routeMapping
-            >> Array.groupBy mapToDoseRule
-            >> Array.filter (fst >> Option.isSome)
-            >> Array.map (fun (dr, rs) -> dr.Value, rs)
-            >> Array.map (fun (dr, rs) -> dr |> addDoseLimits rs)
-            *)
 
         dataUrl
         |> getData

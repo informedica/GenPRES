@@ -232,7 +232,7 @@ module Solver =
     /// <param name="sortQue">The sort function for the que</param>
     /// <param name="var">An option variable to solve for</param>
     /// <param name="eqs">The equations to solve</param>
-    let solve onlyMinIncrMax log sortQue var eqs =
+    let solve useParallel onlyMinIncrMax log sortQue var eqs =
 
         let solveE n eqs eq =
             try
@@ -347,7 +347,7 @@ module Solver =
 
                     // switch to different mechanism to either
                     // sequential solve equations or in parallel
-                    if onlyMinIncrMax then
+                    if onlyMinIncrMax || not useParallel then
                         // sequential avoiding unnescessary loops
                         loop 0 rpl (Ok rst)
                     else
@@ -384,10 +384,10 @@ module Solver =
     /// <param name="sortQue">The sort function for the que</param>
     /// <param name="vr">The variable to solve for</param>
     /// <param name="eqs">The equations to solve</param>
-    let solveVariable onlyMinIncrMax log sortQue vr eqs =
+    let solveVariable useParallel onlyMinIncrMax log sortQue vr eqs =
         let n1 = eqs |> List.length
         let solve =
-            solve onlyMinIncrMax log sortQue (Some vr)
+            solve useParallel onlyMinIncrMax log sortQue (Some vr)
 
         match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)
@@ -404,10 +404,10 @@ module Solver =
     /// <param name="onlyMinIncrMax">Whether to only use min, incr and max</param>
     /// <param name="log">The log function</param>
     /// <param name="eqs">The equations to solve</param>
-    let solveAll onlyMinIncrMax log eqs =
+    let solveAll useParallel onlyMinIncrMax log eqs =
         let n1 = eqs |> List.length
         let solve =
-            solve onlyMinIncrMax log sortQue None
+            solve useParallel onlyMinIncrMax log sortQue None
 
         match solve eqs with
         | Error (eqs, errs) -> Error (eqs, errs)

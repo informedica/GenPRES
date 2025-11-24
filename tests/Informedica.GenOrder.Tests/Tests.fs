@@ -693,7 +693,7 @@ module Tests
                                                     Quantity =
                                                         dl.Quantity
                                                         |> MinMax.setMin (5N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some) // true (5N |> Limit.limit (Units.Mass.milliGram |> Some))
-                                                        |> MinMax.setMax (10N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some) 
+                                                        |> MinMax.setMax (10N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some)
                                                 }
                                             else dl
                                         let dl =
@@ -703,8 +703,8 @@ module Tests
                                                     { dl with
                                                         QuantityAdjust =
                                                             dl.QuantityAdjust
-                                                            |> MinMax.setMin (1N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some) 
-                                                            |> MinMax.setMax (10N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some) 
+                                                            |> MinMax.setMin (1N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some)
+                                                            |> MinMax.setMax (10N |> ValueUnit.singleWithUnit Units.Mass.milliGram |> Limit.inclusive |> Some)
                                                     }
                                                 | None -> dl
                                             else dl
@@ -716,8 +716,8 @@ module Tests
                 }
 
             let dto = Medication.toOrderDto drugOrder
-            dto 
-            |> Dto.fromDto 
+            dto
+            |> Dto.fromDto
             |> Result.map Order.applyConstraints
             |> Result.get
 
@@ -908,7 +908,7 @@ module Tests
                                                 { dl with
                                                     QuantityAdjust =
                                                         dl.QuantityAdjust
-                                                        |> MinMax.setMin (2N |> ValueUnit.singleWithUnit un |> Limit.inclusive |> Some) 
+                                                        |> MinMax.setMin (2N |> ValueUnit.singleWithUnit un |> Limit.inclusive |> Some)
                                                         |> MinMax.setMax (5N |> ValueUnit.singleWithUnit un |> Limit.inclusive |> Some)
                                                 }
                                                 |> Some
