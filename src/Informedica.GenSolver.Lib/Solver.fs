@@ -161,10 +161,8 @@ module Solver =
                         | que, unsolv -> que, unsolv |> List.append acc
 
                     let rpl, rst =
-                        // TODO: need to calculate the optimal chunksize 
-                        // depending on the hardware
                         let chunkSize =
-                            let c = (que |> List.length) / 12
+                            let c = (que |> List.length) / Parallel.totalWorders
                             if c > 0 then c else 1
 
                         que
