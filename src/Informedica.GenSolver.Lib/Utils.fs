@@ -4,6 +4,17 @@ namespace Informedica.GenSolver.Lib
 [<AutoOpen>]
 module Utils =
 
+    open System
+    open MathNet.Numerics
+
+
+    module Parallel =
+
+
+        let maxDepth = int (Math.Log(float Environment.ProcessorCount))
+
+
+        let totalWorders = int (2.0 ** (float maxDepth))
 
 
     module Constants =

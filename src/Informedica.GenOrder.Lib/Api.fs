@@ -413,10 +413,12 @@ module OrderContext =
                     |> Array.map (fun ord -> ord, pr)
                 )
 
-            // Evaluate all orders in parallel using Array.Parallel for better performance
-            ords
-            |> Array.Parallel.map (fun (ord, pr) -> evaluateOrder logger pr ord)
-            |> Array.filter Result.isOk
+            if ords |> Array.isEmpty then [||]
+            else
+                // Evaluate all orders in parallel using Array.Parallel for better performance
+                ords
+                |> Array.Parallel.map (fun (ord, pr) -> evaluateOrder logger pr ord)
+                |> Array.filter Result.isOk
 
 
         let processEvaluationResults prs =
