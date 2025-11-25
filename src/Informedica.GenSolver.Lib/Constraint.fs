@@ -120,11 +120,11 @@ module Constraint =
     /// <param name="sortQue">The algorithm to sort the equations</param>
     /// <param name="c">The constraint</param>
     /// <param name="eqs">The list of Equations</param>
-    let solve onlyMinIncrMax log sortQue (c : Constraint) eqs =
+    let solve useParallel onlyMinIncrMax log sortQue (c : Constraint) eqs =
         let var = apply log c eqs
 
         eqs
-        |> Solver.solveVariable onlyMinIncrMax log sortQue var
+        |> Solver.solveVariable useParallel onlyMinIncrMax log sortQue var
         |> fun eqs ->
             c
             |> Events.ConstrainedSolved

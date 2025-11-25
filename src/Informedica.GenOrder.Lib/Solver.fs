@@ -65,8 +65,8 @@ module Solver =
 
 
     /// Shorthand for Api.solveAll true
-    let solveMinMax = Api.solveAll true
+    let solveMinMax = Api.solveAll false true
 
 
     /// Shorthand for Api.solveAll false
-    let solve = Api.solveAll false
+    let solve useParallel = Api.solveAll useParallel false

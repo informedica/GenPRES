@@ -3319,6 +3319,11 @@ module Order =
     /// <returns>A Result with the Order or a list error messages</returns>
     /// <raises>Any exception raised by the solver</raises>
     let rec solve minMax printErr logger (ord: Order) =
+        // TODO figure out when parallel solving is
+        // feasible and more efficient
+        // for now restrict to continuous calculations
+        let useParallel = ord.Schedule |> Schedule.isContinuous
+
         let harmonize ord =
             ord.Orderable
             |> Orderable.harmonizeItemConcentrations logger
@@ -3347,7 +3352,7 @@ module Order =
             |> Solver.mapToSolverEqs
             |> fun eqs ->
                 if minMax then eqs |> Solver.solveMinMax logger
-                else eqs |> Solver.solve logger
+                else eqs |> Solver.solve useParallel logger
             |> function
             | Ok eqs ->
                 eqs

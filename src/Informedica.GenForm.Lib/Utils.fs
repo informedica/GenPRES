@@ -4,10 +4,21 @@ namespace Informedica.GenForm.Lib
 
 module Utils =
 
+    open System
+    open MathNet.Numerics
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
     open ConsoleWriter.NewLineNoTime
+
+
+    module Parallel =
+
+
+        let maxDepth = int (Math.Log(float Environment.ProcessorCount))
+
+
+        let totalWorders = int (2.0 ** (float maxDepth))
 
 
     module Message =
