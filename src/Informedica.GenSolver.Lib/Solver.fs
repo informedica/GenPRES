@@ -106,7 +106,7 @@ module Solver =
 
     /// Solve equations in parallel.
     /// Still an experimental feature.
-    /// May need to improve chunking mechanism.
+    /// Parallel distribution is cyclic
     let parallelLoop onlyMinIncrMax log sortQue n rpl rst =
 
         let solveE n eqs eq =
@@ -136,8 +136,6 @@ module Solver =
                     |> Exceptions.SolverTooManyLoops
                     |> Exceptions.raiseExc (Some log) []
 
-                let que = que |> sortQue onlyMinIncrMax
-
                 //(n, que)
                 //|> Events.SolverLoopedQue
                 //|> Logging.logInfo log
@@ -159,23 +157,32 @@ module Solver =
                         |> List.partition Equation.isSolvable
                         |> function
                         | que, unsolv -> que, unsolv |> List.append acc
-
-                    let rpl, rst =
-                        let chunkSize =
-                            let c = (que |> List.length) / Parallel.totalWorders
-                            if c > 0 then c else 1
-
+                    // make sure that the equations with the lowest cost
+                    // are prioritezed
+                    let que = que |> sortQue onlyMinIncrMax
+                    // apply parallel equation solving to the
+                    // first number of optimal parallel workers 
+                    let rstQue, (rpl, rst) =
+                        let queLen = que |> List.length
+                        // calculate optimal number of workers
+                        let workers =
+                            if Parallel.totalWorders > queLen then queLen
+                            else Parallel.totalWorders
+                        // return remaining que and calculate
+                        // in parallel the worker que
+                        if workers >= queLen then []
+                        else que |> List.skip workers
+                        ,
                         que
-                        |> List.chunkBySize chunkSize
-                        |> List.map (fun eqs ->
+                        |> List.take workers
+                        |> List.map (fun eq ->
                             async {
-                                return eqs |> List.map (solveE n (acc @ que))
+                                return eq |> solveE n (acc @ que)
                             }
                         )
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.toList
-                        |> List.collect id
                         |> List.partition (snd >> function | Changed _ -> true | _ -> false)
 
                     let rst, err =
@@ -208,7 +215,14 @@ module Solver =
                                     let vNew = v |> Variable.setValueRange var.Values
                                     vars |> List.replace (Variable.eqName vNew) vNew
                             ) []
-
+                        // make sure that vars are updated with changed vars 
+                        // in the remaining que
+                        let rstQue = 
+                            rstQue
+                            |> replace vars
+                            |> function
+                            | es1, es2 -> es1 |> List.append es2
+                        // calculate new accumulator and que
                         let acc, que =
                             acc
                             |> List.append rst
@@ -218,6 +232,7 @@ module Solver =
                                 es2 |> Ok,
                                 es1
                                 |> List.append rpl
+                                |> List.append rstQue
 
                         loop n que acc
 
@@ -347,7 +362,7 @@ module Solver =
 
                     // switch to different mechanism to either
                     // sequential solve equations or in parallel
-                    if onlyMinIncrMax || not useParallel then
+                    if onlyMinIncrMax (* || not useParallel*) then
                         // sequential avoiding unnescessary loops
                         loop 0 rpl (Ok rst)
                     else
