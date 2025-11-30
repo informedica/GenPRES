@@ -960,18 +960,33 @@ module DoseRule =
                 // process ok results
                 let rules =
                     fun () ->
+                        (*
+                        rules
+                        |> Array.map (fun (d, r) ->
+                            r |> Result.get, d
+                        )
+                        |> Array.groupBy fst
+                        |> Array.map (fun (dr, rs) ->
+                            dr |> addDoseLimits (rs |> Array.map snd)
+                        )
+                        *)
+
                         let chunkBySize = Parallel.totalWorders
 
-                        rules
+                        let grouped =
+                            rules
+                            |> Array.map (fun (d, r) ->
+                                r |> Result.get, d
+                            )
+                            |> Array.groupBy fst
+
+
+                        grouped
                         |> Array.chunkBySize chunkBySize
                         |> Array.map (fun rs ->
                             async {
                                 return
                                     rs
-                                    |> Array.map (fun (d, r) ->
-                                        r |> Result.get, d
-                                    )
-                                    |> Array.groupBy fst
                                     |> Array.map (fun (dr, rs) ->
                                         dr |> addDoseLimits (rs |> Array.map snd)
                                     )
