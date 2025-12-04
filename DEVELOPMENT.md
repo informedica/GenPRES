@@ -23,7 +23,7 @@ export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
 
-If you prefer, you can use direnv, as documented below.
+If you prefer, you can use `direnv`, as documented in the [Environment Configuration](#environment-configuration) section below.
 
 ### Start the application
 
@@ -34,8 +34,6 @@ dotnet run
 Open your browser to `http://localhost:5173`
 
 ## Project Folder Structure
-
-I'll create a markdown folder layout based on the actual directory structure of your GenPRES project.
 
 ### Root Level
 
@@ -189,8 +187,8 @@ In dependency order:
 
 This project follows specific organizational patterns:
 
-- **Library Structure**: Use the `Informedica.{Domain}.Lib` naming convention
-- **Domain Libraries**: GenSOLVER, GenORDER, GenUNITS, ZIndex, Utils
+- **Library Structure**: Use the `Informedica.{Domain}.{Lib/Server/Client}` naming convention
+- **Domain Libraries**: GenSOLVER, GenORDER, GenUNITS, GenCORE
 - **Separate Test Projects**: Each library has its own test project
 - **Opt-in .gitignore**: *You must explicitly define what should be included!!*
 
