@@ -10,22 +10,24 @@
 
 ## Table of Contents
 
-- [1. Executive Summary](#1-executive-summary)
-  - [Key Features](#key-features)
-- [3. Core Architecture Principles](#3-core-architecture-principles)
+- [GenPRES-EHR Treatment Plan Interface Specification - FHIR R4 Compliant](#genpres-ehr-treatment-plan-interface-specification---fhir-r4-compliant)
+  - [Table of Contents](#table-of-contents)
+  - [1. Executive Summary](#1-executive-summary)
+    - [Key Features](#key-features)
+  - [3. Core Architecture Principles](#3-core-architecture-principles)
     - [3.4 Stateless GenPRES with FHIR Persistence](#34-stateless-genpres-with-fhir-persistence)
-- [4. System Overview](#4-system-overview)
-  - [4.1 System Context Diagram](#41-system-context-diagram)
-  - [4.2 Data Flow Overview](#42-data-flow-overview)
-  - [4.3 Integration Patterns](#43-integration-patterns)
-- [5. Data Exchange Specifications](#5-data-exchange-specifications)
-  - [5.1 Patient Context](#51-patient-context)
-    - [5.1.1 Age and Development Data Structures](#511-age-and-development-data-structures)
-    - [5.1.2 Physical Measurement Structure](#512-physical-measurement-structure)
-    - [5.1.3 Clinical Status Enumerations](#513-clinical-status-enumerations)
-    - [5.1.4 Laboratory Data](#514-laboratory-data)
-  - [5.2 Treatment Plan Request (EHR → GenPRES)](#52-treatment-plan-request-ehr--genpres)
-- [6. Example Treatment Plan Scenarios](#6-example-treatment-plan-scenarios)
+  - [4. System Overview](#4-system-overview)
+    - [4.1 System Context Diagram](#41-system-context-diagram)
+    - [4.2 Data Flow Overview](#42-data-flow-overview)
+    - [4.3 Integration Patterns](#43-integration-patterns)
+  - [5. Data Exchange Specifications](#5-data-exchange-specifications)
+    - [5.1 Patient Context](#51-patient-context)
+      - [5.1.1 Age and Development Data Structures](#511-age-and-development-data-structures)
+      - [5.1.2 Physical Measurement Structure](#512-physical-measurement-structure)
+      - [5.1.3 Clinical Status Enumerations](#513-clinical-status-enumerations)
+      - [5.1.4 Laboratory Data](#514-laboratory-data)
+    - [5.2 Treatment Plan Request (EHR → GenPRES)](#52-treatment-plan-request-ehr--genpres)
+  - [6. Example Treatment Plan Scenarios](#6-example-treatment-plan-scenarios)
   - [6.1 Single-Product Once-Scenario](#61-single-product-once-scenario)
   - [6.2 Single-Product Once-Timed Scenario](#62-single-product-once-timed-scenario)
   - [6.3 Single-Product Discontinuous Scenario](#63-single-product-discontinuous-scenario)
@@ -39,6 +41,8 @@
   - [6.10 Multi-Product TPN Specific Scenario](#610-multi-product-tpn-specific-scenario)
   - [6.11 Multi-Product Enteral Feeding Specific Scenario](#611-multi-product-enteral-feeding-specific-scenario)
   - [6.12 Additional Recommended Scenarios](#612-additional-recommended-scenarios)
+  - [Document Revision History](#document-revision-history)
+  - [Document Approval](#document-approval)
 
 ## 1. Executive Summary
 
@@ -105,7 +109,7 @@ EHR maintains FHIR resources while GenPRES provides calculations, validation, an
 ## 5. Data Exchange Specifications
 
 ### 5.1 Patient Context
- 
+
 The patient context provides all clinical information necessary for accurate dose calculations and safety checking.
 
 ```fsharp
@@ -341,7 +345,6 @@ schema:
         unit2: null
     - exact-times: []
 ```
-
 
 ## 6.2 Single-Product Once-Timed Scenario
 

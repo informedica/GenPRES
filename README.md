@@ -31,7 +31,6 @@ The current solution runs at: <http://genpres.nl>.
 
 Some more background information can be found at:
 
-- <https://github.com/informedica/Informedica.GenPres.Lib/wiki/Informedica.GenOrder.Lib>
 - <https://medicatieveiligensnel.nl> (website in Dutch, with a language banner!)
 
 ## Build
@@ -57,8 +56,8 @@ Before starting the application set the following environment variables for a de
 **Unix/Linux/macOS (bash/zsh):**
 
 ```bash
-export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
-export GENPRES_LOG=0
+export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
+export GENPRES_LOG=1
 export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
@@ -67,7 +66,7 @@ export GENPRES_DEBUG=1
 
 ```powershell
 $env:GENPRES_URL_ID="1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
-$env:GENPRES_LOG="0"
+$env:GENPRES_LOG="1"
 $env:GENPRES_PROD="0"
 $env:GENPRES_DEBUG="1"
 ```
@@ -76,7 +75,7 @@ $env:GENPRES_DEBUG="1"
 
 ```cmd
 set GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-set GENPRES_LOG=0
+set GENPRES_LOG=1
 set GENPRES_PROD=0
 set GENPRES_DEBUG=1
 ```
