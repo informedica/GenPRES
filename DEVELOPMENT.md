@@ -103,7 +103,7 @@ Follow our [Commit Message Instructions](.github/instructions/commit-message.ins
 
 Use conventional commits format:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -121,7 +121,7 @@ Use conventional commits format:
 
 **Examples**:
 
-```
+```text
 feat(genorder): add pediatric dosage calculation
 fix(genunits): correct mg/ml to mmol/L conversion for NaCl
 docs(readme): update installation instructions
@@ -246,4 +246,3 @@ Many developers prefer using tools like `direnv` for automatic environment varia
 4. Variables will be loaded automatically when entering the project directory
 
 For other environment variable management approaches, see [Issue #44](https://github.com/informedica/GenPRES/issues/44) for community discussions and recommendations.
-
