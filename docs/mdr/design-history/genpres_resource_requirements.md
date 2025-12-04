@@ -4,6 +4,28 @@
 
 GenPRES relies on external Google Spreadsheet resources to provide medication data, mapping information, and configuration settings. These spreadsheets serve as the primary data source for the application and are accessed via a configurable URL ID.
 
+This document describes the spreadsheet resources that implement the Operational Knowledge Rules (OKRs) defined in the [GenFORM specification](../../domain/genform-free-text-to-operational-rules.md).
+
+## Core Definitions
+
+The following definitions align with the [GenFORM domain model](../../domain/genform-free-text-to-operational-rules.md):
+
+| Term | Definition |
+| ---- | ---------- |
+| *Operational Knowledge Rule (OKR)* | A fully structured, machine-interpretable and constraint-based representation of medication knowledge used for prescribing, preparation, and administration. |
+| *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
+| *Dose Limit* | A set of numeric constraints defining the minimum, maximum, or normative allowable dose. |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. |
+| *Selection Constraint* | A rule element used to determine which calculation constraints apply (e.g., patient demographics, route, indication). |
+| *Calculation Constraint* | A quantitative rule element used to compute dose, rate, volume, or timing. |
+| *Adjustment Unit* | A patient normalization unit used to scale doses (e.g., kg for weight, m² for BSA). |
+| *Reconstitution* | The process of converting a medication into an administrable form by adding a diluent. |
+| *Expansion Volume* | The increase in total volume resulting from reconstitution. |
+| *Dilution* | The process of further adjusting concentration and volume for safe administration. |
+| *Form* | The pharmaceutical form of a medication (e.g., tablet, injection, solution). Also referred to as "Shape" in some legacy contexts. |
+| *Generic Product (GPK)* | An abstract pharmaceutical product definition independent of branding. |
+| *Patient Category* | A classification of patients by demographic ranges (age, weight, BSA, gestational age) used to determine which rules apply. |
+
 ## Configuration
 
 The spreadsheet URL is configured through the `GENPRES_URL_ID` environment variable:
@@ -58,14 +80,16 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 ---
 
-### 3. ShapeRoute Sheet
+### 3. ShapeRoute Sheet (Form-Route Mapping)
 
-**Purpose**: Defines medication form constraints, dosing limits, and administration requirements based on route and shape combinations.
+**Purpose**: Defines medication form constraints, dosing limits, and administration requirements based on route and pharmaceutical form combinations. This sheet maps Form (also called "Shape" in legacy terminology) to administration routes.
+
+> **Note**: The term "Shape" is used in column names for backward compatibility. In GenFORM terminology, this corresponds to "Form" (pharmaceutical form).
 
 **Required Columns**:
 
 - `Route` - Administration route
-- `Shape` - Medication form/shape
+- `Shape` - Pharmaceutical form (Form in GenFORM terminology)
 - `Unit` - Base unit for the medication form
 - `DoseUnit` - Base Unit for dose calculations
 - `MinDoseQty` - Minimum dose quantity (optional)
@@ -88,20 +112,22 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 ---
 
-### 4. ValidShapes Sheet
+### 4. ValidForms Sheet (ValidShapes)
 
-**Purpose**: Defines the complete list of valid medication shapes/forms supported by the system.
+**Purpose**: Defines the complete list of valid pharmaceutical forms supported by the system.
+
+> **Note**: The sheet name "ValidShapes" and column name "Shape" are used for backward compatibility. In GenFORM terminology, these represent pharmaceutical "Forms".
 
 **Required Columns**:
 
-- `Shape` - Valid medication shape/form name
+- `Shape` - Valid pharmaceutical form name (Form in GenFORM terminology)
 
-**Usage**: Used by `validShapes` function to validate medication form inputs.
+**Usage**: Used by `validShapes` function to validate pharmaceutical form inputs.
 
 **Example Data**:
 
-| Shape |
-|-------|
+| Shape (Form) |
+|--------------|
 | tablet |
 | capsule |
 | injection |
@@ -113,15 +139,22 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 ### 5. Reconstitution Sheet
 
-**Purpose**: Provides reconstitution rules and diluent requirements for injectable medications.
+**Purpose**: Provides reconstitution rules for converting medications into administrable form by adding a diluent. This sheet implements the Reconstitution Rule model from GenFORM.
 
 **Required Columns**:
 
-- `GPK` - Generic Product Code identifier
+#### Basic Identification (Selection Constraints)
+
+- `GPK` - Generic Product Code identifier (Generic.GPK in GenFORM)
 - `Route` - Administration route for reconstitution
-- `Dep` - Department/unit where reconstitution applies
-- `DiluentVol` - Diluent volume required (numeric)
-- `ExpansionVol` - Volume expansion after reconstitution (numeric, optional)
+- `Dep` - Department/unit where reconstitution applies (Setting.Department in GenFORM)
+
+#### Solution Parameters (Calculation Constraints)
+
+These fields correspond to the Solution object in GenFORM:
+
+- `DiluentVol` - Diluent volume required in mL (numeric)
+- `ExpansionVol` - Expansion volume (increase in total volume resulting from reconstitution) in mL (numeric, optional)
 - `Diluents` - Acceptable diluents (semicolon-separated list)
 
 **Usage**: Used by `Reconstitution.get` to provide reconstitution instructions for injectable products.
@@ -239,65 +272,71 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 **Required Columns**:
 
-#### Basic Identification
+#### Dose Rule: Basic Identification (Selection Constraints)
 
 - `Source` - Data source identifier (e.g., "NKF", "FK")
 - `Indication` - Clinical indication for the medication
 - `Generic` - Generic medication name
-- `Shape` - Medication form/shape
+- `Shape` - Pharmaceutical form (Form in GenFORM terminology)
 - `Brand` - Brand name (optional)
 - `Route` - Administration route
 - `GPKs` - Generic Product Codes (semicolon-separated list)
-- `ScheduleText` - Dosing schedule description
+- `ScheduleText` - Dosing schedule description (Source.Text in GenFORM)
 - `Component` - Component name for combination products
 - `Substance` - Active substance name
 
-#### Patient Demographics
+#### Dose Rule: Setting and Patient Category (Selection Constraints)
 
-- `Dep` - Department/ward
+These fields define the clinical setting and patient category (demographic ranges) that determine rule applicability:
+
+- `Dep` - Department/ward (Setting.Department in GenFORM terminology)
 - `Gender` - Patient gender
-- `MinAge` - Minimum age (numeric, optional)
-- `MaxAge` - Maximum age (numeric, optional)
-- `MinWeight` - Minimum weight (numeric, optional)
-- `MaxWeight` - Maximum weight (numeric, optional)
-- `MinBSA` - Minimum body surface area (numeric, optional)
-- `MaxBSA` - Maximum body surface area (numeric, optional)
-- `MinGestAge` - Minimum gestational age (numeric, optional)
-- `MaxGestAge` - Maximum gestational age (numeric, optional)
-- `MinPMAge` - Minimum post-menstrual age (numeric, optional)
-- `MaxPMAge` - Maximum post-menstrual age (numeric, optional)
+- `MinAge` - Minimum age in days (numeric, optional)
+- `MaxAge` - Maximum age in days (numeric, optional)
+- `MinWeight` - Minimum weight in grams (numeric, optional)
+- `MaxWeight` - Maximum weight in grams (numeric, optional)
+- `MinBSA` - Minimum body surface area in m² (numeric, optional)
+- `MaxBSA` - Maximum body surface area in m² (numeric, optional)
+- `MinGestAge` - Minimum gestational age in days (numeric, optional)
+- `MaxGestAge` - Maximum gestational age in days (numeric, optional)
+- `MinPMAge` - Minimum post-menstrual age in days (numeric, optional)
+- `MaxPMAge` - Maximum post-menstrual age in days (numeric, optional)
 
-#### Dose Configuration
+#### Dose Rule: Dose Configuration (Selection and Calculation Constraints)
 
-- `DoseType` - Type of dose (can only be either "discontinuous", "continuous", "once", "timed" or "onceTimed")
-- `DoseText` - Dose type description text (can be empty)
-- `Freqs` - Frequencies (semicolon-separated numeric values)
-- `DoseUnit` - Base dose unit
-- `AdjustUnit` - Adjustment unit (e.g., "kg", "m2")
-- `FreqUnit` - Frequency unit (e.g., "day", "hour")
-- `RateUnit` - Rate unit (e.g., "hour", "min")
+- `DoseType` - Temporal category of dosing. Valid values: "once", "onceTimed", "discontinuous", "timed", or "continuous"
+- `DoseText` - Dose type description text (DoseType.DoseText in GenFORM, can be empty)
+- `Freqs` - Schedule frequencies (semicolon-separated numeric values)
+- `DoseUnit` - Base dose unit for DoseLimit
+- `AdjustUnit` - Patient adjustment unit (e.g., "kg" for weight, "m2" for BSA)
+- `FreqUnit` - Frequency unit for Schedule (e.g., "day", "hour")
+- `RateUnit` - Rate unit for DoseLimit (e.g., "hour", "min")
 
-#### Timing Parameters
+#### Dose Rule: Schedule Parameters (Calculation Constraints)
 
-- `MinTime` - Minimum administration time (numeric, optional)
-- `MaxTime` - Maximum administration time (numeric, optional)
-- `TimeUnit` - Time unit for administration
-- `MinInt` - Minimum interval (numeric, optional)
-- `MaxInt` - Maximum interval (numeric, optional)
+These fields correspond to the Schedule object in GenFORM:
+
+- `MinTime` - Minimum time for infusion of a dose (numeric, optional)
+- `MaxTime` - Maximum time for infusion of a dose (numeric, optional)
+- `TimeUnit` - Time unit for infusion measurement
+- `MinInt` - Minimum interval between two doses (numeric, optional)
+- `MaxInt` - Maximum interval between two doses (numeric, optional)
 - `IntUnit` - Interval unit
-- `MinDur` - Minimum duration (numeric, optional)
-- `MaxDur` - Maximum duration (numeric, optional)
-- `DurUnit` - Duration unit
+- `MinDur` - Minimum duration of the dose rule (numeric, optional)
+- `MaxDur` - Maximum duration of the dose rule (numeric, optional)
+- `DurUnit` - Duration time unit
 
-#### Dose Limits
+#### Dose Rule: Dose Limits (Calculation Constraints)
 
-- `MinQty` - Minimum quantity per dose (numeric, optional)
-- `MaxQty` - Maximum quantity per dose (numeric, optional)
-- `NormQtyAdj` - Normal adjusted quantity (numeric, optional)
-- `MinQtyAdj` - Minimum adjusted quantity (numeric, optional)
-- `MaxQtyAdj` - Maximum adjusted quantity (numeric, optional)
-- `MinPerTime` - Minimum dose per time (numeric, optional)
-- `MaxPerTime` - Maximum dose per time (numeric, optional)
+These fields correspond to the DoseLimit object in GenFORM:
+
+- `MinQty` - Minimum dose quantity (numeric, optional)
+- `MaxQty` - Maximum dose quantity (numeric, optional)
+- `NormQtyAdj` - Normal patient-adjusted dose quantity (numeric, optional)
+- `MinQtyAdj` - Minimum patient-adjusted dose quantity (numeric, optional)
+- `MaxQtyAdj` - Maximum patient-adjusted dose quantity (numeric, optional)
+- `MinPerTime` - Minimum dose quantity per time (numeric, optional)
+- `MaxPerTime` - Maximum dose quantity per time (numeric, optional)
 - `NormPerTimeAdj` - Normal adjusted dose per time (numeric, optional)
 - `MinPerTimeAdj` - Minimum adjusted dose per time (numeric, optional)
 - `MaxPerTimeAdj` - Maximum adjusted dose per time (numeric, optional)
@@ -317,61 +356,67 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 ---
 
-### 10. SolutionRules Sheet
+### 10. DilutionRules Sheet (SolutionRules)
 
-**Purpose**: Defines IV solution preparation rules, diluent requirements, and concentration limits for injectable medications.
+**Purpose**: Defines dilution rules for IV solution preparation, including diluent requirements and concentration limits for injectable medications. This sheet implements the Dilution Rule model from GenFORM.
+
+> **Note**: The sheet may be named "SolutionRules" for backward compatibility. In GenFORM terminology, this represents "Dilution Rules".
 
 **Required Columns**:
 
-#### Basic Identification
+#### Dilution Rule: Basic Identification (Selection Constraints)
 
 - `Generic` - Generic medication name
-- `Shape` - Medication form/shape (optional)
+- `Shape` - Pharmaceutical form (Form in GenFORM terminology, optional)
 - `Route` - Administration route
-- `Indication` - Clinical indication (optional)
+- `Indication` - Clinical indication (optional, must match corresponding Dose Rule)
 
-#### Patient Demographics & Location
+#### Dilution Rule: Setting, Vascular Access, and Patient Category (Selection Constraints)
 
-- `Dep` - Department/ward (optional)
-- `CVL` - Central venous line access (accepts "x" for true)
-- `PVL` - Peripheral venous line access (accepts "x" for true)
-- `MinAge` - Minimum age (numeric, optional)
-- `MaxAge` - Maximum age (numeric, optional)
-- `MinWeight` - Minimum weight (numeric, optional)
-- `MaxWeight` - Maximum weight (numeric, optional)
-- `MinGestAge` - Minimum gestational age (numeric, optional)
-- `MaxGestAge` - Maximum gestational age (numeric, optional)
+- `Dep` - Department/ward (Setting.Department in GenFORM terminology, optional)
+- `CVL` - Central Venous Line access (Vascular Access in GenFORM, accepts "x" for true)
+- `PVL` - Peripheral Venous Line access (Vascular Access in GenFORM, accepts "x" for true)
+- `MinAge` - Minimum age in days (numeric, optional)
+- `MaxAge` - Maximum age in days (numeric, optional)
+- `MinWeight` - Minimum weight in grams (numeric, optional)
+- `MaxWeight` - Maximum weight in grams (numeric, optional)
+- `MinGestAge` - Minimum gestational age in days (numeric, optional)
+- `MaxGestAge` - Maximum gestational age in days (numeric, optional)
 
-#### Dose Configuration
+#### Dilution Rule: Dose Configuration (Selection Constraints)
 
-- `MinDose` - Minimum dose (numeric, optional)
-- `MaxDose` - Maximum dose (numeric, optional)
-- `DoseType` - Type of dose (e.g., "start", "maintenance", "max")
+- `MinDose` - Minimum dose (DilutionRule.MinDose in GenFORM, numeric, optional)
+- `MaxDose` - Maximum dose (DilutionRule.MaxDose in GenFORM, numeric, optional)
+- `DoseType` - Temporal category of dosing: "once", "onceTimed", "discontinuous", "timed", or "continuous"
 
-#### Solution Preparation
+#### Dilution Rule: Dilution Parameters (Calculation Constraints)
+
+These fields correspond to the DilutionRule object in GenFORM:
 
 - `Solutions` - Acceptable diluents (pipe-separated list: "solution1|solution2")
-- `Volumes` - Standard volumes (semicolon-separated numeric values)
-- `MinVol` - Minimum volume (numeric, optional)
-- `MaxVol` - Maximum volume (numeric, optional)
-- `MinVolAdj` - Minimum volume per kg (numeric, optional)
-- `MaxVolAdj` - Maximum volume per kg (numeric, optional)
-- `MinPerc` - Minimum percentage of preparation (numeric, optional)
-- `MaxPerc` - Maximum percentage of preparation (numeric, optional)
+- `Volumes` - Standard volume quantities (semicolon-separated numeric values in mL)
+- `MinVol` - Minimum volume in mL (numeric, optional)
+- `MaxVol` - Maximum volume in mL (numeric, optional)
+- `MinVolAdj` - Minimum volume per kg in mL/kg (numeric, optional)
+- `MaxVolAdj` - Maximum volume per kg in mL/kg (numeric, optional)
+- `MinPerc` - Minimum percentage of solution for DoseQuantity (Administration Fraction min, numeric, optional)
+- `MaxPerc` - Maximum percentage of solution for DoseQuantity (Administration Fraction max, numeric, optional)
 
-#### Solution Limits (Substance-Specific)
+#### Dilution Rule: Dilution Limits (Calculation Constraints)
+
+These fields correspond to the DilutionLimit object in GenFORM:
 
 - `Substance` - Active substance name (for concentration limits)
-- `Unit` - Unit for the substance
-- `Quantities` - Standard quantities (semicolon-separated numeric values)
-- `MinQty` - Minimum quantity (numeric, optional)
-- `MaxQty` - Maximum quantity (numeric, optional)
-- `MinDrip` - Minimum drip rate (numeric, optional)
-- `MaxDrip` - Maximum drip rate (numeric, optional)
-- `MinConc` - Minimum concentration (numeric, optional)
-- `MaxConc` - Maximum concentration (numeric, optional)
+- `Unit` - Substance unit (SubstUnit in GenFORM)
+- `Quantities` - Standard substance quantities (semicolon-separated numeric values)
+- `MinQty` - Minimum substance quantity (numeric, optional)
+- `MaxQty` - Maximum substance quantity (numeric, optional)
+- `MinDrip` - Minimum infusion rate in mL/hour (numeric, optional)
+- `MaxDrip` - Maximum infusion rate in mL/hour (numeric, optional)
+- `MinConc` - Minimum substance concentration in SubstUnit/mL (numeric, optional)
+- `MaxConc` - Maximum substance concentration in SubstUnit/mL (numeric, optional)
 
-**Usage**: Used by `SolutionRule.get` to provide IV solution preparation guidance with concentration limits and diluent requirements.
+**Usage**: Used by `SolutionRule.get` (implements Dilution Rule) to provide IV solution preparation guidance with concentration limits and diluent requirements.
 
 **Example Data**:
 
@@ -384,67 +429,73 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 ### 11. RenalRules Sheet
 
-**Purpose**: Defines renal dose adjustments for medications based on kidney function, dialysis status, and patient characteristics.
+**Purpose**: Defines renal dose adjustments for medications based on kidney function, dialysis status, and patient characteristics. This sheet implements the Renal Rule model from GenFORM.
 
 **Required Columns**:
 
-#### Basic Identification
+#### Renal Rule: Basic Identification (Selection Constraints)
 
 - `Generic` - Generic medication name
 - `Route` - Administration route
-- `Indication` - Clinical indication (optional)
+- `Indication` - Clinical indication (optional, must match corresponding Dose Rule)
 - `Source` - Data source identifier (e.g., "NKF", "KI/DOQI")
 
-#### Patient Demographics
+#### Renal Rule: Patient Category (Selection Constraints)
 
-- `MinAge` - Minimum age (numeric, optional)
-- `MaxAge` - Maximum age (numeric, optional)
+- `MinAge` - Minimum age in days (numeric, optional)
+- `MaxAge` - Maximum age in days (numeric, optional)
 
-#### Renal Function Parameters
+#### Renal Rule: Renal Function Parameters (Selection Constraints)
+
+These fields correspond to the Renal object in GenFORM:
 
 - `IntDial` - Intermittent hemodialysis (accepts "x" for applies)
 - `ContDial` - Continuous hemodialysis (accepts "x" for applies)
 - `PerDial` - Peritoneal dialysis (accepts "x" for applies)
-- `MinGFR` - Minimum eGFR (estimated glomerular filtration rate) (numeric, optional)
-- `MaxGFR` - Maximum eGFR (numeric, optional)
+- `MinGFR` - Minimum standardized GFR in mL/min/1.73m² (numeric, optional)
+- `MaxGFR` - Maximum standardized GFR in mL/min/1.73m² (numeric, optional)
 
-#### Dose Configuration
+#### Renal Rule: Dose Configuration (Selection and Calculation Constraints)
 
-- `DoseType` - Type of dose (e.g., "start", "maintenance", "max")
-- `DoseText` - Dose description text
-- `Freqs` - Frequencies (semicolon-separated numeric values)
-- `DoseRed` - Dose reduction type ("rel" for relative, "abs" for absolute)
+- `DoseType` - Temporal category of dosing: "once", "onceTimed", "discontinuous", "timed", or "continuous"
+- `DoseText` - Dose type description (DoseType.DoseText in GenFORM)
+- `Freqs` - Schedule frequencies (semicolon-separated numeric values)
+- `DoseRed` - Dose adjustment type: "rel" for Relative Adjustment, "abs" for Absolute Adjustment
 - `DoseUnit` - Base dose unit
-- `AdjustUnit` - Adjustment unit (e.g., "kg", "m2")
+- `AdjustUnit` - Patient adjustment unit (e.g., "kg", "m2")
 - `FreqUnit` - Frequency unit (e.g., "day", "hour")
 - `RateUnit` - Rate unit (e.g., "hour", "min")
 
-#### Timing Parameters
+#### Renal Rule: Schedule Parameters (Calculation Constraints)
 
-- `MinInt` - Minimum interval (numeric, optional)
-- `MaxInt` - Maximum interval (numeric, optional)
-- `IntUnit` - Interval unit
+These fields correspond to the Schedule object in GenFORM:
 
-#### Substance-Specific Limits
+- `MinInt` - Minimum interval duration (numeric, optional)
+- `MaxInt` - Maximum interval duration (numeric, optional)
+- `IntUnit` - Interval time unit
 
-- `Substance` - Active substance name (for dose adjustments)
+#### Renal Rule: Substance and Adjustment (Selection and Calculation Constraints)
 
-#### Dose Limits (Renal Adjusted)
+- `Substance` - Active substance name (must match corresponding Dose Rule)
 
-- `MinQty` - Minimum quantity per dose (numeric, optional)
-- `MaxQty` - Maximum quantity per dose (numeric, optional)
-- `NormQtyAdj` - Normal adjusted quantity (space-dash-space separated values: "val1 - val2")
-- `MinQtyAdj` - Minimum adjusted quantity (numeric, optional)
-- `MaxQtyAdj` - Maximum adjusted quantity (numeric, optional)
+#### Dose Limits (Calculation Constraints - Renal Adjusted)
+
+These fields implement the Adjustment object in GenFORM. Values are either relative (multiplier) or absolute based on `DoseRed`:
+
+- `MinQty` - Minimum dose quantity (numeric, optional)
+- `MaxQty` - Maximum dose quantity (numeric, optional)
+- `NormQtyAdj` - Normal patient-adjusted dose quantity (space-dash-space separated values: "val1 - val2")
+- `MinQtyAdj` - Minimum patient-adjusted dose quantity (numeric, optional)
+- `MaxQtyAdj` - Maximum patient-adjusted dose quantity (numeric, optional)
 - `MinPerTime` - Minimum dose per time (numeric, optional)
 - `MaxPerTime` - Maximum dose per time (numeric, optional)
-- `NormPerTimeAdj` - Normal adjusted dose per time (space-dash-space separated values)
-- `MinPerTimeAdj` - Minimum adjusted dose per time (numeric, optional)
-- `MaxPerTimeAdj` - Maximum adjusted dose per time (numeric, optional)
-- `MinRate` - Minimum rate (numeric, optional)
-- `MaxRate` - Maximum rate (numeric, optional)
-- `MinRateAdj` - Minimum adjusted rate (numeric, optional)
-- `MaxRateAdj` - Maximum adjusted rate (numeric, optional)
+- `NormPerTimeAdj` - Normal patient-adjusted dose per time (space-dash-space separated values)
+- `MinPerTimeAdj` - Minimum patient-adjusted dose per time (numeric, optional)
+- `MaxPerTimeAdj` - Maximum patient-adjusted dose per time (numeric, optional)
+- `MinRate` - Minimum dose rate (numeric, optional)
+- `MaxRate` - Maximum dose rate (numeric, optional)
+- `MinRateAdj` - Minimum patient-adjusted dose rate (numeric, optional)
+- `MaxRateAdj` - Maximum patient-adjusted dose rate (numeric, optional)
 
 **Usage**: Used by `RenalRule.get` to provide renal dose adjustments based on kidney function and dialysis status. Rules are applied to patients ≥28 days of age with impaired renal function.
 
@@ -452,9 +503,9 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 | Generic | Route | Source | MinGFR | MaxGFR | ContDial | IntDial | PerDial | DoseType | DoseRed | Substance | DoseUnit | AdjustUnit | MinQtyAdj | MaxQtyAdj | NormQtyAdj |
 |---------|-------|--------|--------|--------|----------|---------|---------|----------|---------|-----------|----------|------------|-----------|-----------|------------|
-| gentamicin | iv | NKF | 30 | 59 | | | | maintenance | abs | gentamicin | mg | kg | 3 | 5 | 4 - 5 |
-| digoxin | po | KI/DOQI | | 50 | | | | maintenance | rel | digoxin | mcg | | | | 0.5 |
-| vancomycin | iv | NKF | | | x | | | maintenance | abs | vancomycin | mg | kg | 10 | 15 | 15 |
+| gentamicin | iv | NKF | 30 | 59 | | | | discontinuous | abs | gentamicin | mg | kg | 3 | 5 | 4 - 5 |
+| digoxin | po | KI/DOQI | | 50 | | | | discontinuous | rel | digoxin | mcg | | | | 0.5 |
+| vancomycin | iv | NKF | | | x | | | discontinuous | abs | vancomycin | mg | kg | 10 | 15 | 15 |
 
 ---
 
@@ -592,7 +643,7 @@ All sheets are accessed through the following pattern:
 - **Data Size**: Sheets should be optimized for reasonable loading times
 - **Update Frequency**: Changes to sheets require application restart or cache invalidation
 - **Deduplication**: DoseRules sheet uses distinct filtering to prevent duplicate entries
-- **Complex Processing**: SolutionRules and RenalRules undergo complex grouping and filtering operations
+- **Complex Processing**: DilutionRules (SolutionRules) and RenalRules undergo complex grouping and filtering operations
 - **Age Restrictions**: RenalRules only apply to patients ≥28 days of age
 - **Emergency Data**: Emergency treatment sheets require rapid access for critical care scenarios
 
@@ -603,7 +654,7 @@ All sheets are accessed through the following pattern:
 - **Backup**: Maintain backup copies of critical data sheets
 - **Version Control**: Track changes to data sheets for audit purposes
 - **Clinical Governance**: Dose rule changes require clinical review and approval
-- **IV Safety**: Solution preparation rules require specialized clinical validation
+- **IV Safety**: Dilution rules require specialized clinical validation
 - **Nephrology Review**: Renal adjustment rules require nephrology specialist approval
 - **Emergency Review**: Emergency treatment protocols require intensive care specialist approval
 
@@ -627,7 +678,7 @@ The application should gracefully handle:
 - **Cache Files**: Production may use local cache files for performance
 - **Data Updates**: Production requires careful data validation before updates
 - **Clinical Review**: All dose rule changes require clinical pharmacist approval
-- **IV Preparation**: Solution rules require specialized pharmacy validation
+- **IV Preparation**: Dilution rules require specialized pharmacy validation
 - **Renal Guidelines**: Renal rules must align with current nephrology practice guidelines
 - **Emergency Protocols**: Emergency treatment data must align with current resuscitation guidelines
 
@@ -640,6 +691,31 @@ This documentation is part of the Design History File (DHF) for GenPRES, support
 - **Change Control**: Establishes procedures for data updates and validation
 - **Verification**: Provides basis for data verification and validation testing
 - **Clinical Evidence**: Dose rules are based on established clinical guidelines and evidence
-- **IV Safety**: Solution preparation rules follow established pharmaceutical compounding standards
+- **IV Safety**: Dilution rules follow established pharmaceutical compounding standards
 - **Renal Safety**: Renal adjustment rules follow established nephrology guidelines and evidence-based practice
 - **Emergency Care**: Emergency treatment protocols follow established resuscitation and critical care guidelines
+
+## Related Documents
+
+This document describes the spreadsheet resources implementing the Operational Knowledge Rules (OKRs) defined in the GenFORM specification.
+
+| Document | Description | Relationship |
+|----------|-------------|--------------|
+| [GenFORM Specification](../../domain/genform-free-text-to-operational-rules.md) | Free text to Operational Knowledge Rules transformation | **Reference specification** - defines rule models and terminology |
+| [Core Domain Model](../../domain/core-domain.md) | Central domain definitions and transformation pipeline | GenFORM is Layer 1 in the pipeline |
+| [GenORDER](../../domain/genorder-operational-rules-to-orders.md) | Transforms OKRs to Order Scenarios | Consumes rules defined in these spreadsheets |
+| [GenSOLVER](../../domain/gensolver-from-orders-to-quantitative-solutions.md) | Constraint solving engine | Provides algorithmic foundation for rule application |
+
+## Terminology Mapping
+
+For backward compatibility, some spreadsheet column names differ from GenFORM terminology:
+
+| Spreadsheet Term | GenFORM Term | Notes |
+|------------------|--------------|-------|
+| Shape | Form | Pharmaceutical form |
+| Dep | Setting.Department | Department/ward |
+| SolutionRules | Dilution Rules | IV solution preparation rules |
+| CVL/PVL | Vascular Access | Central/Peripheral Venous Line |
+| DoseRed | Adjustment | Relative or Absolute dose adjustment |
+| eGFR | Standardized GFR | mL/min/1.73m² |
+| maintenance/start/max | DoseType values | Use: once, onceTimed, discontinuous, timed, continuous |

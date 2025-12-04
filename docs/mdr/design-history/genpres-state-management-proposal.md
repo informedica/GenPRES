@@ -1,4 +1,4 @@
-# GenPRES Stateless Persistence Service Design
+# GenPRES State Management Design
 
 ## Executive Summary
 
