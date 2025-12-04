@@ -18,7 +18,7 @@ Before contributing, ensure you have the following installed:
 
 ```bash
 export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-export GENPRES_LOG=0
+export GENPRES_LOG=1
 export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
@@ -32,6 +32,118 @@ dotnet run
 ```
 
 Open your browser to `http://localhost:5173`
+
+## Project Folder Structure
+
+I'll create a markdown folder layout based on the actual directory structure of your GenPRES project.
+
+### Root Level
+
+```text
+GenPRES/
+├── .github/                   # GitHub configuration and workflows
+│   ├── ISSUE_TEMPLATE/        # Issue templates
+│   ├── PULL_REQUEST_TEMPLATE/ # PR templates
+│   ├── instructions/          # Development instructions
+│   └── workflows/             # CI/CD workflows
+├── .husky/                    # Git hooks
+├── .idea/                     # JetBrains IDE configuration
+├── .vscode/                   # VS Code configuration
+├── benchmark/                 # Performance benchmarks
+├── data/                      # Application data
+│   ├── cache/                 # Cached data files
+│   ├── config/                # Configuration files
+│   ├── data/                  # JSON data files
+│   └── zindex/                # Z-Index drug database files
+├── deploy/                    # Deployment scripts and configurations
+├── docs/                      # Documentation
+│   ├── code-reviews/          # Code review documents
+│   ├── data-extraction/       # Data extraction documentation
+│   ├── domain/                # Domain documentation
+│   ├── implementation-plans/  # Implementation plans
+│   ├── literature/            # Research literature
+│   ├── mdr/                   # Medical Device Regulation documentation
+│   │   ├── design-history/    # Design history files
+│   │   ├── interface/         # Interface specifications
+│   │   ├── post-market/       # Post-market surveillance
+│   │   ├── requirements/      # Requirements documentation
+│   │   ├── risk-analysis/     # Risk management
+│   │   ├── usability/         # Usability engineering
+│   │   └── validation/        # Validation documentation
+│   ├── roadmap/               # Project roadmap
+│   └── scenarios/             # Clinical scenarios
+├── scripts/                   # Utility scripts
+└── src/                       # Source code
+    ├── Informedica.GenPRES.Client/       # Frontend application
+    │   ├── Components/        # UI components
+    │   ├── Pages/             # Page components
+    │   ├── Views/             # View components
+    │   ├── output/            # Compiled JavaScript output
+    │   └── public/            # Static assets
+    ├── Informedica.GenPRES.Server/       # Backend application
+    │   ├── Properties/        # Server properties
+    │   ├── Scripts/           # Server scripts
+    │   └── data/              # Server data directory
+    ├── Informedica.Agents.Lib/           # Agent-based concurrency library
+    ├── Informedica.GenCORE.Lib/          # Core domain library
+    ├── Informedica.GenFORM.Lib/          # Formulary management library
+    ├── Informedica.GenORDER.Lib/         # Order processing library
+    ├── Informedica.GenSOLVER.Lib/        # Constraint solver library
+    ├── Informedica.GenUNITS.Lib/         # Units of measurement library
+    ├── Informedica.NKF.Lib/              # Pediatric formulary parsing library
+    ├── Informedica.FTK.Lib/              # Adult formulary parsing library
+    ├── Informedica.Logging.Lib/          # Logging utilities
+    ├── Informedica.NLP.Lib/              # OpenAI/LLM integration for NLP
+    ├── Informedica.OTS.Lib/              # Ontology Terminology Server integration
+    ├── Informedica.DataPlatform.Lib/     # Data Platform integration
+    ├── Informedica.HIXConnect.Lib/       # HIX Connect integration
+    ├── Informedica.Utils.Lib/            # Utility functions
+    ├── Informedica.ZForm.Lib/            # Z-Index form library
+    └── Informedica.ZIndex.Lib/           # Z-Index database library
+```
+
+### Key Configuration Files
+
+- `Build.fs` / `Build.fsproj` - Build automation
+- `GenPRES.sln` - Solution file
+- `Dockerfile` - Docker containerization
+- `paket.dependencies` - Package management
+- `global.json` - .NET SDK version
+
+### Documentation Files
+
+- `README.md` - Project overview
+- `ARCHITECTURE.md` - Architecture documentation
+- `CHANGELOG.md` - Version history
+- `CONTRIBUTING.md` - Contribution guidelines
+- `CODE_OF_CONDUCT.md` - Code of conduct
+- `DEVELOPMENT.md` - Development guide
+- `GOVERNANCE.md` - Project governance
+- `MAINTAINERS.md` - Maintainer information
+- `ROADMAP.md` - Project roadmap
+- `SECURITY.md` - Security policy
+- `SUPPORT.md` - Support information
+- `WARP.md` - Warp-specific documentation
+
+## Directory Descriptions
+
+### Core Directories
+
+- **`.github/`** - Contains GitHub-specific configurations including issue templates, PR templates, workflow definitions, and development instructions
+- **`benchmark/`** - Performance benchmarking suite for measuring solver and equation performance
+- **`data/`** - Application data including cached drug information, configuration files, clinical data (age/weight tables, vital signs), and Z-Index drug database files
+- **`docs/`** - Comprehensive documentation including MDR compliance, design history, requirements, risk analysis, usability testing, and clinical scenarios
+- **`src/`** - Source code organized into client (Fable/React frontend), server (Saturn backend), and multiple F# libraries
+
+### Library Modules
+
+Each `Informedica.*.Lib` directory contains:
+
+- Core F# source files
+- `Scripts/` - Interactive F# scripts for testing
+- `Notebooks/` - Jupyter/Polyglot notebooks (where applicable)
+- `paket.references` - Package dependencies
+- `*.fsproj` - F# project file
 
 ## Project Architecture
 
@@ -53,7 +165,7 @@ In dependency order:
 - **Informedica.Logging.Lib**: Logging library enabling concurrent logging  
 - **Informedica.NLP.Lib**: Natural Language Processing utilities to parse free text inputs to structured operational knowledge rules
 - **Informedica.OTS.Lib**: Data access layer for Google Sheets and CSV files and Ontology Terminlogy Server (OTS)
-- **Informedica.GenUnits.Lib**: Units of measure and unit-safe calculations  
+- **Informedica.GenUNITS.Lib**: Units of measure and unit-safe calculations  
 - **Informedica.GenSOLVER.Lib**: Quantitative constraint solving, equations, and variables  
 - **Informedica.GenCORE.Lib**: Core Domain model (patients, context, and order abstractions)  
 - **Informedica.ZIndex.Lib**: Medication and product database (source domain)  
@@ -78,7 +190,7 @@ In dependency order:
 This project follows specific organizational patterns:
 
 - **Library Structure**: Use the `Informedica.{Domain}.Lib` naming convention
-- **Domain Libraries**: GenSOLVER, GenORDER, GenUnits, ZIndex, Utils
+- **Domain Libraries**: GenSOLVER, GenORDER, GenUNITS, ZIndex, Utils
 - **Separate Test Projects**: Each library has its own test project
 - **Opt-in .gitignore**: *You must explicitly define what should be included!!*
 
