@@ -63,9 +63,7 @@ Use specific scopes relevant to the GenPRES project:
 - **deps**: Dependency updates
 - **docker**: Docker configuration changes
 - **github**: GitHub Actions, workflows, or repository configuration
-- **build**: Build system changes
 - **deploy**: Deployment configuration
-- **docs**: Documentation
 
 ### Description Guidelines
 - Use the imperative mood ("add", "fix", "update", not "added", "fixed", "updated")
