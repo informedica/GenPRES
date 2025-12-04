@@ -56,7 +56,7 @@ Before starting the application set the following environment variables for a de
 **Unix/Linux/macOS (bash/zsh):**
 
 ```bash
-export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
+export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
 export GENPRES_LOG=0
 export GENPRES_PROD=0
 export GENPRES_DEBUG=1
