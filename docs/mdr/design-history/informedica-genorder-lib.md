@@ -160,70 +160,80 @@ Note on rate vs per-time:
 - dos.rte: instantaneous rate/speed (Unit/Time), typical for continuous infusions.
 - dos.ptm: quantity per unit time (Unit/Time) derived from discrete administrations (dose x frequency). Timed regimens often specify both: dos.rte for infusion rate and dos.ptm for prescribed periodic dose.
 
-- [ord]_sch_frq — PrescriptionFrequency — Count/Time — Number of administrations per time.
-- [ord]_sch_tme — PrescriptionTime — Time — Duration of a single administration.
-- [ord]_adj_qty — OrderAdjust — Adjust Unit — Patient-specific adjustor (e.g., kg or m²).
-- [ord]_dur — OrderDuration — Time — Total duration of the order.
-
-- [orb]_dos_qty — OrderableDoseQuantity — Orderable Unit — Dose per administration.
-- [orb]_dos_rte — OrderableDoseRate — Orderable Unit/Time — Administration rate.
-- [orb]_dos_ptm — OrderableDosePerTime — Orderable Unit/Time — Dose per unit time (e.g., per day).
-- [orb]_dos_qty_adj — OrderableDoseQuantityAdjust — Orderable Unit/Adjust Unit — Adjusted dose per administration.
-- [orb]_dos_rte_adj — OrderableDoseRateAdjust — Orderable Unit/Adjust Unit/Time — Adjusted administration rate.
-- [orb]_dos_ptm_adj — OrderableDosePerTimeAdjust — Orderable Unit/Adjust Unit/Time — Adjusted dose per unit time.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [ord]_sch_frq | PrescriptionFrequency | Count/Time | Number of administrations per time |
+| [ord]_sch_tme | PrescriptionTime | Time | Duration of a single administration |
+| [ord]_adj_qty | OrderAdjust | Adjust Unit | Patient-specific adjustor (e.g., kg or m²) |
+| [ord]_dur | OrderDuration | Time | Total duration of the order |
+| [orb]_dos_qty | OrderableDoseQuantity | Orderable Unit | Dose per administration |
+| [orb]_dos_rte | OrderableDoseRate | Orderable Unit/Time | Administration rate |
+| [orb]_dos_ptm | OrderableDosePerTime | Orderable Unit/Time | Dose per unit time (e.g., per day) |
+| [orb]_dos_qty_adj | OrderableDoseQuantityAdjust | Orderable Unit/Adjust Unit | Adjusted dose per administration |
+| [orb]_dos_rte_adj | OrderableDoseRateAdjust | Orderable Unit/Adjust Unit/Time | Adjusted administration rate |
+| [orb]_dos_ptm_adj | OrderableDosePerTimeAdjust | Orderable Unit/Adjust Unit/Time | Adjusted dose per unit time |
 
 Optional at Item/Component level when relevant:
 
-- [itm]_dos_qty — ItemDoseQuantity — Item Unit — Dose per administration of an Item.
-- [itm]_dos_rte — ItemDoseRate — Item Unit/Time — Administration rate for an Item.
-- [itm]_dos_ptm — ItemDosePerTime — Item Unit/Time — Dose per unit time for an Item.
-- [itm]_dos_qty_adj — ItemDoseQuantityAdjust — Item Unit/Adjust Unit — Adjusted dose per administration.
-- [itm]_dos_rte_adj — ItemDoseRateAdjust — Item Unit/Adjust Unit/Time — Adjusted rate.
-- [itm]_dos_ptm_adj — ItemDosePerTimeAdjust — Item Unit/Adjust Unit/Time — Adjusted dose per unit time.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [itm]_dos_qty | ItemDoseQuantity | Item Unit | Dose per administration of an Item |
+| [itm]_dos_rte | ItemDoseRate | Item Unit/Time | Administration rate for an Item |
+| [itm]_dos_ptm | ItemDosePerTime | Item Unit/Time | Dose per unit time for an Item |
+| [itm]_dos_qty_adj | ItemDoseQuantityAdjust | Item Unit/Adjust Unit | Adjusted dose per administration |
+| [itm]_dos_rte_adj | ItemDoseRateAdjust | Item Unit/Adjust Unit/Time | Adjusted rate |
+| [itm]_dos_ptm_adj | ItemDosePerTimeAdjust | Item Unit/Adjust Unit/Time | Adjusted dose per unit time |
 
 Totals over the order duration (optional, mainly for verification/reporting):
 
-- [itm]_dos_tot — ItemDoseTotal — Item Unit — Total dose over the order duration.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [itm]_dos_tot | ItemDoseTotal | Item Unit | Total dose over the order duration |
 
 ## Variables for Preparation
 
 The preparation describes how to make the dose from available containers/components and their concentrations.
 
-- [orb]_qty — OrderableQuantity — Orderable Unit — Quantity of orderable per unit preparation.
-- [orb]_ord_qty — OrderableOrderQuantity — Orderable Unit — Total quantity of orderable to prepare for the order.
-
-- [cmp]_orb_cnc — ComponentOrderableConcentration — Component Unit/Orderable Unit — Concentration of a component in the orderable.
-- [cmp]_orb_qty — ComponentOrderableQuantity — Component Unit — Quantity of a component per orderable unit.
-- [cmp]_orb_cnt — ComponentOrderableCount — Count — Number of components (e.g., vials/ampoules) per orderable unit.
-- [cmp]_cmp_qty — ComponentQuantity — Component Unit — Quantity per component (e.g., content per vial).
-
-- [itm]_orb_cnc — ItemOrderableConcentration — Item Unit/Orderable Unit — Concentration of an item in the orderable.
-- [itm]_cmp_cnc — ItemComponentConcentration — Item Unit/Component Unit — Concentration of an item in a component.
-- [itm]_cmp_qty — ItemComponentQuantity — Item Unit — Quantity of an item contributed by one component.
-- [itm]_cnv — ItemUnitGroupConversionFactor — Item Unit/Item Unit — Conversion factor between item unit groups.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [orb]_qty | OrderableQuantity | Orderable Unit | Quantity of orderable per unit preparation |
+| [orb]_ord_qty | OrderableOrderQuantity | Orderable Unit | Total quantity of orderable to prepare for the order |
+| [cmp]_orb_cnc | ComponentOrderableConcentration | Component Unit/Orderable Unit | Concentration of a component in the orderable |
+| [cmp]_orb_qty | ComponentOrderableQuantity | Component Unit | Quantity of a component per orderable unit |
+| [cmp]_orb_cnt | ComponentOrderableCount | Count | Number of components (e.g., vials/ampoules) per orderable unit |
+| [cmp]_cmp_qty | ComponentQuantity | Component Unit | Quantity per component (e.g., content per vial) |
+| [itm]_orb_cnc | ItemOrderableConcentration | Item Unit/Orderable Unit | Concentration of an item in the orderable |
+| [itm]_cmp_cnc | ItemComponentConcentration | Item Unit/Component Unit | Concentration of an item in a component |
+| [itm]_cmp_qty | ItemComponentQuantity | Item Unit | Quantity of an item contributed by one component |
+| [itm]_cnv | ItemUnitGroupConversionFactor | Item Unit/Item Unit | Conversion factor between item unit groups |
 
 ## Variables for Administration
 
 Administration captures what is delivered per administration and over time.
 
-- [ord]_sch_frq — PrescriptionFrequency — Count/Time — Number of administrations per time.
-- [ord]_sch_tme — PrescriptionTime — Time — Duration of each administration.
-- [ord]_dur — OrderDuration — Time — Total planned administration period.
-
-- [orb]_dos_qty — OrderableDoseQuantity — Orderable Unit — Quantity delivered per administration.
-- [orb]_dos_rte — OrderableDoseRate — Orderable Unit/Time — Delivery rate.
-- [orb]_dos_ptm — OrderableDosePerTime — Orderable Unit/Time — Quantity delivered per unit time.
-- [orb]_ord_qty — OrderableOrderQuantity — Orderable Unit — Total delivered over the order duration.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [ord]_sch_frq | PrescriptionFrequency | Count/Time | Number of administrations per time |
+| [ord]_sch_tme | PrescriptionTime | Time | Duration of each administration |
+| [ord]_dur | OrderDuration | Time | Total planned administration period |
+| [orb]_dos_qty | OrderableDoseQuantity | Orderable Unit | Quantity delivered per administration |
+| [orb]_dos_rte | OrderableDoseRate | Orderable Unit/Time | Delivery rate |
+| [orb]_dos_ptm | OrderableDosePerTime | Orderable Unit/Time | Quantity delivered per unit time |
+| [orb]_ord_qty | OrderableOrderQuantity | Orderable Unit | Total delivered over the order duration |
 
 Totals over the order duration (optional, mainly for verification/reporting):
 
-- [itm]_dos_tot — ItemDoseTotal — Item Unit — Total delivered over the order duration.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [itm]_dos_tot | ItemDoseTotal | Item Unit | Total delivered over the order duration |
 
 Optional when pump programming or verification at component/item level is required:
 
-- [cmp]_dos_qty — ComponentDoseQuantity — Component Unit — Component quantity per administration.
-- [cmp]_dos_rte — ComponentDoseRate — Component Unit/Time — Component delivery rate.
-- [cmp]_dos_ptm — ComponentDosePerTime — Component Unit/Time — Component per unit time.
-- [itm]_dos_qty — ItemDoseQuantity — Item Unit — Item quantity per administration.
-- [itm]_dos_rte — ItemDoseRate — Item Unit/Time — Item delivery rate.
-- [itm]_dos_ptm — ItemDosePerTime — Item Unit/Time — Item per unit time.
+| Variable | Name | Unit | Description |
+|----------|------|------|-------------|
+| [cmp]_dos_qty | ComponentDoseQuantity | Component Unit | Component quantity per administration |
+| [cmp]_dos_rte | ComponentDoseRate | Component Unit/Time | Component delivery rate |
+| [cmp]_dos_ptm | ComponentDosePerTime | Component Unit/Time | Component per unit time |
+| [itm]_dos_qty | ItemDoseQuantity | Item Unit | Item quantity per administration |
+| [itm]_dos_rte | ItemDoseRate | Item Unit/Time | Item delivery rate |
+| [itm]_dos_ptm | ItemDosePerTime | Item Unit/Time | Item per unit time |
