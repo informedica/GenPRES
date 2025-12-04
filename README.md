@@ -31,7 +31,6 @@ The current solution runs at: <http://genpres.nl>.
 
 Some more background information can be found at:
 
-- <https://github.com/informedica/Informedica.GenPres.Lib/wiki/Informedica.GenOrder.Lib>
 - <https://medicatieveiligensnel.nl> (website in Dutch, with a language banner!)
 
 ## Build
