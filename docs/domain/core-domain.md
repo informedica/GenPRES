@@ -87,7 +87,7 @@ An *Operational Knowledge Rule* constrains the set of possible **3. Orders** on 
 
 ### Rule Structure
 
-Operational knowledge rules are implemented as three rule types in `Informedica.GenForm.Lib`:
+Operational knowledge rules are implemented as three rule types in `Informedica.GenFORM.Lib`:
 
 1. **DoseRule**: Defines dosing limits per indication, generic, route, patient category, and dose type
 2. **SolutionRule**: Defines preparation constraints (volumes, concentrations, diluents) per patient category and vascular access
@@ -139,7 +139,7 @@ Quantitative domains (Age, Weight, dose limits) form a lattice (`D`, `⊑`):
 - D₁ ⊑ D₂ means D₁ is more constrained (D₁ ⊆ D₂)
 ```
 
-GenSolver applies monotone functions that:
+GenSOLVER applies monotone functions that:
 
 - Tighten minimum/maximum bounds
 - Increase increment (coarsening)
@@ -159,11 +159,11 @@ Filter Stage (Categorical CSP)
        ↓
 Solver Stage (Quantitative Constraints)
   └─ Extract DoseLimit ranges from filtered rules
-  └─ GenSolver applies equations with min/max/increment constraints
+  └─ GenSOLVER applies equations with min/max/increment constraints
   └─ Result: Valid solution set with concrete values
 ```
 
-**Categorical variables**: Generic, Shape, Route, Indication, Gender, DoseType, Department, Location (PVL/CVL)
+**Categorical variables**: Generic, Shape, Route, Indication, Gender, DoseType, Department, Vascular Access (PVL/CVL)
 
 **Quantitative variables**: Age, Weight, BSA, GestAge, PMAge (ranges); Dose quantities, volumes, concentrations (min/max with units)
 
