@@ -5,7 +5,7 @@ open System.Text.RegularExpressions
 let commitMsgFile = fsi.CommandLineArgs[1]
 
 let types = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
-let scopes = "gensolver|genorder|genunits|zindex|utils|client|server|api|ui|config|deps|docker|github|build|deploy"
+let scopes = "agents|logging|nlp|ots|genunits|gensolver|gencore|zindex|zform|nkf|ftk|genform|genorder|mcp|fhir|dataplatform|hixconnect|utils|client|server|api|ui|config|deps|docker|github|build|deploy|docs"
 let pattern = $"^(?:%s{types})(?:\((?:%s{scopes})\))?(?::) "
 let msgHeading = commitMsgFile |> File.ReadAllLines |> Array.head
 

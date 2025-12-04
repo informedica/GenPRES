@@ -33,10 +33,23 @@ Use the conventional commits format for all commit messages:
 Use specific scopes relevant to the GenPRES project:
 
 #### Library Scopes
-- **gensolver**: Changes to GenSolver.Lib (constraint solving, equations, variables)
-- **genorder**: Changes to GenOrder.Lib (medical orders, prescriptions)
+- **agents**: Changes to Agents.Lib (agent-based execution, MailboxProcessor)
+- **logging**: Changes to Logging.Lib (concurrent logging utilities)
+- **nlp**: Changes to NLP.Lib (parsing free text to structured rules)
+- **ots**: Changes to OTS.Lib (Google Sheets/CSV/OTS data access)
 - **genunits**: Changes to GenUnits.Lib (units of measure, calculations)
+- **gensolver**: Changes to GenSolver.Lib (constraint solving, equations, variables)
+- **gencore**: Changes to GenCore.Lib (core domain model)
 - **zindex**: Changes to ZIndex.Lib (medication database, drug information)
+- **zform**: Changes to ZForm.Lib (structured dosing reference data)
+- **nkf**: Changes to NKF.Lib (Nederlands Kinderformularium rules)
+- **ftk**: Changes to FTK.Lib (Farmacotherapeutisch Kompas rules)
+- **genform**: Changes to GenForm.Lib (operational knowledge rules)
+- **genorder**: Changes to GenOrder.Lib (clinical order scenarios)
+- **mcp**: Changes to MCP.Lib (LLM/MCP integrations)
+- **fhir**: Changes to FHIR.Lib (FHIR conversions)
+- **dataplatform**: Changes to DataPlatform.Lib (data platform integrations)
+- **hixconnect**: Changes to HIXConnect.Lib (HIX Connect integrations)
 - **utils**: Changes to Utils.Lib (shared utilities, common functions)
 
 #### Application Scopes
@@ -52,6 +65,7 @@ Use specific scopes relevant to the GenPRES project:
 - **github**: GitHub Actions, workflows, or repository configuration
 - **build**: Build system changes
 - **deploy**: Deployment configuration
+- **docs**: Documentation
 
 ### Description Guidelines
 - Use the imperative mood ("add", "fix", "update", not "added", "fixed", "updated")
@@ -109,6 +123,27 @@ fix(genunits): correct mg/ml to mmol/L conversion for NaCl
 
 Fixed conversion factor calculation that was causing incorrect
 concentration values for sodium chloride solutions.
+```
+
+``` 
+feat(nlp): improve dosage phrase extraction
+
+Enhance pattern matching for Dutch medical dosage phrases,
+reducing false negatives in free-text parsing.
+```
+
+```
+fix(ots): handle missing sheet columns gracefully
+
+Add validation and clearer error messages when required
+Google Sheets columns are absent in demo datasets.
+```
+
+```
+feat(fhir): add MedicationRequest mapping for GenORDER prescriptions
+
+Implement conversion from GenORDER domain models to FHIR
+MedicationRequest resources with unit-safe quantities.
 ```
 
 ### Documentation Examples
