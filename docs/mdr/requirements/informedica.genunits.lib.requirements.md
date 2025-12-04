@@ -1,4 +1,6 @@
-| Feature                              | Informedica.GenUnits.Lib (F#) | Pint (Python)         | SymPy Units (Python)   | UnitsNet (C#)        | FSharp.Units (F#)   |
+# Informedica.GenUNITS.Lib Requirements
+
+| Feature                              | Informedica.GenUNITS.Lib (F#) | Pint (Python)         | SymPy Units (Python)   | UnitsNet (C#)        | FSharp.Units (F#)   |
 |--------------------------------------|:-----------------------------:|:---------------------:|:----------------------:|:--------------------:|:-------------------:|
 | Built-in Unit Conversion             | Yes (`convertTo`)             | Yes (`to`, `to_base_units`) | Yes (via expression)   | Yes (typed methods)  | Yes (type provider) |
 | Composite/Compound Units             | Yes (arbitrary, e.g. mg/48h)  | Yes (if defined)      | Yes (symbolic)         | Partial (extendable) | Yes (compile-time)  |
@@ -13,6 +15,7 @@
 | Library Focus                        | Clinical, pharmacy, custom    | Science, engineering  | Math, symbolic         | Science, engineering | Science, compile-time|
 
 **Notes:**
+
 - Informedica.GenUnits.Lib stands out for its domain-specific units, localization, and precise algebraic handling of composite units.
 - Pint is flexible, but domain features must be user-defined.
 - SymPy Units is symbolic and precise but not domain-focused.
