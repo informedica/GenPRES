@@ -21,6 +21,8 @@
     - [Hybrid Architecture](#hybrid-architecture)
     - [Rule Hierarchy](#rule-hierarchy)
     - [Requirements](#requirements)
+  - [Related Documents](#related-documents)
+    - [Quick Reference by Topic](#quick-reference-by-topic)
 
 The Core Domain Model aims to model the general concept of treating a *Patient* by applying *Orders*, such as medication orders. The model is designed to be extensible to other types of *Orders* (e.g., procedures, therapies) and adaptable to various clinical contexts.
 
@@ -60,31 +62,51 @@ This pipeline ensures **safety** and **efficiency** in medication order manageme
 
 The transformation is implemented by three core systems:
 
-- **GenFORM**: Extracts and structures free-text knowledge into Operational Knowledge Rules (OKRs)
-- **GenORDER**: Transforms OKRs into Order Scenarios by applying selection constraints and building equation systems
-- **GenSOLVER**: Solves the equation systems to produce quantitative order options
+- **GenFORM**: Extracts and structures free-text knowledge into Operational Knowledge Rules (OKRs). Rules are defined in terms of *Patient Categories* (types/ranges) that describe which kinds of patients the rule applies to. → *See [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md) for detailed specifications.*
+- **GenORDER**: Transforms OKRs into Order Scenarios for a specific *Patient* (instance). At runtime, the Patient's actual attributes (age, weight, etc.) are matched against Patient Category ranges to select applicable rules. → *See [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md) for detailed specifications.*
+- **GenSOLVER**: Solves the equation systems to produce quantitative order options. Performs exact arithmetic with full unit awareness and guarantees soundness, completeness, and monotonic convergence. → *See [GenSOLVER: Order Scenarios to Quantitative Solutions](gensolver-from-orders-to-quantitative-solutions.md) for detailed specifications.*
 
 ## Core Definitions
 
 | Term | Definition |
 | ----- | ----- |
-| *Operational Knowledge Rule (OKR)* | A fully structured, machine-interpretable, constraint-based representation of expert medication (and other clinical) knowledge. |
-| *Selection Constraint* | A categorical constraint used to determine which calculation constraints apply (e.g., indication, generic, route, form, setting). |
+| *Operational Knowledge Rule (OKR)* | A fully structured, machine-interpretable, constraint-based representation of expert medication (and other clinical) knowledge produced by GenFORM. |
+| *Selection Constraint* | A categorical constraint used to determine which OKRs apply to a given Order Context (e.g., indication, generic, route, form, setting). |
 | *Calculation Constraint* | A quantitative constraint used to compute numerical values such as dose quantities, rates, volumes, or durations. |
-| *Order Context* | The bounded clinical context; composed of patient data, indication(s), and selection constraints from which Order Scenarios are generated. |
+| *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. |
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
-| *Order* | The executable prescription instance derived from an Order Scenario. |
+| *Order* | The executable prescription instance derived from an Order Scenario, identified by a unique Id. |
+| *Schedule* | The temporal model of an Order defining frequency, administration time, and total duration. |
+| *Orderable* | The abstract entity that is ordered (e.g., a medication as prescribed). |
+| *Component* | A physical product unit used to realize an Orderable (e.g., vial, ampoule, bag). |
+| *Item* | The actual substance delivered to the patient (e.g., a medication substance such as amoxicillin). |
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
 | *Dilution Rule* | An OKR that defines requirements for the amount and/or concentration of liquid medication. |
 | *Reconstitution Rule* | An OKR that defines how medication must be reconstituted to enable administration (e.g., converting powder to liquid). |
 | *Renal Rule* | An OKR used to adjust the dose advice according to renal function (GFR). |
+| *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. |
+| *Patient* | A specific individual patient instance with concrete values for age, weight, BSA, etc. Used by GenORDER to match against Patient Categories and compute patient-specific Order Scenarios. |
 | *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. |
-| *Adjustment Unit* | A patient normalization unit used to scale doses (e.g., kg for weight, m² for BSA). |
+| *Dose Quantity* | The amount delivered per single administration. |
+| *Dose Per Time* | The accumulated dose delivered per unit time (e.g., per day). |
+| *Dose Rate* | The continuous delivery speed of a dose (unit per time), typically used for infusions. |
+| *Dose Total* | The cumulative dose delivered over the full duration of an Order. |
+| *Adjusted Dose* | A dose value normalized to a patient-specific Adjustment Quantity (e.g., kg, m²). |
+| *Adjustment Unit* | The patient normalization unit used for dose scaling (e.g., kg for body weight, m² for body surface area). |
+| *Adjustment Quantity* | The patient-specific numeric value used to apply an Adjusted Dose (e.g., 12 kg). |
 | *Filter Stage* | The stage in which categorical selection constraints are applied to determine which rules and scenarios are applicable. |
 | *Solver Stage* | The stage in which quantitative calculation constraints are transformed into equations and solved by GenSOLVER. |
-| *GenFORM* | The system that transforms free-text medication knowledge into fully computable Operational Knowledge Rules (OKRs). |
-| *GenORDER* | The execution-layer system that transforms OKRs into patient-specific, fully computable and executable Order Scenarios. |
-| *GenSOLVER* | The constraint solving engine that resolves the equation systems generated by GenORDER into numerically valid solutions. |
+| *Exposure* | The real-world administration of an executable Order to a patient. |
+| *Outcome* | The observed clinical effect resulting from Exposure, used for evaluation and feedback. |
+| *GenFORM* | The system that transforms free-text medication knowledge into fully computable Operational Knowledge Rules (OKRs). Rules are defined in terms of Patient Categories (types) rather than specific patients. |
+| *GenORDER* | The execution-layer system that transforms OKRs into patient-specific, fully computable and executable Order Scenarios. Matches a specific Patient's (instance) attributes against Patient Category ranges to select applicable rules. |
+| *GenSOLVER* | The domain-independent quantitative constraint solving engine that computes numerically valid, unit-consistent solutions from the equation systems generated by GenORDER. Guarantees soundness, completeness, and monotonic convergence. |
+| *Variable* | A symbolic placeholder representing a numeric value with an associated unit and domain range (used by GenSOLVER). |
+| *Domain* | The bounded numerical range or discrete set of values a variable may assume. Domains form a lattice with ⊤ (unrestricted) and ⊥ (empty/infeasible). |
+| *Propagation* | The process of reducing variable domains by enforcing constraints through equations. |
+| *Soundness* | The property that every computed solution satisfies all constraints. |
+| *Completeness* | The property that all valid solutions remain within the computed solution space. |
+| *Monotonic Convergence* | The property that each propagation step monotonically reduces the domain until a fixed point is reached. |
 
 ## Domain Boundaries
 
@@ -176,34 +198,36 @@ The key insight is that **safety and efficiency are not trade-offs**—they are 
 
 ### Rule Structure
 
-Operational Knowledge Rules (OKRs) are implemented as four rule types in `Informedica.GenFORM.Lib`:
+Operational Knowledge Rules (OKRs) are implemented as four rule types in `Informedica.GenFORM.Lib`. For complete rule specifications including all fields, data types, and validation requirements, see [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md).
 
-1. **Dose Rule**: Defines dosing limits per indication, generic, route, patient category, and dose type
-2. **Dilution Rule**: Defines preparation constraints (volumes, concentrations, solutions) per patient category and vascular access
-3. **Reconstitution Rule**: Defines reconstitution steps (diluent volumes, expansion volumes) per product and route
+1. **Dose Rule**: Defines dosing limits per indication, generic, route, patient, and dose type
+2. **Dilution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and vascular access
+3. **Reconstitution Rule**: Defines reconstitution steps (diluent volumes, expansion volumes) per generic product (GPK) and route
 4. **Renal Rule**: Defines dose adjustments based on renal function (GFR)
 
 Each rule contains:
 
-- **Selection Constraints**: Generic, Form, Route, Indication, Gender, DoseType, Setting (Location/Department), Vascular Access (PVL/CVL)
-- **Calculation Constraints**: Age, Weight, BSA, GestAge, PMAge ranges; dose limits (quantity, per-time, rate); volume limits; concentration limits
+- **Selection Constraints**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Vascular Access, Component, Substance
+- **Calculation Constraints**: Schedule, Duration, Dose Limits; Volume, Concentration, Drip Rate, Administration Fraction
 
 ### Selection and Calculation Constraints
 
 All OKRs can be translated to either selection or calculation constraints. Selection constraints determine which calculation constraints are available. For every set of calculation constraints there is exactly one set of selection constraints that uniquely identifies the calculation constraints.
 
+For detailed constraint definitions by rule type, see [GenFORM Section 6: Selection and Calculation Constraints](genform-free-text-to-operational-rules.md#6-selection-and-calculation-constraints).
+
 #### Selection Constraints by Rule Type
 
-- **Dose Rule**: Source, Generic (Form, Brand, GPKs), Indication, Route, Setting (Location, Department), Patient (Gender, Age, Weight, BSA, GestAge, PMAge), DoseType, Substance
-- **Reconstitution Rule**: Generic, Form, Route, Setting
-- **Dilution Rule**: Generic, Form, Route, Indication, DoseType, Vascular Access (CVL/PVL), Setting, Patient (Age, Weight), Substance
-- **Renal Rule**: Source, Generic, Indication, Route, Renal Function
+- **Dose Rule**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Component, Substance
+- **Reconstitution Rule**: Generic, GPK, Form, Route, Setting
+- **Dilution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Vascular Access, Patient, Dose, Substance
+- **Renal Rule**: Source, Generic, Indication, Patient, Renal Function
 
 #### Calculation Constraints by Rule Type
 
-- **Dose Rule**: Schedule (Frequencies, Time, Interval, Duration), Dose Limits (Quantity, PerTime, Rate, with optional Adjustment)
-- **Reconstitution Rule**: Diluent Volume, Expansion Volume, Diluents
-- **Dilution Rule**: Volume, Concentration, Solutions
+- **Dose Rule**: Schedule, Duration, Dose Limits
+- **Reconstitution Rule**: Diluent Volume, Expansion Volume
+- **Dilution Rule**: Volume, Drip Rate, Administration Fraction, Dose, Concentration
 - **Renal Rule**: Schedule, Dose Adjustment (relative or absolute)
 
 **Example**:
@@ -220,13 +244,14 @@ GenORDER operates as the execution engine of a hybrid constraint system implemen
 
 #### Filter Stage (Selection Constraints from GenFORM)
 
-At this stage, categorical selection constraints originating from GenFORM are applied:
+At this stage, categorical selection constraints originating from GenFORM are applied. See [GenFORM Section 6.1](genform-free-text-to-operational-rules.md#61-selection-constraints) for complete selection constraint definitions and [GenORDER Section 3.1](genorder-operational-rules-to-orders.md#3.1.-filter-stage-(inherited-from-genform)) for execution details.
 
-- Generic (Form, Brand, GPKs)
+- Generic
 - Indication
 - Route
-- Setting (Location, Department)
-- Patient Category (Gender, Age, Weight, BSA, GestAge, PMAge)
+- Pharmaceutical Form
+- Setting
+- Patient Category (the specific Patient's attributes are matched against Patient Category ranges in rules)
 - Dose Type
 - Vascular Access
 
@@ -234,13 +259,13 @@ This stage produces a bounded rule domain that is guaranteed to contain only cli
 
 **CLP Principles in Practice:**
 
-- **Arc consistency**: When Patient constraint is applied (e.g., Age=5 years), Dose Rules with incompatible age ranges are removed from the domain
+- **Arc consistency**: When a Patient's attributes are applied (e.g., Age=5 years), Dose Rules with Patient Categories having incompatible age ranges are removed from the domain
 - **Forward checking**: After selecting Generic + Indication, system immediately filters Routes, Forms, and Dose Types to detect empty domains early
 - **Backtracking with constraint propagation**: If Generic + Route selection leads to no matching Dose Rules (empty domain), user backtracks to revise selection
 
 #### Solver Stage (Calculation Constraints via GenSOLVER)
 
-GenORDER transforms the quantitative calculation constraints into explicit equations. These equations are passed to GenSOLVER, which applies constraint logic programming and monotonic domain refinement to compute valid numerical values.
+GenORDER transforms the quantitative calculation constraints into explicit equations. These equations are passed to GenSOLVER, which applies constraint logic programming and monotonic domain refinement to compute valid numerical values. See [GenSOLVER: Formal Constraint Solving Model](gensolver-from-orders-to-quantitative-solutions.md#3.-formal-constraint-solving-model) for the solving algorithm, [GenORDER Section 3.2](genorder-operational-rules-to-orders.md#3.2-solver-stage-(genorder-+-gensolver)) for equation construction, and [GenORDER Appendix D: Equations Table](genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table) for the complete equation system.
 
 **Lattice Theory for Calculation Constraints:**
 
@@ -252,7 +277,7 @@ Quantitative domains (Age, Weight, dose limits) form a lattice (`D`, `⊑`):
 - D₁ ⊑ D₂ means D₁ is more constrained (D₁ ⊆ D₂)
 ```
 
-GenSOLVER applies monotone functions that:
+GenSOLVER applies monotone functions that (see [GenSOLVER Section 3.2: Monotonic Domain Refinement](gensolver-from-orders-to-quantitative-solutions.md#3.2-monotonic-domain-refinement)):
 
 - Tighten minimum/maximum bounds
 - Increase increment (coarsening)
@@ -279,9 +304,11 @@ The system uses a two-stage hybrid architecture that transforms Operational Know
 │  ─────────────────────────────────────                                              │
 │  Input:  All Operational Knowledge Rules                                            │
 │  Process:                                                                           │
-│    └─ Order Context creation → Patient + Indication(s) + Selection Constraints      │
-│    └─ Patient attributes → filter Dose Rules by Patient Category                    │
-│    └─ Product selection → filter by Generic, Form, Route, Indication, Dose Type     │
+│    └─ Order Context creation → Patient (instance) + Indication(s) + Selection       │
+│       Constraints                                                                   │
+│    └─ Patient attributes → match against Patient Category ranges in Dose Rules      │
+│    └─ Product selection → filter by Generic, Pharmaceutical Form, Route, Indication,│
+│       Dose Type                                                                     │
 │  Output: Bounded subset of applicable OKRs (only clinically valid rules remain)     │
 │                                      ↓                                              │
 │  SOLVER STAGE (Calculation Constraints)                                             │
@@ -303,35 +330,44 @@ The system uses a two-stage hybrid architecture that transforms Operational Know
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Selection constraint variables**: Generic, Form, Route, Indication, Gender, Dose Type, Setting (Location/Department), Vascular Access (PVL/CVL)
+**Selection constraint variables** (defined at rule level): Generic, Pharmaceutical Form, Route, Indication, Dose Type, Setting, Patient Category, Vascular Access
 
-**Calculation constraint variables**: Age, Weight, BSA, GestAge, PMAge (ranges); Dose Quantity, Dose Per Time, Dose Rate, Dose Total (min/max with units); Volumes, Concentrations
+**Note**: Patient Category is a rule-level constraint defining ranges (e.g., age 2-12 years, weight 10-40 kg). At runtime, a specific Patient (instance) is matched against these Patient Category ranges to determine which rules apply.
+
+**Calculation constraint variables**: Schedule, Duration, Dose Limits (Quantity, PerTime, Rate with optional Adjustment); Volumes, Concentrations, Drip Rate, Administration Fraction
 
 **Critical Property**: The user can only select from computed options. Since all options satisfy all constraints by construction, every selection is guaranteed safe. This is fundamentally different from systems that check orders *after* entry—here, invalid orders cannot be constructed in the first place.
 
 ### Rule Hierarchy
 
-Rules are organized hierarchically for precedence:
+Rules are organized hierarchically for precedence. For details on rule sources and priority, see [GenFORM Section 3: Sources and Types of Dose Rules](genform-free-text-to-operational-rules.md#3-sources-and-types-of-dose-rules).
 
 ```text
 Dose Rule (most specific match)
 ├── Generic + Indication + Route + Dose Type + Patient Category
-├── Optional refinements: Brand, Form, GPKs, Setting (Location/Department)
+├── Optional refinements: Brand, Pharmaceutical Form, GPKs, Setting
 └── Component
-    └── Substance
+    └── Substance (Item)
         └── Dose Limit
             ├── Dose Quantity, Dose Quantity Adjust (per kg or m²)
             ├── Dose Per Time, Dose Per Time Adjust (total per time period)
             └── Dose Rate, Dose Rate Adjust (continuous infusion)
 ```
 
-**Dose semantics** (per GenORDER):
+**Dose semantics** (per [GenORDER Section 7: Quantitative Dose Semantics](genorder-operational-rules-to-orders.md#7.-quantitative-dose-semantics)):
 
 - **Dose Quantity**: amount per administration
 - **Dose Per Time**: accumulated dose per time unit (= Dose Quantity × Frequency)
-- **Dose Rate**: continuous delivery rate
+- **Dose Rate**: continuous delivery speed (unit per time), typically for infusions
 - **Dose Total**: cumulative dose over the entire order duration
 - **Adjusted Dose**: dose normalized to Adjustment Unit (kg, m²) × Adjustment Quantity (patient value)
+
+**Mathematical Dose Relations** (forming the equation system for GenSOLVER). See [GenSOLVER Section 6: Relationship to GenORDER Quantitative Semantics](gensolver-from-orders-to-quantitative-solutions.md#6.-relationship-to-genorder-quantitative-semantics) for how these relations are resolved, and [GenORDER Appendix D.1: Equations Table](genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table) for the complete set of 65 equations by dose type:
+
+- Dose PerTime = Dose Quantity × Frequency
+- Dose Total = Dose PerTime × Order Duration
+- Dose Quantity = Dose Rate × Administration Time
+- Base Dose = Adjusted Dose × Adjustment Quantity
 
 Multiple rules may match a patient context. The system:
 
@@ -361,3 +397,29 @@ Free Text → OKRs → Selection Constraints → Calculation Constraints → Ord
 ```
 
 preserves the safety properties of the original expert knowledge while making them computationally accessible for efficient clinical decision-making.
+
+## Related Documents
+
+This Core Domain Model document provides a high-level overview. For detailed specifications, refer to:
+
+| Document | Description |
+| -------- | ----------- |
+| [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md) | Complete specification of how free-text expert knowledge is transformed into structured Operational Knowledge Rules (OKRs). Includes rule types, Patient Category definitions, constraint specifications, and data extraction details. |
+| [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md) | Complete specification of how OKRs are transformed into executable Order Scenarios. Includes Order Model (Orderable, Component, Item), dose semantics, equation system, and variable definitions. |
+| [GenSOLVER: Order Scenarios to Quantitative Solutions](gensolver-from-orders-to-quantitative-solutions.md) | Complete specification of the quantitative constraint solving engine. Includes variable domains, equation types, unit-aware computation, propagation strategy, and solver guarantees (soundness, completeness, monotonic convergence). |
+
+### Quick Reference by Topic
+
+| Topic | GenFORM Reference | GenORDER Reference | GenSOLVER Reference |
+| ----- | ----------------- | ------------------ | ------------------- |
+| Rule Types (Dose, Dilution, Reconstitution, Renal) | [Section 3](genform-free-text-to-operational-rules.md#3-sources-and-types-of-dose-rules) | — | — |
+| Patient Category Definition | [Appendix C.2](genform-free-text-to-operational-rules.md#addendum-c2-dose-rule-model-table) | [Section 4](genorder-operational-rules-to-orders.md#4.-ordercontext) | — |
+| Selection Constraints | [Section 6.1](genform-free-text-to-operational-rules.md#61-selection-constraints) | [Section 3.1](genorder-operational-rules-to-orders.md#3.1.-filter-stage-(inherited-from-genform)) | — |
+| Calculation Constraints | [Section 6.2](genform-free-text-to-operational-rules.md#62-calculation-constraints) | [Section 3.2](genorder-operational-rules-to-orders.md#3.2-solver-stage-(genorder-+-gensolver)) | [Section 3](gensolver-from-orders-to-quantitative-solutions.md#3-formal-constraint-solving-model) |
+| Order Model (Orderable, Component, Item) | — | [Section 6](genorder-operational-rules-to-orders.md#6.-order-model-(executable-structure)) | — |
+| Dose Semantics | — | [Section 7](genorder-operational-rules-to-orders.md#7.-quantitative-dose-semantics) | [Section 6](gensolver-from-orders-to-quantitative-solutions.md#6.-relationship-to-genorder-quantitative-semantics) |
+| Equation System | — | [Appendix D.1](genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table) | [Section 4](gensolver-from-orders-to-quantitative-solutions.md#4.-equation-types) |
+| Variable Domains & Propagation | — | — | [Section 3.1](gensolver-from-orders-to-quantitative-solutions.md#3.1-variable-domains), [Section 7](gensolver-from-orders-to-quantitative-solutions.md#7.-variable-propagation-and-solving-strategy) |
+| Unit-Aware Computation | — | — | [Section 5](gensolver-from-orders-to-quantitative-solutions.md#5.-unit-aware-computation) |
+| Logging & Traceability | — | — | [Section 8](gensolver-from-orders-to-quantitative-solutions.md#8.-logging-and-explainability) |
+| Library Architecture | [Appendix B.3](genform-free-text-to-operational-rules.md#addendum-b3-genform-libraries) | [Appendix B.3](genorder-operational-rules-to-orders.md#addendum-b.3.-genorder-libraries) | [Section 9](gensolver-from-orders-to-quantitative-solutions.md#9-technical-architecture-and-library-positioning) |

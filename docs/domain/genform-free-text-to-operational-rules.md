@@ -14,6 +14,7 @@
     - [6.1. Selection Constraints](#61-selection-constraints)
     - [6.2. Calculation Constraints](#62-calculation-constraints)
   - [7. Prescription Rules](#7-prescription-rules)
+  - [8. Related Documents](#8-related-documents)
   - [Appendices](#appendices)
     - [Appendix A. The Medication Treatment Cycle](#appendix-a-the-medication-treatment-cycle)
     - [Appendix B.1. GenFORM Conceptual Architecture](#appendix-b1-genform-conceptual-architecture)
@@ -191,6 +192,44 @@ All OKRs can be translated to either selection or calculation constraints. The s
 ## 7. Prescription Rules
 
 Dose-, Reconstitution-, Dilution- and Renal rules are combined within a patient context and specific setting into a Prescription Rule. The Prescription Rule can, therefore, be used to generate an order determining, prescription, preparation and administration of an order.
+
+## 8. Related Documents
+
+GenFORM is part of the GenPRES transformation pipeline. The following documents provide additional context:
+
+| Document | Description | Relationship |
+|----------|-------------|---------------|
+| [Core Domain Model](./core-domain.md) | Central domain definitions and transformation pipeline | GenFORM is the **Layer 1** component transforming free text to OKRs |
+| [GenORDER](./genorder-operational-rules-to-orders.md) | Transforms OKRs to Order Scenarios | Consumes OKRs produced by GenFORM |
+| [GenSOLVER](./gensolver-from-orders-to-quantitative-solutions.md) | Constraint solving engine | Provides algorithmic foundation used by GenORDER |
+
+### 8.1. Pipeline Position
+
+```text
+Free Text → [GenFORM] → OKRs → [GenORDER] → Order Scenarios → [GenSOLVER] → Quantitative Solutions
+```
+
+GenFORM occupies the **first transformation stage**, responsible for:
+1. Parsing free-text and semi-structured clinical texts
+2. Extracting Selection Constraints and Calculation Constraints
+3. Producing fully computable Operational Knowledge Rules (OKRs)
+
+### 8.2. Patient Category vs Patient
+
+GenFORM defines **Patient Categories** (also referred to as "Patient" in rule tables)—these are *types* of patients characterized by demographic ranges (age, weight, BSA, gestational age). A Patient Category is not a specific individual but rather a classification used to determine which rules apply.
+
+In contrast, [GenORDER](./genorder-operational-rules-to-orders.md) works with a specific **Patient** instance—an actual individual with concrete demographic values. GenORDER matches the Patient's attributes against GenFORM's Patient Categories to select the applicable OKRs.
+
+### 8.3. Key Terminology Alignment
+
+| GenFORM Term | Related Term in Other Documents | Notes |
+|--------------|--------------------------------|-------|
+| Operational Knowledge Rule (OKR) | Rule (Core Domain) | Umbrella term for all computable rules |
+| Dose Rule | Dose Rule (GenORDER) | Applied to specific patient context in GenORDER |
+| Dilution Rule | Dilution Rule (GenORDER) | Formerly "SolutionRule" in some contexts |
+| Patient (in rule tables) | Patient Category (GenORDER) | GenFORM defines categories; GenORDER matches patients |
+| Selection Constraint | Filter Stage (GenORDER) | Determines rule applicability |
+| Calculation Constraint | Solver Stage (GenORDER) | Provides quantitative bounds |
 
 ## Appendices
 

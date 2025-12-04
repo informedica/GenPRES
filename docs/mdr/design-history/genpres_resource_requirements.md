@@ -19,12 +19,14 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Maps long Z-index route names to standardized short names for medication administration routes.
 
 **Required Columns**:
+
 - `ZIndex` - Full Z-index route name (e.g., "Intravenous administration")
 - `ShortDutch` - Short Dutch route name (e.g., "iv")
 
 **Usage**: Used by `routeMapping` function to standardize route terminology across the application.
 
 **Example Data**:
+
 | ZIndex | ShortDutch |
 |--------|------------|
 | Intravenous administration | iv |
@@ -38,6 +40,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Maps long Z-index unit names to standardized short names and provides unit grouping information.
 
 **Required Columns**:
+
 - `ZIndexUnitLong` - Full Z-index unit name
 - `Unit` - Short standardized unit name
 - `MetaVisionUnit` - MetaVision system unit equivalent
@@ -46,6 +49,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `unitMapping` function to standardize unit terminology and enable unit conversions.
 
 **Example Data**:
+
 | ZIndexUnitLong | Unit | MetaVisionUnit | Group |
 |----------------|------|----------------|-------|
 | milligram | mg | mg | Mass |
@@ -59,6 +63,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Defines medication form constraints, dosing limits, and administration requirements based on route and shape combinations.
 
 **Required Columns**:
+
 - `Route` - Administration route
 - `Shape` - Medication form/shape
 - `Unit` - Base unit for the medication form
@@ -75,6 +80,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `mappingShapeRoute` to provide clinical decision support for medication administration.
 
 **Example Data**:
+
 | Route | Shape | Unit | DoseUnit | MinDoseQty | MaxDoseQty | MinDoseQtyKg | MaxDoseQtyKg | Divisible | Timed | Reconstitute | IsSolution |
 |-------|-------|------|----------|------------|------------|--------------|--------------|-----------|-------|--------------|------------|
 | iv | injection | ml | mg | 1 | 100 | 0.1 | 10 | 0.5 | true | false | true |
@@ -87,11 +93,13 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Defines the complete list of valid medication shapes/forms supported by the system.
 
 **Required Columns**:
+
 - `Shape` - Valid medication shape/form name
 
 **Usage**: Used by `validShapes` function to validate medication form inputs.
 
 **Example Data**:
+
 | Shape |
 |-------|
 | tablet |
@@ -108,6 +116,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Provides reconstitution rules and diluent requirements for injectable medications.
 
 **Required Columns**:
+
 - `GPK` - Generic Product Code identifier
 - `Route` - Administration route for reconstitution
 - `Dep` - Department/unit where reconstitution applies
@@ -118,6 +127,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `Reconstitution.get` to provide reconstitution instructions for injectable products.
 
 **Example Data**:
+
 | GPK | Route | Dep | DiluentVol | ExpansionVol | Diluents |
 |-----|-------|-----|------------|--------------|----------|
 | 12345 | iv | ICU | 10 | 0.5 | NaCl 0.9%;Glucose 5% |
@@ -130,6 +140,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Defines enteral feeding products with nutritional composition.
 
 **Required Columns**:
+
 - `Name` - Product name
 - `Eenheid` - Base unit for the product
 - `volume mL` - Volume per unit (numeric)
@@ -149,6 +160,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `Enteral.get` to provide enteral nutrition products with nutritional information.
 
 **Example Data**:
+
 | Name | Eenheid | volume mL | energie kCal | eiwit g | KH g | vet g | Na mmol |
 |------|---------|-----------|--------------|---------|------|-------|---------|
 | Nutrison Standard | ml | 1 | 1.0 | 0.04 | 0.123 | 0.039 | 0.65 |
@@ -160,6 +172,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Defines parenteral nutrition and medication products with composition.
 
 **Required Columns**:
+
 - `GPK` - Generic Product Code identifier
 - `Name` - Product name
 - `volume mL` - Volume per unit (numeric)
@@ -182,6 +195,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `Parenteral.get` to provide parenteral nutrition and IV medication products.
 
 **Example Data**:
+
 | GPK | Name | volume mL | glucose g | natrium mmol | Oplosmiddel | Verdunner |
 |-----|------|-----------|-----------|--------------|-------------|-----------|
 | 99999 | Glucose 5% | 1 | 0.05 | 0 | FALSE | TRUE |
@@ -193,6 +207,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Purpose**: Defines the hospital formulary with product configurations and department availability.
 
 **Required Columns**:
+
 - `GPKODE` - Generic Product Code (numeric)
 - `UMCU` - Hospital availability indicator
 - `ICC` - Intensive Care availability indicator
@@ -210,6 +225,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by the main `get` function to create the primary product formulary with department-specific configurations.
 
 **Example Data**:
+
 | GPKODE | UMCU | ICC | NEO | Generic | UseGenName | UseShape | UseBrand | TallMan | Mmol | Divisible |
 |--------|------|-----|-----|---------|------------|----------|----------|---------|------|-----------|
 | 12345 | x | x | | paracetamol | x | | | | | 2 |
@@ -224,6 +240,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Required Columns**:
 
 #### Basic Identification
+
 - `Source` - Data source identifier (e.g., "NKF", "FK")
 - `Indication` - Clinical indication for the medication
 - `Generic` - Generic medication name
@@ -236,6 +253,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `Substance` - Active substance name
 
 #### Patient Demographics
+
 - `Dep` - Department/ward
 - `Gender` - Patient gender
 - `MinAge` - Minimum age (numeric, optional)
@@ -250,6 +268,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `MaxPMAge` - Maximum post-menstrual age (numeric, optional)
 
 #### Dose Configuration
+
 - `DoseType` - Type of dose (can only be either "discontinuous", "continuous", "once", "timed" or "onceTimed")
 - `DoseText` - Dose type description text (can be empty)
 - `Freqs` - Frequencies (semicolon-separated numeric values)
@@ -259,6 +278,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `RateUnit` - Rate unit (e.g., "hour", "min")
 
 #### Timing Parameters
+
 - `MinTime` - Minimum administration time (numeric, optional)
 - `MaxTime` - Maximum administration time (numeric, optional)
 - `TimeUnit` - Time unit for administration
@@ -270,6 +290,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `DurUnit` - Duration unit
 
 #### Dose Limits
+
 - `MinQty` - Minimum quantity per dose (numeric, optional)
 - `MaxQty` - Maximum quantity per dose (numeric, optional)
 - `NormQtyAdj` - Normal adjusted quantity (numeric, optional)
@@ -288,6 +309,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `DoseRule.get` to provide comprehensive clinical dosing guidance with patient-specific limits and safety constraints.
 
 **Example Data**:
+
 | Source | Generic | Shape | Route | Indication | DoseType | MinWeight | MaxWeight | DoseUnit | MinQty | MaxQty | AdjustUnit | MinQtyAdj | MaxQtyAdj |
 |--------|---------|-------|-------|------------|----------|-----------|-----------|----------|---------|---------|------------|-----------|-----------|
 | NKF | paracetamol | tablet | po | fever | discontinous | 10 | 50 | mg | 500 | 1000 | kg | 10 | 15 |
@@ -302,12 +324,14 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Required Columns**:
 
 #### Basic Identification
+
 - `Generic` - Generic medication name
 - `Shape` - Medication form/shape (optional)
 - `Route` - Administration route
 - `Indication` - Clinical indication (optional)
 
 #### Patient Demographics & Location
+
 - `Dep` - Department/ward (optional)
 - `CVL` - Central venous line access (accepts "x" for true)
 - `PVL` - Peripheral venous line access (accepts "x" for true)
@@ -319,11 +343,13 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `MaxGestAge` - Maximum gestational age (numeric, optional)
 
 #### Dose Configuration
+
 - `MinDose` - Minimum dose (numeric, optional)
 - `MaxDose` - Maximum dose (numeric, optional)
 - `DoseType` - Type of dose (e.g., "start", "maintenance", "max")
 
 #### Solution Preparation
+
 - `Solutions` - Acceptable diluents (pipe-separated list: "solution1|solution2")
 - `Volumes` - Standard volumes (semicolon-separated numeric values)
 - `MinVol` - Minimum volume (numeric, optional)
@@ -334,6 +360,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `MaxPerc` - Maximum percentage of preparation (numeric, optional)
 
 #### Solution Limits (Substance-Specific)
+
 - `Substance` - Active substance name (for concentration limits)
 - `Unit` - Unit for the substance
 - `Quantities` - Standard quantities (semicolon-separated numeric values)
@@ -347,6 +374,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `SolutionRule.get` to provide IV solution preparation guidance with concentration limits and diluent requirements.
 
 **Example Data**:
+
 | Generic | Shape | Route | Indication | Dep | CVL | PVL | MinWeight | MaxWeight | DoseType | Solutions | Volumes | MinVol | MaxVol | Substance | Unit | MinConc | MaxConc |
 |---------|-------|-------|------------|-----|-----|-----|-----------|-----------|----------|-----------|---------|--------|--------|-----------|------|---------|---------|
 | dopamine | injection | iv | shock | ICU | x | | 1 | 80 | maintenance | NaCl 0.9%\|Glucose 5% | 50;100;250 | 50 | 250 | dopamine | mg | 0.4 | 3.2 |
@@ -361,16 +389,19 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Required Columns**:
 
 #### Basic Identification
+
 - `Generic` - Generic medication name
 - `Route` - Administration route
 - `Indication` - Clinical indication (optional)
 - `Source` - Data source identifier (e.g., "NKF", "KI/DOQI")
 
 #### Patient Demographics
+
 - `MinAge` - Minimum age (numeric, optional)
 - `MaxAge` - Maximum age (numeric, optional)
 
 #### Renal Function Parameters
+
 - `IntDial` - Intermittent hemodialysis (accepts "x" for applies)
 - `ContDial` - Continuous hemodialysis (accepts "x" for applies)
 - `PerDial` - Peritoneal dialysis (accepts "x" for applies)
@@ -378,6 +409,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `MaxGFR` - Maximum eGFR (numeric, optional)
 
 #### Dose Configuration
+
 - `DoseType` - Type of dose (e.g., "start", "maintenance", "max")
 - `DoseText` - Dose description text
 - `Freqs` - Frequencies (semicolon-separated numeric values)
@@ -388,14 +420,17 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 - `RateUnit` - Rate unit (e.g., "hour", "min")
 
 #### Timing Parameters
+
 - `MinInt` - Minimum interval (numeric, optional)
 - `MaxInt` - Maximum interval (numeric, optional)
 - `IntUnit` - Interval unit
 
 #### Substance-Specific Limits
+
 - `Substance` - Active substance name (for dose adjustments)
 
 #### Dose Limits (Renal Adjusted)
+
 - `MinQty` - Minimum quantity per dose (numeric, optional)
 - `MaxQty` - Maximum quantity per dose (numeric, optional)
 - `NormQtyAdj` - Normal adjusted quantity (space-dash-space separated values: "val1 - val2")
@@ -414,6 +449,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `RenalRule.get` to provide renal dose adjustments based on kidney function and dialysis status. Rules are applied to patients ≥28 days of age with impaired renal function.
 
 **Example Data**:
+
 | Generic | Route | Source | MinGFR | MaxGFR | ContDial | IntDial | PerDial | DoseType | DoseRed | Substance | DoseUnit | AdjustUnit | MinQtyAdj | MaxQtyAdj | NormQtyAdj |
 |---------|-------|--------|--------|--------|----------|---------|---------|----------|---------|-----------|----------|------------|-----------|-----------|------------|
 | gentamicin | iv | NKF | 30 | 59 | | | | maintenance | abs | gentamicin | mg | kg | 3 | 5 | 4 - 5 |
@@ -429,6 +465,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 #### 12A. Bolus Medication Data Sheet
 
 **Required Columns**:
+
 - `hospital` - Hospital identifier
 - `indication` - Clinical indication (e.g., "reanimatie", "shock")
 - `medication` - Medication name
@@ -444,6 +481,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `EmergencyTreatment.parse` to create bolus medication protocols for emergency scenarios.
 
 **Example Data**:
+
 | hospital | indication | medication | minWeight | maxWeight | dose | min | max | conc | unit | remark |
 |----------|------------|------------|-----------|-----------|------|-----|-----|------|------|--------|
 | UMCU | intubation | fentanyl | 0 | 0 | 1 | 0 | 50 | 50 | microg | |
@@ -452,6 +490,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 #### 12B. Continuous Medication Data Sheet
 
 **Required Columns**:
+
 - `hospital` - Hospital identifier
 - `catagory` - Category of medication
 - `indication` - Clinical indication
@@ -474,6 +513,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `ContinuousMedication.parse` to create continuous infusion protocols.
 
 **Example Data**:
+
 | hospital | catagory | indication | dosetype | medication | generic | unit | doseunit | minweight | maxweight | quantity | total | mindose | maxdose | absmax | solution |
 |----------|----------|------------|----------|------------|---------|------|----------|-----------|-----------|----------|-------|---------|---------|---------|----------|
 | UMCU | cardiovasculair | shock | start | noradrenaline | noradrenaline | mg | microg/kg/min | 3 | 80 | 4 | 50 | 0.05 | 2 | 10 | NaCl 0.9% |
@@ -481,6 +521,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 #### 12C. Products Data Sheet
 
 **Required Columns**:
+
 - `indication` - Clinical indication
 - `medication` - Medication name
 - `conc` - Concentration (numeric)
@@ -489,6 +530,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `Products.parse` to define available medication products and their concentrations.
 
 **Example Data**:
+
 | indication | medication | conc | unit |
 |------------|------------|------|------|
 | reanimatie | adrenaline | 0.1 | mg |
@@ -497,6 +539,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 #### 12D. Normal Values Data Sheet
 
 **Required Columns**:
+
 - `sex` - Gender ("M" or "F")
 - `age` - Age in years (numeric)
 - `p3` - 3rd percentile value (numeric)
@@ -506,6 +549,7 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 **Usage**: Used by `NormalValues.parse` to provide reference ranges for weight and height estimation.
 
 **Example Data**:
+
 | sex | age | p3 | mean | p97 |
 |-----|-----|----|----- |-----|
 | M | 0.5 | 2.5 | 3.5 | 4.5 |
