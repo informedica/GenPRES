@@ -39,25 +39,35 @@ Open your browser to `http://localhost:5173`
 
 This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 
-- **Server**: F# with [Saturn](https://saturnframework.org/)
-- **Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/)
+- **Informedica.GenPRES.Server**: F# with [Saturn](https://saturnframework.org/)
+- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/)
 - **Testing**: Expecto with FsCheck for property-based testing
 - **Build**: .NET 9.0
 
 ### Core Libraries
 
-- **Informedica.Utils.Lib**: Shared utilities, common functions
-- **Informedica.Agents.Lib**: Implementations of the MailboxProcessor as Agent
-- **Informedica.Logging.Lib**: Logging library enabling concurrent logging
-- **Informedica.GenCore.Lib**: Domain modelling of core concepts
-- **Informedica.GenUnits.Lib**: Units of measure, calculations
-- **Informedica.GenSolver.Lib**: Constraint solving, equations, variables
-- **Informedica.ZIndex.Lib**: Medication database, drug *product* information
-- **Informedica.ZForm.Lib**: Medication database, drug *dosing* information
-- **Informedica.GenForm.Lib**: Domain library for all order constraint rules
-- **Informedica.GenOrder.Lib**: Medical orders, prescriptions
-- **Server**: The server library
-- **Client**: The webbased client UI
+In dependency order:
+
+- **Informedica.Utils.Lib**: Shared utilities, common functions  
+- **Informedica.Agents.Lib**: Implementations of agent-based execution (MailboxProcessor)  
+- **Informedica.Logging.Lib**: Logging library enabling concurrent logging  
+- **Informedica.NLP.Lib**: Natural Language Processing utilities to parse free text inputs to structured operational knowledge rules
+- **Informedica.OTS.Lib**: Data access layer for Google Sheets and CSV files and Ontology Terminlogy Server (OTS)
+- **Informedica.GenUnits.Lib**: Units of measure and unit-safe calculations  
+- **Informedica.GenSOLVER.Lib**: Quantitative constraint solving, equations, and variables  
+- **Informedica.GenCORE.Lib**: Core Domain model (patients, context, and order abstractions)  
+- **Informedica.ZIndex.Lib**: Medication and product database (source domain)  
+- **Informedica.ZForm.Lib**: Z-Index structured dosing reference data (source domain)  
+- **Informedica.NKF.Lib**: "Nederlands Kinderformularium" dose rule extraction and processing
+- **Informedica.FTK.Lib**: "Farmacotherapeutisch Kompas" dose rule extraction and processing
+- **Informedica.GenFORM.Lib**: Domain library for all Operational Knowledge Rules (order constraints)  
+- **Informedica.GenORDER.Lib**: Generic clinical order scenarios and execution (including prescriptions, nutrition, and fluids)  
+- **Informedica.MCP.Lib**: Enabling MCP implementation of core libraries for use with LLMs and chatbots
+- **Informedica.FHIR.Lib**: Converting GenPRES domain models to/from FHIR resources
+- **Informedica.DataPlatorm.Lib**: Sending and retrieving patient and order data to/from Data Platform
+- **Informedica.HIXConnect.Lib**: Sending and retrieving patient and order data to/from HIX Connect
+- **Informedica.GenPRES.Server**: The server library and agent-based orchestration and API layer
+- **Informedica.GenPRES.Client**: The webbased clinical order client UI
 
 ## Code Contribution Guidelines
 
@@ -68,7 +78,7 @@ This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 This project follows specific organizational patterns:
 
 - **Library Structure**: Use the `Informedica.{Domain}.Lib` naming convention
-- **Domain Libraries**: GenSolver, GenOrder, GenUnits, ZIndex, Utils
+- **Domain Libraries**: GenSOLVER, GenORDER, GenUnits, ZIndex, Utils
 - **Separate Test Projects**: Each library has its own test project
 - **Opt-in .gitignore**: *You must explicitly define what should be included!!*
 
