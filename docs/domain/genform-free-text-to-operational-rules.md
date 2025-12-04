@@ -1,56 +1,35 @@
 # `GenFORM: from Free Text to Operational Knowledge Rules`
 
-## `Table of Contents` {#table-of-contents}
+## `Table of Contents`
 
-[`Core Definitions 3`](#core-definitions)
+- [`GenFORM: from Free Text to Operational Knowledge Rules`](#genform-from-free-text-to-operational-knowledge-rules)
+  - [`Table of Contents`](#table-of-contents)
+  - [`Core Definitions`](#core-definitions)
+  - [`1. Objectives`](#1-objectives)
+  - [`2. Operational Knowledge Rules`](#2-operational-knowledge-rules)
+  - [`3. Sources and Types of Dose Rules`](#3-sources-and-types-of-dose-rules)
+  - [`4. Additional Information`](#4-additional-information)
+  - [`5. Operational Structure of a Dose Rule`](#5-operational-structure-of-a-dose-rule)
+  - [`6. Selection and Calculation Constraints`](#6-selection-and-calculation-constraints)
+    - [`6.1. Selection Constraints:`](#61-selection-constraints)
+    - [`6.2. Calculation Constraints:`](#62-calculation-constraints)
+  - [`7. Prescription Rules`](#7-prescription-rules)
+  - [`Appendices`](#appendices)
+    - [`Appendix A. The Medication Treatment Cycle`](#appendix-a-the-medication-treatment-cycle)
+    - [`Appendix B.1. GenFORM Conceptual Architecture`](#appendix-b1-genform-conceptual-architecture)
+    - [`Appendix B.2. GenFORM Technical Architecture`](#appendix-b2-genform-technical-architecture)
+    - [`Addendum B.3. GenFORM Libraries`](#addendum-b3-genform-libraries)
+    - [`Appendix C.1. Dose Rule Model Figure`](#appendix-c1-dose-rule-model-figure)
+    - [`Addendum C.2. Dose Rule Model Table`](#addendum-c2-dose-rule-model-table)
+    - [`Addendum C.1. Reconstitution and Dilution Rule Model Figure`](#addendum-c1-reconstitution-and-dilution-rule-model-figure)
+    - [`Addendum C.2. Reconstitution Rule Model Table`](#addendum-c2-reconstitution-rule-model-table)
+    - [`Addendum C.3. Dilution Rule Model Table`](#addendum-c3-dilution-rule-model-table)
+    - [`Addendum D.1. Renal Rule Model Figure`](#addendum-d1-renal-rule-model-figure)
+    - [`Addendum D.2. Renal Rule Model Table`](#addendum-d2-renal-rule-model-table)
+    - [`Addendum E.1. Product Component Model Figure`](#addendum-e1-product-component-model-figure)
+    - [`Addendum E.2. Product Component Model Table`](#addendum-e2-product-component-model-table)
 
-[`1. Objectives 6`](#1.-objectives)
-
-[`2. Operational Knowledge Rules 6`](#2.-operational-knowledge-rules)
-
-[`3. Sources and Types of Dose Rules 7`](#3.-sources-and-types-of-dose-rules)
-
-[`4. Additional Information 8`](#4.-additional-information)
-
-[`5. Operational Structure of a Dose Rule 9`](#5.-operational-structure-of-a-dose-rule)
-
-[`6. Selection and Calculation Constraints 10`](#6.-selection-and-calculation-constraints)
-
-[`6.1. Selection Constraints: 10`](#6.1.-selection-constraints:)
-
-[`6.2. Calculation Constraints: 11`](#6.2.-calculation-constraints:)
-
-[`7. Prescription Rules 11`](#7.-prescription-rules)
-
-[`Appendices 13`](#appendices)
-
-[`Appendix A. The Medication Treatment Cycle 14`](#appendix-a.-the-medication-treatment-cycle)
-
-[`Appendix B.1. GenFORM Conceptual Architecture 15`](#appendix-b.1.-genform-conceptual-architecture)
-
-[`Appendix B.2. GenFORM Technical Architecture 16`](#appendix-b.2.-genform-technical-architecture)
-
-[`Addendum B.3. GenFORM Libraries 18`](#addendum-b.3.-genform-libraries)
-
-[`Appendix C.1. Dose Rule Model Figure 22`](#appendix-c.1.-dose-rule-model-figure)
-
-[`Addendum C.2. Dose Rule Model Table 24`](#addendum-c.2.-dose-rule-model-table)
-
-[`Addendum C.1. Reconstitution and Dilution Rule Model Figure 28`](#addendum-c.1.-reconstitution-and-dilution-rule-model-figure)
-
-[`Addendum C.2. Reconstitution Rule Model Table 30`](#addendum-c.2.-reconstitution-rule-model-table)
-
-[`Addendum C.3. Dilution Rule Model Table 31`](#addendum-c.3.-dilution-rule-model-table)
-
-[`Addendum D.1. Renal Rule Model Figure 34`](#addendum-d.1.-renal-rule-model-figure)
-
-[`Addendum D.2. Renal Rule Model Table 36`](#addendum-d.2.-renal-rule-model-table)
-
-[`Addendum E.1. Product Component Model Figure 39`](#addendum-e.1.-product-component-model-figure)
-
-[`Addendum E.2. Product Component Model Table 41`](#addendum-e.2.-product-component-model-table)
-
-## `Core Definitions` {#core-definitions}
+## `Core Definitions`
 
 | `Term` | `Definition` |
 | ----- | ----- |
@@ -74,7 +53,7 @@
 | *`Trade Product (HPK)`* | `A branded pharmaceutical product.` |
 | *`Consumer Product (ZInr)`* | `A retail package variant of a trade product.` |
 
-## `1. Objectives` {#1.-objectives}
+## `1. Objectives`
 
 `The aim of GenFORM is to extract and structure expert medication-related knowledge, together with all additional operational information, so that medication can be automatically prescribed, planned, prepared, and administered (see Addendum A. The Medication Treatment Cycle).`
 
@@ -84,7 +63,7 @@
 
 `Because OKRs are expressed as constraints, they can be used by a constraint-solving engine to compute all valid options for a given clinical context. The user selects the most appropriate option, and this selection acts as an additional constraint that further narrows the solution space. Consequently, every option presented—and every option chosen—remains, by definition, within the boundaries defined by the OKRs and is therefore guaranteed to be valid.`
 
-## `2. Operational Knowledge Rules` {#2.-operational-knowledge-rules}
+## `2. Operational Knowledge Rules` 
 
 `OKRs should allow for:`
 
@@ -110,7 +89,7 @@
 
 `Finally, dose adjustment rules like renal rules can apply that are used to adjust schedule and/or dose limit settings.`
 
-## `3. Sources and Types of Dose Rules` {#3.-sources-and-types-of-dose-rules}
+## `3. Sources and Types of Dose Rules`
 
 `Currently, dose rules are defined across multiple source documents and repositories. These rules can be categorized into two primary types:`
 
@@ -119,20 +98,20 @@
 
 `Dose checking rules are maintained in the national registry, the G-Standaard. More specific dose advice rules are available in several additional sources:`
 
-* *`Farmacotherapeutisch Kompas`*`: contains dose advice rules for adults and part of the pediatric population.`  
-* *`Kinderformularium`*`: contains all pediatric dose advice rules.`  
-* *`SWAB (Stichting Werkgroep Antibiotica Beleid)`* `guidelines: contain antibiotic-specific dose advice rules.`  
-* `Oncology protocols: contain dose advice rules for oncology medications.`  
-* `Local protocols: contain hospital- or specialty-specific dose advice rules.`
+- *`Farmacotherapeutisch Kompas`*`: contains dose advice rules for adults and part of the pediatric population.`  
+- *`Kinderformularium`*`: contains all pediatric dose advice rules.`  
+- *`SWAB (Stichting Werkgroep Antibiotica Beleid)`* `guidelines: contain antibiotic-specific dose advice rules.`  
+- `Oncology protocols: contain dose advice rules for oncology medications.`  
+- `Local protocols: contain hospital- or specialty-specific dose advice rules.`
 
-## `4. Additional Information`  {#4.-additional-information}
+## `4. Additional Information`
 
 `To establish a structured and operational knowledge-rule system that supports prescribing, planning, preparation, and administration, additional information is required:`
 
-* **`Reconstitution rules`**`: define how medication must be reconstituted to enable administration of, for example, a powder as a liquid.`  
-* **`Dilution rules`**`: define requirements for the amount and/or concentration of liquid medication.`  
-* **`Renal rules`**`: used to adjust the dose advice according to the renal function (GFR normal, too low or too high).`  
-* **`Product information`**`: defines product availability, pharmaceutical forms, and parameters required for calculating the delivered dose.`
+- **`Reconstitution rules`**`: define how medication must be reconstituted to enable administration of, for example, a powder as a liquid.`  
+- **`Dilution rules`**`: define requirements for the amount and/or concentration of liquid medication.`  
+- **`Renal rules`**`: used to adjust the dose advice according to the renal function (GFR normal, too low or too high).`  
+- **`Product information`**`: defines product availability, pharmaceutical forms, and parameters required for calculating the delivered dose.`
 
 `Reconstitution and dilution rules are typically summarized in parenteralia, while the corresponding information for oral medication is provided in oralia.`
 
@@ -140,7 +119,7 @@
 
 `All required product information can be obtained from the G-Standaard.`
 
-## `5. Operational Structure of a Dose Rule` {#5.-operational-structure-of-a-dose-rule}
+## `5. Operational Structure of a Dose Rule`
 
 `In order to be available as an OKR, the dose rule needs to be structured so that:`
 
@@ -150,180 +129,180 @@
 
 `This results in the dose rule structure as shown in Appendix D. The Dose Rule Structure.`
 
-## `6. Selection and Calculation Constraints` {#6.-selection-and-calculation-constraints}
+## `6. Selection and Calculation Constraints`
 
 `All OKRs can be translated to either selection or calculation constraints. The selection constraints determine which calculation constraints are available. For every set of calculation constraints there is exactly one set of selection constraints that uniquely identifies the calculation constraints (i.e. the dose).`
 
-### `6.1. Selection Constraints:` {#6.1.-selection-constraints:}
+### `6.1. Selection Constraints:`
 
-* `Dose Rule`  
-  * `Source`  
-  * `Generic`  
-  * `Indication`  
-  * `Route`  
-  * `Setting`  
-  * `Patient`  
-  * `Dose Type`  
-  * `Component`  
-  * `Substance`  
-* `Reconstitution Rule`  
-  * `Generic`  
-  * `GPK`  
-  * `Form`  
-  * `Route`  
-  * `Setting`  
-* `Dilution Rule`  
-  * `Generic`  
-  * `Form`  
-  * `Route`  
-  * `Indication`  
-  * `Dose Type`  
-  * `Setting`  
-  * `Vascular Access`  
-  * `Patient`  
-  * `Dose`  
-  * `Substance`  
-* `Renal Rule`  
-  * `Source`  
-  * `Generic`  
-  * `Indication`  
-  * `Patient`  
-  * `Renal Function`
+- `Dose Rule`  
+  - `Source`  
+  - `Generic`  
+  - `Indication`  
+  - `Route`  
+  - `Setting`  
+  - `Patient`  
+  - `Dose Type`  
+  - `Component`  
+  - `Substance`  
+- `Reconstitution Rule`  
+  - `Generic`  
+  - `GPK`  
+  - `Form`  
+  - `Route`  
+  - `Setting`  
+- `Dilution Rule`  
+  - `Generic`  
+  - `Form`  
+  - `Route`  
+  - `Indication`  
+  - `Dose Type`  
+  - `Setting`  
+  - `Vascular Access`  
+  - `Patient`  
+  - `Dose`  
+  - `Substance`  
+- `Renal Rule`  
+  - `Source`  
+  - `Generic`  
+  - `Indication`  
+  - `Patient`  
+  - `Renal Function`
 
-### `6.2. Calculation Constraints:` {#6.2.-calculation-constraints:}
+### `6.2. Calculation Constraints:`
 
-* `Dose Rule`  
-  * `Schedule`  
-  * `Duration`  
-  * `Dose Limits`  
-* `Reconstitution Rule:`  
-  * `Diluent Volume`  
-  * `Expansion Volume`  
-* `Dilution Rule:`  
-  * `Volume`  
-  * `Drip Rate`  
-  * `Administration Fraction`  
-  * `Dose`  
-  * `Concentration`  
-* `Renal Rule`  
-  * `Schedule`  
-  * `Dose Adjustment (relative or absolute)`
+- `Dose Rule`  
+  - `Schedule`  
+  - `Duration`  
+  - `Dose Limits`  
+- `Reconstitution Rule:`  
+  - `Diluent Volume`  
+  - `Expansion Volume`  
+- `Dilution Rule:`  
+  - `Volume`  
+  - `Drip Rate`  
+  - `Administration Fraction`  
+  - `Dose`  
+  - `Concentration`  
+- `Renal Rule`  
+  - `Schedule`  
+  - `Dose Adjustment (relative or absolute)`
 
-## `7. Prescription Rules` {#7.-prescription-rules}
+## `7. Prescription Rules`
 
 `Dose-, Reconstitution-, Dilution- and Renal rules are combined within a patient context and specific setting into a Prescription Rule. The Prescription Rule can, therefore, be used to generate an order determining, prescription, preparation and administration of an order.`
 
-## `Appendices` {#appendices}
+## `Appendices`
 
 `The below appendices provide graphical and table detailed representations of all rule related concepts.`
 
 `In tables, mutually exclusive options are represented by a bar "|".`
 
-### `Appendix A. The Medication Treatment Cycle` {#appendix-a.-the-medication-treatment-cycle}
+### `Appendix A. The Medication Treatment Cycle`
 
 ![image1](https://docs.google.com/drawings/d/e/2PACX-1vRenb7b36iQWiNvOj3_KiRkMFABNwlt_xOA2lWkWMo24-2SFmhNOtU9uzOMtGF4-hC67rOs6pO9tDJI/pub?w=960&h=599)
 
-### `Appendix B.1. GenFORM Conceptual Architecture` {#appendix-b.1.-genform-conceptual-architecture}
+### `Appendix B.1. GenFORM Conceptual Architecture`
 
 ![image2](https://docs.google.com/drawings/d/e/2PACX-1vTyeou3dSXc9foR4wx2IvVmNCdXF3PM7RN9O2mElMuRY3de77eVDk9oYn8LfsU7u_JOBPd7ANVd_EA2/pub?w=958&h=654)  
 
 `Free text is structured by GenFORM to operational structured knowledge rules and can be returned as human-readable text.`
 
-### `Appendix B.2. GenFORM Technical Architecture` {#appendix-b.2.-genform-technical-architecture}
+### `Appendix B.2. GenFORM Technical Architecture`
 
 ![image3](https://docs.google.com/drawings/d/e/2PACX-1vSopywjJaeck4Ta8vAN52rDbbdtqOFfh0Orox7YW8fYLek_ntEGC6xBH_LAoZGUkY1pjvzx732TFslL/pub?w=778&h=577)
 
-### `Addendum B.3. GenFORM Libraries` {#addendum-b.3.-genform-libraries}
+### `Addendum B.3. GenFORM Libraries`
 
 `Classification:`
 
-* **`Free Text Sources`**  
-* **`Utility Library`**  
-* **`Domain Library`**
+- **`Free Text Sources`**  
+- **`Utility Library`**  
+- **`Domain Library`**
 
 `Libraries:`
 
 1. **`Informedica.Agents.Lib:`** `Library using the FSharp MailboxProcessor to create message based agents.`
-   * `Capabilities:`
-     * `Message-based agent abstraction using F# MailboxProcessor`  
-     * `Asynchronous, concurrent API execution model`  
-     * `Specific low level agent implementations`
+   - `Capabilities:`
+     - `Message-based agent abstraction using F# MailboxProcessor`  
+     - `Asynchronous, concurrent API execution model`  
+     - `Specific low level agent implementations`
 
 2. **`Informedica.Logging.Lib:`** `Library with advanced printing capabilities to enable human-readable logging for analysis.`
-   * `Capabilities:`  
-     * `Human-readable logging and structured output for analysis`  
-     * `Advanced printing and formatting capabilities`  
-     * `Agent-based logging service`  
+   - `Capabilities:`  
+     - `Human-readable logging and structured output for analysis`  
+     - `Advanced printing and formatting capabilities`  
+     - `Agent-based logging service`  
 
 3. **`Informedica.NLP.Lib:`** `Library using NLP to extract structured rules from free text.`
-   * `Capabilities:`  
-     * `Natural language processing for rule extraction`  
-     * `Conversion of free text to structured typed records`
+   - `Capabilities:`  
+     - `Natural language processing for rule extraction`  
+     - `Conversion of free text to structured typed records`
 
 4. **`Informedica.OTS.Lib:`** `Library to retrieve and send rules sets to the OTS server for storage and version control. Can also export and import rules sets as spreadsheets.`  
-   * `Capabilities:`  
-     * `Integration with OTS server for product and rule set storage and version control`  
-     * `Rule set import/export to spreadsheet formats`  
-     * `Can log import and export`  
-     * `Can run as an agent based microservice`
+   - `Capabilities:`  
+     - `Integration with OTS server for product and rule set storage and version control`  
+     - `Rule set import/export to spreadsheet formats`  
+     - `Can log import and export`  
+     - `Can run as an agent based microservice`
 
 5. **`Informedica.GenUnits.Lib:`** `Domain library handling complex value unit combinations and calculation.`  
-   * `Capabilities:`  
-     * `Complex value-unit combinations and dimensional analysis`  
-     * `Unit conversion and validation`  
-     * `Arithmetic operations on values with units`
+   - `Capabilities:`  
+     - `Complex value-unit combinations and dimensional analysis`  
+     - `Unit conversion and validation`  
+     - `Arithmetic operations on values with units`
 
 6. **`Informedica.ZIndex.Lib:`** `Performs first parsing of products and rules from the ZIndex registry. Products can be used by GenFORM.`
-   * `Capabilities:`  
-     * `Parsing of pharmaceutical products from ZIndex registry`  
-     * `Initial rule extraction from ZIndex data`  
-     * `Product catalog and formulary management`
+   - `Capabilities:`  
+     - `Parsing of pharmaceutical products from ZIndex registry`  
+     - `Initial rule extraction from ZIndex data`  
+     - `Product catalog and formulary management`
 
 7. **`Informedica.ZForm.Lib:`** `Additional processing of rules to more generic constructs. These rules can be used by GenFORM to check specific dose rules.`  
-   * `Capabilities:`  
-     * `Advanced rule processing and normalization`  
-     * `Conversion of ZIndex rules to generic constructs`  
-     * `Can store and retrieve products and rules in OTS`  
-     * `Can log extraction messages`  
-     * `Can run as an agent microservice`  
-     * `Can be exposed via MCP host`
+   - `Capabilities:`  
+     - `Advanced rule processing and normalization`  
+     - `Conversion of ZIndex rules to generic constructs`  
+     - `Can store and retrieve products and rules in OTS`  
+     - `Can log extraction messages`  
+     - `Can run as an agent microservice`  
+     - `Can be exposed via MCP host`
 
 8. **`Informedica.NKF.Lib:`** `Library used to parse structured content from the Kinderformularium containing pediatric dosing rules.`
-   * `Capabilities:`  
-     * `Parsing of pediatric dosing guidelines from Kinderformularium`  
-     * `Structured pediatric dosing rules`  
-     * `Can log extraction messages`  
-     * `Can run as an agent based microservice`  
+   - `Capabilities:`  
+     - `Parsing of pediatric dosing guidelines from Kinderformularium`  
+     - `Structured pediatric dosing rules`  
+     - `Can log extraction messages`  
+     - `Can run as an agent based microservice`  
 
 9. **`Informedica.FTK.Lib:`** `Library used to parse structured content from the Farmacotherapeutisch Kompas containing pediatric dosing rules.`
-   * `Capabilities:`  
-     * `Parsing of adult dosing guidelines from Farmacotherapeutisch Kompas`  
-     * `Structured adult dosing rules`  
-     * `Can log extraction messages`  
-     * `Can run as an agent based microservice`
+   - `Capabilities:`  
+     - `Parsing of adult dosing guidelines from Farmacotherapeutisch Kompas`  
+     - `Structured adult dosing rules`  
+     - `Can log extraction messages`  
+     - `Can run as an agent based microservice`
 
 10. **`Informedica.GenFORM.Lib:`** `Handles all rule sets and combines those with products creating specific patient context prescription rules.`
-    * `Capabilities:`  
-      * `Unified rule set management across all sources`  
-      * `Patient-context-specific prescription rule generation`  
-      * `Product-rule combination and validation`  
-      * `Can store and retrieve products and rules in OTS`  
-      * `Can log all rule retrieval messages`  
-      * `Can run as an agent based microservice`  
-      * `Can be accessed as a MCP service`
+    - `Capabilities:`  
+      - `Unified rule set management across all sources`  
+      - `Patient-context-specific prescription rule generation`  
+      - `Product-rule combination and validation`  
+      - `Can store and retrieve products and rules in OTS`  
+      - `Can log all rule retrieval messages`  
+      - `Can run as an agent based microservice`  
+      - `Can be accessed as a MCP service`
 
 11. **`Informedica.MCP.Lib:`** `Library enabling a MCP implementation and using LLMs.`
-    * `Capabilities:`  
-      * `Model Context Protocol (MCP) framework implementation in F#`  
-      * `LLM-powered extraction of structured typed records from free text`  
-      * `Agent-based MCP service execution`  
-      * `Can host ZForm, GenFORM, GenORDER`
+    - `Capabilities:`  
+      - `Model Context Protocol (MCP) framework implementation in F#`  
+      - `LLM-powered extraction of structured typed records from free text`  
+      - `Agent-based MCP service execution`  
+      - `Can host ZForm, GenFORM, GenORDER`
 
-### `Appendix C.1. Dose Rule Model Figure` {#appendix-c.1.-dose-rule-model-figure}
+### `Appendix C.1. Dose Rule Model Figure`
 
-`![][image4]`
+![image4](https://docs.google.com/drawings/d/e/2PACX-1vQ0JtMXGCuyZ4Tw_EjHErHbvI7b5qXSJjTQsveI8kBbRPyAkh1RzTtw_NsbaPNyiKYgPufPWAk-ZduD/pub?w=1042&h=710)
 
-### `Addendum C.2. Dose Rule Model Table` {#addendum-c.2.-dose-rule-model-table}
+### `Addendum C.2. Dose Rule Model Table`
 
 | `Object` | `Variable` | `Type` | `Unit` | `Description` |
 | :---- | :---- | :---- | :---- | :---- |
@@ -381,15 +360,11 @@
 | `DoseLimit` | `MinRateAdj` | `float` | `dose_unit / adjust_unit / rate_unit` | `The minimum patient-adjusted dose rate` |
 | `DoseLimit` | `MaxRateAdj` | `float` | `dose_unit / adjust_unit / rate_unit` | `The maximum patient-adjusted dose rate` |
 
-###
+### `Addendum C.1. Reconstitution and Dilution Rule Model Figure`
 
-### `Addendum C.1. Reconstitution and Dilution Rule Model Figure` {#addendum-c.1.-reconstitution-and-dilution-rule-model-figure}
+![image5](https://docs.google.com/drawings/d/e/2PACX-1vTCmWhej7l1HTUelmCR8PGOjG-VbFCXpG4tBHLRSWIayhyk-okLkkqUENUOCKugOHZP6YafcFdE_Ti3/pub?w=858&h=567)
 
-`![][image5]`
-
-###
-
-### `Addendum C.2. Reconstitution Rule Model Table` {#addendum-c.2.-reconstitution-rule-model-table}
+### `Addendum C.2. Reconstitution Rule Model Table`
 
 | `Object` | `Property` | `Type` | `Unit` | `Description` |
 | :---- | :---- | :---- | :---- | :---- |
@@ -403,7 +378,7 @@
 | `Solution` | `ExpansionVol` | `float` | `mL` | `The expansion volume` |
 | `Solution` | `Diluents` | `text list` |  | `The possible diluents that can be used` |
 
-### `Addendum C.3. Dilution Rule Model Table` {#addendum-c.3.-dilution-rule-model-table}
+### `Addendum C.3. Dilution Rule Model Table`
 
 | `Object` | `Property` | `Type` | `Unit` | `Description` |
 | :---- | :---- | :---- | :---- | :---- |
@@ -440,13 +415,11 @@
 | `DilutionLimit` | `MinConc` | `float` | `subst_unit / mL` | `The minimum substance concentration` |
 | `DilutionLimit` | `MaxConc` | `float` | `subst_unit / mL` | `The maximum substance concentration` |
 
-### `Addendum D.1. Renal Rule Model Figure` {#addendum-d.1.-renal-rule-model-figure}
+### `Addendum D.1. Renal Rule Model Figure`
 
-`![][image6]`
+![image6](https://docs.google.com/drawings/d/e/2PACX-1vSiLTebrTbFyX9sDNxjl3OZbxfmRNu-_VZOhs45P5OY663c988L-MqiN3HDQBc5V_Rn45cTgWYrO1gf/pub?w=940&h=582)
 
-###
-
-### `Addendum D.2. Renal Rule Model Table` {#addendum-d.2.-renal-rule-model-table}
+### `Addendum D.2. Renal Rule Model Table`
 
 | `Object` | `Variable` | `Type` | `Unit` | `Description` |
 | :---- | :---- | :---- | :---- | :---- |
@@ -488,11 +461,11 @@
 | `DoseLimit` | `MinRateAdj` | `float` | `count /dose_unit / adjust_unit / rate_unit` | `The relative or absolute minimum patient-adjusted dose rate (renal adjustment)` |
 | `DoseLimit` | `MaxRateAdj` | `float` | `count /dose_unit / adjust_unit / rate_unit` | `The relative or absolute minimum patient-adjusted dose rate (renal adjustment)` |
 
-### `Addendum E.1. Product Component Model Figure` {#addendum-e.1.-product-component-model-figure}
+### `Addendum E.1. Product Component Model Figure`
 
-`![][image7]`
+![image7](https://docs.google.com/drawings/d/e/2PACX-1vS3xWXvNVpM6MHRH5aAJ0S-bliMviuW1fK0chOd1PA_i8TPDpBRB4MthbspBucUURaxu5vAUrQ3R5TU/pub?w=1029&h=581)
 
-### `Addendum E.2. Product Component Model Table` {#addendum-e.2.-product-component-model-table}
+### `Addendum E.2. Product Component Model Table`
 
 | `Object` | `Prop` | `Type` | `Unit` | `Description` |
 | :---- | :---- | :---- | :---- | :---- |
