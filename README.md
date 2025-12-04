@@ -57,7 +57,7 @@ Before starting the application set the following environment variables for a de
 
 ```bash
 export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-export GENPRES_LOG=0
+export GENPRES_LOG=1
 export GENPRES_PROD=0
 export GENPRES_DEBUG=1
 ```
@@ -66,7 +66,7 @@ export GENPRES_DEBUG=1
 
 ```powershell
 $env:GENPRES_URL_ID="1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
-$env:GENPRES_LOG="0"
+$env:GENPRES_LOG="1"
 $env:GENPRES_PROD="0"
 $env:GENPRES_DEBUG="1"
 ```
@@ -75,7 +75,7 @@ $env:GENPRES_DEBUG="1"
 
 ```cmd
 set GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-set GENPRES_LOG=0
+set GENPRES_LOG=1
 set GENPRES_PROD=0
 set GENPRES_DEBUG=1
 ```
