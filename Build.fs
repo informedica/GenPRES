@@ -7,12 +7,12 @@ open Helpers
 initializeContext ()
 
 
-let sln = "GenPres.sln"
+let sln = "GenPRES.sln"
 
-let sharedPath = Path.getFullName "src/Shared"
-let serverPath = Path.getFullName "src/Server"
-let clientPath = Path.getFullName "src/Client"
-let dataPath = Path.getFullName "src/Server/data"
+let sharedPath = Path.getFullName "src/Informedica.GenPRES.Shared"
+let serverPath = Path.getFullName "src/Informedica.GenPRES.Server"
+let clientPath = Path.getFullName "src/Informedica.GenPRES.Client"
+let dataPath = Path.getFullName   "src/Informedica.GenPRES.Server/data"
 
 let deployPath = Path.getFullName "deploy"
 

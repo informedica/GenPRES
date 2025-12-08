@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="Exceptions.fs" />
+    <Compile Include="OrderVariable.fs" />
+    <Compile Include="Solver.fs" />
+    <Compile Include="EquationMapping.fs" />
+    <Compile Include="Order.fs" />
+    <Compile Include="OrderProcessor.fs" />
+    <Compile Include="Totals.fs" />
+    <Compile Include="Medication.fs" />
+    <Compile Include="Nutrition.fs" />
+    <Compile Include="Patient.fs" />
+    <Compile Include="OrderLogging.fs" />
+    <Compile Include="Api.fs" />
+    <None Include="Scripts\load.fsx" />
+    <None Include="Scripts\OrderVariable.fsx" />
+    <None Include="Scripts\Scenarios.fsx" />
+    <None Include="Scripts\Medication.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenSOLVER.Lib\Informedica.GenSOLVER.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenFORM.Lib\Informedica.GenFORM.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

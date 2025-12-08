@@ -1,16 +1,11 @@
 # Use an opt-in strategy
 *
 
-# Add build files
-!build.sh
-!build.cmd
-
 # Add build props
 !Directory.Build.props
 
 # Add global json
 !global.json
-
 
 # Add local tools config
 !/.config/
@@ -19,7 +14,6 @@
 # Add paket targets
 !/.paket/
 !/.paket/Paket.Restore.targets
-
 
 # Add dependencies file
 !paket.dependencies
@@ -33,10 +27,7 @@
 !webpack.config.js
 !vite.config.js
 !vite.config.mts
-
-# Add yml files to ci on appveyor and travis
-!appveyor.yml
-!.travis.yml
+!index.html
 
 # Add solution file
 !*.sln
@@ -50,40 +41,14 @@
 # Add fsharp source files
 !*.fs
 
-# Add notebook files
-!*.dib
-
-# Add documentation tools
-!/docsTool/
-!/docsTool/templates/
-
-# Add documentation source files
-!/docsSrc/
-!/docsSrc/**
-
-# Add documentation
-!/docs/
-!/docs/**
-
 # Add source files
-!/scripts/
 !/src/
 
-!/src/Client/
-!/src/Client/public/
-!/src/Client/public/*
-!/src/Client/Utils/
-!/src/Client/Domain/
-!/src/Client/Components/
-!/src/Client/Views/
-!/src/Client/Pages/
-
-!/src/Shared/
-!/src/Server/
-!/src/Server/data
-!/src/Server/data/cache
-!/src/Server/data/*.cache
-
+# Add data folders
+!/data/
+!/data/cache/
+!/data/cache/*.demo
+!/data/zindex/
 
 # Informedica.Utils.Lib
 !/src/Informedica.Utils.Lib/
@@ -91,50 +56,52 @@
 # Informedica.Agents.Lib
 !/src/Informedica.Agents.Lib/
 !/src/Informedica.Agents.Lib/BCL/
-# Informedica.OpenAI.Lib
-!/src/Informedica.OpenAI.Lib/
-# Informedica.GenCore.Lib
-!/src/Informedica.GenCore.Lib/
+# Informedica.NLP.Lib
+!/src/Informedica.NLP.Lib/
+# Informedica.OTS.Lib
+!/src/Informedica.OTS.Lib/
+# Informedica.GenCORE.Lib
+!/src/Informedica.GenCORE.Lib/
 # Informedica.Logging.Lib
 !/src/Informedica.Logging.Lib/
-# Informedica.GenUnits.Lib
-!/src/Informedica.GenUnits.Lib/
-#Informedica.GenSolver.Lib
-!/src/Informedica.GenSolver.Lib/
-#Informedica.ZIndex.Lib
+# Informedica.GenUNITS.Lib
+!/src/Informedica.GenUNITS.Lib/
+# Informedica.GenSOLVER.Lib
+!/src/Informedica.GenSOLVER.Lib/
+# Informedica.ZIndex.Lib
 !/src/Informedica.ZIndex.Lib/
-#Informedica.ZForm.Lib
+# Informedica.ZForm.Lib
 !/src/Informedica.ZForm.Lib/
-#Informedica.MetaVision.Lib
-!/src/Informedica.MetaVision.Lib/
-#Informedica.KinderFormularium.Lib
-!/src/Informedica.KinderFormularium.Lib/
-#Informedica.GenForm.Lib
-!/src/Informedica.GenForm.Lib/
-#Informedica.GenOrder.Lib
-!/src/Informedica.GenOrder.Lib/
-
-# Informedica.Utils.Tests
-!/tests/Informedica.Utils.Tests/
-# Informedica.Agents.Tests
-!/tests/Informedica.Agents.Tests/
-# Informedica.Logging.Tests
-!/tests/Informedica.Logging.Tests/
-# Informedica.GenCore.Tests
-!/tests/Informedica.GenCore.Tests/
-# Informedica.ZIndex.Tests
-!/tests/Informedica.ZIndex.Tests/
-# Informedica.GenUnits.Tests
-!/tests/Informedica.GenUnits.Tests/
-# Informedica.GenSolver.Tests
-!/tests/Informedica.GenSolver.Tests/
-# Informedica.GenForm.Tests
-!/tests/Informedica.GenForm.Tests/
-# Informedica.GenOrder.Tests
-!/tests/Informedica.GenOrder.Tests/
-
-# Add Server test files
-!/tests/
-!/tests/Server
-!/tests/UITests/
+# Informedica.NKF.Lib
+!/src/Informedica.NKF.Lib/
+# Informedica.FTK.Lib
+!/src/Informedica.FTK.Lib/
+# Informedica.GenFORM.Lib
+!/src/Informedica.GenFORM.Lib/
+# Informedica.GenORDER.Lib
+!/src/Informedica.GenORDER.Lib/
+# Informedica.MCP.Lib
+!/src/Informedica.MCP.Lib/
+# Informedica.FHIR.Lib
+!/src/Informedica.FHIR.Lib/
+# Informedica.DataPlatform.Lib
+!/src/Informedica.DataPlatform.Lib/
+# Informedica.HIXConnect.Lib
+!/src/Informedica.HIXConnect.Lib/
+# Informedica.GenPRES.Shared
+!/src/Informedica.GenPRES.Shared/
+# Informedica.GenPRES.Server
+!/src/Informedica.GenPRES.Server/
+!/src/Informedica.GenPRES.Server/data
+!/src/Informedica.GenPRES.Server/data/cache
+!/src/Informedica.GenPRES.Server/data/cache/*.demo
+# Informedica.GenPRES.Client
+!/src/Informedica.GenPRES.Client/
+!/src/Informedica.GenPRES.Client/public/
+!/src/Informedica.GenPRES.Client/public/*
+!/src/Informedica.GenPRES.Client/Utils/
+!/src/Informedica.GenPRES.Client/Domain/
+!/src/Informedica.GenPRES.Client/Components/
+!/src/Informedica.GenPRES.Client/Views/
+!/src/Informedica.GenPRES.Client/Pages/
 
