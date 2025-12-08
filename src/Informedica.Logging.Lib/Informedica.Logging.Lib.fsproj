@@ -10,7 +10,6 @@
     <None Include=".\Scripts\Scripts.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
