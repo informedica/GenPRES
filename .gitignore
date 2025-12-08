@@ -135,24 +135,6 @@
 !/scripts/
 !/src/
 
-!/src/Client/
-!/src/Client/Scripts/
-!/src/Client/public/
-!/src/Client/public/*
-!/src/Client/Utils/
-!/src/Client/Domain/
-!/src/Client/Components/
-!/src/Client/Views/
-!/src/Client/Pages/
-
-!/src/Shared/
-!/src/Shared/Scripts/
-!/src/Server/
-!/src/Server/Scripts/
-!/src/Server/data
-!/src/Server/data/cache
-!/src/Server/data/cache/*.demo
-
 # Add data folders
 !/data/
 !/data/cache/
@@ -174,26 +156,30 @@
 !/src/Informedica.Agents.Lib/BCL/
 !/src/Informedica.Agents.Lib/Scripts/
 !/src/Informedica.Agents.Lib/Notebooks/
-# Informedica.OpenAI.Lib
-!/src/Informedica.OpenAI.Lib/
-!/src/Informedica.OpenAI.Lib/Scripts/
-!/src/Informedica.OpenAI.Lib/Notebooks/
-# Informedica.GenCore.Lib
-!/src/Informedica.GenCore.Lib/
-!/src/Informedica.GenCore.Lib/Scripts/
-!/src/Informedica.GenCore.Lib/Notebooks/
+# Informedica.NLP.Lib
+!/src/Informedica.NLP.Lib/
+!/src/Informedica.NLP.Lib/Scripts/
+!/src/Informedica.NLP.Lib/Notebooks/
+# Informedica.OTS.Lib
+!/src/Informedica.OTS.Lib/
+!/src/Informedica.OTS.Lib/Scripts/
+!/src/Informedica.OTS.Lib/Notebooks/
+# Informedica.GenCORE.Lib
+!/src/Informedica.GenCORE.Lib/
+!/src/Informedica.GenCORE.Lib/Scripts/
+!/src/Informedica.GenCORE.Lib/Notebooks/
 # Informedica.Logging.Lib
 !/src/Informedica.Logging.Lib/
 !/src/Informedica.Logging.Lib/Scripts/
 !/src/Informedica.Logging.Lib/Notebooks/
-# Informedica.GenUnits.Lib
-!/src/Informedica.GenUnits.Lib/
-!/src/Informedica.GenUnits.Lib/Scripts/
-!/src/Informedica.GenUnits.Lib/Notebooks/
-#Informedica.GenSolver.Lib
-!/src/Informedica.GenSolver.Lib/
-!/src/Informedica.GenSolver.Lib/Scripts/
-!/src/Informedica.GenSolver.Lib/Notebooks/
+# Informedica.GenUNITS.Lib
+!/src/Informedica.GenUNITS.Lib/
+!/src/Informedica.GenUNITS.Lib/Scripts/
+!/src/Informedica.GenUNITS.Lib/Notebooks/
+#Informedica.GenSOLVER.Lib
+!/src/Informedica.GenSOLVER.Lib/
+!/src/Informedica.GenSOLVER.Lib/Scripts/
+!/src/Informedica.GenSOLVER.Lib/Notebooks/
 #Informedica.ZIndex.Lib
 !/src/Informedica.ZIndex.Lib/
 !/src/Informedica.ZIndex.Lib/Scripts/
@@ -202,25 +188,60 @@
 !/src/Informedica.ZForm.Lib/
 !/src/Informedica.ZForm.Lib/Scripts/
 !/src/Informedica.ZForm.Lib/Notebooks/
-#Informedica.MetaVision.Lib
-!/src/Informedica.MetaVision.Lib/
-!/src/Informedica.MetaVision.Lib/Scripts/
-!/src/Informedica.MetaVision.Lib/Notebooks/
-#Informedica.KinderFormularium.Lib
-!/src/Informedica.KinderFormularium.Lib/
-!/src/Informedica.KinderFormularium.Lib/Scripts/
-!/src/Informedica.KinderFormularium.Lib/Notebooks/
-#Informedica.GenForm.Lib
-!/src/Informedica.GenForm.Lib/
-!/src/Informedica.GenForm.Lib/Scripts/
-!/src/Informedica.GenForm.Lib/Notebooks/
-#Informedica.GenOrder.Lib
-!/src/Informedica.GenOrder.Lib/
-!/src/Informedica.GenOrder.Lib/Scripts/
-!/src/Informedica.GenOrder.Lib/Notebooks/
+#Informedica.NKF.Lib
+!/src/Informedica.NKF.Lib/
+!/src/Informedica.NKF.Lib/Scripts/
+!/src/Informedica.NKF.Lib/Notebooks/
+#Informedica.FTK.Lib
+!/src/Informedica.FTK.Lib/
+!/src/Informedica.FTK.Lib/Scripts/
+!/src/Informedica.FTK.Lib/Notebooks/
+#Informedica.GenFORM.Lib
+!/src/Informedica.GenFORM.Lib/
+!/src/Informedica.GenFORM.Lib/Scripts/
+!/src/Informedica.GenFORM.Lib/Notebooks/
+#Informedica.GenORDER.Lib
+!/src/Informedica.GenORDER.Lib/
+!/src/Informedica.GenORDER.Lib/Scripts/
+!/src/Informedica.GenORDER.Lib/Notebooks/
+# Informedica.MCP.Lib
+!/src/Informedica.MCP.Lib/
+!/src/Informedica.MCP.Lib/Scripts/
+!/src/Informedica.MCP.Lib/Notebooks/
+# Informedica.FHIR.Lib
+!/src/Informedica.FHIR.Lib/
+!/src/Informedica.FHIR.Lib/Scripts/
+!/src/Informedica.FHIR.Lib/Notebooks/
+# Informedica.DataPlatform.Lib
+!/src/Informedica.DataPlatform.Lib/
+!/src/Informedica.DataPlatform.Lib/Scripts/
+!/src/Informedica.DataPlatform.Lib/Notebooks/
+# Informedica.HIXConnect.Lib
+!/src/Informedica.HIXConnect.Lib/
+!/src/Informedica.HIXConnect.Lib/Scripts/
+!/src/Informedica.HIXConnect.Lib/Notebooks/
+# Informedica.GenPRES.Shared
+!/src/Informedica.GenPRES.Shared/
+!/src/Informedica.GenPRES.Shared/Scripts/
+# Informedica.GenPRES.Server
+!/src/Informedica.GenPRES.Server/
+!/src/Informedica.GenPRES.Server/Scripts/
+!/src/Informedica.GenPRES.Server/data
+!/src/Informedica.GenPRES.Server/data/cache
+!/src/Informedica.GenPRES.Server/data/cache/*.demo
+# Informedica.GenPRES.Client
+!/src/Informedica.GenPRES.Client/
+!/src/Informedica.GenPRES.Client/Scripts/
+!/src/Informedica.GenPRES.Client/public/
+!/src/Informedica.GenPRES.Client/public/*
+!/src/Informedica.GenPRES.Client/Utils/
+!/src/Informedica.GenPRES.Client/Domain/
+!/src/Informedica.GenPRES.Client/Components/
+!/src/Informedica.GenPRES.Client/Views/
+!/src/Informedica.GenPRES.Client/Pages/
 
-
-
+# tests
+!/tests/
 # Informedica.Utils.Tests
 !/tests/Informedica.Utils.Tests/
 !/tests/Informedica.Utils.Tests/Scripts/
@@ -230,30 +251,60 @@
 # Informedica.Logging.Tests
 !/tests/Informedica.Logging.Tests/
 !/tests/Informedica.Logging.Tests/Scripts/
-# Informedica.GenCore.Tests
-!/tests/Informedica.GenCore.Tests/
-!/tests/Informedica.GenCore.Tests/Scripts/
+# Informedica.NLP.Tests
+!/tests/Informedica.NLP.Tests/
+!/tests/Informedica.NLP.Tests/Scripts/
+# Informedica.OTS.Tests
+!/tests/Informedica.OTS.Tests/
+!/tests/Informedica.OTS.Tests/Scripts/
+# Informedica.GenCORE.Tests
+!/tests/Informedica.GenCORE.Tests/
+!/tests/Informedica.GenCORE.Tests/Scripts/
 # Informedica.ZIndex.Tests
 !/tests/Informedica.ZIndex.Tests/
 !/tests/Informedica.ZIndex.Tests/Scripts/
-# Informedica.GenUnits.Tests
-!/tests/Informedica.GenUnits.Tests/
-!/tests/Informedica.GenUnits.Tests/Scripts/
-# Informedica.GenSolver.Tests
-!/tests/Informedica.GenSolver.Tests/
-!/tests/Informedica.GenSolver.Tests/Scripts/
-# Informedica.GenForm.Tests
-!/tests/Informedica.GenForm.Tests/
-!/tests/Informedica.GenForm.Tests/Scripts/
-# Informedica.GenOrder.Tests
-!/tests/Informedica.GenOrder.Tests/
-!/tests/Informedica.GenOrder.Tests/Scripts/
-# Add Server test files
-!/tests/
-!/tests/Server
-!/tests/Server/Scripts/
-!/tests/UITests/
-!/tests/UITests/Scripts/
+# Informedica.ZForm.Tests
+!/tests/Informedica.ZForm.Tests/
+!/tests/Informedica.ZForm.Tests/Scripts/
+# Informedica.NKF.Tests
+!/tests/Informedica.NKF.Tests/
+!/tests/Informedica.NKF.Tests/Scripts/
+# Informedica.FTK.Tests
+!/tests/Informedica.FTK.Tests/
+!/tests/Informedica.FTK.Tests/Scripts/
+# Informedica.GenUNITS.Tests
+!/tests/Informedica.GenUNITS.Tests/
+!/tests/Informedica.GenUNITS.Tests/Scripts/
+# Informedica.GenSOLVER.Tests
+!/tests/Informedica.GenSOLVER.Tests/
+!/tests/Informedica.GenSOLVER.Tests/Scripts/
+# Informedica.GenFORM.Tests
+!/tests/Informedica.GenFORM.Tests/
+!/tests/Informedica.GenFORM.Tests/Scripts/
+# Informedica.GenORDER.Tests
+!/tests/Informedica.GenORDER.Tests/
+!/tests/Informedica.GenORDER.Tests/Scripts/
+# Informedica.MCP.Tests
+!/tests/Informedica.MCP.Tests/
+!/tests/Informedica.MCP.Tests/Scripts/
+# Informedica.FHIR.Tests
+!/tests/Informedica.FHIR.Tests/
+!/tests/Informedica.FHIR.Tests/Scripts/
+# Informedica.DataPlatform.Tests
+!/tests/Informedica.DataPlatform.Tests/
+!/tests/Informedica.DataPlatform.Tests/Scripts/
+# Informedica.HIXConnect.Tests
+!/tests/Informedica.HIXConnect.Tests/
+!/tests/Informedica.HIXConnect.Tests/Scripts/
+# Add Informedica.GenPRES.Shared
+!/tests/Informedica.GenPRES.Shared.Tests
+!/tests/Informedica.GenPRES.Shared.Tests/Scripts/
+# Add Informedica.GenPRES.Server
+!/tests/Informedica.GenPRES.Server.Tests
+!/tests/Informedica.GenPRES.Server.Tests/Scripts/
+# Informedica.GenPRES.Client
+!/tests/Informedica.GenPRES.Client.Tests/
+!/tests/Informedica.GenPRES.Client.Tests/Scripts/
 
 # Add benchmark files
 !/benchmark/
@@ -261,7 +312,7 @@
 !/benchmark/run.sh
 !/benchmark/.paket/
 !/benchmark/.paket/Paket.Restore.targets
-!/benchmark/Informedica.GenSolver.Lib_v1/
+!/benchmark/Informedica.GenSOLVER.Lib_v1/
 !/benchmark/BenchmarkDotNet.Artifacts/
 !/benchmark/BenchmarkDotNet.Artifacts/results/
 !/benchmark/BenchmarkDotNet.Artifacts/results/*.md

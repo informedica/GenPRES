@@ -21,7 +21,7 @@
     <None Include="Scripts\Scripts.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.OTS.Lib\Informedica.OTS.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.ZIndex.Lib\Informedica.ZIndex.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
