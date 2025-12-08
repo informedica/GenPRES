@@ -240,6 +240,8 @@
 !/src/Informedica.GenPRES.Client/Views/
 !/src/Informedica.GenPRES.Client/Pages/
 
+# tests
+!/tests/
 # Informedica.Utils.Tests
 !/tests/Informedica.Utils.Tests/
 !/tests/Informedica.Utils.Tests/Scripts/
@@ -249,12 +251,27 @@
 # Informedica.Logging.Tests
 !/tests/Informedica.Logging.Tests/
 !/tests/Informedica.Logging.Tests/Scripts/
+# Informedica.NLP.Tests
+!/tests/Informedica.NLP.Tests/
+!/tests/Informedica.NLP.Tests/Scripts/
+# Informedica.OTS.Tests
+!/tests/Informedica.OTS.Tests/
+!/tests/Informedica.OTS.Tests/Scripts/
 # Informedica.GenCORE.Tests
 !/tests/Informedica.GenCORE.Tests/
 !/tests/Informedica.GenCORE.Tests/Scripts/
 # Informedica.ZIndex.Tests
 !/tests/Informedica.ZIndex.Tests/
 !/tests/Informedica.ZIndex.Tests/Scripts/
+# Informedica.ZForm.Tests
+!/tests/Informedica.ZForm.Tests/
+!/tests/Informedica.ZForm.Tests/Scripts/
+# Informedica.NKF.Tests
+!/tests/Informedica.NKF.Tests/
+!/tests/Informedica.NKF.Tests/Scripts/
+# Informedica.FTK.Tests
+!/tests/Informedica.FTK.Tests/
+!/tests/Informedica.FTK.Tests/Scripts/
 # Informedica.GenUNITS.Tests
 !/tests/Informedica.GenUNITS.Tests/
 !/tests/Informedica.GenUNITS.Tests/Scripts/
@@ -267,10 +284,25 @@
 # Informedica.GenORDER.Tests
 !/tests/Informedica.GenORDER.Tests/
 !/tests/Informedica.GenORDER.Tests/Scripts/
-# Add Informedica.GenPRES.Server test files
-!/tests/
+# Informedica.MCP.Tests
+!/tests/Informedica.MCP.Tests/
+!/tests/Informedica.MCP.Tests/Scripts/
+# Informedica.FHIR.Tests
+!/tests/Informedica.FHIR.Tests/
+!/tests/Informedica.FHIR.Tests/Scripts/
+# Informedica.DataPlatform.Tests
+!/tests/Informedica.DataPlatform.Tests/
+!/tests/Informedica.DataPlatform.Tests/Scripts/
+# Informedica.HIXConnect.Tests
+!/tests/Informedica.HIXConnect.Tests/
+!/tests/Informedica.HIXConnect.Tests/Scripts/
+# Add Informedica.GenPRES.Shared
+!/tests/Informedica.GenPRES.Shared.Tests
+!/tests/Informedica.GenPRES.Shared.Tests/Scripts/
+# Add Informedica.GenPRES.Server
 !/tests/Informedica.GenPRES.Server.Tests
 !/tests/Informedica.GenPRES.Server.Tests/Scripts/
+# Informedica.GenPRES.Client
 !/tests/Informedica.GenPRES.Client.Tests/
 !/tests/Informedica.GenPRES.Client.Tests/Scripts/
 

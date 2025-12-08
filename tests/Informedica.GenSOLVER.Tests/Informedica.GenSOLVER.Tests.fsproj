@@ -5,6 +5,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
     <WarnOn>3390;$(WarnOn)</WarnOn>
+    <!-- temp fix for: https://github.com/fsprojects/Paket/issues/4307 -->
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Tests.fs" />
@@ -12,8 +14,7 @@
     <None Include="Scripts\Tests.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Informedica.GenSolver.Lib\Informedica.GenSolver.Lib.fsproj" />
-    <ProjectReference Include="..\..\src\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
+    <ProjectReference Include="..\..\src\Informedica.GenSOLVER.Lib\Informedica.GenSOLVER.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
