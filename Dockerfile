@@ -31,17 +31,25 @@ COPY Build.fs .
 COPY Helpers.fs .
 COPY src/Informedica.Utils.Lib src/Informedica.Utils.Lib
 COPY src/Informedica.Agents.Lib src/Informedica.Agents.Lib
+COPY src/Informedica.NLP.Lib src/Informedica.NLP.Lib
+COPY src/Informedica.OTS.Lib src/Informedica.OTS.Lib
 COPY src/Informedica.Logging.Lib src/Informedica.Logging.Lib
-COPY src/Informedica.GenCore.Lib src/Informedica.GenCore.Lib
-COPY src/Informedica.GenUnits.Lib src/Informedica.GenUnits.Lib
-COPY src/Informedica.GenSolver.Lib src/Informedica.GenSolver.Lib
+COPY src/Informedica.GenCORE.Lib src/Informedica.GenCORE.Lib
+COPY src/Informedica.GenUNITS.Lib src/Informedica.GenUNITS.Lib
+COPY src/Informedica.GenSOLVER.Lib src/Informedica.GenSOLVER.Lib
 COPY src/Informedica.ZIndex.Lib src/Informedica.ZIndex.Lib
 COPY src/Informedica.ZForm.Lib src/Informedica.ZForm.Lib
-COPY src/Informedica.GenForm.Lib src/Informedica.GenForm.Lib
-COPY src/Informedica.GenOrder.Lib src/Informedica.GenOrder.Lib
-COPY src/Shared src/Shared
-COPY src/Server src/Server
-COPY src/Client src/Client
+COPY src/Informedica.NKF.Lib src/Informedica.NKF.Lib
+COPY src/Informedica.FTK.Lib src/Informedica.FTK.Lib
+COPY src/Informedica.GenFORM.Lib src/Informedica.GenFORM.Lib
+COPY src/Informedica.GenORDER.Lib src/Informedica.GenORDER.Lib
+COPY src/Informedica.MCP.Lib src/Informedica.MCP.Lib
+COPY src/Informedica.FHIR.Lib src/Informedica.FHIR.Lib
+COPY src/Informedica.DataPlatform.Lib src/Informedica.DataPlatform.Lib
+COPY src/Informedica.HIXConnect.Lib src/Informedica.HIXConnect.Lib
+COPY src/Informedica.GenPRES.Shared src/Informedica.GenPRES.Shared
+COPY src/Informedica.GenPRES.Server src/Informedica.GenPRES.Server
+COPY src/Informedica.GenPRES.Client src/Informedica.GenPRES.Client
 RUN dotnet run bundle
 
 
@@ -56,4 +64,4 @@ ENV GENPRES_URL_ID=$GENPRES_URL_ARG
 
 WORKDIR /app
 EXPOSE 8085
-ENTRYPOINT [ "dotnet", "Server.dll" ]
+ENTRYPOINT [ "dotnet", "Informedica.GenPRES.Server.dll" ]

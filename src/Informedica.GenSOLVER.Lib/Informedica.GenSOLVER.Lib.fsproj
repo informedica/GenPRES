@@ -24,7 +24,7 @@
     <None Include="Scripts\Solver.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenUNITS.Lib\Informedica.GenUNITS.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
