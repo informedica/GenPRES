@@ -4,7 +4,7 @@
 
 Thank you for using GenPRES! This document provides guidance on how to get help and support. The current document is a first draft and will be expanded over time to include more details on support processes, contact points, and best practices.
 
-**Note that this repository only contains the source code and documentation for GenPRES. It does not include professional support services. Also, the repository is not intended for direct clinical use without appropriate validation and regulatory approval.**
+**Important:** Before using GenPRES in any context, please review the canonical clinical use and support disclaimer in the **Medical Advice Disclaimer** section below.
 
 ## Before Asking for Help
 
@@ -237,6 +237,8 @@ Primary language for support is **English**. This ensures:
 
 ## Medical Advice Disclaimer
 
+**Canonical disclaimer:** This repository contains the source code and documentation for GenPRES. It does not include professional support services, and it is not intended for direct clinical use without appropriate validation and regulatory approval.
+
 ⚠️ **IMPORTANT**: GenPRES is a decision support tool, not a replacement for clinical judgment.
 
 - **Do not** use GitHub for urgent clinical questions
@@ -289,6 +291,6 @@ We welcome feedback on how to improve our support process:
 
 ---
 
-**Last updated**: 2025-10-25
+**Last updated**: 2025-12-09
 
 Thank you for being part of the GenPRES community! 🚀
