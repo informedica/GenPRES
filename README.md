@@ -102,6 +102,8 @@ You will find more documentation about the used F# components at the following p
 - [Fable](https://fable.io/docs/)
 - [Elmish](https://elmish.github.io/elmish/)
 
+For an overview of the GenPRES system architecture, see `ARCHITECTURE.md`, which serves as the stable entry point and index for the detailed architecture documentation under `docs/mdr/`.
+
 ## Collaboration
 
 Any help or collaboration is welcome! You can fork this repository, post issues, ask questions or get on [slack](https://genpresworkspace.slack.com).
