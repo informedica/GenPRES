@@ -9,9 +9,11 @@ GenPRES2 is a Clinical Decision Support System (CDSS) for medication prescribing
 ## Development Environment
 
 ### Prerequisites
-- .NET 9.0
-- Node.js v22.11.0 
-- npm 10.9.0
+
+- **.NET SDK**, **Node.js**, and **npm**
+
+For the canonical list of supported versions, see the
+**Toolchain Requirements** section in [`DEVELOPMENT.md`](DEVELOPMENT.md#toolchain-requirements).
 
 ### Required Environment Variables
 For demo/development mode:

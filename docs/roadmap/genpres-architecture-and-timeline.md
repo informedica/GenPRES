@@ -762,6 +762,10 @@ List of libraries and applications along with capabilities and dependencies. Not
   - **Server**: F# with Saturn framework  
   - **Client**: F# with Fable (F# to JavaScript compiler) and Elmish (MVU architecture)
 
+For the canonical and up-to-date development toolchain requirements
+(.NET SDK, Node.js, npm), see the **Toolchain Requirements** section in
+[`DEVELOPMENT.md`](../../DEVELOPMENT.md#toolchain-requirements).
+
 #### Frontend Technologies
 
 - **Fable 4.x**: F# to JavaScript transpiler  

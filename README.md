@@ -41,11 +41,12 @@ Some more background information can be found at:
 
 ## Install pre-requisites
 
-You'll need to install the following pre-requisites in order to build SAFE applications.
+You'll need to install the following pre-requisites in order to build SAFE applications:
 
-- **.NET SDK**: 9.0.0 or later
-- **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
-- **npm**: 10.x or later
+- **.NET SDK**, **Node.js**, and **npm**
+
+For the canonical list of supported versions, see the
+**Toolchain Requirements** section in [`DEVELOPMENT.md`](DEVELOPMENT.md#toolchain-requirements).
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 

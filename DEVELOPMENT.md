@@ -2,9 +2,9 @@
 
 ## Getting Started
 
-### Prerequisites
+### Toolchain Requirements
 
-Before contributing, ensure you have the following installed:
+Before contributing, ensure you have the following installed (this section is the canonical source for toolchain versions):
 
 - **.NET SDK**: 10.0.0 or later
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)

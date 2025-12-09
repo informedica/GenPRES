@@ -12,6 +12,11 @@ GenPRES is a clinical decision support system for prescribing and managing medic
  • Alternatively, can be hosted on Microsoft IIS for traditional Windows-based server environments.
  • Operates in a stateless configuration, ensuring scalability and independent operation.
 
+For the concrete development toolchain used in the reference
+implementation (including .NET SDK, Node.js, and npm versions), see the
+**Toolchain Requirements** section in
+[`DEVELOPMENT.md`](../../../DEVELOPMENT.md#toolchain-requirements).
+
 3. User Interface Requirements
  • The user interface is fully web-based and built using Material UI.
  • Compatible with all modern web browsers (Chrome, Firefox, Safari, Edge).
