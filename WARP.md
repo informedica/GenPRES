@@ -42,9 +42,9 @@ For demo and development environment variables, see `DEVELOPMENT.md#environment-
 Run tests for specific libraries:
 
 ```bash
-dotnet test tests/Informedica.GenSolver.Tests/
-dotnet test tests/Informedica.GenOrder.Tests/
-dotnet test tests/Informedica.GenUnits.Tests/
+dotnet test tests/Informedica.GenSOLVER.Tests/
+dotnet test tests/Informedica.GenORDER.Tests/
+dotnet test tests/Informedica.GenUNITS.Tests/
 # ... etc for other test projects
 ```
 
@@ -64,24 +64,26 @@ dotnet test tests/Informedica.GenUnits.Tests/
 
 GenPRES follows a client-server web application architecture:
 
-- **Server** (`src/Server/`): F# + Saturn/Giraffe web framework, exposes REST API
-- **Client** (`src/Client/`): F# + Fable (compiled to JavaScript) + React + Vite
-- **Shared** (`src/Shared/`): Common types and API contracts
+- **Server** (`src/Informedica.GenPRES.Server/`): F# + Saturn/Giraffe web framework, exposes REST API
+- **Client** (`src/Informedica.GenPRES.Client/`): F# + Fable (compiled to JavaScript) + React + Vite
+- **Shared** (`src/Informedica.GenPRES.Shared/`): Common types and API contracts
 - **Libraries** (`src/Informedica.*.Lib/`): Domain-specific F# libraries
+
+For an in-depth description of the core domain model and transformation pipeline, see `docs/domain/core-domain.md` and the related GenFORM, GenORDER, and GenSOLVER specifications under `docs/domain/`.
 
 ### Key Libraries
 
-1. **Informedica.GenOrder.Lib**: Core medication order modeling and calculation
+1. **Informedica.GenORDER.Lib**: Core medication order modeling and calculation
    - Hierarchical order model (Order → Prescription → Orderable → Component → Item)
    - Maps clinical orders to mathematical equations for solving
    - Supports complex dosing scenarios (per kg, per BSA, ranges, restrictions)
 
-2. **Informedica.GenSolver.Lib**: Constraint solving engine
+2. **Informedica.GenSOLVER.Lib**: Constraint solving engine
    - Solves systems of equations with order-independent calculations
    - Uses BigRational for absolute precision to avoid medication dosing errors
    - Handles ranges and restrictions (e.g., dose 60-80mg, frequency 2-4 times/day)
 
-3. **Informedica.GenUnits.Lib**: Units of measure system
+3. **Informedica.GenUNITS.Lib**: Units of measure system
    - Automatic unit conversion and validation
    - All calculations performed in base units
    - Prevents unit-related medication errors
@@ -90,7 +92,7 @@ GenPRES follows a client-server web application architecture:
    - Product data and drug information lookup
    - Maps to local cached medication data
 
-5. **Informedica.GenForm.Lib**: Pharmaceutical forms and preparations
+5. **Informedica.GenFORM.Lib**: Pharmaceutical forms and preparations
    - Handles different medication forms and preparation methods
 
 ### Configuration Architecture
@@ -103,7 +105,7 @@ GenPRES follows a client-server web application architecture:
 ### Communication Pattern
 
 - Client-server communication via Fable.Remoting (type-safe RPC)
-- API contracts defined in `src/Shared/Api.fs`
+- API contracts defined in `src/Informedica.GenPRES.Shared/Api.fs`
 - Server processes medication calculations and returns validated results
 
 ## Key Development Patterns
@@ -133,7 +135,11 @@ GenPRES follows a client-server web application architecture:
 
 Use conventional commits with specific scopes:
 
+For the canonical and detailed commit message instructions, including types, scopes, and examples, see the "Commit Messages" section in `DEVELOPMENT.md` and `.github/instructions/commit-message.instructions.md`.
+
 ### Library Scopes
+
+For the canonical list of supported scopes and their descriptions, see the "Scopes for GenPRES" subsection in `DEVELOPMENT.md` and the scopes section in `.github/instructions/commit-message.instructions.md`.
 
 - `gensolver`: Constraint solving and equations
 - `genorder`: Medical orders and prescriptions  
@@ -142,6 +148,8 @@ Use conventional commits with specific scopes:
 - `utils`: Shared utilities
 
 ### Application Scopes  
+
+See `DEVELOPMENT.md` and `.github/instructions/commit-message.instructions.md` for the full set of application and infrastructure scopes.
 
 - `client`: Client-side application
 - `server`: Server-side application
