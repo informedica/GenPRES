@@ -7,7 +7,7 @@ This project is initially aimed at the Dutch medical setting, but can easily be 
 > **Open Source And [FAIR](https://www.go-fair.org/fair-principles/): because Safe and Efficient Healthcare is not a luxury**
 >
 
-**IMPORTANT**: This repository contains the source code and documentation for GenPRES. It does not include professional support services. Also, the repository is not intended for direct clinical use without appropriate validation and regulatory approval.
+**IMPORTANT**: GenPRES is not intended for direct clinical use without appropriate validation and regulatory approval, and this repository does not include professional support services. For the full clinical and support disclaimer, see [SUPPORT.md](SUPPORT.md#medical-advice-disclaimer).
 
 ---
 
@@ -41,46 +41,18 @@ Some more background information can be found at:
 
 ## Install pre-requisites
 
-You'll need to install the following pre-requisites in order to build SAFE applications.
+You'll need to install the following pre-requisites in order to build SAFE applications:
 
-- **.NET SDK**: 9.0.0 or later
-- **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
-- **npm**: 10.x or later
+- **.NET SDK**, **Node.js**, and **npm**
+
+For the canonical list of supported versions, see the
+**Toolchain Requirements** section in [`DEVELOPMENT.md`](DEVELOPMENT.md#toolchain-requirements).
 
 For the full application to run a proprietary cache file is needed containing medication product information. Collaborators can request these cache files by contacting the owner of this repository. These cache files cannot be freely distributed!
 
 A demo cache file with medication product data is included in this repository. This contains some sample medication data from a much larger drug formulary database.
 
-Before starting the application set the following environment variables for a demo version of GenPRES:
-
-**Unix/Linux/macOS (bash/zsh):**
-
-```bash
-export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-export GENPRES_LOG=1
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-```
-
-**Windows PowerShell:**
-
-```powershell
-$env:GENPRES_URL_ID="1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
-$env:GENPRES_LOG="1"
-$env:GENPRES_PROD="0"
-$env:GENPRES_DEBUG="1"
-```
-
-**Windows Command Prompt:**
-
-```cmd
-set GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-set GENPRES_LOG=1
-set GENPRES_PROD=0
-set GENPRES_DEBUG=1
-```
-
-**NOTE** `GENPRES_PROD=0` is mandatory to run the demo version. Otherwise the application will look for production files (that do not exist on the repository version).
+For demo and development environment variables, see `DEVELOPMENT.md#environment-configuration`.
 
 ## Starting the application
 
@@ -129,6 +101,8 @@ You will find more documentation about the used F# components at the following p
 - [Saturn](https://saturnframework.org/)
 - [Fable](https://fable.io/docs/)
 - [Elmish](https://elmish.github.io/elmish/)
+
+For an overview of the GenPRES system architecture, see `ARCHITECTURE.md`, which serves as the stable entry point and index for the detailed architecture documentation under `docs/mdr/`.
 
 ## Collaboration
 

@@ -106,6 +106,8 @@ GenPRES aims to provide safe, accurate, and reliable medication dosing calculati
 - Participate in discussions
 - Recognition in CONTRIBUTORS.md
 
+Current maintainers are listed in [MAINTAINERS.md](MAINTAINERS.md).
+
 ## Decision-Making Process
 
 ### Routine Decisions

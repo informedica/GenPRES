@@ -24,6 +24,10 @@ GenPres is a **client-server web application**:
 - **Saturn** for application composition
 - **Fable.Remoting** for type-safe API communication with the client
 
+For the canonical and up-to-date development toolchain requirements
+(.NET SDK, Node.js, npm), see the **Toolchain Requirements** section in
+[`DEVELOPMENT.md`](../../../DEVELOPMENT.md#toolchain-requirements).
+
 ### 2.2. Structure
 
 - **Entry Point**: `src/Informedica.GenPRES.Server/Server.fs`

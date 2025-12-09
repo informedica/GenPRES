@@ -2,6 +2,8 @@
 
 This document lists the maintainers of the GenPRES project, their areas of responsibility, and how to contact them. Currently maintainers are organized into core maintainers, area maintainers, clinical advisors, and specialist contributors. The current document is a living document and will be updated as maintainers are added or roles change.
 
+For governance process and role definitions, see [GOVERNANCE.md](GOVERNANCE.md).
+
 ## Core Maintainers
 
 ### Project Lead
@@ -221,8 +223,6 @@ Maintainers are expected to:
 - Stay current with their area of expertise
 
 ## Becoming a Maintainer
-
-See [GOVERNANCE.md](GOVERNANCE.md) for the process of becoming a maintainer.
 
 **Summary**:
 
