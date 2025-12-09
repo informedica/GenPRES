@@ -19,25 +19,25 @@ GenPres is a **client-server web application**:
 
 ### 2.1. Technologies
 
-- **F#** (.NET 9.0)
+- **F#** (.NET 10.0)
 - **Giraffe** for web server
 - **Saturn** for application composition
 - **Fable.Remoting** for type-safe API communication with the client
 
 ### 2.2. Structure
 
-- **Entry Point**: `src/Server/Server.fs`
-- **API Implementation**: `src/Server/ServerApi.fs`
-  - Implements protocol in `Shared.Api.IServerApi`
+- **Entry Point**: `src/Informedica.GenPRES.Server/Server.fs`
+- **API Implementation**: `src/Informedica.GenPRES.Server/ServerApi.fs`
+  - Implements protocol in `Informedica.GenPRES.Shared.Api.IServerApi`
   - Processes commands from the client, performs calculations/validations, and returns results
-- **Agents & Domain Logic**: e.g., `src/Server/Scripts/OrderAgent.fsx`
-  - Uses F# MailboxProcessor (actor model) for concurrent/isolated processing (e.g., medication order calculations)
+- **Domain Logic**: e.g., `src/Informedica.GenORDER.Lib`
+  - Uses F# MailboxProcessor (actor model) for concurrent/isolated processing (e.g., medication order calculations). NOT IMPLEMETENTED YET.
 
 ### 2.3. Docker Hosting
 
 - **Dockerfile** builds the server, bundles the client, and sets up the environment.
 - Environment variables (e.g., `GENPRES_URL_ID`, `GENPRES_PROD`) configure which Google Spreadsheet is used for configuration.
-- Entry point: runs `dotnet Server.dll` and exposes port 8085.
+- Entry point: runs `dotnet Informedica.GenPRES.Server.dll` and exposes port 8085.
 
 **Example Docker Usage:**
 
@@ -55,12 +55,12 @@ docker run -it -p 8080:8085 halcwb/genpres
 - **F# (Fable)**: Compiles to JavaScript
 - **Elmish**: Model-View-Update architecture
 - **React**: UI rendering
-- **Vite**: Dev/bundle tooling (see `src/Client/vite.config.js`)
+- **Vite**: Dev/bundle tooling (see `src/Informedica.GenPRES.Client/vite.config.js`)
 
 ### 3.2. Structure
 
-- **Entry Point**: `src/Client/App.fs` and `src/Client/index.html`
-- Communicates with the server using Fable.Remoting proxies (`Api.IServerApi`)
+- **Entry Point**: `src/Informedica.GenPRES.Client/App.fs` and `src/Informedica.GenPRES.Client/index.html`
+- Communicates with the server using Fable.Remoting proxies (`Informedica.GenPRES.Shared.Api.IServerApi`)
 - Handles application state, dispatches commands, and updates UI reactively
 
 ---
@@ -80,98 +80,54 @@ docker run -it -p 8080:8085 halcwb/genpres
 - **Data Cache**: Proprietary cache files (not distributed publicly) containing medication product information.
   - Used for fast lookup/calculation and offline use.
   - Demo cache files are included for development.
-  - Path: `src/Server/data/cache/README.md` explains the folder usage.
+  - Path: `src/Informedica.GenPRES.Server/data/cache/README.md` explains the folder usage.
 
 - **Drug Data Types and Logic**:
-  - Main types are defined in `src/Informedica.KinderFormularium.Lib/Drug.fs` and `src/Informedica.GenOrder.Lib/Types.fs`
+  - Main types are defined in `src/Informedica.KinderFormularium.Lib/Drug.fs` and `src/Informedica.GenORDER.Lib/Types.fs`
   - Includes types for Drug, Dose, Route, Schedule, and DrugOrder.
   - Drug data can be loaded from local cache or generated from Google Sheets.
 
 ---
 
-## 5.1. Order Modeling and Calculation: Informedica.GenOrder.Lib
+## 5.1. Domain Architecture and Transformation Pipeline
 
-The [`Informedica.GenOrder.Lib`](Informedica.GenOrder.Lib.md) library is central to the modeling and calculation of medical orders in GenPres2. It provides a domain model and mapping from a clinical `Order` to a set of mathematical `Equations` that can be solved by the `Informedica.GenSolver.Lib`, using `Informedica.Units.Lib` for unit conversions.
+GenPres implements a comprehensive domain architecture described in detail in the `docs/domain` folder. For complete architectural specifications, see:
 
-### Medication Cycle
+- **[Core Domain Model](../../domain/core-domain.md)**: Defines the transformation pipeline from expert knowledge to executable orders
+- **[GenFORM](../../domain/genform-free-text-to-operational-rules.md)**: Transforms free text to Operational Knowledge Rules (OKRs)
+- **[GenORDER](../../domain/genorder-operational-rules-to-orders.md)**: Transforms OKRs to Order Scenarios and defines the Order Model (Orderable, Component, Item)
+- **[GenSOLVER](../../domain/gensolver-from-orders-to-quantitative-solutions.md)**: Quantitative constraint solving engine
 
-A medical order in GenPres2 supports the full medication cycle:
+### Key Domain Concepts
 
-1. **Lookup**: Identify available medication products, dosing, and preparation instructions.
-2. **Calculation**: Compute doses and preparation steps, which can be complex and depend on patient-specific factors.
-3. **Adjustment**: Support for cyclic updates as administered prescriptions may require additions or changes.
-
-![Medication Cycle](https://docs.google.com/drawings/d/e/2PACX-1vSf_4pUCnI38jM1ad9Bq8Ody8UK5Xrc09jec246ST8JwpSsEROGAXHuVbiInydvBtjseY88lRCSSC1P/pub?w=744&h=520)
-
-### Order Model
-
-The order model is hierarchical and supports a wide range of clinical scenarios:
-
-- **Order**: Identified by an `Id`, represents a specific prescription.
-- **Prescription**: Details how the order is prescribed (one per order).
-- **Orderable**: The entity being ordered (e.g., a medication or nutrition product).
-- **Component**: An orderable can have multiple components.
-- **Item**: Each component can contain multiple items, each with possible unit group variations.
-- **Dose**: Each orderable, component, and item can have one or more doses, supporting adjustments (e.g., per kg, per BSA).
-
-![Order model](https://docs.google.com/drawings/d/e/2PACX-1vTgBB0m625rx2mrDYibTaQ2moIUVPkJNKTRm8yvvWu5JaOZE-HcyoDIFtfLjYQluqKkl23_p4qRJWQG/pub?w=1222&h=638)
-
-This model allows for flexible expression of doses (e.g., per kg bodyweight, per BSA) and supports multiple unit systems (mass, molar, etc.).
-
-### Calculation Variables and Equations
-
-The library defines a comprehensive set of variables representing all relevant quantities in an order (e.g., dose quantity, concentration, rate, total, adjustments). These are mapped to equations that describe the relationships between them, enabling automated calculation and validation.
-
-**Example variable types:**
-
-- `ItemDoseQuantity`
-- `ComponentDoseTotal`
-- `OrderableDoseRate`
-- `PrescriptionFrequency`
-- `OrderAdjust`
-
-**Example equation:**
+The system implements a transformation pipeline:
 
 ```text
-ItemDoseQuantity = ItemComponentConcentration × ComponentDoseQuantity
+Free Text → [GenFORM] → OKRs → [GenORDER] → Order Scenarios → [GenSOLVER] → Quantitative Solutions
 ```
 
-A full list of variables and equations is maintained in [`Informedica.GenOrder.Lib.md`](Informedica.GenOrder.Lib.md).
+**Operational Knowledge Rules (OKRs)** define:
+- Selection Constraints (Generic, Indication, Route, Patient Category, Dose Type, etc.)
+- Calculation Constraints (Dose Limits, Schedule, Duration, Volumes, Concentrations)
 
-### Integration
+**Order Model** (hierarchical structure):
+- Order → Prescription → Orderable → Component → Item → Dose
 
-- The server domain logic uses this model to process medication orders, perform calculations, and validate prescriptions.
-- The model supports not only medication but also feeding, parenteral nutrition, and maintenance fluids.
-- All calculations are unit-safe and leverage the `Informedica.Units.Lib` for conversions.
+For details on:
+- Rule types (Dose Rule, Dilution Rule, Reconstitution Rule, Renal Rule), see [GenFORM Section 3](../../domain/genform-free-text-to-operational-rules.md#3-sources-and-types-of-dose-rules)
+- Order model structure, see [GenORDER Section 6](../../domain/genorder-operational-rules-to-orders.md#6.-order-model-(executable-structure))
+- Dose semantics (Quantity, Per Time, Rate, Total, Adjusted), see [GenORDER Section 7](../../domain/genorder-operational-rules-to-orders.md#7.-quantitative-dose-semantics)
+- Equation system (65 equations), see [GenORDER Appendix D.1](../../domain/genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table)
+- Constraint solving algorithm, see [GenSOLVER Section 3](../../domain/gensolver-from-orders-to-quantitative-solutions.md#3.-formal-constraint-solving-model)
 
----
+### Core Capabilities
 
-## 5.2. Tackling Core Calculation and Usability Challenges
-
-The GenPres project has addressed several key challenges to enable robust, flexible, and safe medication prescribing:
-
-1. **Order-Independent Calculations:**  
-   The system is designed so that calculations can be performed regardless of the order in which quantitative data is entered. For example, if a total dose, frequency, or individual dose is provided, the system can solve for the remaining variables. This is achieved by modeling the relationships as a set of equations, allowing any variable to be solved from any combination of knowns.
-
-2. **Automatic Unit Handling:**  
-   All calculations are performed in base units, with automatic conversion between units. Users do not need to specify units explicitly; the system infers and converts as needed, ensuring consistency and reducing the risk of unit-related errors.
-
-3. **Absolute Precision:**  
-   Calculations use absolute precision quantities (e.g., BigRationals) to avoid rounding errors. This ensures that all computed values are as precise as possible, which is critical for medication safety.
-
-4. **Range and Restriction Modeling:**  
-   The system supports calculations involving ranges and restrictions. For example, a dose can be specified as a range (e.g., 60–80 mg), frequency as a set (e.g., 2, 3, or 4 times per day), and increments or specific allowed values can be enforced. This enables the system to present all valid scenarios to the prescriber.
-
-5. **Performance Considerations:**  
-   While supporting flexible calculations and ranges, the system is being optimized for performance, especially for scenarios with large sets of possible values. Mathematical modeling and collaboration with academic partners are ongoing to further improve efficiency.
-
-6. **Comprehensive Data Integration:**  
-   The system integrates two major sources of information: product data (which products are available) and dosing/preparation rules. This allows GenPres to calculate all possible valid scenarios for a given clinical context.
-
-7. **Web-Based, Device-Agnostic Interface:**  
-   To ensure usability across clinical environments, GenPres is implemented as a web application, supporting use on desktops, tablets, and mobile devices.
-
-These solutions collectively enable GenPres to provide a "one-click" prescription experience, where the system computes all valid options and the clinician simply selects the most appropriate one.
+1. **Order-Independent Calculations**: The constraint-based equation system allows calculations regardless of data entry order
+2. **Automatic Unit Handling**: All calculations use base units with automatic conversion
+3. **Absolute Precision**: Uses BigRationals to avoid rounding errors
+4. **Range and Restriction Modeling**: Supports dose ranges, frequency sets, and value constraints
+5. **Safety by Construction**: Invalid options are mathematically impossible to construct
+6. **Completeness Guarantee**: All valid options are preserved by the constraint solver
 
 ---
 
@@ -202,11 +158,18 @@ These solutions collectively enable GenPres to provide a "one-click" prescriptio
 
 ## 8. References
 
+### Technical Stack
 - [SAFE Stack Documentation](https://safe-stack.github.io/docs/)
 - [Saturn](https://saturnframework.org/)
 - [Fable](https://fable.io/docs/)
 - [Elmish](https://elmish.github.io/elmish/)
-- More background: [GenPres2 README](https://github.com/halcwb/GenPres2/blob/master/README.md)
+- [.NET 10.0](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-10/overview)
+
+### Domain Architecture
+- [Core Domain Model](../../domain/core-domain.md)
+- [GenFORM: Free Text to Operational Rules](../../domain/genform-free-text-to-operational-rules.md)
+- [GenORDER: Operational Rules to Orders](../../domain/genorder-operational-rules-to-orders.md)
+- [GenSOLVER: Order Scenarios to Quantitative Solutions](../../domain/gensolver-from-orders-to-quantitative-solutions.md)
 
 ---
 
@@ -218,14 +181,21 @@ These solutions collectively enable GenPres to provide a "one-click" prescriptio
 
 ---
 
-## 10. File References
+## 10. Key Files and Libraries
 
-- **See also**:
-  - [README.md](https://github.com/halcwb/GenPres2/blob/master/README.md)
-  - [Dockerfile](https://github.com/halcwb/GenPres2/blob/master/Dockerfile)
-  - [src/Server/ServerApi.fs](https://github.com/halcwb/GenPres2/blob/master/src/Server/ServerApi.fs)
-  - [src/Informedica.KinderFormularium.Lib/Drug.fs](https://github.com/halcwb/GenPres2/blob/master/src/Informedica.KinderFormularium.Lib/Drug.fs)
+### Core Server Files
+- `src/Informedica.GenPRES.Server/Server.fs`: Application entry point
+- `src/Informedica.GenPRES.Server/ServerApi.fs`: API implementation
+- `src/Informedica.GenPRES.Client/App.fs`: Client application entry
+- `Dockerfile`: Container configuration for deployment
 
----
+### Domain Libraries
+- **Informedica.GenFORM.Lib**: Operational Knowledge Rules implementation
+- **Informedica.GenORDER.Lib**: Order scenario generation and management
+- **Informedica.GenSOLVER.Lib**: Constraint solving engine
+- **Informedica.GenUNITS.Lib**: Unit-aware computation
+- **Informedica.ZForm.Lib**: Rule extraction from G-Standaard
+- **Informedica.NKF.Lib**: Kinderformularium dosing rules
+- **Informedica.FTK.Lib**: Farmacotherapeutisch Kompas rules
 
-> **This is a summary based on code and documentation found in the repository. For more in-depth details, see the full [codebase on GitHub](https://github.com/halcwb/GenPres2) and linked files above. Results are based on a search limited to the top 10 results per query.**
+For complete library specifications, see [GenFORM Appendix B.3](../../domain/genform-free-text-to-operational-rules.md#addendum-b3-genform-libraries).

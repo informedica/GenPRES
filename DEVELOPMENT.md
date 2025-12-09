@@ -6,7 +6,7 @@
 
 Before contributing, ensure you have the following installed:
 
-- **.NET SDK**: 9.0.0 or later
+- **.NET SDK**: 10.0.0 or later
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
 - **npm**: 10.x or later
 
@@ -72,6 +72,13 @@ GenPRES/
 │   └── scenarios/             # Clinical scenarios
 ├── scripts/                   # Utility scripts
 └── src/                       # Source code
+    ├── Informedica.Agents.Lib/           # Agent-based concurrency library
+    ├── Informedica.DataPlatform.Lib/     # Data Platform integration
+    ├── Informedica.FHIR.Lib/             # FHIR resource conversion
+    ├── Informedica.FTK.Lib/              # Adult formulary parsing library
+    ├── Informedica.GenCORE.Lib/          # Core domain library
+    ├── Informedica.GenFORM.Lib/          # Formulary management library
+    ├── Informedica.GenORDER.Lib/         # Order processing library
     ├── Informedica.GenPRES.Client/       # Frontend application
     │   ├── Components/        # UI components
     │   ├── Pages/             # Page components
@@ -82,19 +89,16 @@ GenPRES/
     │   ├── Properties/        # Server properties
     │   ├── Scripts/           # Server scripts
     │   └── data/              # Server data directory
-    ├── Informedica.Agents.Lib/           # Agent-based concurrency library
-    ├── Informedica.GenCORE.Lib/          # Core domain library
-    ├── Informedica.GenFORM.Lib/          # Formulary management library
-    ├── Informedica.GenORDER.Lib/         # Order processing library
+    ├── Informedica.GenPRES.Shared/       # Shared types and API protocol
     ├── Informedica.GenSOLVER.Lib/        # Constraint solver library
     ├── Informedica.GenUNITS.Lib/         # Units of measurement library
-    ├── Informedica.NKF.Lib/              # Pediatric formulary parsing library
-    ├── Informedica.FTK.Lib/              # Adult formulary parsing library
-    ├── Informedica.Logging.Lib/          # Logging utilities
-    ├── Informedica.NLP.Lib/              # OpenAI/LLM integration for NLP
-    ├── Informedica.OTS.Lib/              # Ontology Terminology Server integration
-    ├── Informedica.DataPlatform.Lib/     # Data Platform integration
     ├── Informedica.HIXConnect.Lib/       # HIX Connect integration
+    ├── Informedica.Logging.Lib/          # Logging utilities
+    ├── Informedica.MCP.Lib/              # Model Context Protocol for LLM integration
+    ├── Informedica.MetaVision.Lib/       # MetaVision integration
+    ├── Informedica.NKF.Lib/              # Pediatric formulary parsing library
+    ├── Informedica.NLP.Lib/              # Natural Language Processing for rule extraction
+    ├── Informedica.OTS.Lib/              # Ontology Terminology Server integration
     ├── Informedica.Utils.Lib/            # Utility functions
     ├── Informedica.ZForm.Lib/            # Z-Index form library
     └── Informedica.ZIndex.Lib/           # Z-Index database library
@@ -111,27 +115,31 @@ GenPRES/
 ### Documentation Files
 
 - `README.md` - Project overview
-- `ARCHITECTURE.md` - Architecture documentation
 - `CHANGELOG.md` - Version history
 - `CONTRIBUTING.md` - Contribution guidelines
 - `CODE_OF_CONDUCT.md` - Code of conduct
-- `DEVELOPMENT.md` - Development guide
+- `DEVELOPMENT.md` - Development guide (this file)
 - `GOVERNANCE.md` - Project governance
 - `MAINTAINERS.md` - Maintainer information
 - `ROADMAP.md` - Project roadmap
 - `SECURITY.md` - Security policy
 - `SUPPORT.md` - Support information
-- `WARP.md` - Warp-specific documentation
+- `WARP.md` - Warp AI agent documentation
+- `docs/mdr/design-history/architecture.md` - Technical architecture
+- `docs/domain/` - Domain model specifications
 
 ## Directory Descriptions
 
 ### Core Directories
 
-- **`.github/`** - Contains GitHub-specific configurations including issue templates, PR templates, workflow definitions, and development instructions
-- **`benchmark/`** - Performance benchmarking suite for measuring solver and equation performance
-- **`data/`** - Application data including cached drug information, configuration files, clinical data (age/weight tables, vital signs), and Z-Index drug database files
-- **`docs/`** - Comprehensive documentation including MDR compliance, design history, requirements, risk analysis, usability testing, and clinical scenarios
-- **`src/`** - Source code organized into client (Fable/React frontend), server (Saturn backend), and multiple F# libraries
+- **`.github/`** - GitHub configurations (issue/PR templates, workflows, development instructions)
+- **`benchmark/`** - Performance benchmarking suite
+- **`data/`** - Application data (drug cache, configuration, clinical data, Z-Index database)
+- **`docs/`** - Comprehensive documentation:
+  - `docs/domain/` - Domain model specifications (Core Domain, GenFORM, GenORDER, GenSOLVER)
+  - `docs/mdr/` - MDR compliance (design history, requirements, risk analysis, validation)
+  - `docs/scenarios/` - Clinical scenarios
+- **`src/`** - Source code (client, server, and F# libraries)
 
 ### Library Modules
 
@@ -145,6 +153,14 @@ Each `Informedica.*.Lib` directory contains:
 
 ## Project Architecture
 
+For complete architectural documentation, see:
+
+- **[Architecture Overview](docs/mdr/design-history/architecture.md)**: Technical stack, server/client structure, Docker hosting, and build configuration
+- **[Core Domain Model](docs/domain/core-domain.md)**: Transformation pipeline, constraint-based architecture, and domain concepts
+- **[GenFORM](docs/domain/genform-free-text-to-operational-rules.md)**: Free text to Operational Knowledge Rules (OKRs)
+- **[GenORDER](docs/domain/genorder-operational-rules-to-orders.md)**: OKRs to Order Scenarios
+- **[GenSOLVER](docs/domain/gensolver-from-orders-to-quantitative-solutions.md)**: Constraint solving engine
+
 ### Technology Stack
 
 This project is built on the [SAFE Stack](https://safe-stack.github.io/):
@@ -152,32 +168,36 @@ This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 - **Informedica.GenPRES.Server**: F# with [Saturn](https://saturnframework.org/)
 - **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/)
 - **Testing**: Expecto with FsCheck for property-based testing
-- **Build**: .NET 9.0
+- **Build**: .NET 10.0
 
 ### Core Libraries
 
-In dependency order:
+For complete library specifications including capabilities and dependencies, see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#addendum-b3-genform-libraries).
+
+Key libraries in dependency order:
 
 - **Informedica.Utils.Lib**: Shared utilities, common functions  
-- **Informedica.Agents.Lib**: Implementations of agent-based execution (MailboxProcessor)  
-- **Informedica.Logging.Lib**: Logging library enabling concurrent logging  
-- **Informedica.NLP.Lib**: Natural Language Processing utilities to parse free text inputs to structured operational knowledge rules
-- **Informedica.OTS.Lib**: Data access layer for Google Sheets and CSV files and Ontology Terminlogy Server (OTS)
-- **Informedica.GenUNITS.Lib**: Units of measure and unit-safe calculations  
-- **Informedica.GenSOLVER.Lib**: Quantitative constraint solving, equations, and variables  
-- **Informedica.GenCORE.Lib**: Core Domain model (patients, context, and order abstractions)  
-- **Informedica.ZIndex.Lib**: Medication and product database (source domain)  
-- **Informedica.ZForm.Lib**: Z-Index structured dosing reference data (source domain)  
-- **Informedica.NKF.Lib**: "Nederlands Kinderformularium" dose rule extraction and processing
-- **Informedica.FTK.Lib**: "Farmacotherapeutisch Kompas" dose rule extraction and processing
-- **Informedica.GenFORM.Lib**: Domain library for all Operational Knowledge Rules (order constraints)  
-- **Informedica.GenORDER.Lib**: Generic clinical order scenarios and execution (including prescriptions, nutrition, and fluids)  
-- **Informedica.MCP.Lib**: Enabling MCP implementation of core libraries for use with LLMs and chatbots
-- **Informedica.FHIR.Lib**: Converting GenPRES domain models to/from FHIR resources
-- **Informedica.DataPlatorm.Lib**: Sending and retrieving patient and order data to/from Data Platform
-- **Informedica.HIXConnect.Lib**: Sending and retrieving patient and order data to/from HIX Connect
-- **Informedica.GenPRES.Server**: The server library and agent-based orchestration and API layer
-- **Informedica.GenPRES.Client**: The webbased clinical order client UI
+- **Informedica.Agents.Lib**: Agent-based execution (MailboxProcessor)  
+- **Informedica.Logging.Lib**: Concurrent logging  
+- **Informedica.NLP.Lib**: Natural Language Processing for structured rule extraction
+- **Informedica.OTS.Lib**: Google Sheets/CSV and Ontology Terminology Server integration
+- **Informedica.GenUNITS.Lib**: Unit-safe calculations  
+- **Informedica.GenSOLVER.Lib**: Quantitative constraint solving  
+- **Informedica.GenCORE.Lib**: Core domain model  
+- **Informedica.ZIndex.Lib**: Medication and product database  
+- **Informedica.ZForm.Lib**: Z-Index dosing reference data  
+- **Informedica.NKF.Lib**: Kinderformularium dose rule extraction
+- **Informedica.FTK.Lib**: Farmacotherapeutisch Kompas dose rule extraction
+- **Informedica.GenFORM.Lib**: Operational Knowledge Rules (OKRs)  
+- **Informedica.GenORDER.Lib**: Clinical order scenarios and execution  
+- **Informedica.MCP.Lib**: Model Context Protocol for LLM integration
+- **Informedica.FHIR.Lib**: FHIR resource conversion
+- **Informedica.DataPlatform.Lib**: Data Platform integration
+- **Informedica.HIXConnect.Lib**: HIX Connect integration
+- **Informedica.MetaVision.Lib**: MetaVision integration
+- **Informedica.GenPRES.Shared**: Shared types and API protocol
+- **Informedica.GenPRES.Server**: Server API and orchestration
+- **Informedica.GenPRES.Client**: Web-based clinical UI
 
 ## Code Contribution Guidelines
 
