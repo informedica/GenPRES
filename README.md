@@ -4,7 +4,8 @@ The GenPRES project is an open source software initiative to enable a generic me
 
 This project is initially aimed at the Dutch medical setting, but can easily be applied to any medical setting.
 
-**Open Source And [FAIR](https://www.go-fair.org/fair-principles/): because Safe and Efficient Healthcare is not a luxury**
+>
+> **Open Source And [FAIR](https://www.go-fair.org/fair-principles/): because Safe and Efficient Healthcare is not a luxury**
 
 **IMPORTANT**: GenPRES is not intended for direct clinical use without appropriate validation and regulatory approval, and this repository does not include professional support services. For the full clinical and support disclaimer, see [SUPPORT.md](SUPPORT.md#medical-advice-disclaimer).
 
