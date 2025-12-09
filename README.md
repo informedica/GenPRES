@@ -52,36 +52,7 @@ For the full application to run a proprietary cache file is needed containing me
 
 A demo cache file with medication product data is included in this repository. This contains some sample medication data from a much larger drug formulary database.
 
-Before starting the application set the following environment variables for a demo version of GenPRES:
-
-**Unix/Linux/macOS (bash/zsh):**
-
-```bash
-export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-export GENPRES_LOG=1
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-```
-
-**Windows PowerShell:**
-
-```powershell
-$env:GENPRES_URL_ID="1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
-$env:GENPRES_LOG="1"
-$env:GENPRES_PROD="0"
-$env:GENPRES_DEBUG="1"
-```
-
-**Windows Command Prompt:**
-
-```cmd
-set GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-set GENPRES_LOG=1
-set GENPRES_PROD=0
-set GENPRES_DEBUG=1
-```
-
-**NOTE** `GENPRES_PROD=0` is mandatory to run the demo version. Otherwise the application will look for production files (that do not exist on the repository version).
+For demo and development environment variables, see `DEVELOPMENT.md#environment-configuration`.
 
 ## Starting the application
 

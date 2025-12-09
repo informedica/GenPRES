@@ -16,15 +16,7 @@ For the canonical list of supported versions, see the
 **Toolchain Requirements** section in [`DEVELOPMENT.md`](DEVELOPMENT.md#toolchain-requirements).
 
 ### Required Environment Variables
-For demo/development mode:
-```bash
-export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
-export GENPRES_LOG=0
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-```
-
-**Important**: `GENPRES_PROD=0` is mandatory for demo version - otherwise the app looks for production files not in the repository.
+For demo and development environment variables, see `DEVELOPMENT.md#environment-configuration`.
 
 ## Common Development Commands
 

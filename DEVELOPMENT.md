@@ -14,14 +14,8 @@ Before contributing, ensure you have the following installed (this section is th
 
 1. Fork this repository
 2. Clone your fork locally
-3. Set up the demo environment variables:
-
-```bash
-export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4
-export GENPRES_LOG=1
-export GENPRES_PROD=0
-export GENPRES_DEBUG=1
-```
+3. Configure the demo environment variables as described in the
+  [Environment Configuration](#environment-configuration) section below.
 
 If you prefer, you can use `direnv`, as documented in the [Environment Configuration](#environment-configuration) section below.
 
@@ -354,8 +348,8 @@ This project uses an opt-in strategy for `.gitignore`:
 For development, use these environment variables. Proper configuration is essential to avoid resource loading issues (see [Issue #44](https://github.com/informedica/GenPRES/issues/44) for troubleshooting guidance):
 
 ```bash
-export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA  # Demo data URL
-export GENPRES_LOG=0          # Logging level
+export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4  # Default demo data URL
+export GENPRES_LOG=1          # Logging level (1 = enabled)
 export GENPRES_PROD=0         # Must be 0 for demo version
 export GENPRES_DEBUG=1        # Enable debug mode
 ```
