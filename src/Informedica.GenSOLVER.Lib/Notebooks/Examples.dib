@@ -96,9 +96,9 @@ let logger = SolverLogging.noOp
 let solve n p eqs =
     let n = n |> Name.createExc
     let s = fun _ eqs -> eqs 
-    Api.solve true s logger n p eqs
+    Api.solve false true s logger n p eqs
 
-let solveAll = Api.solveAll false logger
+let solveAll = Api.solveAll false false logger
 
 let solveMinIncl u n min = solve n (min |> createMinIncl u |> MinProp)
 let solveMinExcl u n min = solve n (min |> createMinExcl u  |> MinProp)
