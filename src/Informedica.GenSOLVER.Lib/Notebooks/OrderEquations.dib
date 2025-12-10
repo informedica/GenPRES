@@ -1,6 +1,6 @@
 #!meta
 
-{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["C#","c#"]},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"vscode","aliases":["frontend"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"value"}]}}
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"name":"csharp","languageName":"C#","aliases":["C#","c#"]},{"name":"fsharp","languageName":"F#","aliases":["f#","fs"]},{"name":"html","languageName":"HTML"},{"name":"http","languageName":"HTTP"},{"name":"javascript","languageName":"JavaScript","aliases":["js"]},{"name":"mermaid","languageName":"Mermaid"},{"name":"pwsh","languageName":"PowerShell","aliases":["powershell"]},{"name":"value"},{"name":"vscode","aliases":["frontend"]}]}}
 
 #!fsharp
 
@@ -52,7 +52,7 @@ let logger = SolverLogging.noOp
 let solve n p eqs =
     let n = n |> Name.createExc
     let s = fun _ eqs -> eqs 
-    Api.solve true s logger n p eqs
+    Api.solve false true s logger n p eqs
 
 let solveMinIncl n min = solve n (min |> Minimum.create true |> MinProp)
 let solveMinExcl n min = solve n (min |> Minimum.create false |> MinProp)
