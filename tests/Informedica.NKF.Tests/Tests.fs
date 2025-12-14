@@ -1,4 +1,4 @@
-namespace Informedica.DataPlatform.Tests
+namespace Informedica.NKF.Tests
 
 
 module Tests =
@@ -14,6 +14,6 @@ module Tests =
 
     [<Tests>]
     let tests =
-        testList "DataPlatform" [
+        testList "NKF" [
             testHelloWorld
         ]

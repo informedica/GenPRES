@@ -2029,6 +2029,159 @@ module Tests =
             ]
 
 
+    module ParallelTests =
+
+
+        let logger =
+            fun (_ : string) -> ()
+            |> SolverLogging.create
+
+
+        /// Solve equations sequentially
+        let solveSequential onlyMinMax eqs =
+            Informedica.GenSolver.Lib.Solver.solveAll
+                false       // useParallel = false (sequential)
+                onlyMinMax
+                logger
+                eqs
+
+
+        /// Solve equations in parallel
+        let solveParallel onlyMinMax eqs =
+            Informedica.GenSolver.Lib.Solver.solveAll
+                true        // useParallel = true
+                onlyMinMax
+                logger
+                eqs
+
+
+        /// Helper to compare equation results
+        let eqsAreEqual eqs1 eqs2 =
+            match eqs1, eqs2 with
+            | Ok eqs1, Ok eqs2 ->
+                let s1 =
+                    eqs1
+                    |> List.map (Equation.toString true)
+                    |> List.sort
+                let s2 =
+                    eqs2
+                    |> List.map (Equation.toString true)
+                    |> List.sort
+                s1 = s2
+            | Error _, Error _ -> true
+            | _ -> false
+
+
+        let mg = Units.Mass.milliGram
+        let day = Units.Time.day
+        let kg = Units.Weight.kiloGram
+        let mgPerDay = CombiUnit(mg, OpPer, day)
+        let mgPerKgPerDay = (CombiUnit (mg, OpPer, kg), OpPer, day) |> CombiUnit
+
+
+        let tests = testList "Parallel vs Sequential Solving" [
+
+            test "simple product equation gives same results" {
+                let eqs =
+                    [ "a = b * c" ]
+                    |> TestSolver.init
+                    |> TestSolver.setMinIncl Units.Count.times "a" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "a" 100N
+                    |> TestSolver.setMinIncl Units.Count.times "b" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "b" 10N
+                    |> TestSolver.setMinIncl Units.Count.times "c" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "c" 10N
+
+                let seqResult = eqs |> solveSequential true
+                let parResult = eqs |> solveParallel true
+
+                eqsAreEqual seqResult parResult
+                |> Expect.isTrue "sequential and parallel should give same results"
+            }
+
+            test "sum equation gives same results" {
+                let eqs =
+                    [ "total = a + b + c" ]
+                    |> TestSolver.init
+                    |> TestSolver.setMinIncl Units.Count.times "total" 10N
+                    |> TestSolver.setMaxIncl Units.Count.times "total" 100N
+                    |> TestSolver.setMinIncl Units.Count.times "a" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "a" 50N
+                    |> TestSolver.setMinIncl Units.Count.times "b" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "b" 50N
+                    |> TestSolver.setMinIncl Units.Count.times "c" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "c" 50N
+
+                let seqResult = eqs |> solveSequential true
+                let parResult = eqs |> solveParallel true
+
+                eqsAreEqual seqResult parResult
+                |> Expect.isTrue "sequential and parallel should give same results for sum"
+            }
+
+            test "multiple equations give same results" {
+                let eqs =
+                    [ "ParacetamolDoseTotal = ParacetamolDoseTotalAdjust * Adjust" ]
+                    |> TestSolver.init
+                    |> TestSolver.setMinIncl mgPerDay "ParacetamolDoseTotal" 180N
+                    |> TestSolver.setMaxIncl mgPerDay "ParacetamolDoseTotal" 3000N
+                    |> TestSolver.setMinIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 40N
+                    |> TestSolver.setMaxIncl mgPerKgPerDay "ParacetamolDoseTotalAdjust" 90N
+                    |> TestSolver.setMaxIncl kg "Adjust" 100N
+
+                let seqResult = eqs |> solveSequential true
+                let parResult = eqs |> solveParallel true
+
+                eqsAreEqual seqResult parResult
+                |> Expect.isTrue "sequential and parallel should give same results for complex equation"
+            }
+
+            test "chained equations give same results" {
+                let eqs =
+                    [
+                        "x = a * b"
+                        "y = x * c"
+                        "z = y * d"
+                    ]
+                    |> TestSolver.init
+                    |> TestSolver.setMinIncl Units.Count.times "a" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "a" 10N
+                    |> TestSolver.setMinIncl Units.Count.times "b" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "b" 10N
+                    |> TestSolver.setMinIncl Units.Count.times "c" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "c" 10N
+                    |> TestSolver.setMinIncl Units.Count.times "d" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "d" 10N
+                    |> TestSolver.setMinIncl Units.Count.times "z" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "z" 10000N
+
+                let seqResult = eqs |> solveSequential true
+                let parResult = eqs |> solveParallel true
+
+                eqsAreEqual seqResult parResult
+                |> Expect.isTrue "sequential and parallel should give same results for chained equations"
+            }
+
+            test "with value sets gives same results" {
+                let eqs =
+                    [ "dose = qty * freq" ]
+                    |> TestSolver.init
+                    |> TestSolver.setMinIncl Units.Count.times "dose" 10N
+                    |> TestSolver.setMaxIncl Units.Count.times "dose" 100N
+                    |> TestSolver.setValues Units.Count.times "freq" [1N; 2N; 3N; 4N]
+                    |> TestSolver.setMinIncl Units.Count.times "qty" 1N
+                    |> TestSolver.setMaxIncl Units.Count.times "qty" 50N
+
+                let seqResult = eqs |> solveSequential false  // use full solving with value sets
+                let parResult = eqs |> solveParallel false
+
+                eqsAreEqual seqResult parResult
+                |> Expect.isTrue "sequential and parallel should give same results with value sets"
+            }
+        ]
+
+
+
     [<Tests>]
     let tests =
         [
@@ -2039,6 +2192,7 @@ module Tests =
             VariableTests.ValueRangeTests.tests
             EquationTests.tests
             OperatorMatchTests.tests
+            ParallelTests.tests
         ]
         |> testList "GenSolver"
 
