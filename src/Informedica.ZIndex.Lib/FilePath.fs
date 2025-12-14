@@ -1,17 +1,56 @@
-﻿namespace Informedica.ZIndex.Lib
+namespace Informedica.ZIndex.Lib
 
 
 module FilePath =
+
+    open System
+    open System.IO
+    open System.Reflection
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
-    [<Literal>]
-    let data = "./data/"
+    /// Find the data directory by searching up from the given starting directory
+    /// The data directory must contain a 'zindex' subfolder to be valid
+    let private findDataDir startDir =
+        let rec search dir =
+            if String.IsNullOrEmpty(dir) then None
+            else
+                let dataPath = Path.Combine(dir, "data")
+                let zindexPath = Path.Combine(dataPath, "zindex")
+                // Only accept data directories that contain the zindex subfolder
+                if Directory.Exists(dataPath) && Directory.Exists(zindexPath) then Some dataPath
+                else
+                    let parent = Directory.GetParent(dir)
+                    if parent <> null then search parent.FullName
+                    else None
+        search startDir
 
-    [<Literal>]
-    let GStandPath =  data + "zindex/"
+
+    /// Get the base data path, searching from current directory or assembly location
+    let private getDataPath () =
+        // First try current directory (for production scenarios)
+        match findDataDir Environment.CurrentDirectory with
+        | Some p -> p
+        | None ->
+            // Fall back to assembly location (for dotnet test scenarios)
+            let assemblyPath =
+                try
+                    let location = Assembly.GetExecutingAssembly().Location
+                    if not (String.IsNullOrEmpty(location)) then
+                        Path.GetDirectoryName(location)
+                    else ""
+                with _ -> ""
+
+            match findDataDir assemblyPath with
+            | Some p -> p
+            | None -> "./data"  // Last resort fallback
+
+
+    let data = getDataPath () + "/"
+
+    let GStandPath = data + "zindex/"
 
 
     /// Get the path to the Substance cache file
