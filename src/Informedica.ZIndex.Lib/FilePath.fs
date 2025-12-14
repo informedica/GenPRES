@@ -28,6 +28,10 @@ module FilePath =
         search startDir
 
 
+    /// Find the data directory by searching up from the given starting directory (internal for testing)
+    let findDataDirInternal startDir = findDataDir startDir
+
+
     /// Get the base data path, searching from current directory or assembly location
     let private getDataPath () =
         // First try current directory (for production scenarios)
@@ -46,6 +50,17 @@ module FilePath =
             match findDataDir assemblyPath with
             | Some p -> p
             | None -> "./data"  // Last resort fallback
+
+
+    /// Get the base data path (internal for testing)
+    /// Parameters allow injecting different directory sources for testing
+    let getDataPathInternal currentDir assemblyPath =
+        match findDataDir currentDir with
+        | Some p -> p
+        | None ->
+            match findDataDir assemblyPath with
+            | Some p -> p
+            | None -> "./data"
 
 
     let data = getDataPath () + "/"
