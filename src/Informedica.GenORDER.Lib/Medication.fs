@@ -169,7 +169,7 @@ module Medication =
         let cmp =
             {
                 Name = ""
-                Shape = ""
+                Form = ""
                 Quantities = None
                 Divisible = None
                 Solution = None
@@ -179,7 +179,7 @@ module Medication =
 
         let create
             nme
-            shp
+            frm
             qts
             div
             dos
@@ -189,7 +189,7 @@ module Medication =
             =
             {
                 Name = nme
-                Shape = shp
+                Form = frm
                 Quantities = qts
                 Divisible = div
                 Dose = dos
@@ -200,7 +200,7 @@ module Medication =
         let toString (prodCmp : ProductComponent) =
             [
                 "Name", prodCmp.Name
-                "Shape", prodCmp.Shape
+                "Shape", prodCmp.Form
                 "Quantities", prodCmp.Quantities |> valueUnitOptToString
                 "Divisible", prodCmp.Divisible |> BigRational.optToString
                 "Dose", prodCmp.Dose |> limitOptToString
@@ -290,7 +290,7 @@ module Medication =
         |> Array.map (fun lim ->
             let shape =
                 lim.Products
-                |> tryHead _.Shape
+                |> tryHead _.Form
                 |> fun s ->
                     if s |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else s
@@ -299,7 +299,7 @@ module Medication =
                 Name =
                     if lim.Name |> String.isNullOrWhiteSpace then "oplosvloeistof"
                     else lim.Name
-                Shape = shape
+                Form = shape
                 Quantities =
                     // Hack to prevent too many quantities
                     if solutionRule |> Option.isSome then
@@ -308,7 +308,7 @@ module Medication =
                         |> Some
                     else
                         lim.Products
-                        |> Array.map _.ShapeQuantities
+                        |> Array.map _.FormQuantities
                         |> ValueUnit.collect
                 Divisible =
                     lim.Products
@@ -321,7 +321,7 @@ module Medication =
                         r.SolutionLimits
                         |> Array.tryFind (fun sl ->
                             match sl.SolutionLimitTarget with
-                            | ShapeLimitTarget s -> s |> String.equalsCapInsens shape
+                            | FormLimitTarget s -> s |> String.equalsCapInsens shape
                             | _ -> false
                         )
                 Dose = lim.Limit
@@ -412,7 +412,7 @@ module Medication =
                         dro.Components
                         |> List.map (fun p ->
                             { p with
-                                Shape = p.Shape
+                                Form = p.Form
                                 Substances =
                                     p.Substances
                                     |> setSolutionLimit sr.SolutionLimits
@@ -487,7 +487,7 @@ module Medication =
             pr.DoseRule.AdjustUnit
             |> Option.defaultValue Units.Weight.kiloGram
 
-        let dose = pr.DoseRule.ShapeLimit
+        let dose = pr.DoseRule.FormLimit
 
         let create = create pr.Patient au dose pr.DoseRule
 
@@ -673,7 +673,7 @@ module Medication =
 
         /// Create a single component DTO with all its constraints and items
         let createSingleComponentDto (d : Medication) (p : ProductComponent) =
-            let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
+            let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Form
 
             // Set basic component constraints
             setComponentQtyConcConstraints cmpDto d p

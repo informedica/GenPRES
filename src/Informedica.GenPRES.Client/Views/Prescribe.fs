@@ -107,15 +107,15 @@ module Prescribe =
                 |> updateOrderContext
             | _ -> ()
 
-        let shapeChange s =
+        let formChange s =
             match props.orderContext with
             | Resolved ctx ->
                 if s |> Option.isNone then
                     { ctx with
                         Filter =
                             { ctx.Filter with
-                                Shapes = [||]
-                                Shape = None
+                                Forms = [||]
+                                Form = None
                                 DoseTypes = [||]
                                 DoseType = None
                             }
@@ -125,7 +125,7 @@ module Prescribe =
                     { ctx with
                         Filter =
                             { ctx.Filter with
-                                Shape = s
+                                Form = s
                             }
                     }
                 |> updateOrderContext
@@ -255,11 +255,11 @@ module Prescribe =
                             $" (doseer aanpassing volgens {s})"
                         )
                         |> Option.defaultValue ""
-                    $"{sc.Shape}{renal}"
+                    $"{sc.Form}{renal}"
 
                 let onClick (sc : OrderScenario) =
                     { pr with
-                        Filter = { pr.Filter with Shape = Some sc.Shape }
+                        Filter = { pr.Filter with Form = Some sc.Form }
                         Scenarios = [| sc |]
                     }
                     |> Api.SelectOrderScenario
@@ -508,9 +508,9 @@ module Prescribe =
                         }
                         {
                             match props.orderContext with
-                            | Resolved ctx when ctx.Filter.Shapes |> Array.length >= 1 &&
+                            | Resolved ctx when ctx.Filter.Forms |> Array.length >= 1 &&
                                                 (not isMobile || ctx.Scenarios |> Array.length <> 1) ->
-                                false, ctx.Filter.Shape, ctx.Filter.Shapes
+                                false, ctx.Filter.Form, ctx.Filter.Forms
                             | Resolved _ -> false, None, [||]
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
@@ -521,11 +521,11 @@ module Prescribe =
                                     if isMobile then
                                         items
                                         |> Array.map (fun s -> s, s)
-                                        |> select isLoading lbl sel shapeChange
+                                        |> select isLoading lbl sel formChange
                                     else
                                         items
                                         |> Array.map (fun s -> s, s)
-                                        |> select isLoading lbl sel shapeChange
+                                        |> select isLoading lbl sel formChange
                         }
                         {
                             match props.orderContext with

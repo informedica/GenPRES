@@ -235,7 +235,7 @@ module DoseRule =
             let unt =
                 gp.Substances
                 |> Array.fold (fun acc s ->
-                    if acc = "" then s.ShapeUnit else acc
+                    if acc = "" then s.FormUnit else acc
                 ) ""
             {
                 Id = gp.Id

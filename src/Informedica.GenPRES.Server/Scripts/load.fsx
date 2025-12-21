@@ -21,14 +21,9 @@
 #r "../../Informedica.GenSolver.Lib/bin/Debug/net10.0/Informedica.GenSolver.Lib.dll"
 #r "../../Informedica.GenForm.Lib/bin/Debug/net10.0/Informedica.GenForm.Lib.dll"
 #r "../../Informedica.GenOrder.Lib/bin/Debug/net10.0/Informedica.GenOrder.Lib.dll"
-
+#r "../../Informedica.GenPRES.Shared/bin/Debug/net10.0/Informedica.GenPRES.Shared.dll"
 // These can be loaded all at once.
 
-#load "../../Shared/Types.fs"
-#load "../../Shared/Utils.fs"
-#load "../../Shared/Localization.fs"
-#load "../../Shared/Models.fs"
-#load "../../Shared/Api.fs"
 #load "../Logging.fs"
 #load "../ServerApi.fs"
 

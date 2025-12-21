@@ -29,7 +29,7 @@ let prods =
         |> Array.tryHead
         |> Option.map (fun prod ->
             prod.Name,
-            prod.Shape,
+            prod.Form,
             prod.GenericProducts
             |> Array.filter (fun gp -> gp.Id = gpk)
             |> Array.collect (fun gp ->
@@ -57,7 +57,7 @@ let prods =
     )
 
 
-prods |> Array.iter (fun (name, shape, brands, genName) -> printfn $"{name}\t{shape}\t{brands}\t{genName}")
+prods |> Array.iter (fun (name, form, brands, genName) -> printfn $"{name}\t{form}\t{brands}\t{genName}")
 
 
 GenPresProduct.findByGPK 21000

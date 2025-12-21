@@ -7,7 +7,7 @@ module LimitTarget =
     /// Get the LimitTarget as a string.
     let toString = function
         | NoLimitTarget -> ""
-        | ShapeLimitTarget s
+        | FormLimitTarget s
         | ComponentLimitTarget s
         | SubstanceLimitTarget s -> s
 
@@ -39,9 +39,9 @@ module LimitTarget =
         | _ -> false
 
 
-    /// Check whether the LimitTarget is a ShapeLimitTarget.
-    let isShapeTarget target =
+    /// Check whether the LimitTarget is a FormLimitTarget.
+    let isFormTarget target =
         target
         |> function
-        | ShapeLimitTarget _ -> true
+        | FormLimitTarget _ -> true
         | _ -> false

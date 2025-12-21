@@ -17,9 +17,9 @@ module Mapping =
 
         let [<Literal>] routesSheet = "Routes"
 
-        let [<Literal>] validShapesSheet = "ValidShapes"
+        let [<Literal>] validFormsSheet = "ValidForms"
 
-        let [<Literal>] shapeRouteSheet = "ShapeRoute"
+        let [<Literal>] formRouteSheet = "FormRoute"
 
 
 
@@ -110,7 +110,7 @@ module Mapping =
             | _ -> false
 
 
-    let getShapeRoutes dataUrlId unitMapping =
+    let getFormRoutes dataUrlId unitMapping =
         let mapUnit = mapUnit unitMapping
 
         fun getStr getFlt ->
@@ -119,7 +119,7 @@ module Mapping =
 
             {
                 Route = getStr "Route"
-                Shape = getStr "Shape"
+                Form = getStr "Form"
                 Unit = un
                 DoseUnit = getStr "DoseUnit" |> mapUnit |> Option.defaultValue NoUnit
                 MinDoseQty =
@@ -157,11 +157,11 @@ module Mapping =
                 Reconstitute = getStr "Reconstitute" |> String.equalsCapInsens "true"
                 IsSolution = getStr "IsSolution" |> String.equalsCapInsens "true"
             }
-        |> getData dataUrlId Constants.shapeRouteSheet
-        |> GenFormResult.mapErrorSource "getShapeRoutes"
+        |> getData dataUrlId Constants.formRouteSheet
+        |> GenFormResult.mapErrorSource "getFormRoutes"
 
 
-    let filterShapeRoutes routeMapping (mapping : ShapeRoute []) rte shape unt =
+    let filterFormRoutes routeMapping (mapping : FormRoute []) rte form unt =
         let mapRoute = mapRoute routeMapping
 
         mapping
@@ -170,25 +170,25 @@ module Mapping =
                 rte |> String.isNullOrWhiteSpace ||
                 rte |> String.trim |> String.equalsCapInsens sr.Route ||
                 sr.Route |> mapRoute |> Option.map (String.equalsCapInsens (rte |> String.trim)) |> Option.defaultValue false
-            let eqsShp = shape |> String.isNullOrWhiteSpace || shape |> String.trim |> String.equalsCapInsens sr.Shape
+            let eqsForm = form |> String.isNullOrWhiteSpace || form |> String.trim |> String.equalsCapInsens sr.Form
             let eqsUnt =
                 unt = NoUnit ||
                 unt |> Units.eqsUnit sr.Unit
-            eqsRte && eqsShp && eqsUnt
+            eqsRte && eqsForm && eqsUnt
         )
 
 
-    let requiresReconstitution routeMapping shapeRoutes (rtes, unt, shape) =
+    let requiresReconstitution routeMapping formRoutes (rtes, unt, form) =
         rtes
         |> Array.collect (fun rte ->
-            filterShapeRoutes routeMapping shapeRoutes rte shape unt
+            filterFormRoutes routeMapping formRoutes rte form unt
         )
         |> Array.map _.Reconstitute
         |> Array.exists id
 
 
-    let getValidShapes dataUrlId =
+    let getValidForms dataUrlId =
         fun get _ ->
-            get "Shape"
-        |> getData dataUrlId Constants.validShapesSheet
-        |> GenFormResult.mapErrorSource "getValidShapesResult"
+            get "Form"
+        |> getData dataUrlId Constants.validFormsSheet
+        |> GenFormResult.mapErrorSource "getValidFormResult"

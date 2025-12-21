@@ -1409,7 +1409,7 @@ module Models =
                 {
                     Id = id
                     Name = nm
-                    Shape = sh
+                    Form = sh
                     ComponentQuantity = cmp_qty
                     OrderableQuantity = orb_qty
                     OrderableCount = orb_cnt
@@ -1496,11 +1496,11 @@ module Models =
     module OrderScenario =
     
 
-        let create ind nme shp rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn ids =
+        let create ind nme frm rte dst dil cmp itm dils cmps itms prs prep adm o adj rr rn ids =
             {
                 Name = nme
                 Indication = ind
-                Shape = shp
+                Form = frm
                 Route = rte
                 DoseType = dst
                 Diluent = dil
@@ -1586,13 +1586,13 @@ module Models =
                 Indications = [||]
                 Medications = [||]
                 Routes = [||]
-                Shapes = [||]
+                Forms = [||]
                 DoseTypes = [||]
                 Diluents = [||]
                 Components = [||]
                 Indication = None
                 Medication = None
-                Shape = None
+                Form = None
                 Route = None
                 DoseType = None
                 Diluent = None
@@ -1612,14 +1612,14 @@ module Models =
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
 
 
-        let setMedication ind med rte shp dtp ctx : OrderContext =
+        let setMedication ind med rte frm dtp ctx : OrderContext =
             { ctx with
                 Filter =
                     { ctx.Filter with
                         Indication = ind
                         Medication = med
                         Route = rte
-                        Shape = shp
+                        Form = frm
                         DoseType = dtp
                     }
             }
@@ -1637,7 +1637,7 @@ module Models =
                     { filter with
                         Indication = Some sc.Indication
                         Medication = ord.Orderable.Name |> Some
-                        Shape = sc.Shape |> Some
+                        Form = sc.Form |> Some
                         Route = ord.Route |> Some
                         DoseType = sc.DoseType |> Some
                     }
@@ -1666,14 +1666,14 @@ module Models =
                 Generics = [||]
                 Indications = [||]
                 Routes = [||]
-                Shapes = [||]
+                Forms = [||]
                 DoseTypes = [||]
                 PatientCategories = [||]
                 Products = [||]
                 Generic = None
                 Indication = None
                 Route = None
-                Shape = None
+                Form = None
                 DoseType = None
                 PatientCategory = None
                 Patient = None
@@ -1686,11 +1686,11 @@ module Models =
         let empty: Parenteralia =
             {
                 Generics = [||]
-                Shapes = [||]
+                Forms = [||]
                 Routes = [||]
                 PatientCategories = [||]
                 Generic = None
-                Shape = None
+                Form = None
                 Route = None
                 PatientCategory = None
                 Markdown = ""

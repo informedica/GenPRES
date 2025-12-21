@@ -29,15 +29,15 @@ module Types =
         }
 
 
-    /// Associate a Route and a Shape
+    /// Associate a Route and a Form
     /// setting default values for the other fields
-    type ShapeRoute =
+    type FormRoute =
         {
             // The Route
             Route : string
-            // The pharmacological Shape
-            Shape : string
-            // The Unit of the Shape
+            // The pharmaceutical form
+            Form : string
+            // The Unit of the form
             Unit : Unit
             // The Dose Unit to use for Dose Limits
             DoseUnit : Unit
@@ -49,13 +49,13 @@ module Types =
             MinDoseQtyPerKg : ValueUnit option
             // The maximum Adjusted Dose quantity
             MaxDoseQtyPerKg : ValueUnit option
-            // The divisibility of a shape
+            // The divisibility of a pharmaceutical form
             Divisibility: BigRational option
             // Whether a Dose runs over a Time
             Timed : bool
-            // Whether the Shape needs to be reconstituted
+            // Whether the pharmaceutical form needs to be reconstituted
             Reconstitute : bool
-            // Whether the Shape is a solution
+            // Whether the pharmaceutical form is a solution
             IsSolution : bool
         }
 
@@ -139,8 +139,8 @@ module Types =
             Generic : string
             // Use Generic Substance Name
             UseGenericName : bool
-            // Use Shape
-            UseShape : bool
+            // Use pharmaceutical form
+            UseForm : bool
             // Use Brand
             UseBrand : bool
             // A tall-man representation of the Generic name of the Product
@@ -151,15 +151,15 @@ module Types =
             Product : string
             // The label of the Product
             Label : string
-            // The pharmacological Shape of the Product
-            Shape : string
+            // The pharmaceutical form of the Product
+            Form : string
             // The possible Routes of administration of the Product
             Routes : string []
-            // The possible quantities of the Shape of the Product
-            ShapeQuantities : ValueUnit
-            // The uid of the Shape of the Product
-            ShapeUnit : Unit
-            // Whether the Shape of the Product requires reconstitution
+            // The possible quantities of the Pharmacological Form of the Product
+            FormQuantities : ValueUnit
+            // The uid of the pharmaceutical form of the Product
+            FormUnit : Unit
+            // Whether the pharmaceutical form of the Product requires reconstitution
             RequiresReconstitution : bool
             // The possible reconstitution rules for the Product
             Reconstitution : Reconstitution []
@@ -179,12 +179,12 @@ module Types =
             ICC: string
             ICK: string
             NEO: string
-            divisible: int option
-            mmol: float option
-            tallMan: string
-            useBrand: bool
-            useGenName: bool
-            useShape: bool
+            Divisible: int option
+            MilliMoleOption: float option
+            TallMan: string
+            UseBrand: bool
+            UseGenName: bool
+            UseForm: bool
         }
 
 
@@ -201,10 +201,10 @@ module Types =
         | NoLimitTarget
         | SubstanceLimitTarget of string
         | ComponentLimitTarget of string
-        | ShapeLimitTarget of string
+        | FormLimitTarget of string
 
 
-    /// A DoseLimit for a Shape or Substance.
+    /// A DoseLimit for a pharmaceutical form or Substance.
     type DoseLimit =
         {
             DoseLimitTarget : LimitTarget
@@ -343,7 +343,7 @@ module Types =
         RateUnit: string
         Route: string
         ScheduleText: string
-        Shape: string
+        Form: string
         Source: string
         Substance: string
         TimeUnit: string
@@ -405,7 +405,7 @@ module Types =
 
 
     /// The DoseRule type. Identifies exactly one DoseRule
-    /// for a specific PatientCategory, Indication, Generic, Shape, Route and DoseType.
+    /// for a specific PatientCategory, Indication, Generic, pharmaceutical form, Route and DoseType.
     type DoseRule =
         {
             Source : string
@@ -413,8 +413,8 @@ module Types =
             Indication : string
             // The Generic of the DoseRule
             Generic : string
-            // The pharmacological Shape of the DoseRule
-            Shape : string
+            // The pharmaceutical pharmaceutical form of the DoseRule
+            Form : string
             // The brand of the doserule
             Brand : string option
             // The Route of administration of the DoseRule
@@ -435,8 +435,8 @@ module Types =
             IntervalTime : MinMax
             // The MinMax Duration of the DoseRule
             Duration : MinMax
-            // the limits based upon the shape and route
-            ShapeLimit : DoseLimit option
+            // the limits based upon the pharmaceutical form and route
+            FormLimit : DoseLimit option
             // the limits for the component and substances
             // in the component
             ComponentLimits : ComponentLimit []
@@ -459,14 +459,14 @@ module Types =
         }
 
 
-    /// A SolutionRule for a specific Generic, Shape, Route, DoseType, Department
+    /// A SolutionRule for a specific Generic, pharmaceutical form, Route, DoseType, Department
     /// Venous Access Location, Age range, Weight range, Dose range and Generic Products.
     type SolutionRule =
         {
             // The Generic of the SolutionRule
             Generic : string
-            // The Shape of the SolutionRule
-            Shape : string option
+            // The pharmaceutical form of the SolutionRule
+            Form : string option
             // The Route of the SolutionRule
             Route : string
             // The DoseType of the SolutionRule
@@ -494,7 +494,7 @@ module Types =
         }
 
 
-    /// A DoseLimit for a Shape or Substance.
+    /// A DoseLimit for a pharmaceutical form or Substance.
     type RenalLimit =
         {
             DoseLimitTarget : LimitTarget
@@ -547,9 +547,9 @@ module Types =
     type ProductFilter =
         {
             Generic: string
-            Shape: string option
+            Form: string option
             Route: string
-            ShapeUnit: Unit option
+            FormUnit: Unit option
         }
 
 
@@ -560,8 +560,8 @@ module Types =
             Indication : string option
             // the Generic to filter on
             Generic : string option
-            // the Shape to filter on
-            Shape : string option
+            // the pharmaceutical form to filter on
+            Form : string option
             // the Route to filter on
             Route : string option
             // the DoseType to filter on
@@ -578,8 +578,8 @@ module Types =
         {
             // The Generic of the SolutionRule
             Generic : string
-            // The Shape of the SolutionRule
-            Shape : string option
+            // The pharmaceutical form of the SolutionRule
+            Form : string option
             // The Route of the SolutionRule
             Route : string option
             // The DoseType of the SolutionRule

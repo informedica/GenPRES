@@ -38,14 +38,14 @@ module GenFormResult =
         |> Result.defaultValue value
 
 
-let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.ignore dataUrlId
+let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.noOp dataUrlId
 
 
 let checkedRules =
     Api.getDoseRules provider
     |> Array.filter (fun dr -> true
     //    dr.Generic = "abatacept" &&
-    //    dr.Shape = "" &&
+    //    dr.Form = "" &&
     //    dr.Route = "iv"
     )
     |> Check.checkAll

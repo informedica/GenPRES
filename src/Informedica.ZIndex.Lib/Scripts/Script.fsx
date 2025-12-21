@@ -11,7 +11,7 @@ open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
 open Informedica.ZIndex.Lib
 
-Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "1")
+Environment.SetEnvironmentVariable(FilePath.GENPRES_PROD, "0")
 Environment.CurrentDirectory
 
 module File =
@@ -394,7 +394,7 @@ GenPresProduct.filter "natriumchloride" "" "intraveneus"
 |> Array.collect _.GenericProducts
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
-    gp.Id, gp.Name, gp.Shape, gp.Route,
+    gp.Id, gp.Name, gp.Form, gp.Route,
     subst[0].GenericName,
     $"{subst[0].SubstanceQuantity} {subst[0].GenericUnit}"
 )
@@ -421,7 +421,7 @@ GenPresProduct.filter "natriumchloride" "" ""
     )
 )
 |> Array.map (fun gp ->
-    gp.Name, gp.Shape
+    gp.Name, gp.Form
 )
 |> Array.distinct
 |> Array.sortBy (fun (lbl, shp) -> lbl)
@@ -434,7 +434,7 @@ GenPresProduct.findByBrand "Picoprep"
 |> Array.collect _.GenericProducts
 |> Array.map (fun gp ->
     let subst = gp.Substances |> Array.distinctBy _.SubstanceId
-    gp.Id, gp.Name, gp.Shape, gp.Route,
+    gp.Id, gp.Name, gp.Form, gp.Route,
     subst[0].SubstanceName,
     $"{subst[0].GenericQuantity} {subst[0].GenericUnit}"
 )
@@ -485,7 +485,7 @@ GenPresProduct.get []
     gp.Substances
     |> Array.distinctBy _.SubstanceId
     |> Array.map (fun subst ->
-        gp.Id, gp.Name, gp.Shape, gp.Route,
+        gp.Id, gp.Name, gp.Form, gp.Route,
         subst.SubstanceName,
         $"{subst.SubstanceQuantity} {subst.SubstanceUnit}"
     )

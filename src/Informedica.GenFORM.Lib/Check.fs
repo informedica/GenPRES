@@ -57,7 +57,7 @@ module Check =
         |> Option.defaultValue ""
 
 
-    let createDoseRulesWithMapping routeMapping (pat: Patient) gen shp rte =
+    let createDoseRulesWithMapping routeMapping (pat: Patient) gen frm rte =
         let a =
             pat.Age
             |> Option.bind (fun vu ->
@@ -91,7 +91,7 @@ module Check =
         |> GStand.createDoseRules
             GStand.config
             a w None None
-            gen shp
+            gen frm
 
 
     let setAdjustAndOrTimeUnit adjUn tu (mm : MinMax) =
@@ -301,11 +301,11 @@ module Check =
             zindex =
                 {|
                     dosages =
-                        createDoseRulesWithMapping routeMapping pat dr.Generic dr.Shape dr.Route
+                        createDoseRulesWithMapping routeMapping pat dr.Generic dr.Form dr.Route
                         |> Seq.toList
                         |> List.collect _.IndicationsDosages
                         |> List.collect _.RouteDosages
-                        |> List.collect _.ShapeDosages
+                        |> List.collect _.FormDosages
                         |> List.collect _.PatientDosages
                         |> List.filter (filterPatient dr.PatientCategory)
                         |> List.collect _.SubstanceDosages
@@ -625,7 +625,7 @@ module Check =
     let checkAll routeMapping (pat : Patient) (drs : DoseRule[]) =
         drs
         |> Array.mapi (fun i dr ->
-            writeInfoMessage $"{i}. checking {dr.Generic}\t{dr.Shape}\t{dr.Route}"
+            writeInfoMessage $"{i}. checking {dr.Generic}\t{dr.Form}\t{dr.Route}"
 
             checkDoseRule routeMapping pat dr
         )

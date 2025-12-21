@@ -19,7 +19,7 @@ module TradeProduct =
             GenericName = gn
             GenericQuantity = gq
             GenericUnit = gu
-            ShapeUnit = un
+            FormUnit = un
             IsAdditional = ia
         }
 
@@ -42,7 +42,7 @@ module TradeProduct =
 
     /// Get the Substances for a GenericProduct
     let getSubstances (hpk: Zindex.BST031T.BST031T) =
-        let un = Names.getThes hpk.XSEENH Names.ShapeUnit Names.Fifty
+        let un = Names.getThes hpk.XSEENH Names.FormUnit Names.Fifty
 
         Zindex.BST701T.records ()
         |> Array.filter (fun ig ->

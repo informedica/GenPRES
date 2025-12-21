@@ -45,7 +45,7 @@ module Dto =
             TherapySubGroup : string
             Generic : string
             TradeProduct : string
-            Shape : string
+            Form : string
             Label : string
             Concentration : float
             ConcentrationUnit : string
@@ -121,7 +121,7 @@ module Dto =
             TherapySubGroup = ""
             Generic = ""
             TradeProduct = ""
-            Shape = ""
+            Form = ""
             Label = ""
             Concentration = 0.
             ConcentrationUnit = ""
@@ -160,7 +160,7 @@ module Dto =
                 | [ gpk ] -> gpk |> GPP.findByGPK
                 | _ -> [||]
             if ps |> Array.length = 0 then
-                GPP.filter dto.Generic dto.Shape dto.Route
+                GPP.filter dto.Generic dto.Form dto.Route
             else ps
             |> Array.toList
 
@@ -198,12 +198,12 @@ module Dto =
                     gp.Id, gp.Label, conc, unt, tps
 
                 | None ->
-                    printfn $"Could not find product %s{dto.Generic} %s{dto.Shape} %s{dto.Route} with GPK: %A{dto.GPK}"
+                    printfn $"Could not find product %s{dto.Generic} %s{dto.Form} %s{dto.Route} with GPK: %A{dto.GPK}"
                     0, "", 0., "", ""
 
-            gpk, gpp.Name, gpp.Shape, lbl, conc, unt, tps
+            gpk, gpp.Name, gpp.Form, lbl, conc, unt, tps
         | _ ->
-            printfn $"Could not find product %s{dto.Generic} %s{dto.Shape} %s{dto.Route} with GPK: %A{dto.GPK}"
+            printfn $"Could not find product %s{dto.Generic} %s{dto.Form} %s{dto.Route} with GPK: %A{dto.GPK}"
             0, "", "", "", 0., "", ""
 
 
@@ -325,7 +325,7 @@ module Dto =
                 else
                     dto
 
-        let gpk, gen, shp, lbl, conc, unt, tps = find dto
+        let gpk, gen, frm, lbl, conc, unt, tps = find dto
 
         let prodName = $"%i{gpk}: %s{lbl} "
 
@@ -359,14 +359,14 @@ module Dto =
                 (Some dto.BSAInM2)
                 (Some gpk)
                 gen
-                shp
+                frm
                 rte
 
         if rs |> Seq.length <> 1 then
             printfn $"found %i{rs |> Seq.length} rules for %s{prodName}"
             { dto with
                 GPK =
-                    GPP.filter dto.Generic dto.Shape rte
+                    GPP.filter dto.Generic dto.Form rte
                     |> Array.collect (fun gpp ->
                         gpp.GenericProducts
                         |> Array.map _.Id
@@ -407,11 +407,11 @@ module Dto =
                         []
                     else
                         let rd = rds |> Seq.head
-                        if rd.ShapeDosages |> Seq.length <> 1 then
-                            printfn $"wrong sds count: %i{rd.ShapeDosages |> Seq.length} for %s{prodName}"
+                        if rd.FormDosages |> Seq.length <> 1 then
+                            printfn $"wrong sds count: %i{rd.FormDosages |> Seq.length} for %s{prodName}"
                             []
                         else
-                            let sd = rd.ShapeDosages |> Seq.head
+                            let sd = rd.FormDosages |> Seq.head
 
                             sd.PatientDosages
                             |> List.collect _.SubstanceDosages
@@ -466,7 +466,7 @@ module Dto =
                         else dto.GPK
                     Generic = gen
                     TradeProduct = tps
-                    Shape = shp
+                    Form = frm
                     Label = lbl
                     Concentration = conc
                     ConcentrationUnit =

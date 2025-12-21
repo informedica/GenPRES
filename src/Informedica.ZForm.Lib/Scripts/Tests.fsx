@@ -86,7 +86,7 @@ module Tests =
 
             test "all units that can be mapped have a mapping" {
                 // Test all unit mappings
-                Informedica.ZIndex.Lib.Names.getShapeUnits ()
+                Informedica.ZIndex.Lib.Names.getFormUnits ()
                 |> Array.append (Informedica.ZIndex.Lib.Names.getGenericUnits ())
                 |> Array.distinct
                 |> Array.map Mapping.stringToUnit
@@ -546,8 +546,8 @@ module Temp =
     * _Route_: {route}
     """
 
-        let mdShapeText = """
-    * _Vorm_: {shape}
+        let mdFormText = """
+    * _Vorm_: {form}
     * _Producten_:
     * {products}
     """
@@ -568,7 +568,7 @@ module Temp =
                     MainText = mdText
                     IndicationText = mdIndicationText
                     RouteText = mdRouteText
-                    ShapeText = mdShapeText
+                    FormText = mdFormText
                     PatientText = mdPatientText
                     DosageText = mdDosageText
             }

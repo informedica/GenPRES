@@ -17,10 +17,10 @@ module Types =
 
         /// Naming items
         type Item =
-            | Shape
+            | Form
             | Route
             | GenericUnit
-            | ShapeUnit
+            | FormUnit
             | PrescriptionContainer
             | ConsumerContainer
 
@@ -159,8 +159,8 @@ module Types =
             GenericQuantity : float
             /// The unit of the generic substance (salt form).
             GenericUnit : string
-            /// The pharmacological shape unit in which the substance is contained.
-            ShapeUnit : string
+            /// The pharmaceutical form unit in which the substance is contained.
+            FormUnit : string
             /// Is the substance additional
             IsAdditional: bool
         }
@@ -222,9 +222,9 @@ module Types =
             Name : string
             /// The label of the product.
             Label  : string
-            /// The pharmocological shape quantity of the product.
+            /// The pharmaceutical form quantity of the product.
             Quantity : float
-            /// The pharmocological shape unit of the product.
+            /// The pharmaceutical form unit of the product.
             Unit : string
             /// The container of the product.
             Container : string
@@ -256,8 +256,8 @@ module Types =
             ATC : string
             /// The ATC-5 name of the product.
             ATCName : string
-            /// The pharmacological shape of the product.
-            Shape : string
+            /// The pharmaceutical form of the product.
+            Form : string
             /// The route of administration of the product.
             Route : string []
             /// The substances of the product.
@@ -277,7 +277,7 @@ module Types =
     type GenPresProduct =
         {
             Name : string
-            Shape : string
+            Form : string
             Routes : string []
             PharmacologicalGroups : string []
             GenericProducts : GenericProduct []
@@ -429,7 +429,7 @@ module Types =
             Substance : string
             SubstanceEng : string
             Generic : string
-            Shape : string
+            Form : string
             Routes : string
         }
 
@@ -455,12 +455,12 @@ module Types =
     /// DoseRules for a specific product.
     type ProductFilter =
         | GPKRoute of (int * string)
-        | GenericShapeRoute of GenericShapeRoute
+        | GenericFormRoute of GenericFormRoute
 
-    and GenericShapeRoute =
+    and GenericFormRoute =
         {
             Generic: string
-            Shape: string
+            Form: string
             Route: string
         }
 

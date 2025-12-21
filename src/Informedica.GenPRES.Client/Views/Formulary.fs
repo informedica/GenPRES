@@ -21,7 +21,7 @@ module Formulary =
                 Generic: string option
                 Indication: string option
                 Route: string option
-                Shape : string option
+                Form : string option
                 DoseType: string option
             }
 
@@ -30,7 +30,7 @@ module Formulary =
             | GenericChange of string option
             | IndicationChange of string option
             | RouteChange of string option
-            | ShapeChange of string option
+            | FormChange of string option
             | DoseTypeChange of string option
             | Clear
 
@@ -40,7 +40,7 @@ module Formulary =
                 Generic = None
                 Indication = None
                 Route = None
-                Shape = None
+                Form = None
                 DoseType = None
             }
 
@@ -53,7 +53,7 @@ module Formulary =
                         Generic = form.Generic //|> Option.orElse gen
                         Indication = form.Indication //|> Option.orElse ind
                         Route = form.Route //|> Option.orElse rte
-                        Shape = form.Shape
+                        Form = form.Form
                         DoseType = form.DoseType |> Option.map  DoseType.doseTypeToDescription
                     }
                 | _ -> empty
@@ -75,8 +75,8 @@ module Formulary =
                     Generic = None
                     Routes = [||]
                     Route = None
-                    Shapes = [||]
-                    Shape = None
+                    Forms = [||]
+                    Form = None
                     DoseTypes = [||]
                     DoseType = None
                     PatientCategories = [||]
@@ -122,8 +122,8 @@ module Formulary =
                             Generics = [||]
                             Indication = None
                             Indications = [||]
-                            Shape = None
-                            Shapes = [||]
+                            Form = None
+                            Forms = [||]
                             DoseType = None
                             DoseTypes = [||]
                         }
@@ -140,8 +140,8 @@ module Formulary =
                     { form with
                         DoseType = None
                         DoseTypes = [||]
-                        Shapes = [||]
-                        Shape = None
+                        Forms = [||]
+                        Form = None
                         Route = s
                     }
                     |> updateFormulary
@@ -149,18 +149,18 @@ module Formulary =
 
                 { state with Route = s }, Cmd.none
 
-            | ShapeChange s ->
+            | FormChange s ->
                 match formulary with
                 | Resolved form ->
                     { form with
                         DoseType = None
                         DoseTypes = [||]
-                        Shape = s
+                        Form = s
                     }
                     |> updateFormulary
                 | _ -> ()
 
-                { state with Shape = s }, Cmd.none
+                { state with Form = s }, Cmd.none
 
             | DoseTypeChange s ->
                 match formulary with
@@ -301,17 +301,17 @@ module Formulary =
                         }
                         {
                             match props.formulary with
-                            | Resolved form -> false, form.Shape, form.Shapes
+                            | Resolved form -> false, form.Form, form.Forms
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
                                 let lbl = "Farmacologische Vorm"
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading lbl state.Route (ShapeChange >> dispatch)
+                                    |> select isLoading lbl state.Route (FormChange >> dispatch)
                                 else
                                     items
-                                    |> autoComplete isLoading lbl sel (ShapeChange >> dispatch)
+                                    |> autoComplete isLoading lbl sel (FormChange >> dispatch)
                         }
                         {
                             match props.formulary with

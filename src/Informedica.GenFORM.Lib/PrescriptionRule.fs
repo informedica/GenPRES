@@ -120,7 +120,7 @@ module PrescriptionRule =
                 { filter with
                     Indication = dr.Indication |> Some
                     Generic = dr.Generic |> Some
-                    Shape = dr.Shape |> Some
+                    Form = dr.Form |> Some
                     Route = dr.Route |> Some
                     DoseType = dr.DoseType |> Some
                 }
@@ -132,7 +132,7 @@ module PrescriptionRule =
                     let solFilter =
                         { Filter.solutionFilter dr.Generic with
                             Patient = pat
-                            Shape = dr.Shape |> Some
+                            Form = dr.Form |> Some
                             Route = dr.Route |> Some
                             Indication = dr.Indication |> Some
                             Diluent = filter.Diluent
@@ -244,7 +244,7 @@ module PrescriptionRule =
 
 
     /// Filter the Products in a PrescriptionRule to match
-    /// the given ShapeQuantities and Substances.
+    /// the given FormQuantities and Substances.
     let filterProducts
         (cmpItems: ComponentItem list)
         (pr : PrescriptionRule) =
@@ -264,7 +264,7 @@ module PrescriptionRule =
 
                                         cmpItems
                                         |> List.map _.ComponentQuantity
-                                        |> List.exists (ValueUnit.eqs p.ShapeQuantities)
+                                        |> List.exists (ValueUnit.eqs p.FormQuantities)
                                         &&
                                         p.Substances
                                         |> Array.forall (fun subst ->
@@ -325,8 +325,8 @@ module PrescriptionRule =
     let generics = getDoseRules >> DoseRule.generics
 
 
-    /// Get all shapes of an array of PrescriptionRules.
-    let shapes = getDoseRules >> DoseRule.shapes
+    /// Get all pharmaceutical forms of an array of PrescriptionRules.
+    let forms = getDoseRules >> DoseRule.forms
 
 
     /// Get all routes of an array of PrescriptionRules.

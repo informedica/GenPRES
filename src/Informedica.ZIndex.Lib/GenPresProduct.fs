@@ -11,7 +11,7 @@ module GenPresProduct =
     let create nm sh rt ph gps dpn unt sns =
         {
             Name = nm
-            Shape = sh
+            Form = sh
             Routes = rt
             PharmacologicalGroups = ph
             GenericProducts = gps
@@ -34,7 +34,7 @@ module GenPresProduct =
                 |> Array.fold (fun a s ->
                     if a = "" then s
                     else a + "/" + s) ""
-            ((n, gp.Shape), gp))
+            ((n, gp.Form), gp))
         |> Array.groupBy fst
         |> Array.map (fun ((nm, sh), xs) ->
             let gps = xs |> Array.map (fun (_, gp) -> gp)
@@ -139,20 +139,20 @@ module GenPresProduct =
 
     /// Get the string representation of a GenPresProduct.
     let toString (gpp : GenPresProduct) =
-        gpp.Name + " " + gpp.Shape + " " + (gpp.Routes |> String.concat "/")
+        gpp.Name + " " + gpp.Form + " " + (gpp.Routes |> String.concat "/")
 
 
     /// <summary>
-    /// Filter GenPresProducts by name, shape and route.
+    /// Filter GenPresProducts by name, pharmaceutical form and route.
     /// </summary>
     /// <param name="n">The name</param>
-    /// <param name="s">The shape</param>
+    /// <param name="f">The form</param>
     /// <param name="r">The route</param>
-    let filter n s r =
+    let filter n f r =
         get []
         |> Array.filter (fun gpp ->
             (n = "" || gpp.Name   |> String.equalsCapInsens n) &&
-            (s = "" || gpp.Shape  |> String.equalsCapInsens s) &&
+            (f = "" || gpp.Form  |> String.equalsCapInsens f) &&
             (r = "" || gpp.Routes |> Array.exists (fun r' -> r' |> String.equalsCapInsens r))
         )
 
@@ -192,11 +192,11 @@ module GenPresProduct =
         |> Memoization.memoize
 
 
-    /// Get all Shapes for all GenPresProducts.
-    let getShapes =
+    /// Get all pharmaceutical forms for all GenPresProducts.
+    let getForms =
         fun () ->
             get []
-            |> Array.map _.Shape
+            |> Array.map _.Form
             |> Array.distinct
             |> Array.sort
         |> Memoization.memoize
@@ -213,20 +213,20 @@ module GenPresProduct =
 
 
     /// <summary>
-    /// Get all ShapeRoutes for all GenPresProducts.
+    /// Get all FormRoutes for all GenPresProducts.
     /// </summary>
     /// <returns>
-    /// An array of tuples of Shape and Routes.
+    /// An array of tuples of Forms and Routes.
     /// </returns>
-    let getShapeRoutes =
+    let getFormRoutes =
         fun () ->
             get []
             |> Array.map (fun gpp ->
-                gpp.Shape, gpp.Routes
+                gpp.Form, gpp.Routes
             )
             |> Array.groupBy fst
-            |> Array.map (fun (shape, routes) ->
-                shape,
+            |> Array.map (fun (form, routes) ->
+                form,
                 routes
                 |> Array.collect snd
                 |> Array.distinct
@@ -236,36 +236,36 @@ module GenPresProduct =
 
 
     /// <summary>
-    /// Get all RouteShapes for an array of GenPresProducts.
+    /// Get all RouteForms for an array of GenPresProducts.
     /// </summary>
     /// <param name="gpps">The GenPresProducts</param>
     /// <returns>
-    /// An array of tuples of Route and Shape.
+    /// An array of tuples of Route and Form.
     /// </returns>
-    let routeShapes (gpps : GenPresProduct[]) =
-        // route shape
+    let routeForms (gpps : GenPresProduct[]) =
+        // route form
         gpps
         |> Array.collect (fun gpp ->
             gpp.Routes
             |> Array.map (fun route ->
                 route,
-                gpp.Shape
+                gpp.Form
             )
         )
         |> Array.distinct
 
 
     /// <summary>
-    /// Get all ShapeUnits for all GenPresProducts.
+    /// Get all FormUnits for all GenPresProducts.
     /// </summary>
     /// <returns>
-    /// An array of tuples of Shape and Units.
+    /// An array of tuples of Form and Units.
     /// </returns>
-    let getShapeUnits =
+    let getFormUnits =
         fun () ->
             get []
             |> Array.map (fun gpp ->
-                gpp.Shape, gpp.Unit
+                gpp.Form, gpp.Unit
             )
             |> Array.distinct
             |> Array.sort

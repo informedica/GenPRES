@@ -15,7 +15,7 @@ let path =
 
 { Dto.dto with
      Generic = "adrenaline"
-     Shape = ""
+     Form = ""
      Route = "iv"
 }
 |> Dto.processDto

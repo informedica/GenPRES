@@ -33,8 +33,8 @@ module Export =
                 let gppName = gpp.Name |> String.toLower
                 // should be a valid shape
                 Mapping.validShapes
-                |> List.exists ((=) (gpp.Shape.ToLower().Trim())) &&
-                (shape |> String.equalsCapInsens gpp.Shape || shape |> String.isNullOrWhiteSpace) &&
+                |> List.exists ((=) (gpp.Form.ToLower().Trim())) &&
+                (shape |> String.equalsCapInsens gpp.Form || shape |> String.isNullOrWhiteSpace) &&
                 // check if names match
                 (pedFormName = gppName ||
                 (pedFormName |> String.contains gppName && pedFormName |> String.contains "/" |> not) ||

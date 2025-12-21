@@ -625,12 +625,12 @@ module Order =
         let showOrderName (ord : Order option) =
             match ord with
             | Some ord ->
-                let shape =
+                let form =
                     ord.Orderable.Components
                     |> Array.tryHead
-                    |> Option.map _.Shape
+                    |> Option.map _.Form
                     |> Option.defaultValue ""
-                $"{ord.Orderable.Name} {shape}"
+                $"{ord.Orderable.Name} {form}"
             | None -> "order is loading ..."
 
 

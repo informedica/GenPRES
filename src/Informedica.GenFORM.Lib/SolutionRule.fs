@@ -46,7 +46,7 @@ module SolutionRule =
                     {|
                         // solution rule section
                         Generic = get "Generic"
-                        Shape = get "Shape"
+                        Form = get "Form"
                         Route = get "Route"
                         Indication = get "Indication"
                         Department = get "Dep"
@@ -85,9 +85,9 @@ module SolutionRule =
                     let du = r.Unit |> Units.fromString
                     {
                         Generic = r.Generic
-                        Shape =
-                            if r.Shape |> String.isNullOrWhiteSpace then None
-                            else r.Shape |> Some
+                        Form =
+                            if r.Form |> String.isNullOrWhiteSpace then None
+                            else r.Form |> Some
                         Route = r.Route
                         Indication =
                             if r.Indication |> String.isNullOrWhiteSpace then None
@@ -157,7 +157,7 @@ module SolutionRule =
                                 let u = l.Unit |> Units.fromString
                                 {
                                     SolutionLimitTarget =
-                                        if l.Substance |> String.isNullOrWhiteSpace then l.Shape|> ShapeLimitTarget
+                                        if l.Substance |> String.isNullOrWhiteSpace then l.Form|> FormLimitTarget
                                         else l.Substance |> SubstanceLimitTarget
                                     Quantity =
                                         (l.MinQty, l.MaxQty)
@@ -189,9 +189,9 @@ module SolutionRule =
                             products
                             |> Array.filter (fun p ->
                                 p.Generic = sr.Generic &&
-                                sr.Shape
+                                sr.Form
                                 |> Option.map (fun s ->
-                                    s |> String.equalsCapInsens p.Shape
+                                    s |> String.equalsCapInsens p.Form
                                 )
                                 |> Option.defaultValue true &&
                                 p.Routes
@@ -222,7 +222,7 @@ module SolutionRule =
         [|
             fun (sr : SolutionRule) -> sr.Generic |> String.equalsCapInsens filter.Generic
             fun (sr : SolutionRule) -> sr.PatientCategory |> PatientCategory.filterPatient filter.Patient
-            fun (sr : SolutionRule) -> sr.Shape |> Option.map  (eqs filter.Shape) |> Option.defaultValue true
+            fun (sr : SolutionRule) -> sr.Form |> Option.map  (eqs filter.Form) |> Option.defaultValue true
             fun (sr : SolutionRule) -> sr.Indication |> Option.map (eqs filter.Indication) |> Option.defaultValue true
             fun (sr : SolutionRule) -> filter.Route |> Option.isNone || sr.Route |> Mapping.eqsRoute mapping filter.Route
             fun (sr : SolutionRule) ->
@@ -258,8 +258,8 @@ module SolutionRule =
     /// Get all the distinct Generics from the given SolutionRules.
     let generics = getMember _.Generic
 
-    let shapes =
-        getMember _.Shape
+    let forms =
+        getMember _.Form
         >> Array.choose id
 
 

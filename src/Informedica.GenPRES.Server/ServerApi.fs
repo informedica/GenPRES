@@ -143,7 +143,7 @@ module Mappers =
             Models.Order.Component.create
                 dto.Id
                 dto.Name
-                dto.Shape
+                dto.Form
                 (dto.ComponentQuantity |> mapToOrderVariable)
                 (dto.OrderableQuantity |> mapToOrderVariable)
                 (dto.OrderableCount |> mapToOrderVariable)
@@ -158,7 +158,7 @@ module Mappers =
             let dto = Order.Orderable.Component.Dto.Dto()
             dto.Id <- comp.Id
             dto.Name <- comp.Name
-            dto.Shape <- comp.Shape
+            dto.Form <- comp.Form
             dto.ComponentQuantity <- comp.ComponentQuantity |> mapFromOrderVariable
             dto.OrderableQuantity <- comp.OrderableQuantity |> mapFromOrderVariable
             dto.OrderableCount <- comp.OrderableCount |> mapFromOrderVariable
@@ -350,7 +350,7 @@ module Mappers =
                         i
                         sc.Indication
                         sc.Name
-                        sc.Shape
+                        sc.Form
                         sc.Route
                         (sc.DoseType |> mapFromSharedDoseTypeToOrderDoseType)
                         sc.Diluent
@@ -370,7 +370,7 @@ module Mappers =
                 let ind, inds = mappedCtx.Filter.Indications |> setFilter String.equalsCapInsens ctx.Filter.Indication
                 let gen, gens = mappedCtx.Filter.Generics |> setFilter String.equalsCapInsens ctx.Filter.Medication
                 let rte, rtes = mappedCtx.Filter.Routes |> setFilter String.equalsCapInsens ctx.Filter.Route
-                let shp, shps = mappedCtx.Filter.Shapes |> setFilter String.equalsCapInsens ctx.Filter.Shape
+                let shp, shps = mappedCtx.Filter.Forms |> setFilter String.equalsCapInsens ctx.Filter.Form
                 let dtp, dtps = mappedCtx.Filter.DoseTypes |> setFilter DoseType.eqs (ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType)
 
                 { mappedCtx.Filter with
@@ -380,8 +380,8 @@ module Mappers =
                     Generics = gens
                     Route = rte
                     Routes = rtes
-                    Shape = shp
-                    Shapes = shps
+                    Form = shp
+                    Forms = shps
                     DoseType = dtp
                     DoseTypes =
                         if dtps |> Array.length = 1 then dtps
@@ -483,13 +483,13 @@ module Mappers =
                         Indications = newCtx.Filter.Indications
                         Medications = newCtx.Filter.Generics
                         Routes = newCtx.Filter.Routes
-                        Shapes = newCtx.Filter.Shapes
+                        Forms = newCtx.Filter.Forms
                         DoseTypes = newCtx.Filter.DoseTypes |> Array.map mapFromOrderDoseTypeToSharedDoseType
                         Diluents = newCtx.Filter.Diluents
                         Components = newCtx.Filter.Components
                         Indication = newCtx.Filter.Indication
                         Medication = newCtx.Filter.Generic
-                        Shape = newCtx.Filter.Shape
+                        Form = newCtx.Filter.Form
                         Route = newCtx.Filter.Route
                         DoseType = newCtx.Filter.DoseType |> Option.map mapFromOrderDoseTypeToSharedDoseType
                         Diluent = newCtx.Filter.Diluent
@@ -502,7 +502,7 @@ module Mappers =
                         Models.OrderScenario.create
                             sc.Name
                             sc.Indication
-                            sc.Shape
+                            sc.Form
                             sc.Route
                             (sc.DoseType |> mapFromOrderDoseTypeToSharedDoseType)
                             sc.Diluent
@@ -565,7 +565,7 @@ module Formulary =
             Generic = form.Generic
             Indication = form.Indication
             Route = form.Route
-            Shape = form.Shape
+            Form = form.Form
             DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
             Patient =
                 form.Patient
@@ -586,7 +586,7 @@ module Formulary =
 
         let empt, rs =
             dsrs
-            |> Array.distinctBy (fun dr -> dr.Generic, dr.Shape, dr.Route, dr.DoseType)
+            |> Array.distinctBy (fun dr -> dr.Generic, dr.Form, dr.Route, dr.DoseType)
             |> Array.map (Check.checkDoseRule routeMapping pat)
             |> Array.partition (fun c ->
                 c.didPass |> Array.isEmpty &&
@@ -619,7 +619,7 @@ Patient: {filter.Patient |> Patient.toString}
 Indication: {filter.Indication |> Option.defaultValue ""}
 Generic: {filter.Generic |> Option.defaultValue ""}
 Route: {filter.Route |> Option.defaultValue ""}
-Shape: {filter.Shape |> Option.defaultValue ""}
+Shape: {filter.Form |> Option.defaultValue ""}
 DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defaultValue ""}
 
 """
@@ -633,7 +633,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
                 Generics = dsrs |> DoseRule.generics
                 Indications = dsrs |> DoseRule.indications
                 Routes = dsrs |> DoseRule.routes
-                Shapes = dsrs |> DoseRule.shapes
+                Forms = dsrs |> DoseRule.forms
                 DoseTypes = dsrs |> DoseRule.doseTypes |> Array.map Mappers.mapFromOrderDoseTypeToSharedDoseType
                 PatientCategories = dsrs |> DoseRule.patientCategories
             }
@@ -642,7 +642,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
                     Generic = form.Generics |> selectIfOne form.Generic
                     Indication = form.Indications |> selectIfOne form.Indication
                     Route = form.Routes |> selectIfOne form.Route
-                    Shape = form.Shapes |> selectIfOne form.Shape
+                    Form = form.Forms |> selectIfOne form.Form
                     DoseType = form.DoseTypes |> selectIfOne form.DoseType
                     PatientCategory = form.PatientCategories |> selectIfOne form.PatientCategory
                 }
@@ -684,7 +684,7 @@ Patients: {form.PatientCategories |> Array.length}
 Indication: {form.Indications |> Array.length}
 Generic: {form.Generics |> Array.length}
 Route: {form.Routes |> Array.length}
-Shapes: {form.Shapes |> Array.length}
+Shapes: {form.Forms |> Array.length}
 DoseTypes: {form.DoseTypes |> Array.length}
 
 """
@@ -708,25 +708,25 @@ module Parenteralia =
         let srs =
             Formulary.getSolutionRules provider
                 par.Generic
-                par.Shape
+                par.Form
                 par.Route
 
         let gens = srs |> SolutionRule.generics
-        let shps = srs |> SolutionRule.shapes
+        let shps = srs |> SolutionRule.forms
         let rtes = srs |> SolutionRule.routes
 
         { par with
             Generics = gens
-            Shapes = shps
+            Forms = shps
             Routes = rtes
             Generic =
                 if gens |> Array.length = 1 then Some gens[0]
                 else
                     par.Generic
-            Shape =
+            Form =
                 if shps |> Array.length = 1 then Some shps[0]
                 else
-                    par.Shape
+                    par.Form
             Route =
                 if rtes |> Array.length = 1 then Some rtes[0]
                 else

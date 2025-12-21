@@ -36,13 +36,13 @@ module Product =
             | _ -> AnyAccess
 
 
-    module ShapeRoute =
+    module FormRoute =
 
 
-        let isSolution (mapping : ShapeRoute[]) shape =
+        let isSolution (mapping : FormRoute[]) form =
             mapping
             |> Array.tryFind (fun sr ->
-                sr.Shape |> String.equalsCapInsens shape
+                sr.Form |> String.equalsCapInsens form
             )
             |> Option.map _.IsSolution
             |> Option.defaultValue false
@@ -149,7 +149,7 @@ module Product =
                         |}
                     )
                     |> Array.map (fun r ->
-                        let shapeUnit =
+                        let formUnit =
                             r.Unit
                             |> Units.fromString
                             |> Option.defaultValue Units.Volume.milliLiter
@@ -160,18 +160,18 @@ module Product =
                             SubGroup = ""
                             Generic = r.Name
                             UseGenericName = false
-                            UseShape = false
+                            UseForm = false
                             UseBrand = false
                             TallMan = "" //r.TallMan
                             Synonyms = [||]
                             Product = r.Name
                             Label = r.Name
-                            Shape = "voeding"
+                            Form = "voeding"
                             Routes = [| "ORAAL" |]
-                            ShapeQuantities =
-                                shapeUnit
+                            FormQuantities =
+                                formUnit
                                 |> ValueUnit.singleWithValue 1N
-                            ShapeUnit = shapeUnit
+                            FormUnit = formUnit
                             RequiresReconstitution = false
                             Reconstitution = [||]
                             Divisible = Some 10N
@@ -202,7 +202,7 @@ module Product =
                                                     | Some u ->
                                                         let u =
                                                             u
-                                                            |> Units.per shapeUnit
+                                                            |> Units.per formUnit
                                                         q
                                                         |> ValueUnit.singleWithUnit u
                                                         |> Some
@@ -276,18 +276,18 @@ module Product =
                             SubGroup = ""
                             Generic = r.Name
                             UseGenericName = false
-                            UseShape = false
+                            UseForm = false
                             UseBrand = false
                             TallMan = "" //r.TallMan
                             Synonyms = [||]
                             Product = r.Name
                             Label = r.Name
-                            Shape = "vloeistof"
+                            Form = "vloeistof"
                             Routes = [| "INTRAVENEUS"; "ORAAL" |]
-                            ShapeQuantities =
+                            FormQuantities =
                                 Units.Volume.milliLiter
                                 |> ValueUnit.singleWithValue 1N
-                            ShapeUnit =
+                            FormUnit =
                                 Units.Volume.milliLiter
                             RequiresReconstitution = false
                             Reconstitution = [||]
@@ -347,16 +347,16 @@ module Product =
             SubGroup = ""
             Generic = gen
             UseGenericName = false
-            UseShape = false
+            UseForm = false
             UseBrand = false
             TallMan = gen
             Synonyms = [||]
             Product = gen
             Label = gen
-            Shape = gen
+            Form = gen
             Routes = [| rte  |]
-            ShapeQuantities = ValueUnit.empty
-            ShapeUnit = NoUnit
+            FormQuantities = ValueUnit.empty
+            FormUnit = NoUnit
             RequiresReconstitution = false
             Reconstitution = [||]
             Divisible = None
@@ -381,14 +381,14 @@ module Product =
     let map
         unitMapping
         routeMapping
-        shapeRoutes
+        formRoutes
         (reconstitution : Reconstitution[])
         name
         useGenName
-        useShape
+        useForm
         useBrand
         synonyms
-        shapeQuantities
+        formQuantities
         divisible
         molarConcentration
         (gp : Informedica.ZIndex.Lib.Types.GenericProduct)
@@ -398,16 +398,16 @@ module Product =
             gp.ATC
             |> ATCGroup.findByATC5
 
-        let shpUnit =
-            gp.Substances[0].ShapeUnit
+        let formUnit =
+            gp.Substances[0].FormUnit
             |> Mapping.mapUnit unitMapping
             |> Option.defaultValue NoUnit
 
         let reqReconst =
-            Mapping.requiresReconstitution routeMapping shapeRoutes (gp.Route, shpUnit, gp.Shape)
+            Mapping.requiresReconstitution routeMapping formRoutes (gp.Route, formUnit, gp.Form)
 
-        let shpUnit =
-            if not reqReconst then shpUnit
+        let formUnit =
+            if not reqReconst then formUnit
             else
                 Units.Volume.milliLiter
 
@@ -426,7 +426,7 @@ module Product =
                 |> Option.defaultValue ""
             Generic = name
             UseGenericName = useGenName
-            UseShape = useShape
+            UseForm = useForm
             UseBrand = useBrand
             TallMan = ""
             Synonyms = synonyms
@@ -441,12 +441,12 @@ module Product =
                 | [| p |] -> p
                 | _ -> ""
             Label = gp.Label
-            Shape = gp.Shape |> String.toLower
+            Form = gp.Form |> String.toLower
             Routes = gp.Route |> Array.choose (Mapping.mapRoute routeMapping)
-            ShapeQuantities =
-                shapeQuantities
-                |> ValueUnit.withUnit shpUnit
-            ShapeUnit = shpUnit
+            FormQuantities =
+                formQuantities
+                |> ValueUnit.withUnit formUnit
+            FormUnit = formUnit
             RequiresReconstitution = reqReconst
             Reconstitution =
                 reconstitution
@@ -458,9 +458,9 @@ module Product =
                 | Some d -> d |> BigRational.fromInt |> Some
                 | None ->
                     let rs =
-                        Mapping.filterShapeRoutes
+                        Mapping.filterFormRoutes
                             routeMapping
-                            shapeRoutes "" (gp.Shape.ToLower()) NoUnit
+                            formRoutes "" (gp.Form.ToLower()) NoUnit
                     if rs |> Array.length = 0 then None
                     else
                         rs[0].Divisibility
@@ -488,7 +488,7 @@ module Product =
                             s.SubstanceUnit
                             |> Mapping.mapUnit unitMapping
                             |> Option.map (fun u ->
-                                CombiUnit(u, OpPer, shpUnit)
+                                CombiUnit(u, OpPer, formUnit)
                             )
                             |> Option.defaultValue NoUnit
                     {
@@ -502,7 +502,7 @@ module Product =
                                s.SubstanceName |> String.equalsCapInsens name |> not then None
                             // only apply mmol to substance with the same name as the product
                             else
-                                let u = Units.Molar.milliMole |> Units.per shpUnit
+                                let u = Units.Molar.milliMole |> Units.per formUnit
                                 molarConcentration.Value
                                 |> BigRational.fromFloat
                                 |> Option.map (ValueUnit.singleWithUnit u)
@@ -535,12 +535,12 @@ module Product =
                             ICK = get "ICK"
                             HCK = get "HCK"
                             Generic = get "Generic"
-                            useGenName = get "UseGenName" = "x"
-                            useShape = get "UseShape" = "x"
-                            useBrand = get "UseBrand" = "x"
-                            tallMan = get "TallMan"
-                            mmol = get "Mmol" |> Double.tryParse
-                            divisible = get "Divisible" |> Int32.tryParse
+                            UseGenName = get "UseGenName" = "x"
+                            UseForm = get "UseForm" = "x"
+                            UseBrand = get "UseBrand" = "x"
+                            TallMan = get "TallMan"
+                            MilliMoleOption = get "Mmol" |> Double.tryParse
+                            Divisible = get "Divisible" |> Int32.tryParse
                         }
                     )
             |> StopWatch.clockFunc "retrieved formulary products"
@@ -552,8 +552,8 @@ module Product =
     let get
         unitMapping
         routeMapping
-        validShapes
-        shapeRoutes
+        validForms
+        formRoutes
         reconstitution
         parenteral
         enteral
@@ -568,15 +568,15 @@ module Product =
                 |> Array.map (fun gpp -> (r, gpp))
             )
             // collect the GenericProducts
-            // filtered by "valid shape" and
+            // filtered by "valid form" and
             // at least one substance quantity > 0
             |> Array.collect (fun (r, gpp) ->
                 gpp.GenericProducts
                 |> Array.filter (fun gp ->
                     gp.Id = r.GPKODE &&
 
-                    validShapes
-                    |> Array.exists (String.equalsCapInsens gp.Shape) &&
+                    validForms
+                    |> Array.exists (String.equalsCapInsens gp.Form) &&
                     gp.Substances
                     |> Array.exists (fun s ->
                         s.SubstanceQuantity > 0.
@@ -597,7 +597,7 @@ module Product =
                     |> Array.distinct
                     |> Array.filter String.notEmpty
 
-                let shapeQuantities =
+                let formQuantities =
                     gp.PrescriptionProducts
                     |> Array.map _.Quantity
                     |> Array.choose BigRational.fromFloat
@@ -610,16 +610,16 @@ module Product =
                 |> map
                        unitMapping
                        routeMapping
-                       shapeRoutes
+                       formRoutes
                        reconstitution
                        name
-                       r.useGenName
-                       r.useShape
-                       r.useBrand
+                       r.UseGenName
+                       r.UseForm
+                       r.UseBrand
                        synonyms
-                       shapeQuantities
-                       r.divisible
-                       r.mmol
+                       formQuantities
+                       r.Divisible
+                       r.MilliMoleOption
             )
             |> Array.append parenteral
             |> Array.append enteral
@@ -659,7 +659,7 @@ module Product =
                     )
                     |> fun xs ->
                         if xs |> Array.isEmpty then
-                            warnings.Add $"no reconstitution rules found for {prod.Generic} ({prod.Shape}) with route {rte} and department {dep}"
+                            warnings.Add $"no reconstitution rules found for {prod.Generic} ({prod.Form}) with route {rte} and department {dep}"
                         xs
                     |> Array.map (fun r ->
                         let v =
@@ -668,9 +668,9 @@ module Product =
                             |> Option.defaultValue r.DiluentVolume
 
                         { prod with
-                            ShapeUnit =
+                            FormUnit =
                                 Units.Volume.milliLiter
-                            ShapeQuantities = v
+                            FormQuantities = v
                             Substances =
                                 prod.Substances
                                 |> Array.map (fun s ->
@@ -678,7 +678,7 @@ module Product =
                                         Concentration =
                                             s.Concentration
                                             |> Option.map (fun q ->
-                                                // replace the old shapeunit with the new one
+                                                // replace the old formunit with the new one
                                                 let one =
                                                     Units.Volume.milliLiter
                                                     |> ValueUnit.singleWithValue 1N
@@ -724,7 +724,7 @@ module Product =
         prods
         |> Array.filter (fun p ->
             p.Generic |> eqs filter.Generic &&
-            p.Shape |> eqs filter.Shape &&
+            p.Form |> eqs filter.Form &&
             p.Routes |> Array.exists (eqsRoute filter.Route)
         )
         |> Array.map (fun p ->
@@ -751,8 +751,8 @@ module Product =
         |> Array.distinct
 
 
-    /// Get all Shapes from the given Product array.
-    let shapes  (products : Product array) =
+    /// Get all pharmaceutical forms from the given Product array.
+    let forms  (products : Product array) =
         products
-        |> Array.map _.Shape
+        |> Array.map _.Form
         |> Array.distinct

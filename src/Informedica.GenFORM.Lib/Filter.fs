@@ -10,7 +10,7 @@ module Filter =
         {
             Indication = None
             Generic = None
-            Shape = None
+            Form = None
             Route = None
             DoseType = None
             Diluent = None
@@ -22,7 +22,7 @@ module Filter =
     let solutionFilter gen =
         {
             Generic = gen
-            Shape = None
+            Form = None
             Route = None
             Indication = None
             DoseType = None
