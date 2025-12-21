@@ -207,7 +207,7 @@ let filter n s r =
     get []
     |> Array.filter (fun gpp ->
         (n = "" || gpp.Name   |> String.equalsCapInsens n) &&
-        (s = "" || gpp.Shape  |> String.equalsCapInsens s) &&
+        (s = "" || gpp.Form  |> String.equalsCapInsens s) &&
         (r = "" || gpp.Routes |> Array.exists (fun r' -> r' |> String.equalsCapInsens r))
     )
 ```

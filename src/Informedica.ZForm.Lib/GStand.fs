@@ -227,7 +227,7 @@ module GStand =
     ///     <item>absolute min max dose per m2</item>
     /// </list>
     /// by calculating
-    /// - substance shape concentration * dose shape quantity * frequency
+    /// - substance form concentration * dose form quantity * frequency
     /// for each dose
     /// </summary>
     /// <param name="n">The name of the substance</param>
@@ -672,7 +672,7 @@ module GStand =
             gpp
             |> getATCs gpk
             |> Array.exists (fun a -> a |> String.equalsCapInsens g.ATC5)
-            && g.Shape = gpp.Shape
+            && g.Form = gpp.Form
         )
         |> Array.distinct
 
@@ -802,7 +802,7 @@ module GStand =
 
 
     /// <summary>
-    /// Group the GenPresProducts by indications, routes, shape and products and
+    /// Group the GenPresProducts by indications, routes, pharmaceutical form and products and
     /// add the patients and dosages.
     /// </summary>
     /// <param name="rte">The route</param>
@@ -824,7 +824,7 @@ module GStand =
                 || r |> String.equalsCapInsens rte
             )
             |> Seq.collect (fun rte ->
-                RF.createFilter age wght bsa gpk gpp.Name gpp.Shape rte
+                RF.createFilter age wght bsa gpk gpp.Name gpp.Form rte
                 |> RF.find cfg.GPKs
                 |> getPatients cfg
                 |> Seq.sortBy (fun pats ->
@@ -852,13 +852,13 @@ module GStand =
                         {|
                             indications = dsg.indications
                             route = rte
-                            shape = gpp.Shape
+                            Form = gpp.Form
                             genericProducts = gps
                             tradeProducts = tps
                             patientCategory = pats.patientCategory
                             dosage = dsg.dosage
                         |}
-                        //dsg.indications, (rte, (gpp.Shape, gps, tps, pats.patientCategory, dsg.Dosage))
+                        //dsg.indications, (rte, (gpp.Form, gps, tps, pats.patientCategory, dsg.Dosage))
                     )
                 )
             )
@@ -873,15 +873,13 @@ module GStand =
                     |> Seq.map (fun (rte, v) ->
                         {|
                             route = rte
-                            shapeAndProducts =
+                            formAndProducts =
                                 v
-//                                |> Seq.map (fun (shp, gps, tps, pat, sds) -> shp, gps, tps, pat, sds)
-//                                |> Seq.groupBy (fun (shp, gps, tps, _, _) -> (shp, gps, tps)) // group by shape and products
-                                |> Seq.groupBy (fun r -> r.shape, r.genericProducts, r.tradeProducts)
-                                |> Seq.sortBy (fst >> (fun (shp, _, _) -> shp))
-                                |> Seq.map (fun ((shp, gps, tps), v) ->
+                                |> Seq.groupBy (fun r -> r.Form, r.genericProducts, r.tradeProducts)
+                                |> Seq.sortBy (fst >> fun (frm, _, _) -> frm)
+                                |> Seq.map (fun ((frm, gps, tps), v) ->
                                     {|
-                                        shape = shp
+                                        form = frm
                                         genericProducts = gps
                                         tradeProducts = tps
                                         patients =
@@ -891,8 +889,6 @@ module GStand =
                                                 k,
                                                 v |> Seq.map _.dosage
                                             )
-//                                            |> Seq.map (fun (_, _, _, pat, sds) -> pat, sds)
-//                                            |> groupByFst // group by patient
                                     |}
                                 )
                         |}
@@ -902,19 +898,19 @@ module GStand =
 
 
     /// <summary>
-    /// Add indications, routes, shape, patient and dosages to
+    /// Add indications, routes, pharmaceutical form, patient and dosages to
     /// a starting GStand DoseRule.
     /// </summary>
     /// <param name="dr">The starting Gstand DoseRule record</param>
-    /// <param name="inds">The indications, routes, shape, patient and dosages</param>
-    let addIndicationsRoutesShapePatientDosages
+    /// <param name="inds">The indications, routes, form, patient and dosages</param>
+    let addIndicationsRoutesFormPatientDosages
         dr
         (inds: seq<{| indications: list<string>
                       routes: seq<{| route: string
-                                     shapeAndProducts: seq<{| genericProducts: seq<int * string>
-                                                              patients: seq<PatientCategory * seq<Dosage>>
-                                                              shape: string
-                                                              tradeProducts: seq<int * string> |}> |}> |}>)
+                                     formAndProducts: seq<{| genericProducts: seq<int * string>
+                                                             patients: seq<PatientCategory * seq<Dosage>>
+                                                             form: string
+                                                             tradeProducts: seq<int * string> |}> |}> |}>)
         =
 
         inds
@@ -930,36 +926,36 @@ module GStand =
                         let dr =
                             acc |> Optics.addRoute ind.indications rt.route
 
-                        rt.shapeAndProducts
+                        rt.formAndProducts
                         |> Seq.fold
-                            (fun acc shp ->
+                            (fun acc frm ->
                                 let createGP =
-                                    ShapeDosage.GenericProduct.create
+                                    FormDosage.GenericProduct.create
 
                                 let createTP =
-                                    ShapeDosage.TradeProduct.create
+                                    FormDosage.TradeProduct.create
 
                                 let dr =
                                     acc
-                                    |> Optics.addShape ind.indications rt.route [ shp.shape ]
+                                    |> Optics.addForm ind.indications rt.route [ frm.form ]
                                     |> Optics.setGenericProducts
                                         ind.indications
                                         rt.route
-                                        [ shp.shape ]
-                                        (shp.genericProducts
+                                        [ frm.form ]
+                                        (frm.genericProducts
                                          |> Seq.toList
                                          |> List.map (fun (id, nm) -> createGP id nm)
                                          |> List.sortBy _.Label)
                                     |> Optics.setTradeProducts
                                         ind.indications
                                         rt.route
-                                        [ shp.shape ]
-                                        (shp.tradeProducts
+                                        [ frm.form ]
+                                        (frm.tradeProducts
                                          |> Seq.toList
                                          |> List.map (fun (id, nm) -> createTP id nm)
                                          |> List.sortBy _.Label)
 
-                                shp.patients
+                                frm.patients
                                 |> Seq.fold
                                     (fun acc pat ->
                                         let pat, sds = pat
@@ -989,11 +985,11 @@ module GStand =
                                                 Seq.empty
 
                                         acc
-                                        |> Optics.addPatient ind.indications rt.route [ shp.shape ] pat
+                                        |> Optics.addPatient ind.indications rt.route [ frm.form ] pat
                                         |> Optics.setSubstanceDosages
                                             ind.indications
                                             rt.route
-                                            [ shp.shape ]
+                                            [ frm.form ]
                                             pat
                                             (sds |> Seq.toList)
                                     )
@@ -1024,7 +1020,7 @@ module GStand =
 
         gpps
         |> groupGenPresProducts rte age wght bsa gpk cfg
-        |> addIndicationsRoutesShapePatientDosages dr
+        |> addIndicationsRoutesFormPatientDosages dr
 
 
     /// <summary>
@@ -1036,17 +1032,17 @@ module GStand =
     /// <param name="bsa">Body Surface Area in mˆ2</param>
     /// <param name="gpk">Optional GPK</param>
     /// <param name="gen">Generic Name</param>
-    /// <param name="shp">Shape</param>
+    /// <param name="frm">Form</param>
     /// <param name="rte">Route</param>
     /// <remarks>
     /// The GPK is used to filter the GenPresProducts and use those
     /// GenericProducts to create the DoseRules. If the GPK is None
-    /// then generic name, shape and route are used to filter the
+    /// then generic name, pharmaceutical form and route are used to filter the
     /// GenPresProducts.
     /// </remarks>
-    let createDoseRules (cfg: CreateConfig) age wght bsa gpk gen shp rte =
+    let createDoseRules (cfg: CreateConfig) age wght bsa gpk gen frm rte =
 
-        GPP.filter gen shp rte
+        GPP.filter gen frm rte
         |> Seq.filter (fun gpp ->
             match gpk with
             | None -> true

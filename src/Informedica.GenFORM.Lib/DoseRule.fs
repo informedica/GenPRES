@@ -89,14 +89,14 @@ module DoseRule =
                     dr.ComponentLimits
                     |> Array.collect _.SubstanceLimits
 
-            let shapeDls =
+            let formDls =
                 dr.ComponentLimits
                 |> Array.choose _.Limit
 
             let useSubstDl = substDls |> Array.length > 0
-            // only use shape dose limits if there are no substance dose limits
+            // only use form dose limits if there are no substance dose limits
             if useSubstDl then substDls
-            else shapeDls
+            else formDls
             |> Array.map (fun dl ->
                 let perDose = "/dosis"
                 let emptyS = ""
@@ -260,7 +260,7 @@ module DoseRule =
                         let dur = r |> printDuration
 
                         let md = dose_md dt dose freqs intv time dur
-                        if acc |> String.containsCapsInsens md then acc // prevent duplicate doserule per shape print
+                        if acc |> String.containsCapsInsens md then acc // prevent duplicate doserule per form print
                         else
                             $"{acc}\n{md}{pedForm}"
 
@@ -410,7 +410,7 @@ module DoseRule =
                 Source = r.Source
                 Indication = r.Indication
                 Generic = r.Generic
-                Shape = r.Shape
+                Form = r.Form
                 Brand =
                     if r.Brand |> String.isNullOrWhiteSpace then None
                     else r.Brand |> Some
@@ -460,7 +460,7 @@ module DoseRule =
                 Duration =
                     (r.MinDur, r.MaxDur)
                     |> fromTupleInclIncl (r.DurUnit |> Utils.Units.timeUnit)
-                ShapeLimit = None
+                FormLimit = None
                 ComponentLimits = [||]
                 RenalRule = None
             }
@@ -490,7 +490,7 @@ module DoseRule =
                         Source = get "Source"
                         Indication = get "Indication"
                         Generic = get "Generic"
-                        Shape = get "Shape"
+                        Form = get "Form"
                         Brand = get "Brand"
                         GPKs =
                             get "GPKs"
@@ -579,8 +579,8 @@ module DoseRule =
             data
             |> Array.filter doseRuleDataIsValid
             |> Array.groupBy (fun d ->
-                match d.Shape, d.Brand with
-                | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Shape |> String.toLower})"
+                match d.Form, d.Brand with
+                | s, _ when s |> String.notEmpty -> $"{d.Generic} ({d.Form |> String.toLower})"
                 | _, s when s |> String.notEmpty -> $"{d.Generic} ({d.Brand |> String.toLower |> String.capitalize})"
                 | _ -> d.Generic
                 ,
@@ -626,19 +626,19 @@ module DoseRule =
                             |]
                         else
                             filtered
-                            // create doserule per shape
-                            |> Array.groupBy _.Shape
+                            // create doserule per pharmaceutical form
+                            |> Array.groupBy _.Form
                             |> Array.collect (fun (_, ps) ->
                                 // make sure that all products have the same unit group
                                 ps
-                                |> Array.groupBy (_.ShapeUnit >> ValueUnit.Group.unitToGroup)
+                                |> Array.groupBy (_.FormUnit >> ValueUnit.Group.unitToGroup)
                                 |> function
                                     | [|_, ps|] ->
                                         ps
                                         |> Array.map (fun product ->
                                             { r with
                                                 Generic = gen
-                                                Shape = product.Shape |> String.toLower
+                                                Form = product.Form |> String.toLower
                                                 Products =
                                                     if r.GPKs |> Array.length > 0 then ps
                                                     else
@@ -646,7 +646,7 @@ module DoseRule =
                                                         |> Product.filter routeMapping
                                                             { Filter.doseFilter with
                                                                 Generic = r.Component |> Some
-                                                                Shape = product.Shape |> Some
+                                                                Form = product.Form |> Some
                                                                 Route = rte |> Some
                                                             }
                                             }
@@ -658,15 +658,15 @@ module DoseRule =
                                             ps
                                             |> Array.map (fun product ->
                                                 let u =
-                                                    product.ShapeUnit
+                                                    product.FormUnit
                                                     |> Units.toString Units.Dutch Units.Short
                                                     |> String.removeTextBetweenBrackets
                                                     |> String.removeBrackets
 
                                                 { r with
                                                     Generic = gen
-                                                    Shape =
-                                                        $"{product.Shape |> String.toLower} ({u})"
+                                                    Form =
+                                                        $"{product.Form |> String.toLower} ({u})"
                                                     Products =
                                                         if r.GPKs |> Array.length > 0 then ps
                                                         else
@@ -675,7 +675,7 @@ module DoseRule =
                                                                 routeMapping
                                                                 { Filter.doseFilter with
                                                                     Generic = r.Component |> Some
-                                                                    Shape = product.Shape |> Some
+                                                                    Form = product.Form |> Some
                                                                     Route = rte |> Some
                                                                 }
                                                 }
@@ -708,7 +708,7 @@ module DoseRule =
         |> Ok
 
 
-    let addShapeLimits routeMapping shapeRoutes (dr : DoseRule) =
+    let addFormLimits routeMapping formRoutes (dr : DoseRule) =
         let prods =
             dr.ComponentLimits
             |> Array.collect _.Products
@@ -716,7 +716,7 @@ module DoseRule =
         let droplets =
             prods
             |> Array.filter (fun p ->
-                p.Shape |> String.containsCapsInsens "druppel"
+                p.Form |> String.containsCapsInsens "druppel"
             )
             |> Array.choose _.Divisible
             |> Array.distinct
@@ -731,16 +731,16 @@ module DoseRule =
                 |> Units.Volume.dropletSetDropsPerMl m
                 |> ValueUnit.withValue v
 
-        if dr.Shape |> String.isNullOrWhiteSpace then dr
+        if dr.Form |> String.isNullOrWhiteSpace then dr
         else
             prods
-            |> Array.map _.ShapeUnit
+            |> Array.map _.FormUnit
             |> Array.tryExactlyOne
             |> Option.defaultValue NoUnit
-            |> Mapping.filterShapeRoutes routeMapping shapeRoutes dr.Route dr.Shape
+            |> Mapping.filterFormRoutes routeMapping formRoutes dr.Route dr.Form
             |> Array.map (fun rsu ->
                 { DoseLimit.limit with
-                    DoseLimitTarget = dr.Shape |> ShapeLimitTarget
+                    DoseLimitTarget = dr.Form |> FormLimitTarget
                     Quantity =
                         {
                             Min = rsu.MinDoseQty |> Option.map Limit.Inclusive
@@ -787,8 +787,8 @@ module DoseRule =
             |> Array.tryExactlyOne
             |> function
                 | None -> dr
-                | Some shapeLimit ->
-                    { dr with ShapeLimit = Some shapeLimit }
+                | Some formLimit ->
+                    { dr with FormLimit = Some formLimit }
 
 
     let getDoseLimits (rs : DoseRuleData []) =
@@ -879,7 +879,7 @@ module DoseRule =
         )
 
 
-    let addDoseLimits routeMapping shapeRoutes (rs: DoseRuleData[]) (dr : DoseRule) =
+    let addDoseLimits routeMapping formRoutes (rs: DoseRuleData[]) (dr : DoseRule) =
         { dr with
             ComponentLimits =
                 rs
@@ -906,7 +906,7 @@ module DoseRule =
                                     l.DoseUnit
                                     |> ValueUnit.Group.eqsGroup Units.Count.times ||
                                     l.DoseUnit
-                                    |> ValueUnit.Group.eqsGroup p.ShapeUnit
+                                    |> ValueUnit.Group.eqsGroup p.FormUnit
                             )
                             |> Array.distinct
                         SubstanceLimits =
@@ -917,7 +917,7 @@ module DoseRule =
                     }
                 )
         }
-        |> addShapeLimits routeMapping shapeRoutes
+        |> addFormLimits routeMapping formRoutes
 
 
     /// <summary>
@@ -929,11 +929,11 @@ module DoseRule =
     let get
         dataUrl
         routeMapping
-        shapeRoutes
+        formRoutes
         prods
         : GenFormResult<_>
         =
-        let addDoseLimits = addDoseLimits routeMapping shapeRoutes
+        let addDoseLimits = addDoseLimits routeMapping formRoutes
 
         let map data =
             result {
@@ -1024,7 +1024,7 @@ module DoseRule =
             [|
                 fun (dr : DoseRule) -> dr.Indication |> eqs filter.Indication
                 fun (dr : DoseRule) -> dr.Generic |> eqs filter.Generic
-                fun (dr : DoseRule) -> dr.Shape |> eqs filter.Shape
+                fun (dr : DoseRule) -> dr.Form |> eqs filter.Form
                 fun (dr : DoseRule) -> filter.Route |> Option.isNone || dr.Route |> Mapping.eqsRoute routeMapping filter.Route
                 // don't filter on patients if patient is not set
                 if filter.Patient = Patient.patient |> not then
@@ -1055,8 +1055,8 @@ module DoseRule =
     let generics = getMember _.Generic
 
 
-    /// Extract all the shapes from the DoseRules.
-    let shapes = getMember _.Shape
+    /// Extract all the pharmaceutical forms from the DoseRules.
+    let forms = getMember _.Form
 
 
     /// Extract all the routes from the DoseRules.
@@ -1126,7 +1126,7 @@ module DoseRule =
                 "SortNo"
                 "Source"
                 "Generic"
-                "Shape"
+                "Form"
                 "Brand"
                 "Route"
                 "GPKs"
@@ -1219,7 +1219,7 @@ module DoseRule =
                 grouped
                 |> Array.collect snd
                 |> Array.filter (_.Products >> Array.isEmpty >> not)
-                |> Array.filter (_.Shape >> String.notEmpty)
+                |> Array.filter (_.Form >> String.notEmpty)
                 |> Array.distinctBy distBy
 
             grouped
@@ -1239,7 +1239,7 @@ module DoseRule =
                     $"{i}"
                     d.Source
                     d.Generic
-                    d.Shape
+                    d.Form
                     d.Brand
                     d.Route
                     d.GPKs |> String.concat ";"

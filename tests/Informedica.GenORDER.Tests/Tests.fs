@@ -12,7 +12,7 @@ module Tests
 
     // --- New tests for fluent pipeline guard/order behavior ---
 
-    Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4")
+    Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1JHOrasAZ_2fcVApYpt1qT2lZBsqrAxN-9SvBisXkbsM")
 
     // Original test data used by several tests below
     let testDrugOrders = [
@@ -24,7 +24,7 @@ module Tests
             Components = [
                 { Medication.productComponent with
                     Name = "Component A"
-                    Shape = "injectievloeistof"
+                    Form = "injectievloeistof"
                     Divisible = Some 1N
                     Quantities = Some (ValueUnit.create Units.Volume.milliLiter [| 2N |])
                     Substances = [
@@ -42,7 +42,7 @@ module Tests
                 }
                 { Medication.productComponent with
                     Name = "Component B"
-                    Shape = "injectievloeistof"
+                    Form = "injectievloeistof"
                     Substances = [
                         { Medication.substanceItem with
                             Name = "Substance B1"
@@ -60,7 +60,7 @@ module Tests
             Components = [
                 { Medication.productComponent with
                     Name = "Component C"
-                    Shape = "Syrup"
+                    Form = "Syrup"
                     Substances = [
                         { Medication.substanceItem with
                             Name = "Substance C1"
@@ -355,7 +355,7 @@ module Tests
             orbDto.Components <-
                 [
                     for p in d.Components do
-                        let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Shape
+                        let cmpDto = Order.Orderable.Component.Dto.dto d.Id d.Name p.Name p.Form
                         let div =
                             p.Divisible
                             |> Option.bind (fun d ->
@@ -594,7 +594,7 @@ module Tests
             test "productComponent default values" {
                 let cmp = Medication.productComponent
                 cmp.Name |> Expect.equal "should be empty" ""
-                cmp.Shape |> Expect.equal "should be empty" ""
+                cmp.Form |> Expect.equal "should be empty" ""
                 cmp.Substances |> Expect.isEmpty "should be empty"
             }
 
@@ -677,7 +677,7 @@ module Tests
                     Components = [
                         { Medication.productComponent with
                             Name = "Test Component"
-                            Shape = "tablet"
+                            Form = "tablet"
                             Divisible = Some 1N
                             Quantities = Some (ValueUnit.create Units.Mass.milliGram [| 10N |])
                             Substances = [
@@ -898,7 +898,7 @@ module Tests
                             Components = [
                                 { Medication.productComponent with
                                     Name = "Test Component"
-                                    Shape = "injection"
+                                    Form = "injection"
                                     Substances = [
                                         { Medication.substanceItem with
                                             Name = "Test Drug"

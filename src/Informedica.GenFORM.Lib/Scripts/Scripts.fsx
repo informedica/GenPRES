@@ -5,7 +5,7 @@
 #load "load.fsx"
 
 open System
-let dataUrlId = "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
+let dataUrlId = "1JHOrasAZ_2fcVApYpt1qT2lZBsqrAxN-9SvBisXkbsM"
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Environment.SetEnvironmentVariable("GENPRES_URL_ID", dataUrlId)
 
@@ -46,14 +46,14 @@ module GenFormResult =
 let provider : Resources.IResourceProvider = Api.getCachedProviderWithDataUrlId FormLogging.noOp dataUrlId
 
 
-provider.GetShapeRoutes()
+provider.GetFormRoutes()
 |> Array.filter (_.Route >> ((=) "auriculair"))
-|> Array.filter (_.Shape >> ((=) "oordruppels"))
+|> Array.filter (_.Form >> ((=) "oordruppels"))
 
 
-provider.GetShapeRoutes()
+provider.GetFormRoutes()
 |> Array.filter (_.Route >> ((=) "intraveneus"))
-|> Array.filter (_.Shape >> ((=) "poeder voor oplossing voor infusie"))
+|> Array.filter (_.Form >> ((=) "poeder voor oplossing voor infusie"))
 
 
 provider.GetDoseRules ()
@@ -94,7 +94,7 @@ let dr =
                 }
             Indication = Some "Sedatie op de IC"
             Generic = Some "midazolam"
-            Shape = None
+            Form = None
             Route = Some "INTRAVENEUS"
         }
     |> Array.head
@@ -102,9 +102,9 @@ let dr =
 
 
 dr
-|> DoseRule.addShapeLimits
+|> DoseRule.addFormLimits
     (provider.GetRouteMappings ())
-    (provider.GetShapeRoutes ())
+    (provider.GetFormRoutes ())
 
 
 let doseRuleData =

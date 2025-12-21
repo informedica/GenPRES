@@ -177,15 +177,15 @@ module Types =
 
 
     /// A patient dosage, a patient category with
-    /// associated shape a substance dosages.
+    /// associated pharmaceutical form a substance dosages.
     type PatientDosage =
         {
             /// The patient group the doserules applies
             Patient : PatientCategory
-            /// A Dosage for the Shape, note this only applies
-            /// when there is only one shape and one generic product
+            /// A Dosage for the Form, note this only applies
+            /// when there is only one form and one generic product
             /// TODO make this optional?
-            ShapeDosage : Dosage
+            FormDosage : Dosage
             /// The Dosages for the Substances
             SubstanceDosages : Dosage list
         }
@@ -194,10 +194,10 @@ module Types =
             _.Patient,
             (fun pat pd -> { pd with Patient = pat })
 
-        static member ShapeDosage_ :
+        static member FormDosage_ :
             (PatientDosage -> Dosage) * (Dosage -> PatientDosage -> PatientDosage) =
-            _.ShapeDosage,
-            (fun sd pd -> { pd with ShapeDosage = sd })
+            _.FormDosage,
+            (fun sd pd -> { pd with FormDosage = sd })
 
         static member SubstanceDosages_ :
             (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
@@ -205,7 +205,7 @@ module Types =
             (fun d sd -> { sd with SubstanceDosages = d })
 
 
-    /// A trade product id and label for a ShapeDosage
+    /// A trade product id and label for a FormDosage
     type TradeProductLabel =
         { HPK : int; Label : string }
         static member HPK_ :
@@ -220,7 +220,7 @@ module Types =
             (fun lbl tp -> { tp with Label = lbl })
 
 
-    /// A generic product id and label for a ShapeDosage
+    /// A generic product id and label for a FormDosage
     type GenericProductLabel =
         { GPK : int; Label : string }
         static member GPK_ :
@@ -235,13 +235,13 @@ module Types =
             (fun lbl tp -> { tp with Label = lbl })
 
 
-    /// A ShapeDosage the shapes that can be given
+    /// A FormDosage the forms that can be given
     /// by a route and associated GenericProducts,
     /// TradeProducts and PatientDosages.
-    type ShapeDosage =
+    type FormDosage =
         {
-            /// Name of the shape the doserule applies to
-            Shape : string list
+            /// Name of the pharmaceutical form the doserule applies to
+            Form : string list
             /// TradeProducts the doserule applies to
             TradeProducts : TradeProductLabel list
             /// GenericProducts the doserule applies to
@@ -250,45 +250,45 @@ module Types =
             PatientDosages : PatientDosage list
         }
 
-        static member Shape_ :
-            (ShapeDosage -> string list) * (string list -> ShapeDosage -> ShapeDosage) =
-            _.Shape,
-            (fun s rd -> { rd with Shape = s })
+        static member Form_ :
+            (FormDosage -> string list) * (string list -> FormDosage -> FormDosage) =
+            _.Form,
+            (fun s rd -> { rd with Form = s })
 
         static member TradeProducts_ :
-            (ShapeDosage -> TradeProductLabel list) * (TradeProductLabel list -> ShapeDosage -> ShapeDosage) =
+            (FormDosage -> TradeProductLabel list) * (TradeProductLabel list -> FormDosage -> FormDosage) =
             _.TradeProducts,
             (fun tps sd -> { sd with TradeProducts = tps |> List.distinct })
 
         static member GenericProducts_ :
-            (ShapeDosage -> GenericProductLabel list) * (GenericProductLabel list -> ShapeDosage -> ShapeDosage) =
+            (FormDosage -> GenericProductLabel list) * (GenericProductLabel list -> FormDosage -> FormDosage) =
             _.GenericProducts,
             (fun tps sd -> { sd with GenericProducts = tps |> List.distinct })
 
         static member PatientDosages_ :
-            (ShapeDosage -> PatientDosage list) * (PatientDosage list -> ShapeDosage -> ShapeDosage) =
+            (FormDosage -> PatientDosage list) * (PatientDosage list -> FormDosage -> FormDosage) =
             _.PatientDosages,
             (fun pdl rd -> { rd with PatientDosages = pdl })
 
 
     /// A RouteDosage the administration routes
-    /// and associated ShapeDosages.
+    /// and associated FormDosages.
     type RouteDosage =
         {
             /// Administration route
             Route : string
-            /// The dosage rules per shape
-            ShapeDosages : ShapeDosage list
+            /// The dosage rules per pharmaceutical form
+            FormDosages : FormDosage list
         }
         static member Route_ :
             (RouteDosage -> string) * (string -> RouteDosage -> RouteDosage) =
             _.Route,
             (fun s rd -> { rd with Route = s })
 
-        static member ShapeDosages_ :
-            (RouteDosage -> ShapeDosage list) * (ShapeDosage list -> RouteDosage -> RouteDosage) =
-            _.ShapeDosages ,
-            (fun pdl rd -> { rd with ShapeDosages = pdl })
+        static member FormDosages_ :
+            (RouteDosage -> FormDosage list) * (FormDosage list -> RouteDosage -> RouteDosage) =
+            _.FormDosages ,
+            (fun pdl rd -> { rd with FormDosages = pdl })
 
 
     type IndicationDosage =
@@ -312,8 +312,8 @@ module Types =
     /// A DoseRule for a generic. The DoseRule applies to
     /// a generic and has a list of IndicationDosages.
     /// The full hierarchy is:
-    /// DoseRule -> IndicationDosage -> RouteDosage -> ShapeDosage -> PatientDosage
-    /// A PatientDosage has a ShapeDosages and/or a list of SubstanceDosages.
+    /// DoseRule -> IndicationDosage -> RouteDosage -> FormDosage -> PatientDosage
+    /// A PatientDosage has a FormDosages and/or a list of SubstanceDosages.
     type DoseRule =
         {
             /// Generic the DoseRule applies to

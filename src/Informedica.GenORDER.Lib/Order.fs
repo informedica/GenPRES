@@ -1095,7 +1095,7 @@ module Order =
             /// </summary>
             /// <param name="id">The Id of the Component</param>
             /// <param name="nm">The name of the Component</param>
-            /// <param name="sh">The shape of the Component</param>
+            /// <param name="frm">The form of the Component</param>
             /// <param name="cmp_qty">The quantity of the Component</param>
             /// <param name="orb_qty">The quantity of the Component in the Orderable</param>
             /// <param name="orb_cnt">The count of the Component in the Orderable</param>
@@ -1107,7 +1107,7 @@ module Order =
             let create
                 id
                 nm
-                sh
+                frm
                 cmp_qty
                 orb_qty
                 orb_cnt
@@ -1119,7 +1119,7 @@ module Order =
                 {
                     Id = id
                     Name = nm
-                    Shape = sh
+                    Form = frm
                     ComponentQuantity = cmp_qty
                     OrderableQuantity = orb_qty
                     OrderableCount = orb_cnt
@@ -1137,8 +1137,8 @@ module Order =
             /// <param name="id">The Id of the Component</param>
             /// <param name="orbN">The name of the Orderable</param>
             /// <param name="cmpN">The name of the Component</param>
-            /// <param name="sh">The shape of the Component</param>
-            let createNew id orbN cmpN sh =
+            /// <param name="frm">The form of the Component</param>
+            let createNew id orbN cmpN frm =
                 let un = Unit.NoUnit
                 let nm = [ id; orbN; cmpN ] |> Name.create
                 let id = Id.create id
@@ -1151,7 +1151,7 @@ module Order =
                 let orb_cnc = let n = nm |> Name.add Literals.orb in Concentration.create n un un
                 let dos     = Dose.createNew nm
 
-                create id (cmpN |> Name.fromString) sh cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos []
+                create id (cmpN |> Name.fromString) frm cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos []
 
 
             let applyToItems pred f cmp =
@@ -1226,7 +1226,7 @@ module Order =
 
                 cmp.Items
                 |> List.map (Item.fromOrdVars ovars)
-                |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
             /// <summary>
@@ -1244,7 +1244,7 @@ module Order =
 
                 cmp.Items
                 |> List.map Item.applyConstraints
-                |> create cmp.Id cmp.Name cmp.Shape cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
+                |> create cmp.Id cmp.Name cmp.Form cmp_qty orb_qty orb_cnt ord_qty ord_cnt orb_cnc dos
 
 
             let isOrderableConcentrationCleared cmp = (cmp |> inf).OrderableConcentration |> Concentration.isCleared
@@ -1506,7 +1506,7 @@ module Order =
                 type Dto () =
                     member val Id = "" with get, set
                     member val Name = "" with get, set
-                    member val Shape = "" with get, set
+                    member val Form = "" with get, set
                     member val ComponentQuantity = OrderVariable.Dto.dto () with get, set
                     member val OrderableQuantity = OrderVariable.Dto.dto () with get, set
                     member val OrderableCount = OrderVariable.Dto.dto () with get, set
@@ -1521,7 +1521,7 @@ module Order =
 
                     let id = dto.Id |> Id.create
                     let n = dto.Name |> Name.fromString
-                    let s = dto.Shape
+                    let s = dto.Form
                     let cmp_qty = dto.ComponentQuantity |> Quantity.fromDto
                     let orb_qty = dto.OrderableQuantity |> Quantity.fromDto
                     let orb_cnt = dto.OrderableCount    |> Count.fromDto
@@ -1541,7 +1541,7 @@ module Order =
                     let dto = Dto ()
 
                     dto.Name <- cmp.Name |> Name.toString
-                    dto.Shape <- cmp.Shape
+                    dto.Form <- cmp.Form
                     dto.ComponentQuantity <-
                         cmp.ComponentQuantity
                         |> Quantity.toDto
@@ -1576,9 +1576,9 @@ module Order =
                 /// <param name="id">The Id of the Component</param>
                 /// <param name="orbN">The name of the Orderable</param>
                 /// <param name="cmpN">The name of the Component</param>
-                /// <param name="shape">The shape of the Component</param>
-                let dto id orbN cmpN shape =
-                    createNew id orbN cmpN shape
+                /// <param name="form">The form of the Component</param>
+                let dto id orbN cmpN form =
+                    createNew id orbN cmpN form
                     |> toDto
 
 
@@ -3942,9 +3942,9 @@ module Order =
                                     [|
                                         if cmpQty |> textBlockIsEmpty |> not then
                                             if i1 = 0 && cItms |> Array.isEmpty |> not then
-                                                c.Shape |> Valid
+                                                c.Form |> Valid
                                             else
-                                                $"{c.Shape} ({c.Name |> Name.toString})"
+                                                $"{c.Form} ({c.Name |> Name.toString})"
                                                 |> Valid
 
                                             cmpQty
@@ -3958,7 +3958,7 @@ module Order =
                                     [|
                                         if cmpQty |> textBlockIsEmpty |> not then
                                             if i1 = 0 && i2 = 0 then
-                                                c.Shape |> Valid
+                                                c.Form |> Valid
 
                                                 c |> Orderable.Component.Print.componentOrderableQuantityTo printMd -1
                                                 |> wrap Caution (c.OrderableQuantity |> Quantity.toOrdVar)
@@ -4238,8 +4238,8 @@ module Order =
 
             dto.Orderable.Components <-
                 [
-                    for cmpN, shape, itms in cmps do
-                        let c = Orderable.Component.Dto.dto id orbN cmpN shape
+                    for cmpN, form, itms in cmps do
+                        let c = Orderable.Component.Dto.dto id orbN cmpN form
                         c.Items <-
                             itms
                             |> List.map (Orderable.Item.Dto.dto id orbN cmpN)

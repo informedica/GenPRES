@@ -21,7 +21,7 @@ module Parenteralia =
         type State =
             {
                 Generic: string option
-                Shape: string option
+                Form: string option
                 Route: string option
             }
 
@@ -29,14 +29,14 @@ module Parenteralia =
         type Msg =
             | Clear
             | GenericChange of string option
-            | ShapeChange of string option
+            | FormChange of string option
             | RouteChange of string option
 
 
         let empty =
             {
                 Generic = None
-                Shape = None
+                Form = None
                 Route = None
             }
 
@@ -47,7 +47,7 @@ module Parenteralia =
                 | Resolved form ->
                     {
                         Generic = form.Generic //|> Option.orElse gen
-                        Shape = form.Shape //|> Option.orElse ind
+                        Form = form.Form //|> Option.orElse ind
                         Route = form.Route //|> Option.orElse rte
                     }
                 | _ -> empty
@@ -83,16 +83,16 @@ module Parenteralia =
 
                 { state with Generic = s }, Cmd.none
 
-            | ShapeChange s ->
+            | FormChange s ->
                 match parentaralia with
                 | Resolved par ->
                     if s |> Option.isNone then Parenteralia.empty
                     else
-                        { par with Shape = s }
+                        { par with Form = s }
                     |> updateParenteralia
                 | _ -> ()
 
-                { state with Shape = s }, Cmd.none
+                { state with Form = s }, Cmd.none
 
             | RouteChange s ->
                 match parentaralia with
@@ -201,7 +201,7 @@ module Parenteralia =
                     }
                     {
                         match props.parenteralia with
-                        | Resolved par -> false, par.Shape, par.Shapes
+                        | Resolved par -> false, par.Form, par.Forms
                         | _ -> true, None, [||]
                         |> fun (isLoading, sel, items) ->
                             if items |> Array.isEmpty then JSX.jsx "<></>"
@@ -209,10 +209,10 @@ module Parenteralia =
                                 if isMobile then
                                     items
                                     |> Array.map (fun s -> s, s)
-                                    |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Shapes") state.Shape (ShapeChange >> dispatch)
+                                    |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") state.Form (FormChange >> dispatch)
                                 else
                                     items
-                                    |> autoComplete isLoading (Terms.``Formulary Indications`` |> getTerm "Shapes") state.Shape (ShapeChange >> dispatch)
+                                    |> autoComplete isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") state.Form (FormChange >> dispatch)
                     }
                     {
                         match props.parenteralia with

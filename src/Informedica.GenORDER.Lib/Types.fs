@@ -158,8 +158,8 @@ module Types =
             Id : Id
             // The name of a Component
             Name: Name
-            // The shape of a component
-            Shape : string
+            // The pharmaceutical form of a component
+            Form : string
             // The quantity of a Component
             ComponentQuantity: Quantity
             // The quantity of a Component in an Orderable
@@ -332,8 +332,8 @@ module Types =
         {
             // The name of the product
             Name : string
-            // The shape of the product
-            Shape : string
+            // The pharmaceutical form of the product
+            Form : string
             // The quantities of the product
             // Note: the first (main) component has the same unit as
             // the DrugOrder unit
@@ -433,8 +433,8 @@ module Types =
             Name : string
             // The indication for the order
             Indication : string
-            // The shape of the order
-            Shape : string
+            // The pharmaceutical form of the order
+            Form : string
             // The route of the order
             Route : string
             // The dose type of the order
@@ -479,8 +479,8 @@ module Types =
             Generics: string []
             // The list of routes to select from
             Routes: string []
-            // The list of shapes to select from
-            Shapes: string []
+            // The list of pharmaceutical forms to select from
+            Forms: string []
             // The possible dose types
             DoseTypes : DoseType []
             // The list of diluents to choose from
@@ -493,8 +493,8 @@ module Types =
             Generic: string option
             // The selected route
             Route: string option
-            // The selected shape
-            Shape: string option
+            // The selected pharmaceutical form
+            Form: string option
             // The selected dose type
             DoseType : DoseType option
             // The diluent to use
@@ -511,7 +511,7 @@ module Types =
             | Indication of int
             | Generic of int
             | Route of int
-            | Shape of int
+            | Form of int
             | DoseType of int
             | Diluent of int
             | Component of int list

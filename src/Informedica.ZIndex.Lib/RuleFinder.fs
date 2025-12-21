@@ -33,8 +33,8 @@ module RuleFinder =
         {
             Patient = { Age = None; Weight = None; BSA = None }
             Product =
-                { Generic = ""; Shape = ""; Route = "" }
-                |> GenericShapeRoute
+                { Generic = ""; Form = ""; Route = "" }
+                |> GenericFormRoute
         }
 
 
@@ -46,9 +46,9 @@ module RuleFinder =
     /// <param name="bsa">Body Surface Area</param>
     /// <param name="gpk">Generic Product Id</param>
     /// <param name="gen">Generic name</param>
-    /// <param name="shp">Shape</param>
+    /// <param name="frm">Form</param>
     /// <param name="rte">Route</param>
-    let createFilter age wght bsa gpk gen shp rte =
+    let createFilter age wght bsa gpk gen frm rte =
         let pat = { Age = age; Weight = wght; BSA = bsa }
         let prod =
             if gpk |> Option.isSome then
@@ -57,9 +57,9 @@ module RuleFinder =
             else
                 {
                     Generic = gen
-                    Shape = shp
+                    Form = frm
                     Route = rte
-                } |> GenericShapeRoute
+                } |> GenericFormRoute
         {
             Patient = pat
             Product = prod
@@ -84,13 +84,13 @@ module RuleFinder =
         let r =
             match prod with
             | GPKRoute (_, route)   -> route
-            | GenericShapeRoute gsr -> gsr.Route
+            | GenericFormRoute gsr -> gsr.Route
             |> createRoute
 
         match prod with
         | GPKRoute (gpk, _) -> [| gpk |]
-        | GenericShapeRoute gsr ->
-            GenPresProduct.filter gsr.Generic gsr.Shape gsr.Route
+        | GenericFormRoute gsr ->
+            GenPresProduct.filter gsr.Generic gsr.Form gsr.Route
             |> Array.collect (fun gpp ->
                 gpp.GenericProducts
                 |> Array.map _.Id

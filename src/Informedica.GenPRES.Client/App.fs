@@ -147,7 +147,7 @@ module private Elmish =
     // * dp: department
     // * md: medication
     // * rt: route
-    // * sh: shape
+    // * fr: form
     // * in: indication
     // * dt: dosetype
     let parseUrl sl =
@@ -297,7 +297,7 @@ module private Elmish =
                     indication = paramsMap |> Map.tryFind "in"
                     medication = paramsMap |> Map.tryFind "md"
                     route = paramsMap |> Map.tryFind "rt"
-                    shape = paramsMap |> Map.tryFind "sh"
+                    form = paramsMap |> Map.tryFind "fr"
                     dosetype =
                         paramsMap
                         |> Map.tryFind "dt"
@@ -315,7 +315,7 @@ module private Elmish =
             None, None, None, true, None
 
 
-    let initialState pat page lang discl (med : {| indication: string option; medication: string option; route: string option; shape: string option; dosetype: DoseType option |} option) =
+    let initialState pat page lang discl (med : {| indication: string option; medication: string option; route: string option; form: string option; dosetype: DoseType option |} option) =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue LifeSupport
@@ -328,7 +328,7 @@ module private Elmish =
                 match med with
                 | None -> HasNotStartedYet
                 | Some m ->
-                    OrderContext.empty |> OrderContext.setMedication m.indication m.medication m.route m.shape m.dosetype
+                    OrderContext.empty |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                     |> Resolved
             TreatmentPlan =
                 match pat with
@@ -398,7 +398,7 @@ module private Elmish =
                             Indication = ctx.Filter.Indication
                             Generic = ctx.Filter.Medication
                             Route = ctx.Filter.Route
-                            Shape = ctx.Filter.Shape
+                            Form = ctx.Filter.Form
                             DoseType = ctx.Filter.DoseType
                         }
                     )
@@ -407,7 +407,7 @@ module private Elmish =
                     |> Deferred.map (fun par ->
                         { par with
                             Generic = ctx.Filter.Medication
-                            Shape = ctx.Filter.Shape
+                            Form = ctx.Filter.Form
                             Route = ctx.Filter.Route
                         }
                     )
@@ -555,11 +555,11 @@ module private Elmish =
                         | InProgress -> state.OrderContext
                         | HasNotStartedYet ->
                             OrderContext.empty
-                            |> OrderContext.setMedication m.indication m.medication m.route m.shape m.dosetype 
+                            |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype 
                             |> Resolved
                         | Resolved ctx ->
                             ctx
-                            |> OrderContext.setMedication m.indication m.medication m.route m.shape m.dosetype
+                            |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                             |> Resolved
                 Context =
                     { state.Context with
@@ -913,20 +913,20 @@ module private Elmish =
                                     { ctx.Filter with
                                         Indication = form.Indication
                                         Medication = form.Generic
-                                        Shape = form.Shape
+                                        Form = form.Form
                                         Route = form.Route
                                         DoseType = form.DoseType
                                         Diluent =
                                             if form.Indication = ctx.Filter.Indication &&
                                                form.Generic = ctx.Filter.Medication &&
                                                form.Route = ctx.Filter.Route &&
-                                               form.Shape = ctx.Filter.Shape then ctx.Filter.Diluent
+                                               form.Form = ctx.Filter.Form then ctx.Filter.Diluent
                                             else None
                                         SelectedComponents =
                                             if form.Indication = ctx.Filter.Indication &&
                                                form.Generic = ctx.Filter.Medication &&
                                                form.Route = ctx.Filter.Route &&
-                                               form.Shape = ctx.Filter.Shape then ctx.Filter.SelectedComponents
+                                               form.Form = ctx.Filter.Form then ctx.Filter.SelectedComponents
                                             else [||]
 
                                     }
@@ -939,7 +939,7 @@ module private Elmish =
                             { par with
                                 Generic = form.Generic
                                 Route = form.Route
-                                Shape = form.Shape
+                                Form = form.Form
                             }
                         )
                 }
@@ -976,7 +976,7 @@ module private Elmish =
                                 Indication = None
                                 Generic = par.Generic
                                 Route = par.Route
-                                Shape = par.Shape
+                                Form = par.Form
                                 DoseType = None
                             }
                         )
@@ -988,18 +988,18 @@ module private Elmish =
                                     { ctx.Filter with
                                         Indication = None
                                         Medication = par.Generic
-                                        Shape = par.Shape
+                                        Form = par.Form
                                         Route = par.Route
                                         DoseType = None
                                         Diluent =
                                             if par.Generic = ctx.Filter.Medication &&
                                                par.Route = ctx.Filter.Route &&
-                                               par.Shape = ctx.Filter.Shape then ctx.Filter.Diluent
+                                               par.Form = ctx.Filter.Form then ctx.Filter.Diluent
                                             else None
                                         SelectedComponents =
                                             if par.Generic = ctx.Filter.Medication &&
                                                par.Route = ctx.Filter.Route &&
-                                               par.Shape = ctx.Filter.Shape then ctx.Filter.SelectedComponents
+                                               par.Form = ctx.Filter.Form then ctx.Filter.SelectedComponents
                                             else [||]
 
                                     }

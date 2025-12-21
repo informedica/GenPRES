@@ -11,8 +11,8 @@ module Resources =
     type IResourceProvider =
         abstract member GetUnitMappings : unit -> UnitMapping[]
         abstract member GetRouteMappings : unit -> RouteMapping[]
-        abstract member GetValidShapes : unit -> string[]
-        abstract member GetShapeRoutes : unit -> ShapeRoute[]
+        abstract member GetValidForms : unit -> string[]
+        abstract member GetFormRoutes : unit -> FormRoute[]
         abstract member GetFormularyProducts : unit -> FormularyProduct[]
         abstract member GetReconstitution : unit -> Reconstitution[]
         abstract member GetParenteralMeds : unit -> Product[]
@@ -34,8 +34,8 @@ module Resources =
         {
             UnitMappings: UnitMapping []
             RouteMappings: RouteMapping []
-            ValidShapes: string []
-            ShapeRoutes: ShapeRoute []
+            ValidForms: string []
+            FormRoutes: FormRoute []
             FormularyProducts: FormularyProduct []
             Reconstitution: Reconstitution []
             ParenteralMeds: Product []
@@ -52,8 +52,8 @@ module Resources =
         interface IResourceProvider with
             member this.GetUnitMappings() = this.UnitMappings
             member this.GetRouteMappings() = this.RouteMappings
-            member this.GetValidShapes() = this.ValidShapes
-            member this.GetShapeRoutes() = this.ShapeRoutes
+            member this.GetValidForms() = this.ValidForms
+            member this.GetFormRoutes() = this.FormRoutes
             member this.GetFormularyProducts() = this.FormularyProducts
             member this.GetReconstitution() = this.Reconstitution
             member this.GetParenteralMeds() = this.ParenteralMeds
@@ -73,8 +73,8 @@ module Resources =
         interface IResourceProvider with
             member _.GetUnitMappings() = state.UnitMappings
             member _.GetRouteMappings() = state.RouteMappings
-            member _.GetValidShapes() = state.ValidShapes
-            member _.GetShapeRoutes() = state.ShapeRoutes
+            member _.GetValidForms() = state.ValidForms
+            member _.GetFormRoutes() = state.FormRoutes
             member _.GetFormularyProducts() = state.FormularyProducts
             member _.GetReconstitution() = state.Reconstitution
             member _.GetParenteralMeds() = state.ParenteralMeds
@@ -93,8 +93,8 @@ module Resources =
     let createProvider
         unitMappings
         routeMappings
-        validShapes
-        shapeRoutes
+        validForms
+        formRoutes
         formularyProducts
         reconstitution
         parenteralMeds
@@ -108,8 +108,8 @@ module Resources =
         let state = {
             UnitMappings = unitMappings
             RouteMappings = routeMappings
-            ValidShapes = validShapes
-            ShapeRoutes = shapeRoutes
+            ValidForms = validForms
+            FormRoutes = formRoutes
             FormularyProducts = formularyProducts
             Reconstitution = reconstitution
             ParenteralMeds = parenteralMeds
@@ -130,8 +130,8 @@ module Resources =
         {
             GetUnitMappings: unit -> GenFormResult<UnitMapping []>
             GetRouteMappings: unit -> GenFormResult<RouteMapping []>
-            GetValidShapes: unit -> GenFormResult<string []>
-            GetShapeRoutes: UnitMapping [] -> GenFormResult<ShapeRoute []>
+            GetValidForms: unit -> GenFormResult<string []>
+            GetFormRoutes: UnitMapping [] -> GenFormResult<FormRoute []>
             GetFormularyProducts: unit -> GenFormResult<FormularyProduct []>
             GetReconstitution: unit -> GenFormResult<Reconstitution []>
             GetParenteralMeds: UnitMapping[] -> GenFormResult<Product []>
@@ -140,7 +140,7 @@ module Resources =
                 UnitMapping[] ->
                 RouteMapping[] ->
                 string[] ->
-                ShapeRoute[] ->
+                FormRoute[] ->
                 Reconstitution[] ->
                 Product[] ->
                 Product[] ->
@@ -148,7 +148,7 @@ module Resources =
                 Product[]
             GetDoseRules:
                 RouteMapping[] ->
-                ShapeRoute[] ->
+                FormRoute[] ->
                 Product[] ->
                 GenFormResult<DoseRule []>
             GetSolutionRules:
@@ -168,8 +168,8 @@ module Resources =
         {
             GetUnitMappings = Mapping.getUnitMapping dataUrlId |> delay
             GetRouteMappings = Mapping.getRouteMapping dataUrlId |> delay
-            GetValidShapes = Mapping.getValidShapes dataUrlId |> delay
-            GetShapeRoutes = Mapping.getShapeRoutes dataUrlId
+            GetValidForms = Mapping.getValidForms dataUrlId |> delay
+            GetFormRoutes = Mapping.getFormRoutes dataUrlId
             GetFormularyProducts = fun () -> Product.getFormularyProducts dataUrlId
             GetReconstitution = Product.Reconstitution.get dataUrlId |> delay
             GetParenteralMeds = Product.Parenteral.get dataUrlId
@@ -187,8 +187,8 @@ module Resources =
             result {
                 let! unitMappings, unitMsgs = config.GetUnitMappings()
                 let! routeMappings, routeMsgs = config.GetRouteMappings()
-                let! validShapes, shapeMsgs = config.GetValidShapes()
-                let! shapeRoutes, shapeRouteMsgs = config.GetShapeRoutes unitMappings
+                let! validForms, formMsgs = config.GetValidForms()
+                let! formRoutes, formRouteMsgs = config.GetFormRoutes unitMappings
                 let! formularyProducts, formularyMsgs = config.GetFormularyProducts()
                 let! reconstitution, reconstitutionMsgs = config.GetReconstitution ()
                 let! parenteralMeds, parenteralMsgs = config.GetParenteralMeds unitMappings
@@ -197,8 +197,8 @@ module Resources =
                     config.GetProducts
                         unitMappings
                         routeMappings
-                        validShapes
-                        shapeRoutes
+                        validForms
+                        formRoutes
                         reconstitution
                         parenteralMeds
                         enteralFeeding
@@ -206,7 +206,7 @@ module Resources =
                 let! doseRules, doseRuleMsgs =
                     config.GetDoseRules
                         routeMappings
-                        shapeRoutes
+                        formRoutes
                         products
                 let! solutionRules, solutionMsgs =
                     config.GetSolutionRules
@@ -219,8 +219,8 @@ module Resources =
                     {
                         UnitMappings = unitMappings
                         RouteMappings = routeMappings
-                        ValidShapes = validShapes
-                        ShapeRoutes = shapeRoutes
+                        ValidForms = validForms
+                        FormRoutes = formRoutes
                         FormularyProducts = formularyProducts
                         Reconstitution = reconstitution
                         ParenteralMeds = parenteralMeds
@@ -233,8 +233,8 @@ module Resources =
                             [|
                                 yield! unitMsgs
                                 yield! routeMsgs
-                                yield! shapeMsgs
-                                yield! shapeRouteMsgs
+                                yield! formMsgs
+                                yield! formRouteMsgs
                                 yield! formularyMsgs
                                 yield! reconstitutionMsgs
                                 yield! parenteralMsgs
@@ -265,8 +265,8 @@ module Resources =
     let createTestResourceConfig
         (unitMappings: UnitMapping[])
         (routeMappings: RouteMapping[])
-        (validShapes: string[])
-        (shapeRoutes: ShapeRoute[])
+        (validForms: string[])
+        (formRoutes: FormRoute[])
         (formularyProducts: FormularyProduct[])
         (reconstitution: Reconstitution[])
         (enteralFeeding: Product[])
@@ -275,8 +275,8 @@ module Resources =
         {
             GetUnitMappings = failwith "Not implemented"
             GetRouteMappings = failwith "Not implemented"
-            GetValidShapes = failwith "Not implemented"
-            GetShapeRoutes = failwith "Not implemented"
+            GetValidForms = failwith "Not implemented"
+            GetFormRoutes = failwith "Not implemented"
             GetFormularyProducts = failwith "Not implemented"
             GetReconstitution = failwith "Not implemented"
             GetEnteralFeeding = failwith "Not implemented"
@@ -311,8 +311,8 @@ module Resources =
                 {
                     UnitMappings = [||]
                     RouteMappings = [||]
-                    ValidShapes = [||]
-                    ShapeRoutes = [||]
+                    ValidForms = [||]
+                    FormRoutes = [||]
                     FormularyProducts = [||]
                     Reconstitution = [||]
                     EnteralFeeding = [||]
@@ -342,8 +342,8 @@ module Resources =
         interface IResourceProvider with
             member this.GetUnitMappings() = this.getFromCache _.UnitMappings
             member this.GetRouteMappings() = this.getFromCache _.RouteMappings
-            member this.GetValidShapes() = this.getFromCache _.ValidShapes
-            member this.GetShapeRoutes() = this.getFromCache _.ShapeRoutes
+            member this.GetValidForms() = this.getFromCache _.ValidForms
+            member this.GetFormRoutes() = this.getFromCache _.FormRoutes
             member this.GetFormularyProducts() = this.getFromCache _.FormularyProducts
             member this.GetReconstitution() = this.getFromCache _.Reconstitution
             member this.GetEnteralFeeding() = this.getFromCache _.EnteralFeeding
@@ -402,34 +402,12 @@ module Api =
     let getRenalRules (provider : IResourceProvider) = provider.GetRenalRules()
 
 
-    (*
-    let getUnitMappings () = cachedApiProvider.GetUnitMappings()
-    let getValidShapes () = cachedApiProvider.GetValidShapes()
-    let getShapeRoutes () = cachedApiProvider.GetShapeRoutes()
-    let getFormularyProducts () = cachedApiProvider.GetFormularyProducts()
-    let getReconstitution () = cachedApiProvider.GetReconstitution()
-    let getEnteralFeeding () = cachedApiProvider.GetEnteralFeeding()
-    let getParenteralMeds () = cachedApiProvider.GetParenteralMeds()
-    let getProducts () = cachedApiProvider.GetProducts()
-    let getResourceInfo () = cachedApiProvider.GetResourceInfo()
-    *)
-
     // Filtering functions using cached mappings
 
 
     let filterDoseRules (provider: IResourceProvider) filter doseRules =
         let routeMappings = getRouteMapping provider
         DoseRule.filter routeMappings filter doseRules
-
-    (*
-    let filterRenalRules filter renalRules =
-        let routeMappings = getRouteMappings()
-        RenalRule.filter routeMappings filter renalRules
-
-    let filterProducts filter products =
-        let routeMappings = getRouteMappings()
-        Product.filter routeMappings filter products
-    *)
 
 
     let getPrescriptionRules (provider: IResourceProvider) =
@@ -439,12 +417,6 @@ module Api =
         let renalRules = getRenalRules provider
 
         PrescriptionRule.getForPatient doseRules solutionRules renalRules routeMappings
-
-    (*
-    let filterDoseRulesWithFilter filter =
-        getDoseRules()
-        |> filterDoseRules filter
-    *)
 
 
     let filterPrescriptionRules (provider: IResourceProvider) filter : GenFormResult<PrescriptionRule array> =

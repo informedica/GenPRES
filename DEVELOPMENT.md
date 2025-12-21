@@ -348,7 +348,7 @@ This project uses an opt-in strategy for `.gitignore`:
 For development, use these environment variables. Proper configuration is essential to avoid resource loading issues (see [Issue #44](https://github.com/informedica/GenPRES/issues/44) for troubleshooting guidance):
 
 ```bash
-export GENPRES_URL_ID=1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4  # Default demo data URL
+export GENPRES_URL_ID=1JHOrasAZ_2fcVApYpt1qT2lZBsqrAxN-9SvBisXkbsM  # Default demo data URL
 export GENPRES_LOG=1          # Logging level (1 = enabled)
 export GENPRES_PROD=0         # Must be 0 for demo version
 export GENPRES_DEBUG=1        # Enable debug mode

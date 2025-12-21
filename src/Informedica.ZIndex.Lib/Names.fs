@@ -11,10 +11,10 @@ module Names =
 
     /// Map item to TSNR, i.e. the item number in BST902T
     let mapItem = function
-        | Shape -> 6
+        | Form -> 6
         | Route -> 7
         | GenericUnit -> 2
-        | ShapeUnit -> 2
+        | FormUnit -> 2
         | PrescriptionContainer -> 73
         | ConsumerContainer -> 4
 
@@ -90,10 +90,10 @@ module Names =
         |> Memoization.memoize
 
 
-    /// All the shape names in the thesaurus.
-    let getShapes =
+    /// All the pharmaceutical form names in the thesaurus.
+    let getForms =
         fun () ->
-            getItems Shape Fifty
+            getItems Form Fifty
             |> Array.map snd
         |> Memoization.memoize
 
@@ -106,10 +106,10 @@ module Names =
         |> Memoization.memoize
 
 
-    /// All the shape unit names in the thesaurus.
-    let getShapeUnits =
+    /// All the pharmaceutical form unit names in the thesaurus.
+    let getFormUnits =
         fun () ->
-            getItems ShapeUnit TwentyFive
+            getItems FormUnit TwentyFive
             |> Array.map snd
         |> Memoization.memoize
 

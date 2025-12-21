@@ -38,9 +38,9 @@ open Informedica.ZIndex.Lib
 { Patient = { Age = Some 12.
               Weight = Some 10.
               BSA = None }
-  Product = GenericShapeRoute { Generic = "paracetamol"
-                                Shape = "zetpil"
-                                Route = "rectaal" } }
+  Product = GenericFormRoute { Generic = "paracetamol"
+                               Form = "zetpil"
+                               Route = "rectaal" } }
 |> RuleFinder.find []
 //|> Array.skip 1
 //|> Array.take 1

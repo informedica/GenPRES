@@ -115,7 +115,7 @@ Cutanuous medication with only a frequency constraint
                 { 
                     Medication.productComponent with 
                         Name = "paracetamol"
-                        Shape = "supp"
+                        Form = "supp"
                         Quantities = 
                             1N
                             |> ValueUnit.singleWithUnit Units.Count.times
@@ -157,7 +157,7 @@ Another paracetamol example. However now we have a paracetamol solution. This me
                 { 
                     Medication.productComponent with 
                         Name = "paracetamol"
-                        Shape = "drink"
+                        Form = "drink"
                         Quantities = 
                             100N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -207,7 +207,7 @@ Now do this for a more complicated example in which a ``Component``, i.e. a prod
                 { 
                     Medication.productComponent with 
                         Name = "cotrimoxazol"
-                        Shape = "tablet"
+                        Form = "tablet"
                         Quantities = 
                             1N
                             |> ValueUnit.singleWithUnit Units.Count.times
@@ -263,7 +263,7 @@ The same *cotrimoxazol* example, but now contained in a drinkable solution.
                 { 
                     Medication.productComponent with 
                         Name = "cotrimoxazol"
-                        Shape = "drink"
+                        Form = "drink"
                         Quantities = 
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -326,7 +326,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
                 { 
                     Medication.productComponent with
                         Name = "dopamin"
-                        Shape = "infusion fluid"
+                        Form = "infusion fluid"
                         Quantities = 
                             5N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -347,7 +347,7 @@ But a ``Component`` cannot only have multiple ``Items``, multiple ``Components``
                 { 
                     Medication.productComponent with
                         Name = "saline"
-                        Shape = "infusion fluid"
+                        Form = "infusion fluid"
                         Quantities = 
                             5000N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -403,7 +403,7 @@ A different way to calculate the same dopamine pump infusion order.
                 { 
                     Medication.productComponent with
                         Name = "dopamin"
-                        Shape = "infusion fluid"
+                        Form = "infusion fluid"
                         Quantities = 
                             5N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -424,7 +424,7 @@ A different way to calculate the same dopamine pump infusion order.
                 { 
                     Medication.productComponent with
                         Name = "saline"
-                        Shape = "infusion fluid"
+                        Form = "infusion fluid"
                         Quantities = 
                             5000N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -475,7 +475,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
                 { 
                     Medication.productComponent with
                         Name = "gentamicin"
-                        Shape = "infusion fluid"
+                        Form = "infusion fluid"
                         Quantities = 
                             [| 2N; 10N |]
                             |> ValueUnit.withUnit Units.Volume.milliLiter
@@ -496,7 +496,7 @@ An even more complicated example is the calculation of gentamicin, an antibiotic
                 { 
                     Medication.productComponent with
                         Name = "saline"
-                        Shape = "infusion fluid"
+                        Form = "infusion fluid"
                         Quantities = 
                             5000N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter

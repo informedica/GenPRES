@@ -7,7 +7,7 @@ open System
 
 Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4")
+Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1JHOrasAZ_2fcVApYpt1qT2lZBsqrAxN-9SvBisXkbsM")
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
@@ -39,7 +39,7 @@ module GenFormResult =
 let provider : Resources.IResourceProvider =
     Api.getCachedProviderWithDataUrlId
         OrderLogging.noOp
-        "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4"
+        "1JHOrasAZ_2fcVApYpt1qT2lZBsqrAxN-9SvBisXkbsM"
 
 
 
@@ -160,7 +160,7 @@ let printScenarios path pat (scs: Result<OrderContext,(string * OrderContext)> l
                                                 doseType = dt |> DoseType.toDescription
                                                 shapes =
                                                     scs
-                                                    |> Array.groupBy _.Shape
+                                                    |> Array.groupBy _.Form
                                                     |> Array.map (fun (s, scs) ->
                                                         {|
                                                             shape = s

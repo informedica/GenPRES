@@ -48,8 +48,8 @@ module Filters =
         getPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let getShapes logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.shapes
+    let getForms logger (provider: IResourceProvider) =
+        getPrescriptionRules logger provider >> PrescriptionRule.forms
 
 
     let getFrequencies logger  (provider: IResourceProvider) =
@@ -68,8 +68,8 @@ module Filters =
         filterPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let filterShapes logger (provider: IResourceProvider) =
-        filterPrescriptionRules logger provider >> PrescriptionRule.shapes
+    let filterForms logger (provider: IResourceProvider) =
+        filterPrescriptionRules logger provider >> PrescriptionRule.forms
 
 
     let filterDoseTypes logger (provider: IResourceProvider) =
@@ -112,13 +112,13 @@ module OrderScenario =
                 | Alert _ -> s |> Alert
 
 
-    let create no nm ind shp rte dst dil cmp itm dils cmps itms ord adj ren rrl ids : OrderScenario
+    let create no nm ind frm rte dst dil cmp itm dils cmps itms ord adj ren rrl ids : OrderScenario
         =
         {
             No = no
             Name = nm
             Indication = ind
-            Shape = shp
+            Form = frm
             Route = rte
             DoseType = dst
             Diluent = dil
@@ -194,7 +194,7 @@ module OrderScenario =
             no
             pr.DoseRule.Generic
             pr.DoseRule.Indication
-            pr.DoseRule.Shape
+            pr.DoseRule.Form
             pr.DoseRule.Route
             pr.DoseRule.DoseType
             dil
@@ -477,14 +477,14 @@ module OrderContext =
                 Indications = prs |> PrescriptionRule.indications
                 Generics = prs |> PrescriptionRule.generics
                 Routes = prs |> PrescriptionRule.routes
-                Shapes= prs |> PrescriptionRule.shapes
+                Forms= prs |> PrescriptionRule.forms
                 DoseTypes = prs |> PrescriptionRule.doseTypes
                 Diluents = [||]
                 Components = [||]
                 Indication = None
                 Generic = None
                 Route = None
-                Shape = None
+                Form = None
                 DoseType = None
                 Diluent = None
                 SelectedComponents = [||]
@@ -511,9 +511,9 @@ module OrderContext =
             let rte =
                 if ctx.Filter.Route.IsSome then ctx.Filter.Route
                 else ctx.Filter.Routes |> Array.someIfOne
-            let shp =
-                if ctx.Filter.Shape.IsSome then ctx.Filter.Shape
-                else ctx.Filter.Shapes |> Array.someIfOne
+            let frm =
+                if ctx.Filter.Form.IsSome then ctx.Filter.Form
+                else ctx.Filter.Forms |> Array.someIfOne
             let dst =
                 if ctx.Filter.DoseType.IsSome then ctx.Filter.DoseType
                 else ctx.Filter.DoseTypes |> Array.someIfOne
@@ -523,7 +523,7 @@ module OrderContext =
                     Indication = ind
                     Generic = gen
                     Route = rte
-                    Shape = shp
+                    Form = frm
                     DoseType = dst
                     Diluent = ctx.Filter.Diluent
                     Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
@@ -544,13 +544,13 @@ module OrderContext =
             let inds = doseFilter |> filterIndications logger provider
             let gens = doseFilter |> filterGenerics logger provider
             let rtes = doseFilter |> filterRoutes logger provider
-            let shps = doseFilter |> filterShapes logger provider
+            let frms = doseFilter |> filterForms logger provider
             let dsts = doseFilter |> filterDoseTypes logger provider
 
             let ind = inds |> Array.someIfOne
             let gen = gens |> Array.someIfOne
             let rte = rtes |> Array.someIfOne
-            let shp = shps |> Array.someIfOne
+            let frm = frms |> Array.someIfOne
             let dst = dsts |> Array.someIfOne
 
             { ctx with
@@ -559,16 +559,16 @@ module OrderContext =
                         Indications = inds
                         Generics = gens
                         Routes = rtes
-                        Shapes = shps
+                        Forms = frms
                         DoseTypes = dsts
                         Indication = ind
                         Generic = gen
                         Route = rte
-                        Shape = shp
+                        Form = frm
                         DoseType = dst
                     }
             },
-            match ind, gen, rte, shp, dst with
+            match ind, gen, rte, frm, dst with
             | Some _, Some _, Some _, _,      Some _
             | Some _, Some _, _,      Some _, Some _ ->
 
@@ -576,7 +576,7 @@ module OrderContext =
                     Indication = ind
                     Generic = gen
                     Route = rte
-                    Shape = shp
+                    Form = frm
                     DoseType = dst
                 }
                 |> Api.filterPrescriptionRules provider
@@ -613,11 +613,11 @@ module OrderContext =
                     | FilterItem.Route n ->
                         ctx.Filter.Routes |> tryItem n
                     | _ -> ctx.Filter.Routes
-                OrderContext.Filter.Shapes =
+                OrderContext.Filter.Forms =
                     match item with
-                    | FilterItem.Shape n ->
-                        ctx.Filter.Shapes |> tryItem n
-                    | _ -> ctx.Filter.Shapes
+                    | FilterItem.Form n ->
+                        ctx.Filter.Forms |> tryItem n
+                    | _ -> ctx.Filter.Forms
                 OrderContext.Filter.DoseTypes =
                     match item with
                     | FilterItem.DoseType n ->
@@ -654,8 +654,8 @@ module OrderContext =
         { ctx with OrderContext.Filter.Indication = Some ind }
 
 
-    let setFilterShape shp ctx =
-        { ctx with OrderContext.Filter.Shape = Some shp }
+    let setFilterForm frm ctx =
+        { ctx with OrderContext.Filter.Form = Some frm }
 
 
     let checkDiluentChange (ctx: OrderContext) =
@@ -728,14 +728,14 @@ Order State: {sc.Order |> OrderProcessor.printState}
 Patient: {ctx.Patient |> Patient.toString}
 Indication: {ctx.Filter.Indication |> Option.defaultValue ""}
 Generic: {ctx.Filter.Generic |> Option.defaultValue ""}
-Shape: {ctx.Filter.Shape |> Option.defaultValue ""}
+Form: {ctx.Filter.Form |> Option.defaultValue ""}
 Route: {ctx.Filter.Route |> Option.defaultValue ""}
 DoseType: {ctx.Filter.DoseType}
 Diluent: {ctx.Filter.Diluent |> Option.defaultValue ""}
 SelectedComponents: {ctx.Filter.SelectedComponents |> printArray}
 Indications: {ctx.Filter.Indications |> printArray}
 Generics: {ctx.Filter.Generics |> printArray}
-Shapes: {ctx.Filter.Shapes |> printArray}
+Forms: {ctx.Filter.Forms |> printArray}
 Routes: {ctx.Filter.Routes |> printArray}
 DoseTypes: {ctx.Filter.DoseTypes |> Array.map DoseType.toString |> printArray}
 Diluents : {ctx.Filter.Diluents |> printArray}
@@ -779,7 +779,7 @@ Scenarios: {scenarios}
             { ctx with
                 Filter =
                     { ctx.Filter with
-                        Shape = Some sc.Shape
+                        Form = Some sc.Form
                         Diluent = sc.Diluent
                         // set once mechanism, so when a scenario has only
                         // one diluent, the others are still available
@@ -842,7 +842,7 @@ Scenarios: {scenarios}
         else
             { ctx with
                 Scenarios =
-                    // Note: different prescription rules can exist based on multiple shapes
+                    // Note: different prescription rules can exist based on multiple pharmaceutical forms
                     // and multiple solution rules
                     prs
                     |> evaluateRules logger
@@ -944,17 +944,17 @@ module Formulary =
         |> Api.filterDoseRules provider filter
 
 
-    let getSolutionRules provider generic shape route =
+    let getSolutionRules provider generic form route =
         Api.getSolutionRules provider
         |> Array.filter (fun sr ->
             generic
             |> Option.map (String.equalsCapInsens sr.Generic)
             |> Option.defaultValue true &&
-            sr.Shape
+            sr.Form
             |> Option.map (fun s ->
-                if shape |> Option.isNone then true
+                if form |> Option.isNone then true
                 else
-                    shape.Value
+                    form.Value
                     |> String.equalsCapInsens s
             ) |> Option.defaultValue true &&
             route

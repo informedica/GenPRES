@@ -159,9 +159,9 @@ module Tests =
             }
 
             test "always has a short and a full name" {
-                Names.getItems Names.ShapeUnit Names.TwentyFive
+                Names.getItems Names.FormUnit Names.TwentyFive
                 |> Array.map snd
-                |> Array.zip (Names.getItems Names.ShapeUnit Names.Fifty |> Array.map snd)
+                |> Array.zip (Names.getItems Names.FormUnit Names.Fifty |> Array.map snd)
                 |> Array.map (fun (l, s) ->
                     l |> String.trim |> String.toLower,
                     s |> String.trim |> String.toLower
@@ -236,8 +236,8 @@ module Tests =
             test "can take 200 genpresproducts" {
                 // GenPres product
                 GenPresProduct.get []
-                |> Seq.sortBy (fun gpp -> gpp.Name, gpp.Shape, gpp.Routes)
-                |> Seq.map (fun gpp -> $"""{gpp.Name}, {gpp.Shape}, {gpp.Routes |> String.concat "/"}""")
+                |> Seq.sortBy (fun gpp -> gpp.Name, gpp.Form, gpp.Routes)
+                |> Seq.map (fun gpp -> $"""{gpp.Name}, {gpp.Form}, {gpp.Routes |> String.concat "/"}""")
                 |> Seq.take 200
                 |> Seq.length
                 |> Expect.equal "should be 200" 200
@@ -596,7 +596,7 @@ module Tests =
 
             test "should be unique by name, shape and routes" {
                 GenPresProduct.get []
-                |> Array.map (fun gpp -> gpp.Name, gpp.Shape, gpp.Routes)
+                |> Array.map (fun gpp -> gpp.Name, gpp.Form, gpp.Routes)
                 |> Array.distinct
                 |> Array.length
                 |> Expect.equal "should all be distinct" tot
@@ -607,7 +607,7 @@ module Tests =
                 |> Array.filter (fun gpp ->
                     let dbls =
                         GenPresProduct.get []
-                        |> Array.filter (fun gpp_ -> gpp.Name = gpp_.Name && gpp.Shape = gpp_.Shape)
+                        |> Array.filter (fun gpp_ -> gpp.Name = gpp_.Name && gpp.Form = gpp_.Form)
                     dbls |> Array.length > 1
                 )
                 |> Array.isEmpty

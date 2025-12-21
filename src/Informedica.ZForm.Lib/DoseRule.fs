@@ -1454,7 +1454,7 @@ module DoseRule =
 
 
 
-    /// A PatientDosage is a ShapeDosage or list of SubstanceDosages
+    /// A PatientDosage is a FormDosage or list of SubstanceDosages
     /// for a specific patient group.
     module PatientDosage =
 
@@ -1463,7 +1463,7 @@ module DoseRule =
         let create pat =
             {
                 Patient = pat
-                ShapeDosage = Dosage.empty
+                FormDosage = Dosage.empty
                 SubstanceDosages = []
             }
 
@@ -1479,11 +1479,11 @@ module DoseRule =
             let getPatient =
                 Optic.get PatientDosage.Patient_
 
-            let setShapeDosage =
-                Optic.set PatientDosage.ShapeDosage_
+            let setFormDosage =
+                Optic.set PatientDosage.FormDosage_
 
-            let getShapeDosage =
-                Optic.get PatientDosage.ShapeDosage_
+            let getFormDosage =
+                Optic.get PatientDosage.FormDosage_
 
             let setSubstanceDosages =
                 Optic.set PatientDosage.SubstanceDosages_
@@ -1492,15 +1492,14 @@ module DoseRule =
                 Optic.get PatientDosage.SubstanceDosages_
 
 
-
         module Dto =
 
 
             type Dto() =
                 // The patient group the doserules applies
                 member val Patient = PatientCategory.Dto.dto () with get, set
-                // List of shapes that have a dosage
-                member val ShapeDosage = Dosage.Dto.dto () with get, set
+                // List of forms that have a dosage
+                member val FormDosage = Dosage.Dto.dto () with get, set
                 // List of substances that have a dosage
                 member val SubstanceDosages: Dosage.Dto.Dto list = [] with get, set
 
@@ -1512,7 +1511,7 @@ module DoseRule =
                 | Some p ->
                     p
                     |> create
-                    |> Optics.setShapeDosage (dto.ShapeDosage |> Dosage.Dto.fromDto)
+                    |> Optics.setFormDosage (dto.FormDosage |> Dosage.Dto.fromDto)
                     |> Optics.setSubstanceDosages (
                         dto.SubstanceDosages
                         |> List.map Dosage.Dto.fromDto
@@ -1524,16 +1523,16 @@ module DoseRule =
                 let dto = dto ()
 
                 dto.Patient <- pd.Patient |> PatientCategory.Dto.toDto
-                dto.ShapeDosage <- pd.ShapeDosage |> Dosage.Dto.toDto
+                dto.FormDosage <- pd.FormDosage |> Dosage.Dto.toDto
                 dto.SubstanceDosages <- pd.SubstanceDosages |> List.map Dosage.Dto.toDto
 
                 dto
 
 
 
-    /// A ShapeDosage is a Dosage for a specific Shape,
+    /// A FormDosage is a Dosage for a specific pharamaceutical form,
     /// and related GenericProducts and TradeProducts.
-    module ShapeDosage =
+    module FormDosage =
 
 
         module TradeProduct =
@@ -1643,20 +1642,20 @@ module DoseRule =
 
 
         /// <summary>
-        /// Create a ShapeDosage.
+        /// Create a FormDosage.
         /// </summary>
-        /// <param name="shps">The list of Shapes</param>
+        /// <param name="frms">The list of Forms</param>
         /// <param name="gps">The list of GenericProducts</param>
         /// <param name="tps">The list of TradeProducts</param>
         /// <remarks>
-        /// If the list of Shapes is empty, None is returned.
+        /// If the list of Forms is empty, None is returned.
         /// </remarks>
-        let create shps gps tps =
-            if shps |> List.exists String.isNullOrWhiteSpace then
+        let create frms gps tps =
+            if frms |> List.exists String.isNullOrWhiteSpace then
                 None
             else
                 {
-                    Shape = shps
+                    Form = frms
                     GenericProducts = gps
                     TradeProducts = tps
                     PatientDosages = []
@@ -1668,36 +1667,36 @@ module DoseRule =
         module Optics =
 
             let genericProducts =
-                ShapeDosage.GenericProducts_
+                FormDosage.GenericProducts_
 
             let tradeProducts =
-                ShapeDosage.TradeProducts_
+                FormDosage.TradeProducts_
 
             let patientDosages =
-                ShapeDosage.PatientDosages_
+                FormDosage.PatientDosages_
 
 
-            let setShape = Optic.set ShapeDosage.Shape_
+            let setForm = Optic.set FormDosage.Form_
 
-            let getShape = Optic.get ShapeDosage.Shape_
+            let getForm = Optic.get FormDosage.Form_
 
             let setTradeProducts =
-                Optic.set ShapeDosage.TradeProducts_
+                Optic.set FormDosage.TradeProducts_
 
             let getTradeProducts =
-                Optic.get ShapeDosage.TradeProducts_
+                Optic.get FormDosage.TradeProducts_
 
             let setGenericProducts =
-                Optic.set ShapeDosage.GenericProducts_
+                Optic.set FormDosage.GenericProducts_
 
             let getGenericProducts =
-                Optic.get ShapeDosage.GenericProducts_
+                Optic.get FormDosage.GenericProducts_
 
             let setPatientDosages =
-                Optic.set ShapeDosage.PatientDosages_
+                Optic.set FormDosage.PatientDosages_
 
             let getPatientDosages =
-                Optic.get ShapeDosage.PatientDosages_
+                Optic.get FormDosage.PatientDosages_
 
 
         module Dto =
@@ -1705,7 +1704,7 @@ module DoseRule =
             module GenericProduct = GenericProduct
 
             type Dto() =
-                member val Shape: string list = [] with get, set
+                member val Form: string list = [] with get, set
                 member val TradeProducts: TradeProduct.Dto.Dto list = [] with get, set
                 member val GenericProducts: GenericProduct.Dto.Dto list = [] with get, set
                 member val PatientDosages: PatientDosage.Dto.Dto list = [] with get, set
@@ -1713,10 +1712,10 @@ module DoseRule =
 
             let dto () = Dto()
 
-            let toDto (sd: ShapeDosage) =
+            let toDto (sd: FormDosage) =
                 let dto = dto ()
 
-                dto.Shape <- sd.Shape
+                dto.Form <- sd.Form
 
                 dto.GenericProducts <-
                     sd.GenericProducts
@@ -1731,7 +1730,7 @@ module DoseRule =
 
             let fromDto (dto: Dto) =
                 create [] [] []
-                |> Option.bind ((Optics.setShape dto.Shape) >> Some)
+                |> Option.bind (Optics.setForm dto.Form >> Some)
                 |> Option.bind (
                     (Optics.setGenericProducts (
                         dto.GenericProducts
@@ -1758,7 +1757,7 @@ module DoseRule =
 
 
 
-    /// A RouteDosage are a ShapeDosages for a specific Route.
+    /// A RouteDosage are a FormDosages for a specific Route.
     module RouteDosage =
 
 
@@ -1773,26 +1772,26 @@ module DoseRule =
             if rt |> String.isNullOrWhiteSpace then
                 None
             else
-                { Route = rt; ShapeDosages = [] } |> Some
+                { Route = rt; FormDosages = [] } |> Some
 
 
 
         module Optics =
 
-            let getShapeDosage n =
-                List.pos_ n >?> RouteDosage.ShapeDosages_
+            let getFormDosage n =
+                List.pos_ n >?> RouteDosage.FormDosages_
 
-            let shapeDosages = RouteDosage.ShapeDosages_
+            let formDosages = RouteDosage.FormDosages_
 
             let setRoute = Optic.set RouteDosage.Route_
 
             let getRoute = Optic.get RouteDosage.Route_
 
-            let setShapeDosages =
-                Optic.set RouteDosage.ShapeDosages_
+            let setFormDosages =
+                Optic.set RouteDosage.FormDosages_
 
-            let getShapeDosages =
-                Optic.get RouteDosage.ShapeDosages_
+            let getFormDosages =
+                Optic.get RouteDosage.FormDosages_
 
 
 
@@ -1800,7 +1799,7 @@ module DoseRule =
 
             type Dto() =
                 member val Route = "" with get, set
-                member val ShapeDosages: ShapeDosage.Dto.Dto list = [] with get, set
+                member val FormDosages: FormDosage.Dto.Dto list = [] with get, set
 
 
             let dto () = Dto()
@@ -1810,7 +1809,7 @@ module DoseRule =
                 let dto = dto ()
 
                 dto.Route <- rd.Route
-                dto.ShapeDosages <- rd.ShapeDosages |> List.map ShapeDosage.Dto.toDto
+                dto.FormDosages <- rd.FormDosages |> List.map FormDosage.Dto.toDto
 
                 dto
 
@@ -1818,9 +1817,9 @@ module DoseRule =
             let fromDto (dto: Dto) =
                 create dto.Route
                 |> Option.bind (
-                    Optics.setShapeDosages (
-                        dto.ShapeDosages
-                        |> List.map ShapeDosage.Dto.fromDto
+                    Optics.setFormDosages (
+                        dto.FormDosages
+                        |> List.map FormDosage.Dto.fromDto
                         |> List.filter Option.isSome
                         |> List.map Option.get
                     )
@@ -1935,8 +1934,8 @@ module DoseRule =
     let createRouteDosage = RouteDosage.create
 
 
-    /// Create a ShapeDosage.
-    let createShapeDosage = ShapeDosage.create
+    /// Create a FormDosage.
+    let createFormDosage = FormDosage.create
 
 
     /// Create a PatientDosage.
@@ -1985,18 +1984,18 @@ module DoseRule =
 
 
     /// <summary>
-    /// Try find the indexs of a ShapeDosage in a DoseRule.
+    /// Try find the indexs of a FormDosage in a DoseRule.
     /// </summary>
     /// <param name="inds">The list of Indications</param>
     /// <param name="rt">The Route</param>
-    /// <param name="shp">The Shape</param>
+    /// <param name="frm">The Form</param>
     /// <param name="dr">The DoseRule</param>
-    let indxShape inds rt shp dr =
+    let indxForm inds rt frm dr =
         match dr |> indxRoute inds rt with
         | Some (ni, nr) ->
             match dr.IndicationsDosages[ni].RouteDosages[nr]
-                      .ShapeDosages
-                  |> List.tryFindIndex (fun sd -> sd.Shape = shp)
+                      .FormDosages
+                  |> List.tryFindIndex (fun sd -> sd.Form = frm)
                 with
             | Some ns -> (ni, nr, ns) |> Some
             | None -> None
@@ -2008,14 +2007,14 @@ module DoseRule =
     /// </summary>
     /// <param name="inds">The list of Indications</param>
     /// <param name="rt">The Route</param>
-    /// <param name="shp">The Shape</param>
+    /// <param name="frm">The Form</param>
     /// <param name="pat">The PatientCategory</param>
     /// <param name="dr">The DoseRule</param>
-    let indxPatient inds rt shp pat dr =
-        match dr |> indxShape inds rt shp with
+    let indxPatient inds rt frm pat dr =
+        match dr |> indxForm inds rt frm with
         | Some (ni, nr, ns) ->
             match dr.IndicationsDosages[ni].RouteDosages[nr]
-                      .ShapeDosages[ns]
+                      .FormDosages[ns]
                       .PatientDosages
                   |> List.tryFindIndex (fun rd -> rd.Patient = pat)
                 with
@@ -2082,80 +2081,79 @@ module DoseRule =
                 | None -> dr
 
 
-        let shapeDosagesPrism n1 n2 =
+        let formDosagesPrism n1 n2 =
             indDosDosagesLens n1
-            >?> RouteDosage.Optics.getShapeDosage n2
-        //List.pos_ n2 >?> RouteDosage.ShapeDosages_
+            >?> RouteDosage.Optics.getFormDosage n2
 
 
-        let getShapeDosages inds rt dr =
+        let getFormDosages inds rt dr =
 
             match dr |> indxRoute inds rt with
             | Some (ni, nr) ->
-                match dr |> Optic.get (shapeDosagesPrism ni nr) with
+                match dr |> Optic.get (formDosagesPrism ni nr) with
                 | Some pds -> pds
                 | None -> []
             | None -> []
 
 
-        let setShapeDosages inds rt pds dr =
+        let setFormDosages inds rt pds dr =
 
             match dr |> indxRoute inds rt with
-            | Some (ni, nr) -> dr |> Optic.set (shapeDosagesPrism ni nr) pds
+            | Some (ni, nr) -> dr |> Optic.set (formDosagesPrism ni nr) pds
             | None -> dr
 
 
-        let addShape inds rt shp dr =
-            match createShapeDosage shp [] [] with
+        let addForm inds rt frm dr =
+            match createFormDosage frm [] [] with
             | None -> dr
-            | Some shpd ->
+            | Some frmd ->
 
-                match dr |> indxShape inds rt shp with
+                match dr |> indxForm inds rt frm with
                 | Some _ -> dr
                 | None ->
                     let pds =
                         dr
-                        |> getShapeDosages inds rt
-                        |> List.prepend [ shpd ]
+                        |> getFormDosages inds rt
+                        |> List.prepend [ frmd ]
 
-                    dr |> setShapeDosages inds rt pds
-
-
-        let shapeDosagePrism n1 n2 n3 =
-            shapeDosagesPrism n1 n2 >?> List.pos_ n3
+                    dr |> setFormDosages inds rt pds
 
 
-        let inline private shapeDosageProductsGetter prism inds rt shp dr =
-            match dr |> indxShape inds rt shp with
+        let formDosagePrism n1 n2 n3 =
+            formDosagesPrism n1 n2 >?> List.pos_ n3
+
+
+        let inline private formDosageProductsGetter prism inds rt frm dr =
+            match dr |> indxForm inds rt frm with
             | Some (ni, nr, ns) ->
                 dr
-                |> Optic.get ((shapeDosagePrism ni nr ns) >?> prism)
+                |> Optic.get (formDosagePrism ni nr ns >?> prism)
             | None -> None
 
 
-        let inline private shapeDosageProductsSetter prism inds rt shp ps dr =
-            match dr |> indxShape inds rt shp with
+        let inline private formDosageProductsSetter prism inds rt frm ps dr =
+            match dr |> indxForm inds rt frm with
             | Some (ni, nr, ns) ->
                 dr
-                |> Optic.set ((shapeDosagePrism ni nr ns) >?> prism) ps
+                |> Optic.set (formDosagePrism ni nr ns >?> prism) ps
             | None -> dr
 
 
         let setGenericProducts =
-            shapeDosageProductsSetter ShapeDosage.Optics.genericProducts
+            formDosageProductsSetter FormDosage.Optics.genericProducts
 
 
         let setTradeProducts =
-            shapeDosageProductsSetter ShapeDosage.Optics.tradeProducts
+            formDosageProductsSetter FormDosage.Optics.tradeProducts
 
 
         let patientDosagesPrism n1 n2 n3 =
-            shapeDosagePrism n1 n2 n3
-            >?> ShapeDosage.Optics.patientDosages
+            formDosagePrism n1 n2 n3
+            >?> FormDosage.Optics.patientDosages
 
 
-        let getPatientDosages inds rt shp dr =
-            match dr |> indxShape inds rt shp with
+        let getPatientDosages inds rt frm dr =
+            match dr |> indxForm inds rt frm with
             | Some (ni, nr, ns) ->
                 match dr |> Optic.get (patientDosagesPrism ni nr ns) with
                 | Some sds -> sds
@@ -2163,21 +2161,21 @@ module DoseRule =
             | None -> []
 
 
-        let setPatientDosages inds rt shp pds dr =
-            match dr |> indxShape inds rt shp with
+        let setPatientDosages inds rt frm pds dr =
+            match dr |> indxForm inds rt frm with
             | Some (ni, nr, ns) -> dr |> Optic.set (patientDosagesPrism ni nr ns) pds
             | None -> dr
 
-        let addPatient inds rt shp pat dr =
-            match dr |> indxPatient inds rt shp pat with
+        let addPatient inds rt frm pat dr =
+            match dr |> indxPatient inds rt frm pat with
             | Some _ -> dr
             | None ->
                 let pds =
                     dr
-                    |> getPatientDosages inds rt shp
+                    |> getPatientDosages inds rt frm
                     |> List.prepend [ createPatientDosage pat ]
 
-                dr |> setPatientDosages inds rt shp pds
+                dr |> setPatientDosages inds rt frm pds
 
 
         let patientDosagePrism n1 n2 n3 n4 =
@@ -2189,8 +2187,8 @@ module DoseRule =
             >?> PatientDosage.SubstanceDosages_
 
 
-        let getSubstanceDosages inds rt shp pat dr =
-            match dr |> indxPatient inds rt shp pat with
+        let getSubstanceDosages inds rt frm pat dr =
+            match dr |> indxPatient inds rt frm pat with
             | Some (ni, nr, np, ns) ->
                 match
                     dr
@@ -2201,8 +2199,8 @@ module DoseRule =
             | None -> []
 
 
-        let setSubstanceDosages inds rt shp pat sds dr =
-            match dr |> indxPatient inds rt shp pat with
+        let setSubstanceDosages inds rt frm pat sds dr =
+            match dr |> indxPatient inds rt frm pat with
             | Some (ni, nr, np, ns) ->
                 dr
                 |> Optic.set (substanceDosagesPrism ni nr np ns) sds
@@ -2227,8 +2225,8 @@ module DoseRule =
                             id.RouteDosages
                             |> List.map (fun rd ->
                                 { rd with
-                                    ShapeDosages =
-                                        rd.ShapeDosages
+                                    FormDosages =
+                                        rd.FormDosages
                                         |> List.map (fun sd ->
                                             { sd with
                                                 PatientDosages =
@@ -2325,9 +2323,9 @@ Synoniemen: {synonym}
 * _Route_: {route}
 """
 
-    let mdShapeText =
+    let mdFormText =
         """
-  * _Vorm_: {shape}
+  * _Vorm_: {form}
   * _Producten_:
   * {products}
 """
@@ -2350,7 +2348,7 @@ Synoniemen: {synonym}
             MainText: string
             IndicationText: string
             RouteText: string
-            ShapeText: string
+            FormText: string
             PatientText: string
             DosageText: string
         }
@@ -2362,7 +2360,7 @@ Synoniemen: {synonym}
             MainText = mdText
             IndicationText = mdIndicationText
             RouteText = mdRouteText
-            ShapeText = mdShapeText
+            FormText = mdFormText
             PatientText = mdPatientText
             DosageText = mdDosageText
         }
@@ -2388,71 +2386,70 @@ Synoniemen: {synonym}
         |> String.replace "{thersub}" dr.ATCTherapySubGroup
         |> String.replace "{gengroup}" dr.GenericGroup
         |> String.replace "{gensub}" dr.GenericSubGroup
-        |> (fun s ->
-            dr.IndicationsDosages
-            |> List.fold
-                (fun acc id ->
-                    let ind =
-                        id.Indications |> String.concat ", "
+        |> fun s ->
+           dr.IndicationsDosages
+           |> List.fold
+               (fun acc id ->
+                   let ind =
+                       id.Indications |> String.concat ", "
 
-                    id.RouteDosages
-                    |> List.fold
-                        (fun acc rd ->
+                   id.RouteDosages
+                   |> List.fold
+                       (fun acc rd ->
 
-                            rd.ShapeDosages
-                            |> List.fold
-                                (fun acc sd ->
-                                    let shapeStr =
-                                        config.ShapeText
-                                        |> String.replace "{shape}" (sd.Shape |> String.concat ",")
-                                        |> String.replace "{products}" (sd.GenericProducts |> gpsToString)
+                           rd.FormDosages
+                           |> List.fold
+                               (fun acc sd ->
+                                   let formStr =
+                                       config.FormText
+                                       |> String.replace "{form}" (sd.Form |> String.concat ",")
+                                       |> String.replace "{products}" (sd.GenericProducts |> gpsToString)
 
-                                    sd.PatientDosages
-                                    |> List.fold
-                                        (fun acc pd ->
-                                            let pat =
-                                                if
-                                                    pd.Patient
-                                                    |> PatientCategory.toString
-                                                    |> String.isNullOrWhiteSpace then "alle patienten"
-                                                else
-                                                    pd.Patient
-                                                    |> PatientCategory.toString
+                                   sd.PatientDosages
+                                   |> List.fold
+                                       (fun acc pd ->
+                                           let pat =
+                                               if
+                                                   pd.Patient
+                                                   |> PatientCategory.toString
+                                                   |> String.isNullOrWhiteSpace then "alle patienten"
+                                               else
+                                                   pd.Patient
+                                                   |> PatientCategory.toString
 
-                                            let s =
-                                                (config.PatientText
-                                                 |> String.replace "{patient}" pat)
-                                                + ("{dosage}"
-                                                   |> String.replace
-                                                       "{dosage}"
-                                                       (pd.ShapeDosage |> Dosage.toString printRules))
+                                           let s =
+                                               (config.PatientText
+                                                |> String.replace "{patient}" pat)
+                                               + ("{dosage}"
+                                                  |> String.replace
+                                                      "{dosage}"
+                                                      (pd.FormDosage |> Dosage.toString printRules))
 
-                                            pd.SubstanceDosages
-                                            |> List.fold
-                                                (fun acc sd ->
+                                           pd.SubstanceDosages
+                                           |> List.fold
+                                               (fun acc sd ->
 
-                                                    acc
-                                                    + (config.DosageText
-                                                       |> String.replace "{dosage}" (sd |> Dosage.toString printRules))
+                                                   acc
+                                                   + (config.DosageText
+                                                      |> String.replace "{dosage}" (sd |> Dosage.toString printRules))
 
-                                                )
-                                                (acc + s)
+                                               )
+                                               (acc + s)
 
-                                        )
-                                        (acc + shapeStr)
+                                       )
+                                       (acc + formStr)
 
-                                )
-                                (acc
-                                 + (config.RouteText
-                                    |> String.replace "{route}" rd.Route))
+                               )
+                               (acc
+                                + (config.RouteText
+                                   |> String.replace "{route}" rd.Route))
 
-                        )
-                        (acc
-                         + (config.IndicationText
-                            |> String.replace "{indication}" ind))
-                )
-                s
-        )
+                       )
+                       (acc
+                        + (config.IndicationText
+                           |> String.replace "{indication}" ind))
+               )
+               s
 
 
     /// Get the Markdown text of a DoseRule.

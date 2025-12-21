@@ -8,7 +8,7 @@ module ATCGroup =
     open ConsoleWriter.NewLineNoTime
 
     /// Create a ATC group.
-    let create atc1 ang ange atc2 thg thge atc3 ths thse atc4 phg phge atc5 sub sube gen shp rts =
+    let create atc1 ang ange atc2 thg thge atc3 ths thse atc4 phg phge atc5 sub sube gen frm rts =
         {
             ATC1 = atc1
             AnatomicalGroup = ang
@@ -26,7 +26,7 @@ module ATCGroup =
             Substance = sub
             SubstanceEng = sube
             Generic = gen
-            Shape = shp
+            Form = frm
             Routes = rts
         }
 
@@ -53,7 +53,7 @@ module ATCGroup =
             join subs in Zindex.BST801T.records ()
                 on (gpk.ATCODE.Substring(0, 7) = subs.ATCODE.Trim())
 
-            let shape = Names.getThes gpk.GPKTVR Names.Shape Names.Fifty
+            let form = Names.getThes gpk.GPKTVR Names.Form Names.Fifty
 
             let generic =
                 query {
@@ -140,7 +140,7 @@ module ATCGroup =
                    Substance = subs.ATOMS.Trim()
                    SubstanceEng = subs.ATOMSE.Trim()
                    Generic = generic
-                   Shape = shape
+                   Form = form
                    Routes = route
                }
         }
@@ -226,15 +226,15 @@ module ATCGroup =
                                     |> Array.tryHead
                                     |> Option.defaultValue ""
                                 Label = gp.Label
-                                Shape = gpp.Shape
-                                ShapeQuantity =
+                                Form = gpp.Form
+                                FormQuantity =
                                     gp.PrescriptionProducts
                                     |> Array.fold (fun acc pp ->
                                         if pp.Quantity <> acc then pp.Quantity else acc
                                     ) 1.0
                                     |> fun v -> if v <= 0. then 1. else v
-                                ShapeVol = ""
-                                ShapeUnit = gpp.Unit
+                                FormVol = ""
+                                FormUnit = gpp.Unit
                                 Substance = s.SubstanceName
                                 SubstanceQuantity = s.SubstanceQuantity
                                 SubstanceUnit = s.SubstanceUnit
@@ -260,10 +260,10 @@ module ATCGroup =
                     r.Synonyms |> strToStr
                     r.Product |> strToStr
                     r.Label |> strToStr
-                    r.Shape |> String.toLower |> strToStr
-                    r.ShapeQuantity |> strToStr
-                    r.ShapeVol
-                    r.ShapeUnit |> String.toLower |> strToStr
+                    r.Form |> String.toLower |> strToStr
+                    r.FormQuantity |> strToStr
+                    r.FormVol
+                    r.FormUnit |> String.toLower |> strToStr
                     r.Substance |> String.toLower |> strToStr
                     r.SubstanceQuantity |> strToStr
                     r.SubstanceUnit |> String.toLower |> strToStr
@@ -286,10 +286,10 @@ module ATCGroup =
                     "Synonyms"
                     "Product"
                     "Label"
-                    "Shape"
-                    "ShapeQuantity"
-                    "ShapeVol"
-                    "ShapeUnit"
+                    "Form"
+                    "FormQuantity"
+                    "FormVol"
+                    "FormUnit"
                     "Substance"
                     "SubstanceQuantity"
                     "SubstanceUnit"

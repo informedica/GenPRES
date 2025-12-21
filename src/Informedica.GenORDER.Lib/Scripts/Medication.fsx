@@ -6,7 +6,7 @@
 
 System.Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
 System.Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
-System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1xhFPiF-e5rMkk7BRSfbOF-XGACeHInWobxRbjYU0_w4")
+System.Environment.SetEnvironmentVariable("GENPRES_URL_ID", "1JHOrasAZ_2fcVApYpt1qT2lZBsqrAxN-9SvBisXkbsM")
 
 #load "load.fsx"
 
@@ -31,7 +31,7 @@ let cotrim =
                     {
                         Medication.productComponent with
                             Name = "cotrimoxazol"
-                            Shape = "tablet"
+                            Form = "tablet"
                             Quantities =
                                 1N
                                 |> ValueUnit.singleWithUnit Units.Count.times
@@ -108,7 +108,7 @@ let tpnComplete =
             }
         Dose =
             { DoseLimit.limit with
-                DoseLimitTarget = "vloeistof" |> LimitTarget.ShapeLimitTarget
+                DoseLimitTarget = "vloeistof" |> FormLimitTarget
                 AdjustUnit = Units.Weight.kiloGram |> Some
                 QuantityAdjust =
                     { MinMax.empty with
@@ -131,7 +131,7 @@ let tpnComplete =
                 {
                     Medication.productComponent with
                         Name = "Samenstelling C"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -267,7 +267,7 @@ let tpnComplete =
                 {
                     Medication.productComponent with
                         Name = "NaCl 3%"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -329,7 +329,7 @@ let tpnComplete =
                 {
                     Medication.productComponent with
                         Name = "KCl 7,4%"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -391,7 +391,7 @@ let tpnComplete =
                 {
                     Medication.productComponent with
                         Name = "gluc 10%"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -452,7 +452,7 @@ let tpn =
             }
         Dose =
             { DoseLimit.limit with
-                DoseLimitTarget = "vloeistof" |> LimitTarget.ShapeLimitTarget
+                DoseLimitTarget = "vloeistof" |> FormLimitTarget
                 AdjustUnit = Units.Weight.kiloGram |> Some
                 QuantityAdjust =
                     { MinMax.empty with
@@ -475,7 +475,7 @@ let tpn =
                 {
                     Medication.productComponent with
                         Name = "Samenstelling C"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -571,7 +571,7 @@ let tpn =
                 {
                     Medication.productComponent with
                         Name = "NaCl 3%"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -625,7 +625,7 @@ let tpn =
                 {
                     Medication.productComponent with
                         Name = "KCl 7,4%"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -679,7 +679,7 @@ let tpn =
                 {
                     Medication.productComponent with
                         Name = "gluc 10%"
-                        Shape = "vloeistof"
+                        Form = "vloeistof"
                         Quantities =
                             1N
                             |> ValueUnit.singleWithUnit Units.Volume.milliLiter
@@ -698,6 +698,7 @@ let tpn =
                             ]
                 }
             ]
+        Quantities = failwith "Not Implemented"
     }
 
 

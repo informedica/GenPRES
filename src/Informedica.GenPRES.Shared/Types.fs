@@ -199,7 +199,7 @@ module Types =
         {
             Id: string
             Name: string
-            Shape: string
+            Form: string
             ComponentQuantity: OrderVariable
             OrderableQuantity: OrderVariable
             OrderableCount: OrderVariable
@@ -388,13 +388,13 @@ module Types =
             Indications: string []
             Medications: string []
             Routes: string []
-            Shapes: string []
+            Forms: string []
             DoseTypes: DoseType []
             Diluents: string []
             Components: string []
             Indication: string option
             Medication: string option
-            Shape: string option
+            Form: string option
             Route: string option
             DoseType: DoseType option
             Diluent: string option
@@ -428,7 +428,7 @@ module Types =
         {
             Name : string
             Indication: string
-            Shape: string
+            Form: string
             Route: string
             DoseType: DoseType
             Diluent : string option
@@ -476,14 +476,14 @@ module Types =
             Generics: string []
             Indications: string []
             Routes: string []
-            Shapes : string []
+            Forms : string []
             DoseTypes: DoseType []
             PatientCategories: string []
             Products: string []
             Generic: string option
             Indication: string option
             Route: string option
-            Shape: string option
+            Form: string option
             DoseType : DoseType option
             PatientCategory: string option
             Patient: Patient option
@@ -494,11 +494,11 @@ module Types =
     type Parenteralia =
         {
             Generics: string []
-            Shapes: string []
+            Forms: string []
             Routes: string []
             PatientCategories: string []
             Generic: string option
-            Shape: string option
+            Form: string option
             Route: string option
             PatientCategory: string option
             Markdown: string

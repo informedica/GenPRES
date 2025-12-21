@@ -19,7 +19,7 @@ module GenericProduct =
             GenericName = gn
             GenericQuantity = gq
             GenericUnit = gu
-            ShapeUnit = un
+            FormUnit = un
             IsAdditional = ia
         }
 
@@ -32,7 +32,7 @@ module GenericProduct =
             Label = lb
             ATC = ac
             ATCName = an
-            Shape = sh
+            Form = sh
             Route = rt
             Substances = ss
             PrescriptionProducts = ps
@@ -137,7 +137,7 @@ module GenericProduct =
         Zindex.BST711T.records ()
         |> Array.filter (fun gp ->
             gp.MUTKOD <> 1 &&
-            gp.GPKTVR <> 980 && // filter shape <> "NIET VAN TOEPASSING"
+            gp.GPKTVR <> 980 && // filter form <> "NIET VAN TOEPASSING"
             (gpks |> List.isEmpty ||
              gpks
              |> List.exists ((=) gp.GPKODE)))
@@ -154,10 +154,10 @@ module GenericProduct =
                     ) with
                 | Some atc' -> atc'.ATOMS
                 | None      -> ""
-            let sh = Names.getThes gp.GPKTVR Names.Shape Names.Fifty
+            let sh = Names.getThes gp.GPKTVR Names.Form Names.Fifty
             let rt = getRoutes gp
             let ps = PrescriptionProduct.get gp.GPKODE
-            let un = Names.getThes gp.XPEHHV Names.ShapeUnit Names.Fifty
+            let un = Names.getThes gp.XPEHHV Names.FormUnit Names.Fifty
 
             let ss =
                 ps
