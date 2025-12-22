@@ -85,7 +85,7 @@ The transformation is implemented by three core systems:
 | *Reconstitution Rule* | An OKR that defines how medication must be reconstituted to enable administration (e.g., converting powder to liquid). |
 | *Renal Rule* | An OKR used to adjust the dose advice according to renal function (GFR). |
 | *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. |
-| *Patient* | A specific individual patient instance with concrete values for age, weight, BSA, etc. Used by GenORDER to match against Patient Categories and compute patient-specific Order Scenarios. |
+| *Patient* | A specific individual patient instance with concrete (or calculated values, i.e. BSA) values for age, weight, BSA, etc. Used by GenORDER to match against Patient Categories and compute patient-specific Order Scenarios. |
 | *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. |
 | *Dose Quantity* | The amount delivered per single administration. |
 | *Dose Per Time* | The accumulated dose delivered per unit time (e.g., per day). |
@@ -190,7 +190,7 @@ The constraint-based approach delivers two fundamental properties:
 **Efficiency**: By automating the constraint solving process:
 
 - Health professionals select from pre-validated options rather than manually calculating and cross-checking
-- Patient-specific adjustments (weight, BSA, renal function) are computed automatically
+- Patient-specific adjustments (weight, BSA, renal function) are computed automatically. Note: BSA and renal function are can be calculated or derived values.
 - Preparation instructions are generated directly from rules
 - Order changes propagate correctly through all dependent calculations
 
@@ -201,13 +201,13 @@ The key insight is that **safety and efficiency are not trade-offs**—they are 
 Operational Knowledge Rules (OKRs) are implemented as four rule types in `Informedica.GenFORM.Lib`. For complete rule specifications including all fields, data types, and validation requirements, see [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md).
 
 1. **Dose Rule**: Defines dosing limits per indication, generic, route, patient, and dose type
-2. **Dilution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and vascular access
+2. **Dilution Rule**: Defines preparation constraints (volumes, concentrations, drip rate, administration fraction) per patient and administration access
 3. **Reconstitution Rule**: Defines reconstitution steps (diluent volumes, expansion volumes) per generic product (GPK) and route
 4. **Renal Rule**: Defines dose adjustments based on renal function (GFR)
 
 Each rule contains:
 
-- **Selection Constraints**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Vascular Access, Component, Substance
+- **Selection Constraints**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Administration Access, Component, Substance
 - **Calculation Constraints**: Schedule, Duration, Dose Limits; Volume, Concentration, Drip Rate, Administration Fraction
 
 ### Selection and Calculation Constraints
@@ -220,7 +220,7 @@ For detailed constraint definitions by rule type, see [GenFORM Section 6: Select
 
 - **Dose Rule**: Source, Generic, Indication, Route, Setting, Patient, Dose Type, Component, Substance
 - **Reconstitution Rule**: Generic, GPK, Form, Route, Setting
-- **Dilution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Vascular Access, Patient, Dose, Substance
+- **Dilution Rule**: Generic, Form, Route, Indication, Dose Type, Setting, Administration Access, Patient, Dose, Substance
 - **Renal Rule**: Source, Generic, Indication, Patient, Renal Function
 
 #### Calculation Constraints by Rule Type
@@ -253,7 +253,7 @@ At this stage, categorical selection constraints originating from GenFORM are ap
 - Setting
 - Patient Category (the specific Patient's attributes are matched against Patient Category ranges in rules)
 - Dose Type
-- Vascular Access
+- Administration Access
 
 This stage produces a bounded rule domain that is guaranteed to contain only clinically valid rule sets.
 
@@ -330,7 +330,7 @@ The system uses a two-stage hybrid architecture that transforms Operational Know
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Selection constraint variables** (defined at rule level): Generic, Pharmaceutical Form, Route, Indication, Dose Type, Setting, Patient Category, Vascular Access
+**Selection constraint variables** (defined at rule level): Generic, Pharmaceutical Form, Route, Indication, Dose Type, Setting, Patient Category, Administration Access
 
 **Note**: Patient Category is a rule-level constraint defining ranges (e.g., age 2-12 years, weight 10-40 kg). At runtime, a specific Patient (instance) is matched against these Patient Category ranges to determine which rules apply.
 

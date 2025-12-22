@@ -97,7 +97,7 @@ module SolutionRule =
                                 Department =
                                     if r.Department |> String.isNullOrWhiteSpace then None
                                     else r.Department |> Some
-                                Location =
+                                Access =
                                     if r.CVL = "x" then CVL
                                     else
                                         if r.PVL = "x" then PVL
@@ -300,7 +300,7 @@ module SolutionRule =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
 
             let loc =
-                match sr.PatientCategory.Location with
+                match sr.PatientCategory.Access with
                 | CVL -> "###### centraal: \n* "
                 | PVL -> "###### perifeer: \n* "
                 | AnyAccess -> "* "
@@ -454,7 +454,7 @@ module SolutionRule =
                                     ||> Array.fold (fun acc (sel, rs) ->
                                         let sol =
                                             rs
-                                            |> Array.groupBy _.PatientCategory.Location
+                                            |> Array.groupBy _.PatientCategory.Access
                                             |> Array.collect (fun (_, rs) ->
                                                 rs
                                                 |> Array.tryHead

@@ -15,6 +15,9 @@
     - [6.2. Calculation Constraints](#62-calculation-constraints)
   - [7. Prescription Rules](#7-prescription-rules)
   - [8. Related Documents](#8-related-documents)
+    - [8.1. Pipeline Position](#81-pipeline-position)
+    - [8.2. Patient Category vs Patient](#82-patient-category-vs-patient)
+    - [8.3. Key Terminology Alignment](#83-key-terminology-alignment)
   - [Appendices](#appendices)
     - [Appendix A. The Medication Treatment Cycle](#appendix-a-the-medication-treatment-cycle)
     - [Appendix B.1. GenFORM Conceptual Architecture](#appendix-b1-genform-conceptual-architecture)
@@ -159,7 +162,7 @@ All OKRs can be translated to either selection or calculation constraints. The s
   - Indication  
   - Dose Type  
   - Setting  
-  - Vascular Access  
+  - Administration Access Device (e.g., CVL/PVL)
   - Patient  
   - Dose  
   - Substance  
@@ -216,9 +219,11 @@ GenFORM occupies the **first transformation stage**, responsible for:
 
 ### 8.2. Patient Category vs Patient
 
-GenFORM defines **Patient Categories** (also referred to as "Patient" in rule tables)—these are *types* of patients characterized by demographic ranges (age, weight, BSA, gestational age). A Patient Category is not a specific individual but rather a classification used to determine which rules apply.
+GenFORM defines **Patient Categories** (also referred to as "Patient" in rule tables)—these are *types* of patients characterized by demographic ranges (age, weight, BSA, gestational age). A Patient Category is not a specific individual but rather a classification used to determine which rules apply. 
 
 In contrast, [GenORDER](./genorder-operational-rules-to-orders.md) works with a specific **Patient** instance—an actual individual with concrete demographic values. GenORDER matches the Patient's attributes against GenFORM's Patient Categories to select the applicable OKRs.
+
+For a specific patient, a matching property like BSA can be calculated from weight and height (e.g., Mosteller: $\mathrm{BSA}(m^2)=\sqrt{(\mathrm{height}_{cm}\cdot\mathrm{weight}_{kg})/3600}$).
 
 ### 8.3. Key Terminology Alignment
 
@@ -426,8 +431,8 @@ Libraries:
 | Route | Route | text |  | The route |
 | Indication | Indication | text |  | The corresponding matching dose rule indication |
 | DoseType | DoseType | once / onceTimed / discontinuous / timed / continuous |  | The dosetype |
-| Vascular Access | CVL | boolean |  | Central Venous Line |
-| Vascular Access | PVL | boolean |  | Peripheral Venous Line |
+| Administration Access Device | CVL | boolean |  | Central Venous Line |
+| Administration Access Device | PVL | boolean |  | Peripheral Venous Line |
 | Setting | Location | text |  | Hospital / institute / organization |
 | Setting | Department | text |  | The department |
 | Patient | MinAge | int | day | The minimum age |

@@ -536,7 +536,7 @@ module OrderContext =
                         Height = Some h
                         Diagnoses = [||]
                         Gender = ctx.Patient.Gender
-                        Locations = ctx.Patient.Locations
+                        Access = ctx.Patient.Access
                         RenalFunction = ctx.Patient.RenalFunction
                     }
                 }

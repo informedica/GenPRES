@@ -438,7 +438,7 @@ module DoseRule =
                         PMAge =
                             (r.MinPMAge, r.MaxPMAge)
                             |> fromTupleInclExcl (Some Utils.Units.day)
-                        Location = AnyAccess
+                        Access = AnyAccess
                     }
                 DoseType = r.DoseText |> DoseType.fromString r.DoseType
                 AdjustUnit = r.AdjustUnit |> Units.adjustUnit
