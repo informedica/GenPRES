@@ -71,14 +71,15 @@ module PatientCategory =
 
     let empty : PatientCategory =
         {
-              Department = None
-              Gender = AnyGender
-              Age = MinMax.empty
-              Weight = MinMax.empty
-              BSA = MinMax.empty
-              GestAge = MinMax.empty
-              PMAge = MinMax.empty
-              Access = AnyAccess
+            Location = None
+            Department = None
+            Gender = AnyGender
+            Age = MinMax.empty
+            Weight = MinMax.empty
+            BSA = MinMax.empty
+            GestAge = MinMax.empty
+            PMAge = MinMax.empty
+            Access = AnyAccess
         }
 
 
@@ -133,9 +134,15 @@ module PatientCategory =
 
         ([| patCat |],
         [|
+            // if either filter location or patient category location is None, pass; otherwise must match
+            fun (p: PatientCategory) -> filter.Patient.Location |> eqs p.Location
+            // if either filter department or patient category department is None, pass; otherwise must match
             fun (p: PatientCategory) -> filter.Patient.Department |> eqs p.Department
+            // patient age must be within patient category age range (if specified)
             fun (p: PatientCategory) -> filter.Patient.Age |> MinMax.inRange p.Age
+            // patient weight must be within patient category weight range (if specified)
             fun (p: PatientCategory) -> filter.Patient.Weight |> MinMax.inRange p.Weight
+            // if both weight and height are given, calculate BSA and check if within patient category BSA range
             fun (p: PatientCategory) ->
                 match filter.Patient.Weight, filter.Patient.Height with
                 | Some w, Some h ->
@@ -145,7 +152,9 @@ module PatientCategory =
                 | _ -> true
             if filter.Patient.Age |> Option.isSome then
                 yield! [|
-                    // check gestational age
+                    // gestational age check: if patient category is empty (all patients), pass;
+                    // if filter has gestational age < full term and patient category has no gest/pm age, filter out;
+                    // otherwise check if gestational age (defaulting to full term) is in patient category range
                     fun (p: PatientCategory) ->
                         // all patients rule
                         if p |> isEmpty then true
@@ -162,7 +171,9 @@ module PatientCategory =
                                 |> Option.defaultValue Utils.ValueUnit.ageFullTerm
                                 |> Some
                                 |> Utils.MinMax.inRange p.GestAge
-                    // check pm age
+                    // post-menstrual age check: if patient category is empty (all patients), pass;
+                    // otherwise calculate PM age (age + gestational age, defaulting gestational to full term)
+                    // and check if within patient category PM age range
                     fun (p: PatientCategory) ->
                         // alle patients rule
                         if p |> isEmpty then true
@@ -173,7 +184,9 @@ module PatientCategory =
                             |> Some
                             |> Utils.MinMax.inRange p.PMAge
                 |]
+            // patient gender must match patient category gender (or category allows any gender)
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
+            // patient venous access must be compatible with patient category access requirements
             fun (p: PatientCategory) ->
                 VenousAccess.check p.Access filter.Patient.Access
         |])
@@ -416,6 +429,7 @@ module Patient =
     /// An empty Patient.
     let patient =
         {
+            Location = None
             Department = None
             Diagnoses = [||]
             Gender = AnyGender

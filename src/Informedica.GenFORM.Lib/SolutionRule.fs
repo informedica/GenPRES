@@ -39,8 +39,8 @@ module SolutionRule =
                 data
                 |> Array.tail
                 |> Array.map (fun r ->
-                    let get =
-                        getColumn r >> String.trim
+                    let get = getColumn r >> String.trim
+                    let getOpt = getColumn r >> String.trim >> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
                     {|
@@ -49,7 +49,8 @@ module SolutionRule =
                         Form = get "Form"
                         Route = get "Route"
                         Indication = get "Indication"
-                        Department = get "Dep"
+                        Location = getOpt "Loc"
+                        Department = getOpt "Dep"
                         CVL = get "CVL"
                         PVL = get "PVL"
                         MinAge = get "MinAge" |> toBrOpt
@@ -94,9 +95,8 @@ module SolutionRule =
                             else r.Indication |> Some
                         PatientCategory =
                             { PatientCategory.empty with
-                                Department =
-                                    if r.Department |> String.isNullOrWhiteSpace then None
-                                    else r.Department |> Some
+                                Location = r.Location
+                                Department = r.Department
                                 Access =
                                     if r.CVL = "x" then CVL
                                     else

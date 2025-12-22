@@ -396,7 +396,7 @@ module private Elmish =
                     |> Deferred.map (fun form ->
                         { form with
                             Indication = ctx.Filter.Indication
-                            Generic = ctx.Filter.Medication
+                            Generic = ctx.Filter.Generic
                             Route = ctx.Filter.Route
                             Form = ctx.Filter.Form
                             DoseType = ctx.Filter.DoseType
@@ -406,7 +406,7 @@ module private Elmish =
                     state.Parenteralia
                     |> Deferred.map (fun par ->
                         { par with
-                            Generic = ctx.Filter.Medication
+                            Generic = ctx.Filter.Generic
                             Form = ctx.Filter.Form
                             Route = ctx.Filter.Route
                         }
@@ -484,7 +484,7 @@ module private Elmish =
             // make sure that the order context is not in use
             // i.e. the order context should be "fresh"
             if page = ContinuousMeds &&
-               state.OrderContext |> Deferred.map(fun ctx -> ctx.Filter.Medication |> Option.isSome) |> Deferred.defaultValue true
+               state.OrderContext |> Deferred.map(fun ctx -> ctx.Filter.Generic |> Option.isSome) |> Deferred.defaultValue true
                 then
                 { state with
                     Page = page
@@ -664,7 +664,7 @@ module private Elmish =
                             { ctx with
                                 OrderContext.Filter.Indication =
                                     if selected.Indication = "" then None else Some selected.Indication
-                                OrderContext.Filter.Medication = Some selected.Generic
+                                OrderContext.Filter.Generic = Some selected.Generic
                                 OrderContext.Filter.Route = Some "INTRAVENEUS"
                                 OrderContext.Filter.DoseType =
                                     if selected.DoseType = "" then None
@@ -912,19 +912,19 @@ module private Elmish =
                                 Filter =
                                     { ctx.Filter with
                                         Indication = form.Indication
-                                        Medication = form.Generic
+                                        Generic = form.Generic
                                         Form = form.Form
                                         Route = form.Route
                                         DoseType = form.DoseType
                                         Diluent =
                                             if form.Indication = ctx.Filter.Indication &&
-                                               form.Generic = ctx.Filter.Medication &&
+                                               form.Generic = ctx.Filter.Generic &&
                                                form.Route = ctx.Filter.Route &&
                                                form.Form = ctx.Filter.Form then ctx.Filter.Diluent
                                             else None
                                         SelectedComponents =
                                             if form.Indication = ctx.Filter.Indication &&
-                                               form.Generic = ctx.Filter.Medication &&
+                                               form.Generic = ctx.Filter.Generic &&
                                                form.Route = ctx.Filter.Route &&
                                                form.Form = ctx.Filter.Form then ctx.Filter.SelectedComponents
                                             else [||]
@@ -987,17 +987,17 @@ module private Elmish =
                                 Filter =
                                     { ctx.Filter with
                                         Indication = None
-                                        Medication = par.Generic
+                                        Generic = par.Generic
                                         Form = par.Form
                                         Route = par.Route
                                         DoseType = None
                                         Diluent =
-                                            if par.Generic = ctx.Filter.Medication &&
+                                            if par.Generic = ctx.Filter.Generic &&
                                                par.Route = ctx.Filter.Route &&
                                                par.Form = ctx.Filter.Form then ctx.Filter.Diluent
                                             else None
                                         SelectedComponents =
-                                            if par.Generic = ctx.Filter.Medication &&
+                                            if par.Generic = ctx.Filter.Generic &&
                                                par.Route = ctx.Filter.Route &&
                                                par.Form = ctx.Filter.Form then ctx.Filter.SelectedComponents
                                             else [||]

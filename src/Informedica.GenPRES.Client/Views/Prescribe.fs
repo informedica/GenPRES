@@ -66,7 +66,7 @@ module Prescribe =
                         Filter =
                             { pr.Filter with
                                 Medications = [||]
-                                Medication = None
+                                Generic = None
                                 DoseTypes = [||]
                                 DoseType = None
                             }
@@ -77,7 +77,7 @@ module Prescribe =
                     { pr with
                         Filter =
                             { pr.Filter with
-                                Medication = s
+                                Generic = s
                             }
                     }
                 |> updateOrderContext
@@ -476,7 +476,7 @@ module Prescribe =
                     <Stack direction={stackDirection} spacing={3} >
                         {
                             match props.orderContext with
-                            | Resolved pr -> false, pr.Filter.Medication, pr.Filter.Medications
+                            | Resolved pr -> false, pr.Filter.Generic, pr.Filter.Medications
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
                                 let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
@@ -530,7 +530,7 @@ module Prescribe =
                         {
                             match props.orderContext with
                             | Resolved pr when pr.Filter.Indication.IsSome &&
-                                               pr.Filter.Medication.IsSome &&
+                                               pr.Filter.Generic.IsSome &&
                                                pr.Filter.Route.IsSome &&
                                                pr.Filter.Diluents |> Array.length > 1 &&
                                                pr.Scenarios |> Array.length = 1 ->
@@ -549,7 +549,7 @@ module Prescribe =
                         {
                             match props.orderContext with
                             | Resolved pr when pr.Filter.Indication.IsSome &&
-                                               pr.Filter.Medication.IsSome &&
+                                               pr.Filter.Generic.IsSome &&
                                                pr.Filter.Route.IsSome &&
                                                pr.Filter.Components |> Array.length > 1 &&
                                                pr.Scenarios |> Array.length = 1 ->
@@ -569,7 +569,7 @@ module Prescribe =
                         {
                             match props.orderContext with
                             | Resolved pr when pr.Filter.Indication.IsSome &&
-                                               pr.Filter.Medication.IsSome &&
+                                               pr.Filter.Generic.IsSome &&
                                                pr.Filter.Route.IsSome ->
                                 (false, pr.Filter.DoseType, pr.Filter.DoseTypes)
                                 |> fun (isLoading, sel, items) ->
@@ -593,7 +593,7 @@ module Prescribe =
                             match props.orderContext with
                             | Resolved pr ->
                                 pr.Scenarios
-                                |> Array.map (displayScenario pr pr.Filter.Medication)
+                                |> Array.map (displayScenario pr pr.Filter.Generic)
                                 |> unbox
                                 |> React.fragment
                             | _ -> Seq.empty |> React.fragment

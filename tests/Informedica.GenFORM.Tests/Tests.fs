@@ -98,6 +98,7 @@ module Tests =
             let filter = Filter.doseFilter
             let patCat =
                 {
+                    Location = None
                     Department = None
                     Gender = AnyGender
                     Age = MinMax.empty

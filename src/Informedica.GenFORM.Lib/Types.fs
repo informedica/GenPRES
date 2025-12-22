@@ -102,8 +102,10 @@ module Types =
             GPK : string
             // The route for the reconstitution
             Route : string
+            // The location for the reconstitution rule
+            Location : string option
             // The department for the reconstitution
-            Department : string
+            Department : string option
             // The volume of the reconstitution
             DiluentVolume : ValueUnit
             // An optional expansion volume of the reconstitution
@@ -238,6 +240,7 @@ module Types =
     /// A PatientCategory to which a Rule applies.
     type PatientCategory =
         {
+            Location : string option
             Department : string option
             Gender : Gender
             Age : MinMax
@@ -252,6 +255,8 @@ module Types =
     /// A specific Patient to filter DoseRules.
     type Patient =
         {
+            // The Location of the Patient
+            Location : string option
             // The Department of the Patient
             Department : string option
             // A list of Diagnoses of the Patient
@@ -268,8 +273,9 @@ module Types =
             GestAge : ValueUnit option
             // The Post Menstrual Age in days of the Patient
             PMAge : ValueUnit option
-            // The Venous Access of the Patient
+            // The administration access devices of the Patient
             Access : AccessDevice list
+            // The Renal Function of the Patient
             RenalFunction : RenalFunction option
         }
         static member Gender_ =
@@ -292,6 +298,15 @@ module Types =
 
         static member Department_ =
             (fun (p : Patient) -> p.Department), (fun d (p : Patient) -> { p with Department = d})
+
+        static member Access_ =
+            (fun (p : Patient) -> p.Access), (fun a (p : Patient) -> { p with Access = a})
+
+        static member RenalFunction_ =
+            (fun (p : Patient) -> p.RenalFunction), (fun r (p : Patient) -> { p with RenalFunction = r})
+
+        static member Location_ =
+            (fun (p : Patient) -> p.Location), (fun l (p : Patient) -> { p with Location = l})
 
 
     type DoseRuleData = {
@@ -471,6 +486,7 @@ module Types =
             Route : string
             // The DoseType of the SolutionRule
             Indication : string option
+            // The dose type of the SolutionRule
             DoseType : DoseType
             // The PatientCategory of the DoseRule
             PatientCategory : PatientCategory
@@ -486,6 +502,7 @@ module Types =
             Volume : MinMax
             // A MinMax adjusted Volume range to use
             VolumeAdjust : MinMax
+            // A MinMax Drip Rate for the SolutionRule
             DripRate : MinMax
             // The percentage to be used as a DoseQuantity
             DosePerc : MinMax

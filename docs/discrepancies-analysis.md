@@ -25,24 +25,6 @@ It intentionally focuses on discrepancies that matter for correctness, shared un
 
 ---
 
-## 1. GenFORM Discrepancies
-
-### 1.1 Reconstitution Rule Selection Constraints: Setting.Location not represented
-
-**Domain docs** (`docs/domain/genform-free-text-to-operational-rules.md`):
-
-- Reconstitution rules include Setting information: `Location` (hospital / institute / organization) and `Department`.
-- Note: this `Location` is *organizational location*, not an administration access device.
-
-**Implementation**:
-
-- Reconstitution rules are keyed by `GPK`, `Route`, and `Department`.
-- There is no field for Setting.Location in the implemented `Reconstitution` type nor in the resource sheet contract.
-
-**Discrepancy**: The domain model table includes Setting.Location, but the runtime implementation/resources only support Department-level setting. Either add Setting.Location as a selection constraint for reconstitution rules, or update the domain docs to specify that reconstitution is scoped by Department only.
-
----
-
 ## 2. GenORDER Discrepancies
 
 ### 2.1 Order Context: conceptual vs API payload
@@ -165,25 +147,6 @@ and Access =
 - GenPRES.Shared models administration access device as `Access` and includes `EnteralTube` (non-vascular)
 - The interface spec models `AccessDevice` and includes additional variants (e.g., IO/Peripheral/Arterial/Other)
 
-### 4.3 Filter Type Field Name Discrepancy
-
-**Documentation** (genorder-operational-rules-to-orders.md):
-
-- Uses "Generic" in Filter descriptions
-
-**Implementation** (`Informedica.GenPRES.Shared/Types.fs`, lines 386-402):
-
-```fsharp
-type Filter =
-    {
-        // ...
-        Medication: string option  // Not "Generic"
-        // ...
-    }
-```
-
-**Issue**: Shared types use "Medication" where domain docs use "Generic".
-
 ---
 
 ## 5. Cross-Cutting Issues
@@ -210,8 +173,7 @@ type Filter =
 
 ### Moderate Discrepancies (Naming/Terminology)
 
-1. **Generic vs Medication** - Field name in Filter
-2. **Access additions** - EnteralTube not in GenFORM access model and not described in domain docs
+1. **Access additions** - EnteralTube not in GenFORM access model and not described in domain docs
 
 ### Minor Discrepancies (Documentation Completeness)
 
@@ -230,8 +192,7 @@ type Filter =
    - Schedule as discriminated union
    - Complete enumeration of all type variants
 
-2. **Align terminology** across docs and code:
-   - Standardize on either "Generic" or "Medication"
+2. **Align terminology** across docs and code
 
 3. **Document missing types**:
    - Totals type and its purpose

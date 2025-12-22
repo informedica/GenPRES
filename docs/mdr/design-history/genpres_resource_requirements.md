@@ -143,7 +143,8 @@ export GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 
 - `GPK` - Generic Product Code identifier (Generic.GPK in GenFORM)
 - `Route` - Administration route for reconstitution
-- `Dep` - Department/unit where reconstitution applies (Setting.Department in GenFORM)
+- `Loc` - Organizational location / hospital / institute (Setting.Location in GenFORM, optional)
+- `Dep` - Department/unit where reconstitution applies (Setting.Department in GenFORM, optional)
 
 #### Solution Parameters (Calculation Constraints)
 

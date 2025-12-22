@@ -22,6 +22,7 @@ module Patient =
     /// </summary>
     let patient : Patient =
         {
+            Location = None
             Department = None
             Diagnoses = [||]
             Gender = AnyGender
