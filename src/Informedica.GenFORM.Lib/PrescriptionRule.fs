@@ -112,7 +112,8 @@ module PrescriptionRule =
                 dr
                 |> DoseRule.reconstitute
                        routeMapping
-                       pat.Department pat.Access
+                       pat.Location
+                       pat.Department 
 
             warns.AddRange(newWarns)
 

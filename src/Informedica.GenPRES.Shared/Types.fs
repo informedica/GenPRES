@@ -88,6 +88,7 @@ module Types =
             Gender: Gender
             Access: Access list
             RenalFunction: RenalFunction option
+            Location: string option
             Department: string option
         }
 
@@ -393,7 +394,7 @@ module Types =
             Diluents: string []
             Components: string []
             Indication: string option
-            Medication: string option
+            Generic: string option
             Form: string option
             Route: string option
             DoseType: DoseType option

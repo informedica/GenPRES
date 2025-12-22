@@ -375,9 +375,9 @@ module DoseRule =
     /// <param name="dep">The Department to select the reconstitution</param>
     /// <param name="loc">The VenousAccess location to select the reconstitution</param>
     /// <param name="dr">The DoseRule</param>
-    let reconstitute mapping dep loc (dr : DoseRule) =
+    let reconstitute mapping loc dep (dr : DoseRule) =
         let warns = ResizeArray<string>()
-        let reconstitute = Product.reconstitute mapping
+        let reconstitute = Product.reconstitute mapping loc dep
         let dr =
             { dr with
                 ComponentLimits =
@@ -387,7 +387,7 @@ module DoseRule =
                             Products =
                                 dl.Products
                                 |> Array.collect (fun prod ->
-                                    let prods, newWarns = reconstitute dr.Route dr.DoseType dep loc prod
+                                    let prods, newWarns = reconstitute dr.Route prod
                                     warns.AddRange(newWarns)
                                     prods
                                 )
@@ -418,6 +418,7 @@ module DoseRule =
                 ScheduleText = r.ScheduleText
                 PatientCategory =
                     {
+                        Location = None
                         Department =
                             if r.Department |> String.isNullOrWhiteSpace then None
                             else

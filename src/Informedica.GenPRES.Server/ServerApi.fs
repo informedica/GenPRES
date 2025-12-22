@@ -368,7 +368,7 @@ module Mappers =
 
             Filter =
                 let ind, inds = mappedCtx.Filter.Indications |> setFilter String.equalsCapInsens ctx.Filter.Indication
-                let gen, gens = mappedCtx.Filter.Generics |> setFilter String.equalsCapInsens ctx.Filter.Medication
+                let gen, gens = mappedCtx.Filter.Generics |> setFilter String.equalsCapInsens ctx.Filter.Generic
                 let rte, rtes = mappedCtx.Filter.Routes |> setFilter String.equalsCapInsens ctx.Filter.Route
                 let shp, shps = mappedCtx.Filter.Forms |> setFilter String.equalsCapInsens ctx.Filter.Form
                 let dtp, dtps = mappedCtx.Filter.DoseTypes |> setFilter DoseType.eqs (ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType)
@@ -488,7 +488,7 @@ module Mappers =
                         Diluents = newCtx.Filter.Diluents
                         Components = newCtx.Filter.Components
                         Indication = newCtx.Filter.Indication
-                        Medication = newCtx.Filter.Generic
+                        Generic = newCtx.Filter.Generic
                         Form = newCtx.Filter.Form
                         Route = newCtx.Filter.Route
                         DoseType = newCtx.Filter.DoseType |> Option.map mapFromOrderDoseTypeToSharedDoseType

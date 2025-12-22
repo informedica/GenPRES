@@ -528,6 +528,7 @@ module OrderContext =
                     Diluent = ctx.Filter.Diluent
                     Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
                     Patient = {
+                        Location = ctx.Patient.Location
                         Department = d
                         Age = ctx.Patient.Age
                         GestAge = ctx.Patient.GestAge

@@ -265,6 +265,7 @@ module Models =
                 Gender = UnknownGender
                 Access = []
                 RenalFunction = None
+                Location = None
                 Department = None
             }
 
@@ -343,6 +344,7 @@ module Models =
                 Gender = gend
                 Access = cvl
                 RenalFunction = gfr
+                Location = None
                 Department = dep
             }
             |> Some
@@ -1591,7 +1593,7 @@ module Models =
                 Diluents = [||]
                 Components = [||]
                 Indication = None
-                Medication = None
+                Generic = None
                 Form = None
                 Route = None
                 DoseType = None
@@ -1617,7 +1619,7 @@ module Models =
                 Filter =
                     { ctx.Filter with
                         Indication = ind
-                        Medication = med
+                        Generic = med
                         Route = rte
                         Form = frm
                         DoseType = dtp
@@ -1636,7 +1638,7 @@ module Models =
                 Filter =
                     { filter with
                         Indication = Some sc.Indication
-                        Medication = ord.Orderable.Name |> Some
+                        Generic = ord.Orderable.Name |> Some
                         Form = sc.Form |> Some
                         Route = ord.Route |> Some
                         DoseType = sc.DoseType |> Some

@@ -71,7 +71,8 @@ module Product =
                         {
                             GPK = get "GPK"
                             Route = get "Route"
-                            Department = get "Dep"
+                            Location = get "Loc" |> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
+                            Department = get "Dep" |> fun s -> if s |> String.isNullOrWhiteSpace then None else Some s
                             DiluentVolume =
                                 get "DiluentVol"
                                 |> toBrOpt
@@ -93,14 +94,18 @@ module Product =
 
 
         let filter routeMapping (filter : DoseFilter) (rs : Reconstitution []) =
-            let eqs a b =
-                a
-                |> Option.map (fun x -> x = b)
-                |> Option.defaultValue true
+            let eqsOpt a b =
+                match a, b with
+                | Some a, Some b -> a = b
+                | _ -> true
 
             [|
+                // should match the route if filter.Route is given
                 fun (r : Reconstitution) -> r.Route |> Mapping.eqsRoute routeMapping filter.Route
-                fun (r : Reconstitution) -> r.Department |> eqs filter.Patient.Department
+                // if both filter and rule have location, they must match; if either is None, pass
+                fun (r : Reconstitution) -> r.Location |> eqsOpt filter.Patient.Location
+                // if both filter and rule have department, they must match; if either is None, pass
+                fun (r : Reconstitution) -> r.Department |> eqsOpt filter.Patient.Department
             |]
             |> Array.fold (fun (acc : Reconstitution[]) pred ->
                 acc |> Array.filter pred
@@ -632,18 +637,22 @@ module Product =
     /// route, DoseType, department and VenousAccess location.
     /// </summary>
     /// <param name="mapping"></param>
-    /// <param name="rte">The route</param>
-    /// <param name="dtp">The dose type</param>
     /// <param name="dep">The department</param>
     /// <param name="loc">The venous access location</param>
+    /// <param name="rte">The route</param>
     /// <param name="prod">The product</param>
     /// <returns>
     /// The reconstituted product or None if the product
     /// does not require reconstitution.
     /// </returns>
-    let reconstitute mapping rte dtp dep loc (prod : Product) =
+    let reconstitute mapping loc dep rte (prod : Product) =
         let warnings = ResizeArray<string>()
         let eqsRoute = Mapping.eqsRoute mapping
+
+        let eqsOpt a b =
+            match a, b with
+            | Some a, Some b -> a = b
+            | _ -> true
 
         let prods =
             [|
@@ -654,8 +663,12 @@ module Product =
                     // calculate the reconstituted products
                     prod.Reconstitution
                     |> Array.filter (fun r ->
+                        // return true if route is not given or matches
                         (rte |> String.isNullOrWhiteSpace || r.Route |> eqsRoute (Some rte)) &&
-                        dep |> Option.map (fun dep -> r.Department |> String.isNullOrWhiteSpace || r.Department |> String.equalsCapInsens dep) |> Option.defaultValue true
+                        // return true if either department is None, or both match
+                        r.Department |> eqsOpt dep &&
+                        // return true if either location is None, or both match
+                        r.Location |> eqsOpt loc
                     )
                     |> fun xs ->
                         if xs |> Array.isEmpty then
