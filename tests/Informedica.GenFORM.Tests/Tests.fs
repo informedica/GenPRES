@@ -105,7 +105,7 @@ module Tests =
                     BSA = MinMax.empty
                     GestAge = MinMax.empty
                     PMAge = MinMax.empty
-                    Location = AnyAccess
+                    Access = AnyAccess
                 }
 
             test "an empty filter and empty patient category" {
@@ -866,7 +866,7 @@ module Tests =
                     fun location ->
                         let patCatToMatch =
                             { PatientCategory.empty with
-                                Location = location
+                                Access = location
                             }
                         let emptyPatCat = PatientCategory.empty
                         emptyPatCat |> PatientCategory.isMatch patCatToMatch

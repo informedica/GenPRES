@@ -72,7 +72,7 @@ At this stage, categorical constraints originating from GenFORM are applied:
 * Setting  
 * Patient Category  
 * Dose Type  
-* Vascular Access
+* Administration Access
 
 This stage produces a bounded rule domain that is guaranteed to contain only clinically valid rule sets.
 

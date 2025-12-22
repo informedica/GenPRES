@@ -78,14 +78,14 @@ module PatientCategory =
               BSA = MinMax.empty
               GestAge = MinMax.empty
               PMAge = MinMax.empty
-              Location = AnyAccess
+              Access = AnyAccess
         }
 
 
     let isEmpty (p : PatientCategory) =
         { empty with
             Department = p.Department
-            Location = p.Location
+            Access = p.Access
         } = p
 
 
@@ -175,7 +175,7 @@ module PatientCategory =
                 |]
             fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
             fun (p: PatientCategory) ->
-                VenousAccess.check p.Location filter.Patient.Locations
+                VenousAccess.check p.Access filter.Patient.Access
         |])
         ||> Array.fold(fun acc pred ->
             acc
@@ -235,7 +235,7 @@ module PatientCategory =
                 |]
 //            fun (p: PatientCategory) -> filter |> Gender.filter p.Gender
             fun (p: PatientCategory) ->
-                VenousAccess.check p.Location pat.Locations
+                VenousAccess.check p.Access pat.Access
         |])
         ||> Array.fold(fun acc pred ->
             acc
@@ -265,7 +265,7 @@ module PatientCategory =
             fun (p: PatientCategory) -> p.Weight |> inRange patCat1.Weight
             fun (p: PatientCategory) -> p.BSA |> inRange patCat1.BSA
             fun (p: PatientCategory) -> patCat1.Gender |> Gender.isMatch p.Gender
-            fun (p: PatientCategory) -> VenousAccess.check p.Location  [ patCat1.Location ]
+            fun (p: PatientCategory) -> VenousAccess.check p.Access  [ patCat1.Access ]
         |])
         ||> Array.fold(fun acc pred ->
             acc
@@ -424,7 +424,7 @@ module Patient =
             Height = None
             GestAge = None
             PMAge = None
-            Locations = [ ]
+            Access = [ ]
             RenalFunction = None
         }
 

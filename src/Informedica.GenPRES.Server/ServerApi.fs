@@ -305,7 +305,7 @@ module Mappers =
                 | Male -> Informedica.GenForm.Lib.Types.Male
                 | Female -> Informedica.GenForm.Lib.Types.Female
                 | UnknownGender -> AnyGender
-            Locations =
+            Access =
                 pat.Access
                 // TODO make proper mapping
                 |> List.choose (fun a ->

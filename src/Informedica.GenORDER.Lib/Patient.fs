@@ -14,7 +14,7 @@ module Patient =
     open Informedica.GenUnits.Lib
 
     type Patient = Types.Patient
-    type Access = Location
+    type Access = AccessDevice
 
 
     /// <summary>
@@ -30,7 +30,7 @@ module Patient =
             Height = None
             GestAge = None
             PMAge = None
-            Locations = []
+            Access = []
             RenalFunction = None
         }
 
@@ -252,7 +252,7 @@ module Patient =
         |> setWeight (17m |> Kilogram |> Some)
         |> setHeight (100 |> Centimeter |> Some)
         |> setDepartment (Some "ICK")
-        |> fun p -> { p with Locations = [CVL]}
+        |> fun p -> { p with Access = [CVL]}
 
 
     let teenager =

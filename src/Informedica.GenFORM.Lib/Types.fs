@@ -60,8 +60,8 @@ module Types =
         }
 
 
-    /// The types for VenousAccess.
-    type Location =
+    /// The types for Access.
+    type AccessDevice =
         // Peripheral Venous Access
         | PVL
         // Central Venous Access
@@ -245,7 +245,7 @@ module Types =
             BSA : MinMax
             GestAge : MinMax
             PMAge : MinMax
-            Location : Location
+            Access : AccessDevice
         }
 
 
@@ -269,7 +269,7 @@ module Types =
             // The Post Menstrual Age in days of the Patient
             PMAge : ValueUnit option
             // The Venous Access of the Patient
-            Locations : Location list
+            Access : AccessDevice list
             RenalFunction : RenalFunction option
         }
         static member Gender_ =

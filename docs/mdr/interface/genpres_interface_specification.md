@@ -132,7 +132,7 @@ type PatientContext = {
     Allergies: string[]                     // Known allergies and contraindications
 
     // Access & Clinical Status
-    Access: VascularAccess[]                // Available vascular access options
+    Access: AccessDevice[]                  // Administration access device options available for medication administration (e.g., venous/intraosseous/arterial)
     RenalFunction: RenalFunction option     // Renal function status for dose adjustment
     HepaticFunction: HepaticFunction option // Hepatic function for drug metabolism
 
@@ -167,13 +167,13 @@ type PhysicalMeasurement = {
 #### 5.1.3 Clinical Status Enumerations
 
 ```fsharp
-type VascularAccess =
-    | CVL                                  // Central venous line
-    | PVL                                  // Peripheral venous line
-    | IO                                   // Intraosseous access
-    | Peripheral                           // Peripheral IV
-    | Arterial                             // Arterial line
-    | Other of string                      // Institution-specific access
+type AccessDevice =
+    | CVL                                  // Administration access device: Central venous line
+    | PVL                                  // Administration access device: Peripheral venous line
+    | IO                                   // Administration access device: Intraosseous access
+    | Peripheral                           // Administration access device: Peripheral IV
+    | Arterial                             // Administration access device: Arterial line
+    | Other of string                      // Administration access device: Institution-specific access
 
 type RenalFunction =
     | EGFR of min: int option * max: int option    // eGFR range in mL/min/1.73m²
