@@ -128,6 +128,30 @@ GenORDER uses a generic, domain-independent Order model that can represent medic
 
 Each Orderable consists of one or more Components. Each Component consists of one or more Items (Appendix C.2. Order Model Table).
 
+#### 6.1.1 Schedule representation across layers {#6.1.1-schedule-representation-across-layers}
+
+In **GenORDER** (server/domain), `Schedule` is modeled as a discriminated union (DU) because it is a closed set of mutually exclusive cases:
+
+- `Once`
+- `OnceTimed of Time`
+- `Continuous of Time`
+- `Discontinuous of Frequency`
+- `Timed of Frequency * Time`
+
+Across the **client/server boundary**, the client is transpiled to JavaScript (Fable), and the shared transport types are designed to be simple DTOs.
+For that reason, `GenPRES.Shared` represents `Schedule` as a record with boolean flags (`IsOnce`, `IsOnceTimed`, `IsContinuous`, `IsDiscontinuous`, `IsTimed`) plus the payload fields (`Frequency`, `Time`).
+
+This is a deliberate cross-language transport strategy:
+
+- Exactly one of the `Is*` flags should be `true` for a valid schedule.
+- The boolean flags represent the DU case; `Frequency` and/or `Time` carry the case payload when applicable.
+- `Once` has no payload.
+- `OnceTimed` and `Continuous` use `Time`.
+- `Discontinuous` uses `Frequency`.
+- `Timed` uses both `Frequency` and `Time`.
+
+Conceptually, both representations describe the same domain concept; the DTO exists to support safe and predictable serialization between .NET and JavaScript.
+
 ## 7. Quantitative Dose Semantics {#7.-quantitative-dose-semantics}
 
 GenORDER distinguishes the following quantitative dose concepts:

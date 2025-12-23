@@ -387,7 +387,7 @@ module Types =
     type Filter =
         {
             Indications: string []
-            Medications: string []
+            Generics: string []
             Routes: string []
             Forms: string []
             DoseTypes: DoseType []

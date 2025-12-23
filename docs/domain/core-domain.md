@@ -3,6 +3,7 @@
 - [The Core Domain Model](#the-core-domain-model)
   - [The Transformation Pipeline](#the-transformation-pipeline)
   - [Core Definitions](#core-definitions)
+    - [Order Context: conceptual vs API payload](#order-context-conceptual-vs-api-payload)
   - [Domain Boundaries](#domain-boundaries)
   - [The Order Management Cycle](#the-order-management-cycle)
   - [Key Concepts](#key-concepts)
@@ -107,6 +108,45 @@ The transformation is implemented by three core systems:
 | *Soundness* | The property that every computed solution satisfies all constraints. |
 | *Completeness* | The property that all valid solutions remain within the computed solution space. |
 | *Monotonic Convergence* | The property that each propagation step monotonically reduces the domain until a fixed point is reached. |
+
+### Order Context: conceptual vs API payload
+
+In the **domain model**, an *Order Context* is the bounded clinical context used to determine which rules apply and which Order Scenarios can be generated.
+
+Across the **client/server API boundary**, the system uses a concrete transport shape (DTO) named `OrderContext` (in `src/Informedica.GenPRES.Shared/Types.fs`). This payload intentionally includes server-computed data.
+
+**API request/response wrapper**
+
+- Requests are sent as `Shared.Api.Command.OrderContextCmd` with one of:
+  - `UpdateOrderContext of OrderContext`
+  - `SelectOrderScenario of OrderContext`
+  - `UpdateOrderScenario of OrderContext`
+  - `ResetOrderScenario of OrderContext`
+  - `ReloadResources of OrderContext`
+- Responses return `Shared.Api.Response.OrderContextResp` with one of:
+  - `OrderContextUpdated of OrderContext`
+  - `OrderContextSelected of OrderContext`
+  - `OrderContextRefreshed of OrderContext`
+  - `ResourcesReloaded of OrderContext`
+
+**OrderContext DTO (transport shape)**
+
+- `DemoVersion: bool` — whether the server is running in demo mode (used for UI/runtime behavior).
+- `Patient: Patient` — the concrete patient instance used for calculations.
+- `Filter: Filter` — selection constraints *and* the server-provided pick lists required for UI selection.
+- `Scenarios: OrderScenario []` — computed, valid alternatives for the current selection.
+- `Intake: Totals` — aggregated totals computed from (a subset of) scenarios.
+
+**Filter DTO (transport shape)**
+
+The filter contains both (a) *available values* and (b) the *current selection*:
+
+- Available values (server-provided pick lists):
+  - `Indications`, `Generics`, `Routes`, `Forms`, `DoseTypes`, `Diluents`, `Components`
+- Current selection:
+  - `Indication`, `Generic`, `Route`, `Form`, `DoseType`, `Diluent`, `SelectedComponents`
+
+This is the reason `OrderContext` appears “more concrete” than the conceptual definition: it is the API boundary object that carries both the **selection state** and the **server-computed results** required for the prescribing UI.
 
 ## Domain Boundaries
 

@@ -65,7 +65,7 @@ module Prescribe =
                     { pr with
                         Filter =
                             { pr.Filter with
-                                Medications = [||]
+                                Generics = [||]
                                 Generic = None
                                 DoseTypes = [||]
                                 DoseType = None
@@ -476,7 +476,7 @@ module Prescribe =
                     <Stack direction={stackDirection} spacing={3} >
                         {
                             match props.orderContext with
-                            | Resolved pr -> false, pr.Filter.Generic, pr.Filter.Medications
+                            | Resolved pr -> false, pr.Filter.Generic, pr.Filter.Generics
                             | _ -> true, None, [||]
                             |> fun (isLoading, sel, items) ->
                                 let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
