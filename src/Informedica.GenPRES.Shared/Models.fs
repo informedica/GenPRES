@@ -1586,7 +1586,7 @@ module Models =
         let filter =
             {
                 Indications = [||]
-                Medications = [||]
+                Generics = [||]
                 Routes = [||]
                 Forms = [||]
                 DoseTypes = [||]

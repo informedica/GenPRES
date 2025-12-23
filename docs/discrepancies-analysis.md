@@ -27,43 +27,7 @@ It intentionally focuses on discrepancies that matter for correctness, shared un
 
 ## 2. GenORDER Discrepancies
 
-### 2.1 Order Context: conceptual vs API payload
-
-**Domain docs** (`docs/domain/core-domain.md`):
-
-- Defines an Order Context conceptually as patient (instance) + indications + selection constraints.
-
-**Implementation** (`src/Informedica.GenORDER.Lib/Types.fs`):
-
-```fsharp
-type OrderContext =
-    {
-        Filter : Filter
-        Patient: Patient
-        Scenarios: OrderScenario []
-    }
-```
-
-**Discrepancy**: The implementation’s `OrderContext` is an API/transport shape that includes computed `Scenarios` and a `Filter` structure. The domain docs currently describe Order Context conceptually and do not mention these concrete payload fields.
-
-### 2.2 Schedule representation across layers
-
-**Domain docs**: Describe Schedule conceptually (frequency, admin time, duration), but do not prescribe a concrete data representation.
-
-- `GenORDER` models schedule as a discriminated union:
-
-```fsharp
-and Schedule =
-    | Once
-    | OnceTimed of Time
-    | Continuous of Time
-    | Discontinuous of Frequency
-    | Timed of Frequency * Time
-```
-
-**Discrepancy**: `GenPRES.Shared` uses a record-like Schedule DTO (boolean flags + `Frequency` + `Time`), while `GenORDER` uses a DU. This is a real cross-layer impedance mismatch that should be documented (mapping rules) to avoid confusion.
-
-### 2.3 Undocumented fields that affect selection constraints
+### 2.1 Undocumented fields that affect selection constraints
 
 **Documentation** (Appendix C.2 Order Model Table):
 
@@ -78,7 +42,26 @@ Form : string
 
 **Discrepancy**: `Form` is a selection constraint in the domain docs; it exists across the implemented scenario/component models but is not consistently called out as such in all documentation sections discussing selection constraints.
 
-### 2.4 OrderScenario numbering
+### 2.2 Undocumented fields in product selection
+
+**Documentation** (Appendix C.2 Order Model Table):
+
+- Does not list ProductComponent.Form
+
+**Implementation** (`Informedica.GenORDER.Lib/Types.fs`):
+
+```fsharp
+and ProductComponent =
+    {
+        // The pharmaceutical form of the product
+        Form : string
+        // ...
+    }
+```
+
+**Discrepancy**: The pharmaceutical form is present at the product level (`ProductComponent.Form`) but is not documented as part of the product/component selection model.
+
+### 2.3 OrderScenario numbering
 
 **Documentation** (genorder-operational-rules-to-orders.md):
 
@@ -92,7 +75,7 @@ No : int
 
 **Discrepancy**: The implementation includes a stable scenario number (`No`) which is relevant for UI/selection and traceability, but it is not described in the conceptual domain docs.
 
-### 2.5 Totals / intake modeling
+### 2.4 Totals / intake modeling
 
 **Discrepancy**: `GenPRES.Shared` includes an `Intake: Totals` field on `OrderContext`, but intake/totals are not currently defined in the core domain documents (or connected to the knowledge-to-order pipeline narrative). If intake affects dosing constraints, it should be explicitly modeled in the domain docs.
 
@@ -168,8 +151,7 @@ and Access =
 
 ### Critical Discrepancies (Functional Impact)
 
-1. **OrderContext transport shape** - Domain docs are conceptual; API payload includes Filter + Scenarios (+ Shared adds DemoVersion/Intake)
-2. **Cross-layer Schedule representation** - GenORDER uses DU; Shared uses DTO record flags + fields
+- None currently tracked
 
 ### Moderate Discrepancies (Naming/Terminology)
 
@@ -188,8 +170,6 @@ and Access =
 ## Recommendations
 
 1. **Update documentation** to reflect:
-   - Actual OrderContext structure with Filter and Scenarios
-   - Schedule as discriminated union
    - Complete enumeration of all type variants
 
 2. **Align terminology** across docs and code
@@ -200,5 +180,4 @@ and Access =
    - Complete Component model including Form field
    - Complete ProductComponent model including Form field
 
-4. **Clarify array vs single value** for:
-    - Cross-layer Schedule mapping rules (GenORDER DU ↔ Shared DTO)
+

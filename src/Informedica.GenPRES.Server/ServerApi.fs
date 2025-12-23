@@ -481,7 +481,7 @@ module Mappers =
                 Filter =
                     { ctx.Filter with
                         Indications = newCtx.Filter.Indications
-                        Medications = newCtx.Filter.Generics
+                        Generics = newCtx.Filter.Generics
                         Routes = newCtx.Filter.Routes
                         Forms = newCtx.Filter.Forms
                         DoseTypes = newCtx.Filter.DoseTypes |> Array.map mapFromOrderDoseTypeToSharedDoseType
