@@ -1,20 +1,21 @@
 {
-  "last_run": "2026-02-28T09:25:51Z",
-  "last_run_id": "22502966356",
+  "last_run": "2026-02-28T20:37:44Z",
+  "last_run_id": "22528533024",
   "backlog_cursor": {
-    "issues": 126,
+    "issues": 77,
     "last_reset": "2026-02-28"
   },
   "tasks_last_run": {
     "task_1_triage": "2026-02-28",
+    "task_2_fix_issues": "2026-02-28",
     "task_7_labels": "2026-02-28",
     "task_11_monthly_summary": "2026-02-28"
   },
-  "tasks_not_yet_run": ["task_2_fix_issues", "task_3_improvements", "task_4_deps", "task_5_maintain_prs", "task_6_stale_nudges", "task_8_release", "task_9_welcome", "task_10_forward"],
+  "tasks_not_yet_run": ["task_3_improvements", "task_4_deps", "task_5_maintain_prs", "task_6_stale_nudges", "task_8_release", "task_9_welcome", "task_10_forward"],
   "monthly_activity_issue": {
-    "number": null,
+    "number": 132,
     "month": "2026-02",
-    "note": "just created, number TBD"
+    "note": "active, updated this run"
   },
   "commented_issues": {
     "126": {
@@ -22,18 +23,27 @@
       "summary": "Suggested solutions for Feliz/Feliz.Markdown dependency conflict"
     }
   },
-  "labeled_issues": [22, 39, 52, 53, 107, 126],
+  "labeled_issues": [22, 39, 52, 53, 54, 55, 77, 107, 126],
   "welcomed_users": [],
-  "fix_attempts": {},
+  "fix_attempts": {
+    "77": {
+      "date": "2026-02-28",
+      "branch": "repo-assist/fix-issue-77-docs-pr-template",
+      "status": "PR created",
+      "summary": "Added documentation PR template and updated template selector"
+    }
+  },
   "improvement_proposals": {},
-  "issues_with_no_repo_assist_comment": [18, 22, 30, 32, 39, 42, 45, 47, 48, 49, 50, 51, 52, 53, 54, 55, 77, 107, 124],
+  "checkedoff_suggested_actions": [124],
+  "issues_with_no_repo_assist_comment": [18, 22, 30, 32, 39, 42, 45, 47, 48, 49, 50, 51, 52, 53, 54, 55, 77, 107],
   "notes": [
     "No releases exist in this repo yet",
-    "No open PRs at time of first run",
     "Issue #126 is Feliz dependency conflict - commented with solutions",
-    "Issue #124 is an agentic workflow failure report - may be closeable",
     "Issue #107 is a large feature request (Snap to Concept / ComponentInStock)",
     "Issue #39 needs GA exclusive zero lower limit - domain-specific medical feature",
-    "Issue #52 needs better error messages for Google Sheets loading"
+    "Issue #52 needs better error messages for Google Sheets loading",
+    "Issue #55 is active discussion about ValueUnit.Unit 'and' usage - contributors want refactor to Types module",
+    "Issue #77 is now fixed via PR (add docs PR template)",
+    "All open issues except #54 (#107 large feature) have been labelled"
   ]
 }
