@@ -1,0 +1,39 @@
+{
+  "last_run": "2026-02-28T09:25:51Z",
+  "last_run_id": "22502966356",
+  "backlog_cursor": {
+    "issues": 126,
+    "last_reset": "2026-02-28"
+  },
+  "tasks_last_run": {
+    "task_1_triage": "2026-02-28",
+    "task_7_labels": "2026-02-28",
+    "task_11_monthly_summary": "2026-02-28"
+  },
+  "tasks_not_yet_run": ["task_2_fix_issues", "task_3_improvements", "task_4_deps", "task_5_maintain_prs", "task_6_stale_nudges", "task_8_release", "task_9_welcome", "task_10_forward"],
+  "monthly_activity_issue": {
+    "number": null,
+    "month": "2026-02",
+    "note": "just created, number TBD"
+  },
+  "commented_issues": {
+    "126": {
+      "date": "2026-02-28",
+      "summary": "Suggested solutions for Feliz/Feliz.Markdown dependency conflict"
+    }
+  },
+  "labeled_issues": [22, 39, 52, 53, 107, 126],
+  "welcomed_users": [],
+  "fix_attempts": {},
+  "improvement_proposals": {},
+  "issues_with_no_repo_assist_comment": [18, 22, 30, 32, 39, 42, 45, 47, 48, 49, 50, 51, 52, 53, 54, 55, 77, 107, 124],
+  "notes": [
+    "No releases exist in this repo yet",
+    "No open PRs at time of first run",
+    "Issue #126 is Feliz dependency conflict - commented with solutions",
+    "Issue #124 is an agentic workflow failure report - may be closeable",
+    "Issue #107 is a large feature request (Snap to Concept / ComponentInStock)",
+    "Issue #39 needs GA exclusive zero lower limit - domain-specific medical feature",
+    "Issue #52 needs better error messages for Google Sheets loading"
+  ]
+}
