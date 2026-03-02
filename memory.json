@@ -1,24 +1,24 @@
 {
-  "last_run": "2026-03-01T20:39:10Z",
-  "last_run_id": "22552121136",
+  "last_run": "2026-03-02T20:50:48Z",
+  "last_run_id": "22595093136",
   "backlog_cursor": {
-    "issues": 30,
+    "issues": 45,
     "last_reset": "2026-03-01"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-03-01",
+    "task_1_triage": "2026-03-02",
     "task_2_fix_issues": "2026-02-28",
+    "task_3_improvements": "2026-03-02",
     "task_7_labels": "2026-02-28",
-    "task_11_monthly_summary": "2026-03-01",
+    "task_11_monthly_summary": "2026-03-02",
     "task_5_maintain_prs": "2026-03-01",
     "task_6_stale_nudges": "2026-03-01",
     "task_9_welcome": "2026-03-01"
   },
-  "tasks_not_yet_run": ["task_3_improvements", "task_4_deps", "task_8_release", "task_10_forward"],
+  "tasks_not_yet_run": ["task_4_deps", "task_8_release", "task_10_forward"],
   "monthly_activity_issue": {
-    "number": "139-or-similar",
-    "month": "2026-03",
-    "note": "Created this run via safeoutputs-create_issue (exact number pending GitHub propagation). February issue #132 closed this run."
+    "number": 139,
+    "month": "2026-03"
   },
   "commented_issues": {
     "126": {
@@ -28,6 +28,18 @@
     "30": {
       "date": "2026-03-01",
       "summary": "Noted MIME types already configured in Server.fs, asked if issue can be closed"
+    },
+    "48": {
+      "date": "2026-03-02",
+      "summary": "Investigated ZIndex.Tests warning - explained root cause (explicit Expecto runner, dotnet run ServerTests is correct)"
+    },
+    "45": {
+      "date": "2026-03-02",
+      "summary": "Answered build system questions: FAKE interaction, IDE integration, debug mode, CI workflow"
+    },
+    "52": {
+      "date": "2026-03-02",
+      "summary": "Explained root cause (no HTTP status check, no URL ID in errors) and linked to draft PR"
     }
   },
   "labeled_issues": [22, 39, 52, 53, 54, 55, 77, 107, 126],
@@ -38,23 +50,35 @@
       "branch": "repo-assist/fix-issue-77-docs-pr-template",
       "status": "PR #135 merged on 2026-03-01",
       "summary": "Added documentation PR template and updated template selector"
+    },
+    "52": {
+      "date": "2026-03-02",
+      "branch": "repo-assist/improve-web-error-messages",
+      "status": "Draft PR created (number TBD - pending GitHub propagation)",
+      "summary": "Added ImprovedWebErrors.fsx script prototype with HTTP status checking and descriptive error messages"
     }
   },
-  "improvement_proposals": {},
+  "improvement_proposals": {
+    "52": {
+      "date": "2026-03-02",
+      "branch": "repo-assist/improve-web-error-messages",
+      "summary": "ImprovedWebErrors.fsx script in src/Informedica.Utils.Lib/Scripts/"
+    }
+  },
   "checkedoff_suggested_actions": [124],
-  "issues_with_no_repo_assist_comment": [18, 22, 32, 39, 42, 45, 47, 48, 49, 50, 51, 52, 53, 54, 55, 107],
+  "issues_with_no_repo_assist_comment": [18, 22, 32, 39, 42, 47, 49, 50, 51, 53, 54, 55, 107],
   "notes": [
     "No releases exist in this repo yet",
     "Issue #126 is Feliz dependency conflict - commented with solutions (no human response yet)",
     "Issue #107 is a large feature request (Snap to Concept / ComponentInStock)",
     "Issue #39 needs GA exclusive zero lower limit - domain-specific medical feature",
-    "Issue #52 needs better error messages for Google Sheets loading",
+    "Issue #52 needs better error messages - draft PR created with ImprovedWebErrors.fsx",
     "Issue #55 is active discussion about ValueUnit.Unit 'and' usage - contributors want refactor to Types module",
     "Issue #77 is CLOSED - PR #135 merged 2026-03-01 by maintainer",
     "Issue #30 - MIME types (svg/png) already configured in Server.fs - asked maintainer to confirm resolved",
     "PR #135 (docs PR template) was merged by maintainer on 2026-03-01",
-    "Feb 2026 monthly activity issue #132 closed this run",
-    "March 2026 monthly activity issue created this run (number TBD from GitHub)",
-    "All open issues except #18, #32 appear to be labeled already"
+    "Issue #48 - ZIndex.Tests warning is expected (explicit Expecto runner pattern), documented in comment",
+    "Issue #45 - answered build system questions in comment",
+    "Issues still unvisited: #18 #22 #32 #39 #42 #47 #49 #50 #51 #53 #54 #55 #107"
   ]
 }
