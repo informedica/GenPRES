@@ -1,19 +1,22 @@
 {
-  "last_run": "2026-03-02T20:50:48Z",
-  "last_run_id": "22595093136",
+  "last_run": "2026-03-03T20:44:51Z",
+  "last_run_id": "22641872258",
   "backlog_cursor": {
-    "issues": 45,
+    "issues": 49,
     "last_reset": "2026-03-01"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-03-02",
+    "task_1_triage": "2026-03-03",
     "task_2_fix_issues": "2026-02-28",
     "task_3_improvements": "2026-03-02",
     "task_7_labels": "2026-02-28",
-    "task_11_monthly_summary": "2026-03-02",
+    "task_11_monthly_summary": "2026-03-03",
     "task_5_maintain_prs": "2026-03-01",
     "task_6_stale_nudges": "2026-03-01",
-    "task_9_welcome": "2026-03-01"
+    "task_9_welcome": "2026-03-01",
+    "task_4_deps": "never",
+    "task_8_release": "never",
+    "task_10_forward": "never"
   },
   "tasks_not_yet_run": ["task_4_deps", "task_8_release", "task_10_forward"],
   "monthly_activity_issue": {
@@ -26,8 +29,8 @@
       "summary": "Suggested solutions for Feliz/Feliz.Markdown dependency conflict"
     },
     "30": {
-      "date": "2026-03-01",
-      "summary": "Noted MIME types already configured in Server.fs, asked if issue can be closed"
+      "date": "2026-03-03",
+      "summary": "Analyzed full Docker image pipeline - images correctly bundled via Vite outDir + Dockerfile explicit COPY; MIME types already configured; suggested docker build test and closing"
     },
     "48": {
       "date": "2026-03-02",
@@ -40,6 +43,10 @@
     "52": {
       "date": "2026-03-02",
       "summary": "Explained root cause (no HTTP status check, no URL ID in errors) and linked to draft PR"
+    },
+    "49": {
+      "date": "2026-03-03",
+      "summary": "Documented localization architecture: Google Sheets 'Localization' tab, Terms DU, supported languages (EN/NL/FR/DE/ES/IT), how to add new terms"
     }
   },
   "labeled_issues": [22, 39, 52, 53, 54, 55, 77, 107, 126],
@@ -54,7 +61,7 @@
     "52": {
       "date": "2026-03-02",
       "branch": "repo-assist/improve-web-error-messages",
-      "status": "Draft PR created (number TBD - pending GitHub propagation)",
+      "status": "PR #140 merged by maintainer on 2026-03-03",
       "summary": "Added ImprovedWebErrors.fsx script prototype with HTTP status checking and descriptive error messages"
     }
   },
@@ -62,23 +69,32 @@
     "52": {
       "date": "2026-03-02",
       "branch": "repo-assist/improve-web-error-messages",
+      "status": "merged as PR #140 on 2026-03-03",
       "summary": "ImprovedWebErrors.fsx script in src/Informedica.Utils.Lib/Scripts/"
     }
   },
   "checkedoff_suggested_actions": [124],
-  "issues_with_no_repo_assist_comment": [18, 22, 32, 39, 42, 47, 49, 50, 51, 53, 54, 55, 107],
+  "issues_with_no_repo_assist_comment": [18, 22, 32, 39, 42, 47, 50, 51, 53, 54, 55, 107],
+  "localization_notes": {
+    "storage": "Google Spreadsheet - sheet named 'Localization' in dataGPUrlId spreadsheet",
+    "url_template": "https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet=Localization",
+    "languages": ["English", "Dutch", "French", "German", "Spanish", "Italian"],
+    "architecture": "Terms DU (Shared/Localization.fs) + CSV string[][] fetched from Google Sheets at runtime"
+  },
+  "docker_analysis_30": {
+    "finding": "Images are correctly bundled: Vite outDir=../../deploy/public copies public/* to deploy/public/; Dockerfile COPY is explicit not using .dockerignore; use_mime_types configured in Server.fs",
+    "conclusion": "Issue likely resolved, suggested docker build test and closing"
+  },
   "notes": [
     "No releases exist in this repo yet",
     "Issue #126 is Feliz dependency conflict - commented with solutions (no human response yet)",
-    "Issue #107 is a large feature request (Snap to Concept / ComponentInStock)",
-    "Issue #39 needs GA exclusive zero lower limit - domain-specific medical feature",
-    "Issue #52 needs better error messages - draft PR created with ImprovedWebErrors.fsx",
+    "Issue #49 - answered localization question: translations are in Google Sheets 'Localization' tab",
+    "Issue #30 - analyzed full docker pipeline; images should be served correctly; need maintainer to test and close",
     "Issue #55 is active discussion about ValueUnit.Unit 'and' usage - contributors want refactor to Types module",
-    "Issue #77 is CLOSED - PR #135 merged 2026-03-01 by maintainer",
-    "Issue #30 - MIME types (svg/png) already configured in Server.fs - asked maintainer to confirm resolved",
+    "PR #140 (improved web error messages) was merged by maintainer on 2026-03-03",
     "PR #135 (docs PR template) was merged by maintainer on 2026-03-01",
-    "Issue #48 - ZIndex.Tests warning is expected (explicit Expecto runner pattern), documented in comment",
-    "Issue #45 - answered build system questions in comment",
-    "Issues still unvisited: #18 #22 #32 #39 #42 #47 #49 #50 #51 #53 #54 #55 #107"
+    "CHANGELOG has many Unreleased changes but no releases exist yet - check with maintainer before proposing release",
+    "Recent merged PRs: #143 (new formulary product type), #142 (TPN improvements), #141 (FSI-MCP, Google Sheets handling), #140 (error messages), #138 (env var setup), #137 (centralize NuGet deps for scripts)",
+    "Tasks still not yet run: task_4_deps, task_8_release, task_10_forward - prioritize next run"
   ]
 }
