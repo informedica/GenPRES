@@ -1,24 +1,24 @@
 {
-  "last_run": "2026-03-07T20:37:49Z",
-  "last_run_id": "22806759455",
+  "last_run": "2026-03-08T20:39:18Z",
+  "last_run_id": "22829370181",
   "backlog_cursor": {
-    "issues": 32,
+    "issues": 55,
     "last_reset": "2026-03-07"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-03-07",
+    "task_1_triage": "2026-03-08",
     "task_2_fix_issues": "2026-02-28",
     "task_3_improvements": "2026-03-02",
     "task_7_labels": "2026-03-06",
-    "task_11_monthly_summary": "2026-03-07",
+    "task_11_monthly_summary": "2026-03-08",
     "task_5_maintain_prs": "2026-03-01",
     "task_6_stale_nudges": "2026-03-01",
     "task_9_welcome": "2026-03-01",
     "task_4_deps": "never",
     "task_8_release": "never",
-    "task_10_forward": "never"
+    "task_10_forward": "2026-03-08"
   },
-  "tasks_not_yet_run": ["task_4_deps", "task_8_release", "task_10_forward"],
+  "tasks_not_yet_run": ["task_4_deps", "task_8_release"],
   "monthly_activity_issue": {
     "number": 139,
     "month": "2026-03"
@@ -50,19 +50,27 @@
     },
     "144": {
       "date": "2026-03-04",
-      "summary": "Analyzed ValidatedResult refactor scope: 16 usages, 4 files; highlighted Ok-case message usage in Api.fs; outlined 3 migration options; recommended Option A (drop Ok messages). Issue now CLOSED by maintainer 2026-03-07."
+      "summary": "Analyzed ValidatedResult refactor scope: 16 usages, 4 files; highlighted Ok-case message usage in Api.fs; outlined 3 migration options. Issue CLOSED by maintainer 2026-03-07."
     },
     "146": {
       "date": "2026-03-05",
-      "summary": "Identified root cause of Dictionary race condition in DoseRule.processDoseRuleData - shared Dictionary mutated in Async.Parallel tasks; fix: use ConcurrentDictionary + TryAdd. Issue now CLOSED by maintainer 2026-03-07."
+      "summary": "Identified root cause of Dictionary race condition in DoseRule.processDoseRuleData - shared Dictionary mutated in Async.Parallel tasks; fix: use ConcurrentDictionary + TryAdd. Issue CLOSED by maintainer 2026-03-07."
     },
     "147": {
       "date": "2026-03-06",
-      "summary": "Analyzed root cause: G-Standard has no per-dose-weight norm for paracetamol oral; implied PerTimeAdjust never computed or checked. Issue now CLOSED by maintainer 2026-03-07."
+      "summary": "Analyzed root cause: G-Standard has no per-dose-weight norm for paracetamol oral; implied PerTimeAdjust never computed or checked. Issue CLOSED by maintainer 2026-03-07."
     },
     "32": {
       "date": "2026-03-07",
       "summary": "Posted detailed gap analysis: naming inconsistencies (arrayFilter/listFilter/seqFilter), functions missing from some modules (pickNearestHigherElseLower only in Array, allUnique only in Seq, many List-only functions). Suggested incremental approach."
+    },
+    "149": {
+      "date": "2026-03-08",
+      "summary": "Analyzed Messages=[||] root cause: sub-loaders don't emit success-path messages so current behavior is correct. Error path still works. Outlined 3 fix options (accept, side-channel, two-value success)."
+    },
+    "55": {
+      "date": "2026-03-08",
+      "summary": "Detailed analysis of 'and' usage: only Unit itself needs recursive treatment (CombiUnit of Unit * Operator * Unit). Sub-types don't reference Unit so 'and' is redundant with namespace rec. Outlined minimal fix (remove and from sub-types) and Types.fs split approach."
     }
   },
   "labeled_issues": [22, 39, 52, 53, 54, 55, 77, 107, 126, 144, 147],
@@ -90,7 +98,7 @@
     }
   },
   "checkedoff_suggested_actions": [124],
-  "issues_with_no_repo_assist_comment": [18, 22, 39, 42, 47, 50, 51, 53, 54, 55, 107],
+  "issues_with_no_repo_assist_comment": [18, 22, 39, 42, 47, 50, 51, 53, 54, 107],
   "utils_sync_analysis": {
     "date": "2026-03-07",
     "array_only": ["indices", "median", "nearestIndex", "pickNearestHigherElseLower"],
@@ -99,32 +107,29 @@
     "naming_inconsistencies": "arrayFilter/listFilter/seqFilter, collectArrays/collectLists/collectSeqs, pickArray/pickList/pickSeq, allEqual/allEqualSeq",
     "issue": 32
   },
+  "valueunit_analysis": {
+    "date": "2026-03-08",
+    "finding": "Unit is self-recursive via CombiUnit of Unit * Operator * Unit. Sub-types (CountUnit, MassUnit, etc.) don't reference Unit - only contain BigRational. namespace rec makes all 'and' keywords on sub-types redundant. 10 static member operator overloads at lines 4146-4169 must stay with ValueUnit type.",
+    "options": ["minimal: remove and from sub-types (keep namespace rec)", "partial split: sub-types to Types.fs, Unit+ValueUnit stay", "full split: everything to Types.fs + convert operators to let inline"],
+    "issue": 55
+  },
   "deps_analysis": {
     "date": "2026-03-06",
     "npm": "Modern stack: React 19, MUI 7, Vite 7, MUI x-data-grid 8 - no urgent updates",
     "dotnet_sdk": "10.0.0 with rollForward:latestFeature - current",
-    "paket": "Expecto ~>10, FsToolkit.ErrorHandling 5.1.0, MathNet.Numerics.FSharp latest compat - check for newer FsToolkit next time",
-    "conclusion": "No urgent dependency updates needed"
-  },
-  "localization_notes": {
-    "storage": "Google Spreadsheet - sheet named 'Localization' in dataGPUrlId spreadsheet",
-    "url_template": "https://docs.google.com/spreadsheets/d/{id}/gviz/tq?tqx=out:csv&sheet=Localization",
-    "languages": ["English", "Dutch", "French", "German", "Spanish", "Italian"],
-    "architecture": "Terms DU (Shared/Localization.fs) + CSV string[][] fetched from Google Sheets at runtime"
+    "paket": "Expecto ~>10, FsToolkit.ErrorHandling 5.1.0, MathNet.Numerics.FSharp latest compat",
+    "conclusion": "No urgent dependency updates needed; deps-update PR was merged in PR #150"
   },
   "notes": [
     "No releases exist in this repo yet",
     "Issue #126 is Feliz dependency conflict - commented with solutions (no human response yet)",
-    "Issue #49 - answered localization question: translations are in Google Sheets 'Localization' tab",
-    "Issue #30 - analyzed full docker pipeline; images should be served correctly; need maintainer to test and close",
-    "Issue #55 is active discussion about ValueUnit.Unit 'and' usage - contributors want refactor to Types module",
-    "PR #140 (improved web error messages) was merged by maintainer on 2026-03-03",
-    "PR #135 (docs PR template) was merged by maintainer on 2026-03-01",
+    "Issue #55 - commented 2026-03-08 with detailed analysis of 'and' usage and Types module refactoring options",
+    "Issue #149 - commented 2026-03-08 with analysis of Messages=[||] root cause",
+    "PR #150 merged 2026-03-08: large infra PR bringing in dotnet tools, editorconfig, workflows, etc.",
+    "A Repo Assist deps-update PR (#5 in fork) was also included in PR #150 merge",
     "CHANGELOG has many Unreleased changes but no releases exist yet - check with maintainer before proposing release",
-    "Recent merged PRs: #143 (new formulary product type), #142 (TPN improvements), #141 (FSI-MCP, Google Sheets handling), #140 (error messages), #138 (env var setup), #137 (centralize NuGet deps for scripts)",
+    "Recent merged PRs: #150 (infra + deps), #148 (TPN formulary product + UI improvements)",
     "Issues #144, #146, #147 all closed by maintainer halcwb on 2026-03-07",
-    "Issue #32 (sync utility modules) - commented with gap analysis 2026-03-07",
-    "npm packages look modern: React 19, MUI 7, Vite 7 - no urgent updates needed",
-    "Tasks still not yet run: task_4_deps, task_8_release, task_10_forward - prioritize next run"
+    "Tasks still not yet run: task_4_deps, task_8_release - prioritize next run"
   ]
 }
