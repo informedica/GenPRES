@@ -1,24 +1,24 @@
 {
-  "last_run": "2026-03-10T20:47:14Z",
-  "last_run_id": "22923500318",
+  "last_run": "2026-03-11T20:46:51Z",
+  "last_run_id": "22973629120",
   "backlog_cursor": {
-    "issues": 53,
+    "issues": 39,
     "last_reset": "2026-03-07"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-03-10",
+    "task_1_triage": "2026-03-11",
     "task_2_fix_issues": "2026-02-28",
     "task_3_improvements": "2026-03-09",
     "task_7_labels": "2026-03-10",
-    "task_11_monthly_summary": "2026-03-10",
+    "task_11_monthly_summary": "2026-03-11",
     "task_5_maintain_prs": "2026-03-01",
     "task_6_stale_nudges": "2026-03-01",
     "task_9_welcome": "2026-03-01",
     "task_4_deps": "2026-03-10",
-    "task_8_release": "never",
+    "task_8_release": "2026-03-11",
     "task_10_forward": "2026-03-09"
   },
-  "tasks_not_yet_run": ["task_8_release"],
+  "tasks_not_yet_run": [],
   "monthly_activity_issue": {
     "number": 139,
     "month": "2026-03"
@@ -75,6 +75,14 @@
     "53": {
       "date": "2026-03-10",
       "summary": "Detailed analysis of ZIndex test fixture requirements: BST001T bootstrapping constraint (loads at module init), 3 options (synthetic fixture files, injectable data source, real data micro-extract), minimum BST tables needed."
+    },
+    "39": {
+      "date": "2026-03-11",
+      "summary": "Analyzed GA exclusive-zero lower limit: MinMax already supports Exclusive bounds; current DoseRule uses fromTupleInclExcl (min always inclusive); suggested MinGestAgeExcl spreadsheet column approach."
+    },
+    "18": {
+      "date": "2026-03-11",
+      "summary": "Outlined 4 approaches for locally manufactured product numbers: high-range IDs (10M+), negative IDs, DU-based ProductId, supplementary Google Sheet. Recommended option 4 + 1."
     }
   },
   "labeled_issues": [22, 39, 52, 53, 54, 55, 77, 107, 126, 144, 147, 149],
@@ -105,10 +113,16 @@
       "branch": "repo-assist/improve-valueunit-types-split",
       "status": "Merged as PR #151 on ~2026-03-10",
       "summary": "TypesSplit.fsx script demonstrating removal of redundant 'and' keywords and Types.fs split with let inline operators"
+    },
+    "release_v0.1.0-alpha": {
+      "date": "2026-03-11",
+      "branch": "repo-assist/release-v0.1.0-alpha",
+      "status": "Draft PR created (pending merge)",
+      "summary": "CHANGELOG.md updated: moved [Unreleased] entries to [0.1.0-alpha] - 2026-03-11"
     }
   },
   "checkedoff_suggested_actions": [124],
-  "issues_with_no_repo_assist_comment": [18, 22, 39, 42, 47, 50, 51, 54, 107],
+  "issues_with_no_repo_assist_comment": [22, 47, 50, 51, 54],
   "zindex_analysis": {
     "date": "2026-03-10",
     "finding": "BST001T._data and ._records load at module initialization from FilePath.GStandPath. This is a bootstrapping constraint: BST001T file must exist before any ZIndex module can be used. data/zindex/ only has PLACEHOLDER.md in the repo - no test fixtures exist.",
@@ -123,11 +137,10 @@
     "naming_inconsistencies": "arrayFilter/listFilter/seqFilter, collectArrays/collectLists/collectSeqs, pickArray/pickList/pickSeq, allEqual/allEqualSeq",
     "issue": 32
   },
-  "valueunit_analysis": {
-    "date": "2026-03-09",
-    "finding": "Merged as PR #151. TypesSplit.fsx prototype demonstrated removal of redundant 'and' keywords and Types.fs split with let inline operators.",
-    "status": "merged",
-    "issue": 55
+  "ga_analysis": {
+    "date": "2026-03-11",
+    "finding": "MinMax already supports Exclusive bounds. DoseRule uses fromTupleInclExcl (Inclusive min, Exclusive max). To support exclusive zero for GA min, need MinGestAgeExcl spreadsheet column. MinMax.fromTuple can accept configurable min/max limit constructors.",
+    "issue": 39
   },
   "deps_analysis": {
     "date": "2026-03-10",
@@ -137,13 +150,14 @@
     "conclusion": "No urgent dependency updates needed"
   },
   "notes": [
-    "No releases exist in this repo yet - task_8_release still to be run (needs maintainer input first)",
+    "Release PR created: branch repo-assist/release-v0.1.0-alpha - CHANGELOG updated for v0.1.0-alpha (2026-03-11)",
     "PR #151 merged (TypesSplit.fsx prototype for issue #55)",
     "Issue #107 is CLOSED (confirmed 2026-03-10)",
     "Issue #149 labeled with bug, needs triage (2026-03-10)",
     "Issues #144, #146, #147 all closed by maintainer halcwb on 2026-03-07",
     "data/zindex/ only has PLACEHOLDER.md - no actual Z-index data in repo",
     "BST001T bootstrapping: _records loaded at module init - test fixtures must be present before ZIndex assembly loads",
-    "Next triage candidates: #18, #22, #39, #42, #47, #50, #51, #54 (no Repo Assist comment yet)"
+    "Issues #42 is CLOSED (confirmed 2026-03-11)",
+    "Next triage candidates: #22, #47, #50, #51, #54 (no Repo Assist comment yet)"
   ]
 }
