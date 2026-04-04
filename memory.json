@@ -1,16 +1,16 @@
 {
-  "last_run": "2026-04-03T20:51:28Z",
-  "last_run_id": "23961716669",
+  "last_run": "2026-04-04T20:47:55Z",
+  "last_run_id": "23987250127",
   "backlog_cursor": {
     "issues": 0,
-    "last_reset": "2026-04-03"
+    "last_reset": "2026-04-04"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-04-03",
+    "task_1_triage": "2026-04-04",
     "task_2_fix_issues": "2026-03-22",
-    "task_3_improvements": "2026-03-26",
+    "task_3_improvements": "2026-04-04",
     "task_7_labels": "2026-04-03",
-    "task_11_monthly_summary": "2026-04-03",
+    "task_11_monthly_summary": "2026-04-04",
     "task_5_maintain_prs": "2026-04-02",
     "task_6_stale_nudges": "2026-03-28",
     "task_9_welcome": "2026-03-28",
@@ -109,15 +109,15 @@
     },
     "234": {
       "date": "2026-03-27",
-      "summary": "Posted feasibility sketch + ADR scope suggestions for build system improvement. ISSUE OPEN."
+      "summary": "Posted feasibility sketch + ADR scope suggestions for build-system improvement. ISSUE OPEN."
     },
     "240": {
       "date": "2026-03-28",
       "summary": "Observations on Copilot PR #241 (MCP ADR + prototype scripts). ISSUE OPEN - check status."
     },
     "273": {
-      "date": "2026-04-03",
-      "summary": "Surveyed existing Measures.fs UoM foundation, analysed ValueUnit vs UoM roles, proposed migration strategy. Offered prototype script. ISSUE OPEN."
+      "date": "2026-04-04",
+      "summary": "Acknowledged maintainer clarification on UoM scope. Created BSA prototype script BsaCalculations.fsx in Shared/Scripts. Draft PR created. ISSUE OPEN."
     }
   },
   "labeled_issues": [22, 39, 52, 53, 54, 55, 77, 107, 126, 144, 147, 149, 178, 197, 234, 236, 240, 270, 271, 273],
@@ -160,7 +160,8 @@
     "lru_solver_integration": {"date": "2026-03-27", "status": "PR #238 MERGED"},
     "changelog_28mar2026": {"date": "2026-03-28", "status": "PR merged"},
     "agent_lifecycle_fsx": {"date": "2026-04-01", "pr_number": 266, "status": "PR #266 MERGED on 2026-04-02"},
-    "adr_updates_0002_0004": {"date": "2026-04-02", "pr_number": 272, "status": "PR #272 MERGED on 2026-04-02 - closes #270 and #271"}
+    "adr_updates_0002_0004": {"date": "2026-04-02", "pr_number": 272, "status": "PR #272 MERGED on 2026-04-02 - closes #270 and #271"},
+    "bsa_shared_prototype": {"date": "2026-04-04", "branch": "repo-assist/feat-issue-273-bsa-shared-prototype", "status": "Draft PR submitted - BSA calculations prototype for Shared library (Fable-compatible). Responds to #273."}
   },
   "checkedoff_suggested_actions": [124],
   "release_status": {
@@ -169,33 +170,27 @@
     "v0_1_2_alpha": {"status": "RELEASED - 2026-03-23"}
   },
   "open_issues_confirmed": {
-    "date": "2026-04-03",
+    "date": "2026-04-04",
     "list": [18, 49, 50, 234, 267, 273]
   },
   "open_prs_confirmed": {
-    "date": "2026-04-03",
-    "list": []
+    "date": "2026-04-04",
+    "list": ["repo-assist/feat-issue-273-bsa-shared-prototype (pending)"]
   },
   "recent_activity_since_last_run": {
-    "2026-04-01_to_04-03": [
-      "PR #265 merged: docs(mdr): clean up ADR numbering",
-      "PR #266 merged: scripts(agents): AgentLifecycle.fsx (Repo Assist)",
-      "PR #268 merged: feat: improve managed agents script",
-      "PR #269 merged: chore(ui): remove npm vulnerabilities",
-      "PR #272 merged: docs(mdr): ADR updates (Repo Assist) - closes #270, #271",
-      "PR #274 merged: Fix genericname casing",
-      "PR #275 merged: fix(ui): race condition with item selection",
-      "Issue #273 opened by halcwb: Use units of measure"
+    "2026-04-03_to_04-04": [
+      "halcwb replied to #273 (UoM): clarified scope - BSA calculations should go to Shared library",
+      "Repo Assist created BsaCalculations.fsx prototype in Shared/Scripts",
+      "Repo Assist commented on #273 acknowledging clarification and linking to prototype"
     ]
   },
   "notes": [
-    "As of 2026-04-03, open issues: #18, #49, #50, #234, #267 (monthly), #273 (new UoM issue)",
-    "No open PRs as of 2026-04-03 - all Repo Assist PRs merged",
-    "Issue #273 (UoM): Repo Assist commented with analysis. Offer to prototype ValueUnit<->UoM converters.",
+    "As of 2026-04-04, open issues: #18, #49, #50, #234, #267 (monthly), #273 (UoM)",
+    "Issue #273 UoM scope clarified by halcwb: BSA calcs to Shared library (Fable-compatible)",
+    "BSA prototype script created: src/Informedica.GenPRES.Shared/Scripts/BsaCalculations.fsx",
+    "Age calculations (Calculations.Age) use Utils.Lib.BCL.DateTime - NOT Fable-compatible; may need separate treatment",
     "Issue #234 (build system): Repo Assist commented, no maintainer reply yet",
-    "Issue #240 (MCP): check if PR #241 was merged or closed",
-    "W2 solver optimization roadmap COMPLETE: all 4 steps merged",
     "Avoid automatic release PRs - halcwb closed #210 without merging",
-    "Next forward work candidate: UoM migration prototype script (ValueUnit<->UoM converters for patient biometrics)"
+    "Next forward work: investigate Fable-compatible age calculation module for Shared if needed"
   ]
 }
