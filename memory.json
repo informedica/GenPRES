@@ -1,6 +1,6 @@
 {
-  "last_run": "2026-04-23T21:03:35Z",
-  "last_run_id": "24858655855",
+  "last_run": "2026-04-25T20:54:00Z",
+  "last_run_id": "24940408989",
   "backlog_cursor": {
     "issues": 0,
     "last_reset": "2026-04-07"
@@ -10,13 +10,13 @@
     "task_2_fix_issues": "2026-03-22",
     "task_3_improvements": "2026-04-21",
     "task_7_labels": "2026-04-13",
-    "task_11_monthly_summary": "2026-04-23",
+    "task_11_monthly_summary": "2026-04-25",
     "task_5_maintain_prs": "2026-04-22",
     "task_6_stale_nudges": "2026-03-28",
     "task_9_welcome": "2026-04-15",
     "task_4_deps": "2026-04-16",
     "task_8_release": "2026-04-22",
-    "task_10_forward": "2026-04-17"
+    "task_10_forward": "2026-04-25"
   },
   "monthly_activity_issue": {
     "number": 267,
@@ -37,7 +37,7 @@
     "55": {"date": "2026-03-09", "summary": "Prototype script TypesSplit.fsx created and PR submitted (merged as PR #151). ISSUE CLOSED."},
     "53": {"date": "2026-03-10", "summary": "Detailed analysis of ZIndex test fixture requirements. CLOSED (PR #163 merged)."},
     "39": {"date": "2026-03-11", "summary": "Analyzed GA exclusive-zero lower limit. CLOSED."},
-    "18": {"date": "2026-03-14", "summary": "Posted prototype script: LocalProducts.fsx with ProductId DU. Draft PR #165 created, MERGED. ISSUE STILL OPEN."},
+    "18": {"date": "2026-03-14", "summary": "Posted prototype script: LocalProducts.fsx with ProductId DU approach. Draft PR #165 created, MERGED. ISSUE STILL OPEN."},
     "22": {"date": "2026-03-12", "summary": "Mapped Scenarios.fs entries. CLOSED."},
     "54": {"date": "2026-03-12", "summary": "Outlined multilingual user guide path. CLOSED (PR #164 merged)."},
     "50": {"date": "2026-03-13", "summary": "Mapped Prescription/Preparation/Administration pipeline. ISSUE STILL OPEN. @draptick never responded to halcwb Sep 2025 comment. Cannot re-comment per anti-spam rules."},
@@ -91,7 +91,9 @@
     "changelog_19apr2026": {"date": "2026-04-19", "status": "PR #318 MERGED by halcwb 2026-04-21"},
     "changelog_20apr2026": {"date": "2026-04-20", "status": "PR #320 MERGED by halcwb 2026-04-21"},
     "changelog_21apr2026": {"date": "2026-04-21", "status": "PR #322 MERGED by halcwb 2026-04-22"},
-    "changelog_22apr2026": {"date": "2026-04-22", "status": "PR #326 MERGED by halcwb 2026-04-23"}
+    "changelog_22apr2026": {"date": "2026-04-22", "status": "PR #326 MERGED by halcwb 2026-04-23"},
+    "roadmap_update_24apr2026": {"date": "2026-04-24", "status": "PR #327 OPEN - draft"},
+    "adr_0017_lru_solver": {"date": "2026-04-25", "status": "PR created - open draft"}
   },
   "checkedoff_suggested_actions": [124],
   "release_status": {
@@ -100,12 +102,12 @@
     "v0_1_2_alpha": {"status": "RELEASED - 2026-03-23"}
   },
   "open_issues_confirmed": {
-    "date": "2026-04-23",
+    "date": "2026-04-25",
     "list": [18, 49, 50, 234, 267]
   },
   "open_prs_confirmed": {
-    "date": "2026-04-23",
-    "list": []
+    "date": "2026-04-25",
+    "list": [327]
   },
   "notes": [
     "Avoid automatic release PRs - halcwb closed #210 without merging",
@@ -114,6 +116,7 @@
     "Fable 5 stable merged (PR #323); vite-plugin-inspect still at 12.0.0-beta.1 - track for stable release",
     "React upgraded to 19.2.5, Vite to 8.0.9 in PR #324",
     "halcwb posted /repo-assist comment on #234 (2026-04-22) asking to review EasyBuild.ShipIt - analysis posted 2026-04-23",
-    "If halcwb approves EasyBuild.ShipIt for #234, next step is ADR-0017 draft"
+    "If halcwb approves EasyBuild.ShipIt for #234, next step is ADR-0017 draft (NOTE: ADR-0017 was used for LRU solver; EasyBuild would be ADR-0018)",
+    "ADR-0017 created 2026-04-25 for LRU solver memoisation W2 milestone"
   ]
 }
