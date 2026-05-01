@@ -1,26 +1,26 @@
 {
-  "last_run": "2026-04-29T21:17:20Z",
-  "last_run_id": "25134289133",
+  "last_run": "2026-05-01T21:05:49Z",
+  "last_run_id": "25233069404",
   "backlog_cursor": {
     "issues": 0,
-    "last_reset": "2026-04-07"
+    "last_reset": "2026-05-01"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-04-29",
+    "task_1_triage": "2026-05-01",
     "task_2_fix_issues": "2026-04-26",
-    "task_3_improvements": "2026-04-29",
+    "task_3_improvements": "2026-05-01",
     "task_7_labels": "2026-04-27",
-    "task_11_monthly_summary": "2026-04-29",
+    "task_11_monthly_summary": "2026-05-01",
     "task_5_maintain_prs": "2026-04-28",
     "task_6_stale_nudges": "2026-04-26",
     "task_9_welcome": "2026-04-27",
     "task_4_deps": "2026-04-28",
     "task_8_release": "2026-04-22",
-    "task_10_forward": "2026-04-29"
+    "task_10_forward": "2026-05-01"
   },
   "monthly_activity_issue": {
-    "number": 267,
-    "month": "2026-04"
+    "number": 334,
+    "month": "2026-05"
   },
   "commented_issues": {
     "126": {"date": "2026-02-28", "summary": "Suggested solutions for Feliz/Feliz.Markdown dependency conflict. ISSUE CLOSED 2026-03-23."},
@@ -96,7 +96,9 @@
     "adr_0017_lru_solver": {"date": "2026-04-25", "status": "PR #328 MERGED by halcwb 2026-04-29"},
     "adr_0018_nlp_extraction": {"date": "2026-04-26", "status": "PR #329 MERGED by halcwb 2026-04-29"},
     "adr_0019_shared_calculations": {"date": "2026-04-27", "status": "PR #330 MERGED by halcwb 2026-04-29"},
-    "changelog_29apr2026": {"date": "2026-04-29", "status": "PR #331 OPEN - draft"}
+    "changelog_29apr2026": {"date": "2026-04-29", "status": "PR #331 MERGED by halcwb 2026-04-30"},
+    "adr_0020_fhir_r4": {"date": "2026-04-30", "status": "PR #332 MERGED by halcwb 2026-05-01"},
+    "changelog_01may2026": {"date": "2026-05-01", "status": "PR #333 OPEN - draft"}
   },
   "checkedoff_suggested_actions": [124],
   "release_status": {
@@ -105,12 +107,12 @@
     "v0_1_2_alpha": {"status": "RELEASED - 2026-03-23"}
   },
   "open_issues_confirmed": {
-    "date": "2026-04-29",
-    "list": [18, 49, 50, 234, 267]
+    "date": "2026-05-01",
+    "list": [18, 49, 50, 234, 334]
   },
   "open_prs_confirmed": {
-    "date": "2026-04-29",
-    "list": [331]
+    "date": "2026-05-01",
+    "list": [333]
   },
   "notes": [
     "Avoid automatic release PRs - halcwb closed #210 without merging",
@@ -119,8 +121,8 @@
     "Fable 5 stable merged (PR #323); vite-plugin-inspect still at 12.0.0-beta.1 - track for stable release",
     "React upgraded to 19.2.5, Vite to 8.0.9 in PR #324",
     "halcwb posted /repo-assist comment on #234 (2026-04-22) asking to review EasyBuild.ShipIt - analysis posted 2026-04-23",
-    "If halcwb approves EasyBuild.ShipIt for #234, next ADR would be ADR-0020 (0019 now used for Shared calculations)",
-    "PRs #327-330 all merged by halcwb on 2026-04-29",
-    "PR #331 is the changelog update for ADR-0017/0018/0019 and ROADMAP fix, created 2026-04-29"
+    "If halcwb approves EasyBuild.ShipIt for #234, next ADR would be ADR-0021",
+    "PRs #331 and #332 both merged by halcwb in late April / early May 2026",
+    "Monthly activity issue transitioned from #267 (April 2026, closed) to #334 (May 2026)"
   ]
 }
