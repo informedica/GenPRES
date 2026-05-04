@@ -1,16 +1,16 @@
 {
-  "last_run": "2026-05-03T20:58:34Z",
-  "last_run_id": "25290582791",
+  "last_run": "2026-05-04T21:18:11Z",
+  "last_run_id": "25343969233",
   "backlog_cursor": {
     "issues": 0,
     "last_reset": "2026-05-01"
   },
   "tasks_last_run": {
-    "task_1_triage": "2026-05-02",
+    "task_1_triage": "2026-05-04",
     "task_2_fix_issues": "2026-04-26",
-    "task_3_improvements": "2026-05-01",
+    "task_3_improvements": "2026-05-04",
     "task_7_labels": "2026-04-27",
-    "task_11_monthly_summary": "2026-05-03",
+    "task_11_monthly_summary": "2026-05-04",
     "task_5_maintain_prs": "2026-05-02",
     "task_6_stale_nudges": "2026-04-26",
     "task_9_welcome": "2026-04-27",
@@ -28,7 +28,7 @@
     "48": {"date": "2026-03-02", "summary": "Investigated ZIndex.Tests warning. ISSUE CLOSED."},
     "45": {"date": "2026-03-02", "summary": "Answered build system questions. ISSUE CLOSED."},
     "52": {"date": "2026-03-02", "summary": "Explained root cause and linked to draft PR. ISSUE CLOSED."},
-    "49": {"date": "2026-03-03", "summary": "Documented localization architecture. ISSUE OPEN."},
+    "49": {"date": "2026-03-03", "summary": "Documented localization architecture. CLOSED by halcwb 2026-05-03."},
     "144": {"date": "2026-03-04", "summary": "Analyzed ValidatedResult refactor scope. CLOSED."},
     "146": {"date": "2026-03-05", "summary": "Identified root cause of Dictionary race condition. CLOSED."},
     "147": {"date": "2026-03-06", "summary": "Analyzed root cause: G-Standard has no per-dose-weight norm. CLOSED."},
@@ -37,17 +37,18 @@
     "55": {"date": "2026-03-09", "summary": "Prototype script TypesSplit.fsx created and PR submitted (merged as PR #151). ISSUE CLOSED."},
     "53": {"date": "2026-03-10", "summary": "Detailed analysis of ZIndex test fixture requirements. CLOSED (PR #163 merged)."},
     "39": {"date": "2026-03-11", "summary": "Analyzed GA exclusive-zero lower limit. CLOSED."},
-    "18": {"date": "2026-03-14", "summary": "Posted prototype script: LocalProducts.fsx with ProductId DU approach. Draft PR #165 created, MERGED. ISSUE STILL OPEN."},
+    "18": {"date": "2026-03-14", "summary": "Posted prototype script: LocalProducts.fsx with ProductId DU approach. Draft PR #165 created, MERGED. ISSUE CLOSED by halcwb 2026-05-03."},
     "22": {"date": "2026-03-12", "summary": "Mapped Scenarios.fs entries. CLOSED."},
     "54": {"date": "2026-03-12", "summary": "Outlined multilingual user guide path. CLOSED (PR #164 merged)."},
-    "50": {"date": "2026-03-13", "summary": "Mapped Prescription/Preparation/Administration pipeline. ISSUE STILL OPEN. @draptick never responded to halcwb Sep 2025 comment. Cannot re-comment per anti-spam rules."},
+    "50": {"date": "2026-03-13", "summary": "Mapped Prescription/Preparation/Administration pipeline. CLOSED by halcwb 2026-05-03."},
     "176": {"date": "2026-03-20", "summary": "Commented that PR #188 merged and fixes all 3 bugs. ISSUE CLOSED 2026-03-22."},
     "178": {"date": "2026-03-18", "summary": "Summarised completed Elmish/React code review (PR #179 merged). Issue closeable."},
     "197": {"date": "2026-03-22", "summary": "Commented linking to new Expecto.Flip PR. ISSUE CLOSED 2026-03-23 by halcwb."},
     "234": {"date": "2026-04-23", "summary": "Reviewed EasyBuild.ShipIt: fit analysis, trade-offs, migration checklist. Recommended adoption. ISSUE OPEN - awaiting halcwb response."},
     "240": {"date": "2026-03-28", "summary": "Observations on Copilot PR #241 (MCP ADR + prototype scripts). ISSUE CLOSED 2026-03-29."},
     "273": {"date": "2026-04-12", "summary": "Noted PR #301 implemented Calculations.fs in Shared, asked if issue can be closed. ISSUE CLOSED by halcwb on 2026-04-13."},
-    "307": {"date": "2026-04-13", "summary": "Detailed implementation analysis. PR #310 merged 2026-04-18. ISSUE CLOSED by halcwb on 2026-04-18."}
+    "307": {"date": "2026-04-13", "summary": "Detailed implementation analysis. PR #310 merged 2026-04-18. ISSUE CLOSED by halcwb on 2026-04-18."},
+    "336": {"date": "2026-05-03", "summary": "Fix lingering PR review issues from #326-#335 - completed with PR #337, MERGED by halcwb 2026-05-04. ISSUE CLOSED 2026-05-04."}
   },
   "labeled_issues": [22,39,52,53,54,55,77,107,126,144,147,149,178,197,234,236,240,270,271,273,307],
   "welcomed_users": [],
@@ -88,7 +89,7 @@
     "deps_update_20260416": {"date": "2026-04-16", "status": "PR #312 MERGED by halcwb 2026-04-18"},
     "adr_0016_gstand_fallback": {"date": "2026-04-17", "status": "PR #313 MERGED by halcwb 2026-04-18"},
     "changelog_18apr2026": {"date": "2026-04-18", "status": "PR #315 MERGED by halcwb 2026-04-19"},
-    "changelog_19apr2026": {"date": "2026-04-19", "status": "PR #318 MERGED by halcwb 2026-04-21"},
+    "changelog_19apr2026": {"date": "2026-04-19", "status": "PR #318 MERGED by halcwb 2026-04-22"},
     "changelog_20apr2026": {"date": "2026-04-20", "status": "PR #320 MERGED by halcwb 2026-04-21"},
     "changelog_21apr2026": {"date": "2026-04-21", "status": "PR #322 MERGED by halcwb 2026-04-22"},
     "changelog_22apr2026": {"date": "2026-04-22", "status": "PR #326 MERGED by halcwb 2026-04-23"},
@@ -100,7 +101,8 @@
     "adr_0020_fhir_r4": {"date": "2026-04-30", "status": "PR #332 MERGED by halcwb 2026-05-01"},
     "changelog_01may2026": {"date": "2026-05-01", "status": "PR #333 MERGED by halcwb 2026-05-02"},
     "mdr_validation_docs": {"date": "2026-05-02", "status": "PR #335 MERGED by halcwb 2026-05-03"},
-    "fix_pr_review_doc_issues_326_335": {"date": "2026-05-03", "status": "PR created (number TBD) - fixes 6 document inaccuracies from PR #328/#330/#332/#335 reviews; closes issue #336"}
+    "fix_pr_review_doc_issues_326_335": {"date": "2026-05-03", "status": "PR #337 MERGED by halcwb 2026-05-04 (closed issue #336)"},
+    "changelog_04may2026_337": {"date": "2026-05-04", "status": "Draft PR created (number TBD) - adds CHANGELOG entry for PR #337 doc fixes"}
   },
   "checkedoff_suggested_actions": [124],
   "release_status": {
@@ -109,25 +111,23 @@
     "v0_1_2_alpha": {"status": "RELEASED - 2026-03-23"}
   },
   "open_issues_confirmed": {
-    "date": "2026-05-03",
-    "list": [18, 49, 50, 234, 334, 336]
+    "date": "2026-05-04",
+    "list": [234, 334]
   },
   "open_prs_confirmed": {
-    "date": "2026-05-03",
-    "list": ["fix-pr-review-doc-issues-326-335 (new, number TBD)"]
+    "date": "2026-05-04",
+    "list": ["changelog-04may2026-337 (new, number TBD)"]
   },
   "notes": [
     "Avoid automatic release PRs - halcwb closed #210 without merging",
-    "Issue #50: @draptick silent for 7+ months; flagged; cannot re-comment per anti-spam rules",
     "halcwb is actively working on NLP-based dose rule extraction features",
     "Fable 5 stable merged (PR #323); vite-plugin-inspect still at 12.0.0-beta.1 - track for stable release",
     "React upgraded to 19.2.5, Vite to 8.0.9 in PR #324",
     "halcwb posted /repo-assist comment on #234 (2026-04-22) asking to review EasyBuild.ShipIt - analysis posted 2026-04-23",
     "If halcwb approves EasyBuild.ShipIt for #234, next ADR would be ADR-0021",
-    "PRs #331/#332/#333 all merged by halcwb in late April / early May 2026",
-    "PR #335: MDR validation docs merged by halcwb on 2026-05-03",
+    "PR #337: MDR doc fixes merged by halcwb on 2026-05-04; issues #18, #49, #50, #336 closed by halcwb 2026-05-03/04",
     "Remaining MDR placeholder docs: integration-test-report.md, usability-validation-report.md (pending usability testing)",
-    "Issue #336 (halcwb /repo-assist command): fix lingering PR review issues from #326-#335 - completed 2026-05-03 with new PR",
-    "6 doc fixes in new PR: 0017 property count, 0019 module/function names, 0020 DoseType invariant + IHE URL, unit-test-report section header + pickNearestHigherElseLower removal"
+    "6 Copilot Autofix commits pushed directly to master on 2026-05-03 (shallow clone, can't see details)",
+    "Only 2 open issues as of 2026-05-04: #234 (build system) and #334 (monthly activity)"
   ]
 }
