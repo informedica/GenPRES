@@ -1,6 +1,6 @@
 {
-  "last_run": "2026-05-05T21:18:45Z",
-  "last_run_id": "25402554541",
+  "last_run": "2026-05-06T21:20:49Z",
+  "last_run_id": "25461688648",
   "backlog_cursor": {
     "issues": 0,
     "last_reset": "2026-05-01"
@@ -8,9 +8,9 @@
   "tasks_last_run": {
     "task_1_triage": "2026-05-04",
     "task_2_fix_issues": "2026-04-26",
-    "task_3_improvements": "2026-05-05",
+    "task_3_improvements": "2026-05-06",
     "task_7_labels": "2026-04-27",
-    "task_11_monthly_summary": "2026-05-05",
+    "task_11_monthly_summary": "2026-05-06",
     "task_5_maintain_prs": "2026-05-02",
     "task_6_stale_nudges": "2026-04-26",
     "task_9_welcome": "2026-04-27",
@@ -103,7 +103,8 @@
     "mdr_validation_docs": {"date": "2026-05-02", "status": "PR #335 MERGED by halcwb 2026-05-03"},
     "fix_pr_review_doc_issues_326_335": {"date": "2026-05-03", "status": "PR #337 MERGED by halcwb 2026-05-04 (closed issue #336)"},
     "changelog_04may2026_337": {"date": "2026-05-04", "status": "PR #338 MERGED by halcwb 2026-05-05 (changelog entry for PR #337 doc fixes)"},
-    "roadmap_update_adr_0020": {"date": "2026-05-05", "status": "Draft PR created (number TBD) - updates ADR count to 0000-0020 and marks W7 FHIR design complete"}
+    "roadmap_update_adr_0020": {"date": "2026-05-05", "status": "PR #339 MERGED by halcwb 2026-05-06 (ADR count 0000-0020 + W7 FHIR milestone)"},
+    "changelog_06may2026_339": {"date": "2026-05-06", "status": "Draft PR created (number TBD) - changelog entry for PR #339 ROADMAP update"}
   },
   "checkedoff_suggested_actions": [124],
   "release_status": {
@@ -112,25 +113,24 @@
     "v0_1_2_alpha": {"status": "RELEASED - 2026-03-23"}
   },
   "open_issues_confirmed": {
-    "date": "2026-05-05",
+    "date": "2026-05-06",
     "list": [234, 334]
   },
   "open_prs_confirmed": {
-    "date": "2026-05-05",
-    "list": ["roadmap-update-adr-0020-20260505 (new, number TBD)"]
+    "date": "2026-05-06",
+    "list": ["changelog-06may2026-339-8102592 (new, number TBD)"]
   },
   "notes": [
     "Avoid automatic release PRs - halcwb closed #210 without merging",
     "halcwb is actively working on NLP-based dose rule extraction features",
-    "Fable 5 stable merged (PR #323); vite-plugin-inspect still at 12.0.0-beta.1 - track for stable release",
+    "Fable 5 stable merged (PR #323); vite-plugin-inspect on 12.0.0-beta.1 - latest stable 11.3.3 (12.x not yet stable)",
     "React upgraded to 19.2.5, Vite to 8.0.9 in PR #324",
     "halcwb posted /repo-assist comment on #234 (2026-04-22) asking to review EasyBuild.ShipIt - analysis posted 2026-04-23",
     "If halcwb approves EasyBuild.ShipIt for #234, next ADR would be ADR-0021",
-    "PR #337: MDR doc fixes merged by halcwb on 2026-05-04; issues #18, #49, #50, #336 closed by halcwb 2026-05-03/04",
-    "PR #338: Changelog for PR #337 merged by halcwb on 2026-05-05",
+    "PR #339: ROADMAP update merged by halcwb on 2026-05-06",
     "Remaining MDR placeholder docs: integration-test-report.md, usability-validation-report.md (pending usability testing)",
-    "6 Copilot Autofix commits pushed directly to master on 2026-05-03 (shallow clone, can't see details)",
-    "Only 2 open issues as of 2026-05-05: #234 (build system) and #334 (monthly activity)",
+    "3 Copilot Autofix commits pushed to test-strategy.md on 2026-05-03 (minor doc fixes, no changelog needed)",
+    "Only 2 open issues as of 2026-05-06: #234 (build system) and #334 (monthly activity)",
     "ADR count now 0000-0020 (ADR-0020 FHIR R4 merged in PR #332)"
   ]
 }
