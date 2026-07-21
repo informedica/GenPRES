@@ -41,6 +41,12 @@ jobs:
         GENPRES_DEBUG: 1
       run: dotnet run ServerTests
 
+    - name: Check solution version provenance
+      # Calls the script directly rather than `dotnet run CheckVersions` so the FAKE target that depends 
+      # on Build, which transitively depends on Clean/RestoreClient, so it would redo the full restore/build 
+      # which the "Test execution" just did. The DLLs are already fresh from build at this point.
+      run: dotnet fsi scripts/CheckSolutionVersions.fsx
+
     - name: Publish test results
       if: always() && runner.os == 'Linux'
       uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0

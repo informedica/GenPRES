@@ -8,7 +8,6 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="./Scripts/load.fsx" />

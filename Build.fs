@@ -211,6 +211,8 @@ Target.create
                     "No tests were discovered or run. The solution was likely not built/restored before 'dotnet test'."
     )
 
+Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
+
 
 Target.create
     "TestHeadless"
@@ -290,6 +292,7 @@ let dependencies =
         "RestoreClient" ==> "Build" ==> "WatchTests"
 
         "Build" ==> "ServerTests"
+        "Build" ==> "CheckVersions"
     ]
 
 

@@ -62,6 +62,7 @@ For example, `dotnet run` (no target) runs the `Run` target, which depends on:
 | `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artefacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
+| `dotnet run CheckVersions` | `CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |

@@ -7,7 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Core.fs" />

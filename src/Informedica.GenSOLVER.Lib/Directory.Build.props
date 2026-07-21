@@ -1,4 +1,8 @@
 <Project>
+    <!-- Pulls <Version> from the repo-root Directory.Build.props so every -->
+    <!-- library and the app share a single version number. -->
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
     <PropertyGroup>
         <!-- summary is not migrated from project.json, but you can use the <Description> property for that if needed. -->
         <PackageTags>f#, fsharp, medical</PackageTags>
@@ -7,7 +11,6 @@
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <RepositoryType>git</RepositoryType>
         <PackageId>Informedica.GenSolver.Lib</PackageId>
-        <Version>1.0.0</Version>
         <Authors>halcwb</Authors>
         <Company>Informedica</Company>      
         <RepositoryUrl>https://github.com/informedica/Informedica.GenSolver.Lib</RepositoryUrl>
