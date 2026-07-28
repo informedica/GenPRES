@@ -285,11 +285,23 @@ open Fake.Core.TargetOperators
 
 let dependencies =
     [
-        "Clean" ==> "RestoreClient" ==> "Bundle"
-        "Clean" ==> "RestoreClient" ==> "Build" ==> "Run"
+        // Two independent prongs: a self-sufficient server build (Build restores
+        // and builds GenPRES.sln itself, no npm involved) and a client toolchain
+        // (Clean clears stale Fable/.jsx output, then RestoreClient runs npm ci).
+        // Each leaf target below declares only the prong(s) its body actually uses,
+        // rather than chaining everything through one sequence.
+        "Clean" ==> "RestoreClient"
 
-        "RestoreClient" ==> "Build" ==> "TestHeadless"
-        "RestoreClient" ==> "Build" ==> "WatchTests"
+        "RestoreClient" ==> "Bundle"
+
+        "Build" ==> "Run"
+        "RestoreClient" ==> "Run"
+
+        "Build" ==> "TestHeadless"
+        "RestoreClient" ==> "TestHeadless"
+
+        "Build" ==> "WatchTests"
+        "RestoreClient" ==> "WatchTests"
 
         "Build" ==> "ServerTests"
         "Build" ==> "CheckVersions"

@@ -49,8 +49,10 @@ dotnet run [target]
                        └─► executes each target step
 ```
 
-For example, `dotnet run` (no target) runs the `Run` target, which depends on:
-`Clean → RestoreClient → Build → Run` (server + Fable watcher in parallel).
+For example, `dotnet run` (no target) runs the `Run` target, which depends on
+two independent prerequisites: `Build` (compiles the server, no npm involved)
+and `Clean → RestoreClient` (clears stale Fable output, then restores npm
+packages for the Fable/Vite dev server).
 
 ### FAKE Build Targets Reference
 
@@ -72,11 +74,22 @@ For example, `dotnet run` (no target) runs the `Run` target, which depends on:
 
 ```text
 Clean ──► RestoreClient ──► Bundle
-Clean ──► RestoreClient ──► Build ──► Run
 
-RestoreClient ──► Build ──► TestHeadless
-RestoreClient ──► Build ──► WatchTests
+Build ──► Run
+RestoreClient ──► Run
+
+Build ──► TestHeadless
+RestoreClient ──► TestHeadless
+
+Build ──► WatchTests
+RestoreClient ──► WatchTests
+
+Build ──► ServerTests
+Build ──► CheckVersions
 ```
+
+`Build` and `RestoreClient` are independent prongs — a target that only needs
+one of them (e.g. `ServerTests`, `CheckVersions`) doesn't pay for the other.
 
 ### What Happens During `dotnet run` (the `Run` target)
 
