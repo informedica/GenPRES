@@ -48,7 +48,11 @@ jobs:
       run: dotnet fsi scripts/CheckSolutionVersions.fsx
 
     - name: Publish test results
+      # continue-on-error: Dependabot PRs (and PRs from forks) get a read-only GITHUB_TOKEN that GitHub forces 
+      # regardless of any `permissions:` blocks declared, so this step 403s on those runs. Test results are still
+      # in the build log so don't let that fail a good build due to this step.
       if: always() && runner.os == 'Linux'
+      continue-on-error: true
       uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
       with:
         files: '**/TestResults/**/*.trx'
