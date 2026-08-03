@@ -328,8 +328,12 @@ Target.create
 Target.create
     "DockerRun"
     (fun _ ->
-        let urlId = requireEnvVar "GENPRES_URL_ID"
-        let password = requireEnvVar "GENPRES_PASSWORD"
+        // Fail fast with a clear message, but don't pass the values as `-e NAME=value` args: `createProcess`
+        // (Helpers.fs) renders the full argument list into its failure message on any non-zero docker exit,
+        // which would leak GENPRES_URL_ID/GENPRES_PASSWORD as plain text. `-e NAME` (no `=value`) makes docker
+        // forward the variable from its own environment instead, so the secrets never appear in the args.
+        requireEnvVar "GENPRES_URL_ID" |> ignore
+        requireEnvVar "GENPRES_PASSWORD" |> ignore
 
         run
             docker
@@ -340,9 +344,9 @@ Target.create
                 "-p"
                 "8080:8085"
                 "-e"
-                $"GENPRES_URL_ID={urlId}"
+                "GENPRES_URL_ID"
                 "-e"
-                $"GENPRES_PASSWORD={password}"
+                "GENPRES_PASSWORD"
                 dockerImage
             ]
             "."
