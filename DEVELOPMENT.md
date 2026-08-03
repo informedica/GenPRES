@@ -68,7 +68,8 @@ packages for the Fable/Vite dev server).
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run DockerRun` | `DockerRun` | Run the pre-built Docker image locally |
+| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`halcwb/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
+| `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
 #### Target Dependency Chains
 
@@ -237,38 +238,50 @@ dotnet run
 
 ##### Docker wrappers
 
-None of these wrappers bake `GENPRES_URL_ID` into the image — that constraint is enforced by the `Dockerfile` itself and described in [Environment Configuration](#environment-configuration).
+Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` 
+and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) 
+cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in 
+`Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into 
+the image — that constraint is enforced by the `Dockerfile` itself and described in
+ [Environment Configuration](#environment-configuration).
 
-**`docker-local.sh`** — build for the local processor architecture (Apple Silicon → arm64; Intel/Linux → amd64). Save at the repo root:
+**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root 
+`Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's 
+`org.opencontainers.image.version` label always matches what was built. To cross-build for 
+a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the 
+project's `halcwb/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
 
 ```bash
-#!/usr/bin/env bash
-docker build -t halcwb/genpres .
+# local architecture
+dotnet run DockerBuild
+
+# cross-build amd64
+DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild
 ```
 
-**`docker-amd64.sh`** — cross-build an amd64 image on Apple Silicon for deployment to a typical Linux host. Save at the repo root:
-
-```bash
-#!/usr/bin/env bash
-docker build --platform linux/amd64 -t halcwb/genpres .
+```powershell
+# cross-build amd64 (PowerShell)
+$env:DOCKER_PLATFORM = "linux/amd64"
+dotnet run DockerBuild
 ```
 
-**`docker-run.sh`** — source `.env`, validate that both `GENPRES_URL_ID` and `GENPRES_PASSWORD` are set (the `:` parameter expansion fails fast if either is missing), then run the container with the right `-e` flags. Save at the repo root:
+**Run** — `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the current 
+environment and fails fast with an error if either is missing, rather than starting an 
+unauthenticated container that the in-server `validateProductionPassword` would refuse later. 
+Source `.env` first (single source of truth — same as `prod.sh` / `debug.sh`):
 
 ```bash
-#!/usr/bin/env bash
-# Load env vars from .env (single source of truth — same as prod.sh / debug.sh).
 set -a; source .env; set +a
+dotnet run DockerRun
+```
 
-# Fail fast if .env did not provide the secrets, so we don't start an
-# unauthenticated container that the in-server validateProductionPassword
-# would refuse later anyway.
-: "${GENPRES_URL_ID:?GENPRES_URL_ID is not set in .env}"
-: "${GENPRES_PASSWORD:?GENPRES_PASSWORD is not set in .env}"
-
-docker run -e GENPRES_URL_ID="${GENPRES_URL_ID}" \
-           -e GENPRES_PASSWORD="${GENPRES_PASSWORD}" \
-           -p 8080:8085 halcwb/genpres
+```powershell
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#=]+)=(.*)$') {
+        [Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim())
+    }
+}
+dotnet run DockerRun
 ```
 
 If you find yourself wanting to commit one of these local scripts (e.g. because the team agrees it should be standardized), add a `!`-prefixed allow-line for the file to `.gitignore` in the same PR — otherwise the opt-in strategy will silently keep it untracked.
