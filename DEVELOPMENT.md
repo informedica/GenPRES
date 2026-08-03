@@ -238,18 +238,9 @@ dotnet run
 
 ##### Docker wrappers
 
-Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` 
-and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) 
-cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in 
-`Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into 
-the image — that constraint is enforced by the `Dockerfile` itself and described in
- [Environment Configuration](#environment-configuration).
+Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in `Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into the image — that constraint is enforced by the `Dockerfile` itself and described in [Environment Configuration](#environment-configuration).
 
-**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root 
-`Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's 
-`org.opencontainers.image.version` label always matches what was built. To cross-build for 
-a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the 
-project's `halcwb/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
+**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `halcwb/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
 
 ```bash
 # local architecture
@@ -265,10 +256,7 @@ $env:DOCKER_PLATFORM = "linux/amd64"
 dotnet run DockerBuild
 ```
 
-**Run** — `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the current 
-environment and fails fast with an error if either is missing, rather than starting an 
-unauthenticated container that the in-server `validateProductionPassword` would refuse later. 
-Source `.env` first (single source of truth — same as `prod.sh` / `debug.sh`):
+**Run** — `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the current environment and fails fast with an error if either is missing, rather than starting an unauthenticated container that the in-server `validateProductionPassword` would refuse later. Source `.env` first (single source of truth — same as `prod.sh` / `debug.sh`):
 
 ```bash
 set -a; source .env; set +a

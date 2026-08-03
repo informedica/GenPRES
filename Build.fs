@@ -279,8 +279,8 @@ Target.create
 
 let requireEnvVar name =
     match System.Environment.GetEnvironmentVariable name with
-    | null
-    | "" -> failwithf "%s is not set. Load it from .env first (see DEVELOPMENT.md)." name
+    | v when System.String.IsNullOrWhiteSpace v ->
+        failwithf "%s is not set. Load it from .env first (see DEVELOPMENT.md)." name
     | v -> v
 
 
