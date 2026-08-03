@@ -41,9 +41,9 @@ RUN dotnet run bundle
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
 # Curated single version number for the whole app (server, client, libraries).
-# Sourced from the root Directory.Build.props by the caller (see docker-local.sh /
-# docker-amd64.sh templates in DEVELOPMENT.md) so the image label always matches
-# what was actually built, without duplicating the version here.
+# Sourced from the root Directory.Build.props by the caller (see the
+# `DockerBuild` FAKE target in Build.fs / DEVELOPMENT.md) so the image label
+# always matches what was actually built, without duplicating the version here.
 ARG APP_VERSION=0.0.0
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 
