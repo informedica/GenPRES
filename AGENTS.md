@@ -55,6 +55,7 @@ dotnet test
 - `dotnet run Bundle` - Create production bundle
 - `dotnet run CheckVersions` - Proves that every project shipped in GenPRES.sln reports the same version as the repo-root Directory.Build.props
 - `dotnet run Clean` - Clean build artifacts
+- `dotnet run DockerBuild` - Builds the Docker image, version-labelled from `Directory.Build.props`
 - `dotnet run DockerRun` - Runs a Docker container
 - `dotnet run Format` - Uses Fantomas to format F# code
 - `dotnet run MarkdownLint` - Runs the mark down linter
@@ -83,11 +84,11 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 ### Docker
 
-The proprietary `GENPRES_URL_ID` is **not** baked into the image. Inject it (and `GENPRES_PASSWORD` for admin operations) at container runtime, ideally via a Docker / Kubernetes secret.
+`GENPRES_URL_ID` is required at server startup, in both demo and production mode — not just for admin operations. The image also sets `GENPRES_PROD=1` by default, so the server refuses to start unless `GENPRES_PASSWORD` is also set to at least 16 characters — it's not purely an admin-operations toggle either. Neither the proprietary URL ID nor the password is baked into the image; inject both at container runtime, ideally via a Docker / Kubernetes secret. For local testing without production credentials, use the public demo sheet ID documented in `.env.example`.
 
-- `docker build -t USERNAME/genpres .`
-- `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" USERNAME/genpres`
-- `dotnet run DockerRun` - Run pre-built Docker image
+- `dotnet run DockerBuild` - Build the image, labelled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `halcwb/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
+- `dotnet run DockerRun` - Run the built image, reading `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) and failing fast if either is unset.
+- Equivalent manual commands: `docker build -t halcwb/genpres .` / `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" halcwb/genpres`
 
 ## Key Code Locations
 
