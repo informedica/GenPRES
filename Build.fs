@@ -326,10 +326,20 @@ let buildDockerImage () =
 // `docker` wraps CreateProcess with addOnExited, which raises on any non-zero exit.
 // This is unusable here since "no such image" is an expected outcome we need to branch on, not a build failure.
 let dockerImageExistsLocally () =
-    CreateProcess.fromRawCommand "docker" [ "image"; "inspect"; dockerImage ]
-    |> CreateProcess.redirectOutput
-    |> Proc.run
-    |> fun result -> result.ExitCode = 0
+    let result =
+        CreateProcess.fromRawCommand "docker" [ "image"; "inspect"; dockerImage ]
+        |> CreateProcess.redirectOutput
+        |> Proc.run
+
+    if result.ExitCode = 0 then
+        true
+    // Only "no such image" means missing. Any other failure (daemon down, permission
+    // denied, wrong context) is a real Docker problem, not something a build can fix,
+    // so surface it immediately instead of letting it masquerade as a routine first build.
+    elif result.Result.Error.Contains "No such image" then
+        false
+    else
+        failwithf "docker image inspect failed:\n%s" result.Result.Error
 
 
 Target.create "DockerBuild" (fun _ -> buildDockerImage ())
