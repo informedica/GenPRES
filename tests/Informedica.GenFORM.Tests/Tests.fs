@@ -925,7 +925,338 @@ module DoseRuleToDataTests =
         data |> DP.buildRules |> Array.collect DoseRule.toData
 
 
-    let tests =
+    /// <summary>
+    /// Declares which spreadsheet columns each sheet parser reads, and fails when a
+    /// parser stops agreeing with its declaration. These tests, not a document, are
+    /// the specification of the sheet contract.
+    /// </summary>
+    /// <remarks>
+    /// <c>Csv.getColumn</c> RAISES on a column that is not in the header row, and
+    /// every sheet parser wraps its body in try/with -> Error. So two assertions
+    /// fix a declared column set exactly:
+    ///
+    /// 1. parsing a sheet whose header row is EXACTLY the declared set succeeds
+    ///    => the parser reads no column outside the declared set;
+    /// 2. dropping any single declared column makes the parse fail
+    ///    => the parser really reads every declared column.
+    ///
+    /// Columns that may legitimately be absent are listed in <c>tolerated</c> and
+    /// are exempt from (2) only; that list is the optionality contract.
+    ///
+    /// A failure means the parser and the declared column set disagree. Fix
+    /// whichever is wrong - do NOT relax the test. If a column genuinely became
+    /// optional, move it to <c>tolerated</c> and make the parser read it through a
+    /// tolerant reader.
+    ///
+    /// Verified by mutation: renaming <c>get "MinQty"</c> to <c>get "MinQuantity"</c>
+    /// in SolutionRule.fs turns assertion (1) for SolutionRules red. Note it is (1)
+    /// that catches a rename - (2) stays green because the parse then fails for the
+    /// wrong reason - so do not weaken (1) into "parses with at least these columns".
+    /// </remarks>
+    module ColumnContract =
+
+
+        /// A sheet with the given header row and ONE data row. Cells are empty
+        /// unless <c>overrides</c> gives a value: every parser must cope with an
+        /// empty cell, so an empty row keeps each fixture down to the columns that
+        /// must carry a value for the parser to reach the rest.
+        let mkSheet (overrides: (string * string) list) (columns: string list) =
+            let row =
+                columns
+                |> List.map (fun c ->
+                    overrides
+                    |> List.tryFind (fst >> String.equalsCapInsens c)
+                    |> Option.map snd
+                    |> Option.defaultValue ""
+                )
+
+            [| columns |> List.toArray; row |> List.toArray |]
+
+
+        /// The unit mapping the FormRoute fixture needs: without a resolvable dose
+        /// unit that parser short-circuits and never reads its dose columns.
+        let unitMappingFixture =
+            [|
+                {
+                    Long = "milligram"
+                    Short = "mg"
+                    MV = "mg"
+                    Group = "Mass"
+                }
+            |]
+
+
+        /// The DoseRules columns, taken from the ONE production list so the two
+        /// cannot drift. <c>headers</c> is a single tab-joined line.
+        let doseRuleColumns =
+            let fromHeaders =
+                DoseRuleData.headers |> List.head |> String.split "\t" |> List.map String.trim
+
+            // "Loc" is read by the parser but missing from `headers` - see the TODO
+            // there. Declared here because the sheet does carry it.
+            fromHeaders @ [ "Loc" ]
+
+
+        /// name, declared columns, columns that may be absent, empty-cell
+        /// overrides, and the parser under test reduced to a success flag.
+        let sheets: (string * string list * string list * (string * string) list * (string[][] -> bool)) list =
+            [
+                "Routes",
+                [ "ZIndex"; "ShortDutch" ],
+                [],
+                [],
+                (Mapping.parseSheet Mapping.routeMappingRow >> Result.isOk)
+
+                "Units",
+                [ "ZIndexUnitLong"; "Unit"; "MetaVisionUnit"; "Group" ],
+                [],
+                [],
+                (Mapping.parseSheet Mapping.unitMappingRow >> Result.isOk)
+
+                "ValidForms", [ "Form" ], [], [], (Mapping.parseSheet Mapping.validFormRow >> Result.isOk)
+
+                "FormRoute",
+                [
+                    "Route"
+                    "Form"
+                    "Unit"
+                    "DoseUnit"
+                    "MinDoseQty"
+                    "MaxDoseQty"
+                    "MinDoseQtyKg"
+                    "MaxDoseQtyKg"
+                    "Divisible"
+                    "Timed"
+                    "Reconstitute"
+                    "IsSolution"
+                ],
+                [],
+                [ "Unit", "mg"; "DoseUnit", "mg" ],
+                (Mapping.parseSheet (Mapping.formRouteRow unitMappingFixture) >> Result.isOk)
+
+                "Totals",
+                [
+                    "Name"
+                    "MinAge"
+                    "MaxAge"
+                    "MinWeight"
+                    "MaxWeight"
+                    "Unit"
+                    "Adj"
+                    "TimeUnit"
+                    "MinPerTime"
+                    "MaxPerTime"
+                    "MinPerTimeAdj"
+                    "MaxPerTimeAdj"
+                ],
+                [],
+                [],
+                (Mapping.parseSheet Mapping.totalsRow >> Result.isOk)
+
+                "Reconstitution",
+                [
+                    "GPK"
+                    "Route"
+                    "Loc"
+                    "Dep"
+                    "DiluentVol"
+                    "ExpansionVol"
+                    "Diluents"
+                ],
+                [],
+                [],
+                (Product.Reconstitution.parseReconstitution >> Result.isOk)
+
+                "Formulary",
+                [
+                    "GPKODE"
+                    "Type"
+                    "UMCU"
+                    "ICC"
+                    "NEO"
+                    "ICK"
+                    "HCK"
+                    "Generic"
+                    "TallMan"
+                    "Divisible"
+                    "UseGenName"
+                    "Mmol"
+                    "Form"
+                    "Brand"
+                    "GenName"
+                    "GStand"
+                    "Unit"
+                    "Energy kCal"
+                    "Carb g"
+                    "Prot g"
+                    "Lip g"
+                    "Sod mmol"
+                    "Pot mmol"
+                    "Calc mmol"
+                    "Posph mmol"
+                    "Magn mmol"
+                    "Chlor mmol"
+                    "Iron mmol"
+                    "VitD IE"
+                    "IsReconste"
+                    "IsDilute"
+                    "IsAdditive"
+                ],
+                [],
+                [],
+                (Product.parseFormularyProducts >> Result.isOk)
+
+                "DoseRules",
+                doseRuleColumns,
+                // read through getIfNull / getOpt / getInt, so a sheet may omit them
+                [
+                    "RowId"
+                    "RuleId"
+                    "GrpId"
+                    "SortNo"
+                    "SourceText"
+                    "PatientText"
+                    "ScheduleText"
+                    "Loc"
+                    "Validated"
+                    "FreqCheck"
+                    "DoseCheck"
+                ],
+                [],
+                (DoseRuleData.parseDoseRuleData >> Result.isOk)
+
+                "SolutionRules",
+                [
+                    "Generic"
+                    "Form"
+                    "Route"
+                    "Indication"
+                    "Loc"
+                    "Dep"
+                    "CVL"
+                    "PVL"
+                    "MinAge"
+                    "MaxAge"
+                    "MinWeight"
+                    "MaxWeight"
+                    "MinGestAge"
+                    "MaxGestAge"
+                    "MinDose"
+                    "MaxDose"
+                    "DoseType"
+                    "DoseText"
+                    "Solutions"
+                    "Volumes"
+                    "Div"
+                    "MinVol"
+                    "MaxVol"
+                    "MinVolAdj"
+                    "MaxVolAdj"
+                    "MinPerc"
+                    "MaxPerc"
+                    "Component"
+                    "Substance"
+                    "Unit"
+                    "Quantities"
+                    "MinQty"
+                    "MaxQty"
+                    "MinQtyAdj"
+                    "MaxQtyAdj"
+                    "MinDrip"
+                    "MaxDrip"
+                    "MinConc"
+                    "MaxConc"
+                ],
+                [],
+                [],
+                (SolutionRule.parseSolutionRuleData >> Result.isOk)
+
+                "RenalRules",
+                [
+                    "Generic"
+                    "Route"
+                    "Indication"
+                    "Source"
+                    "MinAge"
+                    "MaxAge"
+                    "IntDial"
+                    "ContDial"
+                    "PerDial"
+                    "MinGFR"
+                    "MaxGFR"
+                    "DoseType"
+                    "DoseText"
+                    "Freqs"
+                    "DoseRed"
+                    "DoseUnit"
+                    "AdjustUnit"
+                    "FreqUnit"
+                    "RateUnit"
+                    "MinInt"
+                    "MaxInt"
+                    "IntUnit"
+                    "Substance"
+                    "MinQty"
+                    "MaxQty"
+                    "NormQtyAdj"
+                    "MinQtyAdj"
+                    "MaxQtyAdj"
+                    "MinPerTime"
+                    "MaxPerTime"
+                    "NormPerTimeAdj"
+                    "MinPerTimeAdj"
+                    "MaxPerTimeAdj"
+                    "MinRate"
+                    "MaxRate"
+                    "MinRateAdj"
+                    "MaxRateAdj"
+                ],
+                [],
+                [],
+                (RenalRule.parseRenalRuleData >> Result.isOk)
+            ]
+
+
+        let tests =
+            testList
+                "sheet column contract"
+                [
+                    for name, columns, tolerated, overrides, parseOk in sheets do
+                        testList
+                            name
+                            [
+                                test "the declared columns are sufficient to parse the sheet" {
+                                    columns
+                                    |> mkSheet overrides
+                                    |> parseOk
+                                    |> Expect.isTrue
+                                        $"the %s{name} parser must not read any column outside its declared set"
+                                }
+
+                                for col in columns |> List.filter (fun c -> tolerated |> List.contains c |> not) do
+                                    test $"the sheet cannot be parsed without column {col}" {
+                                        columns
+                                        |> List.filter (fun c -> c <> col)
+                                        |> mkSheet overrides
+                                        |> parseOk
+                                        |> Expect.isFalse
+                                            $"%s{name}.%s{col} is declared but never read - drop it or read it"
+                                    }
+
+                                for col in tolerated do
+                                    test $"column {col} may be absent" {
+                                        columns
+                                        |> List.filter (fun c -> c <> col)
+                                        |> mkSheet overrides
+                                        |> parseOk
+                                        |> Expect.isTrue
+                                            $"%s{name}.%s{col} is declared optional but the parser requires it"
+                                    }
+                            ]
+                ]
+
+
+    let roundTripTests =
         testList
             "DoseRule.toData round-trip"
             [
@@ -994,6 +1325,9 @@ module DoseRuleToDataTests =
                     |> Expect.isTrue "reversed row carries the substance with CmpBased = false"
                 }
             ]
+
+
+    let tests = testList "DoseRule data" [ roundTripTests; ColumnContract.tests ]
 
 
 /// Full DoseRule round-trip on OFFLINE fixtures (no network/cache/env).

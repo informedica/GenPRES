@@ -34,9 +34,11 @@ module AppPath =
     open System.IO
 
 
+    /// <summary>
     /// Name of the environment variable that, when set, forces the application
     /// root explicitly. It must point at the directory containing <c>data/</c>
     /// (for example <c>/app</c> in the Docker container).
+    /// </summary>
     [<Literal>]
     let GENPRES_ROOT = "GENPRES_ROOT"
 
@@ -122,25 +124,39 @@ module AppPath =
             Environment.CurrentDirectory |> Path.GetFullPath
 
 
+    /// <summary>
     /// Lazily resolved, memoized application root. Resolution is deferred so
     /// that any <c>Env.loadDotEnv()</c> setting <c>GENPRES_ROOT</c> runs first.
+    /// </summary>
     let root = lazy (resolveRoot ())
 
+    /// <summary>
     /// The resolved application root directory (the directory containing <c>data/</c>).
+    /// </summary>
     let rootPath () = root.Value
 
+    /// <summary>
     /// The <c>data/</c> directory under the application root.
+    /// </summary>
     let dataDir () = Path.Combine(rootPath (), "data")
 
+    /// <summary>
     /// The <c>data/cache/</c> directory.
+    /// </summary>
     let cacheDir () = Path.Combine(dataDir (), "cache")
 
+    /// <summary>
     /// The <c>data/zindex/</c> directory.
+    /// </summary>
     let zindexDir () = Path.Combine(dataDir (), "zindex")
 
+    /// <summary>
     /// The <c>data/logs/</c> directory.
+    /// </summary>
     let logsDir () = Path.Combine(dataDir (), "logs")
 
+    /// <summary>
     /// The <c>data/cache/interactions/</c> directory.
+    /// </summary>
     let interactionsDir () =
         Path.Combine(cacheDir (), "interactions")

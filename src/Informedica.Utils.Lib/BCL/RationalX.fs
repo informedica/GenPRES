@@ -27,9 +27,11 @@ module private RationalXHelpers =
 
     let inline absL (a: int64) = if a < 0L then -a else a
 
+    /// <summary>
     /// Fold an int64 into an int32 hash, mixing the upper 32 bits in (a plain
     /// <c>int</c> cast would discard them, collapsing values that differ only
     /// above bit 32 into the same bucket).
+    /// </summary>
     let inline hash64 (x: int64) = int (x ^^^ (x >>> 32))
 
     /// Greatest common divisor of two int64 values (always non-negative).

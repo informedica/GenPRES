@@ -10,20 +10,20 @@ At the start of each session, read these documents for full project context.
 
 ### Project governance and workflow
 
-@AGENTS.md
-@DEVELOPMENT.md
-@CONTRIBUTING.md
+- @AGENTS.md
+- @DEVELOPMENT.md
+- @CONTRIBUTING.md
 
 ### Coding standards
 
-@.github/instructions/fsharp-coding.instructions.md
-@.github/instructions/fsharp-code-formatting.instructions.md
-@.github/instructions/commit-message.instructions.md
+- @.github/instructions/fsharp-coding.instructions.md
+- @.github/instructions/fsharp-code-formatting.instructions.md
+- @.github/instructions/commit-message.instructions.md
 
 ### Domain documentation
 
-@docs/domain/core-domain.md
-@docs/domain/gensolver-from-orders-to-quantitative-solutions.md
+- @docs/domain/core-domain.md
+- @docs/domain/gensolver-from-orders-to-quantitative-solutions.md
 
 ### Architecture and data
 

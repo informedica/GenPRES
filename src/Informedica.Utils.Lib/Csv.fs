@@ -58,8 +58,22 @@ module Csv =
         |> unbox<'T>
 
 
+    /// <summary>
     /// Get a column from a row of a CSV file.
     /// Example: getColumn StringData [| "a"; "b" |] [| "1"; "2" |] "a" will return "1".
+    /// </summary>
+    /// <remarks>
+    /// Header names are matched case-insensitively, and an unknown column name
+    /// RAISES rather than yielding a default. Callers that parse a whole sheet wrap
+    /// this in try/with and surface the failure as an Error, which makes the header
+    /// row of a sheet a checkable contract: feed a parser exactly the column set it
+    /// is supposed to read and it succeeds, drop any one of them and it fails. The
+    /// GenFORM column-contract tests rely on that.
+    ///
+    /// A column that may legitimately be absent therefore needs an explicit
+    /// tolerant wrapper at the call site (see DoseRuleData.getIfNull) - there is no
+    /// way to express optionality here.
+    /// </remarks>
     let inline getColumn<'T> dataType columns row name =
         columns
         |> Array.tryFindIndex (String.equalsCapInsens name)

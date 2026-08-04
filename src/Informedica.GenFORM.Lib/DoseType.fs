@@ -63,8 +63,10 @@ module DoseType =
             NoDoseType, warn
 
 
+    /// <summary>
     /// Get a dose type from a string. Pure wrapper over <c>parse</c> that
     /// discards the warning.
+    /// </summary>
     let fromString doseType doseText = parse doseType doseText |> fst
 
 

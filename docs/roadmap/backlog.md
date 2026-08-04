@@ -112,13 +112,13 @@ solution-based medications.
 **Affected areas.**
 - `src/Informedica.NLP.Lib/`, `Informedica.GenFORM.Lib/` (per-rule extractors +
   validators: `SolutionRule.fs`, `RenalRule.fs`, reconstitution in `Product.fs`)
-- `docs/mdr/design-history/0003-resource-requirements.md` (column/semantics updates)
+- `src/Informedica.GenFORM.Lib/Types.fs` `Data` records + the column-contract test (column/semantics updates)
 
 **Acceptance criteria.**
 - Each rule type has an extractor + validator with surfaced `Messages`.
 - Each round-trips through its `getFromGetData`/`toData` (cf. DoseRule roundtrip work).
 - Formulary entries extractable and validatable.
-- `0003-resource-requirements.md` updated per rule type.
+- `Data` record comments and the column-contract test updated per rule type.
 
 ---
 
