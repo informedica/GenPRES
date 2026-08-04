@@ -470,6 +470,6 @@ Each pass writes a per-generic JSON dump to its `passNJsonDir`:
 - `src/Informedica.GenFORM.Lib/DoseType.fs:46-98` — `DoseType.fromString` / `toDescription` (canonical `doseType` enum mirrored by Pass 2).
 - `src/Informedica.GenFORM.Lib/DoseRule.fs` — `getFromGetData` / `getData` / `processDoseRuleData` / `mapToDoseRule` / `addDoseLimits` / `Print.toMarkdown` / `Print.printGenerics`; the production parser Pass 5 (§6.5) bridges into. `Resources.defaultResourceConfig` / `loadAllResourcesWithConfig` in `src/Informedica.GenFORM.Lib/Api.fs`.
 - `data/sources/Rules/doserules.tsv` — final downstream typed-emit target (TBD, §8).
-- [`docs/mdr/design-history/0003-resource-requirements.md`](../mdr/design-history/0003-resource-requirements.md) §9 — DoseRules sheet column spec, including the `IsAdult` column and its clearing invariant.
+- [`src/Informedica.GenFORM.Lib/DoseRuleData.fs`](../../src/Informedica.GenFORM.Lib/DoseRuleData.fs) — `headers` (canonical DoseRules column order) and `parseDoseRuleData`; the `IsAdult` column and its clearing invariant are specified in [ADR-0021](../mdr/design-history/0021-isadult-patient-category-facet.md).
 - [`docs/domain/genform-free-text-to-operational-rules.md`](../domain/genform-free-text-to-operational-rules.md) §3, §5, §6.1, §6.2, **Addendum C.2** (DoseRule field spec; canonical source for `Gender = male / female` etc.).
 - [`docs/domain/core-domain.md`](../domain/core-domain.md) — OKRs and rule hierarchy.

@@ -200,8 +200,10 @@ module ViewHelpers =
         | _ -> None
 
 
+    /// <summary>
     /// Like <see cref="ovarStepTo"/> but without a feasibility ceiling — the prediction
     /// follows the increment grid freely (mirroring the server's unbounded step).
+    /// </summary>
     let ovarStep (format: decimal -> string) (ovar: OrderVariable) : (int * int -> string * string) option =
         ovarStepTo None format ovar
 
@@ -242,12 +244,14 @@ module ViewHelpers =
         ovar |> stepsToCeiling ceiling (definedIncrement ovar)
 
 
+    /// <summary>
     /// Like <see cref="incrementStepsToCeiling"/> but counts steps of the LARGE increment
     /// (the server's calculated LargeIncr used by the jump buttons), falling back to the
     /// defined increment when the server emits none. Lets a large step saturate at the
     /// feasibility ceiling exactly like a small step, so the larger increment does not
     /// overshoot the ceiling and get reverted by the solver. None when there is no ceiling
     /// or no usable increment.
+    /// </summary>
     let largeIncrementStepsToCeiling (ceiling: decimal option) (ovar: OrderVariable) : int option =
         let largeIncr =
             ovar.LargeIncr |> Option.bind firstSnd |> Option.orElse (definedIncrement ovar)

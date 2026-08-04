@@ -6,13 +6,15 @@ open Informedica.Utils.Lib.BCL
 open Newtonsoft.Json
 
 
+/// <summary>
 /// Shared BigRational JSON helper for the offline round-trip fixtures.
 ///
 /// Defined ONCE and used by both the round-trip tests (<c>Tests.fs</c>) and the
 /// fixture generator (<c>Scripts/DownloadFixtures.fsx</c>, which <c>#load</c>s
 /// this file), so the writer and the reader can never drift out of sync — a
 /// mismatch would make every committed fixture silently fail to deserialize.
-///
+/// </summary>
+/// <remarks>
 /// This deliberately does NOT reuse <c>Informedica.Utils.Lib.Json</c>: that
 /// converter (a) checks <c>t = typeof&lt;BigRational&gt;</c>, which never matches
 /// because MathNet instances are the nested type <c>BigRational+Q</c>, and
@@ -22,6 +24,7 @@ open Newtonsoft.Json
 /// matches with <c>IsAssignableFrom</c> and round-trips a BigRational as a
 /// compact, BigInteger-safe "num/den" string. Newtonsoft's built-in F# union
 /// converter handles ValueUnit / Unit / option.
+/// </remarks>
 module FixtureJson =
 
     type BigRationalConverter() =

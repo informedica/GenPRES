@@ -53,7 +53,12 @@ dotnet test
 - `dotnet run list` - Show all available build targets
 - `dotnet run Build` - Build the solution
 - `dotnet run Bundle` - Create production bundle
+- `dotnet run CheckVersions` - Proves that every project shipped in GenPRES.sln reports the same version as the repo-root Directory.Build.props
 - `dotnet run Clean` - Clean build artifacts
+- `dotnet run DockerRun` - Runs a Docker container
+- `dotnet run Format` - Uses Fantomas to format F# code
+- `dotnet run MarkdownLint` - Runs the mark down linter
+- `dotnet run RestoreClient` - Runs the client npm restore process
 - Access the application at `http://localhost:5173`
 
 ### Testing
@@ -78,26 +83,27 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 ### Docker
 
-The proprietary `GENPRES_URL_ID` is **not** baked into the image any more. Inject it (and `GENPRES_PASSWORD` for admin operations) at container runtime, ideally via a Docker / Kubernetes secret.
+The proprietary `GENPRES_URL_ID` is **not** baked into the image. Inject it (and `GENPRES_PASSWORD` for admin operations) at container runtime, ideally via a Docker / Kubernetes secret.
 
-- `docker build -t halcwb/genpres .`
-- `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" halcwb/genpres`
+- `docker build -t USERNAME/genpres .`
+- `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" USERNAME/genpres`
 - `dotnet run DockerRun` - Run pre-built Docker image
 
 ## Key Code Locations
 
 - F# libraries under `src/`
-- Tests: `tests/` (Expecto + FsCheck). Look for BigRational and ValueUnit tests.
-- Resource loading and tests: `src/Informedica.GenForm.Lib/Api.fs` and `tests/`
-- Sheet parsers: `Mapping.fs`, `Product.fs`, `DoseRule.fs`, `SolutionRule.fs`, `RenalRule.fs`
+- Tests: `tests/` (uses Expecto + FsCheck).
+- Resource loading: `src/Informedica.GenForm.Lib/Api.fs`
+- Resource parsers: `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
 - Unit and BigRational helpers: `src/Informedica.GenUnits.Lib/ValueUnit.fs`
-- Sheet documentation: `docs/mdr/design-history/0003-resource-requirements.md`
+- Sheet documentation: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (one record per sheet, columns documented on the fields), with the column names enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
 
 **Important:** an opt-in strategy is used in the `.gitignore` file — you have to specifically define what should be included instead of the other way around!
+The same applies to the docker ignore file.
 
 ## Configuration Architecture
 
-- All medication rules and constraints stored in Google Spreadsheets
+- All medication rules and constraints (currently) stored in Google Spreadsheets
 - Downloaded as CSV and parsed dynamically
 - `GENPRES_URL_ID` environment variable controls which spreadsheet to use
 - Local cache files provide offline medication data access
@@ -110,12 +116,12 @@ The proprietary `GENPRES_URL_ID` is **not** baked into the image any more. Injec
 
 ## Resource Loading Pattern
 
-- Docs with sheet specs: `docs/mdr/design-history/0003-resource-requirements.md`.
-- Check `0003-resource-requirements.md` for expected sheet and column names.
+- Sheet specs live in code: each sheet has a record in the `Data` module of `src/Informedica.GenFORM.Lib/Types.fs`, whose XML summary names the sheet and the parser and whose field comments carry the column name (where it differs), unit, separator and boolean spelling.
+- Check that record — and the declared column lists in `DoseRuleToDataTests.ColumnContract` (`tests/Informedica.GenFORM.Tests/Tests.fs`) — for expected sheet and column names.
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
 - The central `ResourceConfig` (in `Api.fs`) expects functions returning `GenFormResult<'T>` (alias for `Result<'T, Message list>`). Use the `*Result` variants where present (e.g., `Mapping.getRouteMapping` or `Mapping.getRouteMappingResult`) and wrap with `delay` when the signature expects a `unit -> GenFormResult<_>`.
-- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.get`, `DoseRule.get`) and update `0003-resource-requirements.md` to reflect column names.
+- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the field comments on the matching `Data` record, and update the declared column list in the column-contract test.
 - Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
 - If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
 
@@ -381,7 +387,7 @@ FSI's `#load` directive resolves relative paths from its *include path*, **not**
 
 ## Safety, MDR and Documentation
 
-- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, changelog entry, and an update to `docs/mdr/design-history/0003-resource-requirements.md` if spreadsheet columns or semantics changed.
+- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
 - Add notes to CONTRIBUTING.md if the change introduces a new external dependency or changes deployment behavior.
 
 ## AI/LLM Usage Policy
@@ -401,7 +407,7 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 - [ ] Small, focused change with < 300 LOC modified when possible.
 - [ ] Add or update unit tests covering the change.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.
-- [ ] Update `0003-resource-requirements.md` if spreadsheet column names or semantics change.
+- [ ] Update the `Data` record comments and the column-contract test if spreadsheet column names or semantics change.
 - [ ] Use conventional commit message with scope and short description.
 
 ## Related Documentation
@@ -412,4 +418,4 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Development setup: [DEVELOPMENT.md](DEVELOPMENT.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Domain model: `docs/domain/core-domain.md`
+- Domain model: [Core Domain Model](docs/domain/core-domain.md)

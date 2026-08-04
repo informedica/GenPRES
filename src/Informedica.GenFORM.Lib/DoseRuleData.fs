@@ -9,6 +9,15 @@ module DoseRuleData =
     open Utils
 
 
+    /// <summary>
+    /// The canonical column order of the "DoseRules" sheet, and the emit order of
+    /// <c>dataToCsv</c>. The column semantics live on <c>DoseRuleData</c> in
+    /// Types.fs; which of these may be absent from a sheet is fixed by the tolerant
+    /// readers in <c>parseDoseRuleData</c> and pinned by the column-contract tests.
+    /// </summary>
+    // TODO: "Loc" is read by parseDoseRuleData (into PatientCategoryData.Location)
+    // but missing here, so a dataToCsv round-trip silently drops the location.
+    // Either add it in the position the sheet uses, or stop reading it.
     let headers =
         [
             "RowId"
@@ -132,6 +141,11 @@ module DoseRuleData =
                 |> Array.tail
                 |> Array.distinctBy (fun row -> row |> Array.tail)
                 |> Array.map (fun r ->
+                    // `get` raises when the column is absent from the header row, so
+                    // every column read through it is REQUIRED. The three readers
+                    // below are the deliberate exceptions: they swallow that failure,
+                    // so the columns they read may be missing from a sheet. Which
+                    // reader a column uses is the whole of its optionality contract.
                     let get = getColumn r
 
                     let getIfNull col =
@@ -147,6 +161,8 @@ module DoseRuleData =
                     let getInt = getIfNull >> Int32.tryParse
                     let toBrOpt = BigRational.toBrs >> Array.tryHead
 
+                    // required column; "x" is the sheet convention, the rest are
+                    // tolerated spellings
                     let getBool =
                         get
                         >> fun s ->

@@ -86,11 +86,12 @@ module PatientCategory =
         } = p
 
 
-    // NOTE: the `IsAdult` case returns an empty age range, which the age filter
-    // treats as "no age restriction". `IsAdult` is therefore not yet enforced in
-    // patient matching — it is gated at the extraction boundary (no `IsAdult="x"`
-    // row may reach GenFORM ingest) until a structured adult facet is added. See
-    // ADR-0021 and ADR-0003 (DoseRules `IsAdult` note).
+    // TODO: the `IsAdult` case returns an empty age range, which the age filter
+    // treats as "no age restriction" — so an adult-only rule currently matches a
+    // patient of ANY age instead of adults only. Until this enforces "adult
+    // patients only", no `IsAdult="x"` row may reach GenFORM ingest; that is
+    // gated at the extraction boundary, which also empties MinAge/MaxAge for such
+    // rows, leaving them with no age bound at all. See ADR-0021.
     let getAge (pat: PatientCategory) =
         match pat.Age with
         | AbsoluteAge a -> a

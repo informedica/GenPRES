@@ -38,6 +38,10 @@ module Product =
                         | "parenteral" -> ProductType.ParenteralProduct
                         | _ -> ProductType.NoProduct
 
+                    // TODO: the sheet still carries "UseForm" and "UseBrand"
+                    // columns that nothing reads any more (the naming flags were
+                    // dropped from FormularyProduct). Confirm with the sheet owner
+                    // and remove the columns, or start honouring them again.
                     {
                         GPK = get "GPKODE"
                         ProductType = get "Type" |> getProdType
@@ -586,8 +590,10 @@ module Product =
         |> Array.append enteral
 
 
+    /// <summary>
     /// Impure adapter: reads the ZIndex GenPresProducts and delegates to the
     /// pure <c>fromGenPresProducts</c>. Kept for existing callers/tests.
+    /// </summary>
     let get
         unitMapping
         routeMapping

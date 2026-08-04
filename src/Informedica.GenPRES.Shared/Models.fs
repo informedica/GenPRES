@@ -1016,6 +1016,19 @@ module Models =
             }
 
 
+    /// <summary>
+    /// Bolus medication for resuscitation scenarios: <c>parse</c> reads the
+    /// "emergencylist" sheet of the emergency-list spreadsheet (see
+    /// <c>dataEMLUrlId</c> in the client's Utils - a different workbook from the
+    /// GENPRES_URL_ID one, loaded by the client rather than by GenFORM.Lib).
+    /// </summary>
+    /// <remarks>
+    /// Columns: hospital, indication, medication, minWeight, maxWeight, dose, min,
+    /// max, conc, unit, remark. The four "template-generic" / "template-route" /
+    /// "template-dose-type" / "template-indication" columns are OPTIONAL - they are
+    /// read only when present in the header row - and preselect a prescription when
+    /// the user picks the entry.
+    /// </remarks>
     module EmergencyTreatment =
 
 
@@ -1360,6 +1373,13 @@ module Models =
                 |> List.distinct
 
 
+    /// <summary>
+    /// Continuous infusion protocols: <c>parse</c> reads the "continuousmeds" sheet
+    /// of the emergency-list spreadsheet (see <c>EmergencyTreatment</c> above for
+    /// where that workbook lives). Columns: hospital, catagory [sic], indication,
+    /// dosetype, medication, generic, unit, doseunit, minweight, maxweight,
+    /// quantity, total, mindose, maxdose, absmax, minconc, maxconc, solution.
+    /// </summary>
     module ContinuousMedication =
 
         open Shared
@@ -1517,6 +1537,11 @@ module Models =
             )
 
 
+    /// <summary>
+    /// Available medication products and their concentrations: <c>parse</c> reads
+    /// the "products" sheet of the emergency-list spreadsheet. Columns: indication,
+    /// medication, conc, unit.
+    /// </summary>
     module Products =
 
         open Shared
@@ -1550,6 +1575,12 @@ module Models =
             | _ -> []
 
 
+    /// <summary>
+    /// Reference ranges for weight and height estimation: <c>parse</c> reads the
+    /// "weight", "height", "weight neo" and "height neo" sheets of the
+    /// emergency-list spreadsheet, all four sharing the columns sex ("M"/"F"), age
+    /// (years), p3, mean, p97.
+    /// </summary>
     module NormalValues =
 
         open Shared

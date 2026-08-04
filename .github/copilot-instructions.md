@@ -91,7 +91,7 @@ The proprietary `GENPRES_URL_ID` is **not** baked into the image any more. Injec
 - Resource loading and tests: `src/Informedica.GenForm.Lib/Api.fs` and `tests/`
 - Sheet parsers: `Mapping.fs`, `Product.fs`, `DoseRule.fs`, `SolutionRule.fs`, `RenalRule.fs`
 - Unit and BigRational helpers: `src/Informedica.GenUnits.Lib/ValueUnit.fs`
-- Sheet documentation: `docs/mdr/design-history/0003-resource-requirements.md`
+- Sheet documentation: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (one record per sheet, columns documented on the fields), with the column names enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
 
 **Important:** an opt-in strategy is used in the `.gitignore` file — you have to specifically define what should be included instead of the other way around!
 

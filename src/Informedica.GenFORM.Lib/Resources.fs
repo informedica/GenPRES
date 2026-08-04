@@ -219,6 +219,10 @@ module Resources =
                 Keys.formularyProducts.Name, ofResult (fun () -> Product.getFormularyProducts dataUrlId)
                 Keys.reconstitution.Name, ofResult (fun () -> Product.Reconstitution.get dataUrlId)
 
+                // Parenteral and enteral products are NOT loaded from sheets of
+                // their own: they are the Formulary rows whose Type says so, turned
+                // into ProductComponents with the Formulary nutrition columns as
+                // their substances.
                 Keys.parenteralMeds.Name,
                 derive (fun r -> r.Get Keys.formularyProducts |> Product.Parenteral.get (r.Get Keys.unitMappings))
 

@@ -56,7 +56,32 @@ GenPRES is a clinical decision support system for prescribing and managing medic
 
 ---
 
-## 6. Security Requirements
+## 6. Clinical Knowledge Source and Change Control
+
+The Operational Knowledge Rules that drive prescribing — dose rules, solution
+rules, reconstitution rules, renal rules, and the hospital formulary — are
+authored outside the application, in the Google spreadsheet identified by
+`GENPRES_URL_ID`, and loaded at startup (ADR-0001). The rules are therefore
+changeable without a code release, and the following controls apply to the
+*content*, independently of the software release process:
+
+- Dose rule changes require clinical pharmacist review before they are released.
+- Solution rule changes require pharmacy (IV compounding) validation.
+- Renal rule changes require nephrology review.
+- Emergency treatment protocol changes require intensive-care review.
+- Rule changes must be traceable: the spreadsheet retains revision history, and a
+  change takes effect only on application restart or explicit resource reload, so
+  the rule set in force for any running instance is identifiable.
+
+The *structure* of that data — which sheets exist, which columns each carries,
+their units and encodings — is not specified here. It is defined by the parsers
+and the `Data` record types in `Informedica.GenFORM.Lib` (`Types.fs`) and
+enforced by the sheet column-contract tests in `Informedica.GenFORM.Tests`, so
+that the specification cannot drift from the implementation that must honour it.
+
+---
+
+## 7. Security Requirements
 
 The security baseline is documented in ADR-0015 (`docs/mdr/design-history/0015-security-baseline.md`). Key controls:
 
@@ -70,7 +95,7 @@ The security baseline is documented in ADR-0015 (`docs/mdr/design-history/0015-s
 
 ---
 
-## 7. Deployment & Scalability
+## 8. Deployment & Scalability
 
 - Stateless design supports horizontal scaling in containerised environments.
 - Configurable environment variables for multi-tenant or hospital-specific deployments.
@@ -79,7 +104,7 @@ The security baseline is documented in ADR-0015 (`docs/mdr/design-history/0015-s
 
 ---
 
-## 8. Future Enhancements
+## 9. Future Enhancements
 
 - Integration with clinical databases for longitudinal tracking.
 - Expanded AI capabilities: anomaly detection, dosage suggestion refinement.

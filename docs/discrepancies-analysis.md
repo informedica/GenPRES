@@ -3,7 +3,7 @@
 This document tracks remaining, actionable mismatches between:
 
 - the current domain documents (especially `docs/domain/core-domain.md` and `docs/domain/genform-free-text-to-operational-rules.md`),
-- the resource contract documentation (`docs/mdr/design-history/0003-resource-requirements.md`), and
+- the resource contract, which since 2026-08-03 lives on the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` rather than in a document, and
 - the implemented types used at runtime and across the API boundary.
 
 It intentionally focuses on discrepancies that matter for correctness, shared understanding, or API interoperability. Purely internal representation choices (e.g., using a richer unit type instead of a raw number) are not treated as discrepancies unless they contradict the domain docs.
@@ -17,7 +17,6 @@ It intentionally focuses on discrepancies that matter for correctness, shared un
 - **Documentation**:
   - `docs/domain/core-domain.md`
   - `docs/domain/genform-free-text-to-operational-rules.md`
-  - `docs/mdr/design-history/0003-resource-requirements.md`
 - **Implementation**:
   - `src/Informedica.GenFORM.Lib/Types.fs`
   - `src/Informedica.GenORDER.Lib/Types.fs`
