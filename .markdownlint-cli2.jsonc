@@ -3,6 +3,11 @@
     // See https://github.com/DavidAnson/markdownlint-cli2#configuration
     // Rules reference: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 
+    // Exclude vendored/generated content. A bare "node_modules" glob only matches a node_modules 
+    // folder at the repo root; "**/node_modules/**" is required to also match the nested one under 
+    // src/Informedica.GenPRES.Client/node_modules (see issue #433).
+    "ignores": [ "**/node_modules" ],
+
     // Markdownlint rule overrides go inside "config".
     "config": {
         // Enable all rules by default, then selectively disable noisy/stylistic ones.

@@ -151,8 +151,9 @@ Lint issues should still be assessed and addressed over time to maintain documen
 ### Running the linter manually
 
 ```bash
-# Lint all Markdown files
-npx markdownlint-cli2 "**/*.md" "#node_modules"
+# Lint all Markdown files (node_modules is excluded via the "ignores"
+# key in .markdownlint-cli2.jsonc)
+npx markdownlint-cli2 "**/*.md"
 
 # Lint a specific file
 npx markdownlint-cli2 README.md
