@@ -293,36 +293,46 @@ let dockerImage =
     | image -> image
 
 
-Target.create
-    "DockerBuild"
-    (fun _ ->
-        let version =
-            System.Xml.Linq.XDocument.Load("Directory.Build.props").Descendants(System.Xml.Linq.XName.Get "Version")
-            |> Seq.map (fun e -> e.Value)
-            |> Seq.tryHead
-            |> Option.defaultWith (fun () -> failwith "Directory.Build.props: <Version> element not found")
+let buildDockerImage () =
+    let version =
+        System.Xml.Linq.XDocument.Load("Directory.Build.props").Descendants(System.Xml.Linq.XName.Get "Version")
+        |> Seq.tryHead
+        |> Option.map (fun e -> e.Value.Trim())
+        |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
+        |> Option.defaultWith (fun () -> failwith "Directory.Build.props: <Version> element is missing or empty.")
 
-        // Cross-build for a different target platform, e.g. amd64 from Apple
-        // Silicon, via: DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild
-        let platformArgs =
-            match System.Environment.GetEnvironmentVariable "DOCKER_PLATFORM" with
-            | null
-            | "" -> []
-            | platform -> [ "--platform"; platform ]
+    // Cross-build for a different target platform, e.g. amd64 from Apple
+    // Silicon, via: DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild
+    let platformArgs =
+        match System.Environment.GetEnvironmentVariable "DOCKER_PLATFORM" with
+        | null
+        | "" -> []
+        | platform -> [ "--platform"; platform ]
 
-        run
-            docker
-            ([ "build" ]
-             @ platformArgs
-             @ [
-                 "--build-arg"
-                 $"APP_VERSION={version}"
-                 "-t"
-                 dockerImage
-                 "."
-             ])
-            "."
-    )
+    run
+        docker
+        ([ "build" ]
+         @ platformArgs
+         @ [
+             "--build-arg"
+             $"APP_VERSION={version}"
+             "-t"
+             dockerImage
+             "."
+         ])
+        "."
+
+
+// `docker` wraps CreateProcess with addOnExited, which raises on any non-zero exit.
+// This is unusable here since "no such image" is an expected outcome we need to branch on, not a build failure.
+let dockerImageExistsLocally () =
+    CreateProcess.fromRawCommand "docker" [ "image"; "inspect"; dockerImage ]
+    |> CreateProcess.redirectOutput
+    |> Proc.run
+    |> fun result -> result.ExitCode = 0
+
+
+Target.create "DockerBuild" (fun _ -> buildDockerImage ())
 
 
 Target.create
@@ -334,6 +344,10 @@ Target.create
         // forward the variable from its own environment instead, so the secrets never appear in the args.
         requireEnvVar "GENPRES_URL_ID" |> ignore
         requireEnvVar "GENPRES_PASSWORD" |> ignore
+
+        if dockerImageExistsLocally () |> not then
+            Trace.traceImportant $"Docker image '{dockerImage}' not found locally, building it..."
+            buildDockerImage ()
 
         run
             docker
