@@ -277,7 +277,80 @@ Target.create
     )
 
 
-Target.create "DockerRun" (fun _ -> run docker [ "run"; "-it"; "p"; "8080:8085"; "halcwb/genpres" ] ".")
+let requireEnvVar name =
+    match System.Environment.GetEnvironmentVariable name with
+    | v when System.String.IsNullOrWhiteSpace v ->
+        failwithf "%s is not set. Load it from .env first (see DEVELOPMENT.md)." name
+    | v -> v
+
+
+// Override via DOCKER_IMAGE if you're pushing to your own registry/namespace
+// rather than the project's `halcwb/genpres`.
+let dockerImage =
+    match System.Environment.GetEnvironmentVariable "DOCKER_IMAGE" with
+    | null
+    | "" -> "halcwb/genpres"
+    | image -> image
+
+
+Target.create
+    "DockerBuild"
+    (fun _ ->
+        let version =
+            System.Xml.Linq.XDocument.Load("Directory.Build.props").Descendants(System.Xml.Linq.XName.Get "Version")
+            |> Seq.map (fun e -> e.Value)
+            |> Seq.tryHead
+            |> Option.defaultWith (fun () -> failwith "Directory.Build.props: <Version> element not found")
+
+        // Cross-build for a different target platform, e.g. amd64 from Apple
+        // Silicon, via: DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild
+        let platformArgs =
+            match System.Environment.GetEnvironmentVariable "DOCKER_PLATFORM" with
+            | null
+            | "" -> []
+            | platform -> [ "--platform"; platform ]
+
+        run
+            docker
+            ([ "build" ]
+             @ platformArgs
+             @ [
+                 "--build-arg"
+                 $"APP_VERSION={version}"
+                 "-t"
+                 dockerImage
+                 "."
+             ])
+            "."
+    )
+
+
+Target.create
+    "DockerRun"
+    (fun _ ->
+        // Fail fast with a clear message, but don't pass the values as `-e NAME=value` args: `createProcess`
+        // (Helpers.fs) renders the full argument list into its failure message on any non-zero docker exit,
+        // which would leak GENPRES_URL_ID/GENPRES_PASSWORD as plain text. `-e NAME` (no `=value`) makes docker
+        // forward the variable from its own environment instead, so the secrets never appear in the args.
+        requireEnvVar "GENPRES_URL_ID" |> ignore
+        requireEnvVar "GENPRES_PASSWORD" |> ignore
+
+        run
+            docker
+            [
+                "run"
+                "-it"
+                "--rm"
+                "-p"
+                "8080:8085"
+                "-e"
+                "GENPRES_URL_ID"
+                "-e"
+                "GENPRES_PASSWORD"
+                dockerImage
+            ]
+            "."
+    )
 
 
 open Fake.Core.TargetOperators

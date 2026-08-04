@@ -6,6 +6,11 @@ RUN dotnet tool restore
 COPY .paket .paket
 COPY paket.references paket.references
 COPY paket.dependencies paket.lock ./
+# Each library's own Directory.Build.props imports this root file (via
+# GetPathOfFileAbove) to share the single curated <Version>. Without it
+# present at /workspace, that Import resolves to an empty path and MSBuild
+# fails with MSB4020.
+COPY Directory.Build.props .
 
 FROM build AS app-build
 
@@ -34,6 +39,14 @@ RUN dotnet run bundle
 
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+
+# Curated single version number for the whole app (server, client, libraries).
+# Sourced from the root Directory.Build.props by the caller (see the
+# `DockerBuild` FAKE target in Build.fs / DEVELOPMENT.md) so the image label
+# always matches what was actually built, without duplicating the version here.
+ARG APP_VERSION=0.0.0
+LABEL org.opencontainers.image.version="${APP_VERSION}"
+
 COPY --from=app-build /workspace/deploy /app
 
 ENV GENPRES_LOG=0
