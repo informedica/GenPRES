@@ -271,7 +271,7 @@ Target.create
     "MarkdownLint"
     (fun _ ->
         try
-            run npx [ "--yes"; "markdownlint-cli2"; "**/*.md"; "#node_modules" ] "."
+            run npx [ "--yes"; "markdownlint-cli2"; "**/*.md" ] "."
         with ex ->
             Trace.traceImportant $"⚠️  MarkdownLint: {ex.Message}"
     )
