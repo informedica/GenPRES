@@ -6,7 +6,7 @@
     // Exclude vendored/generated content. A bare "node_modules" glob only matches a node_modules 
     // folder at the repo root; "**/node_modules/**" is required to also match the nested one under 
     // src/Informedica.GenPRES.Client/node_modules (see issue #433).
-    "ignores": [ "**/node_modules" ],
+    "ignores": [ "**/node_modules/**" ],
 
     // Markdownlint rule overrides go inside "config".
     "config": {
