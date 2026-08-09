@@ -58,6 +58,7 @@ Three validation documents were completed in May 2026:
 #### Test Strategy (`docs/mdr/validation/test-strategy.md`)
 
 Documents the full test strategy:
+
 - 20 test projects under `tests/`, the majority covering a dedicated library.
   Note: `Informedica.FHIR.Tests`, `Informedica.NLP.Tests`, and
   `Informedica.MCP.Tests` currently contain only placeholder Hello World tests.
@@ -84,6 +85,7 @@ Documents the per-module test coverage baseline:
 #### Integration Test Report (`docs/mdr/validation/integration-test-report.md`)
 
 Documents 32 integration tests across three modules:
+
 - Resource loading pipeline — 14 tests for `loadAllResourcesWithConfig` and
   `CachedResourceProvider`.
 - Server command dispatch — tests for all 5 command types, error propagation,
@@ -131,6 +133,7 @@ Known gaps have been identified in the existing validation documents but not
 consolidated into a single gap-analysis document:
 
 **Requirement coverage gaps (from `unit-test-report.md` and `integration-test-report.md`):**
+
 - Formal line/branch coverage metrics are not yet collected; both
   `test-strategy.md` and `unit-test-report.md` flag this as an open gap.
 - `Informedica.FHIR.Tests`, `Informedica.NLP.Tests`, and
@@ -147,6 +150,7 @@ consolidated into a single gap-analysis document:
   (source: `integration-test-report.md`).
 
 **Functional requirements not yet verified by tests:**
+
 - UR-008 (adjust active prescriptions / view historical changes) — no test
   currently exercises the prescribe-edit flow end-to-end.
 - UR-010 (full Dutch Pediatric Formulary) — coverage is 131 scenarios; full
@@ -155,6 +159,7 @@ consolidated into a single gap-analysis document:
   automated test verifies log output format or completeness.
 
 **W3 remaining tasks:**
+
 - [ ] Draft `docs/mdr/requirements/gap-analysis.md` consolidating the above
       gaps with proposed resolution paths.
 - [ ] Identify which gaps are acceptable for v2.0 release (deferred risk) vs.
