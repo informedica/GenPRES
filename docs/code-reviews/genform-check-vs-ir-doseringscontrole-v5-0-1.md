@@ -181,7 +181,8 @@ provider (7866 dose rules; aciclovir IV baseline = 6 rules, 9 didNotPass,
 G-Standaard substance and **already exists upstream**: `ZIndex DoseRule.HighRisk`
 (`ZIndex/Types.fs:264`), set from `vas.GPRISC = "*"` (`ZIndex/DoseRule.fs:422`,
 sourced from `bst640.GPRISC`). So a new GenFORM column is **not** required, and
-no `0003-resource-requirements.md` change is needed.
+no change to the sheet contract (the `Data` record types in
+`GenFORM.Lib/Types.fs`) is needed.
 
 The obstacle is that `Check.fs` reaches G-Standaard via
 `GStand.createDoseRules`, whose final ZForm `Dosage` **drops** the flag: ZForm has

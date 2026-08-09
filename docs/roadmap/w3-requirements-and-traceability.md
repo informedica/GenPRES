@@ -91,30 +91,20 @@ Documents 32 integration tests across three modules:
 - Dose-check severity — tests for Valid / Caution / Warning / Alert
   classification logic.
 
-### Architectural Decision Records (ADRs 0000–0020)
+### Architectural Decision Records
 
-All 21 ADRs are complete as of May 2026, providing a traceable record of every
-significant design decision:
+Following issue #411, the set was reduced to the decisions that are genuinely
+hard to reverse; ADRs that recorded code structure, code changes or ongoing work
+were retired. The remaining records are:
 
 | ADR | Topic |
 |-----|-------|
 | 0000 | Change log |
 | 0001 | System architecture |
-| 0002 | State of affairs |
-| 0003 | Resource requirements |
-| 0004 | UI wireframes |
-| 0005–0006 | UI (nutrition/order views) |
-| 0007 | Clean SAFE architecture |
-| 0008 | Agent architecture |
 | 0009 | MCP server architecture |
-| 0010 | Solve-order trigger analysis |
-| 0011 | Universal layout overflow |
-| 0012 | Resource verification |
-| 0013 | Template-based navigation |
 | 0014 | Staged value expansion for timed orders |
 | 0015 | Security baseline |
 | 0016 | G-Standard dose-rule fallback |
-| 0017 | LRU solver memoisation |
 | 0018 | NLP dose-rule extraction |
 | 0019 | Shared clinical calculations |
 | 0020 | FHIR R4 EHR integration |
