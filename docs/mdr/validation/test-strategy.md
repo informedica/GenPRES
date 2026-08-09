@@ -163,7 +163,7 @@ Formal coverage metrics (line/branch) are not currently collected. Adding covera
 - ADR-0001: System Architecture — `docs/mdr/design-history/0001-system-architecture.md`
 - ADR-0014: Staged Value Expansion — `docs/mdr/design-history/0014-staged-value-expansion-timed-orders.md`
 - ADR-0015: Security Baseline — `docs/mdr/design-history/0015-security-baseline.md`
-- ADR-0017: LRU Solver Memoisation — `docs/mdr/design-history/0017-lru-solver-memoisation.md`
+- LRU Solver Memoisation design — `docs/code-reviews/solver-memoization.md`
 - ADR-0019: Shared Clinical Calculations — `docs/mdr/design-history/0019-shared-clinical-calculations.md`
 - GenSOLVER Stability Analysis — `docs/domain/gensolver-stability-analysis.md`
 - Risk Management Plan — `docs/mdr/risk-analysis/risk-management-plan.md`

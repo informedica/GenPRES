@@ -19,14 +19,12 @@ Implement MCP (Model Context Protocol) servers for `Informedica.GenFORM.Lib` and
 - No domain logic changes are needed in `GenFORM.Lib` or `GenORDER.Lib`.
 - All MCP tool calls are read-only in Phase 1; write operations require a separate ADR.
 - Every tool call must be audit-logged to satisfy MDR traceability requirements.
-- The MCP layer integrates naturally with the Agent Architecture (see [ADR-0008](0008-agent-architecture.md)) and the Clean SAFE Architecture (see [ADR-0007](0007-clean-safe-architecture.md)).
+- The MCP layer is an additional presentation layer alongside the Fable.Remoting API; it does not replace it.
 
 **References**:
 
 - <https://modelcontextprotocol.io/introduction>
 - <https://github.com/jovaneyck/fsi-mcp-server> — F# MCP server reference implementation
-- [ADR-0008: Agent Architecture](0008-agent-architecture.md)
-- [ADR-0007: Clean SAFE Architecture](0007-clean-safe-architecture.md)
 
 ---
 
@@ -43,8 +41,7 @@ Implement MCP (Model Context Protocol) servers for `Informedica.GenFORM.Lib` and
     - [GenORDER Tools](#genorder-tools)
   - [Hosting Options](#hosting-options)
 - [Integration with Existing Architecture](#integration-with-existing-architecture)
-  - [Relationship to Agent Architecture](#relationship-to-agent-architecture)
-  - [Relationship to Clean Safe Architecture](#relationship-to-clean-safe-architecture)
+  - [Relationship to the Server Layering](#relationship-to-the-server-layering)
 - [Safety and Security Considerations](#safety-and-security-considerations)
 - [Implementation Approach](#implementation-approach)
   - [Script Prototyping Plan](#script-prototyping-plan)
@@ -58,7 +55,7 @@ Implement MCP (Model Context Protocol) servers for `Informedica.GenFORM.Lib` and
 
 The GenPRES system exposes medication knowledge (prescription rules, dose rules, solution rules, order contexts) through its `GenFORM` and `GenORDER` libraries. The **Model Context Protocol (MCP)** provides a standard interface for AI assistants to call external tools, making it possible to expose these libraries as AI-callable services without changing the domain logic.
 
-This ADR describes the plan to implement MCP servers for `Informedica.GenFORM.Lib` and `Informedica.GenORDER.Lib` using the existing placeholder `Informedica.MCP.Lib`, the existing `IResourceProvider` / `CachedResourceProvider` infrastructure, and the Agent Architecture already described in [0008-agent-architecture.md](0008-agent-architecture.md).
+This ADR describes the plan to implement MCP servers for `Informedica.GenFORM.Lib` and `Informedica.GenORDER.Lib` using the existing placeholder `Informedica.MCP.Lib` and the existing `IResourceProvider` / `CachedResourceProvider` infrastructure.
 
 The initial scope is **read-only tools** only — no write operations that could affect running clinical workflows.
 
@@ -225,30 +222,9 @@ SSE transport can be added later to allow remote AI agents to call the server.
 
 ## Integration with Existing Architecture
 
-### Relationship to Agent Architecture
+### Relationship to the Server Layering
 
-The [Agent Architecture ADR](0008-agent-architecture.md) describes wrapping domain libraries in `MailboxProcessor`-based agents to provide async, stateful, auditable access. The MCP server can reuse these agents directly:
-
-```
-MCP tool call
-    │
-    ▼
-Informedica.MCP.Lib tool handler
-    │  Agent.postAndAsyncReply
-    ▼
-GenFORM Agent (MailboxProcessor)
-    │
-    ▼
-GenForm.Api functions
-```
-
-If the agent architecture is implemented first, the MCP tool handlers become simple wrappers around `Agent.postAndAsyncReply`. If MCP is implemented before the agent architecture, the tool handlers call `GenForm.Api` functions directly via the `IResourceProvider`.
-
-Both paths are valid — the `IResourceProvider` interface is the stable boundary.
-
-### Relationship to Clean Safe Architecture
-
-The [Clean Safe Architecture ADR](0007-clean-safe-architecture.md) defines the server's layered structure. The MCP server is a **new presentation layer** alongside the existing Fable.Remoting API, not a replacement:
+The MCP server is a **new presentation layer** alongside the existing Fable.Remoting API, not a replacement. Tool handlers call `GenForm.Api` functions through the `IResourceProvider`, which is the stable boundary:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -256,7 +232,7 @@ The [Clean Safe Architecture ADR](0007-clean-safe-architecture.md) defines the s
 │  ├── IServerApi (Fable.Remoting)  — web client               │
 │  └── IMcpServer (MCP protocol)    — AI assistants  [NEW]     │
 ├──────────────────────────────────────────────────────────────┤
-│  APPLICATION LAYER  (ServerApi.Services.fs, Ports.fs)        │
+│  APPLICATION LAYER  (ServerApi.Services.fs, .Ports.fs)       │
 ├──────────────────────────────────────────────────────────────┤
 │  DOMAIN  GenOrder.Lib  GenForm.Lib  GenSolver.Lib            │
 │          (pure — no changes required)                        │

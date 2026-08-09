@@ -17,7 +17,8 @@
 //     - a Composition Root lifecycle (stop all on shutdown)
 //     - individual agent factories inside each domain library
 //
-// See: docs/mdr/design-history/0007-clean-safe-architecture.md
+// See: src/Informedica.GenPRES.Server/ServerApi.CompositionRoot.fs and
+//      ServerApi.AgentAdapters.fs for the current composition root.
 // =================================================================
 
 #I __SOURCE_DIRECTORY__
