@@ -105,7 +105,7 @@ Dedicated `JsonSecurity` sub-module tests guard the `Newtonsoft.Json` `TypeNameH
 
 Tests run automatically via GitHub Actions (`build.yml`) on every push and pull request to `master`:
 
-```
+```text
 Jobs: build (ubuntu-latest, windows-latest, macOS-latest)
 Steps:
   1. dotnet tool restore

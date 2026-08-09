@@ -56,7 +56,7 @@ only when unambiguously inferable from FHIR `Timing` (heuristic; see Risks).
 FHIR resources describe **what was ordered** (the clinical outcome); they do not carry dosing constraints.
 GenPRES derives **how to order** by looking up constraints from ZIndex/GenFORM:
 
-```
+```text
 FHIR MedicationRequest
     → filter context (patient + indication + route + form + dose type)
     → ZIndex / GenFORM lookup

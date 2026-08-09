@@ -59,6 +59,7 @@ and correctness improvements:
 
 The GenSOLVER domain document
 (`docs/domain/gensolver-from-orders-to-quantitative-solutions.md`) was updated with:
+
 - **Section 7** expanded with a cycle-detection paragraph describing the
   state-fingerprint-based `CycleDetector` that terminates gracefully.
 - **Section 9** gains a "Session-Level LRU Memoisation" subsection documenting
@@ -82,6 +83,7 @@ The `Informedica.GenUnits.Lib` provides the unit-of-measure foundation:
 
 Stopwatch-based solver throughput benchmarks (`timeMean` helper) measuring
 elapsed time for representative clinical scenarios:
+
 - Solver execution time for several representative clinical scenarios.
 
 ---

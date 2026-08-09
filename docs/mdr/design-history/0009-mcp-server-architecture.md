@@ -71,7 +71,7 @@ The **Model Context Protocol** (MCP) is an open standard that allows AI assistan
 
 When an AI assistant encounters a question it can answer with external data, it calls a tool, receives the response, and incorporates it into its answer. This is analogous to function calling in OpenAI or tool use in Anthropic's Claude.
 
-```
+```text
 AI Assistant
     │  tool call: { name: "get_dose_rules", input: { generic: "paracetamol" } }
     ▼
@@ -106,7 +106,7 @@ The `Informedica.MCP.Lib` project already exists as a placeholder in the solutio
 
 ### Overview
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │  AI Assistant / MCP Client                                       │
 │  (Claude Desktop, Cursor, VS Code Copilot, custom agent, etc.)  │
@@ -133,7 +133,7 @@ The MCP layer is a **thin adapter**: it translates JSON tool calls into strongly
 
 The library currently contains only a stub (`Library.fs`). The plan is to replace this with:
 
-```
+```text
 src/Informedica.GenFORM.Lib/Scripts/
 └── McpTools.fsx            — ✅ prototype script for GenFORM tools
 
@@ -170,6 +170,7 @@ Each MCP tool maps to one or more existing `GenFORM.Api` or `GenORDER.Api` funct
 | `get_parenteral_meds` | `provider.GetParenteralMeds()` | Return available parenteral medications |
 
 **Input schema example — `filter_dose_rules`**:
+
 ```json
 {
   "type": "object",
@@ -226,7 +227,7 @@ SSE transport can be added later to allow remote AI agents to call the server.
 
 The MCP server is a **new presentation layer** alongside the existing Fable.Remoting API, not a replacement. Tool handlers call `GenForm.Api` functions through the `IResourceProvider`, which is the stable boundary:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │  PRESENTATION                                                │
 │  ├── IServerApi (Fable.Remoting)  — web client               │
@@ -319,6 +320,8 @@ No changes are required to `GenFORM.Lib`, `GenORDER.Lib`, or any other library p
 | `Informedica.GenCORE.Lib` | Core type definitions only |
 | `Informedica.Utils.Lib` | Pure utility functions |
 | `Informedica.GenPRES.Server` | Already exposes the full API via `IServerApi`; MCP is an additional pathway, not a replacement |
+
+## Architecture Status
 
 | Component | Status |
 |-----------|--------|
