@@ -3,7 +3,7 @@
 **Issue**: [Adding MCP servers](https://github.com/informedica/GenPRES/issues/)
 
 **Date**: 2026-03-28
-**Status**: Proposed
+**Status**: Accepted
 
 ## Context
 

@@ -50,8 +50,7 @@ rather than as a numeric age range." `"x"` = confirmed adult; absence asserts
 deliberately folded into Adult. A deliberate single exception to the
 ranges-only Patient Category model. It is a **prototyping finding**: it does
 not yet exist in GenFORM `.fs`. Carrying it into source — so Patient Category
-consumes it and matching enforces "adults only" — is a port-time task gated by
-[ADR-0021](../mdr/design-history/0021-isadult-patient-category-facet.md). Until
+consumes it and matching enforces "adults only" — is a port-time task. Until
 then no `IsAdult = "x"` row may reach GenFORM ingest (its `MinAge`/`MaxAge`
 are blanked, so it would otherwise match every age).
 _Avoid_: AgeCategory, age band, adult flag (it is not a tri-state, does not generalise).
@@ -81,7 +80,7 @@ through the production GenFORM `DoseRule` parser to confirm it ingests as real
 *legacy* parser, which has no `IsAdult` field, so an `IsAdult = "x"` row parses
 *because* the facet is dropped and renders age-unbounded. A clean Pass 5
 result is therefore **not** safety clearance for such rows — they remain a
-port-time concern gated by ADR-0021.
+port-time concern.
 _Avoid_: treating "Pass 5 parses" as "ready to ingest" (see Example dialogue).
 _Avoid_: the unqualified bare module name "Phase 5" (reserve that for code).
 
@@ -92,8 +91,7 @@ Data Extraction is a **Scratch prototype** of the FTK→`DoseRules` pipeline
 GenFORM `.fs` source. Prototyping findings — `[[IsAdult]]` is the worked
 example — are **inputs to a later port into GenFORM source**, where the
 `DoseRule` domain model and parser are adjusted to match what the prototype
-discovered; safety-critical findings are ADR-gated
-([ADR-0021](../mdr/design-history/0021-isadult-patient-category-facet.md)).
+discovered; safety-critical findings are ADR-gated.
 "Never reaches into `.fs`" describes the prototype's data boundary — not a ban
 on the prototype shaping the future domain model.
 
