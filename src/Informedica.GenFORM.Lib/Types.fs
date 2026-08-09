@@ -865,7 +865,7 @@ module Types =
                 Dep: string
                 // sheet column "IsAdult", "x" for true: the rule applies to adults,
                 // asserted categorically, so MinAge/MaxAge are empty for such a row.
-                // Empty asserts NOTHING - it is never a negative. See ADR-0021.
+                // Empty asserts NOTHING - it is never a negative.
                 IsAdult: bool
                 Gender: Gender
                 // age bounds in DAYS

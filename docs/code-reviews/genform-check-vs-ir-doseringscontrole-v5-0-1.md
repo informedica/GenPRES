@@ -63,6 +63,7 @@ are deviations *within* that framing, not objections to it.
 ## 5. Findings
 
 ### HIGH-1 — Margin applied to risk substances (safety)
+
 IR 4.6.1.4 forbids a margin for narrow-TI substances. `toMinMax` (inside
 `checkDoseRule`) applies a symmetric ±10% band unconditionally, and GenFORM types
 carry **no GPRISC/risk field**, so risk substances cannot be told apart. For a
@@ -71,6 +72,7 @@ overdose signal. Mitigating factor: only triggers where `getNormDose` returns
 `Some` (a fixed-point adjusted norm dose).
 
 ### HIGH-2 — Infusion-rate checks are outside IR scope
+
 IR 1.3.2 (5 & 6) excludes toedieningssnelheid and toedieningsduur. `rateChecks` /
 `rateFieldsFor` run for `Continuous`/`Timed`/`OnceTimed`, comparing GenFORM
 `Rate`/`RateAdjust` to ZForm `RateDosage`. The reference data exists in
@@ -78,6 +80,7 @@ G-Standaard, but the IR defines no rate comparison — these checks assert a
 guideline rule that does not exist.
 
 ### MEDIUM-1 — BSA/weight selection priority inverted
+
 IR 4.6.1 priority is m² → kg → absolute. `createMapping` (and `rateFieldsFor`)
 pick `NormWeight` (kg) first, `NormBSA` only as fallback. When G-Standaard has
 *both*, the m² range is hidden; if the GenFORM limit is per m², `checkAdjustUnit`
@@ -85,40 +88,49 @@ then finds no unit match and the comparison is **silently skipped** despite a
 valid m² reference existing.
 
 ### MEDIUM-2 — No norm-max vs absolute-max severity / flow
+
 IR 4.6.2 treats norm-max exceedance as a mild advisory (tekst 1) and absolute-max
 exceedance as serious (tekst 3), checking abs only *if* norm is exceeded.
 `checkDoseRule` checks `Norm` and `Abs` independently and emits identical
 "niet in bereik" strings — the severity distinction central to the IR is lost.
 
 ### MEDIUM-3 — Age months→days mapping (known TODO)
+
 `filterPatient` carries `// TODO need to map G-stand age in mo to days
 (1 mo = 30 days)`. IR 3.3 uses month categories; age matching may be inaccurate
 at boundaries / <1 month.
 
 ### LOW-1 — Category aggregation vs precise selection
+
 IR 4.5 selects one specific rule (`GPDDNR`). `maximizeDosages` unions all matches
 into the widest envelope (more permissive). Defensible for rule-vs-rule
 validation; documented divergence.
 
 ### LOW-2 — Gender not passed
+
 `GStand.createDoseRules` is called without gender; IR 4.2.4 has a gender gate.
 Mostly affects product applicability, not the dose range.
 
 ### LOW-3 — Frequency time-unit interchangeability ignored
+
 IR 3.4 table not honoured; `isSubset` treats "per maand" and "per 4 weken" as
 different, producing spurious frequency mismatches.
 
 ### LOW-4 — Frequency message granularity
+
 IR distinguishes tekst 24/25/8; `freqRow` emits one combined message.
 
 ### INFO-1 — Underdose checking more aggressive than IR
+
 IR makes max primary; min only in special cases; absolute min never filled. Module
 checks min symmetrically. Acceptable; noted.
 
 ### INFO-2 — Missing-frequency signal suppression (IR 3.4.2) not implemented
+
 Advanced functionality gap; no correctness impact.
 
 ### BUG-A — `quantityAdjustAbs` mixes `SingleDosage` and `StartDosage`
+
 `createMapping` (`Check.fs:403-414`): the kg branch reads
 `x.SingleDosage.AbsWeight` but the m² branch reads `x.StartDosage.AbsBSA`
 (StartDosage, not SingleDosage). Inconsistent with `quantityAdjustNorm`
@@ -126,6 +138,7 @@ Advanced functionality gap; no correctness impact.
 wrong dosage. Latent data bug, found while reviewing — not a guideline issue.
 
 ### BUG-B — `maximizeDosages` computes `Abs` from `Norm`
+
 `maximizeDosages` (`Check.fs:181`): `Abs = maximize [ dr.Norm; acc.Norm ]` —
 the merged **absolute** non-adjusted range is built from **Norm** values. When
 more than one G-Standaard dosage matches and is merged, the absolute-max ceiling
@@ -181,7 +194,8 @@ provider (7866 dose rules; aciclovir IV baseline = 6 rules, 9 didNotPass,
 G-Standaard substance and **already exists upstream**: `ZIndex DoseRule.HighRisk`
 (`ZIndex/Types.fs:264`), set from `vas.GPRISC = "*"` (`ZIndex/DoseRule.fs:422`,
 sourced from `bst640.GPRISC`). So a new GenFORM column is **not** required, and
-no `0003-resource-requirements.md` change is needed.
+no change to the sheet contract (the `Data` record types in
+`GenFORM.Lib/Types.fs`) is needed.
 
 The obstacle is that `Check.fs` reaches G-Standaard via
 `GStand.createDoseRules`, whose final ZForm `Dosage` **drops** the flag: ZForm has

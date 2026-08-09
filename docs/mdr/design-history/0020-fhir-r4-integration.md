@@ -36,7 +36,7 @@ GenPRES operates **stateless** with respect to patient records and treatment pla
   after the session; only the final `MedicationRequest` is persisted by the EHR.
 
 This principle is documented in the interface specification (§3.4 "Stateless GenPRES with FHIR
-Persistence") and aligns with the Clean SAFE Architecture ([ADR-0007](0007-clean-safe-architecture.md)).
+Persistence").
 
 ### Bidirectional FHIR R4 MedicationRequest Translation
 
@@ -56,7 +56,7 @@ only when unambiguously inferable from FHIR `Timing` (heuristic; see Risks).
 FHIR resources describe **what was ordered** (the clinical outcome); they do not carry dosing constraints.
 GenPRES derives **how to order** by looking up constraints from ZIndex/GenFORM:
 
-```
+```text
 FHIR MedicationRequest
     → filter context (patient + indication + route + form + dose type)
     → ZIndex / GenFORM lookup
@@ -159,7 +159,6 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
 - Dutch G-Standard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
 - IHE Pharmacy profile: <https://www.ihe.net/resources/technical_frameworks/#pharmacy>
-- [ADR-0007: Clean SAFE Architecture](0007-clean-safe-architecture.md)
 - [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
 - [ADR-0015: Security Baseline](0015-security-baseline.md)
 - PR #215: Scripts (FHIR): Add `ImplementationPlan.fsx`

@@ -58,6 +58,7 @@ Three validation documents were completed in May 2026:
 #### Test Strategy (`docs/mdr/validation/test-strategy.md`)
 
 Documents the full test strategy:
+
 - 20 test projects under `tests/`, the majority covering a dedicated library.
   Note: `Informedica.FHIR.Tests`, `Informedica.NLP.Tests`, and
   `Informedica.MCP.Tests` currently contain only placeholder Hello World tests.
@@ -84,6 +85,7 @@ Documents the per-module test coverage baseline:
 #### Integration Test Report (`docs/mdr/validation/integration-test-report.md`)
 
 Documents 32 integration tests across three modules:
+
 - Resource loading pipeline — 14 tests for `loadAllResourcesWithConfig` and
   `CachedResourceProvider`.
 - Server command dispatch — tests for all 5 command types, error propagation,
@@ -91,30 +93,20 @@ Documents 32 integration tests across three modules:
 - Dose-check severity — tests for Valid / Caution / Warning / Alert
   classification logic.
 
-### Architectural Decision Records (ADRs 0000–0020)
+### Architectural Decision Records
 
-All 21 ADRs are complete as of May 2026, providing a traceable record of every
-significant design decision:
+Following issue #411, the set was reduced to the decisions that are genuinely
+hard to reverse; ADRs that recorded code structure, code changes or ongoing work
+were retired. The remaining records are:
 
 | ADR | Topic |
 |-----|-------|
 | 0000 | Change log |
 | 0001 | System architecture |
-| 0002 | State of affairs |
-| 0003 | Resource requirements |
-| 0004 | UI wireframes |
-| 0005–0006 | UI (nutrition/order views) |
-| 0007 | Clean SAFE architecture |
-| 0008 | Agent architecture |
 | 0009 | MCP server architecture |
-| 0010 | Solve-order trigger analysis |
-| 0011 | Universal layout overflow |
-| 0012 | Resource verification |
-| 0013 | Template-based navigation |
 | 0014 | Staged value expansion for timed orders |
 | 0015 | Security baseline |
 | 0016 | G-Standard dose-rule fallback |
-| 0017 | LRU solver memoisation |
 | 0018 | NLP dose-rule extraction |
 | 0019 | Shared clinical calculations |
 | 0020 | FHIR R4 EHR integration |
@@ -141,6 +133,7 @@ Known gaps have been identified in the existing validation documents but not
 consolidated into a single gap-analysis document:
 
 **Requirement coverage gaps (from `unit-test-report.md` and `integration-test-report.md`):**
+
 - Formal line/branch coverage metrics are not yet collected; both
   `test-strategy.md` and `unit-test-report.md` flag this as an open gap.
 - `Informedica.FHIR.Tests`, `Informedica.NLP.Tests`, and
@@ -157,6 +150,7 @@ consolidated into a single gap-analysis document:
   (source: `integration-test-report.md`).
 
 **Functional requirements not yet verified by tests:**
+
 - UR-008 (adjust active prescriptions / view historical changes) — no test
   currently exercises the prescribe-edit flow end-to-end.
 - UR-010 (full Dutch Pediatric Formulary) — coverage is 131 scenarios; full
@@ -165,6 +159,7 @@ consolidated into a single gap-analysis document:
   automated test verifies log output format or completeness.
 
 **W3 remaining tasks:**
+
 - [ ] Draft `docs/mdr/requirements/gap-analysis.md` consolidating the above
       gaps with proposed resolution paths.
 - [ ] Identify which gaps are acceptable for v2.0 release (deferred risk) vs.

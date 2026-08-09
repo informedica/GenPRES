@@ -138,18 +138,15 @@ See the sections below for detailed analysis of missing items and implementation
 
 ##### Design History & Architecture (`docs/mdr/design-history/`)
 
-- ✅ **0001-system-architecture.md** - High-level system architecture (SAFE Stack)
 - ✅ **0000-change-log.md** - Design change history
-- ✅ **genpres_stateless_proposal.md** - Stateless session design
-- ✅ **mailbox-processor-design-proposal.md** - MailboxProcessor architecture
-- ✅ **0003-resource-requirements.md** - Resource/sheet specifications
-- ✅ **informedica-genform-lib.md** - GenForm library design
-- ✅ **informedica-genorder-lib.md** - GenOrder library design
-- ✅ **domain_constrained_option_solver_architecture.md** - Solver architecture
-- ✅ **order_value_logic.md** - Order value semantics
-- ✅ **0002-state-of-affairs.md** - Current implementation status
-- ✅ **0004-ui-wireframes.md** - UI design mockups
-- ✅ **GenPres_V20250325 - Equations.tsv** - Equation model data
+- ✅ **0001-system-architecture.md** - High-level system architecture (SAFE Stack)
+- ✅ **0009-mcp-server-architecture.md** - MCP access path for AI assistants
+- ✅ **0014-staged-value-expansion-timed-orders.md** - Bounded value expansion in the solver
+- ✅ **0015-security-baseline.md** - Security baseline for the demo deployment
+- ✅ **0016-gstand-dose-rule-fallback.md** - G-Standard fallback for missing adult rules
+- ✅ **0018-nlp-dose-rule-extraction.md** - LLM-based dose-rule extraction pipeline
+- ✅ **0019-shared-clinical-calculations.md** - Clinical formulas shared by server and client
+- ✅ **0020-fhir-r4-integration.md** - FHIR R4 as the EHR interface standard
 
 ##### Requirements (`docs/mdr/requirements/`)
 
@@ -742,21 +739,21 @@ See the sections below for detailed analysis of missing items and implementation
 
 ### 🟡 Medium Priority (Should Have)
 
-9. ~~**ARCHITECTURE.md**~~ - ✅ Completed
-10. **ADR directory** - Architecture Decision Records with templates
-11. **Test coverage reporting** - Codecov or Coveralls integration
-12. **Dependabot** - Automated dependency updates and security alerts
-13. **Security scanning** - CodeQL or similar SAST tools
-14. **AUTHORS/CONTRIBUTORS.md** - Recognition and attribution
-15. **docs/api/** - Auto-generated API documentation
+1. ~~**ARCHITECTURE.md**~~ - ✅ Completed
+2. **ADR directory** - Architecture Decision Records with templates
+3. **Test coverage reporting** - Codecov or Coveralls integration
+4. **Dependabot** - Automated dependency updates and security alerts
+5. **Security scanning** - CodeQL or similar SAST tools
+6. **AUTHORS/CONTRIBUTORS.md** - Recognition and attribution
+7. **docs/api/** - Auto-generated API documentation
 
 ### 🟢 Lower Priority (Nice to Have)
 
-16. **GitHub Discussions** - Enable for community forum
-17. **Documentation site** - GitHub Pages with FSharp.Formatting
-18. **CLA/DCO** - IP management (if needed for regulatory)
-19. **Community channels** - Discord/Slack (evaluate need)
-20. **Performance benchmarking** - BenchmarkDotNet in CI
+1. **GitHub Discussions** - Enable for community forum
+2. **Documentation site** - GitHub Pages with FSharp.Formatting
+3. **CLA/DCO** - IP management (if needed for regulatory)
+4. **Community channels** - Discord/Slack (evaluate need)
+5. **Performance benchmarking** - BenchmarkDotNet in CI
 
 ---
 
@@ -910,17 +907,15 @@ GenPRES2/
 │       ├── 📄 mdr-regulations.pdf            ✅ Exists
 │       │
 │       ├── 📁 design-history/                ✅ Exists
-│       │   ├── 📄 0001-system-architecture.md            ✅ Exists - Detailed architecture
-│       │   ├── 📄 0000-change-log.md              ✅ Exists - Design changes (developer)
-│       │   ├── 📄 genpres_stateless_proposal.md ✅ Exists
-│       │   ├── 📄 mailbox-processor-design-proposal.md ✅ Exists
-│       │   ├── 📄 0003-resource-requirements.md ✅ Exists
-│       │   ├── 📄 informedica-genform-lib.md ✅ Exists
-│       │   ├── 📄 informedica-genorder-lib.md ✅ Exists
-│       │   ├── 📄 domain_constrained_option_solver_architecture.md ✅ Exists
-│       │   ├── 📄 order_value_logic.md       ✅ Exists
-│       │   ├── 📄 0002-state-of-affairs.md        ✅ Exists
-│       │   └── 📄 0004-ui-wireframes.md           ✅ Exists
+│       │   ├── 📄 0000-change-log.md          ✅ Exists - Design changes (developer)
+│       │   ├── 📄 0001-system-architecture.md  ✅ Exists - Detailed architecture
+│       │   ├── 📄 0009-mcp-server-architecture.md ✅ Exists
+│       │   ├── 📄 0014-staged-value-expansion-timed-orders.md ✅ Exists
+│       │   ├── 📄 0015-security-baseline.md    ✅ Exists
+│       │   ├── 📄 0016-gstand-dose-rule-fallback.md ✅ Exists
+│       │   ├── 📄 0018-nlp-dose-rule-extraction.md ✅ Exists
+│       │   ├── 📄 0019-shared-clinical-calculations.md ✅ Exists
+│       │   └── 📄 0020-fhir-r4-integration.md  ✅ Exists
 │       │
 │       ├── 📁 requirements/                  ✅ Exists
 │       │   ├── 📄 user-requirements.md       ✅ Exists (UR-XXX)

@@ -8,7 +8,6 @@
 
 - [Security Review 2026-04-10](../../security/2026-04-10-security-review.md)
 - [System Architecture (ADR-0001)](0001-system-architecture.md)
-- [Clean SAFE Architecture (ADR-0007)](0007-clean-safe-architecture.md)
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-27
 
-**Status**: Proposed
+**Status**: Accepted
 
 **Related PRs**:
 

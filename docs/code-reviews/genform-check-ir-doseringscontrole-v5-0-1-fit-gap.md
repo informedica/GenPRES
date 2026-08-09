@@ -218,8 +218,9 @@ All indications merge into one envelope (prior LOW-1). For substances like
 methotrexaat the IR keeps oncology and reumatologie limits apart; the merged
 envelope adopts the highest. The GenFORM rule has its own `Indication` text but
 no ICPC coding, so exact matching needs a mapping table. **Direction (long
-term):** add ICPC codes to GenFORM dose rules (resource change →
-`0003-resource-requirements.md`) and select per indication, falling back to
+term):** add ICPC codes to GenFORM dose rules (sheet-contract change → the
+`Data` record types in `GenFORM.Lib/Types.fs` plus the column-contract test) and
+select per indication, falling back to
 Q algemeen (ICPCNR1 = 17752) per IR. Until then this remains a documented
 divergence; note it interacts with G-1 (the Q-algemeen semantics differ per
 zorggroep).

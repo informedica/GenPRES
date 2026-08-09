@@ -197,9 +197,9 @@ It can run as:
 
 ### Session-Level LRU Memoisation
 
-A prototype session-level memoisation design has been documented to avoid redundant re-solving of equivalent equation systems across multiple patients or scenarios within the same server session (see [ADR-0017](../mdr/design-history/0017-lru-solver-memoisation.md)). As of ADR-0017 (status: Proposed, dated 2026-04-25), this remains pending integration into the production solver.
+A prototype session-level memoisation avoids redundant re-solving of equivalent equation systems across multiple patients or scenarios within the same server session. It lives in `src/Informedica.GenSOLVER.Lib/Scripts/` (`LRUCache.fsx`, `MemoCanon.fsx`, `LRUSolverIntegration.fsx`) and remains pending integration into the production solver.
 
-Key design points described in ADR-0017:
+Key design points of the prototype:
 
 - **Canonical key remapping**: variable names are normalised to a canonical form before cache lookup, enabling cross-patient cache sharing even when variable names differ only by patient-specific identifiers.
 - **LRU eviction**: the prototype cache uses a Least-Recently-Used eviction policy with a configurable capacity, implemented as a `Dictionary<K, LinkedListNode<K*V>>` plus `LinkedList<K*V>` guarded by a single `obj` mutex.
@@ -208,7 +208,7 @@ Key design points described in ADR-0017:
 
 If integrated, this optimisation is intended to be transparent to callers, with the `SessionSolver` API remaining identical to the non-memoised solver.
 
-See [ADR-0017: LRU Solver Memoisation](../mdr/design-history/0017-lru-solver-memoisation.md) for the complete design rationale and implementation status.
+See [Code Review & Memoization Design for Solver.fs](../code-reviews/solver-memoization.md) for the complete design rationale.
 
 See [GenORDER Appendix B.3: Libraries](genorder-operational-rules-to-orders.md#addendum-b.3.-genorder-libraries) for the complete library architecture.
 
@@ -258,7 +258,7 @@ This GenSOLVER document is part of the GenPRES domain documentation. For the com
 | [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md) | How free-text expert knowledge is transformed into structured Operational Knowledge Rules (OKRs). |
 | [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md) | How OKRs are transformed into executable Order Scenarios. Includes the equation system that GenSOLVER solves. |
 | [GenSOLVER Stability Analysis](gensolver-stability-analysis.md) | Analysis of solver stability properties, known limitations, and open questions. |
-| [ADR-0017: LRU Solver Memoisation](../mdr/design-history/0017-lru-solver-memoisation.md) | Design rationale for session-level LRU memoisation and canonical key remapping. |
+| [Code Review & Memoization Design for Solver.fs](../code-reviews/solver-memoization.md) | Design rationale for session-level LRU memoisation and canonical key remapping. |
 
 ### Quick Reference by Topic
 

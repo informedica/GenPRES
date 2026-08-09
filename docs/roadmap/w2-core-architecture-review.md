@@ -15,7 +15,7 @@ and [ROADMAP](../../ROADMAP.md).
 | Goal | Status | Evidence |
 |------|--------|----------|
 | Domain model validation | 🔄 Partial | MDR docs, stability analysis, GenFORM 131+ test scenarios |
-| Constraint solver optimisation | 🔄 Partial | ADR-0017, PRs #166 #220 #230 #233 #238 #249 (prototype complete, production migration pending) |
+| Constraint solver optimisation | 🔄 Partial | PRs #166 #220 #230 #233 #238 #249 (prototype complete, production migration pending) |
 | Unit of measure framework | ✅ Complete | `Informedica.GenUnits.Lib` — units-of-measure API with BigRational arithmetic |
 | Performance benchmarking | ✅ Complete | PR #166 — solver throughput benchmarks with Stopwatch-based timing |
 
@@ -28,7 +28,7 @@ and [ROADMAP](../../ROADMAP.md).
 The GenSOLVER constraint solver has received a series of targeted performance
 and correctness improvements:
 
-#### LRU Memoisation (ADR-0017)
+#### LRU Memoisation
 
 - **[PR #220]** `LRUCache.fsx` — session-level LRU cache prototype; thread-safe
   O(1) get/put/evict, configurable capacity, 10-patient dosing benchmark.
@@ -40,7 +40,7 @@ and correctness improvements:
 - **[PR #238]** `LRUSolverIntegration.fsx` — `SessionSolver` integrating the
   LRU cache with canonical name-remapping; 6 correctness tests and a 50-patient
   capacity benchmark.
-- **[ADR-0017]** Architecture Decision Record documenting the design rationale,
+- **[Design rationale]** `docs/code-reviews/solver-memoization.md` documents the
   `Dictionary` + `LinkedList` implementation guarded by a single mutex for
   thread-safety, configurable eviction policy,
   and alternatives considered (request-scoped and persistent caching).
@@ -59,12 +59,13 @@ and correctness improvements:
 
 The GenSOLVER domain document
 (`docs/domain/gensolver-from-orders-to-quantitative-solutions.md`) was updated with:
+
 - **Section 7** expanded with a cycle-detection paragraph describing the
   state-fingerprint-based `CycleDetector` that terminates gracefully.
 - **Section 9** gains a "Session-Level LRU Memoisation" subsection documenting
   the `LRUCache` prototype, canonical key remapping for cross-patient cache
-  sharing, thread-safety design, and production status (pending per ADR-0017).
-- Cross-references to [ADR-0017](../mdr/design-history/0017-lru-solver-memoisation.md)
+  sharing, thread-safety design, and production status (still pending).
+- Cross-references to the [memoisation design](../code-reviews/solver-memoization.md)
   and the [stability analysis](../domain/gensolver-stability-analysis.md).
 
 ### Unit of Measure Framework
@@ -82,6 +83,7 @@ The `Informedica.GenUnits.Lib` provides the unit-of-measure foundation:
 
 Stopwatch-based solver throughput benchmarks (`timeMean` helper) measuring
 elapsed time for representative clinical scenarios:
+
 - Solver execution time for several representative clinical scenarios.
 
 ---
@@ -102,8 +104,8 @@ and clinically accurate — is ongoing:
 
 ### LRU Production Integration
 
-ADR-0017 documents the LRU memoisation as a **prototype** pending production
-integration. Tasks remaining:
+The LRU memoisation is a **prototype** pending production integration.
+Tasks remaining:
 
 - [ ] Migrate `LRUSolverIntegration.fsx` logic into `OrderProcessor.fs` /
       `Informedica.GenORDER.Lib`.
@@ -128,7 +130,7 @@ Per `gensolver-stability-analysis.md`, the cycle-detection prototype in
 
 | Resource | Path / Link |
 |----------|-------------|
-| ADR-0017 LRU Memoisation | `docs/mdr/design-history/0017-lru-solver-memoisation.md` |
+| LRU memoisation design | `docs/code-reviews/solver-memoization.md` |
 | GenSOLVER domain document | `docs/domain/gensolver-from-orders-to-quantitative-solutions.md` |
 | GenSOLVER stability analysis | `docs/domain/gensolver-stability-analysis.md` |
 | Architecture and Timeline | `docs/roadmap/genpres-architecture-and-timeline.md` |
