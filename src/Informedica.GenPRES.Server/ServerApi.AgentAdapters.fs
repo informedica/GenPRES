@@ -430,7 +430,10 @@ module AgentAdapters =
                         >> extractFormulary
                         >> async.Return
                     getParenteralia =
-                        fun par -> postAsync formularyAgent (FormularyCommand.GetParenteralia par) extractParenteralia
+                        FormularyCommand.GetParenteralia
+                        >> executeFormularyCommand provider
+                        >> extractParenteralia
+                        >> async.Return
                 }
 
             orderContext = orderCtxPort
