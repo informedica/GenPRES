@@ -425,7 +425,10 @@ module AgentAdapters =
             formulary =
                 {
                     getFormulary =
-                        fun form -> postAsync formularyAgent (FormularyCommand.GetFormulary form) extractFormulary
+                        FormularyCommand.GetFormulary
+                        >> executeFormularyCommand provider
+                        >> extractFormulary
+                        >> async.Return
                     getParenteralia =
                         fun par -> postAsync formularyAgent (FormularyCommand.GetParenteralia par) extractParenteralia
                 }
