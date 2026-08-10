@@ -51,8 +51,8 @@ module AgentAdapters =
             |> Result.mapError Array.singleton
             |> FormularyResponse.Parenteralia
 
-    // This helper function was extracted from createFormularyAgent (below) as a step toward bypassing agent use as
-    // discussed in issue 420.
+    // This helper function was extracted from createFormularyAgent (now deleted) as a step toward bypassing agent use
+    // as discussed in issue 420.
     // Consider combining this with processFormularyCommand, since it having both a process and an execute function
     // might be confusing.
     // Once a decision is made about whether to keep the agent or not, remove this comment.
@@ -68,9 +68,6 @@ module AgentAdapters =
             match cmd with
             | FormularyCommand.GetFormulary _ -> FormularyResponse.Formulary(Error [| ex.Message |])
             | FormularyCommand.GetParenteralia _ -> FormularyResponse.Parenteralia(Error [| ex.Message |])
-
-    let private createFormularyAgent provider =
-        Agent.createReply<FormularyCommand, FormularyResponse> (executeFormularyCommand provider)
 
     let private extractFormulary =
         function
@@ -405,7 +402,6 @@ module AgentAdapters =
                 let a = Logging.getLogger level Logging.OrderLogger
                 (Some a, a.Logger)
 
-        let formularyAgent = createFormularyAgent provider
         let orderCtxAgent = createOrderCtxAgent logAgent logger provider
 
         // Build the OrderContext port backed by its agent, so OrderPlan
