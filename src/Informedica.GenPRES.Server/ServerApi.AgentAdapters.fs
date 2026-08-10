@@ -51,22 +51,26 @@ module AgentAdapters =
             |> Result.mapError Array.singleton
             |> FormularyResponse.Parenteralia
 
+    // This helper function was extracted from createFormularyAgent (below) as a step toward bypassing agent use as
+    // discussed in issue 420.
+    // Consider combining this with processFormularyCommand, since it having both a process and an execute function
+    // might be confusing.
+    // Once a decision is made about whether to keep the agent or not, remove this comment.
+    let private executeFormularyCommand provider cmd =
+        try
+            writeDebugMessage $"[FormularyAgent] <- {cmd |> formularyCommandToString}"
+            let response = processFormularyCommand provider cmd
+            writeDebugMessage $"[FormularyAgent] -> {cmd |> formularyCommandToString} completed"
+            response
+        with ex ->
+            writeErrorMessage $"[FormularyAgent] error in {cmd |> formularyCommandToString}: {ex}"
+
+            match cmd with
+            | FormularyCommand.GetFormulary _ -> FormularyResponse.Formulary(Error [| ex.Message |])
+            | FormularyCommand.GetParenteralia _ -> FormularyResponse.Parenteralia(Error [| ex.Message |])
 
     let private createFormularyAgent provider =
-        Agent.createReply<FormularyCommand, FormularyResponse> (fun cmd ->
-            try
-                writeDebugMessage $"[FormularyAgent] <- {cmd |> formularyCommandToString}"
-                let response = processFormularyCommand provider cmd
-                writeDebugMessage $"[FormularyAgent] -> {cmd |> formularyCommandToString} completed"
-                response
-            with ex ->
-                writeErrorMessage $"[FormularyAgent] error in {cmd |> formularyCommandToString}: {ex}"
-
-                match cmd with
-                | FormularyCommand.GetFormulary _ -> FormularyResponse.Formulary(Error [| ex.Message |])
-                | FormularyCommand.GetParenteralia _ -> FormularyResponse.Parenteralia(Error [| ex.Message |])
-        )
-
+        Agent.createReply<FormularyCommand, FormularyResponse> (executeFormularyCommand provider)
 
     let private extractFormulary =
         function
