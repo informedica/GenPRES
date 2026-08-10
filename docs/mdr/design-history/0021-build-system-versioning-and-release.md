@@ -40,8 +40,8 @@ The repo currently merges PRs with merge commits
 squash-merge is enabled at the GitHub API level. The maintainer has confirmed 
 (2026-08-05) that switching the default merge method to squash-only is acceptable.
 
-ADR numbers 0000–0021 are in use; 0003 and 0012 are formally retired (see
-[ADR-0000's log](0000-change-log.md)). This document is ADR-0021.
+This document is ADR-0021, the next number available in
+[the design-history log](0000-change-log.md).
 
 ## Decision
 
@@ -79,8 +79,8 @@ This determines whether `scripts/CheckSolutionVersions.fsx` needs to change at a
 
 **Positive**:
 
-- A single, well-defined tool owns version bumps, changelog entries, and release-PR 
-- creation — no more manual `Directory.Build.props` edits, no competing automation. 
+- A single, well-defined tool owns version bumps, changelog entries, and release-PR
+  creation — no more manual `Directory.Build.props` edits, no competing automation.
 - `ServerBuild`/`ClientBuild` let CI and contributors build just the piece
   they're touching without changing any existing target's behaviour.
 - Agent-facing docs stay in sync with the build system because each PR
