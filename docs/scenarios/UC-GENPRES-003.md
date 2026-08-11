@@ -111,9 +111,11 @@ This use case describes **intended** behaviour. None of it is built.
 See the
 [AP2019 vs GenPRES fit-gap analysis](../roadmap/fit-gap-ap2019-vs-genpres.md):
 
-- **Not built**: fit-gap 9.10 (pharmacy communication — email, print,
-  VTGM preparation letters) and 9.8 (EHR integration, including order
-  file export). AP2019 covered both; GenPRES has neither.
+- **Not built**: the electronic hand-off itself — fit-gap 5.11b, and
+  9.8c (order file export). Under 9.10 (pharmacy communication) the
+  print half exists for parenteral nutrition (5.11a); email, electronic
+  hand-off and VTGM preparation letters do not, which is why that row is
+  Partial rather than a Gap.
 - **Blocked on**: saved orders, since precondition 2 requires them —
   fit-gap 9.6 and
   [patient-state persistence](../roadmap/feature-patient-persistence.md).

@@ -265,17 +265,15 @@ sections 5 (TPN / parenteral), 6 (enteral) and 7 (totals).
   (5.2, 5.3, 5.9), per-component electrolyte stepping (5.6), stage
   progression via dose type (5.8), solution-rule volume floor (5.14),
   and the fixed totals set (7.1, 7.2, 7.4–7.7, 7.11).
-- **Built, fit-gap not yet updated**: the parenteral print view exists,
-  including patient header, per-component volumes and doses, pump rate,
-  administration time, totals with reference ranges, and a signature
-  line. Item 5.11 still records print and pharmacy mail together as a
-  Gap; the print half is done, the electronic hand-off is not.
-- **Built, fit-gap understates it**: administration time is derived and
-  displayed per line, and is flagged when it no longer fits the intended
-  period. Items 5.7 (pump stand calculation) and 5.10 (infusion time
-  over 24 hours) are recorded as Gaps, but what is actually missing is
-  narrower: the run-over-the-intended-period action, and an intended
-  period on the dose rule to drive it. Note that the legacy application
+- **Built — preparation print (5.11a, Fit)**: patient header,
+  per-component volumes and doses, pump rate, administration time,
+  totals with reference ranges, and a signature line. The electronic
+  hand-off to pharmacy is what remains (5.11b, Gap).
+- **Partial — administration period (5.7, 5.10)**: administration time
+  is derived and displayed per line, and is flagged when it no longer
+  fits what the rules allow. What is missing is narrower than the row
+  titles suggest: the run-over-the-intended-period action, and an
+  intended period on the dose rule to drive it. The legacy application
   fixes that period at 24 hours whereas here it belongs to the stage, so
   5.7 should not be implemented by copying the legacy behaviour.
 - **Built — reset**: a line can be reset to the constraints the rules

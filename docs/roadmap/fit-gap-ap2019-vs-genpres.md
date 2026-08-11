@@ -227,8 +227,8 @@ GenPRES covers the core prescribing workflow well: generic/indication/route/form
 - **NICU-specific**: Fluid side-lines (glucose/NaCl/bicarb/albumin) feeding fluid totals
 - **Clinical features**: PRN medication, TallMan lettering, comments/remarks, non-assortment/study drug free-text entry
 - **Renal/labs**: eGFR auto-calculation (Schwartz/MDRD), AKI alert, lab data display
-- **TPN rules**: "Extra" exclusion from totals, non-glucose-solvent-blocks-protein coupling, pump stand (24 h) calculation, 24-hour infusion time warning
-- **Integration**: MetaVision sync + order file export, HIX import, multi-user conflict detection
+- **TPN rules**: "Extra" exclusion from totals, non-glucose-solvent-blocks-protein coupling, removal of individual components within an infusion (5.17). Pump stand (5.7) and infusion-time warning (5.10) are *not* listed here — both are Partial, needing only an intended administration period on the dose rule
+- **Integration**: order file export (9.8c), HIX import, multi-user conflict detection. MetaVision data sync (9.8a) is Out of scope by design, not a gap
 - **Persistence**: Patient data versioning and being able to save/restore patient state across sessions
 - **User & access management**: per-user identity, role-based authorization (Admin/Pharmacy/Prescriber), prescriber registry + electronic signing, per-user audit trail, and EHR-sourced login — GenPRES has only a single shared admin password
 
