@@ -1,3 +1,11 @@
+---
+# EasyBuild.ShipIt configuration (https://github.com/easybuild-org/EasyBuild.ShipIt#configuration).
+# last_commit_released is pinned to the commit this front matter was introduced on, so ShipIt only
+# considers commits from here forward.  Hand-written history above this is left alone.
+last_commit_released: a1dfeaab1beb24b05d5443504b22c0dbf7f5edde
+name: GenPRES
+---
+
 # Changelog
 
 All notable changes to GenPRES will be documented in this file.
