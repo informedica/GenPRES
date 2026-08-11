@@ -89,8 +89,26 @@ Build ──► ServerTests
 Build ──► CheckVersions
 ```
 
-`Build` and `RestoreClient` are independent prongs — a target that only needs
-one of them (e.g. `ServerTests`, `CheckVersions`) doesn't pay for the other.
+### Changelog & Release Automation (EasyBuild.ShipIt)
+
+GenPRES uses [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) to derive
+the next semantic version and changelog entries from conventional-commit history — see
+[ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md) for the full
+design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
+YAML front matter at the top of the root `CHANGELOG.md`.
+
+As of this PR, ShipIt is installed and configured but **not** wired into the CI, it also does not 
+update `Directory.Build.props`, these are both a follow-up PR per ADR-0021's implementation plan. 
+In the meantime, we can preview locally what it would generate:
+
+```bash
+dotnet tool restore
+dotnet shipit --dry-run --allow-branch master
+```
+
+`--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
+explicitly (this also applies when step 5 wires ShipIt into CI). `--dry-run` never modifies files
+or opens a pull request, so it's safe to run against a dirty tree.
 
 ### What Happens During `dotnet run` (the `Run` target)
 

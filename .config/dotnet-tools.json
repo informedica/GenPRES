@@ -36,6 +36,13 @@
         "husky"
       ],
       "rollForward": false
+    },
+    "easybuild.shipit": {
+      "version": "3.0.1",
+      "commands": [
+        "shipit"
+      ],
+      "rollForward": false
     }
   }
 }
