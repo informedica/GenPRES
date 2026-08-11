@@ -4,6 +4,10 @@
 
 The AfsprakenProgramma 2019 (AP2019) is the PICU/NICU clinical workflow application at UMC Utrecht / WKZ, launched November 2019 in its current state. This analysis maps its medication, feeding, and fluids requirements against the current GenPRES Prescribe, Nutrition, and TreatmentPlan views to identify what GenPRES already covers, what partially exists, and what is missing.
 
+**Revisions**: Items 5.4, 5.5, 5.7, 5.10, 5.11, 9.4, 9.8 and 9.10 were corrected against the *UC TPN prescribing* walkthrough (`docs/scenarios/UC TPN prescribing.pdf`) and the use cases in `docs/scenarios/`. Each either understated what GenPRES does, or measured it against a mis-stated AP2019 requirement, or recorded as a shortfall something the use cases make a deliberate non-goal. Rows 5.17, 5.18 and section 11 were added.
+
+**Status values**: **Fit**, **Partial** and **Gap** measure GenPRES against an AP2019 requirement and are counted in the summary. **Out of scope** marks an AP2019 capability GenPRES deliberately does not reproduce, with the reason given; these are excluded from the counts, as is section 11.
+
 **Scope**: This analysis covers medication, fluid, and enteral-feeding functionality, plus the cross-cutting workflow and user/access-management concerns that surround them. AP2019 features outside GenPRES's intended scope — intravascular lines & pacemaker, lab requests, and other appointments/controls — are deliberately excluded.
 
 **View column**: names the GenPRES view where the requirement is surfaced. `—` means it is not surfaced in any view (a gap, backend-only, external, or an integration concern).
@@ -84,19 +88,22 @@ The AfsprakenProgramma 2019 (AP2019) is the PICU/NICU clinical workflow applicat
 | 5.1 | Independent protein solution selection (weight-dependent) | **Fit** | Nutrition | TPN context with generic selection; solution rules weight-dependent |
 | 5.2 | Independent infusion rate control | **Fit** | Nutrition | Rate navigation with min/median/max |
 | 5.3 | Independent volume control | **Fit** | Nutrition | Component quantity navigation |
-| 5.4 | Up to 5 infusions (TPN + electrolytes + phosphate + lipids + extra) | **Partial** | Nutrition | TPN (1) + Lipid (1) + ElectrolyteGlucose (multiple) supported; max 5 not enforced; no dedicated phosphate category |
-| 5.5 | CVL vs peripheral access (affects electrolyte dilution) | **Fit** | Prescribe | Solution rules can encode access-dependent constraints; explicit CVL toggle in Patient view |
+| 5.4 | Up to 4 parenteral infusions (protein + Mg/Ca + lipid + electrolyte) | **Fit** | Nutrition | Corrected against the *UC TPN prescribing* walkthrough: AP2019 allows four fixed infusion slots, not five. GenPRES covers them with a different shape — one TPN line, one Lipid line and any number of ElectrolyteGlucose lines, with Mg/Ca and phosphate available as electrolyte compositions rather than as their own categories. The absent slot cap follows from that shape and is not a shortfall |
+| 5.5 | CVL vs peripheral access (affects electrolyte dilution) | **Partial** | Prescribe | Access type is captured in patient context (explicit CVL toggle in the Patient view) and solution rules *can* encode access-dependent constraints. Unconfirmed is the part that matters: that the recorded access actually selects which solution constraints apply, peripheral bounding concentrations tighter than central. See precondition 4 of [UC-GENPRES-004](../scenarios/UC-GENPRES-004.md) |
 | 5.6 | Electrolyte entry with arrow keys / click input | **Fit** | Nutrition | Component quantity controls with increase/decrease navigation |
-| 5.7 | Pump stand calculation (24-hour) | **Gap** | — | No automatic 24-hour pump stand calculation |
+| 5.7 | Pump stand calculation (24-hour) | **Partial** | Nutrition | Volume, rate and the resulting administration time are computed and shown per line, so the calculation exists; missing is the one-click "make this line run over its intended period". Do not implement by copying AP2019's fixed 24 hours — in GenPRES the intended period belongs to the dose rule for the stage (see [UC-GENPRES-004](../scenarios/UC-GENPRES-004.md)) |
 | 5.8 | TPN Day Choice (automatic protocol progression) | **Fit** | Nutrition | Day-based TPN protocol escalation |
 | 5.9 | Decoupled volume and rate (independent of 24-hour timeline) | **Fit** | Nutrition | Volume and rate are independently navigable |
-| 5.10 | Infusion time > 24h warning | **Gap** | — | No specific 24-hour infusion time validation |
-| 5.11 | Pharmacy mail / print for TPN letter | **Gap** | — | No print or email integration |
+| 5.10 | Infusion time > 24h warning | **Partial** | Nutrition | Administration time is derived from volume and rate, displayed per line, and flagged by dose-check severity when it falls outside what the rules allow. Missing is an intended administration period on the dose rule to judge it against; until then the flag has no reference to fire on |
+| 5.11a | Preparation print for TPN letter | **Fit** | Nutrition | Parenteral print view: per line each component with prepared volume and dose per kg, total volume, pump rate, administration time, intake totals with reference ranges, patient header and prescriber signature line |
+| 5.11b | Pharmacy mail / electronic hand-off of the TPN letter | **Gap** | — | The print is a paper hand-off only; nothing is sent to the pharmacy electronically. See [UC-GENPRES-003](../scenarios/UC-GENPRES-003.md) |
 | 5.12 | "Extra" exclusion (feeds/lines/meds marked extra excluded from totals) | **Gap** | — | No per-order "extra"/exclude-from-balance flag |
 | 5.13 | TPN rest-volume (glucose base) auto-formula from total fluid intake minus other sources | **Partial** | Nutrition | Base-fluid volume derived by solver; automatic negative-balance red flag not confirmed |
 | 5.14 | Minimum solvent-volume floor (blocks lowering rate below concentration minimums) | **Fit** | Nutrition | Solution rules bound each component/substance (MinQty/MaxQty, MinConc/**MaxConc**, MinVol/MaxVol); a per-substance max concentration forces volume ≥ amount/maxConc, so the solver won't lower volume/rate past the floor |
 | 5.15 | Non-glucose solvent zeroes protein composition | **Gap** | — | No rule coupling solvent choice to protein availability |
 | 5.16 | Selectable lipid composition (incl. SMOF), weight-band boundary resolution | **Partial** | Nutrition | Lipid generic/solution selectable; weight-band boundary-to-higher rule not confirmed |
+| 5.17 | Remove an individual component from an infusion (principal / solvent / additional roles) | **Gap** | — | AP2019 removes components inside a solution by check box, refusing the principal component and any solvent a maximum concentration depends on. GenPRES removes whole lines only; the three component roles are not represented. See the component-removal extension in [UC-GENPRES-004](../scenarios/UC-GENPRES-004.md) |
+| 5.18 | Reset quantities/rates to their standard values | **Fit** | Nutrition | AP2019 resets per value ("stand" per quantity or rate); GenPRES resets a whole line back to the ranges its rules originally allowed |
 
 ## 6. Enteral Nutrition / Feeding
 
@@ -114,7 +121,7 @@ The AfsprakenProgramma 2019 (AP2019) is the PICU/NICU clinical workflow applicat
 |---|---|---|---|---|
 | 7.1 | Fluid (ml/kg/day) | **Fit** | Totals | Volume tracked |
 | 7.2 | Energy (kCal/kg/day) | **Fit** | Totals | Energy tracked |
-| 7.3 | Glucose (g/kg/day and mg/kg/min) | **Partial** | Totals | Carbohydrate tracked; mg/kg/min display not confirmed |
+| 7.3 | Glucose (g/kg/day and mg/kg/min) | **Partial** | Totals | Carbohydrate is tracked and the preparation print already shows its reference range in mg/kg/min — but the value beside that range is in g/kg/day. Both belong (prescribed per day, judged as an infusion rate); missing is the value in mg/kg/min, not a change to the range |
 | 7.4 | Protein (g/kg/day) | **Fit** | Totals | Protein tracked |
 | 7.5 | Vitamin D (IE/day) | **Fit** | Totals | VitaminD tracked |
 | 7.6 | Iron (mmol/kg/day) | **Fit** | Totals | Iron tracked |
@@ -140,13 +147,15 @@ The AfsprakenProgramma 2019 (AP2019) is the PICU/NICU clinical workflow applicat
 | 9.1 | Patient data management (demographics, weight, age) | **Fit** | All | Patient context with age, weight, BSA, GA, PMA, gender |
 | 9.2 | Live patient-field validation ranges (weight, length, gestation, birth weight, date logic) | **Partial** | Patient | Some validation present; full clinical range/date-consistency rules not confirmed |
 | 9.3 | Derived clinical values (chronological/gestational/postmenstrual/corrected age, BSA) | **Fit** | Patient | Age variants, BSA, GA, PMA computed |
-| 9.4 | Patient list picker (admitted patients of current department) | **Gap** | — | No patient-list/browse picker (no EHR patient source) |
+| 9.4 | Patient list picker (admitted patients of current department) | **Out of scope** | — | Deliberate non-goal: the patient is chosen in the main application and arrives in the launch record, so GenPRES never lists or browses patients — see [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) steps 1-2 |
 | 9.5 | Clear scopes (PICU-only / NICU-only / patient-only / everything) | **Gap** | — | No scoped clear/reset |
-| 9.6 | Version control / save history | **Gap** | — | No patient-data versioning in GenPRES, patient data and active orders should be persistable |
+| 9.6 | Version control / save history | **Gap** | — | No patient-data versioning in GenPRES, patient data and active orders should be persistable. Intended shape: GenPRES saves to its own store, the source of truth for what GenPRES produced; replication onward to the Hospital Patient Data Platform is provided by the hospital and out of GenPRES's scope — see [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) step 7 and its data-ownership section |
 | 9.7 | Multi-user conflict detection (patient open elsewhere) | **Gap** | — | No concurrent access detection |
-| 9.8 | MetaVision integration (data sync, signing, order file export) | **Gap** | — | No bidirectional EHR integration |
+| 9.8a | MetaVision data sync (bidirectional) | **Out of scope** | — | Deliberate non-goal, not a shortfall: [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) makes the launch record the only channel between the two systems — written by MetaVision, read once by GenPRES, never called back into. Patient data comes from the Hospital Patient Data Platform instead |
+| 9.8b | Electronic signing of orders | **Gap** | — | Signing lived MetaVision-side in AP2019. GenPRES has no per-order signed state; tracked jointly with 10.3 |
+| 9.8c | Order file export | **Gap** | — | No order export exists. The nearest intended path is the pharmacy hand-off in [UC-GENPRES-003](../scenarios/UC-GENPRES-003.md) and 5.11b |
 | 9.9 | HIX medication import | **Gap** | — | No external system import |
-| 9.10 | Pharmacy communication (email, print, VTGM preparation letters) | **Gap** | — | No print or email |
+| 9.10 | Pharmacy communication (email, print, VTGM preparation letters) | **Partial** | Nutrition | The parenteral preparation print exists (5.11a). Email / electronic hand-off (5.11b) and VTGM preparation letters do not |
 | 9.11 | Renal function warning + dosing adjustment link | **Partial** | Prescribe | Renal rules exist in GenFORM; GFR-based dose adjustment available; no lab-driven auto-calculation |
 | 9.12 | Batch delete of selected orders | **Fit** | TreatmentPlan | Multi-select + batch delete implemented |
 | 9.13 | PICU vs NICU workflow separation | **Gap** | — | GenPRES has single unified workflow; no unit-specific menus |
@@ -159,11 +168,29 @@ AP2019's user management was lightweight: identity and role were **trusted from 
 
 | # | AP2019 Requirement | GenPRES Status | View | Notes |
 |---|---|---|---|---|
-| 10.1 | Per-user identity (named clinician: login, first/last name) | **Gap** | — | AP2019 carried a user object (`ClassUser`: Login, FirstName, LastName, Role, PIN) sourced from MetaVision. GenPRES has only a shared admin password; `IsAuthenticated` is a bare boolean with no individual identity |
-| 10.2 | Role-based authorization (Beheerders / Apotheek / Prescriber) | **Gap** | — | AP2019 role-gated ribbon groups by user type (`GetVisibleAdmin`, `GetVisibleDevelopment`). GenPRES authorization is binary (admin password or not); no role tiers to gate features |
-| 10.3 | Prescriber registry + electronic signing (PIN, Signed state) | **Gap** | — | AP2019 had a `Prescriber` table, `GetPrescriberPIN`, and `Signed` bit columns; signing itself lived MetaVision-side. GenPRES has no prescriber registry, PIN, or per-order signed state. Related to 9.8 |
-| 10.4 | Per-user audit trail (who viewed which patient, what changed) | **Gap** | — | AP2019 logged action + user login + hospital number (IGJ/GMP traceability). GenPRES logs server activity but not per clinical user; an MDR-relevant traceability gap. Related to 9.6 |
-| 10.5 | EHR-sourced login provenance (MetaVision / registry) | **Gap** | — | AP2019 derived identity and role from MetaVision (`Users` ⨝ `t_UsersType`) and registry `HKCU\SOFTWARE\UMCU\MV`. GenPRES has no EHR identity source. Related to 9.8 |
+| 10.1 | Per-user identity (named clinician: login, first/last name) | **Gap** | — | AP2019 carried a user object (`ClassUser`: Login, FirstName, LastName, Role, PIN) sourced from MetaVision. GenPRES has only a shared admin password; `IsAuthenticated` is a bare boolean with no individual identity. Intended mechanism: identity arrives in the single-use launch record the main application writes, and is authoritative for the session — see [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) steps 1-2 |
+| 10.2 | Role-based authorization (Beheerders / Apotheek / Prescriber) | **Gap** | — | AP2019 role-gated ribbon groups by user type (`GetVisibleAdmin`, `GetVisibleDevelopment`). GenPRES authorization is binary (admin password or not); no role tiers to gate features. Intended mechanism: the role travels in the launch record alongside the identity and governs prescribing, saving and pharmacy dispatch — see [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) step 2 |
+| 10.3 | Prescriber registry + electronic signing (PIN, Signed state) | **Gap** | — | AP2019 had a `Prescriber` table, `GetPrescriberPIN`, and `Signed` bit columns; signing itself lived MetaVision-side. GenPRES has no prescriber registry, PIN, or per-order signed state. Tracked jointly with 9.8b |
+| 10.4 | Per-user audit trail (who viewed which patient, what changed) | **Gap** | — | AP2019 logged action + user login + hospital number (IGJ/GMP traceability). GenPRES logs server activity but not per clinical user; an MDR-relevant traceability gap. Related to 9.6. [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) requires logging every launch-token issue, redemption and rejection, and intends the same for a deliberate out-of-limit value (confirmation, reason, attribution) |
+| 10.5 | EHR-sourced login provenance (MetaVision / registry) | **Gap** | — | AP2019 derived identity and role from MetaVision (`Users` ⨝ `t_UsersType`) and registry `HKCU\SOFTWARE\UMCU\MV`. GenPRES has no EHR identity source. **The intended design does not reproduce this**: GenPRES reads neither MetaVision nor the registry. Identity is handed over in the launch record and verified by redeeming it, so this row closes by implementing [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md), not by adding an EHR lookup |
+
+## 11. GenPRES-specific (no AP2019 equivalent)
+
+Behaviour the use cases require that AP2019 never had, so there is nothing to
+be "Fit" against. Status here is simply **Built** or **Not built**, and these
+rows are excluded from the summary counts.
+
+| # | Requirement | Status | View | Notes |
+|---|---|---|---|---|
+| 11.1 | Launch-token handoff: identity, role and patient established by redeeming a single-use record | **Not built** | — | Replaces AP2019's registry/MetaVision identity lookup (10.5) and the URL-carried context. See [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) steps 1-2 |
+| 11.2 | Patient data retrieved from the Hospital Patient Data Platform, which is authoritative for it | **Not built** | — | GenPRES retrieves and never writes back; unreachable platform blocks prescribing rather than falling back to a cached copy. See [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) step 4 and its data-ownership section |
+| 11.3 | GenPRES's own store as source of truth for orders, replicated onward by the hospital | **Not built** | — | Saving completes when GenPRES's store has it; replication is provided outside GenPRES, so the platform's copy is eventually consistent and never ahead. See [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) step 7 |
+| 11.4 | Deliberate out-of-limit value confirmed, reasoned and recorded against the order | **Not built** | — | Today an out-of-limit value is flagged by dose-check severity only, and severity is recomputed each solve rather than stored. See the dose-check extension in [UC-GENPRES-001](../scenarios/UC-GENPRES-001.md) |
+| 11.5 | Stand-alone calculation without patient context (manually entered patient, nothing persisted) | **Built** | All | Currently the only mode that exists, since no launch token or persistence is implemented yet. See [UC-GENPRES-002](../scenarios/UC-GENPRES-002.md) |
+| 11.6 | Intake total flagged when it falls outside its reference range | **Not built** | Totals | Ranges are shown beside each total but nothing marks a total that leaves its range. AP2019 shows an advice column without flagging either. See step 8 of [UC-GENPRES-004](../scenarios/UC-GENPRES-004.md) |
+
+---
+
 
 ---
 
@@ -171,10 +198,10 @@ AP2019's user management was lightweight: identity and role were **trusted from 
 
 | Status | Count | Percentage |
 |---|---|---|
-| **Fit** | 60 | 58% |
-| **Partial** | 17 | 17% |
-| **Gap** | 26 | 25% |
-| **Total** | 103 | 100% |
+| **Fit** | 62 | 58% |
+| **Partial** | 20 | 19% |
+| **Gap** | 24 | 23% |
+| **Total** | 106 | 100% |
 
 ### Strengths (Fit)
 
@@ -185,6 +212,8 @@ GenPRES covers the core prescribing workflow well: generic/indication/route/form
 - Glucose display in mg/kg/min alongside g/kg/day; dual Unit/kg/hour + Unit/kg/min for non-standard continuous meds
 - Indication-based sorting in TreatmentPlan
 - TPN business rules: rest-volume auto-formula with negative-balance flag, lipid weight-band boundary resolution
+- TPN administration period: an intended period on the dose rule per stage, so the derived administration time can be judged (5.10) and a "run over the intended period" action offered (5.7)
+- Vascular access actually selecting the applicable solution constraints, not merely being recorded (5.5)
 - NICU age/gestation fluid-intake advice: expressible as dose rules (patient-category bands + ml/kg/day), but not authored or surfaced against intake
 - Phototherapy fluid correction: expressible as a dose-type variant (dose text "phototherapy" with distinct limits), but not authored, and intake is not auto-adjusted on glucose change
 - Intake reference ranges are weight- and chronological-age-banded; extend with gestational-age and PM-age bands for neonates
@@ -194,12 +223,12 @@ GenPRES covers the core prescribing workflow well: generic/indication/route/form
 
 ### Gaps (not yet implemented)
 
-- **Workflow**: Infusion-letter preparation printout (treatment plan exists; print does not), pharmacy email/print + VTGM letters, PICU/NICU separation
+- **Workflow**: Infusion-letter preparation printout for continuous medication (treatment plan exists; print does not — the parenteral *nutrition* print does, see 5.11a), pharmacy email / electronic hand-off + VTGM letters, PICU/NICU separation
 - **NICU-specific**: Fluid side-lines (glucose/NaCl/bicarb/albumin) feeding fluid totals
 - **Clinical features**: PRN medication, TallMan lettering, comments/remarks, non-assortment/study drug free-text entry
 - **Renal/labs**: eGFR auto-calculation (Schwartz/MDRD), AKI alert, lab data display
-- **TPN rules**: "Extra" exclusion from totals, non-glucose-solvent-blocks-protein coupling, pump stand (24 h) calculation, 24-hour infusion time warning
-- **Integration**: MetaVision sync + order file export, HIX import, multi-user conflict detection
+- **TPN rules**: "Extra" exclusion from totals, non-glucose-solvent-blocks-protein coupling, removal of individual components within an infusion (5.17). Pump stand (5.7) and infusion-time warning (5.10) are *not* listed here — both are Partial, needing only an intended administration period on the dose rule
+- **Integration**: order file export (9.8c), HIX import, multi-user conflict detection. MetaVision data sync (9.8a) is Out of scope by design, not a gap
 - **Persistence**: Patient data versioning and being able to save/restore patient state across sessions
 - **User & access management**: per-user identity, role-based authorization (Admin/Pharmacy/Prescriber), prescriber registry + electronic signing, per-user audit trail, and EHR-sourced login — GenPRES has only a single shared admin password
 
