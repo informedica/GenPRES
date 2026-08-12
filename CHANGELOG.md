@@ -4,6 +4,10 @@
 # considers commits from here forward.  Hand-written history above this is left alone.
 last_commit_released: a1dfeaab1beb24b05d5443504b22c0dbf7f5edde
 name: GenPRES
+# GenPRES stays alpha until the MVP work (auth, etc.) needed to replace the existing
+# system is done. Without this, ShipIt would drop the -alpha suffix on the next
+# fix/feat commit instead of doing a real version bump.
+pre_release: alpha
 ---
 
 # Changelog
