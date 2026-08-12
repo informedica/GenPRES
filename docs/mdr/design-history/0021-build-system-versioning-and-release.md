@@ -37,8 +37,14 @@ parallel would produce competing release PRs.
 
 The repo currently merges PRs with merge commits
 (`939aec79 Merge pull request #436 from ...`), not squashes, even though
-squash-merge is enabled at the GitHub API level. The maintainer has confirmed 
+squash-merge is enabled at the GitHub API level. The maintainer initially confirmed
 (2026-08-05) that switching the default merge method to squash-only is acceptable.
+Concerns were raised that squash-only discards commit-level history on PRs where 
+granularity could matter. Since ShipIt's own README treats squash and rebase merging 
+as equally valid (both avoid the `Merge pull request ...` commits that break its commit 
+parsing — see the verification note below), the revised decision is to disable merge 
+commits but leave both squash and rebase merging enabled, so each contributor chooses
+per PR instead of one strategy being forced on everyone.
 
 This document is ADR-0021, the next number available in
 [the design-history log](0000-change-log.md).
@@ -57,7 +63,7 @@ at a time, rather than as a single documentation pass.
 | # | Choice | Rationale |
 |---|--------|-----------|
 | 1 | EasyBuild.ShipIt over MinVer/Nerdbank.GitVersioning | Only option that covers versioning **and** changelog generation **and** release-PR creation in one tool; MinVer/Nerdbank would still leave changelog automation and Repo Assist's Task 8 duplication unresolved |
-| 2 | Squash-merge required as the default merge method | ShipIt derives changelog entries from one commit per PR; the maintainer has approved this process change |
+| 2 | Merge commits disabled; squash and rebase merging both left enabled | ShipIt needs each PR to land without a `Merge pull request ...` commit to parse cleanly; squash and rebase both satisfy that per ShipIt's own README, so contributors keep the choice instead of being forced to squash away commit-level history |
 | 3 | Retire Repo Assist Task 8 in the same PR that turns on CI-driven ShipIt | Prevents two bots from proposing competing release PRs on the same merge |
 | 4 | Docker-on-release (item 3) and API docs (item 4) deferred to new follow-up issues | Both are greenfield efforts (no existing docfx/GitHub Pages/Docker-publish infrastructure) with no dependency on the versioning work landing first being a blocker either way; keeping them separate lets #234 close on a coherent, reviewable scope |
 | 5 | `Build` FAKE target split into `ServerBuild`/`ClientBuild`, with `Build` kept as an umbrella target | Existing dependency chains (`Build ==> ServerTests`, `Build ==> CheckVersions`, `Build ==> Run`) keep working unchanged; new targets are additive |
@@ -88,12 +94,13 @@ This determines whether `scripts/CheckSolutionVersions.fsx` needs to change at a
 
 **Negative / Trade-offs**:
 
-- Switching to squash-merge changes the commit history shape project-wide,
-  not just for build-system PRs — every future PR merge is affected.
-- `CHANGELOG.md`'s current rich, hand-written prose entries (see any
-  `[Unreleased]` entry today) become leaner, PR-title-derived entries under
-  ShipIt. The `=== changelog ===` block convention in a PR body (if ShipIt
-  supports pulling it in, per step 1's verification) is the escape hatch for
+- Disabling merge commits changes the commit history shape project-wide, not just 
+  for build-system PRs — every future PR merge is affected. Squash and rebase 
+  remain a per-PR choice, so no one is forced to lose commit-level history, but 
+  `Merge pull request ...` commits stop being an option entirely.
+- `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]` 
+  entry today) become leaner, PR-title-derived entries under ShipIt. 
+  The `=== changelog ===` block convention in a PR body is the escape hatch for 
   entries that need more detail than a title provides.
 - Items 3 and 4 remain unaddressed after #234 closes; they need their own
   issues and, eventually, their own ADRs or ADR amendments.
