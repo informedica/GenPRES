@@ -139,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.1.2-alpha] - 2026-03-23
+## [0.1.2-alpha.1] - 2026-03-23
 
 > ⚠️ **Alpha release** — Early development stage. Major features are incomplete. **Not for clinical use.**
 
