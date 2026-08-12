@@ -103,12 +103,14 @@ In the meantime, we can preview locally what it would generate:
 
 ```bash
 dotnet tool restore
-dotnet shipit --dry-run --allow-branch master
+dotnet shipit --dry-run --allow-branch master --skip-merge-commit
 ```
 
 `--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
-explicitly (this also applies when step 5 wires ShipIt into CI). `--dry-run` never modifies files
-or opens a pull request, so it's safe to run against a dirty tree.
+explicitly (this also applies when step 5 wires ShipIt into CI). `--skip-merge-commit` is required
+too: the repo's existing history has `Merge pull request ...` commits ShipIt can't parse, and it
+throws on the first one it hits instead of skipping it. `--dry-run` never modifies files or opens
+a pull request, so it's safe to run against a dirty tree.
 
 ### What Happens During `dotnet run` (the `Run` target)
 
