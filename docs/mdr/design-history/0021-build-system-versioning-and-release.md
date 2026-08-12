@@ -95,7 +95,7 @@ This determines whether `scripts/CheckSolutionVersions.fsx` needs to change at a
 **Negative / Trade-offs**:
 
 - Disabling merge commits changes the commit history shape project-wide, not just 
-  for build-system PRs — every future PR merge is affected. Squash and rebase 
+  for build-system PRs, every future PR merge is affected. Squash and rebase 
   remain a per-PR choice, so no one is forced to lose commit-level history, but 
   `Merge pull request ...` commits stop being an option entirely.
 - `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]` 

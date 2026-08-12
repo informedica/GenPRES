@@ -35,9 +35,9 @@ as follow-up issues once the versioning foundation lands.
   version derivation, changelog generation, *and* release-PR creation in one
   tool, which directly replaces Repo Assist's existing manual Task 8 instead
   of leaving two overlapping mechanisms. A maintainer initially proposed
-  squash-only as the adoption blocker's fix; a second maintainer objected to
-  losing commit-level history. Resolved by disabling merge commits while
-  leaving both squash and rebase merging enabled — ShipIt's own README treats
+  squash-only as the adoption blocker's fix; concerns were raised about losing 
+  commit-level history. This is resolved by disabling merge commits while
+  leaving both squash and rebase merging enabled. ShipIt's own README treats
   them as equally valid, so this removes the adoption blocker without forcing
   one merge style on everyone.
 - Items 3 (Docker image on release) and 4 (auto-generated API docs) are
