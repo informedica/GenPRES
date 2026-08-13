@@ -6,9 +6,41 @@
 
 Before contributing, ensure you have the following installed (this section is the canonical source for toolchain versions):
 
-- **.NET SDK**: 10.0.0 or later
+- **.NET SDK**: pinned via [`global.json`](global.json) (currently `10.0.302`, `rollForward: latestPatch`) — see [Why the SDK is pinned tightly](#why-the-sdk-is-pinned-tightly) below
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
 - **npm**: 10.x or later
+
+#### Why the SDK is pinned tightly
+
+`global.json` used to read `"version": "10.0.0", "rollForward": "latestFeature"`, which lets the
+SDK resolver jump to a newer *feature band* (the hundreds digit of the patch version, e.g.
+`10.0.3xx` -> `10.0.4xx`) with no corresponding change reviewed in this repo. CI's
+`actions/setup-dotnet` step compounded this: it pinned `dotnet-version: '10.0.x'`, which always
+installs the newest available `10.0.x` SDK on the runner regardless of `global.json`.
+
+This combination caused [issue #447](https://github.com/informedica/GenPRES/issues/447): between
+11 and 12 August 2026, GitHub's hosted runners started shipping `10.0.400` instead of the
+previously-installed `10.0.302`, with no dependency or lock-file change in this repo (`paket.lock`
+pins `Aether 8.3.1` and `FSharp.Core 10.1.203`, and `paket restore` uses the lock file as-is). The
+newer SDK's F# compiler changed code generation around the `^=`/`Optic.set` custom operators that
+`Informedica.GenORDER.Lib`/`Informedica.ZForm.Lib`'s optics code gets via `open Aether.Operators`:
+under `10.0.400`, `Patient`'s and `DoseRule`'s module type initializers throw
+`Dynamic invocation of op_HatEquals is not supported` the first time anything touches those
+modules — not just under test discovery, so a build compiled with the bad SDK band would crash at
+runtime too — even though the exact same source compiled and ran fine under `10.0.302`. 11 tests
+across `GenORDER.Tests`, `GenCORE.Tests`, `ZForm.Tests`, and `GenFORM.Tests` failed identically, on
+every PR, regardless of what the PR actually changed. Root-causing and fixing the `Aether`
+incompatibility itself (rather than just avoiding the bad SDK band) is tracked as follow-up.
+
+The fix applied: `global.json` now pins an exact `version` with `rollForward: "latestPatch"`, so
+the resolver only ever picks up patches within the same feature band (e.g. `10.0.303`), never a
+band jump. Both `.github/workflows/build.yml` and `.github/workflows/commit-lint.yml` now pass
+`global-json-file: global.json` to `actions/setup-dotnet` instead of a separate `dotnet-version:
+'10.0.x'`, so `global.json` is the single source of truth for CI's SDK version and a future
+feature-band bump requires a deliberate, reviewed edit to that file. `Dockerfile`'s build stage is
+pinned to the matching exact SDK image tag (`mcr.microsoft.com/dotnet/sdk:10.0.302`, not the
+floating `10.0` tag) for the same reason — a Docker build is exactly the kind of compile that
+would otherwise silently pick up a newer, broken feature band outside of CI's control.
 
 ### Setting Up the Development Environment
 
