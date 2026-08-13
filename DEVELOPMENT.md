@@ -6,9 +6,35 @@
 
 Before contributing, ensure you have the following installed (this section is the canonical source for toolchain versions):
 
-- **.NET SDK**: 10.0.0 or later
+- **.NET SDK**: pinned via [`global.json`](global.json) (currently `10.0.302`, `rollForward: latestPatch`) — see [Why the SDK is pinned tightly](#why-the-sdk-is-pinned-tightly) below
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
 - **npm**: 10.x or later
+
+#### Why the SDK is pinned tightly
+
+`global.json` used to read `"version": "10.0.0", "rollForward": "latestFeature"`, which lets the
+SDK resolver jump to a newer *feature band* (the hundreds digit of the patch version, e.g.
+`10.0.3xx` -> `10.0.4xx`) with no corresponding change reviewed in this repo. CI's
+`actions/setup-dotnet` step compounded this: it pinned `dotnet-version: '10.0.x'`, which always
+installs the newest available `10.0.x` SDK on the runner regardless of `global.json`.
+
+This combination caused [issue #447](https://github.com/informedica/GenPRES/issues/447): between
+11 and 12 August 2026, GitHub's hosted runners started shipping `10.0.400` instead of the
+previously-installed `10.0.302`, with no dependency or lock-file change in this repo (`paket.lock`
+pins `Aether 8.3.1` and `FSharp.Core 10.1.203`, and `paket restore` uses the lock file as-is). The
+newer SDK's F# compiler changed code generation for the `^=` custom operator that
+`Informedica.GenCORE.Lib`'s optics code gets via `open Aether.Operators`, in a way that broke
+Expecto's reflection-based test discovery, `op_HatEquals` could no longer be found dynamically,
+even though the exact same source compiled and ran fine under `10.0.302`. 11 tests across
+`GenORDER.Tests`, `GenCORE.Tests`, `ZForm.Tests`, and `GenFORM.Tests` failed identically, on every
+PR, regardless of what the PR actually changed.
+
+The fix applied: `global.json` now pins an exact `version` with `rollForward: "latestPatch"`, so
+the resolver only ever picks up patches within the same feature band (e.g. `10.0.303`), never a
+band jump. Both `.github/workflows/build.yml` and `.github/workflows/commit-lint.yml` now pass
+`global-json-file: global.json` to `actions/setup-dotnet` instead of a separate `dotnet-version:
+'10.0.x'`, so `global.json` is the single source of truth for CI's SDK version and a future
+feature-band bump requires a deliberate, reviewed edit to that file.
 
 ### Setting Up the Development Environment
 
