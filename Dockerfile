@@ -1,6 +1,10 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Pinned to the exact SDK patch in global.json (not the floating `10.0` tag) so Docker builds use
+# the same feature-band compiler as CI — see DEVELOPMENT.md's "Why the SDK is pinned tightly"
+# section (issue #447) for why a floating tag is unsafe here.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
 
 WORKDIR /workspace
+COPY global.json .
 COPY .config .config
 RUN dotnet tool restore
 COPY .paket .paket
