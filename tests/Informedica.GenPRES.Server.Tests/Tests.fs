@@ -468,6 +468,8 @@ module StubAdapterTests =
 
     let emptyCtx = Models.OrderContext.empty
 
+    // Copied to TotalsTests. One more copy/paste, and by the rule of three we should consider deduplication.
+    // An OrderPlan.empty value seems reasonable.
     let emptyPlan: OrderPlan =
         {
             Patient = Models.Patient.empty
@@ -808,3 +810,75 @@ module DoseCheckTests =
 
     [<Tests>]
     let tests = testList "DoseCheck Tests" [ doseCheckTests ]
+
+module TotalsTests =
+    open System
+    open Shared
+    open Shared.Types
+    open Swensen.Unquote
+
+    type TotalsSpy() =
+        let mutable callCount = 0
+        member this.CallCount = callCount
+
+        interface Resources.IResourceProvider with
+            member _.Get _ = raise (NotImplementedException())
+            member _.GetData() = raise (NotImplementedException())
+            member _.GetDoseRules() = raise (NotImplementedException())
+            member _.GetEnteralFeeding() = raise (NotImplementedException())
+            member _.GetFormRoutes() = raise (NotImplementedException())
+            member _.GetFormularyProducts() = raise (NotImplementedException())
+            member _.GetGStandProvider() = raise (NotImplementedException())
+            member _.GetParenteralMeds() = raise (NotImplementedException())
+            member _.GetProducts() = raise (NotImplementedException())
+            member _.GetReconstitution() = raise (NotImplementedException())
+            member _.GetRenalRules() = raise (NotImplementedException())
+            member _.GetResourceInfo() = raise (NotImplementedException())
+            member _.GetRouteMappings() = raise (NotImplementedException())
+            member _.GetSolutionRules() = raise (NotImplementedException())
+
+            member _.GetTotals() =
+                callCount <- callCount + 1
+                [||]
+
+            member _.GetUnitMappings() = raise (NotImplementedException())
+            member _.GetValidForms() = raise (NotImplementedException())
+
+    // Copied from StubAdapterTests. One more copy/paste, and by the rule of three we should consider deduplication.
+    // An OrderPlan.empty value seems reasonable.
+    let emptyPlan: OrderPlan =
+        {
+            Patient = Models.Patient.empty
+            Scenarios = [||]
+            Selected = None
+            Filtered = [||]
+            Totals = Models.Totals.empty
+        }
+
+    [<Tests>]
+    let tests =
+        testList
+            "Totals Tests"
+            [
+                testAsync "updateOrderPlan doesn't cache totals" {
+                    let spy = TotalsSpy()
+                    let sut = ServerApi.Adapters.makeAppEnv spy
+                    let countBefore = spy.CallCount
+
+                    let! _ = sut.orderPlan.updateOrderPlan emptyPlan None
+
+                    let countAfter = spy.CallCount
+                    countBefore <! countAfter
+                }
+
+                testAsync "filterOrderPlan doesn't cache totals" {
+                    let spy = TotalsSpy()
+                    let sut = ServerApi.Adapters.makeAppEnv spy
+                    let countBefore = spy.CallCount
+
+                    let! _ = sut.orderPlan.filterOrderPlan emptyPlan
+
+                    let countAfter = spy.CallCount
+                    countBefore <! countAfter
+                }
+            ]
