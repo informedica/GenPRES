@@ -81,6 +81,7 @@ module Adapters =
                         do! setComponentName "OrderPlan" agent
 
                         let! updated = OrderPlanService.updateOrderPlan orderCtxPort tp cmdOpt
+                        let totals = provider.GetTotals()
                         return updated |> OrderPlanService.calculateTotals totals |> Ok
                     }
 
