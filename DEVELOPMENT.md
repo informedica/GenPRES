@@ -354,6 +354,22 @@ env:
 
 The pipeline does **not** set `GENPRES_URL_ID`, so tests run against demo/cached data only. Production data is never accessed in CI.
 
+### Release Automation (GitHub Actions)
+
+`.github/workflows/release.yml` runs [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
+on every push to `master`, opening or updating a draft release PR with the next derived version and changelog 
+section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must 
+never block the test/format matrix that already gated the PR which produced the push. See 
+[ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md) for the full design and the
+[implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
+
+This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`), 
+retired in the same change to avoid two bots proposing competing release PRs on the same merge.
+
+**One-time repo setting required**: ShipIt opens PRs using the workflow's own `GITHUB_TOKEN`, which requires 
+**Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"** to be enabled. 
+Without it, `release.yml` runs but fails to open the PR.
+
 ### IDE Integration
 
 #### Visual Studio Code

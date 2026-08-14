@@ -8,7 +8,6 @@ description: |
   - Updates its own PRs when CI fails or merge conflicts arise
   - Nudges stale PRs waiting for author response
   - Manages issue and PR labels for organization
-  - Prepares releases by updating changelogs and proposing version bumps
   - Welcomes new contributors with friendly onboarding
   - Maintains a persistent memory of work done and what remains
   Always polite, constructive, and mindful of the project's goals.
@@ -180,12 +179,15 @@ For each item, apply the best-fitting labels from: `bug`, `enhancement`, `help w
 
 Update memory with labels applied and cursor position.
 
-### Task 8: Release Preparation
+### Task 8: Release Preparation (Retired)
 
-1. Find merged PRs since the last release (check changelog or release tags).
-2. If significant unreleased changes exist, determine the version bump (patch/minor/major  -  never propose major without maintainer approval), create a fresh branch `repo-assist/release-vX.Y.Z`, update the changelog, and create a draft PR with AI disclosure and Test Status section.
-3. Skip if: no meaningful changes, a release PR is already open, or you recently proposed one.
-4. Update memory.
+Release preparation is now handled by EasyBuild.ShipIt, which runs automatically on every
+push to `master` (`.github/workflows/release.yml`) and opens/updates its own release PR
+with the derived version bump and changelog section. **Do not perform release preparation
+in this task** — a second, independently-proposed release PR would compete with ShipIt's
+and confuse maintainers about which one to merge. See ADR-0021
+(`docs/mdr/design-history/0021-build-system-versioning-and-release.md`) for the full
+rationale.
 
 ### Task 9: Welcome New Contributors
 

@@ -8,6 +8,17 @@ name: GenPRES
 # system is done. Without this, ShipIt would drop the -alpha suffix on the next
 # fix/feat commit instead of doing a real version bump.
 pre_release: alpha
+# Writes the computed version into Directory.Build.props (the single source every
+# project's own Directory.Build.props imports) so CheckSolutionVersions.fsx keeps
+# comparing built DLLs against a value ShipIt itself maintains, not a hand-edited one.
+# Verified with a throwaway-branch `--mode local` run: correctly rewrites the <Version>
+# node, but also reformats the file to 2-space indent and drops the trailing newline
+# (EasyBuild.ShipIt's XML writer, not a selector issue) -- expect a whitespace diff
+# alongside the version bump in every release PR.
+updaters:
+  - xml:
+      file: Directory.Build.props
+      selector: /Project/PropertyGroup/Version
 ---
 
 # Changelog
@@ -26,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CI/Build (#234)**: Wire up EasyBuild.ShipIt release automation. `CHANGELOG.md`'s front matter gains an `xml` updater (`Directory.Build.props`, `/Project/PropertyGroup/Version`) so ShipIt's computed version now writes directly into the file `dotnet run CheckVersions` checks against, replacing the hand-edited `<Version>`. New `.github/workflows/release.yml` runs ShipIt on every push to `master`, opening/updating a draft release PR — a separate workflow from `build.yml` so a ShipIt failure can never block the test/format matrix. Retires Repo Assist's Task 8 ("Release Preparation") in `.github/workflows/repo-assist.md` in the same change, so only one bot ever proposes a release PR. **Manual follow-up required**: enable *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"* before `release.yml` can open PRs (documented in `DEVELOPMENT.md`); `.github/workflows/repo-assist.lock.yml` also needs regenerating via `gh aw compile` on a machine with a working `gh-aw` extension — this environment's copy is version-mismatched against the committed lock file and its upgrade path is blocked by a Windows file lock, so the compile wasn't run here
 - **Docs (MDR)**: Add ADR-0021 — `docs/mdr/design-history/0021-build-system-versioning-and-release.md` documents the build-system versioning and release automation design for issue #234: adopts EasyBuild.ShipIt for version derivation, changelog generation, and release-PR creation (replacing Repo Assist's manual Task 8), requires switching the default merge method to squash-only, splits the `Build` FAKE target into `ServerBuild`/`ClientBuild`, and defers Docker-image-on-release and auto-generated API docs to separate follow-up issues; accompanying implementation plan at `docs/implementation-plans/234-improve-build-system.md`
 - **Docs (Roadmap)**: Add W2 core architecture review status analysis — `docs/roadmap/w2-core-architecture-review.md` tracks progress toward the W2 workshop goals: domain model validation (🔄 partial — MDR docs, stability analysis, GenFORM 131+ scenarios), constraint solver optimisation (🔄 partial — ADR-0017, PRs #166 #220 #230 #233 #238 #249 complete as prototypes, production migration pending), unit of measure framework (✅ complete — `Informedica.GenUnits.Lib`), and performance benchmarking (✅ complete — PR #166 solver throughput benchmarks); includes a remaining work checklist covering `LRUSolverIntegration.fsx` and `LoopDetect.fsx` production migration and domain model gap analysis (PR #351)
 - **Docs (Domain)**: Update GenSOLVER domain document with cycle detection and LRU memoisation — section 7 (Variable Propagation and Solving Strategy) expanded with a cycle-detection paragraph describing the state-fingerprint-based `CycleDetector` that terminates gracefully with a typed `TerminationReason` (`CycleDetected` / `PotentialStall` / `HardLimit`); section 9 (Technical Architecture) gains a "Session-Level LRU Memoisation" subsection documenting the `LRUCache` prototype, canonical key remapping for cross-patient cache sharing, thread-safety design, and status (prototype pending production integration per ADR-0017); cross-references added to ADR-0017 (since retired) and the [GenSOLVER Stability Analysis](docs/domain/gensolver-stability-analysis.md) (PR #349)
