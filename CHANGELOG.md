@@ -1,20 +1,7 @@
 ---
-# EasyBuild.ShipIt configuration (https://github.com/easybuild-org/EasyBuild.ShipIt#configuration).
-# last_commit_released is pinned to the commit this front matter was introduced on, so ShipIt only
-# considers commits from here forward.  Hand-written history above this is left alone.
-last_commit_released: a1dfeaab1beb24b05d5443504b22c0dbf7f5edde
-name: GenPRES
-# GenPRES stays alpha until the MVP work (auth, etc.) needed to replace the existing
-# system is done. Without this, ShipIt would drop the -alpha suffix on the next
-# fix/feat commit instead of doing a real version bump.
+last_commit_released: cb62fc9866f582e3124d8b84ec03e198934587ac
 pre_release: alpha
-# Writes the computed version into Directory.Build.props (the single source every
-# project's own Directory.Build.props imports) so CheckSolutionVersions.fsx keeps
-# comparing built DLLs against a value ShipIt itself maintains, not a hand-edited one.
-# Verified with a throwaway-branch `--mode local` run: correctly rewrites the <Version>
-# node, but also reformats the file to 2-space indent and drops the trailing newline
-# (EasyBuild.ShipIt's XML writer, not a selector issue) -- expect a whitespace diff
-# alongside the version bump in every release PR.
+name: GenPRES
 updaters:
   - xml:
       file: Directory.Build.props
@@ -27,6 +14,17 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.2 - 2026-08-14
+
+### 🐞 Bug Fixes
+
+* *(config)* Pin .NET SDK to a single feature band ([5d73633d](https://github.com/informedica/GenPRES/commit/5d73633ddcf2a9080c8b034952ee998c001c89d0))
+* *(docker)* Pin build-stage SDK to match global.json's band ([a4fbd4f1](https://github.com/informedica/GenPRES/commit/a4fbd4f138b9e4f342b90ff3c61959feb2bfdbc5))
+* *(server)* Call getTotals from updateOrderPlan ([03afaf87](https://github.com/informedica/GenPRES/commit/03afaf87d0c4cd80e27de098f3dd6c997808af04))
+* *(server)* Call getTotals from filterOrderPlan ([cedf8d0a](https://github.com/informedica/GenPRES/commit/cedf8d0ae29648cc98455ce4f0511db30128f9ce))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/a1dfeaab1beb24b05d5443504b22c0dbf7f5edde..cb62fc9866f582e3124d8b84ec03e198934587ac)</small></strong>
 
 ## [Unreleased]
 
@@ -335,4 +333,3 @@ This CHANGELOG.md is the user-facing release notes. For developer-focused design
 - [Design History Change Log](docs/mdr/design-history/0000-change-log.md)
 
 The design history file tracks internal design decisions and technical changes, while this CHANGELOG focuses on user-visible changes and release information.
-
