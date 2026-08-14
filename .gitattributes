@@ -1,4 +1,4 @@
-.github/workflows/*.lock.yml linguist-generated=true merge=ours
+.github/workflows/*.lock.yml linguist-generated=true
 
 # EasyBuild.ShipIt's front-matter parser matches a literal LF delimiter (src/Generate/Changelog.fs);
 # on Windows, core.autocrlf checks this out as CRLF, which makes the regex silently fail to find the
