@@ -102,7 +102,11 @@ module Adapters =
 
         {
             initNutritionPlan =
-                fun patient -> async { return NutritionPlanService.initNutritionPlan logger totals patient }
+                fun patient ->
+                    async {
+                        let totals = provider.GetTotals()
+                        return NutritionPlanService.initNutritionPlan logger totals patient
+                    }
 
             addNutritionContext =
                 fun (plan, category) -> NutritionPlanService.addNutritionContext totals orderCtxPort (plan, category)

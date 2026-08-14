@@ -881,4 +881,15 @@ module TotalsTests =
                     let countAfter = spy.CallCount
                     countBefore <! countAfter
                 }
+
+                testAsync "initNutritionPlan doesn't cache totals" {
+                    let spy = TotalsSpy()
+                    let sut = ServerApi.Adapters.makeAppEnv spy
+                    let countBefore = spy.CallCount
+
+                    let! _ = sut.nutritionPlan.initNutritionPlan Models.Patient.empty
+
+                    let countAfter = spy.CallCount
+                    countBefore <! countAfter
+                }
             ]
