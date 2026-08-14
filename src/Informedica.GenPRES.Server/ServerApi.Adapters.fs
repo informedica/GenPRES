@@ -72,8 +72,6 @@ module Adapters =
         (orderCtxPort: OrderContextPort)
         : OrderPlanPort
         =
-        let totals = provider.GetTotals()
-
         {
             updateOrderPlan =
                 fun tp cmdOpt ->
@@ -85,7 +83,12 @@ module Adapters =
                         return updated |> OrderPlanService.calculateTotals totals |> Ok
                     }
 
-            filterOrderPlan = fun tp -> async { return tp |> OrderPlanService.calculateTotals totals |> Ok }
+            filterOrderPlan =
+                fun tp ->
+                    async {
+                        let totals = provider.GetTotals()
+                        return tp |> OrderPlanService.calculateTotals totals |> Ok
+                    }
         }
 
 

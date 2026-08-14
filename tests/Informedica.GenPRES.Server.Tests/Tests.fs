@@ -870,4 +870,15 @@ module TotalsTests =
                     let countAfter = spy.CallCount
                     countBefore <! countAfter
                 }
+
+                testAsync "filterOrderPlan doesn't cache totals" {
+                    let spy = TotalsSpy()
+                    let sut = ServerApi.Adapters.makeAppEnv spy
+                    let countBefore = spy.CallCount
+
+                    let! _ = sut.orderPlan.filterOrderPlan emptyPlan
+
+                    let countAfter = spy.CallCount
+                    countBefore <! countAfter
+                }
             ]
