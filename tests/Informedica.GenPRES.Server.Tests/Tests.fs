@@ -906,4 +906,15 @@ module TotalsTests =
                     // provider.GetTotals():
                     countBefore + 1 <! countAfter
                 }
+
+                testAsync "removeNutritionContext doesn't cache totals" {
+                    let spy = TotalsSpy()
+                    let sut = ServerApi.Adapters.makeAppEnv spy
+                    let countBefore = spy.CallCount
+
+                    let! _ = sut.nutritionPlan.removeNutritionContext (Models.NutritionPlan.empty, "dummy ID")
+
+                    let countAfter = spy.CallCount
+                    countBefore <! countAfter
+                }
             ]

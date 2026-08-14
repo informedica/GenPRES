@@ -114,7 +114,11 @@ module Adapters =
                     NutritionPlanService.addNutritionContext totals orderCtxPort (plan, category)
 
             removeNutritionContext =
-                fun (plan, id) -> async { return NutritionPlanService.removeNutritionContext totals (plan, id) }
+                fun (plan, id) ->
+                    async {
+                        let totals = provider.GetTotals()
+                        return NutritionPlanService.removeNutritionContext totals (plan, id)
+                    }
 
             updateNutritionOrderContext =
                 fun (plan, label, ctx) ->
