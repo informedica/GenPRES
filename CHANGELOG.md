@@ -1,13 +1,11 @@
 ---
-# EasyBuild.ShipIt configuration (https://github.com/easybuild-org/EasyBuild.ShipIt#configuration).
-# last_commit_released is pinned to the commit this front matter was introduced on, so ShipIt only
-# considers commits from here forward.  Hand-written history above this is left alone.
-last_commit_released: a1dfeaab1beb24b05d5443504b22c0dbf7f5edde
-name: GenPRES
-# GenPRES stays alpha until the MVP work (auth, etc.) needed to replace the existing
-# system is done. Without this, ShipIt would drop the -alpha suffix on the next
-# fix/feat commit instead of doing a real version bump.
+last_commit_released: cb62fc9866f582e3124d8b84ec03e198934587ac
 pre_release: alpha
+name: GenPRES
+updaters:
+  - xml:
+      file: Directory.Build.props
+      selector: /Project/PropertyGroup/Version
 ---
 
 # Changelog
@@ -17,15 +15,26 @@ All notable changes to GenPRES will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.2-alpha.2 - 2026-08-14
+
+### 🐞 Bug Fixes
+
+* *(config)* Pin .NET SDK to a single feature band ([5d73633d](https://github.com/informedica/GenPRES/commit/5d73633ddcf2a9080c8b034952ee998c001c89d0))
+* *(docker)* Pin build-stage SDK to match global.json's band ([a4fbd4f1](https://github.com/informedica/GenPRES/commit/a4fbd4f138b9e4f342b90ff3c61959feb2bfdbc5))
+* *(server)* Call getTotals from updateOrderPlan ([03afaf87](https://github.com/informedica/GenPRES/commit/03afaf87d0c4cd80e27de098f3dd6c997808af04))
+* *(server)* Call getTotals from filterOrderPlan ([cedf8d0a](https://github.com/informedica/GenPRES/commit/cedf8d0ae29648cc98455ce4f0511db30128f9ce))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/a1dfeaab1beb24b05d5443504b22c0dbf7f5edde..cb62fc9866f582e3124d8b84ec03e198934587ac)</small></strong>
+
 ## [Unreleased]
 
 ### Fixed
 
-- **CI/Build**: Pin the .NET SDK to a single feature band (`global.json` now `10.0.302` + `rollForward: "latestPatch"`; both workflows resolve via `global-json-file` instead of `dotnet-version: '10.0.x'`) so CI can't silently pick up a newer SDK band — a silent jump to `10.0.400` broke Expecto's reflection-based test discovery of the `^=` Aether operator in `Informedica.GenCORE.Lib`, failing 11 tests on every PR. See `DEVELOPMENT.md`'s Toolchain Requirements section and issue #447 for the full writeup and the tracked follow-up (fixing the underlying `Aether`/reflection incompatibility)
 - **GenFORM/ZForm (dose check)**: Align `Informedica.GenForm.Lib.Check` with the Z-Index *Implementatierichtlijn Doseringscontrole* V-5-0-1, resolving 9 review findings (see `docs/code-reviews/genform-check-vs-ir-doseringscontrole-v5-0-1.md`). **Safety:** `maximizeDosages` now builds the merged **absolute** ceiling from the absolute ranges (was the norm ranges — BUG-B, which collapsed the hard ceiling when ≥2 dosages merged); the unconditional ±10% margin is replaced by a one-sided, provider-configurable margin (default 120%, `CheckConfig.MarginUpper`) that is **suppressed for narrow-therapeutic-index substances** (GPRISC = `*`, now carried through `ZForm.Dosage.HighRisk` from the source G-Standaard rule — HIGH-1). Other fixes: dose-check signals are graded by `Severity` (advisory norm-max → orange `Warning`, absolute-max → red `Alert`, unit mismatch → blue `Caution`) so the Formulary dose-check UI distinguishes advisory from serious breaches (MEDIUM-2, server-side mapping in `ServerApi.Services.DoseCheck.build`; no client/Shared changes); BSA→kg→absolute limit-selection priority (MEDIUM-1, also fixes BUG-A reading the m² absolute limit from the wrong dosage); infusion-rate checks tagged out-of-scope per IR 1.3.2 (HIGH-2); G-Standaard age normalised months→days at 30 d/mo (MEDIUM-3); interchangeable frequency time units and granular frequency messages (LOW-3/LOW-4). Adds 11 GenFORM + 3 ZForm unit tests.
 
 ### Added
 
+- **CI/Build (#234)**: Wire up EasyBuild.ShipIt release automation. `CHANGELOG.md`'s front matter gains an `xml` updater (`Directory.Build.props`, `/Project/PropertyGroup/Version`) so ShipIt's computed version now writes directly into the file `dotnet run CheckVersions` checks against, replacing the hand-edited `<Version>`. New `.github/workflows/release.yml` runs ShipIt on every push to `master`, opening/updating a draft release PR — a separate workflow from `build.yml` so a ShipIt failure can never block the test/format matrix. Retires Repo Assist's Task 8 ("Release Preparation") in `.github/workflows/repo-assist.md` in the same change, so only one bot ever proposes a release PR. **Manual follow-up required**: enable *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"* before `release.yml` can open PRs (documented in `DEVELOPMENT.md`); `.github/workflows/repo-assist.lock.yml` also needs regenerating via `gh aw compile` on a machine with a working `gh-aw` extension — this environment's copy is version-mismatched against the committed lock file and its upgrade path is blocked by a Windows file lock, so the compile wasn't run here
 - **Docs (MDR)**: Add ADR-0021 — `docs/mdr/design-history/0021-build-system-versioning-and-release.md` documents the build-system versioning and release automation design for issue #234: adopts EasyBuild.ShipIt for version derivation, changelog generation, and release-PR creation (replacing Repo Assist's manual Task 8), requires switching the default merge method to squash-only, splits the `Build` FAKE target into `ServerBuild`/`ClientBuild`, and defers Docker-image-on-release and auto-generated API docs to separate follow-up issues; accompanying implementation plan at `docs/implementation-plans/234-improve-build-system.md`
 - **Docs (Roadmap)**: Add W2 core architecture review status analysis — `docs/roadmap/w2-core-architecture-review.md` tracks progress toward the W2 workshop goals: domain model validation (🔄 partial — MDR docs, stability analysis, GenFORM 131+ scenarios), constraint solver optimisation (🔄 partial — ADR-0017, PRs #166 #220 #230 #233 #238 #249 complete as prototypes, production migration pending), unit of measure framework (✅ complete — `Informedica.GenUnits.Lib`), and performance benchmarking (✅ complete — PR #166 solver throughput benchmarks); includes a remaining work checklist covering `LRUSolverIntegration.fsx` and `LoopDetect.fsx` production migration and domain model gap analysis (PR #351)
 - **Docs (Domain)**: Update GenSOLVER domain document with cycle detection and LRU memoisation — section 7 (Variable Propagation and Solving Strategy) expanded with a cycle-detection paragraph describing the state-fingerprint-based `CycleDetector` that terminates gracefully with a typed `TerminationReason` (`CycleDetected` / `PotentialStall` / `HardLimit`); section 9 (Technical Architecture) gains a "Session-Level LRU Memoisation" subsection documenting the `LRUCache` prototype, canonical key remapping for cross-patient cache sharing, thread-safety design, and status (prototype pending production integration per ADR-0017); cross-references added to ADR-0017 (since retired) and the [GenSOLVER Stability Analysis](docs/domain/gensolver-stability-analysis.md) (PR #349)
@@ -323,4 +332,3 @@ This CHANGELOG.md is the user-facing release notes. For developer-focused design
 - [Design History Change Log](docs/mdr/design-history/0000-change-log.md)
 
 The design history file tracks internal design decisions and technical changes, while this CHANGELOG focuses on user-visible changes and release information.
-
