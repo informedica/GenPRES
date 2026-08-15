@@ -1,5 +1,5 @@
 ---
-last_commit_released: cb62fc9866f582e3124d8b84ec03e198934587ac
+last_commit_released: 15c23b4fe95ded5f9501c970390d5344f56d103e
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,19 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.3 - 2026-08-15
+
+### 🐞 Bug Fixes
+
+* *(server)* Call getTotals from initNutritionPlan ([11997a0f](https://github.com/informedica/GenPRES/commit/11997a0f154fe0f8f6016d802f712d861d13e7c4))
+* *(server)* Call getTotals in addNutritionContext ([3e8a10bb](https://github.com/informedica/GenPRES/commit/3e8a10bbadd861790100dcfadde8d4756d9c2102))
+* *(server)* GetTotals from removeNutritionContext ([825b4bba](https://github.com/informedica/GenPRES/commit/825b4bba1a92faa9d9a67799dbc90291cd6d8e3d))
+* *(server)* GetTotals updateNutritionOrderContext ([577c9724](https://github.com/informedica/GenPRES/commit/577c9724a446be03bc2eff49f4589f5219e3eb7a))
+* *(server)* GetTotals in selectNutritionOrde[...] ([d2320a70](https://github.com/informedica/GenPRES/commit/d2320a70d8cf80f7772421844d76cbca4a20ceba))
+* *(server)* Call getTotals in navigateNutrit[...] ([0751845a](https://github.com/informedica/GenPRES/commit/0751845a1827fdd0d425d0f6a79bcbe4e150cd42))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/cb62fc9866f582e3124d8b84ec03e198934587ac..15c23b4fe95ded5f9501c970390d5344f56d103e)</small></strong>
 
 ## 0.1.2-alpha.2 - 2026-08-14
 
