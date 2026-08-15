@@ -122,6 +122,7 @@ module Adapters =
 
             updateNutritionOrderContext =
                 fun (plan, label, ctx) ->
+                    let totals = provider.GetTotals()
                     NutritionPlanService.updateNutritionOrderContext totals orderCtxPort (plan, label, ctx)
 
             selectNutritionOrderScenario =

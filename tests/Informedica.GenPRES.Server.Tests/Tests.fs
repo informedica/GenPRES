@@ -917,4 +917,22 @@ module TotalsTests =
                     let countAfter = spy.CallCount
                     countBefore <! countAfter
                 }
+
+                testAsync "updateNutritionOrderContext doesn't cache totals" {
+                    let spy = TotalsSpy()
+                    let sut = ServerApi.Adapters.makeAppEnv spy
+                    let countBefore = spy.CallCount
+
+                    let! _ =
+                        sut.nutritionPlan.updateNutritionOrderContext (
+                            Models.NutritionPlan.empty,
+                            "dummy label",
+                            Models.OrderContext.empty
+                        )
+
+                    let countAfter = spy.CallCount
+                    // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
+                    // provider.GetTotals():
+                    countBefore + 1 <! countAfter
+                }
             ]
