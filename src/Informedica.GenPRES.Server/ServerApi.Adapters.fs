@@ -98,8 +98,6 @@ module Adapters =
         (provider: Resources.IResourceProvider)
         : NutritionPlanPort
         =
-        let totals = provider.GetTotals()
-
         {
             initNutritionPlan =
                 fun patient ->
@@ -132,6 +130,7 @@ module Adapters =
 
             navigateNutritionOrderContext =
                 fun (plan, label, ctxCmd, ctx) ->
+                    let totals = provider.GetTotals()
                     NutritionPlanService.navigateNutritionOrderContext totals orderCtxPort (plan, label, ctxCmd, ctx)
         }
 
