@@ -72,6 +72,50 @@ Target.create
     )
 
 
+let serverProj = Path.combine serverPath "Informedica.GenPRES.Server.fsproj"
+
+
+// Builds only the server and the libraries it depends on. Skips the test projects
+// and the client toolchain entirely, so it is the fastest loop for anyone working on
+// just the server or a domain library.
+Target.create
+    "ServerBuild"
+    (fun _ ->
+        run dotnet [ "restore"; serverProj ] "."
+        run dotnet [ "build"; serverProj; "--no-restore" ] "."
+    )
+
+
+// Builds the client's browser output: Fable compiles F# to .jsx, then Vite bundles
+// it into deploy/public (vite.config.js sets the outDir). Depends on RestoreClient
+// (npm ci), declared below. `Bundle` keeps its own copy of this because it runs the
+// client build in parallel with publishing the server.
+Target.create
+    "ClientBuild"
+    (fun _ ->
+        run
+            dotnet
+            [
+                "fable"
+                "-o"
+                "output"
+                "-s"
+                "-e"
+                ".jsx"
+                "--run"
+                "npx"
+                "vite"
+                "build"
+                "--emptyOutDir"
+            ]
+            clientPath
+    )
+
+
+// Umbrella target: restores and builds every project in the solution (libraries, server, tests, and client).
+// Its body is deliberately unchanged by the ServerBuild/ClientBuild split, so the chains that hang off it
+// behave exactly as before. In particular it still involves no npm, which is what keeps `Build ==> ServerTests`
+// cheap in CI, and it still builds the test projects, which `ServerTests` needs since it runs with --no-restore.
 Target.create
     "Build"
     (fun _ ->
@@ -390,6 +434,7 @@ let dependencies =
         "Clean" ==> "RestoreClient"
 
         "RestoreClient" ==> "Bundle"
+        "RestoreClient" ==> "ClientBuild"
 
         "Build" ==> "Run"
         "RestoreClient" ==> "Run"

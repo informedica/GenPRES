@@ -92,7 +92,9 @@ packages for the Fable/Vite dev server).
 |---|---|---|
 | `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default) |
 | `dotnet run list` | *(special)* | List all available FAKE targets |
-| `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) |
+| `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
+| `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
+| `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
 | `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artefacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
@@ -107,6 +109,9 @@ packages for the Fable/Vite dev server).
 
 ```text
 Clean ──► RestoreClient ──► Bundle
+Clean ──► RestoreClient ──► ClientBuild
+
+ServerBuild            (no prerequisites — restores itself)
 
 Build ──► Run
 RestoreClient ──► Run
@@ -120,6 +125,12 @@ RestoreClient ──► WatchTests
 Build ──► ServerTests
 Build ──► CheckVersions
 ```
+
+`ServerBuild` and `ClientBuild` are **additive**: nothing depends on them, and `Build`
+does not use them. `Build` still builds the test projects because `ServerTests` runs
+`dotnet test --no-restore`. It also stays npm-free so CI does not run `npm ci` and a
+Fable compile for every test run. Thus, `Build` remains the full-solution build,
+while the new targets compile either side separately.
 
 ### Changelog & Release Automation (EasyBuild.ShipIt)
 

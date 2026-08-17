@@ -51,7 +51,9 @@ dotnet test
 
 - `dotnet run` - Start full application (server + client with hot reload)
 - `dotnet run list` - Show all available build targets
-- `dotnet run Build` - Build the solution
+- `dotnet run Build` - Build the whole solution (libraries, server, tests, client `.fsproj`); no npm involved
+- `dotnet run ServerBuild` - Build only the server and the libraries it depends on.
+- `dotnet run ClientBuild` - Build the client to browser output (Fable, then a production Vite bundle). Runs `npm ci` first
 - `dotnet run Bundle` - Create production bundle
 - `dotnet run CheckVersions` - Proves that every project shipped in GenPRES.sln reports the same version as the repo-root Directory.Build.props
 - `dotnet run Clean` - Clean build artifacts
