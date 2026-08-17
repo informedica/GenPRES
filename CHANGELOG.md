@@ -1,5 +1,5 @@
 ---
-last_commit_released: 15c23b4fe95ded5f9501c970390d5344f56d103e
+last_commit_released: cdb89479f61b892606976b0b2df2813f93bebe71
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,18 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.4 - 2026-08-17
+
+### 🐞 Bug Fixes
+
+* *(config)* Correct ShipIt changelog escape-hatch guidance ([c8f1e4f3](https://github.com/informedica/GenPRES/commit/c8f1e4f36a06975930c672e16c0e5c555b49f9c4))
+
+    Corrected the documented `=== changelog ===` escape hatch: it is read from the
+    commit message body rather than the pull request body, requires a closing
+    marker, and cannot add an entry for a `docs`, `build`, or `chore` commit.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/15c23b4fe95ded5f9501c970390d5344f56d103e..cdb89479f61b892606976b0b2df2813f93bebe71)</small></strong>
 
 ## 0.1.2-alpha.3 - 2026-08-15
 
