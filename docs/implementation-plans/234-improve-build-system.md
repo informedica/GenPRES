@@ -92,6 +92,9 @@ is written against it — see Step 1 below.
 7. **Split `Build` into `ServerBuild`/`ClientBuild`** in `Build.fs`, update
    `DEVELOPMENT.md`'s target table and dependency-chain diagram and
    `AGENTS.md`'s quick-start section in the same PR.
-8. **File follow-up issues** for items 3 and 4, linked from ADR-0021.
+8. **File follow-up issues** for items 3 and 4, linked from ADR-0021. Done:
+   [#459](https://github.com/informedica/GenPRES/issues/459) (Docker image on
+   release) and [#460](https://github.com/informedica/GenPRES/issues/460)
+   (auto-generated API documentation).
 
 Each of steps 3, 5, 6, and 7 is a separate, independently reviewable PR sized to CONTRIBUTING.md's guidance (~100–200 lines).
