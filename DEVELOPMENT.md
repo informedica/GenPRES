@@ -140,9 +140,12 @@ the next semantic version and changelog entries from conventional-commit history
 design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
 YAML front matter at the top of the root `CHANGELOG.md`.
 
-As of this PR, ShipIt is installed and configured but **not** wired into the CI, it also does not 
-update `Directory.Build.props`, these are both a follow-up PR per ADR-0021's implementation plan. 
-In the meantime, we can preview locally what it would generate:
+ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
+below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
+`/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
+element as well as adding the changelog section. Do not hand-edit `<Version>`.
+
+To preview locally what ShipIt would generate:
 
 ```bash
 dotnet tool restore
@@ -150,10 +153,13 @@ dotnet shipit --dry-run --allow-branch master --skip-merge-commit
 ```
 
 `--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
-explicitly (this also applies when step 5 wires ShipIt into CI). `--skip-merge-commit` is required
-too: the repo's existing history has `Merge pull request ...` commits ShipIt can't parse, and it
-throws on the first one it hits instead of skipping it. `--dry-run` never modifies files or opens
-a pull request, so it's safe to run against a dirty tree.
+explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation. 
+All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep 
+appearing in history, and ShipIt throws on the first one it hits instead of skipping it. `--dry-run`
+never modifies files or opens a pull request, so it's safe to run against a dirty tree.
+
+Commit types that ShipIt does not render into the changelog include `docs`, `build`, and `chore`. 
+If such a change needs to appear in the release notes, put a `=== changelog ===` block in the PR body.
 
 ### What Happens During `dotnet run` (the `Run` target)
 
