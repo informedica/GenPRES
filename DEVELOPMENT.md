@@ -140,9 +140,12 @@ the next semantic version and changelog entries from conventional-commit history
 design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
 YAML front matter at the top of the root `CHANGELOG.md`.
 
-As of this PR, ShipIt is installed and configured but **not** wired into the CI, it also does not 
-update `Directory.Build.props`, these are both a follow-up PR per ADR-0021's implementation plan. 
-In the meantime, we can preview locally what it would generate:
+ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
+below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
+`/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
+element as well as adding the changelog section. Do not hand-edit `<Version>`.
+
+To preview locally what ShipIt would generate:
 
 ```bash
 dotnet tool restore
@@ -150,10 +153,37 @@ dotnet shipit --dry-run --allow-branch master --skip-merge-commit
 ```
 
 `--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
-explicitly (this also applies when step 5 wires ShipIt into CI). `--skip-merge-commit` is required
-too: the repo's existing history has `Merge pull request ...` commits ShipIt can't parse, and it
-throws on the first one it hits instead of skipping it. `--dry-run` never modifies files or opens
-a pull request, so it's safe to run against a dirty tree.
+explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation. 
+All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep 
+appearing in history, and ShipIt throws on the first one it hits instead of skipping it. `--dry-run`
+never modifies files or opens a pull request, so it's safe to run against a dirty tree.
+
+#### What reaches the changelog
+
+The behaviour below was established by running ShipIt 3.0.1 against a throwaway branch of this
+repo. ShipIt's own documentation covers none of it.
+
+- **`docs`, `build`, and `chore` commits never render.** Only types like `feat` and `fix` produce
+  entries, and no flag or escape hatch changes that. A change that must appear in the release notes
+  has to ride on a rendering commit type.
+- **Commits that change no files are ignored**, whatever their type.
+- **A `=== changelog ===` block adds detail to an entry that already renders.** It is read from the
+  **commit message body**, not the pull request body, and needs both an opening *and* a closing
+  `=== changelog ===` marker. An unterminated block is dropped silently, with no warning:
+
+  ```text
+  fix(server): correct the infusion rate rounding
+
+  === changelog ===
+  Rates were rounded to whole mL/h, truncating paediatric doses below 1 mL/h.
+  === changelog ===
+  ```
+
+  That renders the prose indented beneath the commit's bullet.
+
+Putting the block in a PR body only works when the merge method copies that body into the commit
+message, which squash-merging does by default and merge-commit merging never does. Since all three
+merge methods are enabled here, put it in the commit message.
 
 ### What Happens During `dotnet run` (the `Run` target)
 

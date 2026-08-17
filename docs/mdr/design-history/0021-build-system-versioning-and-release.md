@@ -2,7 +2,7 @@
 
 **Date**: 2026-08-05
 
-**Status**: Proposed
+**Status**: Accepted (2026-08-17)
 
 **Related Issue**: [#234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 
@@ -40,11 +40,9 @@ The repo currently merges PRs with merge commits
 squash-merge is enabled at the GitHub API level. The maintainer initially confirmed
 (2026-08-05) that switching the default merge method to squash-only is acceptable.
 Concerns were raised that squash-only discards commit-level history on PRs where 
-granularity could matter. Since ShipIt's own README treats squash and rebase merging 
-as equally valid (both avoid the `Merge pull request ...` commits that break its commit 
-parsing — see the verification note below), the revised decision is to disable merge 
-commits but leave both squash and rebase merging enabled, so each contributor chooses
-per PR instead of one strategy being forced on everyone.
+granularity could matter. On acceptance (2026-08-17) that restriction was dropped 
+entirely: all three merge methods stay enabled, and `--skip-merge-commit` handles the
+`Merge pull request ...` commits ShipIt cannot parse. See design choice 2 below.
 
 This document is ADR-0021, the next number available in
 [the design-history log](0000-change-log.md).
@@ -63,23 +61,43 @@ at a time, rather than as a single documentation pass.
 | # | Choice | Rationale |
 |---|--------|-----------|
 | 1 | EasyBuild.ShipIt over MinVer/Nerdbank.GitVersioning | Only option that covers versioning **and** changelog generation **and** release-PR creation in one tool; MinVer/Nerdbank would still leave changelog automation and Repo Assist's Task 8 duplication unresolved |
-| 2 | Merge commits disabled; squash and rebase merging both left enabled | ShipIt needs each PR to land without a `Merge pull request ...` commit to parse cleanly; squash and rebase both satisfy that per ShipIt's own README, so contributors keep the choice instead of being forced to squash away commit-level history |
+| 2 | No repo merge-method restriction: merge, squash, and rebase all stay enabled | `--skip-merge-commit` makes ShipIt tolerate `Merge pull request ...` commits, so restricting merge methods was not actually needed to adopt it. The cost is that merge-commit PRs contribute no changelog entries of their own; the individual commits underneath them are still parsed |
 | 3 | Retire Repo Assist Task 8 in the same PR that turns on CI-driven ShipIt | Prevents two bots from proposing competing release PRs on the same merge |
 | 4 | Docker-on-release (item 3) and API docs (item 4) deferred to new follow-up issues — filed as [#459](https://github.com/informedica/GenPRES/issues/459) and [#460](https://github.com/informedica/GenPRES/issues/460) | Both are greenfield efforts (no existing docfx/GitHub Pages/Docker-publish infrastructure) with no dependency on the versioning work landing first being a blocker either way; keeping them separate lets #234 close on a coherent, reviewable scope |
 | 5 | `Build` FAKE target split into `ServerBuild`/`ClientBuild`, with `Build` kept as an umbrella target | Existing dependency chains (`Build ==> ServerTests`, `Build ==> CheckVersions`, `Build ==> Run`) keep working unchanged; new targets are additive |
 | 6 | Agent-visible docs (`AGENTS.md`/`DEVELOPMENT.md`) updated per-PR, not as a separate pass | Each PR already knows which target/behaviour it changed; batching risks the docs pass lagging behind or being skipped |
 
-### Verification gap to close before implementation
+### Verification gap — closed 2026-08-17
 
-Everything currently known about EasyBuild.ShipIt's CLI and config surface
-(a `last_commit_released` changelog front-matter field, a
-`dotnet shipit github --allow-branch master --skip-merge-commit` invocation,
-`--mode pull-request` vs `--mode push`) comes from an AI-generated issue comment 
-summarizing the tool, not from its own README. Before any implementation PR is 
-opened, the actual EasyBuild.ShipIt documentation must be read to confirm this 
-schema and — specifically — how it expects the computed version to reach MSBuild 
-(writing `Directory.Build.props` directly, vs. emitting a tag for a separate reader). 
-This determines whether `scripts/CheckSolutionVersions.fsx` needs to change at all.
+This section originally recorded that everything known about EasyBuild.ShipIt's CLI
+and config surface came from an AI-generated issue comment summarizing the tool rather 
+than its own README, and required that gap be closed before any implementation PR was 
+opened. Step 1 of the implementation plan closed it. What was confirmed against the tool:
+
+- The `CHANGELOG.md` front matter carries `last_commit_released`, `pre_release`,
+  `name`, and an `updaters:` list.
+- The computed version reaches MSBuild **directly**: an `xml` updater with
+  `file: Directory.Build.props` and `selector: /Project/PropertyGroup/Version`
+  rewrites the `<Version>` element as part of the release PR. No git-tag intermediary, 
+  and therefore no change to `scripts/CheckSolutionVersions.fsx`, it keeps asserting 
+  that every built DLL matches whatever ShipIt wrote.
+- The invocation is `dotnet shipit --allow-branch master --skip-merge-commit`
+  (no `github` subcommand); `--mode` defaults to `pull-request`.
+- `docs`-, `build`-, and `chore`-typed commits are silently omitted from the
+  generated changelog, as are commits that change no files. Nothing overrides
+  this: a change that must appear in release notes has to ride on a rendering
+  commit type such as `feat` or `fix`.
+- The `=== changelog ===` block enriches an entry that already renders; it cannot
+  add one. It is read from the **commit message body**, not the pull request body,
+  and requires both an opening and a closing marker — an unterminated block is
+  discarded without warning. A PR body only reaches the block parser when the merge
+  method copies it into the commit message, which squash-merging does and
+  merge-commit merging does not.
+
+The last two points were established by running ShipIt 3.0.1 against a throwaway
+branch of this repo (probe commits of each type, with and without terminated
+blocks) rather than from its documentation, which describes none of this
+behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
 
 ## Consequences
 
@@ -94,13 +112,13 @@ This determines whether `scripts/CheckSolutionVersions.fsx` needs to change at a
 
 **Negative / Trade-offs**:
 
-- Disabling merge commits changes the commit history shape project-wide, not just 
-  for build-system PRs, every future PR merge is affected. Squash and rebase 
-  remain a per-PR choice, so no one is forced to lose commit-level history, but 
-  `Merge pull request ...` commits stop being an option entirely.
+- Every ShipIt invocation must pass `--skip-merge-commit`, indefinitely, because
+  merge commits remain enabled. Omitting it makes ShipIt throw on the first
+  `Merge pull request ...` commit it reaches rather than skipping it. This is
+  documented at every invocation site (`release.yml`, `DEVELOPMENT.md`).
 - `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]` 
-  entry today) become leaner, PR-title-derived entries under ShipIt. 
-  The `=== changelog ===` block convention in a PR body is the escape hatch for 
+  entry today) become leaner, commit-title-derived entries under ShipIt.
+  A `=== changelog ===` block in the commit message body is the escape hatch for
   entries that need more detail than a title provides.
 - Items 3 and 4 remain unaddressed after #234 closes; they need their own
   issues and, eventually, their own ADRs or ADR amendments.
@@ -114,6 +132,12 @@ This determines whether `scripts/CheckSolutionVersions.fsx` needs to change at a
   `docs/mdr/design-history/0000-change-log.md`; automating its generation must not 
   reduce its usefulness as a Design History File input, this is why the `=== changelog ===` 
   escape hatch matters for anything with MDR-relevant detail.
+- A known gap follows from the omission of `docs`, `build`, and `chore` commits: a
+  change of one of those types cannot reach the generated changelog at all, and no
+  escape hatch overrides that. Design-history-relevant changes are therefore tracked
+  through the ADRs in `docs/mdr/design-history/` and their entry in
+  `0000-change-log.md`, which do not depend on ShipIt's output. This ADR is itself an
+  instance: it lands as a `docs` commit and will not appear in any release section.
 
 ## References
 
