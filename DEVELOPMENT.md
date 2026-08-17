@@ -158,8 +158,32 @@ All three merge methods are enabled on the repo, so `Merge pull request ...` com
 appearing in history, and ShipIt throws on the first one it hits instead of skipping it. `--dry-run`
 never modifies files or opens a pull request, so it's safe to run against a dirty tree.
 
-Commit types that ShipIt does not render into the changelog include `docs`, `build`, and `chore`. 
-If such a change needs to appear in the release notes, put a `=== changelog ===` block in the PR body.
+#### What reaches the changelog
+
+The behaviour below was established by running ShipIt 3.0.1 against a throwaway branch of this
+repo. ShipIt's own documentation covers none of it.
+
+- **`docs`, `build`, and `chore` commits never render.** Only types like `feat` and `fix` produce
+  entries, and no flag or escape hatch changes that. A change that must appear in the release notes
+  has to ride on a rendering commit type.
+- **Commits that change no files are ignored**, whatever their type.
+- **A `=== changelog ===` block adds detail to an entry that already renders.** It is read from the
+  **commit message body**, not the pull request body, and needs both an opening *and* a closing
+  `=== changelog ===` marker. An unterminated block is dropped silently, with no warning:
+
+  ```text
+  fix(server): correct the infusion rate rounding
+
+  === changelog ===
+  Rates were rounded to whole mL/h, truncating paediatric doses below 1 mL/h.
+  === changelog ===
+  ```
+
+  That renders the prose indented beneath the commit's bullet.
+
+Putting the block in a PR body only works when the merge method copies that body into the commit
+message, which squash-merging does by default and merge-commit merging never does. Since all three
+merge methods are enabled here, put it in the commit message.
 
 ### What Happens During `dotnet run` (the `Run` target)
 

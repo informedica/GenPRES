@@ -84,9 +84,20 @@ opened. Step 1 of the implementation plan closed it. What was confirmed against 
 - The invocation is `dotnet shipit --allow-branch master --skip-merge-commit`
   (no `github` subcommand); `--mode` defaults to `pull-request`.
 - `docs`-, `build`-, and `chore`-typed commits are silently omitted from the
-  generated changelog. This was verified from this repo's own release history,
-  not from ShipIt's documentation. The `=== changelog ===` PR-body block is the
-  escape hatch for changes of those types that must still appear in release notes.
+  generated changelog, as are commits that change no files. Nothing overrides
+  this: a change that must appear in release notes has to ride on a rendering
+  commit type such as `feat` or `fix`.
+- The `=== changelog ===` block enriches an entry that already renders; it cannot
+  add one. It is read from the **commit message body**, not the pull request body,
+  and requires both an opening and a closing marker — an unterminated block is
+  discarded without warning. A PR body only reaches the block parser when the merge
+  method copies it into the commit message, which squash-merging does and
+  merge-commit merging does not.
+
+The last two points were established by running ShipIt 3.0.1 against a throwaway
+branch of this repo (probe commits of each type, with and without terminated
+blocks) rather than from its documentation, which describes none of this
+behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
 
 ## Consequences
 
@@ -106,8 +117,8 @@ opened. Step 1 of the implementation plan closed it. What was confirmed against 
   `Merge pull request ...` commit it reaches rather than skipping it. This is
   documented at every invocation site (`release.yml`, `DEVELOPMENT.md`).
 - `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]` 
-  entry today) become leaner, PR-title-derived entries under ShipIt. 
-  The `=== changelog ===` block convention in a PR body is the escape hatch for 
+  entry today) become leaner, commit-title-derived entries under ShipIt.
+  A `=== changelog ===` block in the commit message body is the escape hatch for
   entries that need more detail than a title provides.
 - Items 3 and 4 remain unaddressed after #234 closes; they need their own
   issues and, eventually, their own ADRs or ADR amendments.
@@ -120,9 +131,13 @@ opened. Step 1 of the implementation plan closed it. What was confirmed against 
 - The changelog remains the audit trail referenced by
   `docs/mdr/design-history/0000-change-log.md`; automating its generation must not 
   reduce its usefulness as a Design History File input, this is why the `=== changelog ===` 
-  escape hatch matters for anything with MDR-relevant detail. Concretely: `docs`, `build`,
-  and `chore` commits never reach the generated changelog, so any change of those types
-  that belongs in the Design History File needs the escape hatch to appear at all.
+  escape hatch matters for anything with MDR-relevant detail.
+- A known gap follows from the omission of `docs`, `build`, and `chore` commits: a
+  change of one of those types cannot reach the generated changelog at all, and no
+  escape hatch overrides that. Design-history-relevant changes are therefore tracked
+  through the ADRs in `docs/mdr/design-history/` and their entry in
+  `0000-change-log.md`, which do not depend on ShipIt's output. This ADR is itself an
+  instance: it lands as a `docs` commit and will not appear in any release section.
 
 ## References
 
