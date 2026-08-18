@@ -2,9 +2,37 @@ module Informedica.GenPRES.Server.Tests.ResourceErrorTests
 
 open Expecto
 open Expecto.Flip
+open Shared.Models
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
-open Helpers
+
+let private errMsg s : Message = ErrorMsg(s, None)
+
+/// Stub registry: every resource resolves to a typed empty value. The typed
+/// empties matter — the boxed value's runtime type must match the key's `'T`
+/// for the engine's downcast to succeed.
+let private okRegistry: ResourceRegistry =
+    Map
+        [
+            Keys.unitMappings.Name, ofResult (fun () -> Ok([||]: UnitMapping[]))
+            Keys.routeMappings.Name, ofResult (fun () -> Ok([||]: RouteMapping[]))
+            Keys.validForms.Name, ofResult (fun () -> Ok([||]: string[]))
+            Keys.formRoutes.Name, ofResult (fun () -> Ok([||]: FormRoute[]))
+            Keys.formularyProducts.Name, ofResult (fun () -> Ok([||]: FormularyProduct[]))
+            Keys.genPresProducts.Name, ofResult (fun () -> Ok([||]: Informedica.ZIndex.Lib.Types.GenPresProduct[]))
+            Keys.reconstitution.Name, ofResult (fun () -> Ok([||]: Reconstitution[]))
+            Keys.parenteralMeds.Name, ofResult (fun () -> Ok([||]: ProductComponent[]))
+            Keys.enteralFeeding.Name, ofResult (fun () -> Ok([||]: ProductComponent[]))
+            Keys.doseRuleData.Name, ofResult (fun () -> Ok([||]: DoseRuleData[]))
+            Keys.solutionRuleData.Name, ofResult (fun () -> Ok([||]: SolutionRuleData[]))
+            Keys.renalRuleData.Name, ofResult (fun () -> Ok([||]: RenalRuleData[]))
+            Keys.totalsData.Name, ofResult (fun () -> Ok([||]: TotalsData[]))
+            Keys.products.Name, ofResult (fun () -> Ok([||]: ProductComponent[]))
+            Keys.doseRules.Name, ofResult (fun () -> Ok([||]: DoseRule[]))
+            Keys.solutionRules.Name, ofResult (fun () -> Ok([||]: SolutionRule[]))
+            Keys.renalRules.Name, ofResult (fun () -> Ok([||]: RenalRule[]))
+            Keys.gStandProvider.Name, derive (fun r -> Check.gStandProvider (r.Get Keys.routeMappings))
+        ]
 
 let errorPropagationTests =
     testList
@@ -197,7 +225,7 @@ let processCmdGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.FormularyCmd emptyFormulary
+                let cmd = Shared.Api.FormularyCmd Formulary.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
@@ -212,7 +240,7 @@ let processCmdGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.ParenteraliaCmd emptyParenteralia
+                let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
@@ -234,7 +262,7 @@ let agentAdapterGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.FormularyCmd emptyFormulary
+                let cmd = Shared.Api.FormularyCmd Formulary.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.AgentAdapters.makeAppEnv provider) cmd
@@ -249,7 +277,7 @@ let agentAdapterGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.ParenteraliaCmd emptyParenteralia
+                let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.AgentAdapters.makeAppEnv provider) cmd
