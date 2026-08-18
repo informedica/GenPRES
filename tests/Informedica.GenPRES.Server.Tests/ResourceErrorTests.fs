@@ -6,12 +6,12 @@ open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 open Helpers
 
-let errMsg s : Message = ErrorMsg(s, None)
+let private errMsg s : Message = ErrorMsg(s, None)
 
 /// Stub registry: every resource resolves to a typed empty value. The typed
 /// empties matter — the boxed value's runtime type must match the key's `'T`
 /// for the engine's downcast to succeed.
-let okRegistry: ResourceRegistry =
+let private okRegistry: ResourceRegistry =
     Map
         [
             Keys.unitMappings.Name, ofResult (fun () -> Ok([||]: UnitMapping[]))
