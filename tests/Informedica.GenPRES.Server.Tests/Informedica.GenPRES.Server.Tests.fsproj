@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="TestHelpers.fs" />
     <Compile Include="ResourceErrorTests.fs" />
+    <Compile Include="StubAdapterTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />
     <None Include="Scripts/load.fsx" />
