@@ -9,7 +9,11 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Tests.fs" />
+    <Compile Include="TestHelpers.fs" />
+    <Compile Include="ResourceErrorTests.fs" />
+    <Compile Include="StubAdapterTests.fs" />
+    <Compile Include="DoseCheckTests.fs" />
+    <Compile Include="TotalsTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="Scripts/load.fsx" />
     <None Include="Scripts/Tests.fsx" />
