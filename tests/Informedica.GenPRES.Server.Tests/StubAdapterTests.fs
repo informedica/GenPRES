@@ -5,6 +5,7 @@ open Expecto.Flip
 open Informedica.GenForm.Lib
 open Shared
 open Shared.Types
+open Shared.Models
 open ServerApi
 
 /// Stub adapters for isolated application-layer testing.
@@ -136,7 +137,7 @@ let commandRoutingTests =
         [
 
             testAsync "FormularyCmd dispatches to formulary.getFormulary" {
-                let returnForm = { Helpers.emptyFormulary with Markdown = "stubbed" }
+                let returnForm = { Formulary.empty with Markdown = "stubbed" }
 
                 let env =
                     makeEnv
@@ -145,7 +146,7 @@ let commandRoutingTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.FormularyCmd Helpers.emptyFormulary)
+                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
 
                 match result with
                 | Ok(Api.FormularyResp f) -> f.Markdown |> Expect.equal "should return stubbed formulary" "stubbed"
@@ -155,7 +156,7 @@ let commandRoutingTests =
             testAsync "ParenteraliaCmd dispatches to formulary.getParenteralia" {
                 let env =
                     makeEnv
-                        (formularyAlwaysOk Helpers.emptyFormulary)
+                        (formularyAlwaysOk Formulary.empty)
                         (orderContextAlwaysOk emptyCtx)
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
@@ -170,7 +171,7 @@ let commandRoutingTests =
             testAsync "OrderContextCmd dispatches to orderContext.evaluate" {
                 let env =
                     makeEnv
-                        (formularyAlwaysOk Helpers.emptyFormulary)
+                        (formularyAlwaysOk Formulary.empty)
                         (orderContextAlwaysOk emptyCtx)
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
@@ -185,7 +186,7 @@ let commandRoutingTests =
             testAsync "NutritionPlanCmd InitNutritionPlan dispatches to nutritionPlan port" {
                 let env =
                     makeEnv
-                        (formularyAlwaysOk Helpers.emptyFormulary)
+                        (formularyAlwaysOk Formulary.empty)
                         (orderContextAlwaysOk emptyCtx)
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
@@ -200,7 +201,7 @@ let commandRoutingTests =
             testAsync "OrderPlanCmd FilterOrderPlan dispatches to orderPlan port" {
                 let env =
                     makeEnv
-                        (formularyAlwaysOk Helpers.emptyFormulary)
+                        (formularyAlwaysOk Formulary.empty)
                         (orderContextAlwaysOk emptyCtx)
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
@@ -227,7 +228,7 @@ let errorPropagationTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.FormularyCmd Helpers.emptyFormulary)
+                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should propagate error messages" [| "test error" |]
@@ -237,7 +238,7 @@ let errorPropagationTests =
             testAsync "OrderContextCmd propagates port error" {
                 let env =
                     makeEnv
-                        (formularyAlwaysOk Helpers.emptyFormulary)
+                        (formularyAlwaysOk Formulary.empty)
                         (orderContextAlwaysFails [| "ctx error" |])
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
@@ -259,7 +260,7 @@ let requireLoadedTests =
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = Command.processCmd env (Api.FormularyCmd Helpers.emptyFormulary)
+                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -269,12 +270,12 @@ let requireLoadedTests =
             testAsync "requireLoaded passes when loaded" {
                 let env =
                     makeEnv
-                        (formularyAlwaysOk Helpers.emptyFormulary)
+                        (formularyAlwaysOk Formulary.empty)
                         (orderContextAlwaysOk emptyCtx)
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.FormularyCmd Helpers.emptyFormulary)
+                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
 
                 match result with
                 | Ok _ -> ()

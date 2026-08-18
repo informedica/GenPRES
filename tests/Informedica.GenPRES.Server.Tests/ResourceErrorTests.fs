@@ -2,6 +2,7 @@ module Informedica.GenPRES.Server.Tests.ResourceErrorTests
 
 open Expecto
 open Expecto.Flip
+open Shared.Models
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 open Helpers
@@ -225,7 +226,7 @@ let processCmdGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.FormularyCmd emptyFormulary
+                let cmd = Shared.Api.FormularyCmd Formulary.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
@@ -262,7 +263,7 @@ let agentAdapterGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.FormularyCmd emptyFormulary
+                let cmd = Shared.Api.FormularyCmd Formulary.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.AgentAdapters.makeAppEnv provider) cmd
