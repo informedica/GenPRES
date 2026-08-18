@@ -6,6 +6,8 @@ open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 open Helpers
 
+let errMsg s : Message = ErrorMsg(s, None)
+
 let errorPropagationTests =
     testList
         "loadAllResourcesWithRegistry error propagation"

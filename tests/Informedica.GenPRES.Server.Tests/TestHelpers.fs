@@ -3,8 +3,6 @@ module Informedica.GenPRES.Server.Tests.Helpers
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 
-let errMsg s : Message = ErrorMsg(s, None)
-
 /// Stub registry: every resource resolves to a typed empty value. The typed
 /// empties matter — the boxed value's runtime type must match the key's `'T`
 /// for the engine's downcast to succeed.
