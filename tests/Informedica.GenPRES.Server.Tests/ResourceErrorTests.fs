@@ -5,7 +5,6 @@ open Expecto.Flip
 open Shared.Models
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
-open Helpers
 
 let private errMsg s : Message = ErrorMsg(s, None)
 
@@ -241,7 +240,7 @@ let processCmdGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.ParenteraliaCmd emptyParenteralia
+                let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
@@ -278,7 +277,7 @@ let agentAdapterGuardTests =
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.ParenteraliaCmd emptyParenteralia
+                let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
 
                 let result =
                     ServerApi.Command.processCmd (ServerApi.AgentAdapters.makeAppEnv provider) cmd

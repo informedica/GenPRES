@@ -18,7 +18,7 @@ module StubAdapters =
     let formularyAlwaysOk (returnForm: Formulary) : FormularyPort =
         {
             getFormulary = fun _ -> async { return Ok returnForm }
-            getParenteralia = fun _ -> async { return Ok Helpers.emptyParenteralia }
+            getParenteralia = fun _ -> async { return Ok Parenteralia.empty }
         }
 
 
@@ -161,7 +161,7 @@ let commandRoutingTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.ParenteraliaCmd Helpers.emptyParenteralia)
+                let! result = Command.processCmd env (Api.ParenteraliaCmd Parenteralia.empty)
 
                 match result with
                 | Ok(Api.ParenteraliaResp _) -> ()
