@@ -16,6 +16,7 @@
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />
+    <None Include="Scripts\CalcMonthsOracle.fsx" />
   </ItemGroup>
 
   <ItemGroup>
