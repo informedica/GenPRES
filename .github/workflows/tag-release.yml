@@ -38,8 +38,14 @@ concurrency:
 jobs:
   tag-and-release:
     name: Tag and publish GitHub Release
+    # head.ref is only a branch name, so it must be qualified by the head repository. A merged fork PR
+    # with a release/master branch would otherwise trigger tag and release writes. ShipIt only pushes
+    # release/master to this repo, so this is enough for a real release PR. The
+    # easybuild-release:pending label is not required; it would couple the workflow to a label ShipIt
+    # could rename.
     if: >-
       github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.head.ref == 'release/master'
     runs-on: ubuntu-latest
 
@@ -80,13 +86,24 @@ jobs:
     - name: Create annotated tag
       env:
         TAG: ${{ steps.release.outputs.tag }}
-      # An existing tag ends this step early, not the job: the Release step still has to run,
-      # since a re-run may be recovering from a tag that pushed before the Release was created.
+        MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      # Reuse a tag only when it points to this merge commit; otherwise fail. The Release step must
+      # still run so a re-run can recover when the tag was pushed but the Release was not created.
       run: |
         set -euo pipefail
-        if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-          echo "::notice::Tag $TAG already exists on origin, leaving it alone"
-          exit 0
+        # Annotated tags live at refs/tags/X, while refs/tags/X^{} resolves to the tagged commit.
+        # Check the peeled ref first, then fall back to a lightweight tag.
+        existing=$(git ls-remote --tags origin "refs/tags/$TAG^{}" | cut -f1)
+        if [ -z "$existing" ]; then
+          existing=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+        fi
+        if [ -n "$existing" ]; then
+          if [ "$existing" = "$MERGE_SHA" ]; then
+            echo "::notice::Tag $TAG already points at $MERGE_SHA, leaving it alone"
+            exit 0
+          fi
+          echo "::error::Tag $TAG already exists and points at $existing, not this release's merge commit $MERGE_SHA"
+          exit 1
         fi
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
