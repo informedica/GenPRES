@@ -8,10 +8,11 @@
 // Prerequisite: run `dotnet build GenPRES.sln` first so the DLLs exist.
 // Run with: dotnet fsi scripts/CheckSolutionVersions.fsx
 
+#load "Versioning.fsx"
+
 open System
 open System.IO
 open System.Diagnostics
-open System.Xml.Linq
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -27,14 +28,7 @@ let targetFramework = "net10.0"
 // Expected version, read from the single source of truth
 // ---------------------------------------------------------------------------
 
-let expectedVersion =
-    let doc = XDocument.Load(propsPath)
-    let ns = doc.Root.Name.Namespace
-
-    doc.Descendants(ns + "Version")
-    |> Seq.tryHead
-    |> Option.map _.Value
-    |> Option.defaultWith (fun () -> failwith $"No <Version> found in %s{propsPath}")
+let expectedVersion = Versioning.readVersion propsPath
 
 // ---------------------------------------------------------------------------
 // Projects actually shipped, per GenPRES.sln
