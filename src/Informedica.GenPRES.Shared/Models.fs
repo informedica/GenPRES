@@ -111,61 +111,6 @@ module Models =
                     (Some((days - 7 * (days / 7)) * 1<day>))
 
 
-            let inline validateMinMax lbl min max n =
-                if n >= min && n <= max then
-                    Result.Ok n
-                else
-                    $"%s{lbl}: {int n} not >= {int min} and <= {int max}" |> Result.Error
-
-
-            let inline set setter lbl min max n age : Result<Age, string> =
-                n |> validateMinMax lbl min max >>= ((setter age) >> Result.Ok)
-
-
-            let setYears = set (fun age n -> { age with Years = n }) "Years" 0<year> 100<year>
-
-
-            let setMonths mos age =
-                age
-                |> setYears (mos / 12<month / year>)
-                >>= set (fun age n -> { age with Months = n }) "Months" 0<month> 11<month> (mos % 12<month>)
-
-
-            let setWeeks wks age =
-                let yrs = wks / 52<week / year>
-                let mos = (wks - yrs * 52<week / year>) / 4<week / month>
-                let wks = wks - (mos * 4<week / month>) - (yrs * 52<week / year>)
-
-                age
-                |> setYears yrs
-                >>= set (fun age n -> { age with Months = n }) "Months" 0<month> 12<month> mos
-                >>= set (fun age n -> { age with Weeks = n }) "Weeks" 0<week> 4<week> wks
-
-
-            let setDays dys age =
-                let dys = int dys
-                let c = 356. / 12.
-                let yrs = dys / 356
-
-                let mos = ((float dys) - (float yrs) * 356.) / c |> int
-
-                let wks =
-                    (float dys) - ((float mos) * c) - (yrs * 356 |> float)
-                    |> int
-                    |> fun x -> x / 7
-
-                let ds =
-                    (float dys) - ((float mos) * c) - (yrs * 356 |> float)
-                    |> int
-                    |> fun x -> x % 7
-
-                age
-                |> setYears (yrs * 1<year>)
-                >>= set (fun age n -> { age with Months = n }) "Months" 0<month> 12<month> (mos * 1<month>)
-                >>= set (fun age n -> { age with Weeks = n }) "Weeks" 0<week> 4<week> (wks * 1<week>)
-                >>= set (fun age n -> { age with Days = n }) "Days" 0<day> 6<day> (ds * 1<day>)
-
-
             let getYears { Age.Years = yrs } = yrs
 
 
