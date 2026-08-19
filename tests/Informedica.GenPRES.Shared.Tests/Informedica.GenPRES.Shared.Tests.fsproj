@@ -11,8 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="AgeTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
+    <None Include="Scripts\load.fsx" />
+    <None Include="scripts\CalcYearsOracle.fsx" />
   </ItemGroup>
 
   <ItemGroup>
