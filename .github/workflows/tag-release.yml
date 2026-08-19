@@ -1,0 +1,135 @@
+name: Tag and Release
+
+# This workflow turns a merged ShipIt release PR into a permanent release artifact: an annotated git tag 
+# on the merge commit and a GitHub Release with that version's section from CHANGELOG.md.
+#
+# This is a separate workflow, not a job inside build.yml or release.yml. The reason is the same as for 
+# release.yml: a failure here must not stop the test and format matrix, and it runs on a different event
+# (pull_request closed) than release.yml (push to master). See ADR-0021 and issue #470.
+#
+# The version number, pre-release flag, and release body all come from scripts/ReleaseNotes.fsx instead 
+# of being parsed here. That means this workflow and a local dry run before merging a release PR use the
+# same code. The script reads <Version> through
+# scripts/Versioning.fsx, which is the same path used by `dotnet run CheckVersions`. Directory.Build.props
+# has one parser only (see #447), and the parsing is covered by scripts/ChangelogTests.fsx.
+#
+# Trigger note: this is not ShipIt's suggested setup. ShipIt's README says to gate a downstream release job:
+#     if: startsWith(github.event.head_commit.message, 'chore: release ')
+# That condition is false for this repo. Every ShipIt release PR so far (#455, #458, #464) merged as a
+# normal merge commit with two parents, so the push event's head_commit.message is:
+#    "Merge pull request #NNN from informedica/release/master", not "chore: release ...".
+#
+# Because all three merge methods remain enabled (ADR-0021, design choice 2), the trigger must work regardless
+# of merge method. ShipIt always pushes its release branch as `release/master` and labels the PR 
+# `easybuild-release:pending`, so the branch name is the main signal here. The label is the fallback equivalent.
+
+on:
+  pull_request:
+    types: [ closed ]
+    branches: [ master ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag-and-release:
+    name: Tag and publish GitHub Release
+    # head.ref is only a branch name, so it must be qualified by the head repository. A merged fork PR
+    # with a release/master branch would otherwise trigger tag and release writes. ShipIt only pushes
+    # release/master to this repo, so this is enough for a real release PR. The
+    # easybuild-release:pending label is not required; it would couple the workflow to a label ShipIt
+    # could rename.
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'release/master'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check the merge commit is known
+      env:
+        MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      run: |
+        if [ -z "$MERGE_SHA" ]; then
+          echo "::error::pull_request.merge_commit_sha is empty, so there is nothing to tag"
+          exit 1
+        fi
+
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        # The merge commit, not the PR head: this is the state master was actually in when the
+        # version shipped, and it stays reachable from master after ShipIt reuses release/master.
+        ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+    - name: Use .NET Core 10.0 SDK
+      # global-json-file so this stays pinned to the same SDK band as build.yml (see issue #447).
+      # No cache: the only thing built here is a dependency-free .fsx, so there is nothing to hit.
+      uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+      with:
+        global-json-file: global.json
+
+    - name: Read release facts from CHANGELOG.md
+      id: release
+      # Fails loudly when the merged version has no changelog section, is empty, or is
+      # duplicated, rather than publishing a wrong release. --github-output sets version, tag,
+      # and prerelease for the steps below. Note that `prerelease` is the string "true" or
+      # "false"; compare it explicitly, never test it for truthiness in an `if:`.
+      run: >-
+        dotnet fsi scripts/ReleaseNotes.fsx
+        --out "$RUNNER_TEMP/release-notes.md"
+        --github-output
+
+    - name: Create annotated tag
+      env:
+        TAG: ${{ steps.release.outputs.tag }}
+        MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      # Reuse a tag only when it points to this merge commit; otherwise fail. The Release step must
+      # still run so a re-run can recover when the tag was pushed but the Release was not created.
+      run: |
+        set -euo pipefail
+        # Annotated tags live at refs/tags/X, while refs/tags/X^{} resolves to the tagged commit.
+        # Check the peeled ref first, then fall back to a lightweight tag.
+        existing=$(git ls-remote --tags origin "refs/tags/$TAG^{}" | cut -f1)
+        if [ -z "$existing" ]; then
+          existing=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+        fi
+        if [ -n "$existing" ]; then
+          if [ "$existing" = "$MERGE_SHA" ]; then
+            echo "::notice::Tag $TAG already points at $MERGE_SHA, leaving it alone"
+            exit 0
+          fi
+          echo "::error::Tag $TAG already exists and points at $existing, not this release's merge commit $MERGE_SHA"
+          exit 1
+        fi
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -a "$TAG" -m "GenPRES $TAG (release PR #${{ github.event.pull_request.number }})"
+        git push origin "refs/tags/$TAG"
+
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ steps.release.outputs.tag }}
+        PRERELEASE: ${{ steps.release.outputs.prerelease }}
+      run: |
+        set -euo pipefail
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "::notice::Release $TAG already exists, leaving it alone"
+          exit 0
+        fi
+        flags=()
+        if [ "$PRERELEASE" = "true" ]; then
+          flags+=(--prerelease)
+        fi
+        # --verify-tag: fail rather than silently creating a lightweight tag if the tag push above
+        # was skipped or failed. The tag must already exist and be the annotated one.
+        gh release create "$TAG" \
+          --verify-tag \
+          --title "$TAG" \
+          --notes-file "$RUNNER_TEMP/release-notes.md" \
+          ${flags[@]+"${flags[@]}"}
+        echo "Published [$TAG](${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG)" >> "$GITHUB_STEP_SUMMARY"

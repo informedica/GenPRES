@@ -2,7 +2,7 @@
 
 **Date**: 2026-08-05
 
-**Status**: Accepted (2026-08-17)
+**Status**: Accepted (2026-08-17), amended (2026-08-19)
 
 **Related Issue**: [#234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 
@@ -66,6 +66,7 @@ at a time, rather than as a single documentation pass.
 | 4 | Docker-on-release (item 3) and API docs (item 4) deferred to new follow-up issues — filed as [#459](https://github.com/informedica/GenPRES/issues/459) and [#460](https://github.com/informedica/GenPRES/issues/460) | Both are greenfield efforts (no existing docfx/GitHub Pages/Docker-publish infrastructure) with no dependency on the versioning work landing first being a blocker either way; keeping them separate lets #234 close on a coherent, reviewable scope |
 | 5 | `Build` FAKE target split into `ServerBuild`/`ClientBuild`, with `Build` kept as an umbrella target | Existing dependency chains (`Build ==> ServerTests`, `Build ==> CheckVersions`, `Build ==> Run`) keep working unchanged; new targets are additive |
 | 6 | Agent-visible docs (`AGENTS.md`/`DEVELOPMENT.md`) updated per-PR, not as a separate pass | Each PR already knows which target/behaviour it changed; batching risks the docs pass lagging behind or being skipped |
+| 7 | Release artifact created by a separate `tag-release.yml` workflow triggered by the release PR merging, not by ShipIt | ShipIt 3.0.1 cannot create a tag or Release in any mode. See the amendment below |
 
 ### Verification gap — closed 2026-08-17
 
@@ -99,6 +100,53 @@ branch of this repo (probe commits of each type, with and without terminated
 blocks) rather than from its documentation, which describes none of this
 behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
 
+### Release artifact — amended 2026-08-19
+
+This ADR as accepted covered #234 item 2 ("release artifacts including the list of changes") only as
+far as the changelog: ShipIt derives the version and writes the `CHANGELOG.md` section, then stops.
+`master` carried zero git tags and zero GitHub Releases across all three versions shipped under it
+(`0.1.2-alpha.2`, `.3`, `.4`), so no immutable ref named a shipped version — the traceability record
+an MDR project depends on. [Issue #470](https://github.com/informedica/GenPRES/issues/470) tracked
+closing that half.
+
+ShipIt cannot close it. Its 3.0.1 assembly contains the git/`gh` argument strings it shells out with
+(`commit`, `push`, `rev-parse`, `rev-list`, `status`, `remote.origin.url`, `--label`, `--title`,
+`--body`, `--base`, `--head`, `--json`, `--jq`, `--state`, `--limit`, `statusCheckRollup`) and no
+`tag`, no `refs/`, and no releases endpoint. The `shipit github` subcommand forces the GitHub
+provider for pull-request creation and adds only `--token`; `--mode push` changes how the changelog
+commit reaches `master` and would discard this ADR's review gate. Both were checked against the
+installed tool, not its documentation.
+
+**Decision**: a separate `.github/workflows/tag-release.yml`, triggered by the ShipIt release PR
+merging, creates an annotated tag on the merge commit and publishes a GitHub Release carrying that
+version's `CHANGELOG.md` section. It is its own workflow for the same reason `release.yml` is: a
+failure must not block the test/format matrix. The version, pre-release flag and Release body come
+from `scripts/ReleaseNotes.fsx`, not from parsing inside the workflow, so CI and a local dry run before
+merging a release PR execute the same code; that script resolves `<Version>` through
+`scripts/Versioning.fsx`, which `dotnet run CheckVersions` also uses, keeping
+`Directory.Build.props` to a single parser, and its changelog grammar is pinned by
+`scripts/ChangelogTests.fsx`. Points settled during implementation:
+
+| Question | Decision |
+|---|---|
+| Tag format | `v`-prefixed (`v0.1.2-alpha.4`), so downstream workflows can filter on `v*` |
+| What the tag points at | The merge commit on `master`, not ShipIt's `chore: release ...` commit, which lives on the reused `release/master` branch |
+| Backfill | None. `0.1.2-alpha.2`/`.3`/`.4` shipped before this workflow existed and stay untagged; the tag record starts at the next release. Retroactive tags would carry a tagger date unrelated to when the version shipped, and those three versions remain reconstructable from `CHANGELOG.md` and the merge commits it links |
+| Pre-release flag | Derived from the version itself (SemVer: `0.1.2-alpha.4` is a pre-release, `0.1.3` is not), not hardcoded and not read from `CHANGELOG.md`'s `pre_release:` front matter — the front matter describes what ShipIt generates next, so it would answer differently for the same shipped version depending on when it was asked |
+| Attached build output | None. The tag plus the changelog body is the artifact; publishing built images stays [#459](https://github.com/informedica/GenPRES/issues/459)'s scope |
+
+Two behaviours were verified against this repo rather than assumed from documentation. ShipIt's
+README recommends gating the downstream release job on
+`startsWith(github.event.head_commit.message, 'chore: release ')`; that is 0 for 3 here, because
+every release PR merged as a true merge commit whose push event carries
+`Merge pull request #NNN from informedica/release/master`. The trigger uses the head ref
+(`release/master`) instead, which survives any merge method. And events generated by the default
+`GITHUB_TOKEN` do not start workflow runs: none of the three release PRs, all opened by
+`github-actions[bot]`, ran its checks automatically — two had runs created but parked at
+`action_required`, one got no runs at all until it was closed and reopened by hand. #459 therefore
+cannot be an `on: release` workflow; it must be a job in `tag-release.yml`, a `workflow_dispatch` /
+`repository_dispatch` call, or use a PAT / GitHub App token.
+
 ## Consequences
 
 **Positive**:
@@ -109,6 +157,9 @@ behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
   they're touching without changing any existing target's behaviour.
 - Agent-facing docs stay in sync with the build system because each PR
   updates its own corner rather than deferring to a cleanup pass.
+- Every version shipped under ShipIt has an immutable tag and a Release page carrying its
+  changelog section, so "what was 0.1.2-alpha.3" is answerable from a ref rather than by
+  hand-resolving commit SHAs out of `CHANGELOG.md`.
 
 **Negative / Trade-offs**:
 
@@ -122,6 +173,9 @@ behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
   entries that need more detail than a title provides.
 - Items 3 and 4 remain unaddressed after #234 closes; they need their own
   issues and, eventually, their own ADRs or ADR amendments.
+- The tag and Release are created with the workflow's own `GITHUB_TOKEN`, so nothing can
+  chain off them with `on: release` or `on: push: tags:`. Any future release-time automation
+  has to live inside `tag-release.yml`, be dispatched explicitly, or use a PAT / App token.
 
 **MDR / Safety**:
 
@@ -142,6 +196,7 @@ behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
 ## References
 
 - [Issue #234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
+- [Issue #470 — Tag and publish a GitHub Release when the ShipIt release PR merges](https://github.com/informedica/GenPRES/issues/470) (follow-up, item 2, second half)
 - [Issue #459 — Publish the Docker image automatically on release](https://github.com/informedica/GenPRES/issues/459) (follow-up, item 3)
 - [Issue #460 — Auto-generate and publish API documentation](https://github.com/informedica/GenPRES/issues/460) (follow-up, item 4)
 - [Implementation plan for issue #234](../../implementation-plans/234-improve-build-system.md)
