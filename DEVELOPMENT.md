@@ -430,8 +430,12 @@ Both steps are idempotent: an existing tag or Release is left alone, so re-runni
 is attached — the tag plus the changelog body is the whole artifact; publishing built images is
 [#459](https://github.com/informedica/GenPRES/issues/459)'s scope.
 
-The parsing lives in a script rather than in the workflow so that CI, a local dry run, and the backfill of
-versions that shipped before this workflow existed all run the same code. `ReleaseNotes.fsx` resolves the
+The tag record starts at the first release after this workflow landed. `0.1.2-alpha.2`, `.3` and `.4`
+shipped before it existed and are deliberately not backfilled, so they have no tag and no Release page;
+`CHANGELOG.md` and the merge commits it links remain the record for those three.
+
+The parsing lives in a script rather than in the workflow so that CI and a local dry run before merging a
+release PR run the same code. `ReleaseNotes.fsx` resolves the
 version through `scripts/Versioning.fsx`, which is also what `dotnet run CheckVersions` uses, so
 `Directory.Build.props` has exactly one parser (the lesson of [#447](https://github.com/informedica/GenPRES/issues/447)).
 The changelog grammar it relies on — which headings delimit a section, and that a missing, empty or
@@ -440,7 +444,8 @@ duplicated section is an error rather than a silently odd Release — is pinned 
 
 Note that the pre-release flag comes from the version itself, not from `CHANGELOG.md`'s `pre_release:`
 front matter. The front matter says what ShipIt generates *next*, so reading it would give the same shipped
-version a different answer depending on when the question was asked — which matters precisely for backfill.
+version a different answer depending on when the question was asked — a dry run against an older version
+after the key is dropped would report it as stable.
 
 To preview what a release will publish before merging the release PR:
 

@@ -8,8 +8,8 @@ name: Tag and Release
 # (pull_request closed) than release.yml (push to master). See ADR-0021 and issue #470.
 #
 # The version number, pre-release flag, and release body all come from scripts/ReleaseNotes.fsx instead 
-# of being parsed here. That means this workflow, the local dry run, and the backfill for releases that
-# shipped before this workflow existed all use the same code. The script reads <Version> through 
+# of being parsed here. That means this workflow and a local dry run before merging a release PR use the
+# same code. The script reads <Version> through
 # scripts/Versioning.fsx, which is the same path used by `dotnet run CheckVersions`. Directory.Build.props
 # has one parser only (see #447), and the parsing is covered by scripts/ChangelogTests.fsx.
 #

@@ -1,7 +1,7 @@
 // Release facts for a shipped version, read out of CHANGELOG.md.
 //
 // Emits the version, pre-release flag, and changelog section needed to publish a
-// GitHub Release. Shared by CI, dry runs, and version backfill.
+// GitHub Release. Shared by CI and local dry runs.
 //
 // Run with:
 //   dotnet fsi scripts/ReleaseNotes.fsx                     # current version, notes to stdout

@@ -121,8 +121,8 @@ installed tool, not its documentation.
 merging, creates an annotated tag on the merge commit and publishes a GitHub Release carrying that
 version's `CHANGELOG.md` section. It is its own workflow for the same reason `release.yml` is: a
 failure must not block the test/format matrix. The version, pre-release flag and Release body come
-from `scripts/ReleaseNotes.fsx`, not from parsing inside the workflow, so CI, a local dry run and the
-backfill below all execute the same code; that script resolves `<Version>` through
+from `scripts/ReleaseNotes.fsx`, not from parsing inside the workflow, so CI and a local dry run before
+merging a release PR execute the same code; that script resolves `<Version>` through
 `scripts/Versioning.fsx`, which `dotnet run CheckVersions` also uses, keeping
 `Directory.Build.props` to a single parser, and its changelog grammar is pinned by
 `scripts/ChangelogTests.fsx`. Points settled during implementation:
@@ -131,7 +131,7 @@ backfill below all execute the same code; that script resolves `<Version>` throu
 |---|---|
 | Tag format | `v`-prefixed (`v0.1.2-alpha.4`), so downstream workflows can filter on `v*` |
 | What the tag points at | The merge commit on `master`, not ShipIt's `chore: release ...` commit, which lives on the reused `release/master` branch |
-| Backfill | `0.1.2-alpha.2`/`.3`/`.4` tagged and released retroactively on their merge commits, so the record starts at the first ShipIt release rather than mid-stream |
+| Backfill | None. `0.1.2-alpha.2`/`.3`/`.4` shipped before this workflow existed and stay untagged; the tag record starts at the next release. Retroactive tags would carry a tagger date unrelated to when the version shipped, and those three versions remain reconstructable from `CHANGELOG.md` and the merge commits it links |
 | Pre-release flag | Derived from the version itself (SemVer: `0.1.2-alpha.4` is a pre-release, `0.1.3` is not), not hardcoded and not read from `CHANGELOG.md`'s `pre_release:` front matter — the front matter describes what ShipIt generates next, so it would answer differently for the same shipped version depending on when it was asked |
 | Attached build output | None. The tag plus the changelog body is the artifact; publishing built images stays [#459](https://github.com/informedica/GenPRES/issues/459)'s scope |
 
