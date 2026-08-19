@@ -22,6 +22,7 @@ Maintain this document as a reverse-chronological log of significant design chan
 
 | Date | ADR | Summary |
 |------|-----|---------|
+| 2026-08-19 | [ADR-0021](0021-build-system-versioning-and-release.md) | Amended with the release-artifact decision: `tag-release.yml` creates a `v`-prefixed annotated tag on the release PR's merge commit and publishes a GitHub Release carrying that version's changelog section; `0.1.2-alpha.2`/`.3`/`.4` backfilled. See issue #470 |
 | 2026-08-17 | [ADR-0021](0021-build-system-versioning-and-release.md) | Build system versioning and release automation accepted; EasyBuild.ShipIt owns version/changelog/release-PR generation and writes `Directory.Build.props`, all three merge methods left enabled with `--skip-merge-commit`, Repo Assist Task 8 retired, Docker-on-release and API docs deferred to #459/#460. See issue #234 |
 | 2026-08-05 | [ADR-0021](0021-build-system-versioning-and-release.md) | Build system versioning and release automation proposed. See issue #234 |
 | 2026-04-30 | [ADR-0020](0020-fhir-r4-integration.md) | FHIR R4 EHR integration design proposed; stateless GenPRES with bidirectional MedicationRequest translation and G-Standard GPK coding |
