@@ -30,11 +30,11 @@ let oracleGen =
                 |> Gen.map ((fun l -> (string t) :: l) >> List.toArray))
             |> Gen.map List.toArray
         let! lang = Gen.elements Localization.languages
-        let! age = Gen.choose (0, 100 * 365) |> Gen.map Patient.Age.fromDays
+        let! days = Gen.choose (0, 100 * 365)
 
-        let expected = Patient.Age.toString terms lang age
+        let expected = Patient.Age.toString terms lang (Patient.Age.fromDays days)
 
-        return terms, lang, age, expected
+        return terms, lang, days, expected
     }
 
 let testCases = Gen.sample 10 100 oracleGen

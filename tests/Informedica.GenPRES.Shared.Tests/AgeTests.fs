@@ -236,8195 +236,7702 @@ let toStringTests =
         ([|
             [|
                 "Patient Age day"
-                "EYwQnHfX"
-                ""
-                "sMkebTI"
-                "fN71mbBk4b"
-                "gA8cEI"
-                "3BjubUn88"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "BVtMk2d"
-                "oWgNvkKtdk"
-                "pJ"
-                "cKOgk3whh"
-                "d"
-            |]
-            [|
-                "Patient Age week"
-                "K4Y"
-                "x5ZWEtTfmt"
-                ""
-                "lTX"
-                "m4fWF8TTA8"
-                "xI"
-            |]
-            [|
-                "Patient Age weeks"
-                "Gex5"
-                ""
-                "u2J"
-                "vz15Oh22Jh"
-                "GR"
-                "koKRYZFdx"
-            |]
-            [|
-                "Patient Age month"
-                ""
-                "DxS"
-                "EIaeXqabSq"
-                "P0"
-                "taT07uOmG"
-                "0mt"
-            |]
-            [|
-                "Patient Age months"
-                "Mj1"
-                "Nujnszjk1V"
-                "kM"
-                "Cj29ggXvP"
-                "9vC"
-                "TQaICzT"
-            |]
-            [|
-                "Patient Age year"
-                "iDsSBlstaH"
-                "tV"
-                "LsbEpp6EY"
-                "VEL"
-                "rZjRLI2"
-                "sMk"
-            |]
-            [|
-                "Patient Age years"
-                "f4"
-                "xBkNbyfNH"
-                "4NU"
-                "A8smjRb"
-                "BVt"
-                "oWga7F"
-            |]
-         |],
-         German,
-         {
-             Years = 55<year>
-             Months = 3<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "55 Some(A8smjRb), 3 Some(Cj29ggXvP), 2 Some(vz15Oh22Jh)")
-        ([|
-            [|
-                "Patient Age day"
-                "iQKH1zTq8"
-                "jDxu2"
-                "6EyvPnrT"
-                "7rli"
-                "UsLj1cg"
-                "VfM"
-            |]
-            [|
-                "Patient Age days"
-                "sMjDb"
-                "fN6EYwd2"
-                "gA7r"
-                "3XUsal2"
-                "4YV"
-                "RL6Vl4"
-            |]
-            [|
-                "Patient Age week"
-                "oifN71mb"
-                "pjgA"
-                "cJ3Bjub"
-                "dw4"
-                "0xf4ud"
-                "1I"
-            |]
-            [|
-                "Patient Age weeks"
-                "yRpJ"
-                "VScKOgk"
-                "IFd"
-                "JGozDZ"
-                "wR"
-                "H9dWp"
-            |]
-            [|
-                "Patient Age month"
-                "41lTXpt"
-                "uOm"
-                "hPxIM8"
-                "i0"
-                "timry"
-                "L"
-            |]
-            [|
-                "Patient Age months"
-                "DXv"
-                "qYGRyh"
-                "r9"
-                "CrRAk"
-                "U"
-                "raDoo5"
-            |]
-            [|
-                "Patient Age year"
-                "z7P0Hq"
-                "Ai"
-                "LA0Jt"
-                "3"
-                "Aj"
-                "6EyvPnHBy6"
-            |]
-            [|
-                "Patient Age years"
-                "JrCj29gDX"
-                "U59vC"
-                "cCl5cdUr"
-                "Js"
-                "fNHE"
-                ""
-            |]
-         |],
-         Dutch,
-         {
-             Years = 20<year>
-             Months = 10<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "20 Some(U59vC), 10 Some(qYGRyh), 2 Some(VScKOgk)")
-        ([|
-            [|
-                "Patient Age day"
-                "at1lTNK4C"
-                "X"
-                "YhP9HByg"
-                ""
-                "M5DXvc1"
-                "96qY2uyhKv"
-            |]
-            [|
-                "Patient Age days"
-                "G"
-                "tqYiQ9Hp"
-                ""
-                "heM60la"
-                "ifz7bDHqTh"
-                "I2Aita"
-            |]
-            [|
-                "Patient Age week"
-                "fz7rliQy"
-                ""
-                "3nVf9uj"
-                "QoIgXMQz2M"
-                "RbJNfj"
-                "EcU5MvCJ6"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "cw4oVDs"
-                "ZxRL6Vl4OV"
-                "0kSWos"
-                "Nl3eVELSS"
-                "OwHL7"
-            |]
-            [|
-                "Patient Age month"
-                "lFd74MX"
-                "8G0xf4udX4"
-                "9t1IxB"
-                "Wuy04Ng11"
-                "X"
-                "8jnJQXYE"
-            |]
-            [|
-                "Patient Age months"
-                "hPJGodDZ6d"
-                "iC"
-                "5DH"
-                "6OZGpwDDkS"
-                "hs"
-                "zZIszARO8"
-            |]
-            [|
-                "Patient Age year"
-                ""
-                "eMt"
-                "fjLPy1MMt1"
-                "qB"
-                "48uBIJpXh"
-                "Bk4"
-            |]
-            [|
-                "Patient Age years"
-                "nhC"
-                "osUYHayVCa"
-                "zK"
-                "dhDKRey6q"
-                "Ktd"
-                "UrLjDxu"
-            |]
-         |],
-         German,
-         {
-             Years = 85<year>
-             Months = 11<month>
-             Weeks = 3<week>
-             Days = 2<day>
-         },
-         "85 Some(dhDKRey6q), 11 Some(6OZGpwDDkS), 3 Some(0kSWos), 2 Some(heM60la)")
-        ([|
-            [|
-                "Patient Age day"
-                "NlFdw"
-                "O"
-                "B9t1"
-                ""
-                "pXh"
-                "qKiC9RG6sz"
-            |]
-            [|
-                "Patient Age days"
-                "X"
-                "KiCw"
-                ""
-                "y6q"
-                "zTrli0bfBI"
-                "mU"
-            |]
-            [|
-                "Patient Age week"
+                "5DXuO"
+                "6"
                 "TrLi"
                 "UeM5DXv"
                 "Hfz"
-                "I2ATr9"
-                "v3"
-                "wQK5U"
+                "I2ATrL"
+            |]
+            [|
+                "Patient Age days"
+                "fz7qYi"
+                "2AurLjDau"
+                "3nheM"
+                "Qoifz7rY"
+                "RbI2"
+                "Ecv3nVP"
+            |]
+            [|
+                "Patient Age week"
+                "bJ2AUsmjD"
+                "cw3nV"
+                "ZxQoIgz7"
+                "0kRb"
+                "NlEcw4n"
+                "O8F"
             |]
             [|
                 "Patient Age weeks"
-                "3nheM"
-                "Qoifz7bD"
-                "Rb52"
-                "Ec63LW0"
-                "FZw"
-                "s0HwAj"
+                "lfcw4"
+                "82ZxRpIg"
+                "930k"
+                "WtNlFdw"
+                "XgO"
+                "KhB9tn"
             |]
             [|
                 "Patient Age month"
-                "ZxQoIgkM"
-                "0kRb"
-                "NlEcU5M"
-                "OIF"
-                "BvQF5O"
-                "CG"
+                "hO8G0URp"
+                "iB9t"
+                "5CWuOlF"
+                "6pX"
+                "TqKiC9"
+                "gd"
             |]
             [|
                 "Patient Age months"
-                "930k"
-                "WQNl3eV"
-                "XRO"
-                "KhZOeX"
-                "Ls"
-                "iKOx0"
+                "NKiC"
+                "OL5DXuO"
+                "ey6"
+                "1zTrli"
+                "2m"
+                "PnHf9"
             |]
             [|
                 "Patient Age year"
-                "5CWuc04"
-                "6pX"
-                "tq8XnJ"
-                "gB"
-                "rTXG9"
-                "J"
+                "mUeM5DX"
+                "nHf"
+                "aI2ATr"
+                "bv"
+                "YwQoH"
+                "Z"
             |]
             [|
                 "Patient Age years"
-                "By6"
-                "1zhswS"
-                "2K"
-                "d26Pi"
-                "v"
-                "2LSZZG"
+                "wQo"
+                "jRb52A"
+                "kE"
+                "7FZTQ"
+                "8"
+                "VtNk"
+            |]
+         |],
+         Spanish,
+         25497,
+         "69 Some(8), 10 Some(2m), 1 Some(NlEcw4n), 5 Some(RbI2)")
+        ([|
+            [|
+                "Patient Age day"
+                "XhO8G0xRpJ"
+                "Ki"
+                "L5CWuOlFd"
+                "y"
+                "ztqKiC9t"
+                ""
+            |]
+            [|
+                "Patient Age days"
+                "TN"
+                "UdL5DXuOm"
+                "H"
+                "I1zTrliC"
+                ""
+                "wPnHfy6"
+            |]
+            [|
+                "Patient Age week"
+                "3mUeM5DXv"
+                "Q"
+                "RaI2ATrL"
+                ""
+                "1YwQoHf"
+                "2ZjRbI2AUr"
+            |]
+            [|
+                "Patient Age weeks"
+                "Y"
+                "ZjRb52AU"
+                ""
+                "N7FZwQo"
+                "A8s0jRbJ3A"
+                "BVtNkE"
+            |]
+            [|
+                "Patient Age month"
+                "8s0kRbJ3"
+                ""
+                "WgO8FZx"
+                "JhB9s0kSbJ"
+                "K4CWtN"
+                "x5pjgO8GZ"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "5pXRO8G"
+                "SqKhB9t1kS"
+                "TdL4CW"
+                "Gey5pXhb8"
+                "H1zSq"
+            |]
+            [|
+                "Patient Age year"
+                "ey6"
+                "1zTqKiC9t1"
+                "2m"
+                "PnH"
+                "Qa41zTrKiC"
+                "Db"
+            |]
+            [|
+                "Patient Age years"
+                "aICz"
+                ""
+                "YwP"
+                "ZjQaI2WTrL"
+                "Mk"
+                "N7EYwQnHf"
             |]
          |],
          English,
-         {
-             Years = 51<year>
-             Months = 6<month>
-             Weeks = 2<week>
-             Days = 4<day>
-         },
-         "51 Some(By6), 6 Some(930k), 2 Some(3nheM), 4 Some(X)")
+         12760,
+         "34 Some(aICz), 11 , 2 Some(Y), 6 Some(TN)")
         ([|
             [|
                 "Patient Age day"
-                "F"
-                "s0kRbJ3A"
-                ""
-                "gOIFZxR"
-                "hBvs0kSz"
-                ""
-            |]
-            [|
-                "Patient Age days"
-                "B9"
-                "CWQNlFzw4"
-                "p"
-                "qKhB9tnI"
-                ""
-                "ey5pXFQ"
-            |]
-            [|
-                "Patient Age week"
-                "L5CWuOlFd"
-                "y"
-                "ztqKiC9R"
-                ""
-                "nhey6aC"
-                "a41zhs9SZ6"
-            |]
-            [|
-                "Patient Age weeks"
-                "H"
-                "I1zTrli0"
-                ""
-                "wPnHfjL"
-                "jQaIqei1uf"
-                "kDbT4L"
-            |]
-            [|
-                "Patient Age month"
-                "daI2ATr9"
-                ""
-                "1YwQo5U"
-                "2ZjRVnraD1"
-                "PMk2dU"
-                "fNvGK6dkl"
-            |]
-            [|
-                "Patient Age months"
-                ""
-                "N7FZTe3"
-                "A8s04wAjMw"
-                "BVtbZ3"
-                "oWEPwfmtQ"
-                "p7WmI"
-            |]
-            [|
-                "Patient Age year"
-                "WgO8Fnc"
-                "JhB9QFJOyF"
-                "K4CG8c"
-                "x5NYFovCC"
-                "ygrvR"
-                "JyYHryzg"
-            |]
-            [|
-                "Patient Age years"
-                "SqKEZOeXHO"
-                "TdLPhl"
-                "GeWKOx0LL"
-                "H"
-                "SH7tAHIZ"
-                ""
-            |]
-         |],
-         French,
-         {
-             Years = 16<year>
-             Months = 2<month>
-             Weeks = 1<week>
-             Days = 6<day>
-         },
-         "16 Some(GeWKOx0LL), 2 Some(A8s04wAjMw), 1 Some(ztqKiC9R), 6 Some(p)")
-        ([|
-            [|
-                "Patient Age day"
-                "jdaI2A"
-                "ke"
-                "71YwQ"
-                "8"
-                "VsMk"
-                ""
-            |]
-            [|
-                "Patient Age days"
-                "tM"
-                "gN7FZ"
-                "h"
-                "EBVt"
-                ""
-                "spJ"
-            |]
-            [|
-                "Patient Age week"
+                "b8s0kR"
+                "YV"
                 "ZWgO8"
-                "M"
-                "NK4C"
+                "p"
+                "cK4C"
                 ""
-                "0yS"
-                "1lTd7shHqa"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "K4"
+                "x5pXg"
                 "y"
                 "lTdL"
                 ""
                 "9H1"
-                "au2mTBqQzj"
-                "Xv"
-            |]
-            [|
-                "Patient Age month"
-                "u2mg"
-                ""
-                "iQa"
-                "jDb52KVZls"
-                "6E"
-                "7rZ3vziLv"
-            |]
-            [|
-                "Patient Age months"
-                ""
-                "rZj"
-                "sMkDbT"
-                "fN"
-                "gA8PE"
-                "3"
-            |]
-            [|
-                "Patient Age year"
-                "A82ZjRVn"
-                "BVPM"
-                "oWQNvGK"
-                "pJD"
-                "cKrgk3"
-                "dV"
-            |]
-            [|
-                "Patient Age years"
-                "K4BV"
-                "x5oWEPT"
-                "ySp"
-                "lfApty"
-                "mq"
-                "xIp8f"
-            |]
-         |],
-         English,
-         {
-             Years = 37<year>
-             Months = 2<month>
-             Weeks = 1<week>
-             Days = 5<day>
-         },
-         "37 Some(K4BV), 2 , 1 Some(ZWgO8), 5 Some(tM)")
-        ([|
-            [|
-                "Patient Age day"
-                "au2mgd"
-                "XvPnhey6q"
-                "YiQa4"
-                "LjDb52mU"
-                "M6EY"
-                "z7rZiQa"
-            |]
-            [|
-                "Patient Age days"
-                "6EYwPnHf9"
-                "7rZjQ"
-                "UsMkDbv3"
-                "VfN7"
-                "IgAurZj"
-                "J3B"
             |]
             [|
                 "Patient Age week"
-                "gA82Z"
-                "3BVPMkEc"
-                "4oWQ"
-                "RpJgA8s"
-                "ScK"
-                "Fdx4oW"
-            |]
-            [|
-                "Patient Age weeks"
-                "cK4BVtNH"
-                ""
-                "0yspJhB"
-                "1lfcK4Cj8c"
-                ""
-                "P930ygr"
-            |]
-            [|
-                "Patient Age month"
-                "mGAx5pjgO"
-                "9"
-                "au1lTd7s"
-                ""
-                "YiP9HpA"
-                "LjCaS37tAH"
-            |]
-            [|
-                "Patient Age months"
-                "i"
-                "jdau2mTB"
-                ""
-                "71YiQUm"
-                "UOLj1cTCJQ"
-                "VPMuFJ"
-            |]
-            [|
-                "Patient Age year"
-                "smjDb52K"
-                ""
-                "gz7rZ3v"
-                "3AUsal2LeZ"
-                "4nVDOS"
-                "Ro6VlHOVW"
-            |]
-            [|
-                "Patient Age years"
-                ""
-                "LIgA8PE"
-                "MJ3BF7bUn8"
-                "zw4MXE"
-                "AxfquQX45"
-                "0IxXG"
-            |]
-         |],
-         French,
-         {
-             Years = 2<year>
-             Months = 3<month>
-             Weeks = 2<week>
-             Days = 6<day>
-         },
-         "2 Some(MJ3BF7bUn8), 3 , 2 Some(0yspJhB), 6 Some(UsMkDbv3)")
-        ([|
-            [|
-                "Patient Age day"
-                "Om"
-                "P9H0ySqkh"
-                "C"
-                "DXvO"
-                ""
-                "rLj"
-            |]
-            [|
-                "Patient Age days"
-                "Yic9H"
-                "L"
-                "M6"
-                "z71Yi"
-                "A"
-                "nVPM"
-            |]
-            [|
-                "Patient Age week"
-                "UsLjDb"
-                "Vf"
-                "Igz7r"
-                "J"
-                "w4nV"
-                ""
-            |]
-            [|
-                "Patient Age weeks"
-                "4Y"
-                "RLIgA"
-                "S"
-                "Fzw4"
-                ""
-                "t0k"
-            |]
-            [|
-                "Patient Age month"
-                "0xRpJ"
-                "1"
-                "OlFd"
-                ""
-                "c9t"
-                "ZWuOm3SW18"
-            |]
-            [|
-                "Patient Age months"
-                "w"
-                "xuOm"
-                ""
-                "KiC"
-                "L5DXRc1raU"
-                "y6"
-            |]
-            [|
-                "Patient Age year"
-                "5DXv"
-                ""
-                "TrL"
-                "UeM6DlaAj3"
-                "Hf"
-                "I2AE6aTmK"
-            |]
-            [|
-                "Patient Age years"
-                ""
-                "2AU"
-                "3nVPMuFJ5c"
-                "Qo"
-                "RbJNfj2vf"
-                "E"
-            |]
-         |],
-         Italian,
-         {
-             Years = 67<year>
-             Months = 10<month>
-             Weeks = 3<week>
-             Days = 0<day>
-         },
-         "67 Some(E), 10 Some(y6), 3 Some(t0k)")
-        ([|
-            [|
-                "Patient Age day"
-                "G0xRpJD"
-                "t1kScK3BVt"
-                "uOlFdx"
-                "hb8G0yRpJ"
-                "ic9t1"
-                "5ZWuOmFd"
-            |]
-            [|
-                "Patient Age days"
-                "Cwt1lfcK4C"
-                "DxuOmg"
-                "qXhP930yS"
-                "rKiCa"
-                "eL5DXROm"
-                "fy6q"
-            |]
-            [|
-                "Patient Age week"
-                "M5DXvO"
-                "96qYiP9H1"
-                "WTrLj"
-                "XUeM6DXv"
-                "KHfz"
-                "LI2AurL"
-            |]
-            [|
-                "Patient Age weeks"
-                "ifz71YiQa"
-                "I2AUO"
-                "v3nVPM6E"
-                "wQoI"
-                "jRbJDAU"
-                "kEc"
-            |]
-            [|
-                "Patient Age month"
-                "RbJ3A"
-                "Ecw4nVfN"
-                "FZxR"
-                "s0kSbJ3"
-                "tNl"
-                "gO82Zx"
-            |]
-            [|
-                "Patient Age months"
-                "NlFzw4oW"
-                "O8GA"
-                "B9tnkSc"
-                "CWu"
-                "pXhO8G"
-                "qKiB9R26s"
-            |]
-            [|
-                "Patient Age year"
-                ""
-                "KiC9t1l"
-                "L5DWuOm3SW"
-                "y60XhP"
-                "zTNKi0b"
-                "mUOLtEI4bi"
-            |]
-            [|
-                "Patient Age years"
-                "T"
-                "Ue85DXRc"
-                ""
-                "I2zTr9k"
-                "v3mUCNRdkr"
-                "wQn5Uk"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 32<year>
-             Months = 6<month>
-             Weeks = 2<week>
-             Days = 2<day>
-         },
-         "32 Some(Ue85DXRc), 6 Some(O8GA), 2 Some(I2AUO), 2 Some(DxuOmg)")
-        ([|
-            [|
-                "Patient Age day"
-                "URb"
-                "HEcw4nVfNH"
-                "IF"
-                "vs0kebJ3B"
-                "w"
-                "WgO82ZxR"
-            |]
-            [|
-                "Patient Age days"
-                "tNlFzw4oWf"
-                "gO"
-                "hB9tnkSc6"
-                "4"
-                "5pXhO8G0"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "pX"
-                "qKiC9t1lS"
-                "d"
-                "ey60XhP9"
-                ""
-                "2mUOL5D"
-            |]
-            [|
-                "Patient Age weeks"
-                "zTrliCa41"
-                "m"
-                "nHfy6qYS"
-                ""
-                "bv3"
-                "YwQnHfz6OD"
-            |]
-            [|
-                "Patient Age month"
-                "v"
-                "wQKH"
-                "jRLI2"
-                "k"
-                "7Fzw"
-                ""
-            |]
-            [|
-                "Patient Age months"
-                "FZ"
-                "s0jRb"
-                "t"
-                "gO7F"
-                ""
-                "4YV"
-            |]
-            [|
-                "Patient Age year"
-                "Bvs0k"
-                "C"
-                "pjgO"
-                ""
-                "d74"
-                "ex5pX1txgJ"
-            |]
-            [|
-                "Patient Age years"
-                "L"
-                "y5pX"
-                ""
-                "mTd"
-                "JGey6NCGpS"
-                "KH"
-            |]
-         |],
-         Italian,
-         {
-             Years = 53<year>
-             Months = 6<month>
-             Weeks = 2<week>
-             Days = 1<day>
-         },
-         "53 Some(KH), 6 Some(4YV), 2 Some(YwQnHfz6OD), 1 Some(WgO82ZxR)")
-        ([|
-            [|
-                "Patient Age day"
-                "bv3"
-                "YwQKHf"
-                "Zj"
-                "MkEyv"
-                "N"
-                "A8sZ"
-            |]
-            [|
-                "Patient Age days"
-                "7FZwQo"
-                "8s0jRbJDA"
-                "VtNkE"
-                "WgO7FZxQ"
-                "Jhb8"
-                "K4YVtNl"
-            |]
-            [|
-                "Patient Age week"
-                "hBvs0kS"
-                "4CwtNlFcw4"
-                "5pjgO8"
-                "SqkhB930k"
-                "TdK4C"
-                "Gex5pXRO"
-            |]
-            [|
-                "Patient Age weeks"
-                "dL4CWuolFd"
-                "ey5pXh"
-                "1zSqKiB9t"
-                "2WTdL"
-                "PJGey6pX"
-                "QKH1"
-            |]
-            [|
-                "Patient Age month"
-                "nhey6q"
-                "a41zTNKiC"
-                "b52mU"
-                "YvPnHBy6"
-                "ZiQa"
-                "MjDbvpm"
-            |]
-            [|
-                "Patient Age months"
-                "jQaI2zTrL"
-                "kDbv3"
-                "HEYwQnHf"
-                "urZj"
-                "vsMkEbv"
-                "ifN"
-            |]
-            [|
-                "Patient Age year"
-                "PMkEy"
-                "fN7FzwQo"
-                "gA8s"
-                "3BVtnkE"
-                "4oW"
-                "RpJhA8"
-            |]
-            [|
-                "Patient Age years"
-                "oWgO7FZx"
-                "pJhB"
-                "cK4CVtN"
-                "dx5"
-                "0ySMJh"
-                "1l"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 18<year>
-             Months = 7<month>
-             Weeks = 3<week>
-             Days = 2<day>
-         },
-         "18 Some(pJhB), 7 Some(kDbv3), 3 Some(ey5pXh), 2 Some(8s0jRbJDA)")
-        ([|
-            [|
-                "Patient Age day"
-                "Pnhe"
-                ""
-                "Dbu"
-                "EYvPnHBy6q"
-                "rZ"
-                "sMjDbvpmU"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "MGD"
-                "NHEYwQnHfz"
-                "Au"
-                "BvsMkEbv3"
-                "o"
-            |]
-            [|
-                "Patient Age week"
-                "VsM"
-                "WfN7FzwQoI"
-                "Jg"
-                "K3BVtnkEc"
-                "x"
-                "yRpJhA8s"
-            |]
-            [|
-                "Patient Age weeks"
-                "roWgO7FZxr"
-                "sp"
-                "fcK4CVtNl"
-                "g"
-                "30ySMJhB"
-                ""
-            |]
-            [|
-                "Patient Age month"
-                "0y"
-                "1lTd74CWQ"
-                "O"
-                "P9H1ySqK"
-                ""
-                "DXvPmGe"
-            |]
-            [|
-                "Patient Age months"
-                "au2mTdL5Z"
-                "X"
-                "YiQKH1zT"
-                ""
-                "M6EyvPn"
-                "z7rliQaIpe"
-            |]
-            [|
-                "Patient Age year"
-                "6"
-                "7rZTQaIC"
-                ""
-                "VfN"
-                "IgA7rZjdyn"
-                "J3"
-            |]
-            [|
-                "Patient Age years"
-                "gA8r"
-                ""
-                "4"
-                "Rpjg"
-                ""
-                "Fd7"
-            |]
-         |],
-         Italian,
-         {
-             Years = 84<year>
-             Months = 2<month>
-             Weeks = 2<week>
-             Days = 5<day>
-         },
-         "84 Some(Fd7), 2 Some(z7rliQaIpe), 2 , 5 Some(o)")
-        ([|
-            [|
-                "Patient Age day"
-                "H0yS"
-                "u1lTd74"
-                "vOm"
-                "SP9H1y"
-                "FC"
-                "GDXvP"
-            |]
-            [|
-                "Patient Age days"
-                "dau2mTd"
-                "0Xv"
-                "1YiQKH"
-                "rL"
-                "eM6Ey"
-                "f"
-            |]
-            [|
-                "Patient Age week"
-                "M6E"
-                "z7rZiQ"
-                "AU"
-                "nVfN6"
-                "o"
-                "bJ3B"
-            |]
-            [|
-                "Patient Age weeks"
-                "IgAurZ"
-                "J3"
-                "w4oif"
-                "x"
-                "kSc6"
-                ""
-            |]
-            [|
-                "Patient Age month"
-                "Sc"
-                "Fdx4o"
-                "G0yRpJhb"
-                "t1lS"
-                "uOmFdx5"
-                "hPJ"
-            |]
-            [|
-                "Patient Age months"
-                "Omgdx5pWgO"
-                "P930yS"
-                "Ca41lTdK4"
-                "DXROm"
-                "qYhP9HBy"
-                "rLiC"
-            |]
-            [|
-                "Patient Age year"
-                "YiP9H1"
-                "LjCau2WTd"
-                "M6DXv"
-                "ztqYiQ9H"
-                "AurL"
-                "nheM6EX"
-            |]
-            [|
-                "Patient Age years"
-                "UOLjDbu2m"
-                "VPM6E"
-                "ICz7rliQ"
-                "J2AU"
-                "w3nVf96"
-                "xQo"
-            |]
-         |],
-         English,
-         {
-             Years = 49<year>
-             Months = 3<month>
-             Weeks = 3<week>
-             Days = 6<day>
-         },
-         "49 Some(UOLjDbu2m), 3 Some(Omgdx5pWgO), 3 Some(IgAurZ), 6 Some(dau2mTd)")
-        ([|
-            [|
-                "Patient Age day"
-                ""
-                "lFdx4oW"
-                "8G0yRpJhA8"
-                "9t1lSc"
-                "WuOIFdx5o"
-                "XhPJG"
-            |]
-            [|
-                "Patient Age days"
-                "uOmgdx5"
-                "hP930ySqJh"
-                "iCa41l"
-                "5DXuOmGAx"
-                "6qYhP"
-                "TrLiCauo"
-            |]
-            [|
-                "Patient Age week"
-                "qYiP9H1VSq"
-                "rL"
-                "eMGDXvPmG"
-                "f"
-                "2A"
-                "3nheM6EXv"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "nVP"
-                "oIfz7rliQa"
-                "bJ"
-                "cw3nVf96E"
-                "Z"
-            |]
-            [|
-                "Patient Age month"
-                "w4n"
-                "xroIgA7rZj"
-                "ke"
-                "lfcw4oVfN"
-                "8"
-                "930kSMJ3"
-            |]
-            [|
-                "Patient Age months"
-                "GAxRpjgA8s"
-                "t0"
-                "uNlFd74oW"
-                "h"
-                "iB9t1VSc"
-                ""
-            |]
-            [|
-                "Patient Age year"
-                "c9"
-                "ZWuOmFdx5"
-                "0"
-                "NKiCat1l"
-                ""
-                "ey6qkhP"
-            |]
-            [|
-                "Patient Age years"
-                "L5DXROmGe"
-                "y"
-                "zTrLFCau"
-                ""
-                "nHfz6qY"
-                "aI2ATrLjnP"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 69<year>
-             Months = 10<month>
-             Weeks = 2<week>
-             Days = 4<day>
-         },
-         "69 Some(nHfz6qY), 10 Some(iB9t1VSc), 2 Some(cw3nVf96E), 4 Some(6qYhP)")
-        ([|
-            [|
-                "Patient Age day"
-                "cwqnVfN"
-                "Zxr"
-                "0keb"
-                "Nlfcw4o"
-                "O82"
-                "B930kS"
-            |]
-
-            [|
-                "Patient Age days"
-                "8GZxRpjg"
-                "9t0k"
-                "WuNlFd7"
-                "XhO"
-                "KiB9t1"
-                "LF"
-            |]
-            [|
-                "Patient Age week"
-                "ic9t"
-                "5ZWuOmF"
-                "60X"
-                "TNKiCw"
-                "Ud"
-                "Hey6q"
-            |]
-            [|
-                "Patient Age weeks"
-                "eL5DXRO"
-                "fy6"
-                "2zTrLi"
-                "3m"
-                "qnHfz"
-                "d"
-            |]
-
-            [|
-                "Patient Age month"
-                "KHf"
-                "LI2Aur"
-                "yv"
-                "YwQoi"
-                "Z"
-                "MkEc"
-            |]
-            [|
-                "Patient Age months"
-                "jRbJDA"
-                "kE"
-                "7FZxQ"
-                "8"
-                "VtNl"
-                ""
-            |]
-            [|
-                "Patient Age year"
-                "tN"
-                "gO82Z"
-                "h"
-                "4CWQ"
-                ""
-                "SqK"
-            |]
-            [|
-                "Patient Age years"
-                "pXhO8"
-                "qKiB9t1V"
-                "dL5C"
-                "ey6pXhP"
-                "1zT"
-                "2mgdL5"
-            |]
-         |],
-         English,
-         {
-             Years = 34<year>
-             Months = 11<month>
-             Weeks = 3<week>
-             Days = 5<day>
-         },
-         "34 Some(pXhO8), 11 Some(jRbJDA), 3 Some(eL5DXRO), 5 Some(8GZxRpjg)")
-        ([|
-            [|
-                "Patient Age day"
-                "Q"
-                "RLI2AurL"
-                ""
-                "FYwQoif"
-                "sZjRb52AUs"
-                "tMkEc6"
-            |]
-            [|
-                "Patient Age days"
-                "0jRbJ2AU"
-                ""
-                "a7FZxQo"
-                "b8s0kRbJ3X"
-                "YVtNlE"
-                "ZWgOIFZxR"
-            |]
-            [|
-                "Patient Age week"
-                ""
-                "WgO82Zx"
-                "JhB930kScJ"
-                "K4CWQN"
-                "x5pXRO8GA"
-                "ySqKh"
-            |]
-            [|
-                "Patient Age weeks"
-                "5pXhO8G"
-                "SqKiB9t1VS"
-                "TdL5CW"
-                "Gey6pXhP8"
-                "H1ztq"
-                "u2mgdL5D"
-            |]
-            [|
-                "Patient Age month"
-                "1zTNKiCat1"
-                "2mUOL5"
-                "PnHBy6qkh"
-                "QaICz"
-                "Dbv2mUe8"
-                ""
-            |]
-            [|
-                "Patient Age months"
-                "bv"
-                "YwQnHfz6q"
-                "Z"
-                "Mkebv3nU"
-                "N71YwQoHf"
-                "A"
-            |]
-            [|
-                "Patient Age year"
-                "7Fz"
-                "8smjRb52AU"
-                "Vt"
-                "WgN7FZTQo"
-                "J"
-                "K4BVtNHE"
-            |]
-            [|
-                "Patient Age years"
-                "hB8s0kRbJ3"
-                "4Y"
-                "5ZWgO8FZx"
-                "S"
-                "TNK4CWtN"
-                ""
-            |]
-         |],
-         Spanish,
-         {
-             Years = 0<year>
-             Months = 6<month>
-             Weeks = 3<week>
-             Days = 0<day>
-         },
-         "6 Some(N71YwQoHf), 3 Some(H1ztq)")
-        ([|
-            [|
-                "Patient Age day"
+                "Gey6p"
                 "H"
                 "u2mU"
                 ""
                 "iQa"
-                "jDbv2mUe85"
-                "6E"
+                "jDb52mUeL5"
+            |]
+            [|
+                "Patient Age weeks"
+                "Q"
+                "Dbv2"
+                ""
+                "rZj"
+                "sMkDbv"
+                "fN"
+            |]
+            [|
+                "Patient Age month"
+                "MkEb"
+                "N7FYw"
+                "A82ZjRbI"
+                "BVPM"
+                "oWQN7FZ"
+                "pJg"
+            |]
+            [|
+                "Patient Age months"
+                "WgN7F"
+                "JhA8s0UR"
+                "K4BV"
+                "x5oWgO7"
+                "ySp"
+                "lTcK4C"
+            |]
+            [|
+                "Patient Age year"
+                "SMJhB9s0"
+                "TNK4"
+                "GAx5pXg"
+                "H0y"
+                "u1lTd7"
+                "vO"
+            |]
+            [|
+                "Patient Age years"
+                "2lTd"
+                "PmGey5p"
+                "Q9H"
+                "Dau2mT"
+                "EX"
+                "1YiQa"
+            |]
+         |],
+         Spanish,
+         195,
+         "6 Some(ySp), 2 Some(sMkDbv) en 1 Some(cK4C)")
+        ([|
+            [|
+                "Patient Age day"
+                "sMkEbv"
+                "fN71YwQoH"
+                "gA82Z"
+                "3BVPMkEc"
+                "4oWf"
+                "RpJgA8s"
             |]
             [|
                 "Patient Age days"
-                "Dbv3"
+                "oWgN7FZTQ"
+                "pJhA8"
+                "cK4BVtNk"
                 ""
-                "rZj"
-                "sMkebv3nUe"
-                "fN"
-                "gA82ZjRbI"
+                "0ySpJhB"
+                "1lTcK4CV"
             |]
             [|
                 "Patient Age week"
+                "ySMJhB9s0k"
+                "lT"
+                "mGdx5pXgO"
+                "9"
+                "au1lTd74"
+                ""
+            |]
+            [|
+                "Patient Age weeks"
+                "u2"
+                "vPmGey5pX"
+                "i"
+                "jDau2mTd"
+                ""
+                "71YiQaH"
+            |]
+            [|
+                "Patient Age month"
+                "EyvPnHey6"
+                "r"
+                "sLjDb52m"
+                ""
+                "gz7rZTQ"
+                "3AUsMjDbv3"
+            |]
+            [|
+                "Patient Age months"
+                "A"
+                "BUsMkDbv"
+                ""
+                "LIgA8rZ"
+                "MJ3BVsMkEb"
+                "zw4oWf"
+            |]
+            [|
+                "Patient Age year"
+                "J3BVtMkE"
+                ""
+                "xRpJDA8"
+                "kScKEBVtNk"
+                "lFdx4o"
+                "8G0yRpJhb"
+            |]
+            [|
+                "Patient Age years"
+                ""
+                "G0ySpJh"
+                "t1lTcK4CVt"
+                "uOmGdx"
+                "hP9H0ySqJ"
+                "iCau1"
+            |]
+         |],
+         Italian,
+         23959,
+         "65 Some(iCau1), 7 Some(zw4oWf), 3 Some(71YiQaH), 3 Some(1lTcK4CV)")
+        ([|
+            [|
+                "Patient Age day"
+                "6EXvPnH"
+                "7rY"
+                "UsLjDb"
+                "Vf"
+                "Igz7r"
+                "J"
+            |]
+            [|
+                "Patient Age days"
+                "gA7"
+                "3BUsMk"
+                "4Y"
+                "RLIgA"
+                "S"
+                "Fcw4"
+            |]
+            [|
+                "Patient Age week"
+                "cJ3BVP"
+                "dw"
+                "0xRpJ"
+                "1"
+                "OlFd"
+                ""
+            |]
+            [|
+                "Patient Age weeks"
+                "mF"
+                "JG0yS"
+                "w"
+                "xuOm"
+                ""
+                "KiC"
+            |]
+            [|
+                "Patient Age month"
+                "hP9HB"
+                "i"
+                "5DXv"
+                ""
+                "TrL"
+                "UeM6DXvPJG"
+            |]
+            [|
+                "Patient Age months"
+                "r"
+                "eM6E"
+                ""
+                "2AU"
+                "3nVPM6EYvP"
+                "Qo"
+            |]
+            [|
+                "Patient Age year"
+                "nVfM"
+                ""
+                "bJ3"
+                "cw4nVfNHEY"
+                "Zx"
+                "0kSbJ"
+            |]
+            [|
+                "Patient Age years"
+                "xRpIgA8"
+                "kScJ3BVs"
+                "lFzw"
+                "8GAxRpJ"
+                "9tn"
+                "WuNlFd"
+            |]
+         |],
+         German,
+         31460,
+         "86 Some(8GAxRpJ), 2 Some(2AU), 1 Some(1), 3 Some(RLIgA)")
+        ([|
+            [|
+                "Patient Age day"
+                "YhP9HBy"
+                "LiCau1lTdL"
+                "M5DXvO"
+                "z6qYiP9H1"
+                "ATrLj"
+                "XUeM6DXv"
+            |]
+            [|
+                "Patient Age days"
+                "urLjDau2mT"
+                "UeM6EX"
+                "Hfz71YiQa"
+                "I2AUO"
+                "v3nVPM6E"
+                "wQoI"
+            |]
+            [|
+                "Patient Age week"
+                "3nVfM6"
+                "QoIgz7rZT"
+                "RbJ3A"
+                "Ecw4nVfN"
+                "FZxR"
+                "s0kSbJ3"
+            |]
+            [|
+                "Patient Age weeks"
+                "ZxRpIgA8r"
+                "0kSMJ"
+                "NlFzw4oW"
+                "O8GA"
+                "B9t0kSc"
+                "CWu"
+            |]
+            [|
+                "Patient Age month"
+                "9t1kS"
+                "WuOlFdxr"
+                ""
+                "KiC9t1l"
+                "L5DWuOmFdx"
+                ""
+            |]
+            [|
+                "Patient Age months"
+                "5D"
+                "6qkhP9H0y"
+                "T"
+                "UeL5DXvO"
+                ""
+                "I2zTrLF"
+            |]
+            [|
+                "Patient Age year"
+                "fz6qYic9H"
+                "2"
+                "3nUeM6DX"
+                ""
+                "RbI2AUr"
+                "Eyv3nVeM6E"
+            |]
+            [|
+                "Patient Age years"
+                "b"
+                "cv3nVfM6"
+                ""
+                "0jRbJDA"
+                "NkEcwqnVfN"
+                "O7FZxQ"
+            |]
+         |],
+         Italian,
+         18723,
+         "51 Some(O7FZxQ), 3 Some(I2zTrLF), 2 Some(CWu), 4 Some(wQoI)")
+        ([|
+            [|
+                "Patient Age day"
+                "B9t"
+                "CWuOlFdx4o"
+                "pX"
+                "qKiC9t1lS"
+                "d"
+                "ey60XhP9"
+            |]
+            [|
+                "Patient Age days"
+                "L5DxuOmGdx"
+                "y6"
+                "zTrKiCau1"
+                "m"
+                "nHfy6qYS"
+                ""
+            |]
+            [|
+                "Patient Age week"
+                "Hf"
+                "I2ATr"
+                "v"
+                "wQ"
+                "jRLI2"
+                "k"
+            |]
+            [|
+                "Patient Age weeks"
+                "RbI"
+                "Ecv3nV"
+                "FZ"
+                "s0jRb"
+                "t"
+                "gO7F"
+            |]
+            [|
+                "Patient Age month"
+                "NlEcw4"
+                "O8"
+                "Bvs0k"
+                "C"
+                "pjgO"
+                ""
+            |]
+            [|
+                "Patient Age months"
+                "Xg"
+                "KhB9t"
+                "L"
+                "y5pX"
+                ""
+                "mTd"
+            |]
+            [|
+                "Patient Age year"
+                "TqKiC"
+                "g"
+                "hey6"
+                ""
+                "u2m"
+                "vPnHBy6qYh"
+            |]
+            [|
+                "Patient Age years"
+                "2"
+                "PnHf"
+                ""
+                "Dbv"
+                "EYwQnHfztq"
+                "rZ"
+            |]
+         |],
+         German,
+         6158,
+         "16 Some(Dbv), 10 Some(y5pX), 2 Some(s0jRb), 4 Some(m)")
+        ([|
+            [|
+                "Patient Age day"
+                "tNlEcw4n"
+                ""
+                "hBvs0kS"
+                "4CwtNlFcw4"
+                "5pWgO8"
+                "SqJhB930k"
+            |]
+            [|
+                "Patient Age days"
+                ""
+                "qKhB9tn"
+                "dL4CWuNlFd"
+                "ey5pXh"
+                "1zSqKiB9t"
+                "2mTdL"
+            |]
+            [|
+                "Patient Age week"
+                "ztqKiC9"
+                "mgdL5DWuOm"
+                "nhey6q"
+                "aH1zTrKiC"
+                "bu2mU"
+                "YvPnHBy6"
+            |]
+            [|
+                "Patient Age weeks"
+                "v2mUe85DXv"
+                "wPnHfy"
+                "jQaI2zTrL"
+                "kDbv3"
+                "7EYwQnHf"
+                "urZj"
+            |]
+            [|
+                "Patient Age month"
+                "1YwQoH"
+                "2ZjRbI2AU"
+                "sMkEc"
+                "fN7FzwQo"
+                "gA8s"
+                "3BVtnkE"
+            |]
+            [|
+                "Patient Age months"
+                "A8s0jRbJ3"
+                "BVtNk"
+                "oWgO7FZx"
+                "pJhB"
+                "cK4CVtN"
+                "dx5"
+            |]
+            [|
+                "Patient Age year"
+                "K4CWt"
+                "x5pjgO8G"
+                "ySqk"
+                "lTd74CW"
+                "mGe"
+                "9H1ySq"
+            |]
+            [|
+                "Patient Age years"
+                "Gey5pXhb"
+                "H1zS"
+                "u2mTdL5"
+                "vPnGey6pXh"
+                "iQaH1z"
+                "jDbu2mU"
+            |]
+         |],
+         English,
+         29922,
+         "81 Some(Gey5pXhb), 11 Some(A8s0jRbJ3), 3 Some(v2mUe85DXv), 6 ")
+        ([|
+            [|
+                "Patient Age day"
+                "71Yw"
+                ""
+                "VsM"
+                "WfN7FzwQoI"
+                "Jg"
+                "K3BVtMkEc"
+            |]
+            [|
+                "Patient Age days"
+                ""
+                "4BV"
+                "5oWgO7FZxr"
+                "sp"
+                "fcK4CVtNl"
+                "g"
+            |]
+            [|
+                "Patient Age week"
+                "cK4"
+                "dx5pjgO8GZ"
+                "0y"
+                "1lTdK4CWu"
+                "O"
+                "P9H1ySqK"
+            |]
+            [|
+                "Patient Age weeks"
+                "mGey5pXhb8"
+                "9H"
+                "au2mTdL5C"
+                "X"
+                "YiQaH1zT"
+                ""
+            |]
+            [|
+                "Patient Age month"
+                "iQ"
+                "jDb52mUeL"
+                "6"
+                "7rZiQaIC"
+                ""
+                "VfN6EYw"
+            |]
+            [|
+                "Patient Age months"
+                "sMkDb"
+                "f"
+                "gA8r"
+                "3BVsM"
+                "4"
+                "Rpjg"
+            |]
+            [|
+                "Patient Age year"
+                "oWQN7F"
+                "pJ"
+                "cK3BV"
+                "d"
+                "0yRp"
+                ""
+            |]
+            [|
+                "Patient Age years"
+                "yS"
+                "lTcK4"
+                "m"
+                "930y"
+                ""
+                "XRO"
+            |]
+         |],
+         French,
+         17022,
+         "46 Some(m), 7 Some(gA8r), 3 Some(au2mTdL5C), 1 Some(VsM)")
+        ([|
+            [|
+                "Patient Age day"
+                "YiQa"
+                "LjDbu2m"
+                "M6E"
+                "z7rZiQ"
+                "AU"
+                "nVfN6"
+            |]
+            [|
+                "Patient Age days"
+                "UsMkDbv"
+                "VfN"
+                "IgA8rZ"
+                "J3"
+                "w4oif"
+                "x"
+            |]
+            [|
+                "Patient Age week"
+                "4oW"
+                "RpJgA8"
+                "Sc"
+                "Fdx4o"
+                "G0yRpJhA"
+                "t1lS"
+            |]
+            [|
+                "Patient Age weeks"
+                "0ySpJh"
+                "1lTcK4C"
+                "Omgdx5pWgO"
+                "P930yS"
+                "Ca41lTdK4"
+                "DXuOm"
+            |]
+            [|
+                "Patient Age month"
+                "au1lTd7"
+                "XvOmGe85pX"
+                "YiP9H1"
+                "LjCau2lTd"
+                "M6DXv"
+                "z7qYiQ9H"
+            |]
+            [|
+                "Patient Age months"
+                "60XvPnGey6"
+                "71YiQa"
+                "UOLjDbu2m"
+                "VeM6E"
+                "Ifz7rliQ"
+                "J2AU"
+            |]
+            [|
+                "Patient Age year"
+                "gz7rZT"
+                "3AUsMjDbv"
+                "4nVfN"
+                "RoIgA7rZ"
+                "SbJ3"
+                "fcw4oVf"
+            |]
+            [|
+                "Patient Age years"
+                "MJ3BVsMkE"
+                "zw4oW"
+                "ZxRpJgA8"
+                "0kSc"
+                "NlFd74o"
+                "O8G"
+            |]
+         |],
+         Spanish,
+         24686,
+         "67 Some(NlFd74o), 7 Some(Ifz7rliQ), 3 Some(Ca41lTdK4)")
+        ([|
+            [|
+                "Patient Age day"
+                ""
+                "DXvOmGe"
+                "qYiP9H1ySq"
+                "rL"
+                "eM6DXvPmG"
+                "fz7qYiQ9H1"
+            |]
+            [|
+                "Patient Age days"
+                "M"
+                "z71Y"
+                ""
+                "nVe"
+                "oIfz7rliQa"
+                "bJ"
+            |]
+            [|
+                "Patient Age week"
+                "Igz7"
+                ""
+                "w4n"
+                "xRoIgA7rZj"
+                "ke"
+                "lfcw4oVfN"
+            |]
+            [|
+                "Patient Age weeks"
+                ""
+                "Fcw"
+                "GZxRpjgA8s"
+                "t0"
+                "uNlFd74oW"
+                "h"
+            |]
+            [|
+                "Patient Age month"
+                "OlF"
+                "P8G0yRpJhb"
+                "C9"
+                "ZWuOmFdx5"
+                "0"
+                "NKiCat1l"
+            |]
+            [|
+                "Patient Age months"
+                "XhP9H0ySqJ"
+                "Ki"
+                "L5DXROmGe"
+                "y"
+                "zTrLiCau"
+                ""
+            |]
+            [|
+                "Patient Age year"
+                "Tr"
+                "UeM6DXvPJ"
+                "H"
+                "I2AUrLjD"
+                ""
+                "wQoIfz7"
+            |]
+            [|
+                "Patient Age years"
+                "3nVPM6EYv"
+                "Q"
+                "RbJ2AUsM"
+                ""
+                "FZxQoIg"
+                "s0kRbJ3XUs"
+            |]
+         |],
+         French,
+         12121,
+         "33 Some(RbJ2AUsM), 2 Some(L5DXROmGe), 2 Some(GZxRpjgA8s), 2 ")
+        ([|
+            [|
+                "Patient Age day"
+                "uOlFd"
+                "hP8G0yRp"
+                "ic9t"
+                "5ZWuOmF"
+                "60X"
+                "TqKiCa"
+            |]
+            [|
+                "Patient Age days"
+                "qXhP930y"
+                "rKiC"
+                "eL5DXRO"
+                "fy6"
+                "2zTrLi"
+                "3m"
+            |]
+            [|
+                "Patient Age week"
+                "ATrL"
+                "XUeM6DX"
+                "KHf"
+                "LI2AUr"
+                "bv"
+                "YwQoi"
+            |]
+            [|
+                "Patient Age weeks"
+                "v3nVPM6"
+                "wQo"
+                "jRbJ2A"
+                "kE"
+                "7FZxQ"
+                "8"
+            |]
+            [|
+                "Patient Age month"
+                "FZx"
+                "s0kSbJ"
+                "tN"
+                "gO82Z"
+                "h"
+                "4CWQ"
+            |]
+            [|
+                "Patient Age months"
+                "B9t0kS"
+                "CW"
+                "pXhO8"
+                "q"
+                "dL5C"
+                "ey6pXhP"
+            |]
+            [|
+                "Patient Age year"
+                "L5DWuOmFd"
+                "y6qXhP9G0y"
+                "zTNKiC"
+                "mUOL5DXuO"
+                "nHBy6"
+                "aI1zTrLi"
+            |]
+            [|
+                "Patient Age years"
+                "Hfy6qYSP9H"
+                "I2zTrL"
+                "v3mUeMGDX"
+                "wQnHf"
+                "jRaI2ATr"
+                "kEbv"
+            |]
+         |],
+         Spanish,
+         35885,
+         "98 Some(jRaI2ATr), 3 Some(dL5C), 3 Some(7FZxQ), 4 Some(2zTrLi)")
+        ([|
+            [|
+                "Patient Age day"
+                "I"
+                "8s0kSbJ3"
+                ""
+                "WgO82Zx"
+                "JhB930kScJ"
+                "K4CWtN"
+            |]
+            [|
+                "Patient Age days"
+                "hB9t0kSc"
+                ""
+                "5pXhO8G"
+                "SqKiB9t1kS"
+                "TdL5CW"
+                "Gey6pXhP8"
+            |]
+            [|
+                "Patient Age week"
+                ""
+                "ey60XhP"
+                "1zTNKiCat1"
+                "2mUOL5"
+                "PnHey6qYh"
+                "QaI1z"
+            |]
+            [|
+                "Patient Age weeks"
+                "nHfy6qY"
+                "aI2zTrLFCa"
+                "bv"
+                "YwQnHfz6q"
+                "Z"
+                "Mk"
+            |]
+            [|
+                "Patient Age month"
+                "jRLI"
+                ""
+                "7Fz"
+                "8sZjRbJ2AU"
+                "Vt"
+                "WgN7FZTQo"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "gO7"
+                "hB8s0kRbJ3"
+                "4C"
+                "5pWgO8FZx"
+                "S"
+            |]
+            [|
+                "Patient Age year"
+                "pjg"
+                "qJhB9t0kSc"
+                "dK"
+                "ex5pXRO8G"
+                "1"
+                "2lTdL4CW"
+            |]
+            [|
+                "Patient Age years"
+                "zSqKiB9t1V"
+                "mT"
+                "nGey6pXhP"
+                "K"
+                "xu2mUdL5"
+                ""
+            |]
+         |],
+         Dutch,
+         23320,
+         "63 Some(mT), 10 Some(gO7), 3 Some(aI2zTrLFCa), 4 ")
+        ([|
+            [|
+                "Patient Age day"
+                "Z"
+                "MkEy"
                 ""
                 "A8s"
                 "BVtMkEc63n"
                 "oW"
-                "pJhA8"
-                "c"
             |]
             [|
-                "Patient Age weeks"
-                "Jhb"
-                "K4YVtN"
+                "Patient Age days"
+                "VtNk"
+                "WgO7FZx"
+                "JhB"
+                "K4CV"
                 "x5ZWgO8"
                 "ySM"
-                "lTNK4C"
-                "mG"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "5pWgO"
+                "SqJhB9t0"
                 "TdK4"
                 "Gex5pXR"
                 "H1y"
                 "u2lTdL"
-                "vP"
-                "ic9H1"
-            |]
-            [|
-                "Patient Age months"
-                "PJGey6p"
-                "QKH"
-                "Dxu2mU"
-                "Ey"
-                "rliQa"
-                "s"
-            |]
-            [|
-                "Patient Age year"
-                "ZiQ"
-                "MjDbvp"
-                "N6"
-                "A7rZj"
-                "X"
-                "YVfN"
-            |]
-            [|
-                "Patient Age years"
-                "vsMkEb"
-                "if"
-                "jgA82"
-                "J"
-                "w4oW"
-                ""
-            |]
-         |],
-         Dutch,
-         {
-             Years = 65<year>
-             Months = 8<month>
-             Weeks = 0<week>
-             Days = 0<day>
-         },
-         "65 Some(if), 8 Some(QKH)")
-        ([|
-            [|
-                "Patient Age day"
-                "lTdK4CWQ"
-                ""
-                "9H1ySqK"
-                "au2lTdL4CW"
-                "XvpmGe"
-                "Yic9H1zSq"
-            |]
-            [|
-                "Patient Age days"
-                "vPJGey6pX"
-                "i"
-                "jDxu2mgd"
-                ""
-                "7rYiQa4"
-                "UsLjDb52mU"
-            |]
-            [|
-                "Patient Age week"
-                "r"
-                "sMjDbvpm"
-                ""
-                "ga7rZjQ"
-                "3XUsMkDbv3"
-                "4YVfN7"
             |]
             [|
                 "Patient Age weeks"
+                "1zSqKiB9"
+                "2mTd"
+                "PJGey6p"
+                "QKH"
+                "Dxu2mU"
+                "EX"
+            |]
+            [|
+                "Patient Age month"
+                "bu2m"
+                "YvPnHBy"
+                "ZiQ"
+                "MjDbv2"
+                "N6"
+                "A7rZj"
+            |]
+            [|
+                "Patient Age months"
+                "7EYwQnH"
+                "urZ"
+                "vsMkEb"
+                "if"
+                "IgA8s"
+                "J"
+            |]
+            [|
+                "Patient Age year"
+                "gA8"
+                "3BVtnk"
+                "4o"
+                "RpJhA"
+                "S"
+                "Fdx5"
+            |]
+            [|
+                "Patient Age years"
+                "cK4CVt"
+                "dx"
+                "0ySqJ"
+                "1"
+                "OmGA"
+                ""
+            |]
+         |],
+         German,
+         30649,
+         "83 Some(1), 11 Some(if), 3 Some(QKH), 3 Some(K4CV)")
+        ([|
+            [|
+                "Patient Age day"
+                "Db"
+                "EYvPnHBy6"
+                "r"
+                "sMjDbv2m"
+                ""
+                "gA7rZjQ"
+            |]
+            [|
+                "Patient Age days"
+                "NHEYwQnHf"
+                "A"
                 "BvsMkEbv"
                 ""
-                "pjgA82Z"
+                "pIgA82Z"
                 "cJ3BVPMkEc"
-                "dw4oWQ"
-                "0xRpJDA8s"
+            |]
+            [|
+                "Patient Age week"
+                "J"
+                "K3BVtMkE"
+                ""
+                "yRpJhA8"
+                "lScK4BVtNH"
+                "IFdx5o"
+            |]
+            [|
+                "Patient Age weeks"
+                "fcK4CVtN"
+                ""
+                "G0ySqJh"
+                "t1lTNK4CWt"
+                "uOmGAx"
+                "hP9HBySqK"
             |]
             [|
                 "Patient Age month"
                 ""
-                "yRpJhA8"
-                "VScK4BVtNH"
-                "IFdx5o"
-                "JG0ySpJhB"
-                "wt1lT"
+                "P9H1ySq"
+                "Cau2lTdLFC"
+                "DXvPmG"
+                "qYiQ9H1zS"
+                "rLjDa"
             |]
             [|
                 "Patient Age months"
-                "30ySMJh"
-                "t1lTNK4CWt"
-                "uOmGAx"
-                "hP9HBySqK"
-                "iCauo"
-                "5DXvOmGe"
+                "YiQaH1z"
+                "LjDxu2mUdL"
+                "M6EyvP"
+                "z7rliQaI1"
+                "AUsLj"
+                "nVfM6EYw"
             |]
             [|
                 "Patient Age year"
-                "Cau2lTdLFC"
-                "DXvPmG"
-                "qYiQ9H1zt"
-                "rLjDa"
-                "eM60XvPn"
-                "fz71"
+                "UsMjDbvpmU"
+                "VfN6EY"
+                "IgA7rZjQa"
+                "J"
+                "w4oVfN7E"
+                "xRpIgA8rZ"
             |]
             [|
                 "Patient Age years"
-                "M6EyvP"
-                "z7rliQaI1"
-                "AUsmj"
-                "nVf96EYS"
-                "oIgz"
-                "bJ3AUsM"
+                ""
+                "Rpj"
+                "Sc63BVtMkE"
+                "Fd"
+                "G0xRpJDA8"
+                "t"
             |]
          |],
-         German,
-         {
-             Years = 30<year>
-             Months = 3<month>
-             Weeks = 3<week>
-             Days = 4<day>
-         },
-         "30 Some(nVf96EYS), 3 Some(hP9HBySqK), 3 Some(cJ3BVPMkEc), 4 ")
+         Dutch,
+         18084,
+         "49 Some(Rpj), 6 Some(LjDxu2mUdL), 2 , 5 Some(A)")
         ([|
             [|
                 "Patient Age day"
-                "dx"
-                "0URpJ"
-                "1"
-                "OIFd"
-                ""
-                "Cwt"
-            |]
-            [|
-                "Patient Age days"
-                "9G0yS"
-                "a"
-                "XuOm"
-                ""
-                "LiC"
-                "M5DXvOmGe8"
-            |]
-            [|
-                "Patient Age week"
-                "F"
+                "vO"
+                "iP9H1"
+                "j"
                 "GDXv"
                 ""
                 "urL"
-                "heM60XvPnG"
-                "Hf"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "qYiQK"
+                "r"
                 "eM6E"
                 ""
                 "2AU"
                 "3nVfM6EYSP"
-                "Qo"
-                "RbJ3AUsMG"
+            |]
+            [|
+                "Patient Age week"
+                "A"
+                "nVfN"
+                ""
+                "bJ3"
+                "cw4oVfN7EY"
+                "Zx"
+            |]
+            [|
+                "Patient Age weeks"
+                "w4oi"
+                ""
+                "kSc"
+                "lFdw4oWQN7"
+                "8G"
+                "9t1kScKEB"
             |]
             [|
                 "Patient Age month"
-                ""
-                "bJ3"
-                "cw4YVfN7EY"
-                "Zx"
-                "0kSMJ3BVs"
-                "N"
+                "G0yRpJh"
+                "t1l"
+                "uOmFdx"
+                "hP9G0yS"
+                "iCw"
+                "5DxuOm"
             |]
             [|
                 "Patient Age months"
-                "kSc"
-                "lFd74oWQN7"
-                "8G"
-                "9t1kS"
-                "W"
-                "XhP8"
-            |]
-            [|
-                "Patient Age year"
-                "uOmFdx"
-                "hP"
-                "iCw"
-                "5DxuOm"
-                "6q"
-                "TrliC"
-            |]
-            [|
-                "Patient Age years"
+                "Ca41lTdK"
+                "DXuO"
                 "qYhP9HB"
                 "rLi"
                 "eM5DXv"
                 "fz"
-                "2ATrL"
-                "3"
+            |]
+            [|
+                "Patient Age year"
+                "M6DX"
+                "z7qYiQ9"
+                "AUr"
+                "nheM6E"
+                "oi"
+                "b52AU"
+            |]
+            [|
+                "Patient Age years"
+                "Ifz7rZi"
+                "J2A"
+                "w3nVf9"
+                "xQ"
+                "kRbJ3"
+                "l"
             |]
          |],
-         Italian,
-         {
-             Years = 51<year>
-             Months = 3<month>
-             Weeks = 3<week>
-             Days = 3<day>
-         },
-         "51 Some(3), 3 Some(XhP8), 3 Some(RbJ3AUsMG), 3 Some(M5DXvOmGe8)")
+         German,
+         5347,
+         "14 Some(xQ), 7 Some(rLi), 3 Some(lFdw4oWQN7), 6 ")
         ([|
             [|
                 "Patient Age day"
-                "roIgA7rZj"
-                "ebJ3X"
-                "fcw4YVfN"
-                "FZxR"
-                "s0kSMJ3"
-                "tNl"
-            |]
-            [|
-                "Patient Age days"
-                "0kSc6"
-                "NlFdw4oW"
-                "O8G0"
-                "B9t1kSc"
-                "CWu"
-                "pXhP8G"
-            |]
-            [|
-                "Patient Age week"
-                "WuOIFdx5"
+                "8G0yRpJhA"
+                "9t1lS"
+                "WuOmFdx5"
                 "XhPJ"
                 "KiCwt1l"
                 "L5D"
-                "y6qkhP"
-                "zT"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "iCat1"
+                "5DXuOmGA"
                 "6qYh"
                 "TrLiCau"
-                "UeM5DXvpmG"
+                "UeM5DXvOmG"
                 "Hfz6qY"
-                "I2ATrLjCa"
-                "v3XUe"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "eM6DXvPm"
+                "fz7qYiQ9H"
                 "2"
                 "3nheM6EX"
                 ""
-                "Rb52AUO"
-                "Ecv3nVPM6E"
-                "FZwQoI"
+                "RbI2AUs"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                "oIfz7rliQ"
+                "b"
                 "cw3nVf96"
                 ""
                 "0kRbJ3A"
-                "NHEcw4nVfN"
-                "OIFZxR"
-                "Bvs0kSbJ3"
+                "NlEcw4nVfN"
+            |]
+            [|
+                "Patient Age month"
+                "k"
+                "lfcw4oVf"
+                ""
+                "9s0kScJ"
+                "WtNlFzw4oW"
+                "XgO8GA"
+            |]
+            [|
+                "Patient Age months"
+                "uNlFd74o"
+                ""
+                "iB9t1kS"
+                "5CWuOlFdxr"
+                "6pXhP8"
+                "tqKiC9t1l"
             |]
             [|
                 "Patient Age year"
                 ""
-                "930kSMJ"
-                "WQNlFzw4oW"
-                "XgO8GA"
-                "KhB9tnkSc"
-                "L4CWu"
+                "NKiCat1"
+                "dL5DXuOmGd"
+                "ey6qkh"
+                "1zTrliCau"
+                "2mUe8"
             |]
             [|
                 "Patient Age years"
-                "iB9t1VS"
-                "5CWuOlFdxr"
-                "spXhP8"
-                "tqKiC9t1l"
-                "gdL5D"
-                "hey6qXhP"
+                "zTrLiCa"
+                "mUeM5DXvpm"
+                "nHfz6q"
+                "aI2ATrLjd"
+                "bv3nU"
+                "YwQoHfz7"
             |]
          |],
-         German,
-         {
-             Years = 16<year>
-             Months = 10<month>
-             Weeks = 3<week>
-             Days = 3<day>
-         },
-         "16 Some(tqKiC9t1l), 10 Some(NHEcw4nVfN), 3 Some(Hfz6qY), 3 Some(B9t1kSc)")
+         English,
+         29283,
+         "80 Some(zTrLiCa), 2 Some(uNlFd74o), 3 Some(oIfz7rliQ), 2 Some(iCat1)")
         ([|
             [|
                 "Patient Age day"
-                "I2AurLjDa"
-                "v"
-                "wQoifz71"
-                ""
-                "kEcv3nV"
-                "7FZwQoICz7"
-            |]
-            [| "Patient Age days"; "E"; "FZxQ"; ""; "tNH"; "gOIF"; "" |]
-            [|
-                "Patient Age week"
+                "0ke"
+                "Nlfcw4"
                 "O8"
-                "B930k"
+                "B9s0k"
                 "C"
                 "pXgO"
-                ""
-                "dL4"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "WuNlFd"
+                "Xh"
                 "KiB9t"
                 "L"
                 "yspX"
                 ""
-                "mgd"
-                "nhey60XhP9"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "60"
+                "TqKiC"
                 "U"
                 "Hey6"
                 ""
                 "v2m"
-                "wPnHf96qYS"
-                "jQ"
             |]
             [|
-                "Patient Age months"
-                "qnHf"
+                "Patient Age weeks"
+                "2zTrL"
+                "3"
+                "QnHf"
                 ""
                 "ebv"
                 "1YwQoHfz7q"
-                "2Z"
-                "sMkEyv3nV"
+            |]
+            [|
+                "Patient Age month"
+                "b"
+                "YwQo"
+                ""
+                "MkE"
+                "N7FZwQoIgz"
+                "A8"
+            |]
+            [|
+                "Patient Age months"
+                "7FZx"
+                ""
+                "VtN"
+                "WgO8FZxRoI"
+                "Jh"
+                "K4CWtNlFc"
             |]
             [|
                 "Patient Age year"
                 ""
-                "MkE"
-                "N7FZTQoICz"
-                "A8"
-                "BVtNkEcwq"
-                "o"
+                "4CW"
+                "5pXgO8G0xR"
+                "Sq"
+                "TdL4CWuol"
+                "G"
             |]
             [|
                 "Patient Age years"
-                "VtN"
-                "WgO8FZxRoI"
-                "Jh"
-                "K4CwtNlFc"
-                "x"
-                "ySqkhB9t"
+                "dL5"
+                "ey6pXh"
+                "1z"
+                "2mU"
+                "Pnhey6"
+                "Qa"
             |]
          |],
-         Italian,
-         {
-             Years = 81<year>
-             Months = 12<month>
-             Weeks = 0<week>
-             Days = 3<day>
-         },
-         "81 Some(ySqkhB9t), 12 Some(sMkEyv3nV), 3 ")
+         French,
+         111,
+         "3 Some(VtN), 3 Some(QnHf)")
         ([|
             [|
                 "Patient Age day"
-                "mUdL5DxuOm"
-                "nHey6q"
-                "aI1zTrliC"
-                "bv2mU"
-                "YwPnHfy6"
-                "ZTQa"
-            |]
-            [|
-                "Patient Age days"
-                "wqnHfz"
-                "jdaI2ATrL"
-                "kebv3"
-                "71YwQKHf"
-                "8rZj"
-                "VsMkEyv"
-            |]
-            [|
-                "Patient Age week"
+                "Ebv3nheM6E"
+                "FYwQoi"
                 "sZjRb52AU"
                 "tMkEc"
                 "gN7FZwQo"
                 "hA8s"
-                "EBVtNkE"
-                "roW"
-            |]
-            [|
-                "Patient Age weeks"
-                "YVtNl"
-                "ZWgOIFZx"
-                "MJhB"
-                "cK4CwtN"
-                "dx5"
-                "0ySqkh"
-            |]
-            [|
-                "Patient Age month"
-                "x5pXRO8G"
-                "ySqK"
-                "lTdL4CW"
-                "mGe"
-                "9H1zSq"
-                "au"
-            |]
-            [|
-                "Patient Age months"
-                "H1zt"
-                "u2mgdL5"
-                "vPn"
-                "iQa41z"
-                "jD"
-                "6EYSP"
-            |]
-            [|
-                "Patient Age year"
-                "Dbv2mUe"
-                "EYwPnHf96q"
-                "rZjQaI"
-                "sMkDbv3XU"
-                "fN7EY"
-                "gAurZjRa"
-            |]
-            [|
-                "Patient Age years"
-                "N71YwQoH"
-                ""
-                "BVPMkEc"
-                "oWQN7FzwQo"
-                "pJDA8s"
-                "cK3BVtnkE"
-            |]
-         |],
-         French,
-         {
-             Years = 47<year>
-             Months = 6<month>
-             Weeks = 4<week>
-             Days = 0<day>
-         },
-         "47 Some(BVPMkEc), 6 Some(vPn), 4 Some(MJhB)")
-        ([|
-            [|
-                "Patient Age day"
-                "ex5pXgO8GA"
-                "By"
-                "olTdL4CWu"
-                "p"
-                "c9H1zSqK"
-                ""
             |]
             [|
                 "Patient Age days"
-                "KH"
-                "au2mgdL5D"
-                "X"
-                "YiQa41zT"
-                ""
-                "M6EYvPn"
+                "O7FZxQ"
+                "b8s0kRbJ3"
+                "YVtNl"
+                "ZWgO8FZx"
+                "pJhB"
+                "cK4CwtN"
             |]
             [|
                 "Patient Age week"
+                "JhB930kSc"
+                "K4CWt"
+                "x5pXgO8G"
+                "ySqK"
+                "lTdL4CW"
+                "mGe"
+            |]
+            [|
+                "Patient Age weeks"
+                "TdL5C"
+                "Gey6pXhP"
+                "H1zT"
+                "u2mgdL5"
+                "vPn"
+                "iQa41z"
+            |]
+            [|
+                "Patient Age month"
+                "PnHey6qY"
+                "QaI1"
+                "Dbv2mUe"
+                "EYw"
+                "rZjQaI"
+                "sMkDbv3mU"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "M"
+                "N71YwQoH"
+                ""
+                "BVPMkEc"
+                "oWfN7FZwQo"
+            |]
+            [|
+                "Patient Age year"
+                "V"
+                "WgN7FZTQ"
+                ""
+                "K4BVtNk"
+                "x5oWgO7FZx"
+                "ySpJhB"
+            |]
+            [|
+                "Patient Age years"
+                "5pWgO8FZ"
+                ""
+                "TNK4CWt"
+                "GAx5pXgO8G"
+                "H0ySqK"
+                "u1lTd74CW"
+            |]
+         |],
+         English,
+         24047,
+         "65 Some(5pWgO8FZ), 10 , 3 Some(TdL5C), 1 Some(Ebv3nheM6E)")
+        ([|
+            [|
+                "Patient Age day"
+                "vPnHey6qkh"
+                "iQ"
                 "jDbv2mUe8"
                 "6"
                 "7rZjQaI2"
                 ""
-                "VfNHEYw"
-                "IgAurZjRaI"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "rZ"
+                "sMkebv3nU"
                 "f"
                 "gA82ZjRb"
                 ""
-                "4oWQN7F"
-                "RpJgA8smjR"
-                "Sc"
+                "4oWfN7F"
             |]
+
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "BVtMkEc63"
+                "o"
                 "pJhA"
                 ""
                 "dx5"
-                "0yspJhB8s0"
-                ""
-                "Omg"
+                "0ySp"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                "x5ZWgO"
+                "yS"
                 "lTNK4"
                 "m"
                 "9H0y"
                 ""
-                "XvO"
-                "YiP9H1VSqK"
-            |]
-            [|
-                "Patient Age year"
-                "v"
-                "ic9H"
-                ""
-                "60X"
-                "71YiQaH1zT"
-                "UO"
-            |]
-            [|
-                "Patient Age years"
-                "rliQ"
-                ""
-                "fM6"
-                "gz7rZTQaIC"
-                "3A"
-                "4nVfN6EYw"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 67<year>
-             Months = 7<month>
-             Weeks = 3<week>
-             Days = 6<day>
-         },
-         "67 Some(3A), 7 Some(XvO), 3 Some(RpJgA8smjR), 6 ")
-        ([|
-            [|
-                "Patient Age day"
-                "RpJhA8"
-                "Sc"
-                "Fdxro"
-                "G"
-                "t1lf"
-                ""
-            |]
-            [|
-                "Patient Age days"
-                "1l"
-                "OmGdx"
-                "P"
-                "Cau1"
-                "DXvOmGe"
-                "qYi"
-            |]
-            [|
-                "Patient Age week"
-                "XvpmG"
-                "Yic9H1zS"
-                "Ljdau2mTd"
-                "M60Xv"
-                "z71YiQaH"
-                "AUOL"
-            |]
-            [|
-                "Patient Age weeks"
-                "7rYiQa"
-                "UsLjDb52m"
-                "VfM6E"
-                "Igz7rZTQ"
-                "J3AU"
-                "wqnVfN6"
             |]
             [|
                 "Patient Age month"
-                "3XUsMkDbv"
-                "4YVfN"
-                "RLIgA8rZ"
-                "SMJ3"
-                "Fzw4oif"
-                "GZx"
+                "H1"
+                "u2lTd"
+                "v"
+                "iQ9H"
+                ""
+                "60X"
             |]
             [|
                 "Patient Age months"
-                "dw4oW"
-                "0xRpJDA8"
-                "1kSc"
-                "OlFdx4o"
-                "b8G"
-                "c9t1lS"
+                "Dxu2m"
+                "E"
+                "rYiQ"
+                ""
+                "fM6"
+                "gz7rZiQaI2"
             |]
             [|
                 "Patient Age year"
-                "JG0ySpJh"
-                "wt1l"
-                "xuOmgdx"
-                "XhP"
-                "KiCa41"
-                "L5"
+                "N"
+                "A7rZ"
+                ""
+                "YVf"
+                "LIgA8rZjRa"
+                "MJ"
             |]
             [|
                 "Patient Age years"
+                "IgA8"
+                ""
+                "w4o"
+                "xRpJDA8s0j"
+                "kS"
+                "lFdx4oWga"
+            |]
+         |],
+         French,
+         11310,
+         "30 Some(w4o), 12 Some(rYiQ)")
+        ([|
+            [|
+                "Patient Age day"
+                "9H1ySq"
+                "au2lTdL4C"
+                "XvPmG"
+                "YiQ9H1"
+                "Ljdau2mTd"
+                "M60Xv"
+            |]
+            [|
+                "Patient Age days"
+                "jDau2mU"
+                "6EXvPnHey6"
+                "7rYiQa"
+                "UsLjDb52m"
+                "VfM6E"
+                "Igz7rZiQ"
+            |]
+            [|
+                "Patient Age week"
+                "fN6EYwPnHf"
+                "gA7rZj"
+                "3XUsMkDbv"
+                "4YVfN"
+                "RLIgA8rZ"
+                "SbJ3"
+            |]
+            [|
+                "Patient Age weeks"
+                "pIgA82"
+                "cJ3BVPMkE"
+                "dw4oW"
+                "0xRpJgA8"
+                "1kSc"
+                "OlFdx4o"
+            |]
+            [|
+                "Patient Age month"
+                "lScK4BVtN"
+                "IFdx5"
+                "JG0ySpJh"
+                "wt1l"
+                "WuOmGdx"
+                "XhP"
+            |]
+            [|
+                "Patient Age months"
+                "uOmGA"
+                "hP9HBySq"
                 "iCau"
                 "5DXvOmG"
                 "6qY"
                 "TrLjCa"
-                "Ue"
-                "Hfz7q"
+            |]
+            [|
+                "Patient Age year"
+                "qYiQ9H1z"
+                "rLjD"
+                "eM6EXvP"
+                "fz7"
+                "2AUOLj"
+                "3n"
+            |]
+            [|
+                "Patient Age years"
+                "AUsL"
+                "nVfM6EY"
+                "oIg"
+                "bJ3AUs"
+                "cw"
+                "ZxRoI"
             |]
          |],
-         French,
-         {
-             Years = 33<year>
-             Months = 2<month>
-             Weeks = 3<week>
-             Days = 1<day>
-         },
-         "33 Some(6qY), 2 Some(1kSc), 3 Some(VfM6E), 1 Some(Fdxro)")
+         Italian,
+         35246,
+         "96 Some(ZxRoI), 6 Some(TrLjCa), 3 Some(OlFdx4o), 5 Some(Igz7rZiQ)")
         ([|
             [|
                 "Patient Age day"
                 ""
-                "w4Y"
-                "xRLIgAurZj"
-                "kS"
-                "lFcw4oifN"
-                "8"
+                "OIF"
+                "PJG0ySpJhB"
+                "C9"
+                "DWuOmgdx5"
+                "q"
             |]
             [|
                 "Patient Age days"
-                "Fdw"
-                "G0xRpJDA8s"
-                "t1"
-                "uolFdx4oW"
-                "h"
-                "ic9t1lSc"
+                "XuO"
+                "YhP9H0ySqK"
+                "Li"
+                "M5DXvOmGe"
+                "z"
+                "WTrLjCau"
             |]
             [|
                 "Patient Age week"
-                "PJG0ySpJhB"
-                "Cw"
-                "DxuOmgdx5"
-                "q"
-                "rKiCa41l"
+                "tqYiQ9H1zS"
+                "ur"
+                "UeM6EXvPn"
+                "H"
+                "I2AUOLjD"
                 ""
             |]
             [|
                 "Patient Age weeks"
-                "Li"
-                "M5DXvOmGe"
-                "9"
-                "WTrLjCau"
-                ""
-                "KHfz7qY"
-            |]
-            [|
-                "Patient Age month"
-                "heM60XvPn"
-                "H"
-                "I2AUOLjD"
-                ""
-                "wQoICz7"
-                "jRbJ2AUsmj"
-            |]
-            [|
-                "Patient Age months"
+                "2A"
+                "3nVfM6EYS"
                 "Q"
                 "RbJ3AUsM"
                 ""
                 "FZxRoIg"
-                "s0kebJ3BUs"
-                "tNlfcw"
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "cw4oVfN7E"
+                "Z"
                 "0kSMJ3BV"
                 ""
-                "O8GAxRp"
-                "B9tnkSc63B"
-                "CWuNlF"
-                "pXhO8G0UR"
+                "O8GZxRp"
+                "B9t0kScK3B"
             |]
             [|
-                "Patient Age years"
+                "Patient Age months"
+                "8"
+                "9t1kScKE"
                 ""
                 "XhP"
                 "KiC9t1lScK"
-                "L5"
-                "y60XhP9G0"
-                "zTNKiCat1l"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 98<year>
-             Months = 4<month>
-             Weeks = 0<week>
-             Days = 1<day>
-         },
-         "98 Some(y60XhP9G0), 4 Some(s0kebJ3BUs), 1 Some(lFcw4oifN)")
-        ([|
-            [|
-                "Patient Age day"
-                "nUeM60X"
-                "oHf"
-                "bI2AUO"
-                "cv"
-                "ZwQoI"
-                "0"
-            |]
-            [|
-                "Patient Age days"
-                "TQo"
-                "URbJ3A"
-                "HE"
-                "IFZxr"
-                "v"
-                "VtNl"
-            |]
-            [|
-                "Patient Age week"
-                "s0kSMJ"
-                "tN"
-                "gO8GA"
-                "h"
-                "4CWu"
                 ""
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age year"
+                "iC"
+                "5DxuO"
+                "6"
+                "TrKi"
+                ""
+                "Hfy"
+            |]
+            [|
+                "Patient Age years"
+                "eM5DX"
+                "f"
+                "2ATr"
+                ""
+                "QoH"
+                "RLI2AUrLjD"
+            |]
+         |],
+         Dutch,
+         22346,
+         "61 Some(f), 2 Some(9t1kScKE), 3 Some(3nVfM6EYS)")
+        ([|
+            [|
+                "Patient Age day"
+                "Ecw4YVf"
+                "FZx"
+                "s0kSMJ"
+                "tN"
+                "gO8GZ"
+                "h"
+            |]
+            [|
+                "Patient Age days"
+                "O8G"
+                "B9t1kS"
                 "CW"
                 "pXhP8"
                 "q"
                 "dL5Z"
+            |]
+            [|
+                "Patient Age week"
+                "KiCwt1"
+                "L5"
+                "y6qXh"
+                "z"
+                "mUeL"
                 ""
-                "1zT"
+            |]
+            [|
+                "Patient Age weeks"
+                "UeM5DXvOm"
+                "Hfz6q"
+                "I2ATrLjC"
+                "v3nUeM6DX"
+                "wQKHf"
+                "jRLI2AUr"
             |]
             [|
                 "Patient Age month"
-                "y6qkh"
-                "z"
-                "mUeL"
-                "nHfy6qY"
-                "aI2"
-                "bv3mUe"
-            |]
-            [|
-                "Patient Age months"
-                "I2ATrLjC"
-                "v3XU"
-                "wQKHf"
-                "jRLI2AUr"
-                "kEyv"
-                "7FzwQoi"
-            |]
-            [|
-                "Patient Age year"
+                "Qoifz7rYiQ"
+                "RbI2AU"
                 "Ecv3nVPM6"
                 "FZwQo"
                 "s0jRbJDA"
                 "tNkE"
-                "gO7FZxQ"
-                "hB8"
             |]
             [|
-                "Patient Age years"
-                "OIFZx"
+                "Patient Age months"
+                "0kRbJ3"
+                "NlEcw4nVf"
+                "O8FZx"
                 "Bvs0kSbJ"
                 "CwtN"
                 "pjgO8GZ"
-                "qkh"
-                "dK4CWQ"
+            |]
+            [|
+                "Patient Age year"
+                "WtNlFdw4o"
+                "XgO8G"
+                "KhB9tnkS"
+                "L4CW"
+                "y5pXhO8"
+                "zSq"
+            |]
+            [|
+                "Patient Age years"
+                "6pXhP"
+                "tqKiC9t1"
+                "gdL5"
+                "hey6qXh"
+                "H1z"
+                "u2mUOL"
             |]
          |],
-         Dutch,
-         {
-             Years = 63<year>
-             Months = 11<month>
-             Weeks = 0<week>
-             Days = 1<day>
-         },
-         "63 Some(Bvs0kSbJ), 11 Some(v3XU), 1 Some(oHf)")
+         Italian,
+         30010,
+         "82 Some(u2mUOL), 2 Some(pjgO8GZ), 2 Some(jRLI2AUr), 6 Some(dL5Z)")
         ([|
             [|
                 "Patient Age day"
-                "ey6qkhP"
-                "1zTrKiCa41"
-                "2mUeL5"
-                "PnHfy6qYS"
-                "QaI2z"
-                "Dbv3mUeM"
-            |]
-            [|
-                "Patient Age days"
-                "aI2WTrLjCa"
-                "bv3XUe"
-                "YwQKHfz7q"
-                "ZjRLI"
-                "MkEyv3nh"
-                "N7Fz"
-            |]
-            [|
-                "Patient Age week"
+                "wQoHfz7"
+                "jRbI2AUOLj"
                 "kEcv3n"
                 "7FZwQoICz"
                 "8"
                 "VtNkEcw3"
-                ""
-                "Jhb8s0k"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "s0kRbJ3AUs"
+                ""
                 "gOI"
                 "hBvs0kSbJ3"
                 "4C"
-                "5pjgO82Zx"
-                "S"
-                "TdK4CWQN"
+                "5pWgO8GZx"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                ""
+                "pXg"
                 "qKhB9tnkSc"
                 "dL"
                 "ey5pXhO8G"
                 "1"
-                "2WTdL5CW"
-                ""
-            |]
-            [|
-                "Patient Age months"
-                "mg"
-                "nhey60XhP"
-                "a"
-                "bu2mUOL5"
-                ""
-                "ZiQaICz"
-            |]
-            [|
-                "Patient Age year"
-                "wPnHf96qY"
-                "j"
-                "GDbv3mUe"
-                ""
-                "urZjRaI"
-                "vsMkEbv3nU"
-            |]
-            [|
-                "Patient Age years"
-                "2"
-                "PMkEyv3n"
-                ""
-                "gA8smjR"
-                "3BVtnkEc63"
-                "4oWga7"
-            |]
-         |],
-         German,
-         {
-             Years = 83<year>
-             Months = 12<month>
-             Weeks = 0<week>
-             Days = 0<day>
-         },
-         "83 Some(gA8smjR), 12 Some(bu2mUOL5)")
-        ([|
-            [|
-                "Patient Age day"
-                "SqK"
-                "TdL4CW"
-                "Ge"
-                "H1VSq"
-                "u2WTdL"
-                "vP"
-            |]
-            [|
-                "Patient Age days"
-                "2mgd"
-                "Pnhey60"
-                "QaH"
-                "Dbu2mU"
-                "EY"
-                "rZiQa"
-            |]
-            [|
-                "Patient Age week"
-                "YwPnHfy"
-                "ZTQ"
-                "MGDbv3"
-                "NH"
-                "AurZj"
-                "B"
             |]
             [|
                 "Patient Age weeks"
-                "82Z"
-                "VsMkEy"
-                "Wf"
-                "JgA8s"
-                "K"
-                "x4oW"
+                "ysp"
+                "ztqKiC9t1l"
+                "mg"
+                "nGey6qXhP"
+                "a"
+                "bu2mUOL5"
             |]
             [|
                 "Patient Age month"
-                "EBVtNk"
-                "ro"
-                "spJhB"
-                "f"
-                "gdx5"
+                "I1zTrliCau"
+                "v2"
+                "wPnHfy6qY"
+                "j"
+                "kDbv3mUe"
                 ""
             |]
             [|
                 "Patient Age months"
+                "eb"
+                "1YwQoHfz7"
+                "r"
+                "sMkEyv3n"
+                ""
+                "gA8smjR"
+            |]
+            [|
+                "Patient Age year"
+                "N7FZwQoIg"
+                "A"
+                "BVtNkEcw"
+                ""
+                "pJhB8s0"
+                "cK4CVtNlEc"
+            |]
+            [|
+                "Patient Age years"
+                "J"
+                "K4CWtNlF"
+                ""
+                "ySqkhB9"
+                "lTd74CWuNl"
+                "mGex5p"
+            |]
+         |],
+         Dutch,
+         17273,
+         "47 Some(K4CWtNlF), 3 Some(1YwQoHfz7), 4 Some(ztqKiC9t1l)")
+        ([|
+            [|
+                "Patient Age day"
+                "aI1zTrKi"
+                "bv2m"
+                "YwPnHfy"
+                "ZjQ"
+                "MGDbv3"
+                "NH"
+            |]
+            [|
+                "Patient Age days"
+                "kebv"
+                "7EYwQoH"
+                "8rZ"
+                "VsMkEy"
+                "Wf"
+                "JgA8s"
+            |]
+            [|
+                "Patient Age week"
+                "gN7FZwQ"
+                "hA8"
+                "4BVtNk"
+                "ro"
+                "spJhB"
+                "f"
+            |]
+            [|
+                "Patient Age weeks"
+                "pJh"
+                "cK4Cwt"
                 "dx"
                 "0ySqk"
                 "1"
                 "OmGe"
+            |]
+            [|
+                "Patient Age month"
+                "lTdL4C"
+                "mG"
+                "9H1zS"
+                "a"
+                "XvPn"
                 ""
-                "Cau"
+            |]
+            [|
+                "Patient Age months"
+                "vP"
+                "iQa41"
+                "j"
+                "6EYv"
+                ""
+                "UsM"
             |]
             [|
                 "Patient Age year"
-                "9H1zS"
-                "a"
-                "XvPJ"
-                ""
-                "LjD"
-                "M6EyvPnHey"
+                "rZjQa"
+                "sMkDbv3m"
+                "fN7E"
+                "gA8rZ"
+                "3BvsMkEb"
+                "4oif"
             |]
             [|
                 "Patient Age years"
-                "j"
-                "6EYS"
-                ""
-                "UsM"
-                "VfN6EY"
-                "Ig"
+                "BVPMkE"
+                "oWfN7FZwQ"
+                "pJgA8"
+                "cK3BVtnk"
+                "dx4o"
+                "0yRpJhA"
             |]
          |],
-         Dutch,
-         {
-             Years = 49<year>
-             Months = 6<month>
-             Weeks = 3<week>
-             Days = 4<day>
-         },
-         "49 Some(6EYS), 6 Some(0ySqk), 3 Some(VsMkEy), 4 Some(Pnhey60)")
+         Italian,
+         4708,
+         "12 Some(0yRpJhA), 10 Some(UsM), 4 Some(OmGe)")
         ([|
             [|
                 "Patient Age day"
-                "KEBVtNkE"
+                "2lTdL4CW"
                 ""
-                "yspJhB8"
-                "lfcK4YVtNl"
-                "mFdx5Z"
-                "9G0ySMJhB"
+                "c9H1zSq"
+                "dau2mTdL5C"
+                "DXvPnG"
+                "qYiQKH1zT"
             |]
             [|
                 "Patient Age days"
                 ""
-                "H0ySqkh"
-                "u1lTdK4CWQ"
-                "vOmGex"
-                "SP9H1ySqK"
-                "FCau2"
-            |]
-            [|
-                "Patient Age week"
-                "c9H1zSq"
-                "dau2WTdL5C"
-                "0XvPJG"
-                "qYiQKH1zT"
-                "rLjDx"
-                "eM6EyvPn"
-            |]
-            [|
-                "Patient Age weeks"
-                "LjDb52mUOL"
+                "YiQaH1z"
+                "LjDbu2mUeL"
                 "M6EYvP"
                 "z7rZiQaIC"
                 "AUsMj"
-                "nVfN6EYw"
-                "oIgA"
             |]
             [|
-                "Patient Age month"
-                "VfNHEY"
+                "Patient Age week"
+                "7rZjQaI"
+                "UsMkDbv3mU"
+                "VfN7EY"
                 "IgAurZjRa"
                 "J3Bvs"
                 "w4oifN7F"
-                "xRpj"
-                "kSc63BV"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                "3BVsMkEcv3"
+                "4oWfN7"
                 "RpJgA8smj"
-                "S"
-                "Fdx4oWga"
+                "ScK3B"
+                "Fdx4oWgN"
                 ""
-                "t1lScK4"
-                "uOIFdx5oWg"
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "dx"
+                "0yS"
                 "1lfcK4CVtN"
                 "Om"
                 "P930ySqJh"
                 "C"
-                "DXROmGAx"
-                ""
-            |]
-            [|
-                "Patient Age years"
-                "Xv"
-                "YiP9H1VSq"
-                "L"
-                "M6DXvPmG"
-                ""
-                "AurLjDa"
-            |]
-         |],
-         German,
-         {
-             Years = 14<year>
-             Months = 8<month>
-             Weeks = 0<week>
-             Days = 3<day>
-         },
-         "14 Some(M6DXvPmG), 8 , 3 Some(vOmGex)")
-        ([|
-            [|
-                "Patient Age day"
-                "YVfN"
-                ""
-                "bJ3"
-                "cw4oifN71Y"
-                "Zx"
-                "0kScJ3BVP"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "kSc"
-                "lFdx4oWga7"
-                "8G"
-                "9t1VScK4B"
-                "W"
-            |]
-            [|
-                "Patient Age week"
-                "t1l"
-                "uOmgdx5pWg"
-                "hP"
-                "iCa41lTNK"
-                "5"
-                "6qYh"
-            |]
-            [|
-                "Patient Age weeks"
-                "DXvOmG"
-                "qY"
-                "rLjCa"
-                "e"
-                "fz"
-                "2AurL"
-            |]
-            [|
-                "Patient Age month"
-                "z71YiQa"
-                "AUO"
-                "nVeM6E"
-                "oI"
-                "bJ2AU"
-                "c"
             |]
             [|
                 "Patient Age months"
-                "J3A"
-                "wqnVfN"
-                "xr"
-                "kebJ3"
-                "l"
-                "82Zx"
+                "9H0"
+                "au1lTd74CW"
+                "Xv"
+                "YiP9H1ySq"
+                "L"
+                "M6DXvPmG"
             |]
             [|
                 "Patient Age year"
-                "Fzw4oi"
-                "GZ"
-                "t0kSc"
-                "u"
-                "hO8G"
+                "jDau2mTdL5"
+                "60"
+                "71YiQaH1z"
+                "U"
+                "VeM6EYvP"
                 ""
             |]
             [|
                 "Patient Age years"
-                "b8"
-                "c9t1l"
-                "Z"
-                "0XhP"
+                "fM"
+                "gz7rZTQaI"
+                "3"
+                "4nVfN6EY"
                 ""
-                "OL5"
+                "SbJ3BUs"
             |]
          |],
          English,
-         {
-             Years = 80<year>
-             Months = 2<month>
-             Weeks = 4<week>
-             Days = 1<day>
-         },
-         "80 Some(b8), 2 Some(J3A), 4 Some(DXvOmG), 1 Some(YVfN)")
+         28472,
+         "78 Some(fM), 2 ")
         ([|
             [|
                 "Patient Age day"
-                "fz71"
-                "2AUrLjD"
-                "3nV"
-                "QoIfz7"
-                "RbJ2AUsmj"
-                "Ecw3n"
+                "Fdx5"
+                ""
+                "t1l"
+                "uOmgdx5pWg"
+                "hP"
+                "iCat1lTNK"
             |]
             [|
                 "Patient Age days"
-                "bJDAUsM"
-                "cwqnVfN6EY"
                 ""
-                "0kebJ3B"
-                "Nlfcw4oVfN"
-                "O82ZxR"
+                "Cau"
+                "DXvOmG"
+                "qY"
+                "rLjCa"
+                "eM6DXv"
             |]
             [|
                 "Patient Age week"
-                "lFcw4oif"
-                ""
-                "9t0kSc6"
-                "WuNlFd74oW"
-                "XhO8G0"
-                "KEB9t1kSc"
+                "Ljdau2mT"
+                "M60X"
+                "z71YiQa"
+                "AUr"
+                "nVeM6E"
+                "oI"
             |]
             [|
                 "Patient Age weeks"
-                ""
-                "ic9t1lS"
-                "5ZWuOmFdx5"
-                "60XhPJ"
-                "TNKiCwt1l"
-                "UdL5D"
+                "VfM6"
+                "Igz7rZi"
+                "J3A"
+                "w4nVfN"
+                "xR"
+                "kebJ3"
             |]
             [|
                 "Patient Age month"
-                "rKiCa41"
-                "eL5DXROmGA"
-                "fy6qYS"
-                "2zTrLiCau"
-                "pmUeM"
-                "qnHfz6qY"
+                "RLIgA8r"
+                "SbJ"
+                "Fcw4oi"
+                "GZ"
+                "t0kSc"
+                "u"
             |]
             [|
                 "Patient Age months"
-                "XUeM6DXvPJ"
-                "KHfz7q"
-                "LI2AurLjD"
-                "bv3nh"
-                "YwQoifz7"
-                "ZjRb"
+                "1kS"
+                "OlFdx4"
+                "P8"
+                "c9t1l"
+                "Z"
+                "0XhP"
             |]
             [|
                 "Patient Age year"
-                "wQoICz"
-                "jRbJ2AUsm"
-                "kEcw3"
-                "7FZxQoIg"
-                "8s0k"
-                "VtNlEcw"
+                "WuOmGd"
+                "Xh"
+                "KiCa4"
+                "L"
+                "y6qY"
+                ""
             |]
             [|
                 "Patient Age years"
-                "s0kebJ3BU"
-                "tNlfc"
-                "gO82ZxRp"
-                "hB93"
-                "4CWQNlF"
-                "5pX"
+                "6q"
+                "TrLjC"
+                "U"
+                "Hfz7"
+                ""
+                "v3n"
             |]
          |],
-         French,
-         {
-             Years = 44<year>
-             Months = 10<month>
-             Weeks = 4<week>
-             Days = 1<day>
-         },
-         "44 Some(gO82ZxRp), 10 Some(LI2AurLjD), 4 Some(5ZWuOmFdx5), 1 Some(3nV)")
+         Spanish,
+         35973,
+         "98 , 6 Some(Z), 3 Some(xR), 2 Some(rLjCa)")
         ([|
             [|
                 "Patient Age day"
-                "TrKiC"
-                "U"
-                "Hfy6"
+                "xRoIgA8rZ"
+                "k"
+                "lFcw4oif"
                 ""
-                "vpm"
-                "wqnHfz6qYi"
+                "9t0kSc6"
+                "WuNlFdw4oW"
             |]
             [|
                 "Patient Age days"
-                "3"
-                "QKHf"
+                "t"
+                "uOlFdx4o"
                 ""
-                "Ebv"
-                "FYwQoifz7r"
-                "sZ"
+                "ic9t1lS"
+                "5ZWuOmFdx5"
+                "6pXhP9"
             |]
             [|
                 "Patient Age week"
-                "ZwQo"
+                "DWuOmgdx"
                 ""
-                "nkE"
-                "a7FZxQoIga"
-                "b8"
-                "YVtNlEcw4"
+                "rKiCa41"
+                "eL5DXuOmGe"
+                "fy6qYh"
+                "2zTrLiCau"
             |]
             [|
                 "Patient Age weeks"
+                ""
+                "WTrLjCa"
+                "XUeM6DXvPm"
+                "KHfz7q"
+                "aI2AUrLjD"
+                "bv3nh"
+            |]
+            [|
+                "Patient Age month"
+                "I2AUOLj"
+                "v3nVPM6EYv"
+                "wQoIfz"
+                "jRbJ2AUsm"
+                "kEcw3"
+                "7FZxQoIg"
+            |]
+            [|
+                "Patient Age months"
+                "Ecw4nVfN6E"
+                "FZxRoI"
+                "s0kSbJ3BU"
+                "tNlFc"
+
+                "gO82ZxRp"
+                "hB93"
+            |]
+            [|
+                "Patient Age year"
+                "O8GZxR"
+                "B9t0kScK3"
+                "CWuNl"
+                "pXhO8G0U"
+                "qKiB"
+                "dL5CWuO"
+            |]
+            [|
+                "Patient Age years"
+                "KiC9t1lSc"
+                "L5DWuOmFdx"
+                "y6"
+                "zTNKiCat1"
+                "m"
+                "nHey6qYh"
+            |]
+         |],
+         English,
+         23236,
+         "63 Some(KiC9t1lSc), 8 Some(Ecw4nVfN6E), 1 Some(xRoIgA8rZ)")
+        ([|
+            [|
+                "Patient Age day"
+                "bI2AU"
+                "c"
+                "ZwQo"
+                ""
+                "NkE"
+                "a7FZxQoIgz"
+            |]
+            [|
+                "Patient Age days"
+                "H"
+                "IFZx"
                 ""
                 "VtN"
                 "WgO82ZxRpI"
                 "Jh"
-                "K4CWQNlFz"
-                "x"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "gO8G"
+                ""
                 "4CW"
                 "5pXhO8G0UR"
                 "Sq"
                 "TdL5CWuOl"
-                "G"
-                "H1ztqKiC"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                ""
+                "dL5"
                 "ey60XhP9G0"
                 "1z"
-                "2mUOL5Dxu"
+                "2mUdL5DXu"
                 "P"
-                "QaI1zTrl"
-                ""
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "mUe"
+                "nHfy6qYSP9"
                 "aI"
                 "bv3mU"
                 "Y"
-                "Zjda"
-                ""
-                "N"
+                "Zj"
+            |]
+            [|
+                "Patient Age months"
+                "wQKH"
+                "jRLI2AU"
+                "kEy"
+                "7FYwQo"
+                "8s"
+                "VtMkE"
+            |]
+            [|
+                "Patient Age year"
+                "s0jRbJD"
+                "tNk"
+                "gO7FZx"
+                "hB"
+                "4CVtN"
+                "5"
             |]
             [|
                 "Patient Age years"
-                "kEy"
-                "7FzwQo"
-                "8s"
-                "VtMkE"
-                "W"
-                "JhA8"
+                "Cwt"
+                "pjgO8G"
+                "qJ"
+                "dK4CW"
+                "e"
+                "1ySq"
             |]
          |],
-         English,
-         {
-             Years = 65<year>
-             Months = 10<month>
-             Weeks = 4<week>
-             Days = 0<day>
-         },
-         "65 Some(kEy), 10 Some(ey60XhP9G0), 4 ")
+         Spanish,
+         10671,
+         "29 Some(e), 2 Some(8s), 3 Some(2mUdL5DXu), 5 Some(WgO82ZxRpI)")
         ([|
             [|
                 "Patient Age day"
-                "74CWu"
-                "85pXhO8G"
-                "VSqK"
-                "WTdLFCW"
-                "JGe"
-                "9H1ztq"
-            |]
-            [|
-                "Patient Age days"
-                "Gey60XhP"
-                "H1zT"
-                "u2mUOL5"
-                "vPn"
-                "iQaI1z"
-                "jD"
-            |]
-            [|
-                "Patient Age week"
+                "2mUeL"
+                "PnHfy6qY"
                 "QaI2"
                 "Dbv3mUe"
                 "EYw"
                 "rZjdaI"
-                "sM"
-                "fN71Y"
+            |]
+            [|
+                "Patient Age days"
+                "YwQKHfz7"
+                "ZjRL"
+                "MkEbv3n"
+                "N7F"
+                "A8sZjR"
+                "BV"
+            |]
+            [|
+                "Patient Age week"
+                ""
+                "VtNkEcw"
+                "WgO7FZxQoI"
+                ""
+                "K4YVtNl"
+                "x5ZWgO8FZx"
             |]
             [|
                 "Patient Age weeks"
-                "MkEyv3n"
-                "N7F"
-                "A8sZjR"
-                "BVtMkEc63"
-                "oWgN7"
-                "pJhA8s0U"
-            |]
-            [|
-                "Patient Age month"
-                "WgO7FZxQoI"
-                "Jhb8s0"
-                "K4YVtNl"
-                "x5ZWgO8FZx"
-                "ySMJhB"
-                "lTNK4CwtN"
-            |]
-            [|
-                "Patient Age months"
+                "4"
+                "5pWgO8GZ"
                 ""
                 "TdK4CWQ"
                 "Gex5pXRO8G"
                 "H1ySqK"
-                "u2lTdL4CW"
-                "vPmGe"
-            |]
-            [|
-                "Patient Age year"
-                "2WTdL5C"
-                "PJGey6pXhP"
-                "QKH1zT"
-                "Dxu2mUdL5"
-                "EyvPn"
-                "rYiQa41z"
-            |]
-            [|
-                "Patient Age years"
-                "YvPnHBy6qY"
-                "ZiQaIC"
-                "MjDbvpmUe"
-                "N6EYw"
-                "a7rZjQaI"
-                "XUsM"
-            |]
-         |],
-         French,
-         {
-             Years = 31<year>
-             Months = 0<month>
-             Weeks = 0<week>
-             Days = 1<day>
-         },
-         "31 Some(MjDbvpmUe), 1 Some(VSqK)")
-        ([|
-            [|
-                "Patient Age day"
-                "o"
-                "pJhb8s0k"
-                ""
-                "dx5ZWgO"
-                "0ySMJhBvs0"
-                "1lTNK4"
-            |]
-            [|
-                "Patient Age days"
-                "ySqJhB93"
-                ""
-                "mGe"
-                "9H1ySqKhB9"
-                "au"
-                "XvpmGey5p"
-            |]
-            [|
-                "Patient Age week"
-                "u2WTd"
-                "v"
-                "iQKH"
-                ""
-                "6EX"
-                "7rYiQa41zT"
-            |]
-            [|
-                "Patient Age weeks"
-                "E"
-                "rZiQ"
-                ""
-                "f96"
-                "ga7rZjQaI2"
-                "3X"
             |]
             [|
                 "Patient Age month"
-                "AurZ"
+                "ey5pXhO8"
                 ""
-                "oif"
-                "pIgA82ZjRb"
-                "cJ"
-                "dw4oWQN7F"
+                "2mTdL5C"
+                "PJGey6pXhP"
+                "QKH1zT"
+                "Dxu2mUdL5"
             |]
             [|
                 "Patient Age months"
                 ""
-                "x4o"
-                "URpJhA8s0U"
-                "VS"
-                "IFdx5oWgO"
-                "J"
+                "bu2mUOL"
+                "YvPnHBy6qY"
+                "ZiQaIC"
+                "MjDbv2mUe"
+                "N6EYw"
             |]
             [|
                 "Patient Age year"
-                "gdx"
-                "30ySMJhB9s"
-                "t1"
-                "uOmGAx5pX"
-                "h"
-                "iCauolTd"
+                "kDbv3mU"
+                "HEYwQnHfz6"
+                "urZjRa"
+                "vsMkEbv3n"
+                "VfN7F"
+                "IgA82ZjR"
             |]
             [|
                 "Patient Age years"
-                "P9H1ySqKEB"
-                "Ca"
-                "DXvPmGeys"
-                "q"
-                "rLjDau2m"
-                ""
+                "fN7FzwQoIf"
+                "gA8smj"
+                "3BVtMkEcw"
+                "4oWgN"
+                "RpJhA8s0"
+                "ScK4"
             |]
          |],
-         English,
-         {
-             Years = 96<year>
-             Months = 7<month>
-             Weeks = 0<week>
-             Days = 2<day>
-         },
-         "96 Some(P9H1ySqKEB), 7 , 2 Some(ySqJhB93)")
+         Italian,
+         34435,
+         "94 Some(ScK4), 4 Some(N6EYw), 5 Some(BV)")
         ([|
-            [|
-                "Patient Age day"
-                "gAurZj"
-                "3BvsMkebv"
-                "4oVfN"
-                "RpIgA82Z"
-                "ScJ3"
-                "Fdw4oWQ"
-            |]
+            [| "Patient Age day"; "G"; "H1"; "u2WTd"; "v"; "iQKH"; "" |]
             [|
                 "Patient Age days"
-                "cK3BVtMkE"
-                "d74oW"
-                "0URpJhA8"
-                "1VSc"
-                "OIFdx5o"
-                "PJG"
+                "Qa"
+                "Dbu2m"
+                "E"
+                "rZiQ"
+                ""
+                "fN6"
             |]
             [|
                 "Patient Age week"
-                "mgdx5"
-                "9G0ySMJh"
-                "at1l"
-                "XuOmGAx"
-                "YhP"
-                "LiCau1"
+                "MGDbv"
+                "N"
+                "AurZ"
+                ""
+                "oVf"
+                "pIgA82ZjRb"
             |]
             [|
                 "Patient Age weeks"
-                "SP9H1ySq"
-                "FCau"
-                "GDXvPmG"
-                "tqY"
-                "urLjda"
-                "Ue"
+                "W"
+                "JgA8"
+                ""
+                "x4o"
+                "yRpJhA8s0U"
+                "VS"
             |]
             [|
                 "Patient Age month"
+                "spJh"
+                ""
+                "Fdx"
+                "G0ySMJhB9s"
+                "t1"
+                "uOmGAx5pX"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "OmG"
+                "P9H1ySqKEB"
+                "Ca"
+                "DXvPmGey5"
+                "q"
+            |]
+            [|
+                "Patient Age year"
+                "XvP"
+                "YiQaH1zTqK"
+                "Lj"
+                "M6EyvPnHe"
+                "z"
+                "AUsLjDbv"
+            |]
+            [|
+                "Patient Age years"
+                "7rZiQaICzT"
+                "Us"
+                "VfN6EYwqn"
+                "I"
+                "J3BU"
+                ""
+            |]
+         |],
+         German,
+         5435,
+         "14 Some(I), 10 Some(Ca), 3 Some(x4o), 4 Some(rZiQ)")
+        ([|
+            [|
+                "Patient Age day"
+                "yspJhB"
+                "lScK4CVtN"
+                "mFdx5"
+                "9G0ySMJh"
+                "at1l"
+                "XuOmGdx"
+            |]
+            [|
+                "Patient Age days"
+                "u1lTdK4CW"
+                "vOmGe"
+                "iP9H1ySq"
+                "FCau"
+                "GDXvPmG"
+                "tqY"
+            |]
+            [|
+                "Patient Age week"
+                "DXvPn"
+                "qYiQKH1z"
                 "rLjD"
                 "eM6EyvP"
                 "fz7"
                 "2AUsLj"
-                "3n"
-                "QoIgz"
+            |]
+            [|
+                "Patient Age weeks"
+                "z7rZiQaI"
+                "AUsM"
+                "nVfN6EY"
+                "oIg"
+                "bJ3BUs"
+                "cw"
+            |]
+            [|
+                "Patient Age month"
+                "J3Bv"
+                "w4oifN7"
+                "xRp"
+                "kScJ3B"
+                "lF"
+                "8G0xR"
             |]
             [|
                 "Patient Age months"
-                "nVfN6EY"
-                "oIg"
-                "bJ3XUs"
-                "cw"
-                "ZxRLI"
-                "0"
+                "Fdx4oWg"
+                "G0yRpJhA8s"
+                "t1lScK"
+                "uOmFdx5"
+                "hPJG0ySpJh"
+                "iCwt1l"
             |]
             [|
                 "Patient Age year"
-                "xRp"
-                "kSc63B"
-                "lF"
-                "8G0xR"
-                "9t1kScKE"
-                "WuOl"
+                "P930ySqJ"
+                ""
+                "DXuOmGA"
+                "qYhP9HBySq"
+                "rLiCau"
+                "eM5DXvOmG"
             |]
             [|
                 "Patient Age years"
-                "t1lScK"
-                "uOIFdx5oW"
-                "hPJG0"
-                "iCwt1l"
-                "5DxuOmGdx"
-                "6qkhP"
+                ""
+                "M6DXvPm"
+                "z7qYiQ9H1z"
+                "AurLjD"
+                "nheM6EXvP"
+                "oifz7"
             |]
          |],
-         Dutch,
-         {
-             Years = 61<year>
-             Months = 8<month>
-             Weeks = 1<week>
-             Days = 3<day>
-         },
-         "61 Some(uOIFdx5oW), 8 Some(oIg), 1 Some(9G0ySMJh), 3 Some(d74oW)")
+         Italian,
+         29199,
+         "79 Some(oifz7), 12 Some(iCwt1l), 4 Some(tqY)")
         ([|
             [|
                 "Patient Age day"
-                "Ur"
-                "VeM6EyvPn"
-                "I"
-                "J2AUsLjD"
-                ""
-                "TQoIgz7"
-            |]
-            [|
-                "Patient Age days"
-                "qnVfN6EYw"
-                "r"
-                "ebJ3XUsM"
-                ""
-                "FZxRLIg"
-                "s0kSMJ3BVs"
-            |]
-            [|
-                "Patient Age week"
+                "bJ"
+                "cw4oVfN7F"
                 "Z"
                 "0kScJ3BV"
                 ""
                 "O8G0xRp"
-                "B9t1kScKEB"
-                "CWuOlF"
             |]
             [|
-                "Patient Age weeks"
-                "9t1VScK4"
+                "Patient Age days"
+                "lFdx4oWgN"
+                "8"
+                "9t1lScK4"
                 ""
                 "XhPJG0y"
                 "KiCwt1lTcK"
-                "L5DxuO"
-                "y6qkhP930"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "h"
+                "iCat1lTN"
                 ""
-                "6qY"
-                "TrLiCauolT"
+                "6qYhP9H"
+                "TrLiCau1lT"
                 "Ue"
-                "Hfz6qYiP9"
-                "I"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                "rLjC"
+                "eM6DX"
                 "f"
                 "2Aur"
                 ""
-                "Qoi"
-                "Rb52AUOLjD"
-                "Ec"
+                "QoH"
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "nVeM6"
+                "o"
                 "bJ2A"
                 ""
                 "ZxQ"
                 "0kRbJ3AUsM"
-                "NH"
-                "OIFZxRoIg"
-            |]
-            [|
-                "Patient Age years"
-                ""
-                "82Z"
-                "930kSMJ3BV"
-                "Wt"
-                "XgO8GAxRp"
-                "K"
-            |]
-         |],
-         Italian,
-         {
-             Years = 82<year>
-             Months = 2<month>
-             Weeks = 3<week>
-             Days = 5<day>
-         },
-         "82 Some(K), 2 Some(Ec), 3 Some(y6qkhP930), 5 Some(s0kSMJ3BVs)")
-        ([|
-            [|
-                "Patient Age day"
-                "L5"
-                "y6qYh"
-                "z"
-                "mUeM"
-                ""
-                "aI2"
-            |]
-            [|
-                "Patient Age days"
-                "Hfztq"
-                "I"
-                "v3nh"
-                ""
-                "jRb"
-                "kEcv3n"
-            |]
-            [|
-                "Patient Age week"
-                "RbJ2AUsm"
-                "Ecw3"
-                "FZxQoIg"
-                "s0U"
-                "tNHE"
-                "gOIFZxR"
-            |]
-            [|
-                "Patient Age weeks"
-                "Nlfcw4oVf"
-                "O82Zx"
-                "B9s0kSMJ"
-                "CWtN"
-                "pXgO8GA"
-                "qKh"
-            |]
-            [|
-                "Patient Age month"
-                "XhO8G"
-                "KEB9t1kS"
-                "LFCW"
-                "yspXhP8"
-                "ztq"
-                "mgdL5Z"
             |]
             [|
                 "Patient Age months"
-                "TNKiCwt1"
-                "UdL5"
-                "Hey6qkh"
-                "I1z"
-                "v2mUe8"
-                "wP"
+                "x"
+                "kebJ"
+                ""
+                "82Z"
+                "9s0kScJ3BV"
+                "Wt"
             |]
             [|
                 "Patient Age year"
-                "pmUe"
-                "qnHfz6q"
-                "daI"
-                "ebv3nU"
-                "1Y"
-                "2ZjRL"
+                "t0kS"
+                ""
+                "hO8"
+                "iB9t1kScKE"
+                "5C"
+                "6pXhP8G0y"
             |]
             [|
                 "Patient Age years"
-                "YwQoifz"
-                "ZjR"
-                "MkEc63"
-                "N7"
-                "A8s0j"
-                "B"
+                ""
+                "0Xh"
+                "qKiCat1lTc"
+                "dL"
+                "ey6qkhP9H"
+                "1"
             |]
          |],
-         Dutch,
-         {
-             Years = 47<year>
-             Months = 4<month>
-             Weeks = 0<week>
-             Days = 4<day>
-         },
-         "47 Some(ZjR), 4 Some(UdL5), 4 Some(I)")
+         German,
+         16634,
+         "45 Some(dL), 6 Some(82Z), 4 Some(2Aur), 1 Some(0kScJ3BV)")
         ([|
             [|
                 "Patient Age day"
-                "pXRO8G0xR"
-                "q"
-                "dL"
-                "eyspXhP8G"
-                "1"
-                "2mgdL5ZW"
+                "3n"
+                "QoIfz"
+                "RbJ2AUsL"
+                "Ecw3"
+                "FZxQoIg"
+                "s0kRbJ3A"
             |]
             [|
                 "Patient Age days"
-                "zTqKiCwt1l"
-                "mU"
-                "nHey6qkhP"
-                "a"
-                "bv2mUeL5"
+                "ZxroIgA7rZ"
+                "0kebJ3"
+                "Nlfcw4oVf"
+                "O8FZx"
+                "B9s0kSMJ"
+                "CWtN"
+            |]
+            [|
+                "Patient Age week"
+                "9t0kSc"
+                "WuNlFdw4o"
+                "XhO8G"
+                "KiB9t1kS"
+                "L5CW"
+                "yspXhP8"
+            |]
+            [|
+                "Patient Age weeks"
+                "5ZWuOmFdx"
+                "6pXhP"
+                "TqKiCwt1"
+                "UdL5"
+                "Hey6qkh"
+                "I1z"
+            |]
+            [|
+                "Patient Age month"
+                "fy6qY"
+                "2zTrLiCa"
+                "3mUe"
+                "qnHfz6q"
+                "daI"
+                "ebv3nU"
+            |]
+            [|
+                "Patient Age months"
+                "aI2AUrLj"
+                "bv3n"
+                "YwQoifz"
+                "ZjR"
+                "MkEcv3"
+                "N7"
+            |]
+            [|
+                "Patient Age year"
+                "kEcw"
+                "7FZxQoI"
+                "8s0"
+                "VtNlEc"
+                "Wg"
+                "JhB9s"
+            |]
+            [|
+                "Patient Age years"
+                "gO82ZxR"
+                "hB9"
+                "4CWQNl"
+                "5p"
+                "SqKhB"
+                "T"
+            |]
+         |],
+         English,
+         3897,
+         "10 Some(gO82ZxR), 8 Some(aI2AUrLj), 1 Some(9t0kSc)")
+        ([|
+            [|
+                "Patient Age day"
+                "Hfy"
+                "I2zTrLiCau"
+                "vp"
+                "wqnHfz6qY"
+                "j"
+                "kDbv3nUe"
+            |]
+            [|
+                "Patient Age days"
+                "RaI2AurLjD"
+                "Eb"
+                "FYwQoifz7"
+                "s"
+                "tMkEcv3n"
                 ""
             |]
             [|
                 "Patient Age week"
-                "vp"
-                "wqnHfz6qY"
-                "j"
-                "kebv3XUe"
-                ""
-                "8rZjRLI"
-            |]
-            [|
-                "Patient Age weeks"
-                "FYwQoifz7"
-                "s"
-                "tMkEc63n"
-                ""
-                "DA8s0jR"
-                "EBVtNkEcwq"
-            |]
-            [|
-                "Patient Age month"
+                "Nk"
+                "a7FZxQoIg"
                 "b"
                 "YVtNlEcw"
                 ""
                 "pJhBvs0"
-                "cK4CwtNlFc"
-                "dx5pjg"
             |]
             [|
-                "Patient Age months"
-                "K4CWQNlF"
+                "Patient Age weeks"
+                "WgO82ZxRp"
+                "J"
+                "K4CWtNlF"
                 ""
                 "ySqKhB9"
                 "lTdL4CWuol"
-                "mGey5p"
-                "9H1zSqKiB"
+            |]
+            [|
+                "Patient Age month"
+                "S"
+                "TdL5CWuO"
+                ""
+                "H1zTqKi"
+                "u2mgdL5DWu"
+                "vPnhey"
+            |]
+            [|
+                "Patient Age months"
+                "2mUdL5DX"
+                ""
+                "QaI1zTr"
+                "Dbv2mUe85D"
+                "EYwPnH"
+                "rZjQaI2zT"
             |]
             [|
                 "Patient Age year"
                 ""
-                "H1ztqKi"
-                "u2mgdL5DWu"
-                "vPnhey"
-                "iQa41zTrK"
-                "jDb52"
+                "Z"
+                "Mkeb"
+                ""
+                "A82"
+                "BVsMkEcv3n"
             |]
             [|
                 "Patient Age years"
-                "QaI1zTr"
-                "Dbv2mUe85D"
-                "EY"
-                "rZjQaI2WT"
-                "s"
-                "fNHEYwQn"
+                "8"
+                "VtMk"
+                ""
+                "JhA"
+                "K4BVtNkEcw"
+                "x5"
             |]
          |],
-         Italian,
-         {
-             Years = 12<year>
-             Months = 11<month>
-             Weeks = 0<week>
-             Days = 4<day>
-         },
-         "12 Some(fNHEYwQn), 11 Some(9H1zSqKiB), 4 ")
+         French,
+         27498,
+         "75 , 4 Some(QaI1zTr), 3 Some(FYwQoifz7)")
         ([|
             [|
                 "Patient Age day"
-                "hb8"
-                "4YVtNH"
-                "5Z"
-                "SpJhB"
-                "T"
-                "Gdx5"
-            |]
-            [|
-                "Patient Age days"
-                "dK4CWt"
-                "ex"
-                "BySqK"
-                "o"
-                "pmGe"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "JG"
+                "VSq"
+                "WTdL5C"
+                "mG"
                 "9H1zt"
                 "a"
                 "XvPn"
-                ""
-                "LjD"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                "u2mUdL"
+                "vP"
                 "iQaI1"
                 "j"
                 "6EYw"
                 ""
-                "UsM"
-                "VfNHEYwQnH"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "EY"
+                "rZjda"
                 "s"
                 "fN71"
                 ""
                 "3BV"
-                "4oWfN7FzwQ"
-                "Rp"
-            |]
-            [|
-                "Patient Age months"
-                "oWgN"
-                "pJhA8s0"
-                "cK4"
-                "dxroWg"
-                "0y"
-                "1lf"
-            |]
-            [|
-                "Patient Age year"
-                "ySMJh"
-                "lTNK4Cwt"
-                "mGAx"
-                "9H0ySqk"
-                "au1"
-                "XvOmGe"
-            |]
-            [|
-                "Patient Age years"
-                "u2lTdL4C"
-                "vPmG"
-                "ic9H1zS"
-                "jda"
-                "60XvPn"
-                "71"
-            |]
-         |],
-         French,
-         {
-             Years = 78<year>
-             Months = 0<month>
-             Weeks = 1<week>
-             Days = 1<day>
-         },
-         "78 Some(ic9H1zS), 1 Some(a), 1 Some(5Z)")
-        ([|
-            [|
-                "Patient Age day"
-                "UsMkebv3nU"
-                "VfN71Y"
-                "IgA82ZjRL"
-                "J3BVs"
-                "w4oWfN7F"
-                "xRpJ"
-            |]
-            [|
-                "Patient Age days"
-                "4oWgN7"
-                "RpJhA8s0j"
-                "ScKEB"
-                "FdxroWgO"
-                "G0ys"
-                "t1lfcK4"
-            |]
-            [|
-                "Patient Age week"
-                "0ySMJhBvs"
-                "1lTNK"
-                "OmGdx5pj"
-                ""
-                "Cau1lTd"
-                "DXvOmGe85p"
             |]
             [|
                 "Patient Age weeks"
+                "A8sZj"
+                "B"
+                "oWgN"
+                "pJhA8s0"
+                "cK4"
+                "dx5o"
+            |]
+            [|
+                "Patient Age month"
+                "K4YVtN"
+                "x5ZWgO8FZ"
+                "ySMJh"
+                "lTcK4CWt"
+                "mGdx"
+                "9H0ySqk"
+            |]
+            [|
+                "Patient Age months"
+                "Gex5pXRO8"
+                "H1ySq"
+                "u2lTdL4C"
+                "vPmG"
+                "iQ9H1zS"
+                "jda"
+            |]
+            [|
+                "Patient Age year"
+                "QKH1z"
+                "Dxu2mUdL"
+                "EXvP"
+                "rYiQa41"
+                "sLj"
+                "fM6EYS"
+            |]
+            [|
+                "Patient Age years"
+                "MjDbv2mU"
+                "N6EY"
+                "A7rZjQa"
+                "BUs"
+                "YVfN7E"
+                "LI"
+            |]
+         |],
+         Spanish,
+         35162,
+         "96 Some(YVfN7E), 4 Some(iQ9H1zS), 2 Some(6EYw)")
+        ([|
+            [|
+                "Patient Age day"
+                "cK4YVtNlEc"
+                "dx5ZWg"
+                "0ySpJhB9s"
+                "1lTcK"
+                "OmGdx5pj"
+                "P9H0"
+            |]
+            [|
+                "Patient Age days"
+                "mG"
+                "9H1ySqKhB"
                 "a"
-                "XvpmGey5"
+                "Xv"
                 "Yic9H1zSq"
                 "L"
-                "M60XvPnG"
+            |]
+
+            [|
+                "Patient Age week"
+                "iQK"
+                "jDau2mUdL5"
+                "6E"
+                "7rYiQa41z"
+                "U"
+                "VfM6EYvP"
+            |]
+            [|
+                "Patient Age weeks"
+                "sMjDbv2mUe"
+                "fN"
+                "gA7rZjQaI"
+                "3"
+                "4YVfN7EY"
                 ""
             |]
             [|
                 "Patient Age month"
-                "6E"
-                "7rYiQa41z"
-                "U"
-                "VfM6EYSP"
-                ""
-                "J3AUsMj"
-            |]
-            [|
-                "Patient Age months"
-                "ga7rZjQaI"
-                "3"
-                "4YVfN7EY"
-                ""
-                "SMJ3Bvs"
-                "Fcw4oifN7F"
-            |]
-            [|
-                "Patient Age year"
+                "oV"
+                "pIgA82ZjR"
                 "c"
                 "dw4oWQN7"
                 ""
                 "1kScK3B"
-                "olFdx4oWga"
-                "b8G0yR"
+            |]
+            [|
+                "Patient Age months"
+                "yRpJhA8s0"
+                "V"
+                "IFdx5oWg"
+                ""
+                "9t1lTcK"
+                "WuOmgdx5pW"
+            |]
+            [|
+                "Patient Age year"
+                "t"
+                "uOmGAx5p"
+                ""
+                "iCau1lT"
+                "5DXvOmGe85"
+                "6qYiP9"
             |]
             [|
                 "Patient Age years"
-                "IFdx5oWg"
+                "DXvPmGey"
                 ""
-                "wt1lfcK"
-                "xuOmgdx5pW"
-                "XhP930"
-                "KiCa41lTd"
+                "rLjDau2"
+                "eM6EXvPnGe"
+                "fz71Yi"
+                "2AUOLjDbu"
             |]
          |],
-         Spanish,
-         {
-             Years = 42<year>
-             Months = 8<month>
-             Weeks = 1<week>
-             Days = 1<day>
-         },
-         "42 Some(XhP930), 8 Some(SMJ3Bvs), 1 Some(Cau1lTd), 1 Some(w4oWfN7F)")
+         French,
+         22597,
+         "61 Some(rLjDau2), 11 Some(IFdx5oWg), 2 Some(a)")
         ([|
             [|
                 "Patient Age day"
-                "M6EXvPnhey"
-                "z7"
-                "AUsLj"
-                "n"
-                "oIgz"
-                ""
-            |]
-            [|
-                "Patient Age days"
-                "Iga7rZj"
-                "J3X"
-                "w4YVfN"
-                "xR"
-                "kSbJ3"
-                "l"
-            |]
-            [|
-                "Patient Age week"
+                "4oVf"
+                "RpIgA82"
                 "ScJ"
                 "Fdw4oW"
                 "G0"
-                "tnkSc"
-                "u"
-                "hb8G"
+                "t1kSc"
+            |]
+            [|
+                "Patient Age days"
+                "0URpJhA"
+                "1VS"
+                "OIFdx5"
+                "P8"
+                "C9t1l"
+                "D"
+            |]
+            [|
+                "Patient Age week"
+                "at1"
+                "XuOmGd"
+                "Yh"
+                "LiCau"
+                "M"
+                "96qY"
             |]
             [|
                 "Patient Age weeks"
-                "OIFdx5"
-                "PJ"
-                "Cwt1l"
-                "D"
-                "qXhP"
+                "GDXvPm"
+                "tq"
+                "TrLjD"
+                "U"
+                "Hfz7"
                 ""
             |]
             [|
                 "Patient Age month"
-                "Yh"
-                "LiCau"
-                "8"
-                "96qY"
-                ""
-                "XUe"
-            |]
-            [|
-                "Patient Age months"
-                "urLjd"
-                "h"
-                "Hfz7"
-                ""
-                "v3n"
-                "wQoICz7rli"
-            |]
-            [|
-                "Patient Age year"
+                "fz"
+                "2AUsL"
                 "3"
                 "QoIg"
                 ""
                 "Ecw"
-                "FZxRoIgA7r"
-                "s0"
             |]
             [|
-                "Patient Age years"
+                "Patient Age months"
+                "bJ3BU"
+                "c"
                 "ZxRL"
                 ""
                 "NlF"
-                "O8GAxRpjgA"
-                "B9"
-                "CWuNlFd74"
-            |]
-         |],
-         English,
-         {
-             Years = 63<year>
-             Months = 8<month>
-             Weeks = 1<week>
-             Days = 0<day>
-         },
-         "63 Some(ZxRL), 8 Some(urLjd), 1 Some(ScJ)")
-        ([|
-            [|
-                "Patient Age day"
-                ""
-                "rliCau1"
-                "e85DXvOmGe"
-                "f96qYi"
-                "2WTrLjCau"
-                "3XUeM"
-            |]
-            [|
-                "Patient Age days"
-                "AurLjda"
-                "nUeM60XvPn"
-                "oHfz71"
-                "bI2AUOLjD"
-                "cv3nV"
-                "ZwQoIfz7"
-            |]
-            [|
-                "Patient Age week"
-                "63nVfM6EYS"
-                "TQoIgz"
-                "URbJ3AUsM"
-                "HEcw4"
-                "IFZxroIg"
-                "8s0k"
-            |]
-            [|
-                "Patient Age weeks"
-                "FZxRLI"
-                "s0kSMJ3BV"
-                "tNlFz"
-                "gO8GZxRp"
-                "hB9t"
-                "4CWuNlF"
-            |]
-            [|
-                "Patient Age month"
-                "B9t1kScKE"
-                "CWuOl"
-                "pXhb8G0y"
-                "qKic"
-                "dL5ZWuO"
-                "ey6"
-            |]
-            [|
-                "Patient Age months"
-                "L5Dxu"
-                "y6qkhP93"
-                "zTrK"
-                "mUeL5DX"
-                "nHfy6qYSP9"
-                "aI2zTr"
+                "O8GZxRpJgA"
             |]
             [|
                 "Patient Age year"
-                "Hfz6qYiP"
+                "l"
+                "8G0x"
                 ""
-                "v3XUeM6"
-                "wQKHfz7q"
-                ""
-                "kEyv3nh"
+                "WuO"
+                "XhP8G0"
+                "Ki"
             |]
             [|
                 "Patient Age years"
-                "Rb52AUOLj"
-                "E"
-                "FZwQoICz"
-                ""
-                "tNkEcwq"
-                "gO7FZxQoIg"
+                "hPJG0ySpJ"
+                "iCwt1"
+                "5DxuOmGd"
+                "6qXh"
+                "TrKiCau"
+                "UeL"
             |]
          |],
          Spanish,
-         {
-             Years = 29<year>
-             Months = 3<month>
-             Weeks = 0<week>
-             Days = 2<day>
-         },
-         "29 Some(tNkEcwq), 3 Some(nHfy6qYSP9), 2 Some(cv3nV)")
+         9860,
+         "27 Some(TrKiCau), 5 Some(C9t1l)")
         ([|
             [|
                 "Patient Age day"
                 ""
-                "FCW"
-                "spXhb8G0yR"
-                "Sq"
-                "TdL5ZWuOm"
-                "G"
+                "J2AUsLj"
+                "w3nVfM6EYS"
+                "TQoIgz"
+                "URbJ3AUsM"
+                "HEcw4"
             |]
             [|
                 "Patient Age days"
-                "dL5"
-                "ey6qXhP930"
-                "1z"
-                "2mUeL5DXR"
-                "P"
-                "QaI2zTrL"
+                "RbJ3BUs"
+                "Ecw4YVfN7E"
+                "FZxRLI"
+                "s0kSMJ3BV"
+                "tNlFc"
+                "gO8GZxRp"
             |]
             [|
                 "Patient Age week"
-                "nHf96qYiP9"
-                "aI"
-                "bv3XUeM6D"
-                "Y"
-                "ZjRLI2Au"
-                ""
+                "NlFdw4oWQN"
+                "O8G0xR"
+                "B9t1kScK3"
+                "CWuOl"
+                "pXhP8G0y"
+                "qKiC"
             |]
             [|
                 "Patient Age weeks"
-                "jR"
-                "kEcv3"
-                "7"
-                "8s0j"
-                ""
-                "Wga"
+                "XhPJG0"
+                "KiCwt1lTc"
+                "L5DWu"
+                "y6qXhP9H"
+                "zTrK"
+                "mUeL5DX"
             |]
             [|
                 "Patient Age month"
-                "tNH"
-                "gOIFZx"
-                "hB"
-                "4CwtN"
-                "5"
-                "SqJh"
+                "TrLiCau1l"
+                "U"
+                "Hfz6qYiP"
+                "I2ATrLjCa"
+                "v"
+                "wQKHfz7q"
             |]
             [|
                 "Patient Age months"
+                "3nheM6EXvP"
+                "Qo"
+                "RbI2AUOLj"
+                "E"
+                "FZwQoICz"
+                ""
+            |]
+            [|
+                "Patient Age year"
+                "Zx"
+                "0kRbJ3AUs"
+                "N"
+                "OIFZxRoI"
+                ""
+                "CwtNlFc"
+            |]
+            [|
+                "Patient Age years"
+                "9s0kScJ3B"
+                "W"
+                "XgO8GAxR"
+                ""
+                "L4CWuNl"
+                "y5pXhO8G0U"
+            |]
+         |],
+         Dutch,
+         33796,
+         "92 Some(W), 7 Some(Qo), 6 Some(Ecw4YVfN7E)")
+        ([|
+            [|
+                "Patient Age day"
+                ""
+                "mUe"
+                "nHfz6qYiP9"
+                "aI"
+                "bv3XUeM6D"
+                "Y"
+            |]
+            [|
+                "Patient Age days"
+                "v3n"
+                "wQoHfz71Yi"
+                "jR"
+                "kEcv3nVPM"
+                "7"
+                "8s0j"
+            |]
+            [|
+                "Patient Age week"
+                "FZxQoI"
+                "s0kRbJ3"
+                "tNH"
+                "gOIFZx"
+                "hB"
+                "4CVtN"
+            |]
+            [|
+                "Patient Age weeks"
+                "B9s0kSM"
+                "CWt"
                 "pXgO8G"
                 "qK"
                 "dL4CW"
                 "e"
-                "1VSq"
-                ""
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "L5C"
+                "yspXhP"
                 "zt"
                 "mgdL5"
                 "n"
                 "aH1z"
-                ""
-                "YvP"
-            |]
-            [|
-                "Patient Age years"
-                "v2mUe"
-                "w"
-                "TQaI"
-                ""
-                "HEY"
-                "urZjRaI2AT"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 94<year>
-             Months = 4<month>
-             Weeks = 1<week>
-             Days = 4<day>
-         },
-         "94 Some(w), 4 Some(qK), 1 Some(aI), 4 Some(ey6qXhP930)")
-        ([|
-            [|
-                "Patient Age day"
-                "VtNHEcw"
-                "WgO"
-                "JhBvs0"
-                "K4"
-                "x5pWg"
-                "ySqJhB93"
-            |]
-            [|
-                "Patient Age days"
-                "5pXgO8GAxR"
-                "SqKhB9"
-                "TdL4CWuNl"
-                "Ge85p"
-                "H1VSqK"
-                "u2WTdL5CW"
-            |]
-            [|
-                "Patient Age week"
-                ""
-                "2mgdL5Z"
-                "PnGey60XhP"
-                "QaH1zT"
-                "Dbu2mUOL5"
-                "EYvPn"
-            |]
-            [|
-                "Patient Age weeks"
-                "bv2mUeL"
-                "YSPnHfy6qY"
-                "ZTQaI2"
-                "MGDbv3mUe"
-                "NHEYw"
-                "AurZjdaI"
-            |]
-            [|
-                "Patient Age month"
-                "71YwQKHfz7"
-                "8rZjRL"
-                "VsMkEyv3n"
-                "WfN7F"
-                "JgA8smjR"
-                "K3BV"
             |]
             [|
                 "Patient Age months"
-                "DA8s0j"
-                "EBVtNkEcw"
-                "roWgO"
-                "spJhB8s0"
-                "fcK4"
-                "gdx5ZWg"
+                "Hey6qk"
+                "I1"
+                "v2mUe"
+                "w"
+                "jQaI"
+                ""
             |]
             [|
                 "Patient Age year"
-                "cK4CwtNlF"
-                "dx5pj"
-                "0ySqkhB9"
-                "1lTd"
-                "OmGex5p"
-                "P9H"
+                "da"
+                "ebv3n"
+                "E"
+                "rZjR"
+                ""
+                "fN7"
             |]
             [|
                 "Patient Age years"
-                "mGey5"
-                "9H1zSqKi"
-                "au2m"
-                "XvPJGey"
-                "YiQ"
-                "LjDxu2"
+                "MkEcv"
+                "N"
+                "A8s0"
+                ""
+                "oWg"
+                "pJhB8s0kRb"
             |]
          |],
          German,
-         {
-             Years = 59<year>
-             Months = 0<month>
-             Weeks = 0<week>
-             Days = 6<day>
-         },
-         "59 Some(XvPJGey), 6 Some(Ge85p)")
+         4624,
+         "12 , 8 Some(w), 4 Some(kEcv3nVPM)")
         ([|
             [|
                 "Patient Age day"
-                "N"
-                "A8rZ"
+                "d"
+                "eyspXhP8"
                 ""
-                "oWf"
-                "pJgA8sZjRb"
-                "c6"
+                "2mTdL5D"
+                "PnGey60XhP"
+                "QaH1zT"
             |]
             [|
                 "Patient Age days"
-                "JDA8"
+                "nHey6qkh"
                 ""
-                "xro"
-                "yspJhb8s0k"
-                "lf"
-                "mFdx5ZWgO"
+                "bv2mUeL"
+                "YwPnHfy6qY"
+                "ZjQaI2"
+                "MGDbv3mUe"
             |]
             [|
                 "Patient Age week"
                 ""
-                "Gdx"
-                "H0ySqkhB93"
-                "u1"
-                "ROmGex5pX"
-                "S"
+                "kDbv3nU"
+                "7EYwQKHfz7"
+                "8rZjRL"
+                "VsMkEyv3n"
+                "WfN7F"
             |]
             [|
                 "Patient Age weeks"
-                "pmG"
-                "c9H1zSqKiB"
-                "da"
-                "DXvPJGey6"
-                "q"
-                "rLjDxu2m"
+                "tMkEcv3"
+                "gN7FZwQoIC"
+                "hA8s0j"
+                "EBVtNkEcw"
+                "roWgO"
+                "spJhB8s0"
             |]
             [|
                 "Patient Age month"
-                "YiQa41zTNK"
+                "oWgO8FZxRo"
+                "pJhBvs"
+                "cK4CwtNlF"
+                "dx5pj"
+                "0ySqJhB9"
+                "1lTd"
+            |]
+            [|
+                "Patient Age months"
+                "ySqKhB"
+                "lTdL4CWuo"
+                "mGey5"
+                "9H1zSqKi"
+                "au2m"
+                "XvPnGey"
+            |]
+            [|
+                "Patient Age year"
+                "u2mgdL5DW"
+                "vPnhe"
+                "iQa41zTr"
+                "jDbu"
+                "6EYvPnH"
+                "7rZ"
+            |]
+            [|
+                "Patient Age years"
+                "EYwPn"
+                "rZjQaI2z"
+                ""
+                "fN7EYwQ"
+                "gA8rZjRa"
+                ""
+            |]
+         |],
+         Dutch,
+         28560,
+         "78 Some(rZjQaI2z), 3 Some(lTdL4CWuo)")
+        ([|
+            [|
+                "Patient Age day"
+                "5"
+                "SpJh"
+                ""
+                "Gdx"
+                "H0ySqJhB93"
+                "u1"
+            |]
+            [|
+                "Patient Age days"
+                "1ySq"
+                ""
+                "pmG"
+                "c9H1zSqKiB"
+                "Ca"
+                "DXvPJGey6"
+            |]
+            [|
+                "Patient Age week"
+                ""
+                "XvP"
+                "YiQaH1zTrK"
                 "Lj"
                 "M6EYvPnHB"
                 "z"
-                "AUsMjDbv"
+            |]
+            [|
+                "Patient Age weeks"
+                "6EY"
+                "7rZjQaI2zT"
+                "Us"
+                "VfN7EYwQn"
+                "I"
+                "J3BvsMkE"
+            |]
+            [|
+                "Patient Age month"
+                "gA8rZjRbI2"
+                "3B"
+                "4oWfN7Fzw"
+                "R"
+                "ScK3BVtn"
                 ""
             |]
             [|
                 "Patient Age months"
-                "Us"
-                "VfNHEYwQn"
-                "I"
-                "J3BvsMkE"
-                ""
-                "xRpjgA8"
-            |]
-            [|
-                "Patient Age year"
-                "4oWfN7Fzw"
-                "R"
-                "ScK3"
-                ""
-                "G0y"
-                "t1VScK4BVt"
-            |]
-            [|
-                "Patient Age years"
-                "0"
+                "cK"
+                "dx5"
+                "0yspJh"
                 "1l"
                 "Omgdx"
                 "P"
-                "Ca41"
+            |]
+            [|
+                "Patient Age year"
+                "mGd"
+                "9H0ySq"
+                "au"
+                "XvOmG"
+                "Y"
+                "LjCa"
+            |]
+            [|
+                "Patient Age years"
+                "iQ9H1z"
+                "jd"
+                "60XvP"
+                "7"
+                "UrLj"
                 ""
             |]
          |],
-         Italian,
-         {
-             Years = 80<year>
-             Months = 0<month>
-             Weeks = 0<week>
-             Days = 5<day>
-         },
-         "80 , 5 Some(mFdx5ZWgO)")
+         German,
+         15823,
+         "43 Some(7), 4 Some(1l), 1 Some(Lj), 1 Some(Gdx)")
         ([|
             [|
                 "Patient Age day"
-                "rYiQaH1z"
-                "sLjD"
-                "PM6EYvP"
-                "Cz7"
-                "DAUsMj"
-                "qn"
-            |]
-            [|
-                "Patient Age days"
-                "XUsM"
-                "nVfNHEY"
-                "oIg"
-                "bJ3Bvs"
-                "cw"
-                "ZxRpI"
-            |]
-            [|
-                "Patient Age week"
+                "IgA8rZjR"
+                "J3BV"
                 "w4oWfN7"
                 "xRp"
                 "kScK3B"
                 "lF"
-                "8G0UR"
-                "9"
-            |]
-            [|
-                "Patient Age weeks"
-                "G0y"
-                "t1lfcK"
-                "uO"
-                "hP930"
-                "i"
-                "5DXu"
-            |]
-            [|
-                "Patient Age month"
-                "Cau1lT"
-                "DXvOmGe85"
-                "qYiP9"
-                "rLFCau2l"
-                "eMGD"
-                "fztqY"
-            |]
-            [|
-                "Patient Age months"
-                "M60XvPn"
-                "z71YiQKH1z"
-                "AUOLjD"
-                "nVeM6EyvP"
-                "oIfz7"
-                "bJ2AUsmj"
-            |]
-            [|
-                "Patient Age year"
-                "Igz7rZiQaI"
-                "J3AUsM"
-                "wqnVfN6EY"
-                "xroIg"
-                "kebJ3BUs"
-                "lfcw"
-            |]
-            [|
-                "Patient Age years"
-                "SMJ3Bv"
-                "Fcw4oifN7"
-                "GZxRp"
-                "t0kSc63B"
-                "uNlF"
-                "hO8G0xR"
-            |]
-         |],
-         German,
-         {
-             Years = 45<year>
-             Months = 7<month>
-             Weeks = 0<week>
-             Days = 5<day>
-         },
-         "45 Some(t0kSc63B), 7 Some(nVeM6EyvP), 5 Some(bJ3Bvs)")
-        ([|
-            [|
-                "Patient Age day"
-                "iCau1lTd"
-                ""
-                "6qYSP9H"
-                "TrLFCau2lT"
-                "UeMGDX"
-                "HfztqYiQ9"
             |]
             [|
                 "Patient Age days"
-                ""
-                "fz71YiQ"
-                "2AUrLjDxu2"
-                "3n"
-                "QoIfz7rli"
-                "R"
+                "ScK4"
+                "FdxroWg"
+                "G0y"
+                "t1lfcK"
+                "uO"
+                "hP9G0"
             |]
             [|
                 "Patient Age week"
-                "oIg"
-                "bJDAUsMjDb"
-                ""
-                "Zxr"
-                "0kebJ3BUsM"
-                "Nl"
+                "OmGdx5p"
+                "P9H"
+                "Cau1lT"
+                "DXvOmGex5"
+                "qYiP9"
+                "rLjCau"
             |]
             [|
                 "Patient Age weeks"
-                "kSbJ"
+                "Yic9H1zS"
                 ""
-                "8GZ"
-                "9t0kSc63BV"
-                "Wu"
-                "XhO8G0xRp"
+                "M60XvPn"
+                "z7qYiQaH1z"
+                "AUrLjD"
+                "nVeM6EyvP"
             |]
             [|
                 "Patient Age month"
+                ""
+                "VfM6EYv"
+                "Igz7rZiQaI"
+                "J3AUsM"
+                "w4nVfN6EY"
+                "xroIg"
+            |]
+            [|
+                "Patient Age months"
+                "4YVfN7E"
+                "RLIgA8rZjR"
+                "SbJ3BV"
+                "Fcw4oifN7"
+                "GZxRp"
+                "t0kSc63B"
+            |]
+            [|
+                "Patient Age year"
+                "0xRpJgA8s0"
+                "1kScK3"
+                "OlFdx4oWg"
+                "P8G0y"
+                "c9t1lScK"
+                "ZWuO"
+            |]
+
+            [|
+                "Patient Age years"
+                "9t1lTc"
+                "WuOmgdx5p"
+                "XhP93"
+                "KiCa41lT"
+                "L5DX"
+                "y6qYhP9"
+            |]
+         |],
+         English,
+         3258,
+         "8 Some(9t1lTc), 11 Some(4YVfN7E), 1 Some(OmGdx5p), 1 Some(IgA8rZjR)")
+        ([|
+            [|
+                "Patient Age day"
+                "AUsL"
+                ""
+                "oIg"
+                "bJ3A"
+                ""
+                "Zxr"
+            |]
+            [|
+                "Patient Age days"
+                "w4YVf"
+                "x"
+                "kSbJ"
+                ""
+                "8GZ"
+                "9t0kScJ3BV"
+            |]
+            [|
+                "Patient Age week"
+                "G"
+                "t1kS"
                 ""
                 "hb8"
                 "ic9t1lScK4"
                 "5Z"
-                "60XhPJG0y"
-                "T"
+            |]
+            [|
+                "Patient Age weeks"
+                "C9t1"
+                ""
+                "qXh"
+                "rKiCa41lTd"
+                "eL"
+                "fy6qYhP9H"
+            |]
+
+            [|
+                "Patient Age month"
+                ""
+                "96q"
+                "WTrLjCau2l"
+                "XU"
+                "nHfz7qYiQ"
+                "a"
             |]
             [|
                 "Patient Age months"
-                "qXh"
-                "rKiCa41lTN"
-                "eL"
-                "fy6qYhP9H"
-                "C"
-                "pmUeM5DX"
+                "Hfz"
+                "I2AUOLjDbu"
+                "v3"
+                "wQoIfz7rl"
+                "j"
+                "kEcw3nVf"
             |]
             [|
                 "Patient Age year"
-                "WTrLjCau2W"
-                "XU"
-                "KHfztqYiQ"
-                "L"
-                "bv3nheM6"
+                "RbJ3AUsMjD"
+                "Ec"
+                "FZxRoIgA7"
+                "s"
+                "tNlfcw4o"
                 ""
             |]
             [|
                 "Patient Age years"
-                "v3"
-                "wQoICz7rl"
-                "j"
-                "kEcw3nVf"
+                "Nl"
+                "O8GZxRpJg"
+                "B"
+                "CWuNlFd7"
                 ""
-                "8s0kRbJ"
+                "qKi"
             |]
          |],
-         Italian,
-         {
-             Years = 10<year>
-             Months = 8<month>
-             Weeks = 1<week>
-             Days = 6<day>
-         },
-         "10 Some(8s0kRbJ), 8 Some(pmUeM5DX), 1 Some(Nl), 6 Some(R)")
+         French,
+         26859,
+         "73 Some(B), 7 Some(v3), 4 Some(kSbJ)")
         ([|
             [|
                 "Patient Age day"
-                "WuolFdx4o"
-                "Xhb8G"
-                "Kic9t1lS"
-                "L5ZW"
-                "y6pXhPJ"
-                "zTq"
+                "e85DXvOmG"
+                "f96qY"
+                "2WTrLjCa"
+                "3mUe"
+                "QnHfztq"
+                "RaI"
             |]
             [|
                 "Patient Age days"
-                "6qXhP"
-                "TrKiCa41"
-                "UeL5"
-                "HBy6qYh"
-                "ICz"
-                "vpmUeM"
+                "oHfz7"
+                "bI2AUrLj"
+                "cv3n"
+                "ZwQoIfz"
+                "0jR"
+                "nkEcw3"
             |]
             [|
                 "Patient Age week"
-                "2WTrLjCa"
-                "3XUe"
-                "QKHfztq"
-                "RaI"
-                "Ebv3nh"
-                "FY"
+                "URbJ3AUs"
+                "HEcw"
+                "7FZxRoI"
+                "8s0"
+                "VtNlfc"
+                "Wg"
             |]
             [|
                 "Patient Age weeks"
-                "cv3n"
-                "ZwQoIfz"
-                "mjR"
-                "nkEcw3"
-                "a7"
-                "b8s0k"
-            |]
-            [|
-                "Patient Age month"
-                "IFZxroI"
-                "vs0"
-                "VtNlfc"
-                "Wg"
-                "JhB93"
-                "K"
-            |]
-            [|
-                "Patient Age months"
+                "tNlF"
+                "gO8GZxR"
                 "hB9"
                 "4CWuNl"
                 "5p"
                 "SqKiB"
-                "T"
-                "Geys"
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "pXhP8G0"
+                "qKi"
                 "dL5ZWu"
                 "ey"
                 "1zTNK"
                 "2"
-                "PnHe"
+            |]
+            [|
+                "Patient Age months"
+                "zTr"
+                "mUeL5D"
+                "nH"
+                "aI2zT"
+                "bv3mUeM5"
+                "YwQn"
+            |]
+            [|
+                "Patient Age year"
                 ""
+                "wQKHfz7"
+                "jRLI2AUrLj"
+                "kEbv3n"
+                "7FYwQoIfz"
+                "8sZjR"
             |]
             [|
                 "Patient Age years"
-                "nHfy6qYSP"
-                "aI2zT"
-                "bv3mUeM5"
-                "Ywqn"
-                "ZjdaI2A"
-                "Mkebv3nU"
+                "FZwQoIC"
+                "s0jRbJ2AUs"
+                "tNkEcw"
+                "gO7FZxQoI"
+                "hB8s0"
+                "4YVtNlEc"
             |]
          |],
-         French,
-         {
-             Years = 76<year>
-             Months = 3<month>
-             Weeks = 1<week>
-             Days = 2<day>
-         },
-         "76 Some(bv3mUeM5), 3 Some(5p), 1 Some(QKHfztq), 2 Some(UeL5)")
+         English,
+         34523,
+         "94 Some(FZwQoIC), 7 Some(zTr), 3 Some(oHfz7)")
         ([|
             [|
                 "Patient Age day"
-                "OIFZxroIg"
-                "B"
-                "CVtNlfcw"
+                "5pXhP8G0y"
+                "S"
+                "TdL5ZWuO"
                 ""
-                "qJhB930"
-                "dK4CWtNlFz"
+                "H1zTqKi"
+                "u2mUdL5Dxu"
             |]
             [|
                 "Patient Age days"
-                "k"
-                "74CWuNlF"
+                "1"
+                "2mUeL5DX"
                 ""
-                "VSqKiB9"
-                "WTdLFCWuOl"
-                "mGeysp"
+                "QaI2zTr"
+                "Dbv3mUeM5D"
+                "EYwQnH"
             |]
             [|
                 "Patient Age week"
-                "TdL5ZWuO"
+                "bv3XUeM6"
                 ""
-                "H1zTNKi"
-                "u2mUdL5Dxu"
-                "vPnHey"
-                "iQaI1zTrl"
+                "ZjRaI2A"
+                "MkEbv3nVeM"
+                "N7FYwQ"
+                "A8sZjRb52"
             |]
             [|
                 "Patient Age weeks"
                 ""
-                "QaI2zTr"
-                "DbvpmUeM5D"
-                "EYwqnH"
-                "rZjdaI2AT"
-                "sMkeb"
+                "8s0"
+                "VtNkEcw3nV"
+                ""
+                "Jhb"
+                "K4YVtNlEcw"
             |]
             [|
                 "Patient Age month"
-                "ZjRLI2A"
-                "MkEyv3nheM"
-                "N7FYwQ"
-                "A8sZjRb52"
-                "B"
-                "oWgN7FZT"
-            |]
-            [|
-                "Patient Age months"
-                "VtNkEcw3nV"
-                "Wg"
-                "Jhb8s0kRb"
-                "K4YVtNlEcw"
-                "x5"
-                "ySMJhBvs0"
-            |]
-            [|
-                "Patient Age year"
+                "h"
+                "4CVt"
                 ""
                 "SqJ"
                 "TdK4CWQNlF"
                 "Ge"
-                "H1ySqKEB9"
-                "u"
             |]
             [|
-                "Patient Age years"
-                "1VS"
+                "Patient Age months"
+                "dL4C"
+                ""
+                "1zS"
                 "2WTdL5CWuO"
                 "PJ"
                 "QKH1zTqKi"
-                "D"
-                "EyvPnhey"
+            |]
+            [|
+                "Patient Age year"
+                ""
+                "aH1"
+                "bu2mUOL5DX"
+                "Yv"
+                "ZiQaI1zTr"
+                "M"
+            |]
+            [|
+                "Patient Age years"
+                "jQa"
+                "kDbv3mUeMG"
+                "HE"
+                "urZjRaI2A"
+                "v"
+                "VfN7FYwQ"
             |]
          |],
-         Spanish,
-         {
-             Years = 96<year>
-             Months = 4<month>
-             Weeks = 1<week>
-             Days = 1<day>
-         },
-         "96 Some(D), 4 Some(x5), 1 Some(vPnHey), 1 Some(qJhB930)")
+         French,
+         21786,
+         "59 Some(HE), 8 Some(1zS), 1 Some(ZjRaI2A), 4 ")
         ([|
             [|
                 "Patient Age day"
-                "rZjRL"
-                "s"
-                "fN7F"
+                "JhB8s"
+                "K"
+                "x5pW"
                 ""
-                "3BV"
-                "4oWgN7FZwQ"
+                "lTd"
+                "mGex5p"
             |]
             [|
                 "Patient Age days"
-                "B"
-                "oWga"
-                ""
-                "cK4"
-                "dx5ZWgOIFZ"
-                "0y"
-            |]
-            [|
-                "Patient Age week"
-                "x5pW"
-                "ySqJhB9"
-                "lTd"
-                "mGex5p"
-                "9H"
-                "auolT"
-            |]
-            [|
-                "Patient Age weeks"
+                "TdL4CWuN"
+                "Gey5pXhO8"
                 "H1VSq"
                 "u2WTdL5C"
                 "vPJG"
-                "iQKH1zt"
-                "jDx"
-                "6EXvPn"
+                "iQ9H1zT"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "PnGey60Xh"
+                "QaH1z"
                 "Dbu2mUOL"
                 "EYvP"
                 "rZiQaI1"
                 "sMj"
-                "f96EYw"
-                "ga"
-            |]
-            [|
-                "Patient Age months"
-                "NHEY"
-                "AurZjRa"
-                "Bvs"
-                "oVfN71"
-                "pI"
-                "cJ3BV"
-            |]
-            [|
-                "Patient Age year"
-                "JgA8smj"
-                "K3B"
-                "74oWgN"
-                "UR"
-                "VScK4"
-                "I"
-            |]
-            [|
-                "Patient Age years"
-                "fcK"
-                "gdx5ZW"
-                "G0"
-                "t1lTN"
-                "u"
-                "hP9H"
-            |]
-         |],
-         French,
-         {
-             Years = 61<year>
-             Months = 11<month>
-             Weeks = 1<week>
-             Days = 1<day>
-         },
-         "61 Some(G0), 11 Some(Bvs), 1 Some(lTd), 1 Some(fN7F)")
-        ([|
-            [|
-                "Patient Age day"
-                "j"
-                "6EYvPnHe"
-                ""
-                "UsmjDbv"
-                "Vf96EYwP"
-                ""
-            |]
-            [|
-                "Patient Age days"
-                "fN"
-                "gAurZjdaI"
-                "3"
-                "4oVfN71Y"
-                ""
-                "ScJ3BVP"
-            |]
-            [|
-                "Patient Age week"
-                "pJgA8sZjR"
-                "c"
-                "d74oWgN7"
-                ""
-                "1VScK4B"
-                "OIFdxroWgO"
             |]
             [|
                 "Patient Age weeks"
-                "l"
-                "mFdx5ZWg"
-                ""
-                "at1lTNK"
-                "XuOmGAx5pj"
-                "YhP9H0"
+                "ZjQaI"
+                "MGDbv3mU"
+                "NHEY"
+                "AurZjRa"
+                "BUs"
+                "oVfN71"
             |]
             [|
                 "Patient Age month"
-                "ROmGex5p"
-                ""
-                "FCau2lT"
-                "GDXvPmGey5"
-                "tqYic9"
-                "urLjdau2m"
+                "VsMkEyv3"
+                "WfN7"
+                "JgA8sZj"
+                "K3B"
+                "x4oWgN"
+                "yR"
             |]
             [|
                 "Patient Age months"
-                ""
-                "rLjDxu2"
-                "eM6EyvPnhe"
-                "fz7rli"
-                "2AUsLjDb5"
-                "3nVfM"
+                "roWg"
+                "spJhB8s"
+                "ScK"
+                "Fdx5ZW"
+                "G0"
+                "t1lTN"
             |]
             [|
                 "Patient Age year"
-                "AUsMjDb"
-                "nVfN6EYwqn"
-                "oIgA7r"
-                "bJ3XUsMkD"
-                "cw4YV"
-                "ZxRLIgA8"
+                "0ySqJhB"
+                "1lT"
+                "OmGex5"
+                "P9"
+                "Cau2l"
+                "D"
             |]
             [|
                 "Patient Age years"
-                "w4oifN7FYw"
-                "xRpjgA"
-                "kScJ3BVPM"
-                "lFdw4"
-                "8G0xRpJD"
-                ""
+                "au2"
+                "XvPnGe"
+                "Yi"
+                "LjDxu"
+                "M"
+                "z7rY"
             |]
          |],
-         Spanish,
-         {
-             Years = 27<year>
-             Months = 0<month>
-             Weeks = 1<week>
-             Days = 4<day>
-         },
-         "27 Some(8G0xRpJD), 1 Some(1VScK4B), 4 ")
+         English,
+         9221,
+         "25 Some(au2), 3 Some(roWg), 6 Some(TdL4CWuN)")
         ([|
             [|
                 "Patient Age day"
-                "XROmGe"
-                "YS"
-                "LFCau"
-                "M"
-                "ztqY"
+                "BVsMkEyv3n"
+                "oW"
+                "pJgA8sZjR"
+                "c"
+                "dx4oWgN7"
                 ""
             |]
             [|
                 "Patient Age days"
-                "7q"
-                "UrLjD"
-                "V"
-                "Ifz7"
+                "xr"
+                "yRpJhB8s0"
+                "l"
+                "mFdx5ZWg"
                 ""
-                "63n"
+                "at1lTcK"
             |]
             [|
                 "Patient Age week"
-                "DAUsM"
-                "q"
-                "roIg"
+                "H0ySqJhB9"
+                "u"
+                "vOmGex5p"
                 ""
-                "Ecw"
-                "FZxRLIgA8r"
+                "FCau2lT"
+                "GDXvPmGey5"
             |]
             [|
                 "Patient Age weeks"
+                "C"
+                "DXvPJGey"
+                ""
+                "rLjDxu2"
+                "eM6EXvPnHe"
+                "fz7rYi"
+            |]
+            [|
+                "Patient Age month"
+                "M6EYvPnH"
+                ""
+                "AUsMjDb"
+                "nVfN6EYwPn"
+                "oIgA7r"
+                "bJ3BUsMkD"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "J3BvsMk"
+                "w4oifN7FYw"
+                "xRpIgA"
+                "kScJ3BVPM"
+                "lFdw4"
+            |]
+            [|
+                "Patient Age year"
+                "ScK3BVt"
+                "Fdx4oWgN7F"
+                "G0"
+                "t1lScK4BV"
+                "uOmFdx5oWg"
+                "hP"
+            |]
+            [|
+                "Patient Age years"
+                "Omgd"
+                ""
+                "Cat"
+                "DXuOmGAx5p"
+                "qY"
+                "rLiCauolT"
+            |]
+         |],
+         Dutch,
+         32985,
+         "90 , 4 Some(J3BvsMk), 2 Some(DXvPJGey), 1 Some(oW)")
+        ([|
+            [|
+                "Patient Age day"
+                "fM6EYv"
+                "Cz"
+                "DAUsM"
+                "q"
+                "QoIg"
+                ""
+            |]
+            [|
+                "Patient Age days"
+                "oI"
+                "bJ3Bv"
                 "c"
                 "ZxRp"
                 ""
                 "NlF"
-                "O8G0xRpJDA"
-                "B9"
-            |]
-            [|
-                "Patient Age month"
-                "8G0U"
-                ""
-                "WuO"
-                "XhPJG0ySpJ"
-                "Ki"
-                "L5DxuOmgd"
-            |]
-            [|
-                "Patient Age months"
-                ""
-                "5DX"
-                "6qYhP9"
-                "Tr"
-                "UeM5D"
-                "H"
-            |]
-            [|
-                "Patient Age year"
-                "eMG"
-                "fztq"
-                "2AurLjD"
-                "3nh"
-                "Qoifz7"
-                "Rb"
-            |]
-            [|
-                "Patient Age years"
-                "oIfz"
-                "bJ2AUsm"
-                "cw3"
-                "ZxQoIg"
-                "0U"
-                "NHEcw"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 92<year>
-             Months = 7<month>
-             Weeks = 1<week>
-             Days = 5<day>
-         },
-         "92 Some(bJ2AUsm), 7 Some(5DX), 1 Some(q), 5 Some(UrLjD)")
-        ([|
-            [|
-                "Patient Age day"
-                "b8G0UR"
-                "B9t1VScK4"
-                "CWuOI"
-                "pXhPJG0y"
-                "qKiC"
-                "dL5DWuO"
-            |]
-            [|
-                "Patient Age days"
-                "KiCat1lTN"
-                "L5DXu"
-                "y6qYhP9H"
-                "zTrL"
-                "mUe85DX"
-                "nHf"
             |]
             [|
                 "Patient Age week"
-                "UeMGD"
-                "HfztqYiQ"
-                "I2Au"
-                "v3nheM6"
-                "wQo"
-                "jRbI2A"
+                "kScK3"
+                "l"
+                "8G0y"
+                ""
+                "WuO"
+                "XhPJG0ySpJ"
             |]
             [|
                 "Patient Age weeks"
-                "QoIfz7rl"
+                "u"
+                "hP9G"
                 ""
-                "Ecw3nVf"
-                "FZTQoIgz7r"
-                "s0URbJ"
-                "tNHEcw4"
+                "5DX"
+                "6qYhP9HByS"
+                "Tr"
             |]
             [|
                 "Patient Age month"
-                "0kebJ3BUs"
-                "N"
-                "O82ZxRLI"
-                ""
-                "CWtNlFz"
-                "pXgO8GAxRp"
+                "qYiP"
+                "rLjCa"
+                "eMGDXvPm"
+                "fztq"
+                "2AurLjD"
+                "3nU"
             |]
             [|
                 "Patient Age months"
+                "AUrLj"
+                "nVeM6Eyv"
+                "oIfz"
+                "bJ2AUsL"
+                "cw3"
+                "ZxQoIg"
+            |]
+            [|
+                "Patient Age year"
+                "w4nVfN6E"
+                "xroI"
+                "kebJ3BU"
+                "lfc"
+                "8FZxRp"
+                "9s"
+            |]
+            [|
+                "Patient Age years"
+                "GZxR"
+                "t0kSc63"
+                "uNl"
+                "hO8G0x"
+                "iB"
+                "5CWuO"
+            |]
+         |],
+         Italian,
+         3985,
+         "10 Some(5CWuO), 11 Some(ZxQoIg), 5 Some(NlF)")
+        ([|
+            [|
+                "Patient Age day"
+                "6qYiP9"
+                "TrLFCau2l"
+                "UeMGD"
+                "HfztqYiQ"
+                "I2AT"
+                "v3nUeM6"
+            |]
+            [|
+                "Patient Age days"
+                "2AUrLjDxu"
+                "3nVeM"
+                "QoIfz7rY"
+                ""
+                "Ecw3nVf"
+                "FZxQoIgz"
+            |]
+            [|
+                "Patient Age week"
+                "cwqnVfN6EY"
+                "Zx"
+                "0kebJ3BUs"
+                "N"
+                "O8FZxRLI"
+                ""
+            |]
+            [|
+                "Patient Age weeks"
+                "8G"
+                "9t0kScJ3B"
                 "W"
                 "XhO8G0xR"
                 ""
                 "LFCWuOl"
-                "yspXhP8G0y"
-                "ztqKiC"
             |]
             [|
-                "Patient Age year"
-                "60XhPJG0"
+                "Patient Age month"
+                "ic9t1lScK"
+                "5"
+                "6pXhP9G0"
                 ""
                 "UdL5Dxu"
                 "Hey6qkhP9H"
-                "I1zTrl"
-                "v2mUeL5DX"
+            |]
+            [|
+                "Patient Age months"
+                "e"
+                "fy6qYhP9"
+                ""
+                "3mUeM5D"
+                "qnHfz6qYiP"
+                "daI2AT"
+            |]
+            [|
+                "Patient Age year"
+                "nHfz7qYi"
+                ""
+                "bv3nheM"
+                "YwQoifz7rY"
+                "ZjRbI2"
+                "MkEcv3nVf"
             |]
             [|
                 "Patient Age years"
                 ""
-                "pmUeM5D"
-                "qnHfz6qYic"
-                "daI2AT"
-                "ebv3XUeM6"
-                "1YwQK"
+                "kEcw3nV"
+                "7FZxQoIgz7"
+                "8s0kRb"
+                "VtNlEcw4n"
+                "WgO8F"
             |]
          |],
-         German,
-         {
-             Years = 57<year>
-             Months = 3<month>
-             Weeks = 1<week>
-             Days = 0<day>
-         },
-         "57 Some(daI2AT), 3 Some(LFCWuOl), 1 Some(v3nheM6)")
+         Dutch,
+         27749,
+         "76 Some(kEcw3nV), 1 Some(Zx), 2 Some(3nVeM)")
         ([|
             [|
                 "Patient Age day"
-                "s0"
-                "tNlfcw4YV"
-                "g"
-                "hB9s"
-                ""
-                "5pX"
-            |]
-            [|
-                "Patient Age days"
-                "CWuNl"
-                "p"
-                "qK"
-                "dLFCW"
-                "e"
-                "1ztq"
-            |]
-            [|
-                "Patient Age week"
+                "Kic9t1l"
+                "L5C"
                 "y6pXhP"
                 "zT"
                 "mUdL5"
                 "n"
-                "aI1z"
-                ""
             |]
             [|
-                "Patient Age weeks"
-                "IC"
+                "Patient Age days"
+                "UeL"
+                "Hfy6qY"
+                "I2"
                 "vpmUe"
                 "w"
                 "jdaI"
-                ""
-                "7EY"
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "QnHfz7"
+                "Ra"
                 "Ebv3n"
                 "F"
                 "sZjR"
                 ""
-                "QN7"
-                "DA8s0jRbJD"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                "0j"
+                "nkEcw"
                 "a"
                 "b8s0"
                 ""
-                "ZWg"
-                "pJhBvs0kSb"
-                "cK"
+                "oWg"
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "VtNlf"
+                "W"
                 "JhB9"
                 ""
                 "x5p"
                 "ySqKhB9tnk"
-                "lT"
-                "mGey5pXhb"
             |]
             [|
-                "Patient Age years"
+                "Patient Age months"
+                "5"
+                "SqKi"
                 ""
                 "Gey"
                 "H1ztqKiC9t"
                 "u2"
-                "vPnhey6qX"
-                "i"
+            |]
+            [|
+                "Patient Age year"
+                "1zTN"
+                ""
+                "PnH"
+                "QaI1zTrliC"
+                "Db"
+                "EYwPn"
+            |]
+            [|
+                "Patient Age years"
+                "bv3mUeM"
+                "YwQ"
+                "ZjRa"
+                "Mkebv3n"
+                "N71"
+                "A82ZjR"
             |]
          |],
-         Dutch,
-         {
-             Years = 78<year>
-             Months = 3<month>
-             Weeks = 0<week>
-             Days = 6<day>
-         },
-         "78 Some(Gey), 3 Some(b8s0), 6 Some(p)")
+         Italian,
+         15184,
+         "41 Some(A82ZjR), 7 Some(u2), 1 , 2 Some(jdaI)")
         ([|
             [|
                 "Patient Age day"
-                "kEbv3nh"
-                "7FYwQoifz7"
-                "8sZjRb"
-                "VPMkEcv3n"
-                "WQN7F"
-                "JDA8s0jR"
+                "CVtNlfc"
+                "pWgO8FZxRp"
+                "qJhB9s"
+                "dK4CWtNlF"
+                "ex5pX"
+                "BySqKhB9"
             |]
             [|
                 "Patient Age days"
-                "ga7FZxQoIg"
-                "hb8s0U"
-                "4YVtNHEcw"
-                "5oWgO"
-                "SpJhBvs0"
-                "TcK4"
+                "85pXhO8G0x"
+                "VSqKiB"
+                "lTdL5CWuO"
+                "mGeys"
+                "9H1ztqKi"
+                "au2m"
             |]
             [|
                 "Patient Age week"
-                "qJhB93"
-                "dK4CWtNlF"
-                "Ax5pX"
-                "BySqKhB9"
-                "olTd"
-                "pmGey5p"
-            |]
-            [|
-                "Patient Age weeks"
-                "WTdLFCWuO"
-                "JGeys"
-                "9H1ztqKi"
-                "au2m"
-                "XvPnhey"
-                "YiQ"
-            |]
-            [|
-                "Patient Age month"
+                "H1zTqK"
+                "u2mUdL5Dx"
                 "vPnHe"
                 "iQaI1zTr"
                 "jDbv"
                 "6EYwPnH"
-                "7rZ"
-                "UsMGDb"
             |]
             [|
-                "Patient Age months"
+                "Patient Age weeks"
+                "Dbv3mUeM5"
+                "EYwQn"
                 "rZjdaI2A"
                 "sMke"
                 "fN71YwQ"
                 "gA8"
-                "3BVsMk"
-                "4o"
+            |]
+            [|
+                "Patient Age month"
+                "N7FYw"
+                "A8sZjRb5"
+                "BVtM"
+                "oWgN7FZ"
+                "pJhA8s0jRb"
+                "cK4BVt"
+            |]
+            [|
+                "Patient Age months"
+                "Jh"
+                "K4YVtNlEc"
+                "x"
+                "ySpJhB9s"
+                ""
+                "mGdx5pj"
             |]
             [|
                 "Patient Age year"
+                "TdK4CWQNl"
+                "G"
+                "H1ySqKhB"
                 ""
-                "oWgN7FZ"
-                "pJhA8s0jRb"
-                "cKEBVt"
-                "dxroWgO7F"
-                "0yspJhB8s0"
+                "vPmGey5"
+                "ic9H1zSqKi"
             |]
             [|
                 "Patient Age years"
-                "x"
-                "ySMJhBvs"
+                "P"
+                "QKH1zTqK"
                 ""
-                "mGdx5pj"
-                "9H0ySqkhB9"
-                "au1lTd"
+                "EXvPnhe"
+                "rYiQa41zTr"
+                "sLjDb5"
             |]
          |],
-         German,
-         {
-             Years = 43<year>
-             Months = 4<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "43 Some(mGdx5pj), 4 Some(gA8), 2 Some(au2m)")
+         English,
+         2447,
+         "6 Some(P), 8 Some(Jh), 2 Some(Dbv3mUeM5), 3 Some(85pXhO8G0x)")
         ([|
             [|
                 "Patient Age day"
-                "yvP"
-                "liQaI1zTrl"
-                "mj"
-                "96EYwPnHf"
-                "a"
-                "AUsMGDbv"
+                "fN7"
+                "gA8sZjRb52"
+                "3B"
+                "4oWgN7FZw"
+                "R"
+                "ScK4BVtN"
             |]
             [|
                 "Patient Age days"
-                "7rZjdaI2AT"
-                "Us"
-                "VfN71YwQK"
-                "I"
-                "J3BVsMkE"
+                "pJhb8s0kRb"
+                "cK"
+                "dx5oWgO8F"
+                "0"
+                "1lTcK4Cw"
                 ""
             |]
             [|
                 "Patient Age week"
-                "3B"
-                "4oWgN7FZw"
-                "R"
-                "ScKEBVtN"
-                ""
-                "G0yspJh"
+                "lT"
+                "mGex5"
+                "9"
+                "au"
+                "XvpmG"
+                "Y"
             |]
             [|
                 "Patient Age weeks"
-                "dx5ZWgOIF"
-                "0"
-                "1lTcK4Cw"
-                ""
-                "P9H"
-                "Cau1lTd74C"
-            |]
-            [| "Patient Age month"; "9"; "auol"; ""; "Y"; "Ljda"; "" |]
-            [|
-                "Patient Age months"
+                "vPJ"
+                "iQ9H1z"
                 "jD"
                 "6EXvP"
                 "7"
                 "UsLj"
-                ""
-                "Igz"
             |]
             [|
-                "Patient Age year"
-                "f96EY"
+                "Patient Age month"
+                "rZiQaI"
+                "sM"
+                "fN6EY"
                 "g"
                 "3XUs"
                 ""
-                "RLI"
-                "SMJ3BvsMkE"
             |]
             [|
-                "Patient Age years"
+                "Patient Age months"
+                "BU"
+                "oVfN7"
                 "p"
                 "cJ3B"
                 ""
                 "0xR"
-                "1kScK3BVtn"
-                "ol"
+            |]
+            [|
+                "Patient Age year"
+                "x4oWg"
+                "y"
+                "VScK"
+                ""
+                "JG0"
+                "9t1lTcK4CV"
+            |]
+            [|
+                "Patient Age years"
+                "G"
+                "t1lT"
+                ""
+                "hP9"
+                "iCau1lTd74"
+                "5D"
             |]
          |],
-         Dutch,
-         {
-             Years = 8<year>
-             Months = 11<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "8 Some(cJ3B), 11 Some(6EXvP), 2 Some(0)")
+         Spanish,
+         9948,
+         "27 Some(iCau1lTd74), 3 , 3 Some(1lTcK4Cw)")
         ([|
             [|
                 "Patient Age day"
-                "P9H"
-                "CauolT"
-                "DX"
-                "qYic9"
-                "r"
-                "eM60"
-            |]
-            [|
-                "Patient Age days"
-                "LjDau2"
-                "M6EXvPnhe"
-                "z7rYi"
-                "AUsLjDb5"
-                "nVfM"
-                "oICz7rZ"
-            |]
-            [|
-                "Patient Age week"
+                "7rZiQaI1zT"
+                ""
                 "Vf96EYw"
                 "Iga7rZjQaI"
                 "J3XUsM"
-                "w4YVfNHEY"
-                "xRLIg"
-                "kSbJ3Bvs"
+                "w4nVfN7EY"
             |]
             [|
-                "Patient Age weeks"
+                "Patient Age days"
+                ""
+                "4oVfN71"
                 "RpIgA82ZjR"
                 "ScJ3BV"
                 "Fdw4oWfN7"
                 "G0xRp"
-                "tnkScK3B"
-                "uolF"
+            |]
+            [|
+                "Patient Age week"
+                "dx4oWgN"
+                "0URpJhA8s0"
+                "1VScK4"
+                "OIFdx5oWg"
+                "P8G0y"
+                "C9t1lfcK"
+            |]
+            [|
+                "Patient Age weeks"
+                "9G0ySMJhB9"
+                "at1lTN"
+                "XuOmGdx5p"
+                "YhP9H"
+                "LiCau1lT"
+                "M5DX"
             |]
             [|
                 "Patient Age month"
-                "1VScK4"
-                "OIFdx5oWg"
-                "PJG0y"
-                "C9t1lfcK"
-                "DWuO"
-                "qXhP930"
+                "FCau2l"
+                "GDXvPmGey"
+                "6qYiQ"
+                "TrLjdau2"
+                "UeM6"
+                "Hfz71Yi"
             |]
             [|
                 "Patient Age months"
-                "XuOmGAx5p"
-                "YhP9H"
-                "liCau1lT"
-                "85DX"
-                "96qYiP9"
-                "WTr"
-            |]
-            [|
-                "Patient Age year"
-                "tqYic"
-                "urLjdau2"
-                "UeM6"
-                "Hfz71Yi"
-                "I2A"
-                "v3nVPM"
-            |]
-            [|
-                "Patient Age years"
+                "eM6EXvPnH"
+                "fz7rY"
                 "2AUsLjDb"
                 "3nVf"
                 "QoIgz7r"
                 "RbJ"
-                "Ecw4nV"
-                "FZ"
+            |]
+            [|
+                "Patient Age year"
+                "oIgA7"
+                "bJ3BUsMk"
+                "cw4Y"
+                "ZxRLIgA"
+                "0kS"
+                "NlFcw4"
+            |]
+            [|
+                "Patient Age years"
+                "kScJ3BVP"
+                "lFdw"
+                "8G0xRpJ"
+                "9t1kScK3BV"
+                "WuOlFd"
+                "XhP8G0yRp"
             |]
          |],
-         French,
-         {
-             Years = 74<year>
-             Months = 0<month>
-             Weeks = 2<week>
-             Days = 4<day>
-         },
-         "74 Some(QoIgz7r), 2 Some(Fdw4oWfN7), 4 Some(z7rYi)")
+         English,
+         33712,
+         "92 Some(kScJ3BVP), 4 Some(eM6EXvPnH), 1 Some(dx4oWgN), 5 ")
         ([|
             [|
                 "Patient Age day"
-                "t1VS"
+                "LFCa"
                 ""
-                "hP8"
-                "iC9t1lfcK4"
-                "5D"
-                "6qXhP930y"
+                "z6q"
+                "ATrLjdau2m"
+                "nU"
+                "oHfz7qYiQ"
             |]
             [|
                 "Patient Age days"
                 ""
-                "qkh"
-                "rliCau1lTd"
-                "e8"
-                "f96qYiP9H"
-                "2"
-            |]
-            [|
-                "Patient Age week"
-                "ztq"
-                "ATrLjdau2m"
-                "nU"
-                "oHfz71YiQ"
-                "b"
-                "cv3nVeM6"
-            |]
-            [|
-                "Patient Age weeks"
-                "52AUsLjDb5"
+                "Ifz"
+                "J2AUsLjDb5"
                 "63"
                 "TQoIgz7rZ"
                 "U"
-                "HEcwqnVf"
-                ""
             |]
             [|
-                "Patient Age month"
+                "Patient Age week"
+                "QoI"
+                "RbJ3XUsMkD"
                 "Ec"
                 "FZxRLIgA8"
                 "s"
-                "tNlFzw4o"
-                ""
-                "hB9t0kS"
+                "tNlFcw4o"
             |]
             [|
-                "Patient Age months"
-                "O8G0xRpJD"
+                "Patient Age weeks"
+                "0kScJ3BVPM"
+                "Nl"
+                "O8G0xRpJg"
                 "B"
                 "CWuOlFdx"
                 ""
-                "qKic9t1"
-                "dL5ZWuOmFd"
             |]
             [|
-                "Patient Age year"
+                "Patient Age month"
+                "Wu"
+                "XhPJG0ySp"
                 "K"
-                "L5DxuOmg"
+                "L5DWuOmG"
                 ""
                 "zTrKiCa"
-                "mUeL5DXROm"
-                "nH"
             |]
             [|
-                "Patient Age years"
+                "Patient Age months"
+                "6qYhP9HBy"
+                "T"
                 "UeM5"
                 ""
-                "I2W"
+                "I"
                 "v3XU"
+            |]
+            [|
+                "Patient Age year"
+                "2AurLj"
+                "3n"
+                "QoHfz"
+                "R"
+                "Ecv3"
                 ""
-                "jRL"
+            |]
+            [|
+                "Patient Age years"
+                "cw"
+                "ZxQoI"
+                "0"
+                "NHEc"
+                ""
+                "Bvs"
             |]
          |],
-         English,
-         {
-             Years = 94<year>
-             Months = 7<month>
-             Weeks = 1<week>
-             Days = 2<day>
-         },
-         "94 Some(UeM5), 7 Some(O8G0xRpJD), 1 Some(ztq), 2 ")
+         Spanish,
+         21147,
+         "57 , 11 Some(I), 1 Some(s), 5 Some(TQoIgz7rZ)")
         ([|
             [|
                 "Patient Age day"
-                "5l"
-                "Z"
-                "7A0V"
-                "fQiXPcK0"
-                "dauoW"
-                "0XRpJGe8"
-            |]
-            [|
-                "Patient Age days"
-                "jlgbv"
-                "ZsauL5D"
-                "6mj"
-                "Dv53"
-                "B9t1VScK"
                 "CWuO"
-            |]
-            [|
-                "Patient Age week"
-                "VCau"
-                "EcwqnVfN"
-                "FZxr"
-                "s0kebJ3"
-                "tNl"
-                "gO82Zx"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "t1lfcK4CVt"
-                "O6NHEcwqnV"
-                "K"
-                "GnHqX4"
-                "ETfs3rNbi"
-            |]
-            [|
-                "Patient Age month"
-                "lFz"
-                "GY"
-                "fcR"
-                ""
-                "kEy"
-                "71zwQoifMH"
-            |]
-            [|
-                "Patient Age months"
-                "rlTQa4"
-                "t41t"
-                "ldF6CZ"
-                "QRi"
-                "60yvPnh"
-                "71Y"
-            |]
-            [|
-                "Patient Age year"
-                "qWvDhzsYv"
-                "z4sLyJpKh"
-                "l1X2IG"
-                "2WTdL5CWuO"
-                "NM29"
-                "4BlVzjlrAS"
-            |]
-            [|
-                "Patient Age years"
-                "Lj"
-                "zS741qJSH"
-                "aF"
-                "XskT"
-                "Jw5QzDXvPJ"
-                ""
-            |]
-         |],
-         French,
-         {
-             Years = 59<year>
-             Months = 8<month>
-             Weeks = 2<week>
-             Days = 3<day>
-         },
-         "59 Some(aF), 8 Some(ldF6CZ), 2 Some(O6NHEcwqnV), 3 Some(6mj)")
-        ([|
-            [|
-                "Patient Age day"
-                ""
-                "LyRc"
-                "QH1qK"
-                "kdgbzzgO7"
-                ""
-                ""
+                "pXhPJG0"
+                "qKi"
+                "dL5DWu"
+                "ey"
+                "1zTrK"
             |]
             [|
                 "Patient Age days"
-                "IqH1YwQK"
-                "4yb6Cjea"
-                "cnht"
-                ""
-                "O8GDBux"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "1"
-                "4erMBicK"
-                "SD"
-                "VwiIpZh"
-                "NuolTd7"
-                "766s"
-            |]
-            [|
-                "Patient Age weeks"
-                "16XiDxTcXC"
-                "KFZW"
-                "MGj19UD"
-                "XvQDT"
-                ""
-                "G2"
-            |]
-            [|
-                "Patient Age month"
-                "H"
-                "bvsmU"
-                "Y"
-                "Zjga"
-                ""
-                "N74"
-            |]
-            [|
-                "Patient Age months"
-                "XpYQ"
-                ""
-                "O8G"
-                "SDf291CS5"
-                "Dr"
-                "qnHf96qYSc"
-            |]
-            [|
-                "Patient Age year"
-                "tqYS"
-                "GJXSc9"
-                ""
-                "Nt"
-                "7mcqliC"
-                "URbJDAUsmj"
-            |]
-            [|
-                "Patient Age years"
-                "CXsgSt3sYq"
-                "aICWurL"
-                "bvpXheMG0X"
-                "YwqKif"
-                "ZjdLI2WuO"
-                "Mkeyv"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 25<year>
-             Months = 3<month>
-             Weeks = 1<week>
-             Days = 5<day>
-         },
-         "25 Some(aICWurL), 3 , 1 Some(4erMBicK), 5 Some(4yb6Cjea)")
-        ([|
-            [|
-                "Patient Age day"
-                "L29"
-                "kSMJ3B"
-                "Y9u5h9qPRW"
-                "qGDLs0UR"
-                "XPYC2xxvbx"
-                "B93"
-            |]
-            [|
-                "Patient Age days"
-                "y63nhP96"
-                "Q0"
-                "hQWISXgq71"
-                "7olFdxroWg"
-                "8scrw"
-                "VfcKEYVtN"
-            |]
-            [|
-                "Patient Age week"
-                "9S8PnH"
-                "9H"
-                "ZF"
-                "i"
-                "L30Vtey6q"
-                "lc7BeRP6qY"
-            |]
-            [|
-                "Patient Age weeks"
-                "tcXEy63"
-                "R9JlD"
-                "9Va7xsp"
-                "GDb5p"
-                "mvRSeOv"
-                "oHfJ0XhP9"
-            |]
-            [|
-                "Patient Age month"
-                "a1AvF79r8"
-                "1Mk9uOIgAx"
-                ""
-                "waNCxuO"
-                "sZgA85"
-                "CjRb52AU"
-            |]
-            [|
-                "Patient Age months"
-                "S"
-                "Td7F"
-                ""
-                "H1V"
-                "u2WgdLFZxu"
-                "vP"
-            |]
-            [|
-                "Patient Age year"
-                "2WgO"
-                ""
-                "QK4"
-                "Dx5pmUO85D"
-                "Ey"
-                "rlTda4CWT"
-            |]
-            [|
-                "Patient Age years"
-                ""
-                "ZTd"
-                "MGebvpXhe8"
-                "NH"
-                "Au2ZjdLI2"
-                "X"
-            |]
-         |],
-         English,
-         {
-             Years = 80<year>
-             Months = 9<month>
-             Weeks = 1<week>
-             Days = 2<day>
-         },
-         "80 , 9 Some(S), 1 Some(9S8PnH), 2 Some(y63nhP96)")
-        ([|
-            [|
-                "Patient Age day"
-                "ojRkWDau2"
-                "qHNp"
-                "ZTQ"
-                "DrM6WOIuS"
-                "rYVq71Y"
-                "Y7"
-            |]
-            [|
-                "Patient Age days"
-                "VtWy"
-                "8FZ"
-                "MAVfrARD1"
-                "A74zQN7"
-                "7g"
-                "ZWgOIF"
-            |]
-            [|
-                "Patient Age week"
-                "mjdL52W"
-                "E"
-                "4h"
-                "UB"
-                "zTmf"
-                "8"
-            |]
-            [|
-                "Patient Age weeks"
-                "AjWDa"
-                "W8gxC"
-                "MsJt8"
-                "JViZ"
-                "cuO5UFmg"
-                "80"
-            |]
-            [|
-                "Patient Age month"
-                "g072ZjdLI2"
-                "EjT9qZzu"
-                "A5khYF"
-                "71lTQK4b"
-                "NjFj1CTdaI"
+                "y6qYhP9"
+                "zTr"
+                "mUeM5D"
+                "nH"
+                "aI2WT"
                 "b"
             |]
             [|
+                "Patient Age week"
+                "I2A"
+                "v3nUeM"
+                "wQ"
+                "jRbI2"
+                "k"
+                "7FZw"
+            |]
+            [|
+                "Patient Age weeks"
+                "Ecw3nV"
+                "FZxQoIg"
+                "s0URbJ3AUs"
+                "tNHEcw"
+                "gOIFZxRoI"
+                "hB8s0"
+            |]
+            [|
+                "Patient Age month"
+                "O8FZxRL"
+                "B9s0kSMJ3B"
+                "CWtNlF"
+                "pXgO8GZxR"
+                "qKhB9"
+                "dL4CWuNl"
+            |]
+            [|
                 "Patient Age months"
-                "B"
-                "sWuAhcw4n"
-                "1ztqKiC9t1"
-                "XkX3Kic9t1"
-                "C941lfNK4"
-                "q71YwQKHf"
+                "KiB9t1kScK"
+                "LFCWuO"
+                "yspXhP8G0"
+                "ztqKi"
+                "mTdL5DWu"
+                "nGey"
             |]
             [|
                 "Patient Age year"
-                "gA85pjRO8"
-                "3BVSM"
-                "4oWTN7FC"
-                "RpmG"
-                "Sc9HBVt"
-                "Fda"
+                "UdL5Dx"
+                "Hey6qkhP9"
+                "I1zTr"
+                "v2mUeL5D"
+                "wPnH"
+                "jQaI2zT"
             |]
             [|
                 "Patient Age years"
-                "cKH1V"
-                "dxu2WgdL"
-                "0yvP"
-                "1liQK41"
-                "Omj"
-                "P96EyS"
+                "qnHfz6qYi"
+                "daI2A"
+                "ebv3nUeM"
+                "EYwQ"
+                "rZjRLI2"
+                "sMk"
             |]
          |],
-         Italian,
-         {
-             Years = 35<year>
-             Months = 7<month>
-             Weeks = 3<week>
-             Days = 5<day>
-         },
-         "35 Some(P96EyS), 7 Some(q71YwQKHf), 3 Some(80), 5 Some(ZWgOIF)")
+         Dutch,
+         8410,
+         "23 Some(daI2A), 2 Some(FZxQoIg), 1 Some(pXhPJG0)")
         ([|
             [|
                 "Patient Age day"
-                "2z8pw"
-                "2"
-                "4Zs4liC"
-                "Dbv3mU"
-                "V"
-                "JZW5LjDb52"
+                ""
+                "hB9s0kS"
+                "4CWtNlFcw4"
+                "5p"
+                "SqKhB9t0k"
+                "TdL4CWuNlF"
             |]
             [|
                 "Patient Age days"
-                "bK18JqYi"
-                "d8BdTrL"
-                "MkEyv3"
+                "q"
+                "dLFC"
+                ""
+                "1zS"
+                "2mTdL5ZWuO"
+                "Pn"
+            |]
+            [|
+                "Patient Age week"
+                "mUdL"
+                ""
+                "aI1"
+                "bv2mUeL5DX"
+                "Yw"
+                "ZTQaI2zTr"
+            |]
+            [|
+                "Patient Age weeks"
+                ""
+                "jda"
+                "kDbv3nUeM6"
+                "7E"
+                "8rZjRLI2A"
+                "V"
+            |]
+            [|
+                "Patient Age month"
+                "sZj"
+                "tMkEcv3nVP"
+                "gN"
+                "hA8s0jRbJ"
+                "E"
+                "roWgO7FZ"
+            |]
+            [|
+                "Patient Age months"
+                "BVtNlEcw4n"
+                "oW"
+                "pJhBvs0kS"
+                "c"
+                "dx5pWgO8"
+                ""
+            |]
+            [|
+                "Patient Age year"
+                "x5"
+                "ySqKhB9tn"
+                "l"
+                "mGey5pXh"
+                ""
+                "au2mTdL"
+            |]
+            [|
+                "Patient Age years"
+                "H1ztqKiC9"
+                "u"
+                "vPnhey6q"
+                ""
+                "jDbu2mU"
+                "6EYvPnHBy6"
+            |]
+         |],
+         German,
+         32011,
+         "87 , 8 Some(c), 2 Some(7E), 2 Some(1zS)")
+        ([|
+            [|
+                "Patient Age day"
+                "8sZjR"
+                "VtMkEcv3"
+                "WgN7"
+                "JDA8s0j"
+                "KEB"
+                "xroWgO"
+            |]
+            [|
+                "Patient Age days"
+                "4BVtNlEc"
+                "5oWg"
+                "SpJhBvs"
+                "TcK"
+                "Gdx5pW"
+                "H0"
+            |]
+            [|
+                "Patient Age week"
+                "ex5p"
+                "BySqKhB"
+                "olT"
+                "pmGey5"
+                "P9"
+                "Cau2W"
+            |]
+            [|
+                "Patient Age weeks"
+                "9H1ztqK"
+                "au2"
+                "XvPnGe"
+                "Yi"
+                "LjDbu"
+                "M"
+            |]
+            [|
+                "Patient Age month"
+                "jDb"
+                "6EYwPn"
+                "7r"
+                "UsMkD"
+                "V"
+                "IgAu"
+            |]
+            [|
+                "Patient Age months"
+                "fN71Yw"
+                "gA"
+                "3BVsM"
                 "4"
-                "S85AUsMGDb"
+                "RpJg"
+                "ScK3BVt"
+            |]
+            [|
+                "Patient Age year"
+                "pJhA8s0jR"
+                "cK4BV"
+                "dx5oWg"
+                "0yspJhB8s"
+                "1lfcK"
+                "Omgdx5pW"
+            |]
+            [|
+                "Patient Age years"
+                "lTcK4CWtNl"
+                "mGdx5p"
+                "9H0ySqkhB"
+                "au1lT"
+                "XvOmGex5"
+                "YiP9"
+            |]
+         |],
+         Italian,
+         3174,
+         "8 Some(YiP9), 8 Some(ScK3BVt), 2 Some(M)")
+        ([|
+            [|
+                "Patient Age day"
+                "m"
+                "96EYwPnH"
+                ""
+                "AUsMGDb"
+                "nVfNHEYwQn"
+                "oIgAur"
+            |]
+            [|
+                "Patient Age days"
+                "VfN7EYwQ"
+                ""
+                "J3BVsMk"
+                "w4oWfN7Fzw"
+                "xRpJgA"
+                "kScK3BVtM"
+            |]
+            [|
+                "Patient Age week"
+                ""
+                "ScK4BVt"
+                "FdxroWgO7F"
+                "G0yspJ"
+                "t1lfcK4CV"
+                "uOmFd"
+            |]
+            [|
+                "Patient Age weeks"
+                "1lTcK4C"
+                "OmGdx5pjgO"
+                "P9H0yS"
+                "Cau1lTdK4"
+                "D"
+                "qYiP9H1y"
+            |]
+            [|
+                "Patient Age month"
+                "Xvpm"
+                ""
+                "Ljd"
+                "M6DXvPnGey"
+                "z7"
+                "AUrLjDxu2"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "UsL"
+                "VfM6EYvPnH"
+                "Ig"
+                "J3AUsMjDb"
+                "w"
+            |]
+            [|
+                "Patient Age year"
+                "3XU"
+                "4YVfN7EYwQ"
+                "Ro"
+                "SbJ3BvsMk"
+                "F"
+                "GZxRpjgA"
+            |]
+            [|
+                "Patient Age years"
+                "dw4oWfN7FZ"
+                "0x"
+                "1kScK3BVt"
+                "O"
+                "b8G0yRpJ"
+                ""
+            |]
+         |],
+         German,
+         27110,
+         "74 Some(O), 3 Some(Ig), 1 Some(G0yspJ), 3 Some(w4oWfN7Fzw)")
+        ([|
+            [|
+                "Patient Age day"
+                "D"
+                "qYic"
+                ""
+                "eM6"
+                "fz7qYiQKH1"
+                "2A"
+            |]
+            [|
+                "Patient Age days"
+                "z7rY"
+                "AUsLjDb"
+                "nVf"
+                "oIgz"
+                "bJDAUsM"
+                "cwq"
+            |]
+            [|
+                "Patient Age week"
+                "J3XUs"
+                "w4nVfN7E"
+                "xRoI"
+                "kSbJ3Bv"
+                "lFc"
+                "8GZxRp"
+            |]
+            [|
+                "Patient Age weeks"
+                "Fdw4oWfN"
+                "G0xR"
+                "t1kScK3"
+                "uol"
+                "hb8G0y"
+                "ic"
+            |]
+            [|
+                "Patient Age month"
+                "P8G0"
+                "C9t1lfc"
+                "DWu"
+                "qXhP93"
+                "rK"
+                "eL5DX"
+            |]
+            [|
+                "Patient Age months"
+                "LiCau1l"
+                "M5D"
+                "96qYiP"
+                "WT"
+                "XUeM6"
+                "n"
+            |]
+            [|
+                "Patient Age year"
+                "UeM"
+                "Hfz71Y"
+                "I2"
+                "v3nVe"
+                "w"
+                "jRbJ"
+            |]
+            [|
+                "Patient Age years"
+                "QoIgz7"
+                "Rb"
+                "Ecw4n"
+                "F"
+                "s0ke"
+                ""
+            |]
+         |],
+         Italian,
+         14373,
+         "39 , 4 Some(n), 2 Some(ic), 4 Some(cwq)")
+        ([|
+            [|
+                "Patient Age day"
+                "hP"
+                "iC9t1lfcK"
+                "5"
+                "6qXhP9G0"
+                ""
+                "UeL5DXu"
+            |]
+            [|
+                "Patient Age days"
+                "rLiCau1lT"
+                "e"
+                "f96qYiP9"
+                ""
+                "3mUeM6D"
+                "QnHfztqYiQ"
+            |]
+            [|
+                "Patient Age week"
+                "n"
+                "oHfz71Yi"
+                ""
+                "cv3nVeM"
+                "ZwQoIfz7rl"
+                "0jRbJ2"
+            |]
+            [|
+                "Patient Age weeks"
+                "TQoIgz7r"
+                ""
+                "kEcw4nV"
+                "7FZxroIgA7"
+                "8s0keb"
+                "VtNlfcw4o"
+            |]
+            [|
+                "Patient Age month"
+                ""
+                "tNlFcw4"
+                "gO8GZxRpjg"
+                "hB9t0k"
+                "4CWuNlFdw"
+                "5pXhO"
+            |]
+            [|
+                "Patient Age months"
+                "CWuOlFd"
+                "pXhP8G0yRp"
+                "qKic9t"
+                "dL5ZWuOmF"
+                "ey60X"
+                "1zTqKiCa"
+            |]
+            [|
+                "Patient Age year"
+                "y6qXhP930y"
+                "zTrKiC"
+                "mUeL5DXRO"
+                "n"
+                "aI2zTrLi"
+                ""
+            |]
+            [|
+                "Patient Age years"
+                ""
+                "v3X"
+                "wQKHfz7qYi"
+                "jR"
+                "kEbv3nVeM"
+                "7"
+            |]
+         |],
+         French,
+         1808,
+         "4 Some(wQKHfz7qYi), 11 Some(qKic9t), 2 Some(kEcw4nV), 4 Some(f96qYiP9)")
+        ([|
+            [|
+                "Patient Age day"
+                "9s"
+                "WtNlF"
+                "X"
+                "khB9"
+                ""
+                "85p"
+            |]
+            [|
+                "Patient Age days"
+                "4CWuO"
+                "5"
+                "SqKi"
+                ""
+                "Gey"
+                "H1zTqKiCwt"
+            |]
+            [|
+                "Patient Age week"
+                "e"
+                "1zTr"
+                ""
+                "PnH"
+                "QaI2zTrLiC"
+                "Db"
+            |]
+            [|
+                "Patient Age weeks"
+                "aI2W"
+                ""
+                "YwQ"
+                "ZjRaI2AUrL"
+                "Mk"
+                "N7FYwQoif"
+            |]
+            [|
+                "Patient Age month"
+                ""
+                "7FZ"
+                "8s0jRb"
+                "Vt"
+                "WgO"
+                "Jhb8s0"
+            |]
+            [|
+                "Patient Age months"
+                "gOIFZxRo"
+                "hB8s"
+                "4CVtNlF"
+                "5pW"
+                "SqJhB9"
+                "Td"
+            |]
+            [|
+                "Patient Age year"
+                "qKhB"
+                "dL4CWuN"
+                "ey5"
+                "1VSqKi"
+                "2W"
+                "PJGey"
+            |]
+            [|
+                "Patient Age years"
+                "mTdL5DW"
+                "nGe"
+                "aH1zTN"
+                "bu"
+                "YvPnH"
+                "Z"
+            |]
+         |],
+         Spanish,
+         9137,
+         "25 Some(YvPnH), 1 Some(QaI2zTrLiC), 5 Some(Gey)")
+        ([|
+            [|
+                "Patient Age day"
+                "MkEcv3nVe"
+                "N7FZw"
+                "A8s0jRbJ"
+                "BVtN"
+                "oWga7FZ"
+                "pJh"
+            |]
+            [|
+                "Patient Age days"
+                "WgO7F"
+                "JhB8s0kS"
+                "K4CV"
+                "x5pWgO8"
+                "ySq"
+                "lTdK4C"
+            |]
+            [|
+                "Patient Age week"
+                "SqKhB9t0"
+                "TdL4CWuNl"
+                "G"
+                "H1VSqKiB"
+                ""
+                "vPmGey6"
+            |]
+            [|
+                "Patient Age weeks"
+                "2mTdL5ZWu"
+                "P"
+                "QaH1zTNK"
+                ""
+                "EYvPnHe"
+                "rZiQaI1zTr"
+            |]
+            [|
+                "Patient Age month"
+                "Y"
+                "ZTQaI2zT"
+                ""
+                "NHEYwQn"
+                "A7rZjRaI2A"
+                "BUsMke"
+            |]
+            [|
+                "Patient Age months"
+                "8rZjRLI2"
+                ""
+                "WfN7FYw"
+                "JgA8sZjRb5"
+                "K3BVtM"
+                "x4oWgN7FZ"
+            |]
+            [|
+                "Patient Age year"
+                ""
+                "roWgO7F"
+                "spJhB8s0kR"
+                "ScK4CV"
+                "Fdx5ZWgO8"
+                "G0ySM"
+            |]
+            [|
+                "Patient Age years"
+                "dx5pjgO"
+                "0ySqJhB9t0"
+                "1lTdK4"
+                "OmGex5pXR"
+                "P9H1y"
+                "Cau2lTdL"
+            |]
+         |],
+         French,
+         33073,
+         "90 Some(1lTdK4), 7 Some(WfN7FYw), 1 Some(G), 6 Some(K4CV)")
+        ([|
+            [|
+                "Patient Age day"
+                "EYS"
+                "rZTQaI"
+                "sM"
+                "fN6EY"
+                "g"
+                "3BUs"
+            |]
+            [|
+                "Patient Age days"
+                "A8rZjR"
+                "BV"
+                "oWfN7"
+                "p"
+                "cK3B"
+                ""
+            |]
+            [|
+                "Patient Age week"
+                "KE"
+                "xroWg"
+                "y"
+                "lScK"
+                ""
+                "9G0"
+            |]
+            [|
+                "Patient Age weeks"
+                "Gdx5p"
+                "H"
+                "u1lT"
+                ""
+                "SP9"
+                "FCau2lTdL4"
+            |]
+            [|
+                "Patient Age month"
+                "P"
+                "Cau2"
+                ""
+                "qYi"
+                "rLjDau2mUd"
+                "eM"
+            |]
+            [|
+                "Patient Age months"
+                "LjDb"
+                ""
+                "z7r"
+                "AUsMjDbv2m"
+                "nV"
+                "oIgA7rZjQ"
+            |]
+            [|
+                "Patient Age year"
+                ""
+                "IgA"
+                "J3BvsMkEbv"
+                "w4"
+                "xRpIgA82Z"
+                "k"
+            |]
+            [|
+                "Patient Age years"
+                "RpJ"
+                "ScK3BV"
+                "Fd"
+                "G0yRp"
+                "t1lScK"
+                "uO"
+            |]
+         |],
+         Spanish,
+         20336,
+         "55 Some(t1lScK), 8 Some(nV), 3 Some(SP9)")
+        ([|
+            [|
+                "Patient Age day"
+                "iP9H1zSqKi"
+                "jCau2W"
+                "6DXvPJGey"
+                "7qYiQ"
+                "UrLjDau2"
+                "VeM6"
+            |]
+            [|
+                "Patient Age days"
+                "sLjDbu"
+                "PM6EYvPnH"
+                "Cz7rZ"
+                "DAUsMjDb"
+                "3nVf"
+                "QoIga7r"
+            |]
+            [|
+                "Patient Age week"
+                "nVfNHEYwQ"
+                "oIgAu"
+                "bJ3BUsMk"
+                "cw4o"
+                "ZxRpIgA"
+                "0kS"
+            |]
+            [|
+                "Patient Age weeks"
+                "xRpJg"
+                "kScK3BVt"
+                "lFdx"
+                "8G0yRpJ"
+                "9t1"
+                "WuOIFd"
+            |]
+            [|
+                "Patient Age month"
+                "t1lfcK4C"
+                "uOmF"
+                "hP9G0yS"
+                "iCa"
+                "5DXuOm"
+                "6qYhP9H0y"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "qYiP9H1"
+                "rLjCau2l"
+                ""
+                "fztqYiQ"
+                "2AurLjDau2"
+            |]
+            [|
+                "Patient Age year"
+                "z"
+                "AUrLjDxu"
+                ""
+                "oIfz7rl"
+                "bJ2AUsLjDb"
+                "cw3nVf"
+            |]
+            [|
+                "Patient Age years"
+                "J3AUsMjD"
+                ""
+                "xroIgA7"
+                "kebJ3BUsMk"
+                "lEcw4o"
+                "8FZxRpIgA"
+            |]
+         |],
+         Dutch,
+         7771,
+         "21 , 3 Some(qYiP9H1), 2 Some(kScK3BVt), 2 Some(PM6EYvPnH)")
+        ([|
+            [|
+                "Patient Age day"
+                "9t1lScK4CV"
+                "Wu"
+                "XhP9G0ySM"
+                "K"
+                "L5DXuOmG"
+                ""
+            |]
+            [|
+                "Patient Age days"
+                "5D"
+                "6qYiP9H1y"
+                "T"
+                "UeMGDXvP"
+                ""
+                "I2ATrLj"
+            |]
+            [|
+                "Patient Age week"
+                "fz7qYiQKH"
+                "2"
+                "3nVeM6Ey"
+                ""
+                "RbJ"
+                "Ecw3nVfM6E"
+            |]
+            [|
+                "Patient Age weeks"
+                "bJDAUs"
+                "cw"
+                "ZxroI"
+                "0"
+                "NlEc"
+                ""
+            |]
+            [|
+                "Patient Age month"
+                "lF"
+                "8GZxR"
+                "9"
+                "WuNl"
+                ""
+                "KEB"
+            |]
+            [|
+                "Patient Age months"
+                "hb8G0"
+                "i"
+                "5CWu"
+                ""
+                "TqK"
+                "UdL5DxuOmG"
+            |]
+            [|
+                "Patient Age year"
+                "r"
+                "eL5D"
+                ""
+                "2zT"
+                "pmUeM5DXvO"
+                "qn"
+            |]
+            [|
+                "Patient Age years"
+                "XUeM"
+                ""
+                "aI2"
+                "bv3nheM6EX"
+                "Yw"
+                "ZjRbI2AUs"
+            |]
+         |],
+         German,
+         15100,
+         "41 Some(bv3nheM6EX), 4 , 2 Some(0), 1 Some(K)")
+        ([|
+            [|
+                "Patient Age day"
+                "NlFcw4"
+                "O8GZxRpIg"
+                "B9t0k"
+                "CWuNlF"
+                "pXRO8G0xR"
+                "qKEB9"
+            |]
+            [|
+                "Patient Age days"
+                "Xhb8G0y"
+                "KiB9t1lScK"
+                "L5CWuO"
+                "y6pXhPJG0"
+                "zTqKi"
+                "mUdL5DWu"
+            |]
+            [|
+                "Patient Age week"
+                "TrKiCat1lT"
+                "UeL5DX"
+                "Hfy6qYhP9"
+                "ICzTr"
+                "vpmUeM5D"
+                "wqnH"
+            |]
+            [|
+                "Patient Age weeks"
+                "3mUeM6"
+                "QnHfztqYi"
+                "RaI2A"
+                "Ebv3nheM"
+                "FYwQ"
+                "sZjRbI2"
+            |]
+            [|
+                "Patient Age month"
+                "ZwQoIfz7r"
+                "0jRbJ"
+                "nkEcw3nV"
+                "a7FZ"
+                "b8s0kRb"
+                "BVt"
+            |]
+            [|
+                "Patient Age months"
+                "8s0ke"
+                "VtNlfcw4"
+                "WgO8"
+                "JhB9s0k"
+                "K4C"
+                "x5pXgO"
+            |]
+            [|
+                "Patient Age year"
+                "4CWuNlFd"
+                "5pXh"
+                "SqKiB9t"
+                "TdL"
+                "GeyspX"
+                "H1"
+            |]
+            [|
+                "Patient Age years"
+                "ey60"
+                "1zTqKiC"
+                "2mU"
+                "PnHey6"
+                "Qa"
+                "Dbv2m"
+            |]
+         |],
+         Dutch,
+         2535,
+         "6 Some(1zTqKiC), 11 Some(VtNlfcw4), 2 Some(QnHfztqYi), 1 Some(O8GZxRpIg)")
+        ([|
+            [|
+                "Patient Age day"
+                ""
+                "smj"
+                "tnkEcw3nVf"
+                "ga"
+                "hA8s0kRbJ"
+                "4"
+            |]
+            [|
+                "Patient Age days"
+                "B8s"
+                "CVtNlfcw4o"
+                "pW"
+                "qJhB9s0kS"
+                "d"
+                "ex5pXgO8"
+            |]
+            [|
+                "Patient Age week"
+                "74CWuNlFdw"
+                "85"
+                "ySqKiB9t1"
+                "l"
+                "mGeyspXh"
+                ""
+            |]
+            [|
+                "Patient Age weeks"
+                "Ge"
+                "H1zTqKiCw"
+                "u"
+                "vPnHey6q"
+                ""
+                "jDbv2mU"
+            |]
+            [|
+                "Patient Age month"
+                "QaI2zTrLi"
+                "D"
+                "EYwqnHfz"
+                ""
+                "sMkebv3"
+                "fN7EYwQoHf"
+            |]
+            [|
+                "Patient Age months"
+                "M"
+                "N7FYwQoi"
+                ""
+                "BVt"
+                "oWgN7FZwQo"
+                "pJ"
+            |]
+            [|
+                "Patient Age year"
+                "Wg"
+                "Jhb8s"
+                "K"
+                "x5ZW"
+                ""
+                "lTc"
+            |]
+            [|
+                "Patient Age years"
+                "SqJhB"
+                "T"
+                "Gex5"
+                ""
+                "u2l"
+                "vPmGey5pXh"
+            |]
+         |],
+         German,
+         26299,
+         "72 , 2 Some(vPnHey6q), 5 Some(qJhB9s0kS)")
+        ([|
+            [|
+                "Patient Age day"
+                "iQaI2zT"
+                "jDb"
+                "6EYwqn"
+                "7r"
+                "UsMkD"
+                "V"
+            |]
+            [|
+                "Patient Age days"
+                "sMk"
+                "fN7FYw"
+                "gA"
+                "3BVtM"
+                "4"
+                "RpJh"
+            |]
+            [|
+                "Patient Age week"
+                "oWga7F"
+                "pJ"
+                "cK4YV"
+                "d"
+                "0ySp"
+                ""
+            |]
+            [|
+                "Patient Age weeks"
+                "yS"
+                "lTdK4"
+                "mGex5pXg"
+                "9H1y"
+                "au2lT"
+                "XvpmGey5"
+            |]
+
+            [|
+                "Patient Age month"
+                "u2WTdL5CWu"
+                "vPmGey"
+                "iQ9H1zTqK"
+                "jDau2"
+                "6EXvPnhe"
+                "7rYi"
+            |]
+            [|
+                "Patient Age months"
+                "EYvPnH"
+                "rZiQaI1zT"
+                "sMjDb"
+                "f96EYwPn"
+                "ga7r"
+                "3XUsMkD"
+            |]
+            [|
+                "Patient Age year"
+                "A7rZjRaI2"
+                "BUsMk"
+                "oVfN71Yw"
+                "pIgA"
+                "cJ3BVsM"
+                "dw4"
+            |]
+            [|
+                "Patient Age years"
+                "K3BVt"
+                "x4oWgN7F"
+                "URpJ"
+                "VScK4BV"
+                "IFd"
+                "8G0ySp"
+            |]
+         |],
+         English,
+         13734,
+         "37 Some(K3BVt), 7 Some(EYvPnH), 2 Some(yS), 5 Some(sMk)")
+        ([|
+            [|
+                "Patient Age day"
+                "au2lTdL"
+                "XvPmGey6pX"
+                "YiQ9H1"
+                "LjDau2mgd"
+                "M6EXv"
+                "z7rYiQaH"
+            |]
+            [|
+                "Patient Age days"
+                "6EYvPnHey6"
+                ""
+                "Usm"
+                "Vf96EYwPnH"
+                "Ig"
+                "J3AUsMkDb"
+            |]
+            [|
+                "Patient Age week"
+                ""
+                "3BU"
+                "4oVfN71YwQ"
+                "Rp"
+                "ScJ3BVsMk"
+                "F"
+            |]
+            [|
+                "Patient Age weeks"
+                "cK3"
+                "d74oWgN7FZ"
+                "0U"
+                "1VScK4BVt"
+                "O"
+                "P8G0yspJ"
+            |]
+            [|
+                "Patient Age month"
+                "mFdx5ZWgO8"
+                "9G"
+                "at1lTcK4C"
+                "X"
+                "YhP9H0yS"
+                ""
+            |]
+            [|
+                "Patient Age months"
+                "SP"
+                "FCau2lTdL"
+                "G"
+                "6qYiQ9H1"
+                ""
+                "UeM60Xv"
+            |]
+            [|
+                "Patient Age year"
+                "rLjDxu2mU"
+                "e"
+                "fz7rYiQa"
+                ""
+                "3nVfM6E"
+                "QoIgz7rZiQ"
+            |]
+            [|
+                "Patient Age years"
+                "n"
+                "oIgA7rZj"
+                ""
+                "cw4YVfN"
+                "ZxRLIgA8rZ"
+                "0kSbJ3"
+            |]
+         |],
+         French,
+         834,
+         "2 , 3 Some(G), 2 Some(0U)")
+        ([|
+            [|
+                "Patient Age day"
+                "OmFdx5ZW"
+                "P9G0"
+                "Cat1lTc"
+                "DXu"
+                "qYhP9H"
+                "rl"
+            |]
+            [|
+                "Patient Age days"
+                "YSP9"
+                "LFCau2l"
+                "M5D"
+                "z6qYic"
+                "AT"
+                "nUeM6"
+            |]
+            [|
+                "Patient Age week"
+                "UrLjDau"
+                "VeM"
+                "Ifz7rY"
+                "J2"
+                "63nVf"
+                "T"
+            |]
+            [|
+                "Patient Age weeks"
+                "3nV"
+                "QoIga7"
+                "Rb"
+                "Ecw4Y"
+                "F"
+                "s0kS"
+            |]
+            [|
+                "Patient Age month"
+                "ZxRpIg"
+                "0k"
+                "NlFdw"
+                "O"
+                "B9t1"
+                ""
+            |]
+            [|
+                "Patient Age months"
+                "9t"
+                "WuOIF"
+                "X"
+                "KiC9"
+                ""
+                "y6q"
+            |]
+            [|
+                "Patient Age year"
+                "5DXuO"
+                "6qYhP9H0"
+                "TrLi"
+                "UeM5DXv"
+                "Hfz6qYiP"
+                "I2WT"
+            |]
+            [|
+                "Patient Age years"
+                "fztqYi"
+                "2AurLjDau"
+                "3nUeM"
+                "QoHfz71Y"
+                "RbI2"
+                "Ecv3nVP"
+            |]
+         |],
+         English,
+         8498,
+         "23 Some(fztqYi), 3 Some(9t), 1 Some(UrLjDau), 6 Some(YSP9)")
+        ([|
+            [|
+                "Patient Age day"
+                "GZxRpIgA"
+                ""
+                "QNlFdw4"
+                "RO8G0xRpJg"
+                "hB9t1k"
+                "4CWuolFdx"
+            |]
+            [|
+                "Patient Age days"
+                ""
+                "CWuOIFd"
+                "pXhP8G0ySp"
+                "qKiC9t"
+                "dL5DWuOmg"
+                "ey6qX"
+            |]
+            [|
+                "Patient Age week"
+                "L5DXuOm"
+                "y6qYhP9H0y"
+                "zTrLiC"
+                "mUeM5DXvO"
+                "nHf96"
+                "aI2WTrLj"
+            |]
+            [|
+                "Patient Age weeks"
+                "HfztqYiQ9H"
+                "I2ATrL"
+                "v3nUeM60X"
+                "wQoHf"
+                "jRbI2AUO"
+                ""
+            |]
+            [|
+                "Patient Age month"
+                "Rb"
+                "Ecw3nVfM6"
+                "FZxQoIgz7r"
+                "s0"
+                "tNHEcw4nV"
+                "g"
+            |]
+            [|
+                "Patient Age months"
+                "NlE"
+                "O8FZxRLIgA"
+                "B9"
+                "CWtNlFzw4"
+                "p"
+                "qKhB9t0k"
+            |]
+            [|
+                "Patient Age year"
+                "XhO8G0xRpJ"
+                "KE"
+                "LFCWuOlFd"
+                "y"
+                "zSqKiC9t"
+                ""
+            |]
+            [|
+                "Patient Age years"
+                "Tq"
+                "UdL5DxuOm"
+                "H"
+                "I1zTrKiC"
+                ""
+                "wPnHfy6"
+            |]
+         |],
+         French,
+         32262,
+         "88 Some(H), 4 Some(B9), 3 Some(v3nUeM60X), 1 Some(QNlFdw4)")
+        ([|
+            [|
+                "Patient Age day"
+                "jRbJ"
+                ""
+                "7FZ"
+                "8s0URbJ3AU"
+                "Vt"
+                "WgO7FZxRo"
+            |]
+            [|
+                "Patient Age days"
+                ""
+                "gO8"
+                "hB9s0kSMJ3"
+                "4C"
+                "5pXgO"
+                "S"
+            |]
+            [|
+                "Patient Age week"
+                "pXRO8G0x"
+                "qKEB"
+                "dLFCWuO"
+                "ey5"
+                "1zSqKi"
+                "2m"
+            |]
+            [|
+                "Patient Age weeks"
+                "zTqK"
+                "mUdL5DW"
+                "nHe"
+                "aI1zTr"
+                "bv"
+                "YSPnH"
+            |]
+            [|
+                "Patient Age month"
+                "vpmUeM5"
+                "wqn"
+                "jQaI2A"
+                "kD"
+                "7EYwQ"
+                "8"
+            |]
+            [|
+                "Patient Age months"
+                "FYw"
+                "sZjRbI"
+                "tM"
+                "gN7FZ"
+                "D"
+                "EBVt"
+            |]
+            [|
+                "Patient Age year"
+                "b8s0kR"
+                "BV"
+                "oWgOI"
+                "p"
+                "cK4C"
+                ""
+            |]
+            [|
+                "Patient Age years"
+                "K4"
+                "x5pXg"
+                "y"
+                "lTdL"
+                ""
+                "9H1"
+            |]
+         |],
+         English,
+         19697,
+         "53 Some(K4), 11 Some(FYw), 3 Some(zTqK), 1 Some(jRbJ)")
+        ([|
+            [|
+                "Patient Age day"
+                "bvpmUeM5D"
+                "Y"
+                "ZjQaI2WT"
+                ""
+                "N7EYwQK"
+                "A8rZjRaI2A"
+            |]
+            [|
+                "Patient Age days"
+                "7"
+                "8sZjRbI2"
+                ""
+                "WQN7FZw"
+                "JDA8s0jRbJ"
+                "KEBVtN"
+            |]
+            [|
+                "Patient Age week"
+                "hA8s0kRb"
+                ""
+                "5oWgOIF"
+                "SpJhBvs0kS"
+                "TcK4CV"
+                "Gdx5pWgO8"
+            |]
+            [|
+                "Patient Age weeks"
+                ""
+                "ex5pXgO"
+                "BySqKhB9t0"
+                "olTdL4"
+                "pmGey5pXh"
+                "P9H1z"
+            |]
+            [|
+                "Patient Age month"
+                "mGeyspX"
+                "9H1ztqKiC9"
+                "au2mgd"
+                "XvPnGey6q"
+                "YiQaH"
+                "LjDbu2mU"
+            |]
+            [|
+                "Patient Age months"
+                "iQaI1zTrKi"
+                "jDbv2m"
+                "6EYwPnHfy"
+                "7rZjQ"
+                "UsMGDbv3"
+                "VfNH"
+            |]
+            [|
+                "Patient Age year"
+                "sMkebv"
+                "fN7EYwQoH"
+                "gA8rZ"
+                "3BVsMkEy"
+                "4oWf"
+                "RpJgA8s"
+            |]
+            [|
+                "Patient Age years"
+                "oWgN7FZwQ"
+                "p"
+                "cK"
+                "dxroWgO7F"
+                "0"
+                "1lfcK4CV"
+            |]
+         |],
+         Dutch,
+         6960,
+         "19 Some(p), 3 Some(ex5pXgO), 4 Some(8sZjRbI2)")
+        ([|
+            [|
+                "Patient Age day"
+                "PmGey"
+                "Q"
+                "Dau2"
+                ""
+                "rYi"
+                "sLjDbu2mUO"
+            |]
+            [|
+                "Patient Age days"
+                "l"
+                "mjDb"
+                ""
+                "z7r"
+                "AUsMGDbv3m"
+                "nV"
+            |]
+            [|
+                "Patient Age week"
+                "UsMk"
+                ""
+                "IgA"
+                "J3BVsMkEyv"
+                "w4"
+                "xRpJgA8sZ"
+            |]
+            [|
+                "Patient Age weeks"
+                ""
+                "RpJ"
+                "ScKEBVtNkE"
+                "Fd"
+                "G0yspJhB8"
+                "t"
+            |]
+            [|
+                "Patient Age month"
+                "0yS"
+                "1lTcK4CwtN"
+                "Om"
+                "P9H0y"
+                "C"
+                "DXvO"
+            |]
+            [|
+                "Patient Age months"
+                "au2l"
+                "XvpmGey"
+                "Yic"
+                "Ljdau2"
+                "M6"
+                "z7qYi"
+            |]
+            [|
+                "Patient Age year"
+                "6EXvPnh"
+                "7rY"
+                "UsLjDb"
+                "Vf"
+                "Igz7r"
+                "J"
+            |]
+            [|
+                "Patient Age years"
+                "ga7"
+                "3XUsMk"
+                "4n"
+                "RoIgA"
+                "S"
+                "Fcw4"
+            |]
+         |],
+         Italian,
+         14461,
+         "39 Some(Fcw4), 7 Some(z7qYi), 2 Some(t), 2 Some(nV)")
+        ([|
+            [|
+                "Patient Age day"
+                "G0ySp"
+                "t1lTcK4C"
+                "uOmG"
+                "hP9H0yS"
+                "iCa"
+                "5DXvOm"
+            |]
+            [|
+                "Patient Age days"
+                "CauolTdL"
+                "DXvp"
+                "qYic9H1"
+                "rLj"
+                "eM6DXv"
+                "fz"
+            |]
+            [|
+                "Patient Age week"
+                "M6EX"
+                "z7rYiQa"
+                "AUsLjDbu2m"
+                "nVfM6E"
+                "oIgz7rZ"
+                "bJDAUsMjDb"
+            |]
+            [|
+                "Patient Age weeks"
+                "I"
+                "J3AUsMkD"
+                ""
+                "xRoIgAu"
+                "kSbJ3BvsMk"
+                "lFcw4o"
+            |]
+            [|
+                "Patient Age month"
+                "ScJ3BVsM"
+                ""
+                "G0xRpJg"
+                "tnkScK3BVt"
+                "uolFdx"
+                "hb8G0yRpJ"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "P8G0ysp"
+                "C9t1lfcK4C"
+                "DWuOmg"
+                "qXhP9G0yS"
+                "rKiCa"
+            |]
+            [|
+                "Patient Age year"
+                "YhP9H0y"
+                "LiCau1lTd7"
+                "85DXvO"
+                "96qYiP9H1"
+                "WTrLj"
+                "mUeM6DXv"
+            |]
+            [|
+                "Patient Age years"
+                "TrLjdau2mT"
+                "UeM60X"
+                "Hfz71YiQa"
+                "I2AUr"
+                "v3nVeM6E"
+                "wQoI"
+            |]
+         |],
+         Dutch,
+         1724,
+         "4 Some(UeM60X), 8 Some(P8G0ysp), 3 Some(J3AUsMkD), 3 Some(DXvp)")
+        ([|
+            [| "Patient Age day"; "k"; "lF"; "8GAxR"; "9"; "Wuol"; "" |]
+            [|
+                "Patient Age days"
+                "uO"
+                "hP8G0"
+                "i"
+                "5DWu"
+                ""
+                "TrK"
+            |]
+            [|
+                "Patient Age week"
+                "qYhP9"
+                "r"
+                "e85D"
+                ""
+                "2zT"
+                "3mUeMGDXvP"
+            |]
+            [|
+                "Patient Age weeks"
+                "A"
+                "nUeM"
+                ""
+                "bI2"
+                "cv3nVeM6Ey"
+                "Zw"
+            |]
+            [|
+                "Patient Age month"
+                "63nV"
+                ""
+                "URb"
+                "kEcw4nVfN6"
+                "7F"
+                "8s0kebJ3B"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "s0k"
+                "tNlFcw4oif"
+                "gO"
+                "hB9t0kSc6"
+                "4"
+            |]
+            [|
+                "Patient Age year"
+                "B9t"
+                "CWuOlFdx4o"
+                "pX"
+                "qKic9t1lS"
+                "d"
+                "ey6pXhP9"
+            |]
+            [|
+                "Patient Age years"
+                "L5DWuOmgdx"
+                "y6"
+                "zTrKiCa41"
+                "m"
+                "nHfy"
+                ""
+            |]
+         |],
+         Italian,
+         25660,
+         "70 , 3 Some(4), 2 Some(Zw), 6 Some(TrK)")
+        ([|
+            [|
+                "Patient Age day"
+                "c63nVf"
+                "ZTQoIgz7r"
+                "0jRbJ"
+                "NkEcwqnV"
+                "O7FZ"
+                "B8s0keb"
+            |]
+            [|
+                "Patient Age days"
+                "8FZxRoIgA"
+                "9s0kS"
+                "WtNlFcw4"
+                "XgO8"
+                "khB9t0k"
+                "74C"
+            |]
+            [|
+                "Patient Age week"
+                "hB9t1"
+                "4CWuolFd"
+                "5pXh"
+                "SqKic9t"
+                "TdL"
+                "Gey6pX"
+            |]
+            [|
+                "Patient Age weeks"
+                "dL5DWuOm"
+                "ey6q"
+                "1zTrKiC"
+                "2mU"
+                "PnHfy6"
+                "Qa"
+            |]
+            [|
+                "Patient Age month"
+                "nHf9"
+                "aI2WTrL"
+                "bv3"
+                "YwQnHf"
+                "Zj"
+                "MkEbv"
+            |]
+            [|
+                "Patient Age months"
+                "jRbI2AU"
+                "kEcv3nVeM6"
+                "7FZwQo"
+                "8s0jRbJ2A"
+                "VtNkEcw3nV"
+                "Wga7FZ"
+            |]
+            [|
+                "Patient Age year"
+                "tNHEcw4n"
+                ""
+                "hB8s0kS"
+                "4CVtNlfcw4"
+                "5pWgO8"
+                "SqJhB930k"
+            |]
+            [|
+                "Patient Age years"
+                ""
+                "qKhB9t0"
+                "dL4CWuNlFd"
+                "ey5pXh"
+                "1VSqKiB9t"
+                "2WTdL"
+            |]
+         |],
+         English,
+         12923,
+         "35 , 4 Some(jRbI2AU), 4 Some(dL5DWuOm)")
+        ([|
+            [|
+                "Patient Age day"
+                "Pn"
+                "QaI2WTrLj"
+                "D"
+                "EYwQnHfz"
+                ""
+                "sMkEbv3"
+            |]
+            [|
+                "Patient Age days"
+                "ZjRbI2AUr"
+                "M"
+                "N7FZwQoI"
+                ""
+                "BVtnkEc"
+                "oWga7FZxQo"
+            |]
+            [|
+                "Patient Age week"
+                "V"
+                "WgO7FZxR"
+                ""
+                "K4CVtNl"
+                "x5pWgO82Zx"
+                "yS"
+            |]
+            [|
+                "Patient Age weeks"
+                "5pXg"
+                ""
+                "T"
+                "Ge85"
+                ""
+                "u2W"
+            |]
+            [|
+                "Patient Age month"
+                "1zSqK"
+                "2"
+                "PnGe"
+                ""
+                "Dbu"
+                "EYvPnHey6q"
+            |]
+            [|
+                "Patient Age months"
+                "b"
+                "YSPn"
+                ""
+                "MGD"
+                "N6EYwQnHfz"
+                "A7"
+            |]
+            [|
+                "Patient Age year"
+                "7EYw"
+                ""
+                "VsM"
+                "WfN7FYwQoi"
+                "Jg"
+                "K3BVtMkEc"
+            |]
+            [|
+                "Patient Age years"
+                ""
+                "EBV"
+                "roWgO7FZxQ"
+                "Rp"
+                "ScK4YVtNl"
+                "F"
+            |]
+         |],
+         Spanish,
+         20424,
+         "55 Some(ScK4YVtNl), 11 Some(N6EYwQnHfz), 2 , 5 Some(BVtnkEc)")
+        ([|
+            [|
+                "Patient Age day"
+                "H1"
+                "u2mTd"
+                "v"
+                "iQaH"
+                "jDbu2mU"
+                "6EY"
+            |]
+            [|
+                "Patient Age days"
+                "Db52mUeL5D"
+                "EYSPnH"
+                "rZTQaI2zT"
+                "sMjDb"
+                "fN6EYwQn"
+                "gA7r"
+            |]
+            [|
+                "Patient Age week"
+                "N7EYwQ"
+                "A8rZjRaI2"
+                "BVsMk"
+                "oWfN7FYw"
+                "pJgA"
+                "c63BVtM"
+            |]
+            [|
+                "Patient Age weeks"
+                "JDA8s0jRb"
+                "KEBVt"
+                "x4oWgO7F"
+                "yRpJ"
+                "lScK4YV"
+                "mFd"
+            |]
+            [|
+                "Patient Age month"
+                "TcK4C"
+                "Gdx5pWgO"
+                "H0yS"
+                "u1lTdK4"
+                "ROm"
+                "SP9H1y"
+            |]
+            [|
+                "Patient Age months"
+                "pmGey5pX"
+                "P9H1"
+                "Cau2WTd"
+                "DXv"
+                "qYiQKH"
+                "rL"
+            |]
+            [|
+                "Patient Age year"
+                "YiQa"
+                "LjDbu2m"
+                "M6E"
+                "z7rZiQ"
+                "AU"
+                "nVfN6"
+            |]
+            [|
+                "Patient Age years"
+                "UsMGDbv"
+                "VfN"
+                "IgAurZ"
+                "J3"
+                "w4oVf"
+                "x"
+            |]
+         |],
+         English,
+         7687,
+         "21 Some(UsMGDbv), 3 Some(JDA8s0jRb), 1 Some(H1)")
+        ([|
+            [|
+                "Patient Age day"
+                "lTc"
+                "mGdx5pWgO8"
+                "9H"
+                "a41lTdK4C"
+                "X"
+                "YSP9H1yS"
+            |]
+            [|
+                "Patient Age days"
+                "vOmGey5pXh"
+                "iP"
+                "jCau2WTdL"
+                "6"
+                "7qYiQ9H1"
+                ""
+            |]
+            [|
+                "Patient Age week"
+                "rY"
+                "sLjDbu2mU"
+                "P"
+                "Cz7rZiQa"
+                ""
+                "3nVfN6E"
+            |]
+            [|
+                "Patient Age weeks"
+                "AUsMGDbv3"
+                "n"
+                "oIgAurZj"
+                ""
+                "cw4oVfN"
+                "ZxRpIgA82Z"
+            |]
+            [|
+                "Patient Age month"
+                "w"
+                "xRpJgA8s"
+                ""
+                "lFdx4oW"
+                "8G0URpJhA8"
+                "9t1VSc"
+            |]
+            [|
+                "Patient Age months"
+                "G0yspJhB"
+                ""
+                "uOmFdx5"
+                "hP9G0ySMJh"
+                "iCat1l"
+                "5DXuOmGdx"
+            |]
+            [|
+                "Patient Age year"
+                ""
+                "DXv"
+                "qYiP"
+                ""
+                "eMG"
+                "fztqYiQ9H1"
+            |]
+            [|
+                "Patient Age years"
+                "M"
+                "z7qY"
+                ""
+                "nVe"
+                "oIfz7rYiQa"
+                "bJ"
+            |]
+         |],
+         Spanish,
+         31623,
+         "86 Some(oIfz7rYiQa), 7 Some(iCat1l), 3 Some(cw4oVfN), 2 Some(7qYiQ9H1)")
+        ([|
+            [|
+                "Patient Age day"
+                "zw4"
+                "AxRpJg"
+                "0k"
+                "NlFd7"
+                "O"
+                "B9t1"
+            |]
+            [|
+                "Patient Age days"
+                "8G0yRp"
+                "9t"
+                "WuOmF"
+                "X"
+                "KiCa"
+                ""
+            |]
+            [|
+                "Patient Age week"
+                "iC"
+                "5DXvO"
+                "6"
+                "TrLF"
+                ""
+                "Hfz"
+            |]
+            [|
+                "Patient Age weeks"
+                "eM6DX"
+                "f"
+                "2AUr"
+                "3nVeM6E"
+                "QoI"
+                "RbJ2AU"
+            |]
+            [|
+                "Patient Age month"
+                "oIgz7r"
+                "bJDAUsMjD"
+                "cwqnV"
+                "ZxroIgA7"
+                "0kRb"
+                "NlEcw4Y"
+            |]
+            [|
+                "Patient Age months"
+                "kSbJ3BvsM"
+                "lFcw4"
+                "8GZxRpIg"
+                "9t0k"
+                "WuNlFdw"
+                "XhO"
+            |]
+            [|
+                "Patient Age year"
+                "uolFd"
+                "hb8G0yRp"
+                "iB9t"
+                "5CWuOmF"
+                "6pX"
+                "TqKiCw"
+            |]
+            [|
+                "Patient Age years"
+                "qXhP9G0y"
+                "rKiC"
+                "eL5DXuO"
+                "fy6"
+                "CzTrLi"
+                "pm"
+            |]
+         |],
+         English,
+         18886,
+         "51 Some(qXhP9G0y), 9 Some(kSbJ3BvsM), 1 Some(zw4)")
+        ([|
+            [|
+                "Patient Age day"
+                "QoICz7rZiQ"
+                "RbJDAU"
+                "EcwqnVfN6"
+                "FZxQo"
+                "s0kRbJ3X"
+                "tNlE"
+            |]
+            [|
+                "Patient Age days"
+                "0kSbJ3"
+                "NlFcw4oVf"
+                "O"
+                "B9t0kScJ"
+                "CWuNlFdw4"
                 "p"
             |]
             [|
                 "Patient Age week"
-                "mhKI2AU"
-                "VtNHEc"
-                "d"
-                "1hem3BVPMk"
-                "y"
-                "cKEBVtnHE"
-            |]
-            [|
-                "Patient Age weeks"
-                "9H1YSqKHf9"
-                "rBfH"
-                "S"
-                "IpjgO82ZxR"
-                "J3aG7"
-                "wQ"
-            |]
-            [|
-                "Patient Age month"
-                "ot6qYi"
+                "Wuo"
+                "XhO8G0yRpJ"
                 "Ki"
-                "Ag"
-                "T"
-                "mEBwIPKH1"
-                "WaIcPsqH1z"
-            |]
-            [|
-                "Patient Age months"
-                "4ayf9HE"
-                "s7kWe"
-                "oTLIM30"
-                "hPMG0yvYN"
-                "X7s7PM6"
-                "ZTQk1VSqK"
-            |]
-            [|
-                "Patient Age year"
-                "LC"
-                "CnVK50jRbJ"
-                ""
-                "7LoR85p"
-                "qAhbJG"
-                "AUsMkDbv"
-            |]
-            [|
-                "Patient Age years"
-                "4"
-                "ROmg"
-                ""
-                "FCw"
-                "5DxRpmGA85"
-                "6q"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 16<year>
-             Months = 8<month>
-             Weeks = 2<week>
-             Days = 1<day>
-         },
-         "16 Some(ROmg), 8 Some(s7kWe), 2 Some(rBfH), 1 Some(2)")
-        ([|
-            [|
-                "Patient Age day"
-                "x"
-                "He9HaMtn"
-                ""
-                "J07IpX"
-                "iQaH1zTqK"
-                "W7s3"
-            |]
-            [|
-                "Patient Age days"
-                "Qn"
-                "QpGMo5DWu"
-                "S9gR"
-                "rZT"
-                "5g"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "ZUsVxe85D"
-                "1i20"
-                "A8r"
-                "epnHxpj57"
-                ""
-                "d5"
+                "L5CWuOIFd"
+                "y"
+                "zTqKiCwt"
             |]
             [|
                 "Patient Age weeks"
-                "arx9"
-                "JDA"
-                "nywQGyseC"
-                "bIFaRLI"
-                "IR"
-                "AxRpJD"
-            |]
-            [|
-                "Patient Age month"
-                "XUOmGeb"
-                "f"
-                "GS"
-                "Sc"
-                "xuXQ"
-                "k"
-            |]
-            [|
-                "Patient Age months"
-                "yUxe8"
-                "UJR8A"
-                "13k46"
-                "kwTA"
-                "N5pGSgXR"
-                "nB"
-            |]
-            [|
-                "Patient Age year"
-                "vBIDAUsmGD"
-                "fyuK1Aa5"
-                "bGVwzg"
-                "ICWurLFM"
-                "oUghCduOLj"
-                "M"
-            |]
-            [|
-                "Patient Age years"
-                "c"
-                "3b5ySN7FC"
-                "CauolTd74C"
-                "yzy1lTN74C"
-                "dKFZWQoIF"
-                ""
-            |]
-         |],
-         German,
-         {
-             Years = 72<year>
-             Months = 2<month>
-             Weeks = 4<week>
-             Days = 0<day>
-         },
-         "72 Some(yzy1lTN74C), 2 Some(kwTA), 4 Some(bIFaRLI)")
-        ([|
-            [|
-                "Patient Age day"
-                "b5pWvM"
-                "yf"
-                "mfrmP"
-                "m"
-                "oFLn4CV"
-                "XROmGA"
-            |]
-            [|
-                "Patient Age days"
-                "Ho"
-                "v1AvY"
-                "R"
-                "TrUwd74"
-                "6DXvPJ"
-                "K"
-            |]
-            [|
-                "Patient Age week"
-                "0aJ07"
-                "0"
-                "2A3FmTd"
-                "PM6EYv"
-                "T"
-                "HebGXUeMGD"
-            |]
-            [|
-                "Patient Age weeks"
-                "M"
-                "OJcO52m"
-                "nVfNHE"
-                "F"
-                "tJGPv3nVPM"
-                "0w1GJ"
-            |]
-            [|
-                "Patient Age month"
-                "XSlXDbv"
-                "w4oWfN"
-                "O"
-                "CSPkEcw4nV"
-                "9"
-                "NlFzw4oif"
-            |]
-            [|
-                "Patient Age months"
-                "KiCa71lTQK"
-                "2cQF"
-                "t"
-                "j"
-                "YELhIkt"
-                "xrZW"
-            |]
-            [|
-                "Patient Age year"
-                "Z4H1zTrK"
-                "lxFV"
-                "bR8vTO85"
-                "uk31D"
-                "Bfz7jqliC"
-                "xLkNq3oICa"
-            |]
-            [|
-                "Patient Age years"
-                ""
-                "3IVxPoYiQ"
-                "ZumjnEY"
-                "SqnHB9tzo"
-                ""
-                "AUrVCat1l"
-            |]
-         |],
-         English,
-         {
-             Years = 37<year>
-             Months = 9<month>
-             Weeks = 4<week>
-             Days = 0<day>
-         },
-         "37 , 9 Some(KiCa71lTQK), 4 Some(M)")
-        ([|
-            [|
-                "Patient Age day"
-                "DlP6"
-                "01vxxH"
-                "1HCWiYwQo"
-                "sM"
-                ""
-                "icK4CztN"
-            |]
-            [|
-                "Patient Age days"
-                "WT0Hd0rXM2"
-                "w"
-                "L5DXuOmG"
-                ""
-                "l2AUr"
-                "P9"
-            |]
-            [|
-                "Patient Age week"
-                "QqoRF"
-                "Qo"
-                "Rb5DA"
-                "E"
-                "FZTr"
-                ""
-            |]
-            [|
-                "Patient Age weeks"
-                "1syjF"
-                "JJR9Q"
-                "n3HOmzA"
-                "Ec63"
-                "FzTQoIC"
-                "smU"
-            |]
-            [|
-                "Patient Age month"
-                "MGebvpXUe"
-                "fyPM6EYv"
-                "cHY"
-                "lR8"
-                "v"
-                "ObqP"
-            |]
-            [|
-                "Patient Age months"
-                "VtMkEc"
-                "Wg"
-                "JhA8s"
-                "K"
-                "xroW"
-                ""
-            |]
-            [|
-                "Patient Age year"
-                "5Z"
-                "SMJhB"
-                "T"
-                "GAx5"
-                ""
-                "u1l"
-            |]
-            [|
-                "Patient Age years"
-                "1ySqK"
-                "2"
-                "PmGe"
-                ""
-                "dau"
-                "0XvPnGey60"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 2<year>
-             Months = 5<month>
-             Weeks = 3<week>
-             Days = 2<day>
-         },
-         "2 Some(dau), 5 Some(xroW), 3 Some(FzTQoIC), 2 Some(l2AUr)")
-        ([|
-            [|
-                "Patient Age day"
-                "K4"
-                "Xyf96E"
-                "QB8"
-                "fkC"
-                "BOzE4"
-                "sKcyj0"
-            |]
-            [|
-                "Patient Age days"
-                "uoIFd7rZWQ"
-                "4tisbg"
-                "KuEjg"
-                "LQRol"
-                "HB"
-                "ICW"
-            |]
-            [|
-                "Patient Age week"
-                "1iCz71li"
-                "u"
-                "hP96EySP"
-                ""
-                "5DAUOmG"
-                "6qnVP9HEYS"
-            |]
-            [|
-                "Patient Age weeks"
-                "VdiZ"
-                "uRkI1ZBcx"
-                "9Tx"
-                "w6l"
-                "nU"
-                "Z"
-            |]
-            [|
-                "Patient Age month"
-                "OJbS3h"
-                "BySMkE"
-                "1TmLYOufW"
-                "QNlfz74Yi"
-                "dMEitXqed"
-                ""
-            |]
-            [|
-                "Patient Age months"
-                "kfw"
-                "f"
-                "pICL"
-                "nHB9tqkSc"
-                ""
-                ""
-            |]
-            [|
-                "Patient Age year"
-                "0y"
-                "1lTN7"
-                "O"
-                "P9HB"
-                ""
-                "DXR"
-            |]
-            [|
-                "Patient Age years"
-                "auoWT"
-                "X"
-                "YicK"
-                ""
-                "M60"
-                "z71liQK41z"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 67<year>
-             Months = 7<month>
-             Weeks = 0<week>
-             Days = 2<day>
-         },
-         "67 Some(X), 7 Some(f), 2 Some(4tisbg)")
-        ([|
-            [|
-                "Patient Age day"
-                "oWfN7Fz"
-                "pJgA8smjRb"
-                "CdT"
-                ""
-                "UZg1"
-                "CPdF5Z"
-            |]
-            [|
-                "Patient Age days"
-                "yspJhB8s0k"
-                "Lm2"
-                ""
-                "38pa"
-                "LYmOe8"
-                "gxDm7OG"
-            |]
-            [|
-                "Patient Age week"
-                ""
-                "SU5"
-                "UV5t49"
-                "Vhiy9L"
-                "52mUOL5DM3"
-                "SPnHBy"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "ifzt"
-                "52AuOLj"
-                "63n"
-                "wQoiCz"
-                "jR"
-            |]
-            [|
-                "Patient Age month"
-                "IE6"
-                "h"
-                "WGHCzT"
-                "XxvC1k"
-                "a"
-                "M6EY"
-            |]
-            [|
-                "Patient Age months"
-                "BalGu"
-                "OIgAxrZjg"
-                "OHazLfE3"
-                "h"
-                "0"
-                "dEh"
-            |]
-            [|
-                "Patient Age year"
-                "Lp"
-                ""
-                "cwq"
-                "a"
-                "fW1jJbaU8N"
-                "edRbJ3XUsM"
-            |]
-            [|
-                "Patient Age years"
-                "OIgdx"
-                "PJ30ys"
-                "Cw41lfNK4"
-                "DxROm"
-                "qkSP93By"
-                "NliC"
-            |]
-         |],
-         English,
-         {
-             Years = 78<year>
-             Months = 11<month>
-             Weeks = 2<week>
-             Days = 5<day>
-         },
-         "78 Some(OIgdx), 11 Some(BalGu), 2 , 5 Some(yspJhB8s0k)")
-        ([|
-            [|
-                "Patient Age day"
-                "fz7"
-                "DAUsMjDbvp"
-                "qn"
-                "hRy6qX"
-                "wUr"
-                "zDV"
-            |]
-            [|
-                "Patient Age days"
-                "MJ3BvsMkEb"
-                "zw"
-                "30Hf96"
-                "i3A"
-                "lM4"
-                "3g1tTMPDi"
-            |]
-            [|
-                "Patient Age week"
-                "lF"
-                "y9QoHf"
-                "rcJ"
-                "QVd"
-                "cpaCF"
-                "3lNwUB"
-            |]
-            [|
-                "Patient Age weeks"
-                "5ZjRO82AxR"
-                "F4T4Mv"
-                "l5fhRAEzw"
-                "mrsmA"
-                "iQ"
-                "jDxu2"
-            |]
-            [|
-                "Patient Age month"
-                "CjdaI2WurL"
-                "vpXUe8G"
-                "wqKHf9tqYi"
-                "jdLI2W"
-                "keyv3XheM"
-                "71zwQKifzt"
-            |]
-            [|
-                "Patient Age months"
-                "wOgA"
-                "5s"
-                "KuvPnhB"
-                "7HW3Pus"
-                "Yv"
-                "A"
-            |]
-            [|
-                "Patient Age year"
-                "pkMtES"
-                "cwtnVfcKEY"
-                "CRXmzp5Qx"
-                "rZ"
-                "OKTT4y1PO"
-                "1sIc"
-            |]
-            [|
-                "Patient Age years"
-                "Vdx"
-                "Q"
-                "0jdm"
-                "YicK4CztN"
-                ""
-                ""
-            |]
-         |],
-         English,
-         {
-             Years = 43<year>
-             Months = 4<month>
-             Weeks = 1<week>
-             Days = 6<day>
-         },
-         "43 Some(Vdx), 4 Some(wOgA), 1 Some(lF), 6 Some(MJ3BvsMkEb)")
-        ([|
-            [|
-                "Patient Age day"
-                "T4L"
-                "xeMGDX"
-                "Hf"
-                "I2Aur"
-                "VwdL4CWuN"
-                "Oz6LQu"
-            |]
-            [|
-                "Patient Age days"
-                "GnVPM6"
-                "QoICz7rli"
-                "R"
-                "4FmTdL5ZW"
-                "jIfxZD"
-                "mr5taI"
-            |]
-            [|
-                "Patient Age week"
-                "ZxroIgA7r"
-                "0"
-                "dOv2mUeL5"
-                "sRoG"
-                "vAeC"
-                "dqPgGA"
-            |]
-            [|
-                "Patient Age weeks"
-                "9tnkSc63BV"
-                "mXDbv3n"
-                ""
-                "EJ0L"
-                "mzXpPJ"
-                "R9eXIph"
-            |]
-            [|
-                "Patient Age month"
-                ""
-                "tSkRAFL"
-                "vTG4FK"
-                "wfT9KJ"
-                "G0XvpJGen4"
-                "t1YicK"
-            |]
-            [|
-                "Patient Age months"
-                ""
-                "TQa4"
-                ""
-                "HEY"
-                "urZTdaI2Wu"
-                "vs"
-            |]
-            [|
-                "Patient Age year"
-                "GfH"
-                "f"
-                "yhWdxu"
-                "V86RZV"
-                "L"
-                "nHfz"
-            |]
-            [|
-                "Patient Age years"
-                "QLAhs"
-                "pjRbJGAUs"
-                "piLamQfE"
-                "S"
-                "f"
-                "OfS"
-            |]
-         |],
-         German,
-         {
-             Years = 58<year>
-             Months = 8<month>
-             Weeks = 2<week>
-             Days = 2<day>
-         },
-         "58 Some(S), 8 Some(HEY), 2 Some(EJ0L), 2 Some(4FmTdL5ZW)")
-        ([|
-            [|
-                "Patient Age day"
-                "x5CW"
-                ""
-                "cTN"
-                "mUOL5DxuOm"
-                "nH"
-                "AbRpJhb8s0"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "lCz"
-                "vpmUeM5DXv"
-                "wq"
-                "Jk0ySq"
-                "YJx"
-            |]
-            [|
-                "Patient Age week"
-                "uLI"
-                "Eyv3nheM6E"
-                "Fz"
-                "Ss9H1z"
-                "7v2"
-                "aewhySP"
-            |]
-            [|
-                "Patient Age weeks"
-                "nkEcwqnVf9"
-                "a7"
-                "1BiQaH"
-                "gEb"
-                "jnF"
-                "1RC4u1qeT"
-            |]
-            [|
-                "Patient Age month"
-                "jg"
-                "aKrZjQ"
-                "2Nk"
-                "5wO"
-                "N0LdDazn2"
-                "iWo7SQ"
-            |]
-            [|
-                "Patient Age months"
-                "G0UspJDbvs"
-                "UFuF16"
-                "WGQS6bTau"
-                "X23Xb"
+                "6qXhP9G0yS"
                 "Tr"
-                "Ue8GD"
-            |]
-            [|
-                "Patient Age year"
-                "dUOmjDb52m"
-                "6EySPnh"
-                "71lTQa4CzT"
-                "UOmGDb"
-                "VP9HEYSqn"
-                "ICa7r"
-            |]
-            [|
-                "Patient Age years"
-                "7pRbJ3"
-                "GHTy"
-                "l56qYSc9H"
-                "miUEqJ37C"
-                "z6RU"
-                "b"
-            |]
-         |],
-         Italian,
-         {
-             Years = 23<year>
-             Months = 4<month>
-             Weeks = 1<week>
-             Days = 4<day>
-         },
-         "23 Some(b), 4 Some(Ue8GD), 1 Some(aewhySP), 4 Some(YJx)")
-        ([|
-            [|
-                "Patient Age day"
-                "pjgr"
-                "cJUB930"
-                "zn4"
-                "dx5pXR"
-                "By"
-                "olTdL"
-            |]
-            [|
-                "Patient Age days"
-                "VS3KiB9"
-                "Iwd"
-                "mGeysp"
-                "KH"
-                "xu2mg"
-                "oYFdx4oWg"
-            |]
-            [|
-                "Patient Age week"
-                "uFm"
-                "8PnHBy"
-                "iQ"
-                "jDbvp"
-                "w7OmFdx5p"
-                "paHmrJ"
-            |]
-            [|
-                "Patient Age weeks"
-                "hYwqnH"
-                "rZ"
-                "sMkeb"
-                "FgXvOmGex"
-                "yjQvAS"
-                "X2krLj"
+                "UeL5DXuOm"
+                "H"
+                "ICzTrLiC"
+                ""
             |]
             [|
                 "Patient Age month"
-                "A8smjRb52"
-                "B"
-                "Op6DXvPnG"
-                "HsZhJn"
-                "6bPdUs"
-                "sFqRVbe2"
+                "2z"
+                "3mUeMGDXv"
+                "Q"
+                "RaI2AurL"
+                ""
+                "FYwQoHf"
             |]
             [|
                 "Patient Age months"
-                "K"
-                "XyfM6EYvP"
-                "cB8qSw"
-                "fkYm"
-                "Xaz04k"
-                "sKcyj0f"
+                "cv3nVeM6E"
+                "Z"
+                "mjRbJ2AU"
+                ""
+                "a7FZxQo"
+                "A8s0kRbJ3A"
             |]
             [|
                 "Patient Age year"
+                "7"
+                "8s0kebJ3"
                 ""
-                "4tVsbgJ"
-                "6uhFgZ"
-                "7QuKlk"
-                "hBy6qkSPYF"
-                "4CzTrl"
+                "WgO8FZx"
+                "JhB9s0kSMJ"
+                "K4CWtN"
             |]
             [|
                 "Patient Age years"
+                "hB9t0kSc"
                 ""
-                "uOLj"
-                ""
-                "iCz"
-                "5DAUOmjDx5"
-                "6q"
+                "5pXhO8G"
+                "SqKiB9t1kS"
+                "TdL5CW"
+                "GeyspXhP8"
             |]
          |],
-         Dutch,
-         {
-             Years = 44<year>
-             Months = 4<month>
-             Weeks = 1<week>
-             Days = 3<day>
-         },
-         "44 Some(uOLj), 4 Some(XyfM6EYvP), 1 Some(8PnHBy), 3 Some(Iwd)")
+         German,
+         6321,
+         "17 Some(SqKiB9t1kS), 3 , 3 Some(H), 5 Some(B9t0kScJ)")
         ([|
             [|
                 "Patient Age day"
-                ""
-                "3nV6MkE"
-                "QozgN7FZTQ"
-                "R2JhA8"
-                "vcKEBVtNH"
-                "Fdxro"
+                "I2zT"
+                "v3mUeMG"
+                "wQn"
+                "jRaI2A"
+                "kE"
+                "7FYwQ"
             |]
             [|
                 "Patient Age days"
-                "cw4BVtN"
-                "ZxIZWgO8FZ"
-                "0bSMJh"
-                "ElTNK4Cwt"
-                "O"
-                "P9HB"
-            |]
-            [|
-                "Patient Age week"
-                "8GRx5pXRO8"
-                "9k"
-                "NuolTdLFC"
-                "X"
-                "Yic9"
-                "b"
-            |]
-            [|
-                "Patient Age weeks"
-                "it"
-                "WDx"
-                "6EyvPnhey6"
-                "7r"
-                "kVc9t1lScK"
-                "zk8NfTb"
-            |]
-            [|
-                "Patient Age month"
-                "5Mj"
-                "f96EYwqnHf"
-                "ga"
-                "t4KiCa"
-                "Ith"
-                "LQ7Sztq"
-            |]
-            [|
-                "Patient Age months"
-                "oifN71YwQo"
-                "pj"
-                "CzTrLj"
-                "RCM"
-                "UCg1ICz"
-                "CsdF5Z1P8"
-            |]
-            [|
-                "Patient Age year"
-                "UR"
-                "Ll2AUr"
-                "0oV"
-                "37p"
-                "LBmOeLaYD"
-                "gxDItr2wN7"
-            |]
-            [|
-                "Patient Age years"
-                "EBv3nkSM63"
-                "Sg5gZH"
-                "xhrt4MuL5"
-                "yDiy97uGj"
-                "u2"
-                "vPnhB"
-            |]
-         |],
-         Italian,
-         {
-             Years = 9<year>
-             Months = 11<month>
-             Weeks = 1<week>
-             Days = 3<day>
-         },
-         "9 Some(vPnhB), 11 Some(CsdF5Z1P8), 1 Some(b), 3 Some(P9HB)")
-        ([|
-            [|
-                "Patient Age day"
-                "Ue85DOv"
-                "Hf9"
-                "I2WKrZ"
-                "v3"
-                "wHYVf"
-                "aRLIgA"
-            |]
-            [|
-                "Patient Age days"
-                "Qoifq71Y"
-                "Rb5T"
-                "EcJ3BVP"
-                "FQw"
-                "j0xRpJ"
+                "Ecv3nVe"
+                "Fzw"
+                "smjRbJ"
                 "tn"
+                "gN7FZ"
+                "h"
             |]
             [|
                 "Patient Age week"
-                "0UR2"
-                "NHvcK4B"
-                "OlF"
-                "sJG0ys"
-                "Cw"
-                "DxuOm"
+                "O7F"
+                "B8s0ke"
+                "CV"
+                "pWgO8"
+                "q"
+                "dK4C"
             |]
             [|
                 "Patient Age weeks"
-                "WQElTNK"
-                "X7O"
-                "BhP9HB"
-                "Li"
-                "85DXv"
-                "ZzgO8FZxR"
+                "khB9t0"
+                "74"
+                "85pXh"
+                "y"
+                "lTdL"
+                ""
             |]
             [|
                 "Patient Age month"
-                "sgX"
-                "6qYiQ9"
-                "ur"
-                "heM60"
-                "8IpXhO8G0"
-                "nLiXpk"
+                "Td"
+                "Gey6p"
+                "H"
+                "u2mU"
+                ""
+                "iQa"
             |]
             [|
                 "Patient Age months"
-                "Sz7rli"
-                "2A"
-                "3nVf9"
-                "gRy60XhP9"
-                "9Ur6bt"
-                "cDV2mU"
+                "PnHfy"
+                "Q"
+                "Dbvp"
+                ""
+                "rZj"
+                "sMkDbv3nUe"
             |]
             [|
                 "Patient Age year"
-                "bJ"
-                "cw4YV"
-                "p0Hfy6qYh"
-                "i3AfkC"
-                "HM4bv3"
-                "3g1twMPD"
+                "Z"
+                "MkEb"
+                ""
+                "A8s"
+                "BVtMkE"
+                "oW"
             |]
             [|
                 "Patient Age years"
-                "lFd74"
-                "y9QKHfz7q"
-                "rcJot7"
-                "QVdXEc"
-                "cpafFVYM"
-                "3lN9UBQG0"
+                "VtNkEcw3n"
+                "Wga7F"
+                "Jhb8s0kR"
+                "K4YV"
+                "x5oWgO8"
+                "ySp"
+            |]
+         |],
+         Italian,
+         13650,
+         "37 Some(ySp), 4 Some(sMkDbv3nUe), 3 , 4 Some(h)")
+        ([|
+            [|
+                "Patient Age day"
+                ""
+                "nGey6pX"
+                "aH1zTqKiCw"
+                "bu2mUd"
+                "yvPnHey6q"
+                "liQaI"
+            |]
+            [|
+                "Patient Age days"
+                "vPnHfy6"
+                "iQaICzTrLi"
+                "jDbvpm"
+                "6EYwqnHfz"
+                "7rZjQ"
+                "UsMkDbv3"
+            |]
+            [|
+                "Patient Age week"
+                "rZjRaI2Aur"
+                "sMkEbv"
+                "fN7FYwQoH"
+                "gA8sZ"
+                "3BVtMkEc"
+                "4oWg"
+            |]
+            [|
+                "Patient Age weeks"
+                "BVtnkE"
+                "oWga7FZxQ"
+                "pJhb8"
+                "cK4BVtNl"
+                "dx5o"
+                "0ySpJhB"
+            |]
+            [|
+                "Patient Age month"
+                "x5pWgO82Z"
+                "y"
+                "lTdK4CWt"
+                ""
+                "9"
+                "auolTdL4"
+            |]
+            [|
+                "Patient Age months"
+                "H1VSqKiB9t"
+                "u2"
+                "vPmGey6pX"
+                "i"
+                "jDau2mgd"
+                ""
+            |]
+            [|
+                "Patient Age year"
+                "Db"
+                "EYvPnHey6"
+                "r"
+                "sMjDbv2m"
+                ""
+                "ga7rZjQ"
+            |]
+            [|
+                "Patient Age years"
+                "N6EYwQnHf"
+                "A"
+                "BUsMkebv"
+                ""
+                "pIgA82Z"
+                "cJ3BVsMkEc"
+            |]
+         |],
+         German,
+         1085,
+         "2 , 11 Some(i), 3 Some(cK4BVtNl), 4 Some(6EYwqnHfz)")
+        ([|
+            [|
+                "Patient Age day"
+                ""
+                "0yS"
+                "1lTdK4CWtN"
+                "Om"
+                "P9HBySqKh"
+                "C"
+            |]
+            [|
+                "Patient Age days"
+                "9H1"
+                "au2lTdL5CW"
+                "Xv"
+                "YiQ9H1ztq"
+                "L"
+                "M6EX"
+            |]
+            [|
+                "Patient Age week"
+                "jDbu2m"
+                "6E"
+                "7rZ"
+                "UsmjDb"
+                "Vf"
+                "Iga7r"
+            |]
+            [|
+                "Patient Age weeks"
+                "fN6EYwQ"
+                "gA7"
+                "3BUsMk"
+                "4o"
+                "RpIgA"
+                "S"
+            |]
+            [|
+                "Patient Age month"
+                "pJg"
+                "c63BVt"
+                "d7"
+                "0URpJ"
+                "1"
+                "OlFd"
+            |]
+            [|
+                "Patient Age months"
+                "lScK4Y"
+                "mF"
+                "9G0yS"
+                "a"
+                "XuOm"
+                ""
+            |]
+            [|
+                "Patient Age year"
+                "RO"
+                "SP9H1"
+                "F"
+                "5DXv"
+                ""
+                "TrL"
+            |]
+            [|
+                "Patient Age years"
+                "qYiQK"
+                "r"
+                "eM6E"
+                ""
+                "2AU"
+                "3nVfM6EYvP"
+            |]
+         |],
+         Italian,
+         24849,
+         "68 Some(3nVfM6EYvP), 4 Some(S), 1 Some(C)")
+        ([|
+            [|
+                "Patient Age day"
+                "R"
+                "Sc63BVtM"
+                ""
+                "G0xRpJh"
+                "t1kScK4BVt"
+                "uOlFdx"
+            |]
+            [|
+                "Patient Age days"
+                "1lScK4YV"
+                ""
+                "P9G0ySp"
+                "Cat1lTcK4C"
+                "DXuOmG"
+                "qkhP9H0yS"
+            |]
+            [|
+                "Patient Age week"
+                ""
+                "YSP9H1y"
+                "LiCau2lTdL"
+                "M5DXvp"
+                "z6qYic9H1"
+                "ATrLj"
+            |]
+            [|
+                "Patient Age weeks"
+                "7qYiQ9H"
+                "UrLjDau2mg"
+                "VeM6EX"
+                "Ifz7rYiQa"
+                "52AUs"
+                "63nVfM6E"
+            |]
+            [|
+                "Patient Age month"
+                "DAUsMjDbv2"
+                "3nVfN6"
+                "QoIga7rZj"
+                "RbJ3X"
+                "Ecw4YVfN"
+                "FZxR"
+            |]
+            [|
+                "Patient Age months"
+                "cw4oVf"
+                "ZxRpIgA82"
+                "0kScJ"
+                "NlFdw4oW"
+                "O8G0"
+                "B9t1kSc"
+            |]
+            [|
+                "Patient Age year"
+                "8G0URpJhA"
+                "9t1VS"
+                "WuOIFdx5"
+                "XhP8"
+                "KiC9t1l"
+                "L5D"
+            |]
+            [|
+                "Patient Age years"
+                "iCat1"
+                "5DXuOmGd"
+                ""
+                "TrLiCau"
+                "UeM5DXvO"
+                ""
             |]
          |],
          French,
-         {
-             Years = 75<year>
-             Months = 0<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "75 Some(rcJot7), 2 Some(BhP9HB)")
+         12284,
+         "33 , 7 Some(0kScJ), 4 Some(VeM6EX), 1 ")
         ([|
             [|
                 "Patient Age day"
-                "y"
-                "ztqKiP9H"
-                ""
-                "nhep60X"
-                "a4Sz71YiQa"
-                "bl2AUO"
-            |]
-            [|
-                "Patient Age days"
-                "41zTrYiQ"
-                ""
-                "SPnyf96"
-                "TQ1Igz7rZT"
-                "GubJ3A"
-                "kEcwqnVfN"
-            |]
-            [|
-                "Patient Age week"
-                ""
-                "1YwHYVf"
-                "2ZaRLIgA8r"
-                "PDkSMJ"
-                "6NlFzw4oi"
-                "gO8GA"
-            |]
-            [|
-                "Patient Age weeks"
-                "N7FQ74o"
-                "A8j0URpJDA"
-                "BMt1kS"
-                "fWuOlFdxr"
-                "pXhb8"
-                "qKic9t1l"
-            |]
-            [|
-                "Patient Age month"
-                "JhsJG0ySpJ"
-                "KVCwt1"
-                "o5DxuOmgd"
-                "y"
-                "zTrliCa4"
-                "M"
-            |]
-            [|
-                "Patient Age months"
-                "T4"
-                "xeM5DXvpm"
-                "H"
-                "I2WT"
-                "V"
-                "az6oQuMA1"
-            |]
-            [|
-                "Patient Age year"
-                "GnheM6EXv"
-                "Qoifz71YiQ"
-                "Rb"
-                "4FWTdL5CWu"
-                "j4fxZDV"
-                "mrItaIC"
-            |]
-            [|
-                "Patient Age years"
-                "ZxQoIga7rZ"
-                "0U"
-                "dOu2mU"
-                "sd1"
-                "vARCjda"
-                "dqOgGACqJ"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 39<year>
-             Months = 8<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "39 Some(vARCjda), 8 Some(V), 2 Some(pXhb8)")
-        ([|
-            [|
-                "Patient Age day"
-                "M"
-                "NK4C"
-                ""
-                "0yS"
-                "1lT4liCa41"
-                "Om"
-            |]
-            [|
-                "Patient Age days"
-                "lTd7"
-                ""
-                "9H1"
-                "au2zTrLjCa"
-                "Xv"
-                "Y9QKHfz7q"
-            |]
-            [|
-                "Patient Age week"
-                ""
-                "iQa"
-                "jDbI2A"
-                "6E"
-                "7iZwQ"
-                "L"
-            |]
-            [|
-                "Patient Age weeks"
-                "rZT"
-                "sMGubJ"
-                "fN"
-                "grIFZ"
-                "U"
-                "4C"
-            |]
-            [|
-                "Patient Age month"
-                "BVPD"
-                "oWtNlFz"
-                "pAR"
-                "3KhB9t"
-                "dL"
-                "e85pX"
-            |]
-            [|
-                "Patient Age months"
-                "xrfWuOI"
-                "y5p"
-                "ctqKiC"
-                "mg"
-                "nhey6"
-                "AxRpJhA8s"
-            |]
-            [|
-                "Patient Age year"
-                "Hey"
-                "lCzTrl"
-                "v2"
-                "wPnHf"
-                "Jj0ySMJhB"
-                "YmTy0i"
-            |]
-            [|
-                "Patient Age years"
-                "QaI2AT"
-                "eb"
-                "1YwQK"
-                "Ss9H1ySqK"
-                "7v2H94"
-                "aewhyv"
-            |]
-         |],
-         English,
-         {
-             Years = 60<year>
-             Months = 8<month>
-             Weeks = 1<week>
-             Days = 6<day>
-         },
-         "60 Some(QaI2AT), 8 Some(xrfWuOI), 1 , 6 Some(lTd7)")
-        ([|
-            [|
-                "Patient Age day"
-                "3BVPMkEy"
-                ""
-                "RpJgA8j"
-                "Sc63BMtnkS"
-                "Fd74fW"
-                "G0UIpXhb8"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "0yspJhs"
-                "1lfcKVc9t1"
-                ""
-                "P93Ry60"
-                "CaH1zTNKiC"
-            |]
-            [|
-                "Patient Age week"
-                "9"
-                "a41lT4li"
-                ""
-                "YSP0Hf9"
-                "LFtaI2WTrL"
-                "MjDbv3"
-            |]
-            [|
-                "Patient Age weeks"
-                "jdau2dTr"
-                ""
-                "71Y9QKH"
-                "UOCjRLI2AU"
-                "VsMkEy"
-                "zQN7FzwQo"
-            |]
-            [|
-                "Patient Age month"
-                ""
-                "Cz7iZTQ"
-                "DALs0URbJD"
-                "qeVtNk"
-                "4oWgO7FZx"
-                "spJhB"
-            |]
-            [|
-                "Patient Age months"
-                "LIgrIFZ"
-                "MJUBvs0kSb"
-                "zn4Cwt"
-                "dx5pjgO8G"
-                "0ySqk"
-                "1lTd74CW"
-            |]
-            [|
-                "Patient Age year"
-                "kS3KEB9tnk"
-                "lwdLFC"
-                "ZGey5pXhb"
-                "9H1zS"
-                "au2WTdL5"
-                "n"
-            |]
-            [|
-                "Patient Age years"
-                "uFmgdL"
-                "8Pnhey6qX"
-                "iQa41"
-                "jDb52mUO"
-                "w"
-                "paHmr5nyC"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 26<year>
-             Months = 3<month>
-             Weeks = 1<week>
-             Days = 1<day>
-         },
-         "26 Some(w), 3 Some(0ySqk), 1 Some(LFtaI2WTrL), 1 Some(Fd74fW)")
-        ([|
-            [|
-                "Patient Age day"
-                "VP"
-                "ICz7r"
                 "J"
-                "wqnV"
+                "w3nV"
                 ""
-                "keb"
+                "kRb"
+                "lEcw4nVfN7"
+                "8F"
             |]
             [|
                 "Patient Age days"
-                "RLIgA"
-                "S"
-                "Fzw4"
+                "Fcw4"
                 ""
                 "30k"
-                "QNlwd74CWQ"
+                "QNlFdw4oWf"
+                "RO"
+                "hB9t1kScK"
             |]
             [|
                 "Patient Age week"
-                "n"
-                "olFd"
                 ""
-                "c9t"
-                "ZWuFWTdL5Z"
-                "0X"
-            |]
-            [|
-                "Patient Age weeks"
-                "xuOm"
-                ""
-                "KiC"
-                "L5DO52mUOL"
-                "y6"
-                "zKrZTQaIC"
-            |]
-            [|
-                "Patient Age month"
-                ""
-                "TrL"
-                "UeMjDbv3XU"
-                "Hf"
-                "ITAurZjRa"
-                "m"
-            |]
-            [|
-                "Patient Age months"
-                "2AU"
-                "3nVsMk"
-                "Qo"
-                "R2JDA"
-                "v"
-                "Fdx4"
-            |]
-            [|
-                "Patient Age year"
-                "cwqeVt"
-                "Zx"
-                "0bspJ"
-                "E"
-                "Omgd"
-                "P930y"
-            |]
-            [|
-                "Patient Age years"
-                "8Gdx5pj"
-                "9kB"
-                "NuolTd"
-                "Xv"
-                "YiP9H"
-                "bMs0kSMJ3"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 91<year>
-             Months = 4<month>
-             Weeks = 2<week>
-             Days = 3<day>
-         },
-         "91 Some(9kB), 4 Some(3nVsMk), 2 , 3 Some(S)")
-        ([|
-            [|
-                "Patient Age day"
-                "96qYSP9H1"
-                "WTrLF"
-                "XUeMGDXv"
-                "KHfz"
-                "LI2AurC"
-                "yv3"
-            |]
-            [|
-                "Patient Age days"
-                "I2AUO"
-                "v3nVPM6E"
-                "wQoI"
-                "jRbJDAL"
-                "kEc"
-
-                "7FZTHo"
-            |]
-            [|
-                "Patient Age week"
-                "EcwqnVfN"
-                "FZxr"
-                "s0kebJU"
-                "tNl"
-                "gO82Qx"
-                "hB9G0ySMJ"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "B9tnkS3"
-                "CWuNlwd74C"
-                "pXROZG"
-                "qKEs9H1VS"
-                "dLiCa"
-            |]
-            [|
-                "Patient Age month"
-                "Kic9t1c"
-                "L5ZWuFmTdL"
-                "y60X8P"
-                "zTNBiQK"
-                "mUrLjDxu2m"
-                "nyPM6E"
-            |]
-            [|
-                "Patient Age months"
-                "Ue85DO52"
-                ""
-                "ICzKrZT"
-                "vpdUsMGDbv"
-                "w3nVfN"
-                "aroIgA7rZ"
-            |]
-            [|
-                "Patient Age year"
-                ""
-                "RLITAur"
-                "Eym3BvsMkE"
-                "Fcw4oi"
-                "jAxRpjgA8"
-                "tnkSc"
-            |]
-            [|
-                "Patient Age years"
-                "mjR2JDA"
-                "nkvcKEBVtn"
-                "aYFdxr"
-                "O8G0yspJh"
-                "c9t1l"
-                "ZWuOmFdx"
-            |]
-         |],
-         German,
-         {
-             Years = 56<year>
-             Months = 0<month>
-             Weeks = 1<week>
-             Days = 5<day>
-         },
-         "56 Some(O8G0yspJh), 1 Some(tNl), 5 Some(jRbJDAL)")
-        ([|
-            [|
-                "Patient Age day"
-                "qKic9t1VS"
+                "B9t"
+                "CWuOIFdx5o"
+                "pX"
+                "qKiC9t1lf"
                 "d"
-                "ey60XhPJ"
-                ""
-                "2mU"
-                "PnHBy6hyvP"
             |]
             [|
-                "Patient Age days"
+                "Patient Age weeks"
+                "KiC"
+                "L5DXuOmGdx"
+                "y6"
+                "zTrLiCau1"
                 "m"
-                "nHBy"
+                "nHf96qYi"
+            |]
+            [|
+                "Patient Age month"
+                "UeMGDXvPmG"
+                "Hf"
+                "I2ATrLjda"
+                "v"
+                "wQoHfz71"
                 ""
-                "bvp"
-                "YwqnHfq6EY"
+            |]
+            [|
+                "Patient Age months"
+                "Qo"
+                "RbJ2A"
+                "Ecw3nV"
+                "FZ"
+                "s0URb"
+                "t"
+            |]
+            [|
+                "Patient Age year"
+                "0kR"
+                "NlEcw4"
+                "O8"
+                "B9s0k"
+                "C"
+                "pXgO"
+            |]
+            [|
+                "Patient Age years"
+                "WuNlFd"
+                "Xh"
+                "KEB9t"
+                "L"
+                "yspX"
+                ""
+            |]
+         |],
+         Spanish,
+         19613,
+         "53 Some(yspX), 8 Some(s0URb), 4 Some(m)")
+        ([|
+            [|
+                "Patient Age day"
+                "mUeM5DXv"
+                "nHfz"
+                "aI2ATrL"
+                "bv3"
+                "YwQoHf"
                 "Zj"
             |]
             [|
+                "Patient Age days"
+                "wQoI"
+                "jRbJ2AU"
+                "kEc"
+                "7FZTQo"
+                "8s"
+                "VtNkE"
+            |]
+            [|
                 "Patient Age week"
-                "wQKH"
-                "jRLI2"
+                "s0kRbJ3"
+                "tNl"
+                "gO8FZx"
+                "hB9s0kSbJ"
+                "4CWtN"
+                "5pXgO8GZ"
+            |]
+            [|
+                "Patient Age weeks"
+                "CWuNlFdw"
+                ""
+                "qKEB9t1"
+                "dLFCWuOlFd"
+                "ey5pXh"
+                "1zSqKic9t"
+            |]
+            [|
+                "Patient Age month"
+                ""
+                "zTqKiCw"
+                "mUdL5DWuOm"
+                "nHey6q"
+                "aI1zTrKiC"
+                "bv2mU"
+            |]
+            [|
+                "Patient Age months"
+                "ICzTrLi"
+                "vpmUeM5DXv"
+                "wPnHfz"
+                "jQaI2ATrL"
+                "kDbv3"
+                "7EYwQKHf"
+            |]
+            [|
+                "Patient Age year"
+                "Ebv3nUeM6E"
+                "FYwQoH"
+                "sZjRbI2AU"
+                "tMkEc"
+                "QN7FZwQo"
+                "DA8s"
+            |]
+            [|
+                "Patient Age years"
+                "a7FZxQ"
+                "A8s0kRbJ3"
+                "BVtNH"
+                "oWgOIFZx"
+                "pJhB"
+                "cK4CVtN"
+            |]
+         |],
+         French,
+         7048,
+         "19 Some(BVtNH), 3 Some(wPnHfz), 3 Some(qKEB9t1), 2 Some(kEc)")
+        ([|
+            [|
+                "Patient Age day"
+                "ey6pXhPJ"
+                ""
+                "2mU"
+                "PnHey6qXhP"
+                ""
+                "Db5"
+            |]
+            [|
+                "Patient Age days"
+                "aICzT"
+                "b"
+                "YwPn"
+                ""
+                "MkD"
+                "N7EYwQKHfz"
+            |]
+            [|
+                "Patient Age week"
                 "k"
-                "7Fzw"
+                "7FYw"
                 ""
-                "VtM"
+                "VPM"
+                "WQN7FZwQoI"
+                "JD"
             |]
             [|
                 "Patient Age weeks"
-                "smjRb"
-                "t"
-                "ga7F"
+                "gN7F"
                 ""
-                "4YV"
-                "5ZW7OIFdx5"
+                "4BV"
+                "5oWgOIFZxR"
+                "Sp"
+                "TcK4CVtNl"
             |]
             [|
                 "Patient Age month"
-                "C"
-                "pjgO"
                 ""
-                "d74"
-                "Ax5gXROmGA"
+                "dK4"
+                "Ax5pXgO8GZ"
                 "By"
+                "olTdL4CWu"
+                "O"
             |]
             [|
                 "Patient Age months"
-                "85pX"
-                ""
-                "WTd"
-                "JGep6DXvPJ"
-                "KH"
-                "xl2AurLjD"
+                "lTd"
+                "mGeyspXhP8"
+                "9H"
+                "au2mTdL5D"
+                "X"
+                "YiQaH1zT"
             |]
             [|
                 "Patient Age year"
-                ""
-                "52m"
-                "vPnyPM6Eyv"
+                "vPnHey6qkh"
                 "iQ"
-                "jubJDAUsm"
-                "X"
+                "jDbv2mUeL"
+                "6"
+                "7rZjQaI2"
+                ""
             |]
             [|
                 "Patient Age years"
-                "Dbv"
-                "EYwHnVfNHE"
                 "rZ"
-                "sDkebJ3Bv"
-                "6"
-                "gO82ZxRp"
+                "sMkebv3nU"
+                "f"
+                "gA8rZjRL"
+                ""
+                "4oWfN7F"
             |]
          |],
-         Italian,
-         {
-             Years = 77<year>
-             Months = 0<month>
-             Weeks = 1<week>
-             Days = 4<day>
-         },
-         "77 Some(gO82ZxRp), 1 Some(VtM), 4 Some(Zj)")
+         Spanish,
+         30812,
+         "84 , 5 Some(X), 2 Some(MkD)")
         ([|
             [|
                 "Patient Age day"
-                "4CwtNlfcw4"
-                "5pjgO8"
-                "SqkhB930k"
+                "SqJhB9s0k"
                 "TNK4C"
-                "GAx5pXRO"
+                "GAx5pXgO"
                 "HByS"
+                "u1lTdL4"
+                "vOm"
             |]
             [|
                 "Patient Age days"
-                "e85pXh"
-                "1VSqKEB9t"
-                "2WTdL"
-                "PJGeyspX"
-                "QKH1"
-                "Dxu2mg4"
+                "2lTdL"
+                "PmGeyspX"
+                "Q9H1"
+                "Dau2mTd"
+                "EXv"
+                "rYiQaH"
             |]
             [|
                 "Patient Age week"
-                "a41zTNKiC"
-                "bu2mU"
-                "yvPnHBy6"
+                "yvPnHey6"
                 "liQa"
-                "mjDbvpd"
-                "96E"
+                "mjDbv2m"
+                "M6E"
+                "z7rZTQ"
+                "AU"
             |]
             [|
                 "Patient Age weeks"
-                "GDbvp"
-                "HEYwqnHf"
-                "urZj"
-                "vsMkebm"
-                "ifN"
-                "jgA8FZ"
+                "7rZj"
+                "UsMkDbv"
+                "VfN"
+                "IgA8rZ"
+                "J3"
+                "w4oWf"
             |]
             [|
                 "Patient Age month"
-                "fN7FzwQo"
-                "gA8s"
-                "3BVtnkv"
+                "3BVtMkE"
                 "4oW"
-                "RpJhr8"
+                "RpJDA8"
                 "Sc"
+                "Fdxro"
+                "G"
             |]
             [|
                 "Patient Age months"
-                "pJhb"
-                "cK4YVtE"
                 "dx5"
-                "0ySMAh"
+                "0ySpJh"
                 "1l"
-                "OmxOL"
+                "OmGdx"
+                "P9H0ySqJ"
+                "Cau1"
             |]
             [|
                 "Patient Age year"
-                "lTd74CN"
-                "mGe85gXROm"
-                "9H1VJq"
-                "auocTrLFC"
-                "XvGmU"
-                "Y9qnHfzt"
+                ""
+                "auolTdL"
+                "XvpmGey5pX"
+                "Yic9H1"
+                "LjCau2mTd"
+                "M6DXv"
             |]
             [|
                 "Patient Age years"
-                "vPJGep60Xv"
-                "iQKHSz"
-                "jDxl2AUrL"
-                "6Ebv3nheM6"
-                "7izwQo"
-                "LsmjRb52A"
+                "jDau2mg"
+                "6EXvPnhey6"
+                "7rYiQa"
+                "UsLjDbu2m"
+                "VfM6E"
+                "Igz7rZiQ"
             |]
          |],
-         German,
-         {
-             Years = 42<year>
-             Months = 7<month>
-             Weeks = 1<week>
-             Days = 4<day>
-         },
-         "42 Some(6Ebv3nheM6), 7 Some(0ySMAh), 1 Some(liQa), 4 Some(PJGeyspX)")
+         Dutch,
+         18247,
+         "49 Some(6EXvPnhey6), 12 Some(0ySpJh), 2 Some(PmGeyspX)")
         ([|
             [|
                 "Patient Age day"
-                "ifN7FzwQoi"
-                "jg"
-                "63BVtnkEc"
-                "7"
-                "URpJDA8s"
+                "J3BVtMkEc"
+                "w"
+                "xRpJDA8s"
                 ""
+                "lFdx4oW"
+                "8G0yRpJhB8"
             |]
             [|
                 "Patient Age days"
-                "sp"
-                "fcK4YVtNl"
-                "g"
-                "30ySMJhB"
+                "F"
+                "G0ySpJhB"
                 ""
-                "uOmGAx5"
+                "uOmGdx5"
+                "hP9H0ySqJh"
+                "iCau1l"
             |]
             [|
                 "Patient Age week"
-                "1lTd74CWQ"
-                "O"
                 "P9HBySqK"
                 ""
                 "DXvpmGe"
-                "qYic9HSztq"
+                "qYiP9H1zSq"
+                "rLjCau"
+                "eM6DXvPJG"
             |]
             [|
                 "Patient Age weeks"
-                "X"
-                "YiQKH1zt"
                 ""
                 "M6E"
-                "z7rliQ1ifz"
+                "z7rYiQaH1z"
                 "AU"
+                "nVf"
+                "oICz7rZiQa"
             |]
             [|
                 "Patient Age month"
-                "7rZi"
+                "V"
+                "Iga7"
                 ""
-                "Vf9"
-                "Iga7rZaroI"
-                "J3"
-                "w4YV6NlEc"
+                "w4n"
+                "xRoIgAurZj"
+                "kS"
             |]
             [|
                 "Patient Age months"
+                "RpIg"
                 ""
-                "4"
-                "Rpjg"
-                ""
-                "Fd7"
-                "G0xIpXRO8G"
+                "Fdw"
+                "G0xRpJgA8s"
+                "tn"
+                "uolFdx4oW"
             |]
             [|
                 "Patient Age year"
-                "d"
-                "0URp"
                 ""
-                "OIF"
-                "PJGRy6pXhP"
-                "Cw"
+                "OlF"
+                "P8G0yspJhB"
+                "C9"
+                "DWuOmgdx5"
+                "q"
             |]
             [|
                 "Patient Age years"
-                "930y"
-                ""
-                "XRO"
-                "YSP0HBy6qk"
-                "Li"
-                "8WDbvpmUe"
+                "XuO"
+                "YhP9H0ySqk"
+                "li"
+                "85DXvOmGe"
+                "9"
+                "zTrLjCau"
             |]
          |],
-         Italian,
-         {
-             Years = 7<year>
-             Months = 8<month>
-             Weeks = 2<week>
-             Days = 5<day>
-         },
-         "7 Some(8WDbvpmUe), 8 Some(G0xIpXRO8G), 2 Some(AU), 5 Some(uOmGAx5)")
+         German,
+         5347,
+         "14 Some(85DXvOmGe), 7 Some(G0xRpJgA8s), 3 Some(AU), 6 Some(uOmGdx5)")
         ([|
             [|
                 "Patient Age day"
-                "z7rliQ"
-                "AU"
                 "nVf96"
                 "o"
-                "bJ3X"
+                "bJ3A"
                 ""
+                "ZxR"
+                "0kSbJ3"
             |]
             [|
                 "Patient Age days"
-                "J3"
-                "w4oif"
-                "xRpjgA82"
-                "kSc6"
-                "lFdw4oW"
-                "8GA"
+                "xRpIgA8r"
+                "kScJ"
+                "lFdw4"
+                "8GAxRpJg"
+                "9tnk"
+                "WuolFdx"
             |]
             [|
                 "Patient Age week"
-                "Fd74o"
-                "G0URpJhb"
-                "t1VS"
-                "uOIFdxr"
-                "hPJ"
-                "iCwt"
+                "t1kScK4BV"
+                "uOlFd"
+                "hP8G0ysp"
+                "iC9t"
+                "5DWuOmF"
+                "6qX"
             |]
             [|
                 "Patient Age weeks"
-                "P930yS"
-                "Ca41lTNK4"
-                "DXROm"
-                "qYhP9HBy"
+                "DXuOm"
+                "qkhP9H0y"
                 "rliC"
-                "e85DXv2"
+                "e85DXvO"
+                "fy6"
+                "2zTrLj"
             |]
             [|
                 "Patient Age month"
-                "LFCau2WTd"
-                "MGDXv"
-                "ztqYic9H"
-                "AurL"
-                "nheM60O"
-                "oif"
+                "z6qYic9H"
+                "ATrL"
+                "nUeM6DX"
+                "oHf"
+                "bI2AUr"
+                "cv"
             |]
             [|
                 "Patient Age months"
-                "VPM6E"
-                "ICz7rliQ"
                 "52AU"
-                "63nVf9X"
+                "63nVfM6"
                 "TQo"
-                "URbJUb"
-            |]
-            [|
-                "Patient Age year"
-                "roIga7rZ"
-                "ebJ3"
-                "fcw4YV6"
-                "2Zx"
-                "30kSpJ"
-                "QN"
-            |]
-            [|
-                "Patient Age years"
-                "0kSc"
-                "NlFd74f"
-                "O8G"
-                "B9t1yS"
-                "CW"
-                "pX8Pm"
-            |]
-         |],
-         French,
-         {
-             Years = 73<year>
-             Months = 3<month>
-             Weeks = 2<week>
-             Days = 1<day>
-         },
-         "73 Some(O8G), 3 Some(52AU), 2 Some(DXROm), 1 Some(nVf96)")
-        ([|
-            [|
-                "Patient Age day"
-                "rL"
-                "eMGDXvpmG"
-                "f"
-                "2A"
-                "3nheM60Xv"
-                "Q"
-            |]
-            [|
-                "Patient Age days"
-                "nVP"
-                "oifz7rliQa"
-                "b5"
-                "c63nVf96E"
-                "Z"
-                "0URbJDAU"
-            |]
-            [|
-                "Patient Age week"
-                "xroIga7rZj"
-                "ke"
-                "lfcw4YVfN"
-                "8"
-                "930kSMJ3"
-                ""
-            |]
-            [|
-                "Patient Age weeks"
-                "30"
-                "QNlFd74oW"
-                "R"
-                "EB9t1kSc"
-                ""
-                "spXhb8G"
-            |]
-            [|
-                "Patient Age month"
-                "ZWuOIFdx5"
-                "0"
-                "NKiCwt1l"
-                ""
-                "ey6qkhP"
-                "1zTrlita41"
-            |]
-            [|
-                "Patient Age months"
-                "y"
-                "zTrLFCau"
-                ""
-                "nHf96qY"
-                "aI2WTrCjda"
-                "bv3XU5"
-            |]
-            [|
-                "Patient Age year"
-                "I2AurLjD"
-                ""
-                "wQoifz7"
-                "jRb52AL2Zj"
+                "jRbJ3A"
                 "kE"
-                "7FZTHoWQN"
+                "7FZxr"
             |]
             [|
-                "Patient Age years"
-                ""
-                "FZT"
-                "s0URbJUb8s"
+                "Patient Age year"
+                "Ecw4YVf"
+                "FZx"
+                "s0kSbJ"
                 "tN"
-                "gOIFQx5ZW"
+                "gO8GZ"
                 "h"
             |]
+            [|
+                "Patient Age years"
+                "O8G"
+                "B9t1kS"
+                "CW"
+                "pXhb8"
+                "q"
+                "dL5Z"
+            |]
          |],
-         Spanish,
-         {
-             Years = 37<year>
-             Months = 11<month>
-             Weeks = 2<week>
-             Days = 1<day>
-         },
-         "37 Some(gOIFQx5ZW), 11 Some(aI2WTrCjda), 2 , 1 Some(3nheM60Xv)")
+         Dutch,
+         13011,
+         "35 Some(B9t1kS), 7 Some(63nVfM6), 3 Some(qkhP9H0y), 5 Some(kScJ)")
         ([|
             [|
                 "Patient Age day"
-                "5ZWuOIF"
-                "60X"
-                "TNKiCw"
+                "fz6qYic9H1"
+                "2A"
+                "3nUeM6DXv"
+                "Q"
+                "RbI2AUrL"
+                ""
+            |]
+            [|
+                "Patient Age days"
+                "b5"
+                "c63nVfM6E"
+                "Z"
+                "0jRbJDAU"
+                ""
+                "O7FZxro"
+            |]
+            [|
+                "Patient Age week"
+                "lEcw4nVfN"
+                "8"
+                "9s0kSbJ3"
+                ""
+                "jgO8GZx"
+                "khB9t0kScJ"
+            |]
+            [|
+                "Patient Age weeks"
+                "R"
+                "hB9t1kSc"
+                ""
+                "5pXhb8G"
+                "SqKic9t1lS"
+                "TdL5CW"
+            |]
+            [|
+                "Patient Age month"
+                "qKiC9t1l"
+                ""
+                "ey6qXhP"
+                "1zTrKiCat1"
+                "2mUeL5"
+                "PnHfy6qYh"
+            |]
+            [|
+                "Patient Age months"
+                ""
+                "nHf96qY"
+                "aI2WTrLjCa"
+                "bv3mUe"
+                "YwQnHfz7q"
+                "ZjRaI"
+            |]
+            [|
+                "Patient Age year"
+                "wQoHfz7"
+                "jRbI2AUrLj"
+                "kE"
+                "7FZwQoIfz"
+                "8s0jRbJ2AU"
+                "Vt"
+            |]
+            [|
+                "Patient Age years"
+                "s0UR"
+                ""
+                "gO7"
+                "hB8s0kebJ3"
+                "4C"
+                "5pWgO82Zx"
+            |]
+         |],
+         German,
+         274,
+         "9 Some(bv3mUe), 4 Some(0jRbJDAU)")
+        ([|
+            [|
+                "Patient Age day"
+                "TqKiC9"
                 "Ud"
                 "hey6q"
                 "4"
+                "52mU"
+                ""
             |]
             [|
                 "Patient Age days"
-                "By6"
-                "CzTrLi"
-                "pm"
-                "qnHf9"
-                "d"
-                "ebv3"
+                "2m"
+                "PnHf9"
+                "Q"
+                "Dbv3"
+                ""
+                "rZj"
             |]
             [|
                 "Patient Age week"
-                "LI2Aur"
-                "yv"
-                "YwQoi"
+                "YwQoH"
                 "Z"
                 "MkEc"
                 ""
+                "A8s"
+                "BVtnkEcw3n"
             |]
             [|
                 "Patient Age weeks"
-                "kE"
-                "7FZTQ"
                 "8"
-                "VtNH"
+                "VtNk"
                 ""
                 "JhB"
+                "K4CVtNlfcw"
+                "x5"
             |]
             [|
                 "Patient Age month"
-                "gO82Z"
-                "hB930kSM"
-                "4CWQ"
-                "5pXRO8G"
-                "SqK"
-                "Td74CW"
+                "4CWt"
+                "5pXgO8G"
+                "SqKhB9t0"
+                "Td74"
+                "Ge85pXh"
+                "H1V"
             |]
             [|
                 "Patient Age months"
-                "qKEB9t1V"
-                "dLFC"
-                "eyspXhP"
-                "1zt"
-                "2mgdL5"
-                "Pnhey6D"
+                "ey5pX"
+                "1zSqKic9"
+                "2mTd"
+                "PnGey60"
+                "QaH"
+                "Dbu2mU"
             |]
             [|
                 "Patient Age year"
-                "mUOL5DxuO"
-                "nHBy6"
-                "aICzTrli"
+                "aI1zTrKi"
                 "bv2m"
-                "YSPnHfM"
+                "YSPnHfy"
                 "ZTQ"
+                "MGDbv3"
+                "N6"
             |]
             [|
                 "Patient Age years"
-                "wqnHf"
-                "jdaI2ATr"
-                "kebv"
-                "71YwQKy"
-                "82Z"
-                "VPMkvM"
+                "kDbv"
+                "7EYwQKH"
+                "8rZ"
+                "VsMkEb"
+                "Wf"
+                "JgA8s"
+            |]
+         |],
+         Dutch,
+         24210,
+         "66 Some(7EYwQKH), 4 Some(1zSqKic9)")
+        ([|
+            [|
+                "Patient Age day"
+                "K4CWtN"
+                "x5pXgO8GZ"
+                "ySqkh"
+                "lTd74CWu"
+                "mGe8"
+                "9H1ySqK"
+            |]
+            [|
+                "Patient Age days"
+                "Gey5pXhb8"
+                "H1zSq"
+                "u2mTdL5Z"
+                ""
+                "iQaH1zT"
+                "jDbu2mUdL5"
+            |]
+            [|
+                "Patient Age week"
+                "QaI1zTrKiC"
+                "Db"
+                "EYSPnHfy6"
+                "r"
+                "sMjDbv3m"
+                ""
+            |]
+            [|
+                "Patient Age weeks"
+                "Mk"
+                "N7EYwQKHf"
+                "A"
+                "BVsMkEbv"
+                ""
+                "pJgA8sZ"
+            |]
+            [|
+                "Patient Age month"
+                "WQN7FZwQo"
+                "J"
+                "K3BVtNkE"
+                ""
+                "yRpJhb8"
+                "lScK4YVtNl"
+            |]
+            [|
+                "Patient Age months"
+                "S"
+                "TcK4CVtN"
+                ""
+                "H0ySqJh"
+                "41lTdK4CWt"
+                "ROmGex"
+            |]
+            [|
+                "Patient Age year"
+                "olTdL4CW"
+                ""
+                "P9H1VSq"
+                "Cau2WTdL5C"
+                "DXvPJG"
+                "qYiQ9H1zT"
+            |]
+            [|
+                "Patient Age years"
+                ""
+                "YiQaH1z"
+                "LjDbu2mUOL"
+                "M6EYvP"
+                "z7rZiQaI1"
+                "AUsMj"
             |]
          |],
          French,
-         {
-             Years = 58<year>
-             Months = 11<month>
-             Weeks = 2<week>
-             Days = 0<day>
-         },
-         "58 Some(kebv), 11 Some(eyspXhP), 2 Some(8)")
+         11473,
+         "31 Some(LjDbu2mUOL), 5 , 1 Some(EYSPnHfy6), 1 Some(ySqkh)")
         ([|
             [|
                 "Patient Age day"
-                "WgO82Zx"
-                "JhB930kSMJ"
-                "K4CWQN"
-                "x5pXRO8GA"
-                "ySqkh"
-                "lTd74CWu"
+                "oWQN7FZ"
+                "pJg"
+                "cK3BVt"
+                "dx"
+                "0yRpJ"
+                "1"
             |]
             [|
                 "Patient Age days"
-                "SqKEB9t1VS"
-                "TdLFCW"
-                "GeyspXhb8"
-                "H1ztq"
-                "u2mgdL5Z"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "2m"
-                "PnHBy6qkh"
-                "Q"
-                "Db52mUe8"
-                ""
-                "rZTQaI2"
-            |]
-            [|
-                "Patient Age weeks"
-                "YwqnHfz6q"
-                "Z"
-                "Mkebv3XU"
-                "N71YwQKHf"
-                "A"
-                "BVPMkEyv"
-            |]
-            [|
-                "Patient Age month"
-                "8smjRb52AU"
-                "Vt"
-                "WQN7FZTQo"
-                "J"
-                "KEBVtNHE"
-                ""
-            |]
-            [|
-                "Patient Age months"
-                "4Y"
-                "5ZWgOIFZx"
-                "S"
-                "TNK4CwtN"
-                ""
-                "HBySqkh"
-            |]
-            [|
-                "Patient Age year"
-                "Ax5pXRO8G"
-                "B"
-                "olTdLFCW"
-                ""
-                "c9H1VSq"
-                "dau2WT4Ljd"
-            |]
-            [|
-                "Patient Age years"
-                "K"
-                "xu2mgdL5"
-                ""
-                "liQa41z"
-                "mjDb52dUOL"
-                "M6EYSG"
-            |]
-         |],
-         Spanish,
-         {
-             Years = 24<year>
-             Months = 0<month>
-             Weeks = 2<week>
-             Days = 3<day>
-         },
-         "24 Some(mjDb52dUOL), 2 Some(A), 3 Some(u2mgdL5Z)")
-        ([|
-            [|
-                "Patient Age day"
-                "A8s"
-                "BVPMkE"
-                "oW"
-                "pJDA8"
-                "c"
-                "dxro"
-            |]
-            [|
-                "Patient Age days"
-                "K4YVtN"
-                "x5ZWgOI"
-                "ySM"
-                "lTNK4C"
+                "ySp"
+                "lTcK4C"
                 "mG"
-                "9H0yS"
+                "930yS"
+                "a"
+                "XROm"
             |]
             [|
                 "Patient Age week"
-                "GAx5pXR"
-                "HBy"
-                "uolTdL"
-                "vp"
-                "ic9H1"
+                "u1lTdL"
+                "vO"
+                "iP9H1"
                 "j"
+                "6DXv"
+                ""
             |]
             [|
                 "Patient Age weeks"
-                "QKH"
-                "Dxu2mg"
-                "Ey"
-                "rliQa"
+                "EX"
+                "rYiQa"
                 "O"
                 "PM6E"
+                ""
+                "2AU"
             |]
             [|
                 "Patient Age month"
-                "mjDbvp"
-                "96"
-                "a7rZT"
-                "X"
-                "YVfN"
+                "z7rZT"
+                "A"
+                "nVfN"
                 ""
+                "bJ3"
+                "cw4oVfN71Y"
             |]
             [|
                 "Patient Age months"
-                "if"
-                "jgA82"
                 "J"
                 "w4oW"
                 ""
                 "kSc"
+                "lFdx4oWgN7"
+                "8G"
             |]
             [|
                 "Patient Age year"
-                "RpJhA"
-                "S"
                 "Fdxr"
                 ""
                 "t1l"
-                "uOmgdx5gWu"
-            |]
-            [|
-                "Patient Age years"
-                "1"
-                "OmGA"
-                "P9HBySq"
-                "Cau"
-                "DXvpmG"
-                "qY"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 89<year>
-             Months = 7<month>
-             Weeks = 2<week>
-             Days = 4<day>
-         },
-         "89 Some(OmGA), 7 Some(jgA82), 2 Some(Dxu2mg), 4 Some(x5ZWgOI)")
-        ([|
-            [|
-                "Patient Age day"
-                "smjDbv2m"
-                ""
-                "ga7rZTQ"
-                "3XUsMGDbv3"
-                "4YVfNH"
-                "RLIgAurZj"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "pIgA82Z"
-                "MJ3BVPMkEy"
-                "zw4oWQ"
-                "AxRpJDA8s"
-                "nkScK"
-            |]
-            [|
-                "Patient Age week"
-                "URpJDA8"
-                "VScKEBVtNH"
-                "IFdxro"
-                "JG0yspJhB"
-                "wt1lf"
-                "xuOmgdx5"
-            |]
-            [|
-                "Patient Age weeks"
-                "t1lTNK4Cwt"
-                "uOmGAx"
-                "hP9HBySqk"
-                "iCauo"
-                "5DXvOmGe"
-                "6qYS"
-            |]
-            [|
-                "Patient Age month"
-                "DXvpmG"
-                "qYic9H1zt"
-                "rLjda"
-                "eM60XvPJ"
-                "fz71"
-                "2AUOLjD"
-            |]
-            [|
-                "Patient Age months"
-                "z7rliQa41"
-                "A"
-                "nVf96EYS"
-                ""
-                "bJDAUsM"
-                "cwqnVfNHEP"
-            |]
-            [|
-                "Patient Age year"
-                "J"
-                "w4YVfNHE"
-                ""
-                "k"
-                "lFzw4oif"
-                ""
-            |]
-            [|
-                "Patient Age years"
-                "Fd"
-                "G0xRpJDA8"
-                "t"
-                "uolFdxro"
-                ""
-                "ic9t1lS"
-            |]
-         |],
-         German,
-         {
-             Years = 54<year>
-             Months = 3<month>
-             Weeks = 1<week>
-             Days = 6<day>
-         },
-         "54 Some(uolFdxro), 3 , 1 Some(JG0yspJhB), 6 Some(zw4oWQ)")
-        ([|
-            [|
-                "Patient Age day"
-                "GDXv"
-                ""
-                "urL"
-                "heM60XvPJG"
-                "Hf"
-                "I2AUOLjDx"
-            |]
-            [|
-                "Patient Age days"
-                ""
-                "2AU"
-                "3nVPM6EYSP"
-                "Qo"
-                "RbJDAUsMG"
-                "E"
-            |]
-            [|
-                "Patient Age week"
-                "bJ3"
-                "cw4YVfNHEY"
-                "Zx"
-                "0kSMJ"
-                "N"
-                "O8GA"
-            |]
-            [|
-                "Patient Age weeks"
-                "lFdw4o"
-                "8G"
-                "9tnkS"
-                "W"
-                "Xhb8"
-                ""
-            |]
-            [|
-                "Patient Age month"
+                "uOmFdx5ZWg"
                 "hP"
-                "iCw"
-                "5DxuOm"
-                "6q"
-                "TrliC"
-                "U"
-            |]
-            [|
-                "Patient Age months"
-                "rli"
-                "e85DXv"
-                "f9"
-                "2WTrL"
-                "3"
-                "QKHf"
-            |]
-            [|
-                "Patient Age year"
-                "nheM60"
-                "oi"
-                "b52AU"
-                "c"
-                "ZwQo"
-                ""
+                "iCat1lTNK"
             |]
             [|
                 "Patient Age years"
-                "TQ"
-                "URbJ3"
-                "H"
-                "IFZx"
-                ""
-                "wtN"
-            |]
-         |],
-         Dutch,
-         {
-             Years = 75<year>
-             Months = 3<month>
-             Weeks = 1<week>
-             Days = 5<day>
-         },
-         "75 Some(URbJ3), 3 Some(e85DXv), 1 Some(cw4YVfNHEY), 5 Some(2AU)")
-        ([|
-            [|
-                "Patient Age day"
-                "XhPJ"
-                "KiCwt1l"
-                "L5DxuOmgdx"
-                "y6qkhP"
-                "zTrKiCa41"
-                "mUOL5"
-            |]
-            [|
-                "Patient Age days"
-                "TrliCau"
-                "Ue85DXvpmG"
-                "Hf96qY"
-                "I2WTrLFCa"
-                "v3XUe"
-                "wQKHfz"
-            |]
-            [|
-                "Patient Age week"
-                "3nheM60X"
-                ""
-                "Rb52AUO"
-                "Ecv3nVPM6E"
-                "FzwQoI"
-                "smjRbJDAU"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "0URbJDA"
-                "NHEcwqnVfN"
-                "OIFZxr"
-                "Bvs0kebJ3"
-                "CwtNl"
-            |]
-            [|
-                "Patient Age month"
-                "930kSMJ"
-                "WQNlFzw4oi"
-                "jgO8GA"
-                "khB9tnkSc"
-                "74CWu"
-                "85pXhb8G"
-            |]
-            [|
-                "Patient Age months"
-                "FCWuolFdxr"
-                "spXhb8"
-                "tqKic9t1l"
-                "gdL5Z"
-                "hey60XhP"
-                "41zT"
-            |]
-            [|
-                "Patient Age year"
-                "ey6qkh"
-                "1zTrliCa4"
-                "2mUe8"
-                "PnHf96qY"
-                "QaI2"
-                "DbvpmUe"
-            |]
-            [|
-                "Patient Age years"
-                "aI2WTrLjd"
-                "bv3XU"
-                "YwQKHfz7"
-                "ZjRL"
-                "MkEyv3n"
-                "N7F"
-            |]
-         |],
-         German,
-         {
-             Years = 40<year>
-             Months = 4<month>
-             Weeks = 2<week>
-             Days = 6<day>
-         },
-         "40 Some(ZjRL), 4 Some(gdL5Z), 2 Some(OIFZxr), 6 Some(I2WTrLFCa)")
-        ([|
-            [|
-                "Patient Age day"
-                "B930k"
-                "C"
-                "pjgO"
-                ""
-                "d74"
-                "e85pXRO8G0"
-            |]
-            [|
-                "Patient Age days"
-                "L"
-                "yspX"
-                ""
-                "mgd"
-                "nhey60XhPJ"
-                "a4"
-            |]
-            [|
-                "Patient Age week"
-                "hey6"
-                ""
-                "52m"
-                "SPnHfy6qYS"
-                "TQ"
-                "GDbvpmUeM"
-            |]
-            [|
-                "Patient Age weeks"
-                ""
-                "ebv"
-                "1YwQKHfztq"
-                "2Z"
-                "sMkEyv3nh"
-                "f"
-            |]
-            [|
-                "Patient Age month"
-                "MkE"
-                "N7FZTQoICz"
-                "A8"
-                "BVtnkEcwq"
-                "o"
-                "pJhb8s0k"
-            |]
-            [|
-                "Patient Age months"
-                "WgOIFZxRoI"
-                "Jh"
-                "K4CwtNlfc"
-                "x"
-                "ySqk"
-                ""
-            |]
-            [|
-                "Patient Age year"
-                "Sq"
-                "Td74C"
-                "G"
-                "H1VS"
-                ""
-                "vPJ"
-            |]
-            [|
-                "Patient Age years"
-                "2mgdL"
-                "P"
-                "Qa"
-                "Db52m"
-                "E"
-                "rZTQ"
-            |]
-         |],
-         English,
-         {
-             Years = 5<year>
-             Months = 11<month>
-             Weeks = 2<week>
-             Days = 6<day>
-         },
-         "5 Some(2mgdL), 11 Some(WgOIFZxRoI), 2 , 6 Some(L)")
-        ([|
-            [|
-                "Patient Age day"
-                "PMkEc"
-                "QN7FZwQo"
-                "DA8s"
-                "EBVtnkE"
-                "roW"
-                "spJhb8"
-            |]
-            [|
-                "Patient Age days"
-                "ZWgOIFZx"
-                "MJhB"
-                "cK4CwtN"
-                "dx5"
-                "0ySqkh"
-                "1l"
-            |]
-            [|
-                "Patient Age week"
-                "ySqk"
-                "lTd74CW"
-                "mGe"
-                "9H1VSq"
-                "au"
-                "XvPJG"
-            |]
-            [|
-                "Patient Age weeks"
-                "u2mgdL5"
-                "vPnhey60Xh"
-                "iQa41z"
-                "jDb52mUOL"
-                "6EYSP"
-                "7rliQaIC"
-            |]
-            [|
-                "Patient Age month"
-                "EYSPnHf96q"
-                "rZTQaI"
-                "sMGDbv3mU"
-                "fNHEY"
-                "gAurZjda"
-                "3BvsMkebv"
-            |]
-            [|
-                "Patient Age months"
-                ""
-                "BVPMkEy"
-                "oWQN7FzwQo"
-                "pJgA8s"
-                "c63BVtnkE"
-                "d74oW"
-            |]
-            [|
-                "Patient Age year"
-                "KEBVtNH"
-                "xroWgO7FZx"
-                "yspJhb"
-                "lfcK4YVtN"
-                "mgdx5"
-                "930ySMJh"
-            |]
-            [|
-                "Patient Age years"
-                "GAx5pjgO82"
-                "HBySqk"
-                "u1lTd74CW"
-                "ROmGe"
-                "SP9H1VSq"
-                "FCau"
-            |]
-         |],
-         French,
-         {
-             Years = 70<year>
-             Months = 7<month>
-             Weeks = 2<week>
-             Days = 2<day>
-         },
-         "70 Some(u1lTd74CW), 7 Some(oWQN7FzwQo), 2 Some(iQa41z), 2 Some(cK4CwtN)")
-        ([|
-            [|
-                "Patient Age day"
-                "6"
-                "7rZTQaI2"
-                ""
-                "VfNHEYw"
-                "IgAurZjdaI"
-                "J3"
-            |]
-            [|
-                "Patient Age days"
-                "gA82"
-                ""
-                "4oW"
-                "RpjgA8smjR"
-                "Sc"
-                "Fd74oWga7"
-            |]
-            [|
-                "Patient Age week"
-                ""
-                "dxr"
-                "0yspJhb8s0"
-                ""
-                "Omg"
-                "P930ySMJhB"
-            |]
-            [|
-                "Patient Age weeks"
-                "m"
-                "9H0y"
-                ""
-                "XRO"
-                "YSP9H1VSqK"
-                "LF"
-            |]
-            [|
-                "Patient Age month"
-                "ic9H"
-                ""
-                "60X"
-                "71YiQKH1zT"
-                "UO"
-                "VPM6EyvPn"
-            |]
-            [|
-                "Patient Age months"
-                ""
-                "PM6"
-                "Cz7rZTQaIC"
-                "DA"
-                "qnVf96EYw"
-                "r"
-            |]
-            [|
-                "Patient Age year"
-                "YVf"
-                "LIgAurZjRL"
-                "MJ"
-                "zw4oifN71"
-                "A"
-                "0kSc63BV"
-            |]
-            [|
-                "Patient Age years"
-                "xRpJDA8smj"
-                "kS"
-                "lFdx4oWga"
-                "8"
-                "9t1VScK4"
-                ""
-            |]
-         |],
-         English,
-         {
-             Years = 91<year>
-             Months = 7<month>
-             Weeks = 2<week>
-             Days = 1<day>
-         },
-         "91 Some(xRpJDA8smj), 7 , 2 Some(m), 1 Some(6)")
-        ([|
-            [|
-                "Patient Age day"
-                "Yic9H1VS"
-                "Ljdau2WTd"
-                "M60Xv"
-                "z71YiQKH"
-                "AUOL"
-                "nVeM6Ey"
-            |]
-            [|
-                "Patient Age days"
-                "UOLjDb52m"
-                "VPM6E"
-                "ICz7rZTQ"
-                "JDAU"
-                "wqnVf96"
-                "xro"
-            |]
-            [|
-                "Patient Age week"
-                "4YVfN"
-                "RLIgAurZ"
-                "SMJ3"
-                "Fzw4oif"
-                "2Zx"
-                "30kSc6"
-            |]
-            [|
-                "Patient Age weeks"
-                "AxRpJDA8"
-                "nkSc"
-                "olFd74o"
-                "b8G"
-                "c9t1VS"
-                "ZW"
-            |]
-            [|
-                "Patient Age month"
-                "wt1l"
-                "xuOmgdx"
-                "XhP"
-                "KiCa41"
-                "L5"
-                "y6qYS"
-            |]
-            [|
-                "Patient Age months"
-                "5DXvOmG"
-                "6qY"
-                "TrLFCa"
-                "Ue"
-                "Hfztq"
-                "I"
-            |]
-            [|
-                "Patient Age year"
-                "fz7"
-                "2AUOLj"
-                "3nVPM6Eyv"
-                "QoICz"
-                "RbJDAUsm"
-                "Ecw3"
-            |]
-            [|
-                "Patient Age years"
-                "bJDAUs"
-                "cwqnVfNHE"
-                "ZxroI"
-                "0kebJ3XU"
-                "Nlfc"
-                "O82ZxRL"
-            |]
-         |],
-         French,
-         {
-             Years = 56<year>
-             Months = 8<month>
-             Weeks = 3<week>
-             Days = 2<day>
-         },
-         "56 Some(ZxroI), 8 Some(TrLFCa), 3 Some(olFd74o), 2 Some(ICz7rZTQ)")
-        ([|
-            [|
-                "Patient Age day"
-                "Cw"
-                "DWuOmgdx5"
-                "0"
-                "NKiCa41l"
-                ""
-                "By6qYhP"
-            |]
-            [|
-                "Patient Age days"
-                "85DXROmGe"
-                "9"
-                "WTrLFCau"
-                ""
-                "KHfztqY"
-                "LI2AurLjda"
-            |]
-            [|
-                "Patient Age week"
-                "H"
-                "I2AUOLjD"
-                ""
-                "wQoICz7"
-                "jRbJ2AUsmj"
-                "kEc63n"
-            |]
-            [|
-                "Patient Age weeks"
-                "RbJDAUsM"
-                ""
-                "FZxroIg"
-                "s0kebJ3XUs"
-                "tNlfcw"
-                "gO82ZxRLI"
-            |]
-            [|
-                "Patient Age month"
-                ""
-                "O8G"
-                "B9tnkSc63B"
-                "CW"
-                "pXRO8G0UR"
-                "q"
-            |]
-            [|
-                "Patient Age months"
-                "Xhb"
-                "Kic9t1VScK"
-                "L5"
-                "y60"
-                "zTNKiCwt1l"
-                "mU"
-            |]
-            [|
-                "Patient Age year"
-                "Trli"
-                ""
-                "HBy"
-                "ICzTrLFCau"
-                "vp"
-                "wqnHfz6qY"
-            |]
-            [|
-                "Patient Age years"
-                ""
-                "QKH"
-                "RLI2AurLjD"
-                "Ey"
-                "FzwQoifz7"
-                "s"
-            |]
-         |],
-         English,
-         {
-             Years = 22<year>
-             Months = 3<month>
-             Weeks = 2<week>
-             Days = 4<day>
-         },
-         "22 , 3 Some(Xhb), 2 Some(RbJDAUsM), 4 Some(85DXROmGe)")
-        ([|
-            [|
-                "Patient Age day"
-                "tN"
-                "gO8GA"
-                "h"
-                "4CWQ"
-                ""
-                "SqK"
-            |]
-            [|
-                "Patient Age days"
-                "pXhb8"
-                "q"
-                "dL5Z"
-                "ey60XhP"
-                "1zT"
-                "2mUOL5"
-            |]
-            [|
-                "Patient Age week"
-                "zTrKiCa4"
-                "mUOL"
-                "nHBy6qY"
-                "aIC"
-                "bvpmUe"
-                "Yw"
-            |]
-            [|
-                "Patient Age weeks"
-                "v3XU"
-                "wQKHf"
-                "jRLI2Aur"
-                "kEyv"
-                "7FzwQoi"
-                "8sZ"
-            |]
-            [|
-                "Patient Age month"
-                "FzwQo"
-                "smjRbJDA"
-                "tnkE"
-                "ga7FZxQ"
-                "hb8"
-                "4YVtNH"
-            |]
-            [|
-                "Patient Age months"
-                "Bvs0kebJ"
-                "CwtN"
-                "pjgO82Z"
-                "qkh"
-                "dK4CWQ"
-                "Ax"
-            |]
-            [|
-                "Patient Age year"
-                "74CW"
-                "85pXhb8"
-                "VSq"
-                "WTdLFC"
-                "JG"
-                "KH1zt"
-            |]
-            [|
-                "Patient Age years"
-                "hey60Xh"
-                "41z"
-                "52mUOL"
-                "vP"
-                "iQaIC"
-                "j"
-            |]
-         |],
-         German,
-         {
-             Years = 87<year>
-             Months = 4<month>
-             Weeks = 3<week>
-             Days = 6<day>
-         },
-         "87 Some(vP), 4 Some(qkh), 3 Some(kEyv), 6 Some(ey60XhP)")
-        ([|
-            [|
-                "Patient Age day"
-                "7FzwQoICz"
-                "8"
-                "VtnkEcw3"
-                ""
-                "Jhb8s0U"
-                "K4YVtNHE"
-            |]
-            [|
-                "Patient Age days"
-                "hBvs0kebJ3"
-                "4C"
-                "5pjgO82Zx"
-                "S"
-                "TNK4CWQN"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "d7"
-                "e85pXRO8G"
-                "1"
-                "2WTdLFCW"
-                ""
-                "QKH1ztq"
-            |]
-            [|
-                "Patient Age weeks"
-                "nhey60XhP"
-                "a"
-                "xu2mUOL5"
-                ""
-                "liQaICz"
-                "mjDbvpmUe8"
-            |]
-            [|
-                "Patient Age month"
-                "T"
-                "GDbvpmUe"
-                ""
-                "urZjdaI"
-                "vsMkebv3XU"
-                "ifN71Y"
-            |]
-            [|
-                "Patient Age months"
-                "sMkEyv3n"
-                ""
-                "gA8smjR"
-                "3BVtnkEc63"
-                "4oWgN7"
-                "RpJDA8s0U"
-            |]
-            [|
-                "Patient Age year"
-                ""
-                "pJhb8s0"
-                "cK4YVtNlEc"
-                "dx5ZWg"
-                "0ySMJhBvs"
-                "1lTNK"
-            |]
-            [|
-                "Patient Age years"
-                "ySq"
-                "lTd74CWQNl"
-                "mG"
-                "9H1ySqKEB"
-                "a"
-                "XvpmGeys"
-            |]
-         |],
-         Italian,
-         {
-             Years = 52<year>
-             Months = 0<month>
-             Weeks = 3<week>
-             Days = 1<day>
-         },
-         "52 Some(XvpmGeys), 3 Some(mjDbvpmUe8), 1 Some(K4YVtNHE)")
-        ([|
-            [|
-                "Patient Age day"
-                "ZTQ"
-                "MGDbvp"
-                "NH"
-                "AurZj"
-                "B"
-                "oifN"
-            |]
-            [|
-                "Patient Age days"
-                "vsMkEy"
-                "if"
-                "jgA8s"
-                "6"
-                "74oW"
-                ""
-            |]
-            [|
-                "Patient Age week"
-                "ro"
-                "spJhb"
-                "f"
-                "gdx5"
-                ""
-                "t1l"
-            |]
-            [|
-                "Patient Age weeks"
-                "0ySqk"
-                "1"
-                "OmGe"
-                ""
+                "P9H0ySq"
                 "Cau"
-                "DXvpmGeysp"
-            |]
-            [|
-                "Patient Age month"
-                "a"
-                "XvPJ"
-                ""
-                "LjD"
-                "M6EyvP"
-                "z7"
-            |]
-            [|
-                "Patient Age months"
-                "6EYS"
-                "7rliQaI"
-                "Usm"
-                "Vf96EY"
-                "Ig"
-                "J3XUs"
-            |]
-            [|
-                "Patient Age year"
-                "gAurZjd"
-                "3Bv"
-                "4oif"
-                "RpjgA82"
-                "Sc6"
-                "Fd74oW"
-            |]
-            [|
-                "Patient Age years"
-                "c63BVtnk"
-                "d74o"
-                "0URpJhb"
-                "1VS"
-                "OIFdxr"
-                "PJ"
+                "DXvO"
+                "qYSP9H1"
+                "rLF"
+                "eMGDXv"
             |]
          |],
-         Dutch,
-         {
-             Years = 73<year>
-             Months = 0<month>
-             Weeks = 3<week>
-             Days = 0<day>
-         },
-         "73 Some(d74o), 3 Some(1)")
+         English,
+         18974,
+         "51 Some(P9H0ySq), 11 Some(J), 4 Some(EX), 1 Some(oWQN7FZ)")
         ([|
             [|
                 "Patient Age day"
-                "dau2WTdLFC"
-                "0XvPJG"
-                "qYiQKH1zt"
-                "rLjDx"
-                "eM6EyvPn"
-                "fz7r"
+                "gz7rZTQ"
+                "3AUsMGDbv3"
+                "4nVfN6"
+                "RoIgA7rZj"
+                "SbJ3B"
+                "Fcw4oVfN"
             |]
             [|
                 "Patient Age days"
-                "M6EyvP"
-                "z7rliQaIC"
-                "AUsmj"
-                "nVf96EYw"
-                "oIga"
-                "bJ3XUsM"
+                "MJ3BVsMkEb"
+                "zw4oWf"
+                "AxRpJgA8s"
+                "0kScK"
+                "NlFd74oW"
+                "O8G0"
             |]
             [|
                 "Patient Age week"
-                "IgAurZjda"
-                "J"
-                "w4oifN71"
-                ""
-                "kSc63BV"
-                "lFzw4oWQN7"
+                "lFdxro"
+                "8G0yRpJhB"
+                "9t1lS"
+                "WuOmFdx5"
+                "XhP9"
+                "KiCat1l"
             |]
             [|
                 "Patient Age weeks"
-                "S"
-                "Fd74oWga"
-                ""
-                "t1VScKE"
-                "uOIFdxroWg"
-                ""
+                "hP9H0ySqJ"
+                "iCau1"
+                "5DXROmGe"
+                "6qYS"
+                "TrLFCau"
+                "UeM"
             |]
             [|
                 "Patient Age month"
-                "Om"
-                "P930ySMJh"
-                "C"
-                "DXuOmGAx"
-                ""
-                "rliCauo"
+                "rLjCa"
+                "eM6DXvPJ"
+                "fz7q"
+                "2AUrLjD"
+                "3nVeM6EXvP"
+                "QoIfz7"
             |]
             [|
                 "Patient Age months"
-                "YSP9H1VSq"
-                "L"
-                "MGDXvpmG"
+                "nV"
+                "oICz7rZiQ"
+                "b"
+                "cwqnVfN6"
                 ""
-                "AurLjda"
-                "nheM60XvPn"
+                "0kRbJ3X"
             |]
             [|
                 "Patient Age year"
-                "U"
-                "VPM6EyvP"
+                "xRoIgAurZ"
+                "k"
+                "lFcw4oVf"
                 ""
-                "52AUsmj"
-                "63nVf96EYS"
-                "TQoIga"
+                "9t0kScJ"
+                "WuNlFdw4oW"
             |]
             [|
                 "Patient Age years"
-                "qnVf96EY"
+                "t"
+                "uolFdx4o"
                 ""
-                "ebJ3XUs"
-                "fcw4YVfN71"
-                "2ZxRLI"
-                "30kSMJ3Bv"
-            |]
-         |],
-         Italian,
-         {
-             Years = 38<year>
-             Months = 7<month>
-             Weeks = 3<week>
-             Days = 0<day>
-         },
-         "38 Some(30kSMJ3Bv), 7 Some(nheM60XvPn), 3 ")
-        ([|
-            [|
-                "Patient Age day"
-                "Roup"
-                "2GeYn"
-                "Xq9RQ9n"
-                "4l3k8D"
-                ""
-                "x"
-            |]
-            [|
-                "Patient Age days"
-                "ZGAx5pjgO"
-                "xrZWgO"
-                "ysMJhBvs0"
-                "lfNK4CwtNl"
-                "mgAx5Z"
-                "93BySMkhB"
-            |]
-            [|
-                "Patient Age week"
-                "8P"
-                "N0S"
-                "ErtFE"
-                "I2u85U"
-                "t1Yi"
-                "kwoo"
-            |]
-            [|
-                "Patient Age weeks"
-                "Key6qkh"
-                "wiCauolT"
-                "Aca4PPAgP"
-                "uJfj"
-                ""
-                "6H8H"
-            |]
-            [|
-                "Patient Age month"
-                "U"
-                "s"
-                "lwVfzu"
-                ""
-                ""
-                "yvPn"
-            |]
-            [|
-                "Patient Age months"
-                "L5DxROmgA"
-                "UR"
-                "HEc6qnVP9"
-                "I"
-                "vs0U"
-                ""
-            |]
-            [|
-                "Patient Age year"
-                "9fw"
-                ""
-                "3Xh"
-                "QKiCzt1lTQ"
-                "RL"
-                "Ey6qnhP9H"
-            |]
-            [|
-                "Patient Age years"
-                "OI2AxrLjgA"
-                "EzTroi"
-                "BcwoncTrKi"
-                "aI"
-                ""
-                "3fw"
+                "iB9t1lS"
+                "5CWuOIFdx5"
+                "6pXhPJ"
             |]
          |],
          French,
-         {
-             Years = 3<year>
-             Months = 8<month>
-             Weeks = 4<week>
-             Days = 1<day>
-         },
-         "3 Some(BcwoncTrKi), 8 Some(HEc6qnVP9), 4 Some(Aca4PPAgP), 1 Some(Xq9RQ9n)")
+         6237,
+         "17 , 1 Some(fz7q), 2 Some(AxRpJgA8s)")
+        ([|
+            [|
+                "Patient Age day"
+                "TrL"
+                "UeM6DXvPJG"
+                "Hf"
+                "I2AUrLjDa"
+                "v"
+                "wQoIfz7r"
+            |]
+            [|
+                "Patient Age days"
+                "3nVPM6EYvP"
+                "Qo"
+                "RbJDAUsMj"
+                "E"
+                "FZxQoIga"
+                ""
+            |]
+            [|
+                "Patient Age week"
+                "Zx"
+                "0kSbJ"
+                "N"
+                "O8GZ"
+                "B9t0k"
+                "C"
+            |]
+            [|
+                "Patient Age weeks"
+                "9tn"
+                "WuolFd"
+                "Xh"
+                "KiB9t"
+                "L"
+                "y6pX"
+            |]
+            [|
+                "Patient Age month"
+                "5DWuOm"
+                "6q"
+                "TrKiC"
+                "U"
+                "HBy6"
+                ""
+            |]
+            [|
+                "Patient Age months"
+                "fy"
+                "2zTrL"
+                "3"
+                "QnHf"
+                ""
+                "Ebv"
+            |]
+            [|
+                "Patient Age year"
+                "bI2AU"
+                "c"
+                "zwQo"
+                ""
+                "nkE"
+                "N7FZxQoIgz"
+            |]
+            [|
+                "Patient Age years"
+                "k"
+                "7FZx"
+                ""
+                "VtN"
+                "WgO8FZxRLI"
+                "Jh"
+            |]
+         |],
+         English,
+         30173,
+         "82 Some(k), 8 Some(fy), 3 Some(3nVPM6EYvP)")
+        ([|
+            [|
+                "Patient Age day"
+                "fz74YiQN"
+                "oy"
+                "c6xI4Ah"
+                "K"
+                "mhBys"
+                "KWCW"
+            |]
+            [|
+                "Patient Age days"
+                "HMpu"
+                "4Yko0hBy60"
+                "BTzuke4g"
+                "w8s0k"
+                "hBy60khP9"
+                "4CzTN"
+            |]
+            [|
+                "Patient Age week"
+                "nQb"
+                ""
+                "tNKE"
+                ""
+                "hey"
+                "41ztNliCw4"
+            |]
+            [|
+                "Patient Age weeks"
+                "8FZx"
+                ""
+                "rHY"
+                "eb"
+                ""
+                "qQxr"
+            |]
+            [|
+                "Patient Age month"
+                "dElT"
+                "jy83nU"
+                "dxrZ"
+                ""
+                "4Ljd"
+                "q71zTQ"
+            |]
+            [|
+                "Patient Age months"
+                "fqZAjyHNRC"
+                "IbLNyXR"
+                "sXC"
+                ""
+                "NlF"
+                "3PNh"
+            |]
+            [|
+                "Patient Age year"
+                "v3"
+                "wQKif"
+                "j"
+                "kEyR"
+                ""
+                "8r8"
+            |]
+            [|
+                "Patient Age years"
+                "FZTQo"
+                "s"
+                "tNHD"
+                ""
+                "hAR"
+                "3KEB9t1kSc"
+            |]
+         |],
+         Dutch,
+         17436,
+         "47 Some(s), 9 Some(IbLNyXR), 1 , 4 Some(4Yko0hBy60)")
     ]
-    |> List.map (fun (terms, lang, age, expected) ->
+    |> List.map (fun (terms, lang, days, expected) ->
         test $"Age.toString returns {expected}" {
-            let actual = Patient.Age.toString terms lang age
-            Expect.equal actual expected $"Age.toString %A{terms} {lang} {age} should return {expected}."
+            let actual = Patient.Age.toString terms lang (Patient.Age.fromDays days)
+
+            Expect.equal
+                actual
+                expected
+                $"Age.toString %A{terms} {lang} (Patient.Age.fromDays {days}) should return {expected}."
         }
     )
 
