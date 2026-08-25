@@ -22,6 +22,7 @@ Maintain this document as a reverse-chronological log of significant design chan
 
 | Date | ADR | Summary |
 |------|-----|---------|
+| 2026-08-25 | [ADR-0021](0021-build-system-versioning-and-release.md) | Amended with the Docker image publishing decision: a `publish-docker-image` job in `tag-release.yml`, gated on the tag-and-release job succeeding, builds, smoke tests, and pushes `ghcr.io/informedica/genpres:<version>` (interim pending an `informedica` Docker Hub account); `:latest` moves only on a stable release. See issue #459 |
 | 2026-08-19 | [ADR-0021](0021-build-system-versioning-and-release.md) | Amended with the release-artifact decision: `tag-release.yml` creates a `v`-prefixed annotated tag on the release PR's merge commit and publishes a GitHub Release carrying that version's changelog section. No backfill: the tag record starts at the next release. See issue #470 |
 | 2026-08-17 | [ADR-0021](0021-build-system-versioning-and-release.md) | Build system versioning and release automation accepted; EasyBuild.ShipIt owns version/changelog/release-PR generation and writes `Directory.Build.props`, all three merge methods left enabled with `--skip-merge-commit`, Repo Assist Task 8 retired, Docker-on-release and API docs deferred to #459/#460. See issue #234 |
 | 2026-08-05 | [ADR-0021](0021-build-system-versioning-and-release.md) | Build system versioning and release automation proposed. See issue #234 |

@@ -426,9 +426,9 @@ and [issue #470](https://github.com/informedica/GenPRES/issues/470)). The workfl
 4. Creates a GitHub Release for the tag, with the extracted section as the body, flagged pre-release when
    the version is a SemVer pre-release (`0.1.2-alpha.4` is, `0.1.3` is not).
 
-Both steps are idempotent: an existing tag or Release is left alone, so re-running is safe. No build output
-is attached — the tag plus the changelog body is the whole artifact; publishing built images is
-[#459](https://github.com/informedica/GenPRES/issues/459)'s scope.
+Both steps are idempotent: an existing tag or Release is left alone, so re-running is safe. The tag and
+Release carry no attached build output — the Docker image built from the same merge commit is published
+separately by the `publish-docker-image` job; see [Publishing the Docker image](#publishing-the-docker-image).
 
 The tag record starts at the first release after this workflow landed. `0.1.2-alpha.2`, `.3` and `.4`
 shipped before it existed and are deliberately not backfilled, so they have no tag and no Release page;
@@ -480,6 +480,45 @@ this repo rather than taken from the documentation: none of the three ShipIt rel
 and reopened by hand. A workflow keyed on `on: release` or `on: push: tags:` therefore will not fire. The
 options for anything downstream are a job inside `tag-release.yml`, a `workflow_dispatch` /
 `repository_dispatch` call (the two events explicitly exempt from the rule), or a PAT / GitHub App token.
+
+#### Publishing the Docker image
+
+A `publish-docker-image` job in `tag-release.yml`, gated on `needs: tag-and-release`, closes
+[#234](https://github.com/informedica/GenPRES/issues/234) item 3
+([#459](https://github.com/informedica/GenPRES/issues/459)) — see
+[ADR-0021's Docker image publishing amendment](docs/mdr/design-history/0021-build-system-versioning-and-release.md)
+for the full design rationale. It only runs once tagging and the Release have both succeeded, and reuses
+that job's `version`/`tag`/`prerelease` outputs. For a given release it:
+
+1. Checks out the same merge commit `tag-and-release` tagged.
+2. Builds the `Dockerfile` with `--build-arg APP_VERSION=<version>` (same as the local `DockerBuild` FAKE
+   target), `linux/amd64` only, tagging every tag the release needs in one `docker build -t ... -t ...` call.
+3. Starts the built image with the public demo `GENPRES_URL_ID` (from `.env.example`) and a random
+   per-run `GENPRES_PASSWORD`, and requires `/` to return 200 within 60 seconds before treating the image as good.
+4. Pushes `ghcr.io/informedica/genpres:<version>`, and also `:latest` when the version is a stable release
+   (currently we only ship alphas, so `:latest` stays unpublished). Any `+` in `<version>` is folded to `-`
+   first: `Versioning.fsx` allows SemVer build metadata in `<Version>`, but a raw `+` isn't a legal Docker
+   tag character.
+
+Registry is GHCR, as an interim step. The project's preferred home is a Docker Hub `informedica` account,
+which is pending. GHCR needs no new secret, it authenticates with the workflow's own `GITHUB_TOKEN`, and the
+registry/namespace is a single `IMAGE_NAME` job-level env var in `tag-release.yml`, so switching to Docker Hub
+later is a small follow-up.
+
+The job drives Docker with plain `docker login`/`docker build`/`docker push`, not `docker/login-action`,
+`docker/setup-buildx-action`, or `docker/build-push-action`. Everywhere else in this repo Docker goes through
+the CLI (`Build.fs`'s `DockerBuild`/`DockerRun`), and this job runs once a release rather than once a PR, so a
+GHA layer cache wasn't worth three more marketplace actions to pin and keep updated. `ubuntu-latest` ships
+Buildx preinstalled, so `--platform` still works with no setup step.
+
+**Package visibility is a manual step.** A container package pushed to an organization's GHCR for the
+first time from a workflow defaults to **private**. Since GenPRES is public, someone with org admin
+rights needs to set `informedica/genpres` to public in GitHub's package settings after the first
+successful push — the workflow's `GITHUB_TOKEN` can't change package visibility itself.
+
+To build and smoke test the same image locally before relying on the workflow, use the existing
+`DockerBuild`/`DockerRun` FAKE targets (see [Docker wrappers](#docker-wrappers) above); they build
+`halcwb/genpres` by default (override with `DOCKER_IMAGE`), separate from what the workflow publishes.
 
 ### IDE Integration
 

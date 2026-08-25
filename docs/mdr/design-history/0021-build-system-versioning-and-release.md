@@ -147,6 +147,31 @@ every release PR merged as a true merge commit whose push event carries
 cannot be an `on: release` workflow; it must be a job in `tag-release.yml`, a `workflow_dispatch` /
 `repository_dispatch` call, or use a PAT / GitHub App token.
 
+### Docker image publishing — amended 2026-08-25
+
+This ADR pushed #234 item 3 ("publish a Docker image on release") into [issue #459](https://github.com/informedica/GenPRES/issues/459).
+Up to now, every release image was built and pushed manually with `dotnet run DockerBuild`, so the published tag didn't always match the
+commit that produced the `CHANGELOG.md` entry.
+
+**Decision**: a second job, `publish-docker-image`, is added to `tag-release.yml`. It waits for `tag-and-release`,
+builds the `Dockerfile` at the same merge commit that was tagged, smoke-tests the image, and then pushes it. It
+uses the `version`/`tag`/`prerelease` outputs from the first job instead of recalculating anything. It only runs
+when both tagging and the GitHub Release succeed, so a broken commit never publishes an image.
+
+Key points agreed during implementation:
+
+| Question | Decision |
+|---|---|
+| Registry | Use `ghcr.io/informedica/genpres` for now. The preferred long-term home is a Docker Hub `informedica` account, requested from `@jennifervdstreek` on 2026-08-21 and still pending. GHCR needs no new secret because it uses the workflow's `GITHUB_TOKEN`. The registry/namespace is set in one `IMAGE_NAME` env var, so switching to Docker Hub later is a simple one-line change. |
+| Tags pushed | Always push `:<version>` (e.g. `:0.1.2-alpha.6`). `:latest` only moves on a stable (non-pre-release) version. All releases so far are `0.1.2-alpha.N`, so `:latest` stays empty until the first stable version. The pre-release flag comes from `needs.tag-and-release.outputs.prerelease`, the same string the GitHub Release step already checks. `<version>` has any `+` folded to `-` before it becomes a tag: `Versioning.fsx`'s `isPreRelease` already tolerates SemVer build metadata (`1.0.0+build.7`), and a raw `+` isn't a legal Docker tag character, so an untranslated build-metadata version would fail the image build after the Git tag and Release for it already exist. Caught by Greptile's review of PR. |
+| Architecture | Only `linux/amd64`, matching the existing `DockerBuild` FAKE target. Multi-arch is left for later: a multi-platform build produces a manifest list rather than one runnable image, and the smoke test below needs to `docker run` the image locally, so going multi-arch means reworking that step too. |
+| Build-time secrets | None. `APP_VERSION` is the only build arg, same as `DockerBuild`. `GENPRES_URL_ID` and `GENPRES_PASSWORD` are runtime-only and left empty in the Dockerfile. They are never passed as build args, keeping the rule from `DEVELOPMENT.md` that build args must not bake secrets into image metadata. |
+| Gate before publish | The image is built once, tagged with every tag it needs in a single `docker build -t ...` call, then started using the public demo `GENPRES_URL_ID` from `.env.example` and a random `GENPRES_PASSWORD`. The SPA shell (`/`) must return 200 within 60 seconds. Only then are the tags pushed with `docker push`, so nothing gets built twice. Not a full functional test, but it does catch images that fail to start — something the old manual process never checked. |
+| Docker tooling | Plain `docker login` / `docker build` / `docker push`, not `docker/login-action`, `docker/setup-buildx-action`, or `docker/build-push-action`. This matches how `Build.fs`'s `DockerBuild` target already drives Docker everywhere else in this repo, and it's three fewer marketplace actions to pin and keep updated for a job that runs once a release, not once a PR — the GHA layer cache those actions unlock isn't worth much at that frequency. `ubuntu-latest` ships Buildx preinstalled, so `--platform` still works with no setup action. |
+| Package visibility | Not decided here. A first-time GHCR push from a workflow creates a **private** package visible only to the repo. Since GenPRES is public and the image must be pullable, `@halcwb` or `@jennifervdstreek` need to set `informedica/genpres` to public in the GitHub org package settings. The workflow can't change visibility itself. |
+
+**Accepted trade-off**: GHCR is temporary. Once the `informedica` Docker Hub account exists, the follow-up is a small PR that changes the `IMAGE_NAME` value and swaps the `docker login` call to Docker Hub credentials — a new secret, unlike GHCR's `GITHUB_TOKEN`. Keeping this amendment focused means the workflow stays simple and uses one registry for now.
+
 ## Consequences
 
 **Positive**:
@@ -160,6 +185,8 @@ cannot be an `on: release` workflow; it must be a job in `tag-release.yml`, a `w
 - Every version shipped under ShipIt has an immutable tag and a Release page carrying its
   changelog section, so "what was 0.1.2-alpha.3" is answerable from a ref rather than by
   hand-resolving commit SHAs out of `CHANGELOG.md`.
+- Every published Docker tag now corresponds to the exact merge commit `tag-and-release` tagged and
+  passed a startup smoke test, closing the gap where a hand-pushed image had no relationship to a shipped version.
 
 **Negative / Trade-offs**:
 
@@ -171,11 +198,16 @@ cannot be an `on: release` workflow; it must be a job in `tag-release.yml`, a `w
   entry today) become leaner, commit-title-derived entries under ShipIt.
   A `=== changelog ===` block in the commit message body is the escape hatch for
   entries that need more detail than a title provides.
-- Items 3 and 4 remain unaddressed after #234 closes; they need their own
-  issues and, eventually, their own ADRs or ADR amendments.
+- Item 4 (API docs, [#460](https://github.com/informedica/GenPRES/issues/460)) remains
+  unaddressed after #234 closes; it needs its own issue work and, eventually, its own ADR or
+  ADR amendment. Item 3 (Docker-on-release) is closed by the "Docker image publishing" amendment above.
 - The tag and Release are created with the workflow's own `GITHUB_TOKEN`, so nothing can
   chain off them with `on: release` or `on: push: tags:`. Any future release-time automation
   has to live inside `tag-release.yml`, be dispatched explicitly, or use a PAT / App token.
+- GHCR is an interim registry, not the project's preferred long-term home ([#459](https://github.com/informedica/GenPRES/issues/459));
+  moving to Docker Hub once the `informedica` account exists is a deliberate follow-up, not
+  automatic. Package visibility is also a manual step outside the workflow's `GITHUB_TOKEN`
+  permissions — see the "Package visibility" row above.
 
 **MDR / Safety**:
 
@@ -197,7 +229,8 @@ cannot be an `on: release` workflow; it must be a job in `tag-release.yml`, a `w
 
 - [Issue #234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 - [Issue #470 — Tag and publish a GitHub Release when the ShipIt release PR merges](https://github.com/informedica/GenPRES/issues/470) (follow-up, item 2, second half)
-- [Issue #459 — Publish the Docker image automatically on release](https://github.com/informedica/GenPRES/issues/459) (follow-up, item 3)
+- [Issue #459 — Publish the Docker image automatically on release](https://github.com/informedica/GenPRES/issues/459) (follow-up, item 3, closed by the Docker image publishing amendment above)
+- [`.github/workflows/tag-release.yml`](../../../.github/workflows/tag-release.yml) — implements both the tag/Release job and the `publish-docker-image` job
 - [Issue #460 — Auto-generate and publish API documentation](https://github.com/informedica/GenPRES/issues/460) (follow-up, item 4)
 - [Implementation plan for issue #234](../../implementation-plans/234-improve-build-system.md)
 - [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
