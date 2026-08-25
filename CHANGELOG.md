@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2947fa1ce71ba169b1cc4a129e45b00905fb1f79
+last_commit_released: 1bf876330c71a01a426d38cc7d05070bcc0eb42d
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,14 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.6 - 2026-08-25
+
+### 🐞 Bug Fixes
+
+* *(github)* Fold + to - in Docker version tags ([811bacc0](https://github.com/informedica/GenPRES/commit/811bacc013da55c925f3189729aa99d85b0c2269))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/2947fa1ce71ba169b1cc4a129e45b00905fb1f79..1bf876330c71a01a426d38cc7d05070bcc0eb42d)</small></strong>
 
 ## 0.1.2-alpha.5 - 2026-08-19
 
