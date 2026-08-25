@@ -187,9 +187,18 @@ jobs:
       # (0.1.2-alpha.N), so :latest stays unset until the first stable version ships.
       run: |
         set -euo pipefail
+        # scripts/Versioning.fsx's isPreRelease explicitly allows SemVer build metadata
+        # (a "+..." suffix) in <Version>, even though no release has used one yet. Docker tags
+        # can't contain "+" (grammar is [a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}), so a version like
+        # 1.0.0+build.7 would otherwise build a tag docker build rejects, after the Git tag and
+        # GitHub Release for that version already exist. Fold "+" to "-" so the image tag always
+        # stays valid.
+        docker_version="${VERSION//+/-}"
+        version_tag="$IMAGE_NAME:$docker_version"
+        echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
         {
           echo "tags<<EOF"
-          echo "$IMAGE_NAME:$VERSION"
+          echo "$version_tag"
           if [ "$PRERELEASE" = "false" ]; then
             echo "$IMAGE_NAME:latest"
           fi
@@ -216,7 +225,9 @@ jobs:
 
     - name: Smoke test the built image
       env:
-        IMAGE: ${{ env.IMAGE_NAME }}:${{ needs.tag-and-release.outputs.version }}
+        # steps.tags already folded any "+" build-metadata to "-"; reuse it rather than
+        # rebuilding the tag from the raw version here and risking the two drifting apart.
+        IMAGE: ${{ steps.tags.outputs.version_tag }}
         # Public demo spreadsheet ID from .env.example. GENPRES_PROD defaults to 1 in the image, so
         # the server refuses to start without both this and a 16+ char GENPRES_PASSWORD.
         DEMO_URL_ID: 1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA

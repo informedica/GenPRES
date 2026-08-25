@@ -496,7 +496,9 @@ that job's `version`/`tag`/`prerelease` outputs. For a given release it:
 3. Starts the built image with the public demo `GENPRES_URL_ID` (from `.env.example`) and a random
    per-run `GENPRES_PASSWORD`, and requires `/` to return 200 within 60 seconds before treating the image as good.
 4. Pushes `ghcr.io/informedica/genpres:<version>`, and also `:latest` when the version is a stable release
-   (currently we only ship alphas, so `:latest` stays unpublished).
+   (currently we only ship alphas, so `:latest` stays unpublished). Any `+` in `<version>` is folded to `-`
+   first: `Versioning.fsx` allows SemVer build metadata in `<Version>`, but a raw `+` isn't a legal Docker
+   tag character.
 
 Registry is GHCR, as an interim step. The project's preferred home is a Docker Hub `informedica` account,
 which is pending. GHCR needs no new secret, it authenticates with the workflow's own `GITHUB_TOKEN`, and the
