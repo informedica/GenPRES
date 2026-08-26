@@ -102,7 +102,7 @@ packages for the Fable/Vite dev server).
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`halcwb/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
+| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`ghcr.io/informedica/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
 | `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
 #### Target Dependency Chains
@@ -333,7 +333,7 @@ dotnet run
 
 Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in `Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into the image — that constraint is enforced by the `Dockerfile` itself and described in [Environment Configuration](#environment-configuration).
 
-**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `halcwb/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
+**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `ghcr.io/informedica/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
 
 ```bash
 # local architecture
@@ -518,7 +518,8 @@ successful push — the workflow's `GITHUB_TOKEN` can't change package visibilit
 
 To build and smoke test the same image locally before relying on the workflow, use the existing
 `DockerBuild`/`DockerRun` FAKE targets (see [Docker wrappers](#docker-wrappers) above); they build
-`halcwb/genpres` by default (override with `DOCKER_IMAGE`), separate from what the workflow publishes.
+`ghcr.io/informedica/genpres` by default (override with `DOCKER_IMAGE`), matching what the workflow
+publishes, though the local build is never pushed.
 
 ### IDE Integration
 
