@@ -16,9 +16,14 @@ jobs:
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
     - name: Use .NET Core 10.0 SDK
+      # global-json-file (not dotnet-version) so global.json's pinned version + rollForward is the
+      # single source of truth for which SDK CI installs — see issue #447: dotnet-version: '10.0.x'
+      # let the runner silently install a newer feature band (10.0.302 -> 10.0.400) between two runs,
+      # which broke Expecto's reflection-based test discovery. See DEVELOPMENT.md's Toolchain
+      # Requirements section for the full incident writeup.
       uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
       with:
-        dotnet-version: '10.0.x'
+        global-json-file: global.json
         cache: true
         cache-dependency-path: |
           global.json
