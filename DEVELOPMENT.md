@@ -6,9 +6,41 @@
 
 Before contributing, ensure you have the following installed (this section is the canonical source for toolchain versions):
 
-- **.NET SDK**: 10.0.0 or later
+- **.NET SDK**: pinned via [`global.json`](global.json) (currently `10.0.302`, `rollForward: latestPatch`) — see [Why the SDK is pinned tightly](#why-the-sdk-is-pinned-tightly) below
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
 - **npm**: 10.x or later
+
+#### Why the SDK is pinned tightly
+
+`global.json` used to read `"version": "10.0.0", "rollForward": "latestFeature"`, which lets the
+SDK resolver jump to a newer *feature band* (the hundreds digit of the patch version, e.g.
+`10.0.3xx` -> `10.0.4xx`) with no corresponding change reviewed in this repo. CI's
+`actions/setup-dotnet` step compounded this: it pinned `dotnet-version: '10.0.x'`, which always
+installs the newest available `10.0.x` SDK on the runner regardless of `global.json`.
+
+This combination caused [issue #447](https://github.com/informedica/GenPRES/issues/447): between
+11 and 12 August 2026, GitHub's hosted runners started shipping `10.0.400` instead of the
+previously-installed `10.0.302`, with no dependency or lock-file change in this repo (`paket.lock`
+pins `Aether 8.3.1` and `FSharp.Core 10.1.203`, and `paket restore` uses the lock file as-is). The
+newer SDK's F# compiler changed code generation around the `^=`/`Optic.set` custom operators that
+`Informedica.GenORDER.Lib`/`Informedica.ZForm.Lib`'s optics code gets via `open Aether.Operators`:
+under `10.0.400`, `Patient`'s and `DoseRule`'s module type initializers throw
+`Dynamic invocation of op_HatEquals is not supported` the first time anything touches those
+modules — not just under test discovery, so a build compiled with the bad SDK band would crash at
+runtime too — even though the exact same source compiled and ran fine under `10.0.302`. 11 tests
+across `GenORDER.Tests`, `GenCORE.Tests`, `ZForm.Tests`, and `GenFORM.Tests` failed identically, on
+every PR, regardless of what the PR actually changed. Root-causing and fixing the `Aether`
+incompatibility itself (rather than just avoiding the bad SDK band) is tracked as follow-up.
+
+The fix applied: `global.json` now pins an exact `version` with `rollForward: "latestPatch"`, so
+the resolver only ever picks up patches within the same feature band (e.g. `10.0.303`), never a
+band jump. Both `.github/workflows/build.yml` and `.github/workflows/commit-lint.yml` now pass
+`global-json-file: global.json` to `actions/setup-dotnet` instead of a separate `dotnet-version:
+'10.0.x'`, so `global.json` is the single source of truth for CI's SDK version and a future
+feature-band bump requires a deliberate, reviewed edit to that file. `Dockerfile`'s build stage is
+pinned to the matching exact SDK image tag (`mcr.microsoft.com/dotnet/sdk:10.0.302`, not the
+floating `10.0` tag) for the same reason — a Docker build is exactly the kind of compile that
+would otherwise silently pick up a newer, broken feature band outside of CI's control.
 
 ### Setting Up the Development Environment
 
@@ -60,7 +92,9 @@ packages for the Fable/Vite dev server).
 |---|---|---|
 | `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default) |
 | `dotnet run list` | *(special)* | List all available FAKE targets |
-| `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) |
+| `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
+| `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
+| `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
 | `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artefacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
@@ -68,13 +102,16 @@ packages for the Fable/Vite dev server).
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`halcwb/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
+| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`ghcr.io/informedica/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
 | `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
 #### Target Dependency Chains
 
 ```text
 Clean ──► RestoreClient ──► Bundle
+Clean ──► RestoreClient ──► ClientBuild
+
+ServerBuild            (no prerequisites — restores itself)
 
 Build ──► Run
 RestoreClient ──► Run
@@ -89,8 +126,64 @@ Build ──► ServerTests
 Build ──► CheckVersions
 ```
 
-`Build` and `RestoreClient` are independent prongs — a target that only needs
-one of them (e.g. `ServerTests`, `CheckVersions`) doesn't pay for the other.
+`ServerBuild` and `ClientBuild` are **additive**: nothing depends on them, and `Build`
+does not use them. `Build` still builds the test projects because `ServerTests` runs
+`dotnet test --no-restore`. It also stays npm-free so CI does not run `npm ci` and a
+Fable compile for every test run. Thus, `Build` remains the full-solution build,
+while the new targets compile either side separately.
+
+### Changelog & Release Automation (EasyBuild.ShipIt)
+
+GenPRES uses [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) to derive
+the next semantic version and changelog entries from conventional-commit history — see
+[ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md) for the full
+design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
+YAML front matter at the top of the root `CHANGELOG.md`.
+
+ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
+below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
+`/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
+element as well as adding the changelog section. Do not hand-edit `<Version>`.
+
+To preview locally what ShipIt would generate:
+
+```bash
+dotnet tool restore
+dotnet shipit --dry-run --allow-branch master --skip-merge-commit
+```
+
+`--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
+explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation. 
+All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep 
+appearing in history, and ShipIt throws on the first one it hits instead of skipping it. `--dry-run`
+never modifies files or opens a pull request, so it's safe to run against a dirty tree.
+
+#### What reaches the changelog
+
+The behaviour below was established by running ShipIt 3.0.1 against a throwaway branch of this
+repo. ShipIt's own documentation covers none of it.
+
+- **`docs`, `build`, and `chore` commits never render.** Only types like `feat` and `fix` produce
+  entries, and no flag or escape hatch changes that. A change that must appear in the release notes
+  has to ride on a rendering commit type.
+- **Commits that change no files are ignored**, whatever their type.
+- **A `=== changelog ===` block adds detail to an entry that already renders.** It is read from the
+  **commit message body**, not the pull request body, and needs both an opening *and* a closing
+  `=== changelog ===` marker. An unterminated block is dropped silently, with no warning:
+
+  ```text
+  fix(server): correct the infusion rate rounding
+
+  === changelog ===
+  Rates were rounded to whole mL/h, truncating paediatric doses below 1 mL/h.
+  === changelog ===
+  ```
+
+  That renders the prose indented beneath the commit's bullet.
+
+Putting the block in a PR body only works when the merge method copies that body into the commit
+message, which squash-merging does by default and merge-commit merging never does. Since all three
+merge methods are enabled here, put it in the commit message.
 
 ### What Happens During `dotnet run` (the `Run` target)
 
@@ -240,7 +333,7 @@ dotnet run
 
 Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in `Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into the image — that constraint is enforced by the `Dockerfile` itself and described in [Environment Configuration](#environment-configuration).
 
-**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `halcwb/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
+**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `ghcr.io/informedica/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
 
 ```bash
 # local architecture
@@ -301,6 +394,132 @@ env:
 ```
 
 The pipeline does **not** set `GENPRES_URL_ID`, so tests run against demo/cached data only. Production data is never accessed in CI.
+
+### Release Automation (GitHub Actions)
+
+`.github/workflows/release.yml` runs [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
+on every push to `master`, opening or updating a draft release PR with the next derived version and changelog 
+section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must 
+never block the test/format matrix that already gated the PR which produced the push. See 
+[ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md) for the full design and the
+[implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
+
+This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`), 
+retired in the same change to avoid two bots proposing competing release PRs on the same merge.
+
+**One-time repo setting required**: ShipIt opens PRs using the workflow's own `GITHUB_TOKEN`, which requires 
+**Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"** to be enabled. 
+Without it, `release.yml` runs but fails to open the PR.
+
+#### Tagging and publishing the Release
+
+`.github/workflows/tag-release.yml` turns a merged release PR into the immutable artifact ShipIt itself
+cannot produce — ShipIt 3.0.1 has no tag or Release capability in any mode, verified against the installed
+assembly rather than its documentation (see [ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md)
+and [issue #470](https://github.com/informedica/GenPRES/issues/470)). The workflow:
+
+1. Checks out the **merge commit** (`pull_request.merge_commit_sha`) — the state `master` was actually in
+   when the version shipped, and a commit that stays reachable after ShipIt reuses `release/master`.
+2. Runs `scripts/ReleaseNotes.fsx`, which reads `<Version>` from the root `Directory.Build.props` (that the
+   merged PR just updated) and extracts that version's `CHANGELOG.md` section.
+3. Creates an annotated tag `v<version>` (e.g. `v0.1.2-alpha.4`) on that commit.
+4. Creates a GitHub Release for the tag, with the extracted section as the body, flagged pre-release when
+   the version is a SemVer pre-release (`0.1.2-alpha.4` is, `0.1.3` is not).
+
+Both steps are idempotent: an existing tag or Release is left alone, so re-running is safe. The tag and
+Release carry no attached build output — the Docker image built from the same merge commit is published
+separately by the `publish-docker-image` job; see [Publishing the Docker image](#publishing-the-docker-image).
+
+The tag record starts at the first release after this workflow landed. `0.1.2-alpha.2`, `.3` and `.4`
+shipped before it existed and are deliberately not backfilled, so they have no tag and no Release page;
+`CHANGELOG.md` and the merge commits it links remain the record for those three.
+
+The parsing lives in a script rather than in the workflow so that CI and a local dry run before merging a
+release PR run the same code. `ReleaseNotes.fsx` resolves the
+version through `scripts/Versioning.fsx`, which is also what `dotnet run CheckVersions` uses, so
+`Directory.Build.props` has exactly one parser (the lesson of [#447](https://github.com/informedica/GenPRES/issues/447)).
+The changelog grammar it relies on — which headings delimit a section, and that a missing, empty or
+duplicated section is an error rather than a silently odd Release — is pinned by
+`scripts/ChangelogTests.fsx` (`dotnet fsi scripts/ChangelogTests.fsx`).
+
+Note that the pre-release flag comes from the version itself, not from `CHANGELOG.md`'s `pre_release:`
+front matter. The front matter says what ShipIt generates *next*, so reading it would give the same shipped
+version a different answer depending on when the question was asked — a dry run against an older version
+after the key is dropped would report it as stable.
+
+To preview what a release will publish before merging the release PR:
+
+```bash
+# current version's Release body, to stdout; version/tag/pre-release facts to stderr
+dotnet fsi scripts/ReleaseNotes.fsx
+
+# any shipped version, written to a file
+dotnet fsi scripts/ReleaseNotes.fsx 0.1.2-alpha.2 --out notes.md
+```
+
+**Trigger, and why it is not ShipIt's documented one.** The workflow fires on `pull_request: types: [closed]`
+against `master`, gated on `merged == true && head.ref == 'release/master'`. ShipIt's README instead suggests
+gating a downstream job on the push event:
+
+```yaml
+if: startsWith(github.event.head_commit.message, 'chore: release ')
+```
+
+That condition would never have fired here. All three merge methods stay enabled (ADR-0021, design choice 2),
+and every release PR so far (#455, #458, #464) merged as a true merge commit, so the push event's
+`head_commit.message` was `Merge pull request #NNN from informedica/release/master`, never
+`chore: release ...` — 0 for 3. The head ref is merge-method independent, so the trigger keeps working if a
+release PR is ever squash- or rebase-merged. ShipIt's `easybuild-release:pending` label is the equivalent
+fallback signal.
+
+**Consequence for downstream workflows.** The tag and Release are created with the workflow's own
+`GITHUB_TOKEN`, and events generated by that token do not start further workflow runs. This was confirmed on
+this repo rather than taken from the documentation: none of the three ShipIt release PRs, all opened by
+`github-actions[bot]`, ran its checks automatically. #455 and #458 had runs created but parked at
+`action_required` until a maintainer re-ran them; #464 got no `pull_request` runs at all until it was closed
+and reopened by hand. A workflow keyed on `on: release` or `on: push: tags:` therefore will not fire. The
+options for anything downstream are a job inside `tag-release.yml`, a `workflow_dispatch` /
+`repository_dispatch` call (the two events explicitly exempt from the rule), or a PAT / GitHub App token.
+
+#### Publishing the Docker image
+
+A `publish-docker-image` job in `tag-release.yml`, gated on `needs: tag-and-release`, closes
+[#234](https://github.com/informedica/GenPRES/issues/234) item 3
+([#459](https://github.com/informedica/GenPRES/issues/459)) — see
+[ADR-0021's Docker image publishing amendment](docs/mdr/design-history/0021-build-system-versioning-and-release.md)
+for the full design rationale. It only runs once tagging and the Release have both succeeded, and reuses
+that job's `version`/`tag`/`prerelease` outputs. For a given release it:
+
+1. Checks out the same merge commit `tag-and-release` tagged.
+2. Builds the `Dockerfile` with `--build-arg APP_VERSION=<version>` (same as the local `DockerBuild` FAKE
+   target), `linux/amd64` only, tagging every tag the release needs in one `docker build -t ... -t ...` call.
+3. Starts the built image with the public demo `GENPRES_URL_ID` (from `.env.example`) and a random
+   per-run `GENPRES_PASSWORD`, and requires `/` to return 200 within 60 seconds before treating the image as good.
+4. Pushes `ghcr.io/informedica/genpres:<version>`, and also `:latest` when the version is a stable release
+   (currently we only ship alphas, so `:latest` stays unpublished). Any `+` in `<version>` is folded to `-`
+   first: `Versioning.fsx` allows SemVer build metadata in `<Version>`, but a raw `+` isn't a legal Docker
+   tag character.
+
+Registry is GHCR, as an interim step. The project's preferred home is a Docker Hub `informedica` account,
+which is pending. GHCR needs no new secret, it authenticates with the workflow's own `GITHUB_TOKEN`, and the
+registry/namespace is a single `IMAGE_NAME` job-level env var in `tag-release.yml`, so switching to Docker Hub
+later is a small follow-up.
+
+The job drives Docker with plain `docker login`/`docker build`/`docker push`, not `docker/login-action`,
+`docker/setup-buildx-action`, or `docker/build-push-action`. Everywhere else in this repo Docker goes through
+the CLI (`Build.fs`'s `DockerBuild`/`DockerRun`), and this job runs once a release rather than once a PR, so a
+GHA layer cache wasn't worth three more marketplace actions to pin and keep updated. `ubuntu-latest` ships
+Buildx preinstalled, so `--platform` still works with no setup step.
+
+**Package visibility is a manual step.** A container package pushed to an organization's GHCR for the
+first time from a workflow defaults to **private**. Since GenPRES is public, someone with org admin
+rights needs to set `informedica/genpres` to public in GitHub's package settings after the first
+successful push — the workflow's `GITHUB_TOKEN` can't change package visibility itself.
+
+To build and smoke test the same image locally before relying on the workflow, use the existing
+`DockerBuild`/`DockerRun` FAKE targets (see [Docker wrappers](#docker-wrappers) above); they build
+`ghcr.io/informedica/genpres` by default (override with `DOCKER_IMAGE`), matching what the workflow
+publishes, though the local build is never pushed.
 
 ### IDE Integration
 
@@ -698,7 +917,7 @@ This means you can always override `.env` values by setting an environment varia
 - **Shell**: Source `.env` manually with `set -a; source .env; set +a` before running commands.
 - **F# scripts (FSI)**: Scripts call `Informedica.Utils.Lib.Env.loadDotEnv()` which searches upward for `.env` from the current directory.
 - **IDEs (Rider, VS Code)**: The `Env.loadDotEnv()` call in scripts ensures variables are available even when the IDE doesn't inherit shell environment.
-- **Docker**: Inject `GENPRES_URL_ID` (and `GENPRES_PASSWORD` for admin operations) at *container runtime*, not at build time. Example: `docker run -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -p 8080:8085 halcwb/genpres`. For production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
+- **Docker**: Inject `GENPRES_URL_ID` (and `GENPRES_PASSWORD` for admin operations) at *container runtime*, not at build time. Example: `docker run -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -p 8080:8085 ghcr.io/informedica/genpres`. For production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
 
 #### Common Environment Variable Issues
 

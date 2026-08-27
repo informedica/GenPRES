@@ -1,9 +1,71 @@
+---
+last_commit_released: 1bf876330c71a01a426d38cc7d05070bcc0eb42d
+pre_release: alpha
+name: GenPRES
+updaters:
+  - xml:
+      file: Directory.Build.props
+      selector: /Project/PropertyGroup/Version
+---
+
 # Changelog
 
 All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.6 - 2026-08-25
+
+### 🐞 Bug Fixes
+
+* *(github)* Fold + to - in Docker version tags ([811bacc0](https://github.com/informedica/GenPRES/commit/811bacc013da55c925f3189729aa99d85b0c2269))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/2947fa1ce71ba169b1cc4a129e45b00905fb1f79..1bf876330c71a01a426d38cc7d05070bcc0eb42d)</small></strong>
+
+## 0.1.2-alpha.5 - 2026-08-19
+
+### 🐞 Bug Fixes
+
+* *(github)* Qualify the release trigger and check the tag target ([4cbf03e3](https://github.com/informedica/GenPRES/commit/4cbf03e3a9723d66e81a40a46070b5a51f977411))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/cdb89479f61b892606976b0b2df2813f93bebe71..2947fa1ce71ba169b1cc4a129e45b00905fb1f79)</small></strong>
+
+## 0.1.2-alpha.4 - 2026-08-17
+
+### 🐞 Bug Fixes
+
+* *(config)* Correct ShipIt changelog escape-hatch guidance ([c8f1e4f3](https://github.com/informedica/GenPRES/commit/c8f1e4f36a06975930c672e16c0e5c555b49f9c4))
+
+    Corrected the documented `=== changelog ===` escape hatch: it is read from the
+    commit message body rather than the pull request body, requires a closing
+    marker, and cannot add an entry for a `docs`, `build`, or `chore` commit.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/15c23b4fe95ded5f9501c970390d5344f56d103e..cdb89479f61b892606976b0b2df2813f93bebe71)</small></strong>
+
+## 0.1.2-alpha.3 - 2026-08-15
+
+### 🐞 Bug Fixes
+
+* *(server)* Call getTotals from initNutritionPlan ([11997a0f](https://github.com/informedica/GenPRES/commit/11997a0f154fe0f8f6016d802f712d861d13e7c4))
+* *(server)* Call getTotals in addNutritionContext ([3e8a10bb](https://github.com/informedica/GenPRES/commit/3e8a10bbadd861790100dcfadde8d4756d9c2102))
+* *(server)* GetTotals from removeNutritionContext ([825b4bba](https://github.com/informedica/GenPRES/commit/825b4bba1a92faa9d9a67799dbc90291cd6d8e3d))
+* *(server)* GetTotals updateNutritionOrderContext ([577c9724](https://github.com/informedica/GenPRES/commit/577c9724a446be03bc2eff49f4589f5219e3eb7a))
+* *(server)* GetTotals in selectNutritionOrde[...] ([d2320a70](https://github.com/informedica/GenPRES/commit/d2320a70d8cf80f7772421844d76cbca4a20ceba))
+* *(server)* Call getTotals in navigateNutrit[...] ([0751845a](https://github.com/informedica/GenPRES/commit/0751845a1827fdd0d425d0f6a79bcbe4e150cd42))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/cb62fc9866f582e3124d8b84ec03e198934587ac..15c23b4fe95ded5f9501c970390d5344f56d103e)</small></strong>
+
+## 0.1.2-alpha.2 - 2026-08-14
+
+### 🐞 Bug Fixes
+
+* *(config)* Pin .NET SDK to a single feature band ([5d73633d](https://github.com/informedica/GenPRES/commit/5d73633ddcf2a9080c8b034952ee998c001c89d0))
+* *(docker)* Pin build-stage SDK to match global.json's band ([a4fbd4f1](https://github.com/informedica/GenPRES/commit/a4fbd4f138b9e4f342b90ff3c61959feb2bfdbc5))
+* *(server)* Call getTotals from updateOrderPlan ([03afaf87](https://github.com/informedica/GenPRES/commit/03afaf87d0c4cd80e27de098f3dd6c997808af04))
+* *(server)* Call getTotals from filterOrderPlan ([cedf8d0a](https://github.com/informedica/GenPRES/commit/cedf8d0ae29648cc98455ce4f0511db30128f9ce))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/a1dfeaab1beb24b05d5443504b22c0dbf7f5edde..cb62fc9866f582e3124d8b84ec03e198934587ac)</small></strong>
 
 ## [Unreleased]
 
@@ -13,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CI/Build (#234)**: Wire up EasyBuild.ShipIt release automation. `CHANGELOG.md`'s front matter gains an `xml` updater (`Directory.Build.props`, `/Project/PropertyGroup/Version`) so ShipIt's computed version now writes directly into the file `dotnet run CheckVersions` checks against, replacing the hand-edited `<Version>`. New `.github/workflows/release.yml` runs ShipIt on every push to `master`, opening/updating a draft release PR — a separate workflow from `build.yml` so a ShipIt failure can never block the test/format matrix. Retires Repo Assist's Task 8 ("Release Preparation") in `.github/workflows/repo-assist.md` in the same change, so only one bot ever proposes a release PR. **Manual follow-up required**: enable *Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"* before `release.yml` can open PRs (documented in `DEVELOPMENT.md`); `.github/workflows/repo-assist.lock.yml` also needs regenerating via `gh aw compile` on a machine with a working `gh-aw` extension — this environment's copy is version-mismatched against the committed lock file and its upgrade path is blocked by a Windows file lock, so the compile wasn't run here
 - **Docs (MDR)**: Add ADR-0021 — `docs/mdr/design-history/0021-build-system-versioning-and-release.md` documents the build-system versioning and release automation design for issue #234: adopts EasyBuild.ShipIt for version derivation, changelog generation, and release-PR creation (replacing Repo Assist's manual Task 8), requires switching the default merge method to squash-only, splits the `Build` FAKE target into `ServerBuild`/`ClientBuild`, and defers Docker-image-on-release and auto-generated API docs to separate follow-up issues; accompanying implementation plan at `docs/implementation-plans/234-improve-build-system.md`
 - **Docs (Roadmap)**: Add W2 core architecture review status analysis — `docs/roadmap/w2-core-architecture-review.md` tracks progress toward the W2 workshop goals: domain model validation (🔄 partial — MDR docs, stability analysis, GenFORM 131+ scenarios), constraint solver optimisation (🔄 partial — ADR-0017, PRs #166 #220 #230 #233 #238 #249 complete as prototypes, production migration pending), unit of measure framework (✅ complete — `Informedica.GenUnits.Lib`), and performance benchmarking (✅ complete — PR #166 solver throughput benchmarks); includes a remaining work checklist covering `LRUSolverIntegration.fsx` and `LoopDetect.fsx` production migration and domain model gap analysis (PR #351)
 - **Docs (Domain)**: Update GenSOLVER domain document with cycle detection and LRU memoisation — section 7 (Variable Propagation and Solving Strategy) expanded with a cycle-detection paragraph describing the state-fingerprint-based `CycleDetector` that terminates gracefully with a typed `TerminationReason` (`CycleDetected` / `PotentialStall` / `HardLimit`); section 9 (Technical Architecture) gains a "Session-Level LRU Memoisation" subsection documenting the `LRUCache` prototype, canonical key remapping for cross-patient cache sharing, thread-safety design, and status (prototype pending production integration per ADR-0017); cross-references added to ADR-0017 (since retired) and the [GenSOLVER Stability Analysis](docs/domain/gensolver-stability-analysis.md) (PR #349)
@@ -127,7 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.1.2-alpha] - 2026-03-23
+## [0.1.2-alpha.1] - 2026-03-23
 
 > ⚠️ **Alpha release** — Early development stage. Major features are incomplete. **Not for clinical use.**
 
@@ -310,4 +373,3 @@ This CHANGELOG.md is the user-facing release notes. For developer-focused design
 - [Design History Change Log](docs/mdr/design-history/0000-change-log.md)
 
 The design history file tracks internal design decisions and technical changes, while this CHANGELOG focuses on user-visible changes and release information.
-

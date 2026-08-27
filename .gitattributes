@@ -1,1 +1,7 @@
-.github/workflows/*.lock.yml linguist-generated=true merge=ours
+.github/workflows/*.lock.yml linguist-generated=true
+
+# EasyBuild.ShipIt's front-matter parser matches a literal LF delimiter (src/Generate/Changelog.fs);
+# on Windows, core.autocrlf checks this out as CRLF, which makes the regex silently fail to find the
+# front matter (falls back to scanning full git history instead of erroring). Force LF so the
+# last_commit_released/updaters config is always actually read.
+CHANGELOG.md text eol=lf
