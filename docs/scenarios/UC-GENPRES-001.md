@@ -60,8 +60,9 @@ most of what "interrupted" means falls out of that.
 
 Three consequences run through the rest of this use case:
 
-- **"Unsaved" means "in the client".** Work that has not reached the server survives nothing — not a closed tab, not a
-  lost connection, not a server restart.
+- **"Unsaved" means "in the client".** Work that has not reached the server survives nothing that takes the browser
+  with it — not a closed tab, not a crashed browser. It does survive a lost connection or a server restart, because it
+  never left the client; but for as long as the server is unreachable it cannot be saved.
 - **The server does the watching.** Both the time-to-live and the user-patient log check have to run server-side. A
   closed client is exactly the case those checks exist to catch, so a check running in the browser cannot catch it.
 - **A closed tab is silent.** A deliberate close at step 8 is a client action that reaches the server, which is why it
@@ -111,7 +112,9 @@ the bullets give the system response, the authorization required, the alternativ
     protects the work is the version check at step 7.
 - **Notes**: The redeemed record is the only trusted source of user and patient identity; nothing is taken from the URL
   or from the client. The token is a bearer credential — single-use, short-lived, worthless once redeemed. The role it
-  carries is authoritative for steps 6 and 7 and for [UC-GENPRES-003](UC-GENPRES-003.md). Issue, redemption and
+  carries governs what steps 6 and 7 offer, but it is a snapshot of the authority held at launch, not a grant for the
+  session: signing, and the dispatch of [UC-GENPRES-003](UC-GENPRES-003.md), re-take the role from the main
+  application's user registry at the moment they commit — see data ownership below. Issue, redemption and
   rejection are all logged; a rejected replay is worth alerting on. The token identifier kept on the session record ties
   each session back to the launch that opened it, which is the per-session provenance fit-gap 10.4 and 10.5 ask for.
 
@@ -296,18 +299,18 @@ application's user-patient log and checks it against the user and patient redeem
     entry is not evidence of a logout, and ending a live session on a false negative costs a clinician their unsaved
     work. The session time-to-live remains the bound, as it does today.
   - Unsaved changes present → as for expiry, they cannot be saved under the lapsed session.
-- **Notes**: GenPRES reads the log and never writes it; the main application remains its only writer, and GenPRES still
-  makes no call into it. The check reads current state rather than waiting for an event, so a check missed while GenPRES
-  was down costs nothing — the next read sees the same truth. It has to run on the **server**: a client that has been
-  closed is precisely the case the check exists to catch, so a check running in the browser would go quiet exactly when
-  it is needed. Two numbers govern the exposure and both belong in the design: how often the log is read, and how old an
-  entry may be before it is disregarded.
+- **Notes**: GenPRES reads the log and never writes it; the main application remains its only writer, and the log
+  itself is never asked a question — it is read, not called. The check reads current state rather than waiting for an
+  event, so a check missed while GenPRES was down costs nothing — the next read sees the same truth. It has to run on
+  the **server**: a client that has been closed is precisely the case the check exists to catch, so a check running in
+  the browser would go quiet exactly when it is needed. Two numbers govern the exposure and both belong in the design:
+  how often the log is read, and how old an entry may be before it is disregarded.
 
 ## Session lifecycle
 
 The session record opened at step 2 lives on the server and is written only by the server. It is what makes the
 postconditions checkable: success requires it to be explicitly ended, and an unexplained open record is what tells the
-*next* launch that work was probably lost. Five end marks are written; one state is the absence of any of them. Each
+*next* launch that work was probably lost. Four end marks are written; one state is the absence of any of them. Each
 names what happened, not what noticed it.
 
 | End mark | Cause | Unsaved work |
@@ -316,24 +319,23 @@ names what happened, not what noticed it.
 | *main session ended* | The user logged out of the main application, or that session ended another way | The user has already moved on |
 | *switched patient* | The same user moved to another patient — seen at a later launch, or in the user-patient log | Lost with the previous patient's session |
 | *expired* | Time-to-live reached, or idle beyond it | Cannot be saved; authorization has lapsed |
-| *server restarted* | The GenPRES server stopped and started again | Lost: only what step 7 already saved survives |
 | *(no mark)* | Not yet settled — the client has gone quiet and the server cannot yet tell whether it is coming back | Still in the client if it returns; lost if it does not |
 
 Only *closed by user* has to be written while the session is alive. The others can be settled later, when the question
 is actually asked: at the next launch for that user, GenPRES has what it needs to tell them apart — a log entry showing
 the user gone or moved on, an elapsed time-to-live, or a launch naming another patient.
 
-**A server restart settles itself.** It is different in kind from a client that has gone quiet, and the difference is
-certainty. When the server comes back it knows, without having to look at anything, that no session it was running can
-still be live — sessions are its own state, and its own state did not survive. So at startup it settles every record
-still open and marks them *server restarted*, rather than leaving them to be puzzled over later. A vanished client
-offers no such certainty: the tab may be closed for good, or the connection may return in ten seconds with the working
-set intact and the user none the wiser. Those records stay open until the time-to-live or the user-patient log settles
-them, which is why *(no mark)* means "not yet settled" rather than "interrupted".
+**A server restart ends nothing.** There is no *server restarted* mark because a restart is not an end. The session's
+identity and standing live in the session record, which is written to the store and outlives the process; the unsaved
+working order set lives in the client, which the restart never touched. While the server is down its requests fail —
+the client cannot save, and says so — but when it is back the next request continues the same session, subject only to
+the time-to-live having run on as it always does. Ending the record at startup would discard a session that is still
+resumable, and the work the client is still holding with it.
 
-Both still cost the user their unsaved work whenever they do not come back, so a *server restarted* record has to raise
-the same warning at the next launch as an unexplained one. What the mark buys is not a different outcome for the user
-but a different quality of statement: GenPRES reporting why a session ended, instead of guessing that one did.
+A vanished client is different in kind, and the difference is certainty: the tab may be closed for good, or the
+connection may return in ten seconds with the working set intact and the user none the wiser. The server cannot tell
+which, so those records stay open until the time-to-live or the user-patient log settles them, which is why *(no mark)*
+means "not yet settled" rather than "interrupted".
 
 That distinction is what makes the warning in failure postcondition 4 worth trusting. It fires where work was actually
 at risk, not on every timeout, logout and patient switch — rare enough for a clinician to take seriously when it does.
@@ -349,9 +351,17 @@ an implementation detail, so it is stated here rather than left to the design.
   context stored inside a saved order is a historical record of what was prescribed against, not a competing source. If
   the Platform cannot be reached, there is no authoritative patient data and prescribing is blocked — GenPRES does not
   prescribe against a cached copy.
-- **The launch record — authoritative for the user.** Identity and role come from what the main application wrote at
-  launch and hold for the whole session; the Platform is not consulted for them. This keeps authorization answerable by
-  the system that granted it.
+- **The launch record — authoritative for who the user is, not for what they may still do.** Identity comes from what
+  the main application wrote at launch and holds for the whole session; the Platform is not consulted for it. This keeps
+  authorization answerable by the system that granted it. The **role** in that record is a different matter: it is a
+  snapshot taken at launch, not a grant that runs for the session. Authority can be withdrawn while a session is open,
+  and a role trusted for the whole session would let the user keep acting under it until the session expired. So the
+  launch-carried role governs only what the session offers moment to moment — whether editing is enabled, whether a save
+  is offered — while every act that commits work in the user's name under that authority re-takes the role from the main
+  application's user registry at the moment of commit and fails if it has lapsed. Signing a treatment plan and the
+  dispatch of [UC-GENPRES-003](UC-GENPRES-003.md) are both such acts. This is Rules 5 and 38 of the [MainEHR integration
+  proposal](<GenPRES - MainEHR Integration - V4.md>), and this use case does not weaken them: no signature is ever
+  accepted under an authority that has since been withdrawn.
 - **GenPRES's own store — authoritative for what GenPRES produces.** Orders and prescription state are GenPRES's data;
   its store is the source of truth for them and the only thing step 5 reads back. Session records live here too, and
   GenPRES is their only writer: the main application never marks a GenPRES session ended, it only makes visible —
@@ -363,9 +373,10 @@ an implementation detail, so it is stated here rather than left to the design.
 - **The main application's user-patient log — authoritative for whether the user is still active, and on which
   patient.** GenPRES reads it, never writes it, and holds no opinion about it: where it disagrees with a running GenPRES
   session, the log is right. It is read periodically rather than once, but it is still a read from a file the main
-  application owns — GenPRES makes no call into the main application. It is advisory: it can tighten how long a session
-  outlives the main application session, but it cannot be relied on to bound it, and failure to read it never ends a
-  session.
+  application owns — the log itself is never called into. (The role check above is the one place GenPRES does ask the
+  main application a question, and it asks the user registry, not the log.) It is advisory: it can tighten how long a
+  session outlives the main application session, but it cannot be relied on to bound it, and failure to read it never
+  ends a session.
 
 **Replication is out of scope.** Moving data from GenPRES's own store into the Hospital Patient Data Platform is
 provided by the hospital. GenPRES does not perform it, monitor it, retry it, or report on it, and nothing in this use
@@ -409,6 +420,15 @@ tracked in the [AP2019 vs GenPRES fit-gap analysis](../roadmap/fit-gap-ap2019-vs
   (EHR-sourced login provenance). The launch token design in steps 1 and 2 supersedes the stateless, URL-carried context
   described in [software-requirements.md](../mdr/requirements/software-requirements.md) section 4; that requirement
   needs updating alongside an ADR when the token work lands.
+- **Not built — role revalidation at commit (data ownership, and the step 2 note)**: no user registry is queried today
+  — there is no per-user identity at all (fit-gap 10.1, 10.2, 10.3), so nothing re-takes the role and nothing could
+  notice an authority withdrawn mid-session. It lands with the identity work above, and needs the main application's
+  user registry reachable from the GenPRES **server** at commit time — the one call GenPRES makes into the main
+  application, distinct from the user-patient log, which is read rather than called. Until then the launch-carried role
+  is all there is, which is exactly the exposure Rules 5 and 38 of the [MainEHR integration
+  proposal](<GenPRES - MainEHR Integration - V4.md>) close. Signing itself is not described in this use case; the
+  revalidation contract is stated here so the flows that do sign — and dispatch in
+  [UC-GENPRES-003](UC-GENPRES-003.md) — cannot be built on a session-long role.
 - **Not built — recorded overrides**: today an out-of-limit value is flagged by severity only. Confirmation, reason and
   attribution are intended, and depend on both the persistence work and fit-gap 10.4.
 - **Partial — order start/stop**: present on the backend order type, not surfaced in the UI (fit-gap 9.15).
