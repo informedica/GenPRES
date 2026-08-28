@@ -3,7 +3,12 @@
 **Issue**: FHIR R4 EHR integration design
 
 **Date**: 2026-04-30
-**Status**: Proposed
+**Status**: Superseded (2026-08-28) — the prototype this ADR describes was deleted
+from the repository in commit `ad7bdd17` (2026-07-16, "refactor(fhir): Delete FHIR
+project"), because `Informedica.FHIR.Lib` was never referenced by `GenPRES.sln` and so
+was never compiled. The ADR is retained as the record that a FHIR R4 approach was chosen
+and then abandoned; nothing it describes is implemented today. Any renewed EHR
+integration work starts from scratch — see `docs/roadmap/backlog.md` item 7.
 
 ## Context
 
@@ -20,8 +25,8 @@ The Dutch healthcare landscape mandates:
 
 A formal interface specification (`docs/mdr/interface/genpres_interface_specification.md`, v1.3) defines
 eleven treatment-plan scenarios (6.1–6.11) ranging from single-product once-only orders to multi-product
-TPN and enteral feeding. The specification was implemented as a working proof-of-concept in
-`src/Informedica.FHIR.Lib/Scripts/ImplementationPlan.fsx` (PRs #215, #222), but no ADR documents the
+TPN and enteral feeding. The specification was prototyped as a proof-of-concept in `Informedica.FHIR.Lib`
+(PRs #215 and #222) — since deleted, see the Status note above — but no ADR documented the
 chosen architecture.
 
 ## Decision
@@ -83,20 +88,21 @@ Medication identification uses established Dutch OID systems:
 
 ### Firely .NET SDK
 
-The official `Hl7.Fhir.R4` NuGet package (Firely .NET SDK) is used for typed access to FHIR R4 model
-objects (`MedicationRequest`, `Dosage`, `Timing`, `Quantity`, etc.). This avoids manual JSON/XML
-serialization and ensures structural validity of produced FHIR resources.
+The intent was to take the official `Hl7.Fhir.R4` NuGet package (Firely .NET SDK) for typed access to
+FHIR R4 model objects (`MedicationRequest`, `Dosage`, `Timing`, `Quantity`, etc.), avoiding manual
+JSON/XML serialization. The dependency was never added: it appears in neither `paket.dependencies`
+nor `paket.lock`.
 
 ### Scripts-First Implementation
 
 Following the established GenPRES workflow ([AGENTS.md](../../../AGENTS.md)):
 
-1. FHIR translation logic is prototyped in `.fsx` scripts (`ImplementationPlan.fsx`,
-   `FhirExpectoTests.fsx`) before migration to `Informedica.FHIR.Lib` source files.
+1. FHIR translation logic was prototyped in `.fsx` scripts before migration to
+   `Informedica.FHIR.Lib` source files. That migration never happened and the scripts were
+   deleted with the project.
 2. All eleven interface scenarios (6.1–6.11) are expressed as typed `FhirScenario` records and
    exercised via an end-to-end round-trip test.
-3. Expecto tests in `FhirExpectoTests.fsx` cover each scenario's translation output shape and
-   round-trip fidelity.
+3. Expecto tests covered each scenario's translation output shape and round-trip fidelity.
 
 ## Consequences
 
@@ -153,8 +159,6 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 ## References
 
 - Interface specification: [`docs/mdr/interface/genpres_interface_specification.md`](../../mdr/interface/genpres_interface_specification.md)
-- Prototype scripts: [`src/Informedica.FHIR.Lib/Scripts/ImplementationPlan.fsx`](../../../src/Informedica.FHIR.Lib/Scripts/ImplementationPlan.fsx)
-- Expecto tests: [`src/Informedica.FHIR.Lib/Scripts/FhirExpectoTests.fsx`](../../../src/Informedica.FHIR.Lib/Scripts/FhirExpectoTests.fsx)
 - FHIR R4 specification: <https://hl7.org/fhir/R4/>
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
 - Dutch G-Standard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
