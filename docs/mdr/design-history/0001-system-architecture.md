@@ -13,7 +13,7 @@ Adopt the SAFE Stack (Saturn, Azure, Fable, Elmish) as the technology foundation
 
 Two further foundational choices follow from it and are recorded here because they are equally hard to reverse:
 
-- **Google Spreadsheets as the configuration store.** All medication rules and constraints are authored in spreadsheets, downloaded as CSV and parsed at runtime; which spreadsheet is used is selected by the `GENPRES_URL_ID` environment variable. This lets clinical staff maintain the rule base without a developer, at the cost of coupling the system to an external service.
+- **Google Spreadsheets as the configuration store.** Medication rules and constraints are authored in spreadsheets, downloaded as CSV and parsed at runtime. This lets clinical staff maintain the rule base without a developer, at the cost of coupling the system to an external service. Note that `GENPRES_URL_ID` selects the *server's* sheet only; the client reads a few of its own sheets from IDs hard-coded in `Client/Utils.fs`, so it is not a single switch over all sheet-sourced data.
 - **Docker as the production delivery mechanism.**
 
 ## Consequences
@@ -21,7 +21,7 @@ Two further foundational choices follow from it and are recorded here because th
 - Server-side F# domain libraries remain pure and testable independent of the UI.
 - Client code (Fable/Elmish) compiles to JavaScript and runs in the browser.
 - Client and server share one type-safe contract through Fable.Remoting, so an API change that breaks a caller fails at compile time rather than at runtime.
-- Editing a production spreadsheet changes the behaviour of a running system with no deployment, which is the point — and the risk.
+- Editing a production spreadsheet changes the behaviour of a running system with no deployment, which is the point — and the risk. It is not instantaneous, though: the server holds resources in a `CachedResourceProvider` with no expiry, so an edit takes effect only after an admin `ReloadResources` (or a restart), and the client's own hard-coded sheets are separate again.
 - Proprietary medication cache files are not distributed with the repository; only demo cache files are.
 
 ## Alternatives considered

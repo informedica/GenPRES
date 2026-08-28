@@ -62,13 +62,21 @@ Only `GenFORM.Lib` and `GenORDER.Lib` are exposed. The others are deliberately n
 | `Informedica.Utils.Lib` | Pure utility functions |
 | `Informedica.GenPRES.Server` | Already exposes the full API via `IServerApi`; MCP is an additional pathway, not a replacement |
 
-## Dependency
+## Dependencies
 
-The only new external dependency is the official .NET MCP SDK, `ModelContextProtocol`,
-maintained by the [modelcontextprotocol GitHub organisation](https://github.com/modelcontextprotocol/csharp-sdk).
-It is pinned to an exact version in `paket.dependencies` rather than a floating specifier, so
-builds stay reproducible as MDR traceability requires; re-run a GitHub Advisory Database check
-before each deliberate bump. No changes were required to `GenFORM.Lib` or `GenORDER.Lib`.
+Two new external dependencies, both listed in `src/Informedica.MCP.Lib/paket.references`:
+
+- `ModelContextProtocol` — the official .NET MCP SDK, maintained by the
+  [modelcontextprotocol GitHub organisation](https://github.com/modelcontextprotocol/csharp-sdk).
+- `Microsoft.Extensions.Hosting` — the generic host the SDK's server builder is wired into
+  (`McpServer.fs` opens it directly).
+
+The decision is to pin exact versions in `paket.dependencies` rather than floating specifiers, so
+builds stay reproducible as MDR traceability requires, and to re-run a GitHub Advisory Database
+check before each deliberate bump. `ModelContextProtocol` is pinned (`1.2.0`);
+`Microsoft.Extensions.Hosting` is currently declared without a version constraint and so does not
+yet follow this decision — `paket.lock` is what holds it steady today. No changes were required to
+`GenFORM.Lib` or `GenORDER.Lib`.
 
 ## Notes
 
