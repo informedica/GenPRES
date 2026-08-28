@@ -13,7 +13,7 @@ This document analyses progress toward the W3 workshop goals as defined in
 
 | Goal | Status | Evidence |
 |------|--------|----------|
-| Requirements review and validation | 🔄 Partial | `software-requirements.md` v1.1, `user-requirements.md` UR-001–020 |
+| Requirements review and validation | 🔄 Partial | `software-requirements.md` v1.2, `user-requirements.md` v1.1 UR-001–020 |
 | Traceability matrix completion | 🔄 Partial | Excel matrices exist; markdown linkage UR → SR → ADR → test incomplete |
 | Test coverage analysis | ✅ Complete | `test-strategy.md`, `unit-test-report.md`, `integration-test-report.md` (May 2026) |
 | Gap identification | 🔄 Partial | Known gaps documented in validation reports; formal gap analysis pending |
@@ -38,13 +38,14 @@ security, reliability, and usability:
 - **UR-017 to UR-018**: Reliability requirements
 - **UR-019 to UR-020**: Usability requirements
 
-#### Software Requirements (`software-requirements.md` v1.1, May 2026)
+#### Software Requirements (`software-requirements.md` v1.2, August 2026)
 
 Updated to reflect implemented features:
 
 - Corrected .NET 10 toolchain reference (from stale .NET 8).
 - FHIR R4 integration moved from "Future Enhancements" to Integration section
-  (designed in ADR-0020).
+  (designed in ADR-0020). That design has since been superseded: the prototype was
+  deleted and no FHIR code remains.
 - MCP stdio server and NLP dose-rule extraction pipeline promoted from "future"
   to implemented.
 - Security section expanded to reflect ADR-0015 baseline controls.
@@ -59,9 +60,9 @@ Three validation documents were completed in May 2026:
 
 Documents the full test strategy:
 
-- 20 test projects under `tests/`, the majority covering a dedicated library.
-  Note: `Informedica.FHIR.Tests`, `Informedica.NLP.Tests`, and
-  `Informedica.MCP.Tests` currently contain only placeholder Hello World tests.
+- 16 test projects under `tests/`, the majority covering a dedicated library.
+  Note: `Informedica.NLP.Tests` and `Informedica.MCP.Tests` currently contain
+  only placeholder Hello World tests.
 - Expecto 10.x test runner with FsCheck property-based testing.
 - CI matrix across Ubuntu, Windows, and macOS (GitHub Actions `build.yml`).
 - Unit, property-based, integration, and security test types.
@@ -109,7 +110,8 @@ were retired. The remaining records are:
 | 0016 | G-Standard dose-rule fallback |
 | 0018 | NLP dose-rule extraction |
 | 0019 | Shared clinical calculations |
-| 0020 | FHIR R4 EHR integration |
+| 0020 | FHIR R4 EHR integration (superseded — the prototype was deleted) |
+| 0021 | Build system versioning and release automation |
 
 ---
 
@@ -136,16 +138,12 @@ consolidated into a single gap-analysis document:
 
 - Formal line/branch coverage metrics are not yet collected; both
   `test-strategy.md` and `unit-test-report.md` flag this as an open gap.
-- `Informedica.FHIR.Tests`, `Informedica.NLP.Tests`, and
-  `Informedica.MCP.Tests` contain only placeholder Hello World tests; their
-  libraries are not yet covered by automated unit tests.
+- `Informedica.NLP.Tests` and `Informedica.MCP.Tests` contain only placeholder
+  Hello World tests; their libraries are not yet covered by automated unit tests.
 - Client-side Fable/Elmish code is covered by manual exploratory testing only;
   no automated component-level tests exist.
 - NLP dose-rule extraction pipeline (`DoseRuleExtract.fsx`) has no formal
   test suite beyond the `.fsx` prototype.
-- FHIR R4 translation (`FhirExpectoTests.fsx`) has prototype Expecto tests
-  but is not yet part of the CI `dotnet run ServerTests` suite
-  (source: `integration-test-report.md`).
 - MCP server command handlers have no dedicated integration tests
   (source: `integration-test-report.md`).
 
@@ -175,8 +173,8 @@ pharmacist) is deferred to W4 scope and is not yet scheduled.
 ## Summary
 
 W3 is approximately **60–70% complete**. The test strategy and validation
-baselines are documented, software requirements are up to date, and 21 ADRs
-provide decision-level traceability. The main gaps are:
+baselines are documented, software requirements are up to date, and the ten
+surviving ADRs listed above provide decision-level traceability. The main gaps are:
 
 1. **Markdown traceability matrix** — machine-readable UR → SR → ADR → test
    linkage is not yet in place.
