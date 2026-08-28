@@ -492,19 +492,30 @@
 //   1. types      — the vocabulary: identities, concepts, messages, actor state
 //   2. modules    — the edge table, the Record rules, the tokens, and the reducer
 //   3. scenarios  — the harness, UC-1 .. UC-13, and the derived assertions
+//
+// ── [ships] and [model] ────────────────────────────────────────────────────────
+// Every section below is tagged, and so is anything inside one that breaks the tag:
+//
+//   [ships]  the design itself — types and rule logic meant to be carried into the
+//            source, in this shape. What is here is what the Rules say.
+//   [model]  scaffolding that exists so this file can run alone: the message plumbing
+//            that stands in for HTTP and process boundaries, the other actors'
+//            insides, the clock, the tracing, and the crypto placeholders. In the real
+//            system these are the framework, somebody else's component, or a library —
+//            never code written from this file.
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                                 1. TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ───────────────────────────── identities ─────────────────────────────
+// ───────────────────────────── identities ─────────────────────────────  [ships] — except the counters marked [model] inside
 
 type UserId           = UserId of string            // stable key: what audit keys on
 type LoginName        = LoginName of string         // unique today, but renameable
 type MailAddress      = MailAddress of string       // from the UserRegistry (Rule 26)
 type PatientId        = PatientId of string
-type BrowserId        = BrowserId of int
+type BrowserId        = BrowserId of int         // [model]: one browser, named
 type LaunchCredential = LaunchCredential of string  // Concept 4: opaque to GenPRES
 type LaunchNo         = LaunchNo of int             // readable handle, safe to log
 type SessionId        = SessionId of string         // Rule 11: bearer, never in a URL
@@ -512,7 +523,7 @@ type SessionNo        = SessionNo of int            // traces and ui only, never
 type TreatmentPlanId  = TreatmentPlanId of string
 type TreatmentPlanNo  = TreatmentPlanNo of int      // ordering within one PatientRecord
 type OrderContextId   = OrderContextId of string    // Concept 10: persists across plans
-type AttemptId        = AttemptId of int            // correlates one launch across ports
+type AttemptId        = AttemptId of int            // [model]: one launch, mid-flight
 /// Rule 31. Correlates the several Database legs of ONE request. Created when the
 /// request arrives, dropped with its reply — never carried from one request to the
 /// next, which is the whole of what makes the Server stateless.
@@ -552,7 +563,7 @@ type ActorId =
     | MailService                       // Actor 10 [given]
     | Environment
 
-// ───────────────────────────── the concepts ─────────────────────────────
+// ───────────────────────────── the concepts ─────────────────────────────  [ships]
 
 /// Concept 1. Identification and Role — nothing else. The Role is the registry's
 /// answer (Rule 5), never the launch's.
@@ -684,7 +695,7 @@ type PatientRecord =
         Plans   : TreatmentPlan list
     }
 
-// ───────────────────────────── the tokens ─────────────────────────────
+// ───────────────────────────── the tokens ─────────────────────────────  [ships]
 
 /// Concept 17. Every token GenPRES issues is the same object: a claim the Server
 /// states, and a mac over it that only the Server can compute. What differs between
@@ -780,7 +791,7 @@ type Commit =
         Fresh : PatientData option
     }
 
-// ───────────────────────────── session state ─────────────────────────────
+// ───────────────────────────── session state ─────────────────────────────  [ships]
 
 /// Rule 9, exactly: the four ways a Session ends, and no others. A Server restart is
 /// not among them — the Server holds no Session state to lose (Rule 31).
@@ -856,7 +867,7 @@ type SessionRecord =
 
 
 
-// ───────────────────────────── failures ─────────────────────────────
+// ───────────────────────────── failures ─────────────────────────────  [ships]
 
 /// Rule 42. Why a commit changed nothing. Each of these is one of the rules the act
 /// re-establishes, and the act stops at the first that fails — the PIN last, so a
@@ -910,7 +921,10 @@ type LegTag =
     | ForRequest of RequestId
     | ForSweep
 
-// ───────────────────────────── messages ─────────────────────────────
+// ───────────────────────────── messages ─────────────────────────────  [mixed]
+// The payloads ship: what a Client sends, what the Server answers, what the Database
+// is asked. The envelope around them — who to, who from — is [model]: in the real
+// system that is an endpoint and a caller, not a value.
 
 /// What travels from the Client to the Server inside a Session. Every one of these
 /// arrives as a `SessionRequest`, so Rule 8's idle-clock refresh has exactly one home
@@ -1122,7 +1136,10 @@ and Envelope =
         Msg  : Msg
     }
 
-// ───────────────────────────── actor state ─────────────────────────────
+// ───────────────────────────── actor state ─────────────────────────────  [mixed]
+// `DatabaseState` ships — it is the storage shape Actor 5 describes. The rest is
+// [model]: the Server's in-flight tables stand in for its async flow, the Client's
+// for whatever the UI holds, and the other actors' insides are not ours at all.
 
 /// The Broker's own record. It has a lifecycle — issued when, spent or not — that no
 /// message carries. GenPRES never sees it, only the LaunchAssertion projected from
@@ -1386,7 +1403,7 @@ type Hospital =
 //                                2. MODULES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ───────────────────────────── configuration ─────────────────────────────
+// ───────────────────────────── configuration ─────────────────────────────  [ships] — as configuration, not as literals
 // Rules 28, 29, 30. Owned by the actor named in the comment, not by the model.
 // The unit is one handled message: `update` advances the clock on every move, so a
 // lifetime has to be read against the length of a cascade, not a count of Ticks — a
@@ -1431,7 +1448,7 @@ let wrongCodeLimit = 3
 /// commit (Rule 42).
 let tokenTtl = 2 * sessionTtl
 
-// ───────────────────────────── the edge table ─────────────────────────────
+// ───────────────────────────── the edge table ─────────────────────────────  [model] — the deployment is what enforces this
 
 /// The document's notation, as data.
 type EdgeKind =
@@ -1494,7 +1511,7 @@ module Edges =
         elif has Request to_ from then true          // the reply leg
         else false
 
-// ───────────────────────────── the work plan ─────────────────────────────
+// ───────────────────────────── the work plan ─────────────────────────────  [ships]
 
 /// Concept 16. The whole of it: nothing to mint, nothing to verify, nothing kept.
 module WorkPlan =
@@ -1520,7 +1537,7 @@ module WorkPlan =
         | Some(PatientData x) -> $"sha|%s{x}"
         | None -> "sha|-"
 
-// ───────────────────────────── the record rules ─────────────────────────────
+// ───────────────────────────── the record rules ─────────────────────────────  [ships]
 
 /// Rules 16 to 21. Small total functions over a TreatmentPlan list held newest first, so
 /// "most recent" is `List.tryFind` and "newer than" is a comparison of TreatmentPlanNo.
@@ -1587,7 +1604,7 @@ module PatientRecord =
     let append (s: TreatmentPlan) (r: PatientRecord) =
         { r with Plans = s :: r.Plans }
 
-// ───────────────────────────── the two stores ─────────────────────────────
+// ───────────────────────────── the two stores ─────────────────────────────  [ships]
 
 /// Actor 5. A PatientRecord is a view over the two halves, not a thing either of them
 /// holds: Concept 12 is one append-only sequence, and it is only the storage that is
@@ -1627,7 +1644,7 @@ module Database =
                 Private.Drafts =
                     db.Private.Drafts |> Map.add plan.Patient (plan :: draftsOf plan.Patient db) }
 
-// ───────────────────────────── the credential ─────────────────────────────
+// ───────────────────────────── the credential ─────────────────────────────  [ships]
 
 /// Concept 7 and Rule 27.
 module UserCredential =
@@ -1656,7 +1673,7 @@ module UserCredential =
 
     let attemptsLeft c = max 0 (wrongPinLimit - c.AttemptCount)
 
-// ───────────────────────────── the reset code ─────────────────────────────
+// ───────────────────────────── the reset code ─────────────────────────────  [ships] — with a real mac
 
 /// Rule 37. A PIN is never removed; it is replaced, and what authorises the
 /// replacement is a code that went to an address the User controls and GenPRES got
@@ -1673,7 +1690,7 @@ module Reset =
     /// channel — and nothing else about the Session is.
     let mail (ResetCode c) = $"PIN reset: use code %s{c} once, and soon"
 
-// ───────────────────────────── the session record ─────────────────────────────
+// ───────────────────────────── the session record ─────────────────────────────  [ships]
 
 module SessionRecord =
 
@@ -1753,7 +1770,7 @@ module SessionRecord =
 
     let userId (s: SessionRecord) = s.User |> Option.map _.UserId
 
-// ───────────────────────────── the tokens ─────────────────────────────
+// ───────────────────────────── the tokens ─────────────────────────────  [ships] — with a real HMAC
 
 /// Rules 33 and 34. The Client holds the cart, so anything the Server must be able to
 /// trust about a create has to be something the Client cannot forge. Both tokens are
@@ -1858,7 +1875,10 @@ module Token =
     /// Rules 43 and 44: the one digest the token names.
     let digest (t: Token) = t.Claim.Names |> List.tryHead
 
-// ───────────────────────────── the reducer ─────────────────────────────
+// ───────────────────────────── the reducer ─────────────────────────────  [mixed]
+// The branch bodies are the design — which leg follows which, what each act checks,
+// and in what order (Rule 42 above all). The dispatch on (From, To, Msg) is [model]:
+// real endpoints, real handlers, and the Database's own transaction.
 
 module Hospital =
 
@@ -3659,7 +3679,7 @@ module Hospital =
     let run fuel hospital inbox = runWith true fuel hospital inbox
 
 
-// ───────────────────────────── printing ─────────────────────────────
+// ───────────────────────────── printing ─────────────────────────────  [model]
 
 /// Rendering an envelope for the trace. Formatting only: no branch here decides
 /// anything, so a message may be added without touching the model.
@@ -3855,7 +3875,10 @@ module Envelope =
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//                         3. SCENARIOS AND ASSERTIONS
+//                         3. SCENARIOS AND ASSERTIONS                     [model]
+//
+//  None of this ships as code — but the scenarios are the acceptance tests the real
+//  system owes, and the checks are what each one has to prove.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ───────────────────────────── what the world does ─────────────────────────────
