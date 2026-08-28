@@ -88,10 +88,12 @@ Medication identification uses established Dutch OID systems:
 
 ### Firely .NET SDK
 
-The intent was to take the official `Hl7.Fhir.R4` NuGet package (Firely .NET SDK) for typed access to
-FHIR R4 model objects (`MedicationRequest`, `Dosage`, `Timing`, `Quantity`, etc.), avoiding manual
-JSON/XML serialization. The dependency was never added: it appears in neither `paket.dependencies`
-nor `paket.lock`.
+The official `Hl7.Fhir.R4` NuGet package (Firely .NET SDK) was used for typed access to FHIR R4
+model objects (`MedicationRequest`, `Dosage`, `Timing`, `Quantity`, etc.), avoiding manual JSON/XML
+serialization. The prototype obtained it the way an FSI script does — `#r "nuget: HL7.Fhir.R4"` in
+`Scripts/load.fsx` — and never through Paket: the package appears in neither `paket.dependencies`
+nor `paket.lock`, which is consistent with `Informedica.FHIR.Lib` never having been part of
+`GenPRES.sln` or compiled. Reinstating this design would mean adding the dependency properly.
 
 ### Scripts-First Implementation
 
