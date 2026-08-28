@@ -145,7 +145,9 @@ and Access =
 - GenFORM: `Once of string | Discontinuous of string | Continuous of string | Timed of string | OnceTimed of string | NoDoseType`
 - GenPRES.Shared: Same as GenFORM
 
-**Issue**: Documentation doesn't mention `NoDoseType` variant.
+**Issue**: ~~Documentation doesn't mention `NoDoseType` variant.~~ **Resolved.** Both
+`core-domain.md` and `genform-free-text-to-operational-rules.md` now define it, and record that
+it is not a sixth kind of dosing: `validateData` rejects such a row and the loader drops it.
 
 ## 4. Summary of Key Discrepancies
 
@@ -163,7 +165,7 @@ and Access =
 2. **Component.Form** - Undocumented field
 3. **ProductComponent.Form** - Undocumented field  
 4. **Totals type** - Completely undocumented
-5. **NoDoseType** - Undocumented variant
+5. ~~**NoDoseType** - Undocumented variant~~ — resolved, see 3.1
 
 ---
 

@@ -87,7 +87,7 @@ The transformation is implemented by three core systems:
 | *Renal Rule* | An OKR used to adjust the dose advice according to renal function (GFR). |
 | *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. |
 | *Patient* | A specific individual patient instance with concrete (or calculated values, i.e. BSA) values for age, weight, BSA, etc. Used by GenORDER to match against Patient Categories and compute patient-specific Order Scenarios. |
-| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A rule whose source value is empty or unrecognised parses to `NoDoseType`, which warns rather than failing the row. |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognised parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognised value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Dose Quantity* | The amount delivered per single administration. |
 | *Dose Per Time* | The accumulated dose delivered per unit time (e.g., per day). |
 | *Dose Rate* | The continuous delivery speed of a dose (unit per time), typically used for infusions. |

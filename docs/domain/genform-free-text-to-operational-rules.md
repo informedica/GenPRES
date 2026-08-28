@@ -42,7 +42,7 @@
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
 | *Dose Limit* | A set of numeric constraints defining the minimum, maximum, or normative allowable dose. |
 | *Dose* | A patient-specific calculated dose value that satisfies all applicable constraints. Note that a dose can be per administration, per time unit, or rate unit and can be adjusted for patient weight or BSA. |
-| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed or continuous. An empty or unrecognised value in the source sheet parses to `NoDoseType`, which carries a warning rather than failing the row. |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognised parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognised value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Selection Constraint* | A rule element used to determine which calculation constraints apply. |
 | *Calculation Constraint* | A quantitative rule element used to compute dose, rate, volume, or timing. |
 | *Adjustment Unit* | A patient normalization unit used to scale doses (e.g., kg for weight, m² for BSA). |
