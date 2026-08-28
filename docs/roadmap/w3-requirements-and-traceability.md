@@ -193,7 +193,7 @@ surviving ADRs listed above provide decision-level traceability. The main gaps a
 | Test Strategy | `docs/mdr/validation/test-strategy.md` |
 | Unit Test Report | `docs/mdr/validation/unit-test-report.md` |
 | Integration Test Report | `docs/mdr/validation/integration-test-report.md` |
-| ADR index | `docs/mdr/design-history/` (0000–0020) |
+| ADR index | `docs/mdr/design-history/` (0000–0021; not contiguous — the set was pruned under issue #411) |
 | Architecture and Timeline | `docs/roadmap/genpres-architecture-and-timeline.md` |
 | ROADMAP | `ROADMAP.md` |
 
