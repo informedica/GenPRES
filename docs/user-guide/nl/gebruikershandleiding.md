@@ -43,7 +43,7 @@ Aanvullende achtergrondinformatie is beschikbaar op <https://medicatieveiligensn
 In een klinische omgeving wordt GenPRES doorgaans gestart vanuit een Elektronisch Patiënten Dossier (EPD) waarbij patiëntparameters vooraf zijn ingevuld in de URL, bijvoorbeeld:
 
 ```
-https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=730&wt=12000
+https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=730&wt=12000&ht=87
 ```
 
 De URL gebruikt hash-based routing (`/#patient?...`). Ondersteunde queryparameters:
@@ -84,6 +84,11 @@ De URL gebruikt hash-based routing (`/#patient?...`). Ondersteunde queryparamete
 | `dc` | Disclaimer | `n` = verbergen |
 
 Voorbeeldpatiënten via queryparameters:
+
+> **Sommige van deze links zetten geen `ht` (lengte), en enkele zetten `wt` noch `ht`.** GenPRES
+> berekent pas een dosis wanneer zowel gewicht als lengte bekend zijn; het openen van zo'n link
+> geeft dus een gevuld patiëntpaneel zonder berekening — vul de ontbrekende maat aan om verder te
+> gaan. Links die al `wt` en `ht` bevatten, komen direct op een dosis uit.
 
 | Leeftijd (jaren) | Leeftijd (dagen) | ZD (weken) | Gewicht (kg) | Lengte (cm) | Medicatie | Toedieningsweg | Indicatie | Link |
 |---|---|---|---|---|---|---|---|---|

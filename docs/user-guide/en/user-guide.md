@@ -41,7 +41,7 @@ The live system runs at <http://genpres.nl>.
 In a clinical setting GenPRES is typically launched from an Electronic Patient Dossier (EPD) with patient parameters pre-filled in the URL, for example:
 
 ```url
-https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000
+https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000&ht=87
 ```
 
 The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
@@ -82,6 +82,11 @@ The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
 | `dc` | Disclaimer | `n` = hide |
 
 Example patients using query parameters:
+
+> **Some of these links do not set `ht` (height), and a few set neither `wt` nor `ht`.** GenPRES
+> calculates a dose only once both weight and height are present, so opening such a link lands on a
+> populated patient panel with the calculation still withheld — fill in the missing measurement to
+> continue. Links that already carry `wt` and `ht` go straight to a dose.
 
 | Age (years) | Age (days) | GA (weeks) | Weight (kg) | Height (cm) | Medication | Route | Indication | Link |
 |---|---|---|---|---|---|---|---|---|
