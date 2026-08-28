@@ -111,7 +111,7 @@ A DAG in practice because `adj_qty` and `sch_frq` are constants. Would become cy
 
 ## Empirical Verification
 
-Two production logs were analyzed within the `calc-minmax` pipeline phase (delimited by `=== PIPELINE START calc-minmax: calc-minmax ===` and `=== PIPELINE END calc-minmax: calc-minmax ===`). The log files are timestamped and not committed to the repository (log files are gitignored). To regenerate equivalent logs, run the server with debug logging enabled and reproduce the scenarios below. See the [Environment Configuration](../../DEVELOPMENT.md#environment-configuration) section in `DEVELOPMENT.md` for how to set `GENPRES_LOG=d` via `.env` or a `debugprod.sh` helper script; logs are written to `src/Informedica.GenPRES.Server/data/logs/`.
+Two production logs were analyzed within the `calc-minmax` pipeline phase (delimited by `=== PIPELINE START calc-minmax: calc-minmax ===` and `=== PIPELINE END calc-minmax: calc-minmax ===`). The log files are timestamped and not committed to the repository (log files are gitignored). To regenerate equivalent logs, run the server with debug logging enabled and reproduce the scenarios below. See the [Environment Configuration](../../DEVELOPMENT.md#environment-configuration) section in `DEVELOPMENT.md` for how to set `GENPRES_LOG=d` via `.env` or a `debugprod.sh` helper script; logs are written to `data/logs/`.
 
 ### Log 1: Gentamicin, single component, concentration 1 mg/mL
 

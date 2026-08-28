@@ -10,7 +10,7 @@ It intentionally focuses on discrepancies that matter for correctness, shared un
 
 ## Analysis Date
 
-2025-12-22
+2026-08-28 (last reviewed against the code on this date)
 
 ## Scope
 
@@ -24,15 +24,15 @@ It intentionally focuses on discrepancies that matter for correctness, shared un
 
 ---
 
-## 2. GenORDER Discrepancies
+## 1. GenORDER Discrepancies
 
-### 2.1 Undocumented fields that affect selection constraints
+### 1.1 Undocumented fields that affect selection constraints
 
 **Documentation** (Appendix C.2 Order Model Table):
 
 - Does not list Component.Form
 
-**Implementation** (`Informedica.GenORDER.Lib/Types.fs`, line 162):
+**Implementation** (`Informedica.GenORDER.Lib/Types.fs`):
 
 ```fsharp
 // The pharmaceutical form of a component
@@ -41,7 +41,7 @@ Form : string
 
 **Discrepancy**: `Form` is a selection constraint in the domain docs; it exists across the implemented scenario/component models but is not consistently called out as such in all documentation sections discussing selection constraints.
 
-### 2.2 Undocumented fields in product selection
+### 1.2 Undocumented fields in product selection
 
 **Documentation** (Appendix C.2 Order Model Table):
 
@@ -60,13 +60,13 @@ and ProductComponent =
 
 **Discrepancy**: The pharmaceutical form is present at the product level (`ProductComponent.Form`) but is not documented as part of the product/component selection model.
 
-### 2.3 OrderScenario numbering
+### 1.3 OrderScenario numbering
 
 **Documentation** (genorder-operational-rules-to-orders.md):
 
 - Does not describe a scenario number/index
 
-**Implementation** (`Informedica.GenORDER.Lib/Types.fs`, line 431):
+**Implementation** (`Informedica.GenORDER.Lib/Types.fs`):
 
 ```fsharp
 No : int
@@ -74,21 +74,21 @@ No : int
 
 **Discrepancy**: The implementation includes a stable scenario number (`No`) which is relevant for UI/selection and traceability, but it is not described in the conceptual domain docs.
 
-### 2.4 Totals / intake modeling
+### 1.4 Totals / intake modeling
 
 **Discrepancy**: `GenPRES.Shared` includes an `Intake: Totals` field on `OrderContext`, but intake/totals are not currently defined in the core domain documents (or connected to the knowledge-to-order pipeline narrative). If intake affects dosing constraints, it should be explicitly modeled in the domain docs.
 
 ---
 
-## 4. GenPRES.Shared Discrepancies
+## 2. GenPRES.Shared Discrepancies
 
-### 4.1 Patient Type Divergence
+### 2.1 Patient Type Divergence
 
 **Documentation** (genform-free-text-to-operational-rules.md):
 
 - Patient described with specific fields
 
-**Implementation** (`Informedica.GenPRES.Shared/Types.fs`, lines 82-92):
+**Implementation** (`Informedica.GenPRES.Shared/Types.fs`):
 
 ```fsharp
 type Patient =
@@ -100,6 +100,7 @@ type Patient =
         Gender: Gender
         Access: Access list
         RenalFunction: RenalFunction option
+        Location: string option
         Department: string option
     }
 ```
@@ -110,11 +111,11 @@ type Patient =
 2. No Diagnoses field (present in GenFORM.Lib Patient)
 3. Different Gender type (includes UnknownGender)
 
-### 4.2 Administration Access Device Enumeration Divergence
+### 2.2 Administration Access Device Enumeration Divergence
 
 **Documentation**: Uses "Administration Access" / "Administration Access Device"
 
-**Implementation** (`Informedica.GenPRES.Shared/Types.fs`, lines 117-120):
+**Implementation** (`Informedica.GenPRES.Shared/Types.fs`):
 
 ```fsharp
 and Access =
@@ -131,11 +132,11 @@ and Access =
 
 ---
 
-## 5. Cross-Cutting Issues
+## 3. Cross-Cutting Issues
 
-### 5.1 Dose Type Representations
+### 3.1 Dose Type Representations
 
-**Documentation** (core-domain.md, line 89):
+**Documentation** (core-domain.md):
 
 - Lists: once, onceTimed, discontinuous, timed, continuous
 
@@ -146,7 +147,7 @@ and Access =
 
 **Issue**: Documentation doesn't mention `NoDoseType` variant.
 
-## 6. Summary of Key Discrepancies
+## 4. Summary of Key Discrepancies
 
 ### Critical Discrepancies (Functional Impact)
 
@@ -168,15 +169,19 @@ and Access =
 
 ## Recommendations
 
-1. **Update documentation** to reflect:
-   - Complete enumeration of all type variants
+Per [issue #411](https://github.com/informedica/GenPRES/issues/411), a field that is undocumented
+is a missing XML doc comment on the type, not a missing paragraph in a domain document. Restating
+record fields in prose is what produced most of the drift catalogued above. So:
 
-2. **Align terminology** across docs and code
+1. **Document the types in the code**, with `///` summaries on the declarations themselves:
+   - `Totals` (`Informedica.GenPRES.Shared/Types.fs`) — currently has no doc comment at all
+   - `OrderScenario.No` — what the number is for (stable identity for UI selection and traceability)
+   - `Component.Form` and `ProductComponent.Form` — that pharmaceutical form participates in selection
 
-3. **Document missing types**:
-   - Totals type and its purpose
-   - All OrderScenario fields
-   - Complete Component model including Form field
-   - Complete ProductComponent model including Form field
+2. **Keep the domain documents conceptual.** They should name and define the concepts; the
+   authoritative field list is the type declaration.
 
-
+3. **Align terminology** across docs and code — in particular the access-device vocabulary, where
+   GenFORM's `AccessDevice` (PVL/CVL/AnyAccess), `Shared.Access` (CVL/PVL/EnteralTube) and the
+   interface specification's wider enumeration genuinely disagree in scope. That one is a real
+   modelling question, not a documentation gap.
