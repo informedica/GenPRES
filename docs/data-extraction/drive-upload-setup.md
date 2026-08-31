@@ -110,7 +110,7 @@ them so the next run creates them fresh under your own ownership.
 Run from the directory containing the extraction script:
 
 ```sh
-FTK_EXTRACT_RUN=1 FTK_EXTRACT_UPLOAD=1 dotnet fsi ftk_extract_v2.fsx
+FTK_EXTRACT_RUN=1 FTK_EXTRACT_UPLOAD=1 dotnet fsi Informedica.NLP.Lib.fsx
 ```
 
 Expected tail:

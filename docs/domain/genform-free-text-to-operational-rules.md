@@ -42,7 +42,7 @@
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
 | *Dose Limit* | A set of numeric constraints defining the minimum, maximum, or normative allowable dose. |
 | *Dose* | A patient-specific calculated dose value that satisfies all applicable constraints. Note that a dose can be per administration, per time unit, or rate unit and can be adjusted for patient weight or BSA. |
-| *Dose Type* | The temporal category of dosing (e.g., once, timed, continuous). |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognised parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognised value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Selection Constraint* | A rule element used to determine which calculation constraints apply. |
 | *Calculation Constraint* | A quantitative rule element used to compute dose, rate, volume, or timing. |
 | *Adjustment Unit* | A patient normalization unit used to scale doses (e.g., kg for weight, m² for BSA). |
@@ -259,89 +259,16 @@ Free text is structured by GenFORM to operational structured knowledge rules and
 
 ### Addendum B.3. GenFORM Libraries
 
-Classification:
+This appendix used to restate the library list with per-library capabilities and dependencies.
+The same list also appeared in the GenORDER document and in
+[`genpres-architecture-and-timeline.md`](../roadmap/genpres-architecture-and-timeline.md), and the
+three copies drifted apart — between them they described four libraries that no longer exist and
+omitted two that do. There is now one copy:
 
-- **Free Text Sources**
-- **Utility Library**
-- **Domain Library**
-
-Libraries:
-
-1. **Informedica.Agents.Lib:** Library using the FSharp MailboxProcessor to create message based agents.
-   - Capabilities:
-     - Message-based agent abstraction using F# MailboxProcessor
-     - Asynchronous, concurrent API execution model
-     - Specific low level agent implementations
-
-2. **Informedica.Logging.Lib:** Library with advanced printing capabilities to enable human-readable logging for analysis.
-   - Capabilities:
-     - Human-readable logging and structured output for analysis
-     - Advanced printing and formatting capabilities
-     - Agent-based logging service
-
-3. **Informedica.NLP.Lib:** Library using NLP to extract structured rules from free text.
-   - Capabilities:
-     - Natural language processing for rule extraction
-     - Conversion of free text to structured typed records
-
-4. **Informedica.OTS.Lib:** Library to retrieve and send rules sets to the OTS server for storage and version control. Can also export and import rules sets as spreadsheets.
-   - Capabilities:
-     - Integration with OTS server for product and rule set storage and version control
-     - Rule set import/export to spreadsheet formats
-     - Can log import and export
-     - Can run as an agent based microservice
-
-5. **Informedica.GenUnits.Lib:** Domain library handling complex value unit combinations and calculation.
-   - Capabilities:
-     - Complex value-unit combinations and dimensional analysis
-     - Unit conversion and validation
-     - Arithmetic operations on values with units
-
-6. **Informedica.ZIndex.Lib:** Performs first parsing of products and rules from the ZIndex registry. Products can be used by GenFORM.
-   - Capabilities:
-     - Parsing of pharmaceutical products from ZIndex registry
-     - Initial rule extraction from ZIndex data
-     - Product catalog and formulary management
-
-7. **Informedica.ZForm.Lib:** Additional processing of rules to more generic constructs. These rules can be used by GenFORM to check specific dose rules.
-   - Capabilities:
-     - Advanced rule processing and normalization
-     - Conversion of ZIndex rules to generic constructs
-     - Can store and retrieve products and rules in OTS
-     - Can log extraction messages
-     - Can run as an agent microservice
-     - Can be exposed via MCP host
-
-8. **Informedica.NKF.Lib:** Library used to parse structured content from the Kinderformularium containing pediatric dosing rules.
-   - Capabilities:
-     - Parsing of pediatric dosing guidelines from Kinderformularium
-     - Structured pediatric dosing rules
-     - Can log extraction messages
-     - Can run as an agent based microservice
-
-9. **Informedica.FTK.Lib:** Library used to parse structured content from the Farmacotherapeutisch Kompas containing pediatric dosing rules.
-   - Capabilities:
-     - Parsing of adult dosing guidelines from Farmacotherapeutisch Kompas
-     - Structured adult dosing rules
-     - Can log extraction messages
-     - Can run as an agent based microservice
-
-10. **Informedica.GenFORM.Lib:** Handles all rule sets and combines those with products creating specific patient context prescription rules.
-    - Capabilities:
-      - Unified rule set management across all sources
-      - Patient-context-specific prescription rule generation
-      - Product-rule combination and validation
-      - Can store and retrieve products and rules in OTS
-      - Can log all rule retrieval messages
-      - Can run as an agent based microservice
-      - Can be accessed as a MCP service
-
-11. **Informedica.MCP.Lib:** Library enabling a MCP implementation and using LLMs.
-    - Capabilities:
-      - Model Context Protocol (MCP) framework implementation in F#
-      - LLM-powered extraction of structured typed records from free text
-      - Agent-based MCP service execution
-      - Can host ZForm, GenFORM, GenORDER
+- **Target architecture** (planned libraries, capabilities, dependencies):
+  [GenPRES Architecture and Timeline, Addendum 3](../roadmap/genpres-architecture-and-timeline.md)
+- **What is actually built today**: the Core Libraries list in
+  [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries)
 
 ### Appendix C.1. Dose Rule Model Figure
 

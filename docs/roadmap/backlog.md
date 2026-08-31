@@ -225,9 +225,10 @@ access control + audit mandatory). Storage tech choice is **open**.
 ### 7. Interface with existing EMR systems 🔲
 
 **Description.** Integration layer to exchange orders/patient context with external EMR
-systems, building on existing integration libs (`Informedica.FHIR.Lib`,
-`Informedica.HIXConnect.Lib`, `Informedica.MetaVision.Lib`,
-`Informedica.DataPlatform.Lib`).
+systems. GenPRES has no integration libraries today: the earlier `Informedica.FHIR.Lib`,
+`Informedica.HIXConnect.Lib`, `Informedica.DataPlatform.Lib` and `Informedica.OTS.Lib`
+projects were removed from the solution, so this item starts from scratch. See ADR-0020
+for the superseded FHIR design.
 
 **Rationale.** GenPRES must consume patient context from and return validated orders to the
 EMR of record to be clinically useful in situ.
@@ -236,8 +237,7 @@ EMR of record to be clinically useful in situ.
 inbound/outbound exchange). Highest-risk item — defer until data + auth foundation solid.
 
 **Affected areas.**
-- `src/Informedica.FHIR.Lib/` (MedicationRequest mapping already noted in commit
-  conventions), `Informedica.HIXConnect.Lib/`, `Informedica.MetaVision.Lib/`
+- A new integration library under `src/`; `Informedica.GenPRES.Shared` for the wire types
 - Inbound: patient demographics → Order Context; outbound: order → FHIR/EMR format
 
 **Acceptance criteria.**
@@ -285,5 +285,5 @@ in parallel with P1/P2.
   packed archive? Must round-trip losslessly through `getFromGetData`/`toData`.
 - **Identity provider (item 8).** Self-hosted vs. OIDC/hospital SSO? EMR integration (7)
   may dictate this.
-- **EMR scope (item 7).** Which EMR(s) first? Existing libs hint at HIX + MetaVision —
+- **EMR scope (item 7).** Which EMR(s) first? HIX and MetaVision are the candidates —
   confirm priority + available test environments.

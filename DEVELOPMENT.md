@@ -253,14 +253,14 @@ dotnet run
 
 ```bash
 #!/usr/bin/env bash
-# clear ./src/Informedica.GenPRES.Server/data/logs folder
-if [ -d "./src/Informedica.GenPRES.Server/data/logs" ]; then
+# clear ./data/logs folder
+if [ -d "./data/logs" ]; then
     echo "Clearing logs folder..."
-    rm -rf ./src/Informedica.GenPRES.Server/data/logs/*
+    rm -rf ./data/logs/*
     echo "Logs folder cleared."
 else
     echo "Logs folder does not exist, creating it..."
-    mkdir -p ./src/Informedica.GenPRES.Server/data/logs
+    mkdir -p ./data/logs
 fi
 
 # Load env vars from .env (GENPRES_URL_ID etc.)
@@ -278,14 +278,14 @@ dotnet run
 
 ```bash
 #!/usr/bin/env bash
-# clear ./src/Informedica.GenPRES.Server/data/logs folder
-if [ -d "./src/Informedica.GenPRES.Server/data/logs" ]; then
+# clear ./data/logs folder
+if [ -d "./data/logs" ]; then
     echo "Clearing logs folder..."
-    rm -rf ./src/Informedica.GenPRES.Server/data/logs/*
+    rm -rf ./data/logs/*
     echo "Logs folder cleared."
 else
     echo "Logs folder does not exist, creating it..."
-    mkdir -p ./src/Informedica.GenPRES.Server/data/logs
+    mkdir -p ./data/logs
 fi
 
 # Load env vars from .env (GENPRES_URL_ID etc.)
@@ -660,11 +660,10 @@ GenPRES/
 ├── scripts/                   # Utility scripts
 └── src/                       # Source code
     ├── Informedica.Agents.Lib/           # Agent-based concurrency library
-    ├── Informedica.DataPlatform.Lib/     # Data Platform integration
-    ├── Informedica.FHIR.Lib/             # FHIR resource conversion
     ├── Informedica.FTK.Lib/              # Adult formulary parsing library
     ├── Informedica.GenCORE.Lib/          # Core domain library
     ├── Informedica.GenFORM.Lib/          # Formulary management library
+    ├── Informedica.GenINTERACT.Lib/      # Drug interaction rules
     ├── Informedica.GenORDER.Lib/         # Order processing library
     ├── Informedica.GenPRES.Client/       # Frontend application
     │   ├── Components/        # UI components
@@ -679,13 +678,11 @@ GenPRES/
     ├── Informedica.GenPRES.Shared/       # Shared types and API protocol
     ├── Informedica.GenSOLVER.Lib/        # Constraint solver library
     ├── Informedica.GenUNITS.Lib/         # Units of measurement library
-    ├── Informedica.HIXConnect.Lib/       # HIX Connect integration
     ├── Informedica.Logging.Lib/          # Logging utilities
     ├── Informedica.MCP.Lib/              # Model Context Protocol for LLM integration
-    ├── Informedica.MetaVision.Lib/       # MetaVision integration
+    ├── Informedica.MCP.Server/           # Standalone stdio MCP host
     ├── Informedica.NKF.Lib/              # Pediatric formulary parsing library
     ├── Informedica.NLP.Lib/              # Natural Language Processing for rule extraction
-    ├── Informedica.OTS.Lib/              # Ontology Terminology Server integration
     ├── Informedica.Utils.Lib/            # Utility functions
     ├── Informedica.ZForm.Lib/            # Z-Index form library
     └── Informedica.ZIndex.Lib/           # Z-Index database library
@@ -768,7 +765,6 @@ Key libraries in dependency order:
 - **Informedica.Agents.Lib**: Agent-based execution (MailboxProcessor)  
 - **Informedica.Logging.Lib**: Concurrent logging  
 - **Informedica.NLP.Lib**: Natural Language Processing for structured rule extraction
-- **Informedica.OTS.Lib**: Google Sheets/CSV and Ontology Terminology Server integration
 - **Informedica.GenUNITS.Lib**: Unit-safe calculations  
 - **Informedica.GenSOLVER.Lib**: Quantitative constraint solving  
 - **Informedica.GenCORE.Lib**: Core domain model  
@@ -778,11 +774,9 @@ Key libraries in dependency order:
 - **Informedica.FTK.Lib**: Farmacotherapeutisch Kompas dose rule extraction
 - **Informedica.GenFORM.Lib**: Operational Knowledge Rules (OKRs)  
 - **Informedica.GenORDER.Lib**: Clinical order scenarios and execution  
+- **Informedica.GenINTERACT.Lib**: Drug interaction rules
 - **Informedica.MCP.Lib**: Model Context Protocol for LLM integration
-- **Informedica.FHIR.Lib**: FHIR resource conversion
-- **Informedica.DataPlatform.Lib**: Data Platform integration
-- **Informedica.HIXConnect.Lib**: HIX Connect integration
-- **Informedica.MetaVision.Lib**: MetaVision integration
+- **Informedica.MCP.Server**: Standalone stdio MCP host
 - **Informedica.GenPRES.Shared**: Shared types and API protocol
 - **Informedica.GenPRES.Server**: Server API and orchestration
 - **Informedica.GenPRES.Client**: Web-based clinical UI

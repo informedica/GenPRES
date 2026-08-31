@@ -1,7 +1,7 @@
 # RationalX performance investigation — summary
 
 **Branch:** `perf/rational-x` (isolated git worktree)
-**Status:** experiment / proposal — all changes are `.fs` source written under an explicit waiver of the script-only policy; the human contributor remains gatekeeper for any merge to `master`.
+**Status:** merged. This document is the point-in-time investigation write-up; the work it proposes has since landed on `master` — `BCL/RationalX.fs` is compiled into `Informedica.Utils.Lib` and `BigRational` is an alias for `RationalX`. All changes were `.fs` source written under an explicit waiver of the script-only policy, with the human contributor as gatekeeper for the merge.
 **Test status:** full suite green throughout — **5526 passed, 0 failed, 2 skipped**.
 
 ---

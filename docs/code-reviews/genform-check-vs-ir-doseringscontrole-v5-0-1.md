@@ -7,7 +7,8 @@
 **Status:** Implemented — all 9 findings migrated to source on branch
 `feat/genform-check-ir-doseringscontrole` (Check.fs, ZForm Types.fs/DoseRule.fs/
 GStand.fs, ServerApi.Services.fs) with 11 GenFORM + 3 ZForm unit tests. The
-original prototypes remain in `src/Informedica.GenFORM.Lib/Scripts/CheckReview.fsx`.
+original prototypes lived in `src/Informedica.GenFORM.Lib/Scripts/CheckReview.fsx`, which has
+since been removed — the migrated source is the record.
 
 ## 1. Purpose & framing
 
@@ -148,9 +149,9 @@ and 9 merge to a buggy `Abs.Max` of 3 (the norm max) instead of 9. Should be
 
 ## 6. Remediation
 
-Prototypes live in `src/Informedica.GenFORM.Lib/Scripts/CheckReview.fsx`
-(drop-in helper functions, each annotated with the `Check.fs` location it
-replaces). All changes are script-only per `AGENTS.md`; the maintainer migrates
+Prototypes lived in `src/Informedica.GenFORM.Lib/Scripts/CheckReview.fsx` (drop-in helper
+functions, each annotated with the `Check.fs` location it replaces); that script has since
+been removed, the findings having been migrated into `Check.fs`. All changes are script-only per `AGENTS.md`; the maintainer migrates
 verified code into `Check.fs`. Validated in FSI on 2026-06-08 against the live
 provider (7866 dose rules; aciclovir IV baseline = 6 rules, 9 didNotPass,
 6 didPass — unchanged).

@@ -10,8 +10,8 @@ These user requirements define what healthcare professionals, administrators, an
 
 - **UR-001**: The system shall be accessible through a modern web browser without requiring additional software installation.
 - **UR-002**: The user interface shall be intuitive, responsive, and optimized for various screen sizes including tablets and mobile devices.
-- **UR-003**: The system shall operate without requiring persistent sessions, allowing stateless usage.
-- **UR-004**: The system shall integrate into any EPD by accepting URL parameters (e.g., patient ID, session token).
+- **UR-003**: The system shall hold no server state beyond the short-lived session that a launch establishes, so that instances remain independent and horizontally scalable.
+- **UR-004**: The system shall integrate into any EPD through a single-use launch token. The launch URL carries that token and nothing else; patient and user identifiers shall never appear in it.
 
 ## 3. Clinical Use Requirements
 
@@ -49,6 +49,12 @@ These user requirements define what healthcare professionals, administrators, an
 
 ---
 
-**Version**: 1.0  
-**Date**: May 2025  
+**Version**: 1.1  
+**Date**: 2026-08-28  
+
+> **Change from v1.0 (May 2025)**: UR-003 and UR-004 restated. The original wording required
+> stateless usage with patient context carried in URL parameters; `software-requirements.md`
+> v1.2 (August 2026) replaced that with a single-use launch-token handoff and a short-lived
+> server-held session. These requirements now follow it.
+
 **Author**: Clinical Product Owner, GenPRES Project

@@ -43,7 +43,7 @@ Aanvullende achtergrondinformatie is beschikbaar op <https://medicatieveiligensn
 In een klinische omgeving wordt GenPRES doorgaans gestart vanuit een Elektronisch Patiënten Dossier (EPD) waarbij patiëntparameters vooraf zijn ingevuld in de URL, bijvoorbeeld:
 
 ```
-https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=730&wt=12000
+https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=730&wt=12000&ht=87
 ```
 
 De URL gebruikt hash-based routing (`/#patient?...`). Ondersteunde queryparameters:
@@ -83,6 +83,38 @@ De URL gebruikt hash-based routing (`/#patient?...`). Ondersteunde queryparamete
 | `la` | Taal | `en`, `du`, `fr`, `gr`, `sp`, `it` |
 | `dc` | Disclaimer | `n` = verbergen |
 
+Voorbeeldpatiënten via queryparameters:
+
+> **Sommige van deze links zetten geen `ht` (lengte), en enkele zetten `wt` noch `ht`.** GenPRES
+> berekent pas een dosis wanneer zowel gewicht als lengte bekend zijn; het openen van zo'n link
+> geeft dus een gevuld patiëntpaneel zonder berekening — vul de ontbrekende maat aan om verder te
+> gaan. Links die al `wt` en `ht` bevatten, komen direct op een dosis uit.
+
+| Leeftijd (jaren) | Leeftijd (dagen) | ZD (weken) | Gewicht (kg) | Lengte (cm) | Medicatie | Toedieningsweg | Indicatie | Link |
+|---|---|---|---|---|---|---|---|---|
+| 1 | | | 10 | | paracetamol | oraal | Milde tot matige pijn; koorts | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=paracetamol&rt=oraal&in=Milde%20tot%20matige%20pijn%3B%20koorts) |
+| | 2 | 35 | 1.2 | 45 | paracetamol | oraal | Pijn, acuut/post-operatief | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=paracetamol&rt=oraal&in=Pijn%2C%20acuut%2Fpost-operatief) |
+| 1 | | | 10 | | gentamicine | intraveneus | Ernstige infectie, gram negatieve microorganismen | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=gentamicine&rt=intraveneus&in=Ernstige%20infectie%2C%20gram%20negatieve%20microorganismen) |
+| | 2 | 35 | 1.2 | 45 | gentamicine | intraveneus | Ernstige infectie, gram negatieve microorganismen | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=gentamicine&rt=intraveneus&in=Ernstige%20infectie%2C%20gram%20negatieve%20microorganismen) |
+| 1 | | | 10 | | adrenaline | intraveneus | Circulatoire insufficientie | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=adrenaline&rt=intraveneus&in=Circulatoire%20insufficientie) |
+| | 2 | 35 | 1.2 | 45 | adrenaline | intraveneus | Circulatoire insufficientie | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=adrenaline&rt=intraveneus&in=Circulatoire%20insufficientie) |
+| 1 | | | 10 | | trimethoprim/sulfametrol | intraveneus | Bacteriele infecties | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=trimethoprim%2Fsulfametrol&rt=intraveneus&in=Bacteriele%20infecties) |
+| 1 | | | 10 | | trimethoprim/sulfametrol | intraveneus | Behandeling Pneumocystis Jiroveci Pneumonie (PCP) | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=trimethoprim%2Fsulfametrol&rt=intraveneus&in=Behandeling%20Pneumocystis%20Jiroveci%20Pneumonie%20%28PCP%29) |
+| 16 | | | 60 | | trimethoprim/sulfamethoxazol | intraveneus | Behandeling Pneumocystis Jiroveci Pneumonie | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=5856&wt=60000&md=trimethoprim%2Fsulfamethoxazol&rt=intraveneus&in=Behandeling%20Pneumocystis%20Jiroveci%20Pneumonie) |
+| | 2 | 35 | 1.2 | 45 | coffeine 0-water | intraveneus | Neonatale apneu | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=coffeine%200-water&rt=intraveneus&in=Neonatale%20apneu) |
+| | 2 | 35 | 1.2 | 45 | coffeine citraat | intraveneus | Neonatale apneu | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=coffeine%20citraat&rt=intraveneus&in=Neonatale%20apneu) |
+| 1 | | | 10 | | tramadol | oraal | Pijn | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=tramadol&rt=oraal&in=Pijn) |
+| | 21 | | 3.8 | 50 | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=21&wt=3800&ht=50&md=benzylpenicilline&rt=intraveneus&in=Infecties%2C%20sepsis) |
+| 1 | | | 10 | | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=366&wt=10000&md=benzylpenicilline&rt=intraveneus&in=Infecties%2C%20sepsis) |
+| | 2 | 35 | 1.2 | 45 | benzylpenicilline | intraveneus | Infecties, sepsis | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=2&gw=35&wt=1200&ht=45&md=benzylpenicilline&rt=intraveneus&in=Infecties%2C%20sepsis) |
+| 5 | | | 20 | 100 | midazolam | intraveneus | Status epilepticus | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=1830&wt=20000&ht=100&md=midazolam&rt=intraveneus&in=Status%20epilepticus) |
+| | | | | | aciclovir | intraveneus | | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=0&md=aciclovir&rt=intraveneus&in=) |
+| | 3 | 29 | 1.05 | 45 | amoxicilline | intraveneus | (Ernstige) waarschijnlijke bacteriële infecties bij pasgeborenen | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=3&gw=29&wt=1050&ht=45&md=amoxicilline&rt=intraveneus&in=%28Ernstige%29%20waarschijnlijke%20bacteri%C3%ABle%20infecties%20bij%20pasgeborenen) |
+| 13 | | | | | rituximab | intraveneus | Granulomatose met polyangiitis (GPA/ziekte van Wegener), microscopische polyangiitis (MPA) | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=4758&md=rituximab&rt=intraveneus&in=Granulomatose%20met%20polyangiitis%20%28GPA%2Fziekte%20van%20Wegener%29%2C%20microscopische%20polyangiitis%20%28MPA%29) |
+| 5 | | | 20 | 109 | ceftazidim/avibactam | intraveneus | Gecompliceerde intra-abdominale of urineweg infecties, nosocomiale pneumonie, andere ernstige infecties door gevoelige verwekkers wanneer andere behandelopties beperkt zijn. | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=1830&wt=20000&ht=109&md=ceftazidim%2Favibactam&rt=intraveneus&in=Gecompliceerde%20intra-abdominale%20of%20urineweg%20infecties%2C%20nosocomiale%20pneumonie%2C%20andere%20ernstige%20infecties%20door%20gevoelige%20verwekkers%20wanneer%20andere%20behandelopties%20beperkt%20zijn.) |
+| | 30 | | 2.77 | | piperacilline/tazobactam | intraveneus | | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=30&wt=2770&md=piperacilline%2Ftazobactam&rt=intraveneus&in=) |
+| 10 | | | | | dantroleen | oraal | | [GenPRES](https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=3660&md=dantroleen&rt=oraal) |
+
 ### Zonder patiëntgegevens (demo / testen)
 
 De applicatie kan worden gebruikt **zonder patiëntgegevens** in de querystring. Open de applicatie direct via:
@@ -109,15 +141,11 @@ Na het openen van de applicatie ziet u het hoofdscherm met de volgende functione
 
 Toont de patiëntparameters (leeftijd, gewicht, geslacht, lengte). Als deze niet via de URL zijn meegegeven, kunt u ze hier handmatig invullen.
 
-### Medicatiezoekbalk (hoofdgebied)
+### Medicatiekeuze (hoofdgebied)
 
-Gebruik het zoekveld om medicatie te zoeken op:
-- Generieke naam (bijv. *paracetamol*, *morfine*)
-- ATC-code
-
-### Medicatielijst
-
-Selecteer een medicatie uit de zoekresultaten om het doseerpaneel te openen.
+Bak de medicatie af met de keuzelijsten — indicatie, generiek, toedieningsweg, farmaceutische
+vorm en doseertype. Elke lijst toont alleen waarden die nog geldig zijn bij wat u al gekozen
+hebt, zodat een combinatie zonder bijbehorende doseerregel niet te selecteren is.
 
 ### Doseerpaneel
 
@@ -135,23 +163,20 @@ Toont de berekende doseringsrange op basis van de patiëntparameters en het gese
 
 ### Stapsgewijze werkwijze
 
-1. **Voer patiëntgegevens in** (leeftijd, gewicht, geslacht) in het patiëntpaneel.
-2. **Zoek een medicatie** door de generieke naam of ATC-code in het zoekveld te typen.
-3. **Selecteer de medicatie** uit de lijst met resultaten.
-4. **Bekijk de doseringsrange** in het doseerpaneel. Het systeem markeert waarden die buiten de veilige grenzen vallen.
-5. **Pas dosis of frequentie aan** indien klinisch geïndiceerd. Het systeem waarschuwt u als de ingevoerde waarde de maximale of minimale grens overschrijdt.
-6. **Selecteer de toedieningsweg** (oraal, IV, rectaal, etc.).
-7. **Bevestig het voorschrift** en draag de gegevens over naar het EPD of druk af/exporteer indien nodig.
+1. **Voer patiëntgegevens in** in het patiëntpaneel. Zowel **gewicht als lengte** zijn nodig
+   voordat doses worden berekend — ontbreekt er één, dan blijft het paneel open en verschijnt
+   er geen dosis.
+2. **Kies de indicatie en het generiek** uit de keuzelijsten.
+3. **Kies toedieningsweg, vorm en doseertype.** Alleen combinaties waarvoor een doseerregel
+   bestaat, worden aangeboden.
+4. **Bekijk de resulterende scenario's.** Elk scenario is een volledige, geldige manier om de
+   medicatie voor te schrijven; de getoonde waarden voldoen al aan elke van toepassing zijnde regel.
+5. **Pas dosis of frequentie aan** met de stapknoppen. Die springen tussen toegestane waarden in
+   plaats van vrije tekst te accepteren, zodat een dosis buiten de range niet in te voeren is.
+6. **Druk** het voorschrift af als een papieren vastlegging nodig is.
 
-### Veiligheidsmeldingen
-
-GenPRES toont kleurgecodeerde meldingen:
-
-| Kleur | Betekenis |
-|-------|-----------|
-| 🟢 Groen | Waarde binnen veilige range |
-| 🟡 Geel | Waarde aan de grens van de veilige range – wees voorzichtig |
-| 🔴 Rood | Waarde buiten veilige range – beoordeel voor verdergaan |
+> GenPRES voorkomt onveilige waarden in plaats van ze achteraf te signaleren: een optie die een
+> regel schendt, wordt niet aangeboden. Er is dus geen aparte waarschuwingsstatus om te lezen.
 
 ---
 
@@ -200,13 +225,14 @@ U kunt een volledige end-to-end workflow uitvoeren zonder echte patiëntgegevens
 3. Voer op het hoofdscherm **handmatig testpatiëntgegevens in**:
    - Leeftijd: bijv. `2` jaar
    - Gewicht: bijv. `12` kg
+   - Lengte: bijv. `87` cm (verplicht — zonder lengte wordt geen dosis berekend)
    - Geslacht: `Man`
 
-4. Zoek een medicatie, bijv. `paracetamol`.
+4. Selecteer een medicatie, bijv. `paracetamol`.
 
 5. Bekijk de berekende doseringsinformatie.
 
-6. Pas desgewenst dosiswaarden aan en observeer de veiligheidsmeldingen.
+6. Stap desgewenst de dosis omhoog of omlaag en zie hoe de overige waarden meebewegen.
 
 ### Democache
 
@@ -244,27 +270,25 @@ GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige ber
 
 ### Scenario 1: Oraal paracetamol voor een peuter
 
-1. Voer in: leeftijd `2` jaar, gewicht `12` kg, geslacht `Man`.
-2. Zoek: `paracetamol`.
-3. Selecteer **Paracetamol – oraal**.
-4. Bekijk de aanbevolen doseringsrange (doorgaans 10–15 mg/kg, 4–6 keer per dag).
-5. Bevestig dat de maximale dagdosis niet wordt overschreden.
+1. Voer in: leeftijd `2` jaar, gewicht `12` kg, lengte `87` cm, geslacht `Man`.
+2. Selecteer het generiek `paracetamol` en een orale toedieningsweg.
+3. Bekijk de aanbevolen doseringsrange (doorgaans 10–15 mg/kg, 4–6 keer per dag).
+4. Bevestig dat de maximale dagdosis niet wordt overschreden.
 
 ### Scenario 2: IV morfine-infuus voor een kind
 
-1. Voer in: leeftijd `5` jaar, gewicht `20` kg, geslacht `Vrouw`.
-2. Zoek: `morfine`.
-3. Selecteer **Morfine – IV continu infuus**.
-4. Bekijk de startdosis (bijv. 10–40 µg/kg/h) en de berekende pompsnelheid.
-5. Pas de dosis aan; bevestig dat de snelheid bijwerkt.
+1. Voer in: leeftijd `5` jaar, gewicht `20` kg, lengte `110` cm, geslacht `Vrouw`.
+2. Selecteer het generiek `morfine`, een intraveneuze toedieningsweg en het doseertype continu.
+3. Bekijk de startdosis (bijv. 10–40 µg/kg/h) en de berekende pompsnelheid.
+4. Stap de dosis aan; bevestig dat de snelheid bijwerkt.
 
-### Scenario 3: TPN-berekening
+### Scenario 3: Parenterale voeding
 
-1. Voer patiëntparameters in (gewicht, leeftijd).
-2. Navigeer naar **TPN** in het hoofdmenu.
-3. Bekijk de automatisch gegenereerde macro- en micronutriëntenformule.
+1. Voer de patiëntparameters in, inclusief gewicht en lengte.
+2. Open de **Voeding**-weergave.
+3. Bekijk de berekende macronutriënttotalen tegen de inname-doelen.
 4. Pas afzonderlijke componenten aan indien klinisch geïndiceerd.
-5. Exporteer of druk de TPN-opdracht af voor de apotheek.
+5. Druk de opdracht af voor de apotheek.
 
 ---
 
