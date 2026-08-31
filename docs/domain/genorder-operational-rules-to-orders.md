@@ -255,96 +255,16 @@ This GenORDER document is part of the GenPRES domain documentation. For the comp
 
 ### Addendum B.3. GenORDER Libraries {#addendum-b.3.-genorder-libraries}
 
-Classification:
+This appendix used to restate the library list with per-library capabilities and dependencies.
+The same list also appeared in the GenFORM document and in
+[`genpres-architecture-and-timeline.md`](../roadmap/genpres-architecture-and-timeline.md), and the
+three copies drifted apart — between them they described four libraries that no longer exist and
+omitted two that do. There is now one copy:
 
-* **Utility Library**  
-* **Domain Library**  
-* **Application**
-
-Libraries:  
-List of libraries and applications along with capabilities.
-
-1. **Informedica.Agents.Lib:** Library using the FSharp MailboxProcessor to create message based agents.
-   * Capabilities:
-     * Message-based agent abstraction using F# MailboxProcessor  
-     * Asynchronous, concurrent API execution model  
-     * Specific low level agent implementations  
-
-2. **Informedica.Logging.Lib:** Library with advanced printing capabilities to enable human readable logging for analysis.
-   * Capabilities:  
-     * Human-readable logging and structured output for analysis  
-     * Advanced printing and formatting capabilities  
-     * Agent-based logging service  
-
-3. **Informedica.GenSOLVER.Lib:** Domain library for the calculation engine. Can solve product and sum equations using value unit combinations as ranges.
-   * Capabilities:  
-     * Constraint-solving calculation engine  
-     * Product and sum equation solving with value-unit ranges  
-     * Variable propagation and constraint satisfaction  
-     * Can log all messages and calculation steps  
-     * Can run as an agent microservice
-
-4. **Informedica.GenFORM.Lib:** Handles all rule sets and combines those with products creating specific patient context prescription rules.
-   * Capabilities:  
-     * Unified rule set management across all sources  
-     * Patient-context-specific prescription rule generation  
-     * Product-rule combination and validation  
-     * Can store and retrieve products and rules in OTS  
-     * Can log all rule retrieval messages  
-     * Can run as an agent based microservice  
-     * Can be accessed as a MCP service
-
-5. **Informedica.GenORDER.Lib:** Domain library providing a structured representation of orders (medication/nutrition) and turning orders into equations for calculation by GenSOLVER.
-   * Capabilities:  
-     * Structured medication and nutrition order representation  
-     * Conversion of orders to equations for GenSOLVER  
-     * Order validation and constraint generation  
-     * Can log all order processing messages  
-     * Can run as an agent based microservice  
-     * Can be exposed via MCP host
-
-6. **Informedica.MCP.Lib:** Library enabling a MCP implementation and using LLMs.
-   * Capabilities:  
-     * Model Context Protocol (MCP) framework implementation in F#  
-     * LLM-powered extraction of structured typed records from free text  
-     * Agent-based MCP service execution  
-     * Can host GenFORM, GenORDER
-
-7. **Informedica.FHIR.Lib:** Library to convert orders to FHIR format for integration.  
-   * Capabilities:  
-     * FHIR resource serialization and deserialization  
-     * Order-to-FHIR conversion for interoperability  
-     * FHIR validation and compliance  
-     * Can log all FHIR conversion messages  
-     * Can run as an agent based microservice
-
-8. **Informedica.DataPlatform.Lib:** Library to send and retrieve patient order sets to and from the Data Platform.  
-   * Capabilities:  
-     * Data Platform integration for patient order persistence  
-     * Order set storage, retrieval, and synchronization  
-     * Can log all storage retrieval messages  
-     * Can run as an agent based microservice
-
-9. **Informedica.HIXConnect.Lib:** Library to send and retrieve patient order sets to and from EHR, along with session and authentication/authorization.
-   * Capabilities:  
-     * EHR (HIX) integration for order management  
-     * Session management and authentication/authorization  
-     * Bi-directional order synchronization with EHR systems  
-     * Can log all storage retrieval messages  
-     * Can run as an agent based microservice
-
-10. **Informedica.GenPRES.Server:** Service application that handles all messaging to and from GenPRES.
-    * Capabilities:  
-      * Backend service for GenPRES messaging and orchestration  
-      * API endpoints for client applications  
-      * Integration hub for EHR, Data Platform, and business logic  
-      * Can use MCP hosted services
-
-11. **Informedica.GenPRES.Client:** Client application that handles the desktop and mobile views for GenPRES.
-    * Capabilities:  
-      * Desktop and mobile user interface for prescription management  
-      * User interaction layer for GenPRES functionality  
-      * Client-side workflow orchestration
+* **Target architecture** (planned libraries, capabilities, dependencies):
+  [GenPRES Architecture and Timeline, Addendum 3](../roadmap/genpres-architecture-and-timeline.md)
+* **What is actually built today**: the Core Libraries list in
+  [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries)
 
 ### Appendix C.1. Order Model Figure {#appendix-c.1.-order-model-figure}
 
