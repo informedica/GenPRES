@@ -4,6 +4,13 @@
 **Requirements Specification (Draft v1.0 — 23 Sep 2025)**
 > Author: Clinical Pharmacist (adult & pediatric oncology)
 > Scope: End‑to‑end, closed‑loop chemotherapy prescribing, verification, sterile compounding, and administration across inpatient, day‑hospital and ambulatory oncology. EU‑centric (Netherlands) compliance with global best practices.
+>
+> **Status: aspirational, out of scope for the current product.** This document describes a
+> closed-loop chemotherapy system — gravimetric compounding checks, barcode scanning, smart-pump
+> programming, GS1 supply-chain traceability — none of which GenPRES implements or currently
+> plans to. It is not traced from `user-requirements.md` or `software-requirements.md`, and no
+> `UC-GENPRES-00x` scenario covers it. It is retained as a domain reference for a possible future
+> direction; read it as such, not as a requirement on the system being built.
 
 ---
 

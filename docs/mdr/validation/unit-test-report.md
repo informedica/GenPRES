@@ -104,11 +104,7 @@ Source: ~740 lines of test code
 | `Informedica.Agents.Tests` | `MailboxProcessor` agent lifecycle tests |
 | `Informedica.Logging.Tests` | Concurrent logging utilities |
 | `Informedica.MCP.Tests` | MCP stdio server tool registration and dispatch |
-| `Informedica.FHIR.Tests` | FHIR R4 `MedicationRequest` translation tests (ADR-0020) |
 | `Informedica.NLP.Tests` | NLP pipeline unit tests (LLM-independent portions) |
-| `Informedica.OTS.Tests` | Google Sheets / OTS data access |
-| `Informedica.HIXConnect.Tests` | HIX Connect integration |
-| `Informedica.DataPlatform.Tests` | Data platform integration |
 
 ## 5. Known Limitations
 

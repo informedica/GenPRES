@@ -167,7 +167,7 @@ weakens the transitive G-Standaard compliance guarantee for prescriptions
 generated from that rule (see § 1). Ordered by impact on that guarantee. Per
 repository policy, any remediation must be
 prototyped in `.fsx` scripts first (e.g.
-`src/Informedica.GenFORM.Lib/Scripts/CheckReview.fsx`) and migrated by the
+`src/Informedica.GenFORM.Lib/Scripts/CheckReview.fsx`, since removed) and migrated by the
 maintainer; no code is changed by this analysis.
 
 ### G-1 — Zorggroep not selected (IR 3.1 / 4.4.1) — Partial, safety-relevant

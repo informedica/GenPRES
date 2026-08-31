@@ -5,13 +5,13 @@ an `Order` in `Informedica.GenORDER.Lib`.
 
 The FSM models the **solver lifecycle** of an order, as implemented in
 `src/Informedica.GenORDER.Lib/OrderProcessor.fs`. States correspond to the flags
-in the `OrderState` record (`OrderProcessor.fs:408`); transitions correspond to
-the commands processed by `processPipeline` (`OrderProcessor.fs:468`).
+in the `OrderState` record (`OrderProcessor.fs`); transitions correspond to
+the commands processed by `processPipeline` (`OrderProcessor.fs`).
 
 > **Note:** The `Schedule` discriminated union
-> (`Once | OnceTimed | Continuous | Discontinuous | Timed`, `Types.fs:230`) is
+> (`Once | OnceTimed | Continuous | Discontinuous | Timed`, `Types.fs`) is
 > **orthogonal** to this FSM. It is a type tag that selects which equation set the
-> solver uses (`Order.solve`, `Order.fs:3377`), not a lifecycle state.
+> solver uses (`Order.solve`, `Order.fs`), not a lifecycle state.
 
 ## State Diagram
 
@@ -42,7 +42,7 @@ stateDiagram-v2
 
 ## States
 
-States map to the `OrderState` flags (`OrderProcessor.fs:408`):
+States map to the `OrderState` flags (`OrderProcessor.fs`):
 
 | State | Flag |
 |-------|------|
@@ -57,7 +57,7 @@ States map to the `OrderState` flags (`OrderProcessor.fs:408`):
 ## Transitions
 
 Transitions are the pipeline commands handled by `processPipeline`
-(`OrderProcessor.fs:468`):
+(`OrderProcessor.fs`):
 
 - `CalcMinMax` — apply-constraints → calc-minmax → increase-increments → set-calculated-constraints → (optional) ensure-dose-values → set-normdose
 - `IncreaseIncrements` — increase-increment
@@ -68,7 +68,7 @@ Transitions are the pipeline commands handled by `processPipeline`
 
 ## Cleared Sub-States
 
-The `Cleared` state is refined by the active pattern at `OrderProcessor.fs:26`:
+The `Cleared` state is refined by an active pattern in `OrderProcessor.fs`:
 
 ```
 FrequencyCleared | RateCleared | TimeCleared
@@ -78,17 +78,17 @@ FrequencyCleared | RateCleared | TimeCleared
 Each cleared variable is handled by a dedicated processor that resets dependent
 variables before re-solving:
 
-- `processClearedFrequency` (`OrderProcessor.fs:216`)
-- `processClearedDose` (`OrderProcessor.fs:243`)
-- `processClearedRate` (`OrderProcessor.fs:274`)
-- `processClearedOrder` (`OrderProcessor.fs:303`) — dispatcher with schedule-specific logic
+- `processClearedFrequency` (`OrderProcessor.fs`)
+- `processClearedDose` (`OrderProcessor.fs`)
+- `processClearedRate` (`OrderProcessor.fs`)
+- `processClearedOrder` (`OrderProcessor.fs`) — dispatcher with schedule-specific logic
 
 ## Source References
 
-- `Order` type — `src/Informedica.GenORDER.Lib/Types.fs:211`
-- `Schedule` DU — `src/Informedica.GenORDER.Lib/Types.fs:230`
-- `OrderState` record — `src/Informedica.GenORDER.Lib/OrderProcessor.fs:408`
-- `PrescriptionKind` DU — `src/Informedica.GenORDER.Lib/OrderProcessor.fs:389`
-- `classify` — `src/Informedica.GenORDER.Lib/OrderProcessor.fs:421`
-- `processPipeline` — `src/Informedica.GenORDER.Lib/OrderProcessor.fs:468`
-- `solve` — `src/Informedica.GenORDER.Lib/Order.fs:3377`
+- `Order` type — `src/Informedica.GenORDER.Lib/Types.fs`
+- `Schedule` DU — `src/Informedica.GenORDER.Lib/Types.fs`
+- `OrderState` record — `src/Informedica.GenORDER.Lib/OrderProcessor.fs`
+- `PrescriptionKind` DU — `src/Informedica.GenORDER.Lib/OrderProcessor.fs`
+- `classify` — `src/Informedica.GenORDER.Lib/OrderProcessor.fs`
+- `processPipeline` — `src/Informedica.GenORDER.Lib/OrderProcessor.fs`
+- `solve` — `src/Informedica.GenORDER.Lib/Order.fs`

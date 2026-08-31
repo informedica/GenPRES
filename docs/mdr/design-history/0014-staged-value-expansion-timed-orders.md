@@ -55,7 +55,7 @@ Before this ADR, one safeguard already existed:
 
 | Safeguard | Location | Threshold | Limitation |
 |---|---|---|---|
-| `ValueSet.create` hard limit | Variable.fs:970 | `> MAX_CALC_COUNT²` (250,000) → raise `ValueSetOverflow` | Fires **after** the cartesian product is computed; raises an error that terminates the solve |
+| `ValueSet.create` hard limit | `Variable.fs` | `> MAX_CALC_COUNT²` (250,000) → raise `ValueSetOverflow` | Fires **after** the cartesian product is computed; raises an error that terminates the solve |
 
 The `ValueSet.create` limit is a last-resort error, not a graceful fallback. When it fires, the entire solve fails and the order cannot be calculated.
 
@@ -66,8 +66,8 @@ This ADR introduces three new defenses (in addition to the existing hard limit):
 | Safeguard | Location | Threshold | Behavior |
 |---|---|---|---|
 | Staged value expansion | `Order.fs`, `OrderProcessor.fs` | N/A (structural) | Expands dose qty before rate for timed orders |
-| `ValueRange.calc` cartesian product cap | Variable.fs:2900-2908 | `c1 * c2 > MAX_CALC_COUNT` (500) | Falls back to min/max bounds |
-| `Increment.calcOpt` cap | Variable.fs:220-224 | `c1 * c2 > 10` → return `None` | Prevents increment explosion |
+| `ValueRange.calc` cartesian product cap | `Variable.fs` | `c1 * c2 > MAX_CALC_COUNT` (500) | Falls back to min/max bounds |
+| `Increment.calcOpt` cap | `Variable.fs` | `c1 * c2 > 10` → return `None` | Prevents increment explosion |
 
 ---
 
@@ -182,72 +182,6 @@ Same treatment as CalcValues — two-phase expansion for timed orders.
 - **CanSetNormDose guard interaction**: With `skipRate = true`, the Rate variable will not have discrete values, so `CanSetNormDose` returns `false`. This causes the `ensure-dose-values-1` guard (`_.CanSetNormDose >> not`) to trigger correctly. If this guard logic changes in the future, the staged expansion behavior must be re-validated
 - **Continuous orders must NOT use skipRate**: The condition `Schedule.isContinuous |> not` is critical because for Continuous orders, rate IS the primary dose variable. If this condition were accidentally removed, Continuous orders would fail
 
-### Verification
-
-#### Prototype Script
-
-The approach was validated in a prototype script (`src/Informedica.GenORDER.Lib/Scripts/StagedExpansion.fsx`) using module shadowing — not by modifying source files. The following test cases were run against the shadowed implementation:
-
-| Test | Scenario | Result |
-|---|---|---|
-| 1 | Kaliumchloride OnceTimed CalcMinMax | No overflow. Pre-existing `set-normdose` error (unrelated). |
-| 2 | Paracetamol OnceTimed CalcMinMax | Succeeded (regression check). |
-| 3 | Paracetamol Once CalcMinMax | Succeeded (non-timed order unaffected). |
-| 4 | Kaliumchloride CalcMinMax + CalcValues | CalcValues succeeded after CalcMinMax. Rate resolved to reasonable values. |
-
-All existing server tests continue to pass after migration to source files.
-
-#### Key Observations from Test Results
-
-After staged expansion, the kaliumchloride order shows:
-
-- Orderable dose qty: 31.5 mL (median, single value)
-- Orderable dose rate: 20 mL/uur..5 mL/uur..30 mL/uur (3 values, manageable)
-- Component dose qty: 14.5; 15; 15.5; 16; 16.5; 17 mL (6 values)
-- Substance dose qty adj: 0.47; 0.48; 0.5; 0.52; 0.53; 0.55 mmol/kg (within 0.45-0.55 mmol/kg constraint)
-
-### Implementation
-
-#### Files to Modify
-
-| File | Change |
-|---|---|
-| `Order.fs` | Add `skipRate: bool` parameter to `minIncrMaxToValues`. When true, omit dose rate from variable expansion list. |
-| `OrderProcessor.fs` | Thread `skipRate` through `calcValuesStep` and `reCalcValuesStep`. Split CalcValues and ReCalcValues into two-phase steps for timed orders. |
-
-#### Function Signature Change
-
-```fsharp
-// Before
-let minIncrMaxToValues useMaxNumberOfValues minTime logger ord =
-
-// After
-let minIncrMaxToValues useMaxNumberOfValues minTime (skipRate: bool) logger ord =
-```
-
-#### Variable List Change
-
-```fsharp
-// Before
-let ovars =
-    [
-        yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
-        ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
-        ord.Orderable.Dose.Rate |> Rate.toOrdVar
-    ]
-
-// After
-let ovars =
-    [
-        yield! ord.Orderable.Components |> List.map (_.OrderableQuantity >> Quantity.toOrdVar)
-        ord.Orderable.Dose.Quantity |> Quantity.toOrdVar
-        if not skipRate then
-            ord.Orderable.Dose.Rate |> Rate.toOrdVar
-    ]
-```
-
----
-
 ## Part 2: ValueRange Cartesian Product Cap (GenSOLVER)
 
 ### Context
@@ -284,9 +218,9 @@ The value accumulation happens through multiple propagation rounds:
 
 #### Where the Existing Cap Falls Short
 
-The existing `Increment.calcOpt` cap (Variable.fs:220-224) prevents increment explosion with a threshold of `c1 * c2 > 10`. However, this only applies to **increment** calculations, not to `ValSet × ValSet` multiplications.
+The existing `Increment.calcOpt` cap (`Variable.fs`) prevents increment explosion with a threshold of `c1 * c2 > 10`. However, this only applies to **increment** calculations, not to `ValSet × ValSet` multiplications.
 
-The `ValueSet.create` hard limit (Variable.fs:970) catches values exceeding `MAX_CALC_COUNT²` (250,000), but it fires **after** the full cartesian product has been computed by `BigRational.calcCartesian`. At that point:
+The `ValueSet.create` hard limit (`Variable.fs`) catches values exceeding `MAX_CALC_COUNT²` (250,000), but it fires **after** the full cartesian product has been computed by `BigRational.calcCartesian`. At that point:
 
 - The expensive `n × m` array allocation and computation has already happened
 - The error raises an exception that terminates the entire solve
@@ -296,64 +230,14 @@ The `ValueSet.create` hard limit (Variable.fs:970) catches values exceeding `MAX
 
 #### Add Pre-Check to ValueRange.calc
 
-Add a size guard in `ValueRange.calc` (Variable.fs:2900-2902) that checks the combined size of two `ValSet` operands **before** computing the cartesian product. When `c1 * c2` exceeds `MAX_CALC_COUNT` (500), fall back to computing only min/max bounds instead of the full cartesian product.
+Add a size guard in `ValueRange.calc` that checks the combined size of two `ValSet` operands
+**before** computing the cartesian product. When `c1 * c2` exceeds `MAX_CALC_COUNT` (500), fall
+back to computing only min/max bounds instead of the full cartesian product — the same fallback
+the function already takes under `onlyMinIncrMax`.
 
-**Before** (Variable.fs:2900-2902):
-
-```fsharp
-| ValSet s1, ValSet s2 ->
-    if not onlyMinIncrMax || s1 |> ValueSet.count = 1 && s2 |> ValueSet.count = 1 then
-        ValueSet.calc op s1 s2 |> ValSet
-    else
-        let min1, max1 = vr1 |> getMin, vr1 |> getMax
-        let min2, max2 = vr2 |> getMin, vr2 |> getMax
-        let min, max = calcMinMax min1 max1 min2 max2
-        match min, max with
-        | None, None -> unrestricted
-        | _ -> create min None max None
-```
-
-**After**:
-
-```fsharp
-| ValSet s1, ValSet s2 ->
-    let c1 = s1 |> ValueSet.count
-    let c2 = s2 |> ValueSet.count
-
-    if (not onlyMinIncrMax
-        && (c1 = 1
-            || c2 = 1
-            || c1 <= Constants.MAX_CALC_COUNT / (max c2 1)))
-       || (onlyMinIncrMax && c1 = 1 && c2 = 1) then
-        ValueSet.calc op s1 s2 |> ValSet
-    else
-        let min1, max1 = vr1 |> getMin, vr1 |> getMax
-        let min2, max2 = vr2 |> getMin, vr2 |> getMax
-        let min, max = calcMinMax min1 max1 min2 max2
-        match min, max with
-        | None, None -> unrestricted
-        | _ -> create min None max None
-```
-
-Note: The guard uses `c1 <= MAX_CALC_COUNT / (max c2 1)` instead of `c1 * c2 <= MAX_CALC_COUNT` to avoid `int32` overflow. Division-based comparison is always safe regardless of input sizes.
-
-#### Logic Explanation
-
-The condition `(not onlyMinIncrMax && (c1 = 1 || c2 = 1 || c1 <= Constants.MAX_CALC_COUNT / (max c2 1)))` means:
-
-- When in full value mode (`onlyMinIncrMax=false`):
-  - If either operand has exactly 1 value → always safe to compute (result = other operand's size)
-  - If the combined product is ≤ 500 → compute the cartesian product (using overflow-safe division check)
-  - Otherwise → fall back to min/max bounds
-- When in min/max mode (`onlyMinIncrMax=true`):
-  - Only compute cartesian product when both operands have exactly 1 value (existing behavior preserved)
-
-#### Why MAX_CALC_COUNT (500) as Threshold
-
-- The existing `Increment.calcOpt` uses a threshold of 10 for increments
-- The existing `ValueSet.create` uses `MAX_CALC_COUNT²` (250,000) as a hard error limit
-- `MAX_CALC_COUNT` (500) is a balanced middle ground: large enough to allow normal equation solving but small enough to prevent the runaway accumulation seen in the overflow scenario
-- When the cap triggers, the min/max fallback still constrains the variable correctly — it just does not enumerate all discrete values
+Precision is deliberately traded for termination: the result is a bound rather than an enumerated
+set, which the solver can still propagate. The alternative — letting the product build and then
+failing on `ValueSetOverflow` — turns a solvable order into an error the clinician cannot act on.
 
 ### Consequences
 
@@ -382,19 +266,11 @@ The fix was validated by:
 3. **GenORDER integration tests**: 39 tests passed (no regressions)
 4. **Live order test**: Kaliumchloride continuous IV order for 24 kg patient solved successfully — 994 equations solved, 0 errors in log (previously failed with `ValueSetOverflow 355037`)
 
-### Implementation
-
-| File | Line | Change |
-|---|---|---|
-| `Variable.fs` | 2900-2913 | Added `c1 * c2 <= Constants.MAX_CALC_COUNT` pre-check to `ValueRange.calc`. Falls back to min/max when cartesian product would be too large. |
-
----
-
 ## Summary of All Value Explosion Defenses
 
 | Defense | Layer | Location | Threshold | Behavior |
 |---|---|---|---|---|
 | Staged value expansion | GenORDER pipeline | `Order.fs`, `OrderProcessor.fs` | N/A (structural) | Expands dose qty before rate for timed orders |
-| ValueRange cartesian product cap | GenSOLVER solver | Variable.fs:2900-2913 | `c1 * c2 > MAX_CALC_COUNT` (500) | Falls back to min/max bounds |
-| Increment calcOpt cap | GenSOLVER solver | Variable.fs:220-224 | `c1 * c2 > 10` | Returns `None` (no increment) |
-| ValueSet.create hard limit | GenSOLVER solver | Variable.fs:970 | `> MAX_CALC_COUNT²` (250,000) | Raises `ValueSetOverflow` error (last resort) |
+| ValueRange cartesian product cap | GenSOLVER solver | `Variable.fs`, `ValueRange.calc` | `c1 * c2 > MAX_CALC_COUNT` (500) | Falls back to min/max bounds |
+| Increment calcOpt cap | GenSOLVER solver | `Variable.fs`, `Increment.calcOpt` | `c1 * c2 > 10` | Returns `None` (no increment) |
+| ValueSet.create hard limit | GenSOLVER solver | `Variable.fs`, `ValueSet.create` | `> MAX_CALC_COUNT²` (250,000) | Raises `ValueSetOverflow` error (last resort) |

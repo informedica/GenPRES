@@ -2,7 +2,7 @@
 
 The bounded context that turns free-text formulary source (FTK, NKF, …) into
 the canonical `DoseRules` TSV. It is currently a **Scratch prototype**
-(`src/Informedica.NLP.Lib/Scratch/ftk_extract_v2.fsx`) of the end-result
+(`src/Informedica.NLP.Lib/Scratch/Informedica.NLP.Lib.fsx`) of the end-result
 pipeline; it edits no source. Owns the extraction-pipeline vocabulary only;
 clinical-domain terms (Patient Category, OKR, Dose Rule, …) are owned by the
 **Core Domain context** — see [`docs/domain/core-domain.md`](../domain/core-domain.md).
@@ -87,13 +87,22 @@ _Avoid_: the unqualified bare module name "Phase 5" (reserve that for code).
 ## Relationships
 
 Data Extraction is a **Scratch prototype** of the FTK→`DoseRules` pipeline
-(`ftk_extract_v2.fsx`). Its boundary today is the TSV: a prototype edits no
+(`Informedica.NLP.Lib.fsx`). Its boundary today is the TSV: a prototype edits no
 GenFORM `.fs` source. Prototyping findings — `[[IsAdult]]` is the worked
 example — are **inputs to a later port into GenFORM source**, where the
 `DoseRule` domain model and parser are adjusted to match what the prototype
 discovered; safety-critical findings are ADR-gated.
 "Never reaches into `.fs`" describes the prototype's data boundary — not a ban
 on the prototype shaping the future domain model.
+
+This FTK pipeline is **not** the same thing as the LLM dose-rule extraction pipeline of
+[ADR-0018](../mdr/design-history/0018-nlp-dose-rule-extraction.md), which lives in
+`src/Informedica.NLP.Lib/Scripts/DoseRuleExtract.fsx` and has its own module structure
+(`Config`, `Prompt`, `Extraction`, `Pipeline`, …). Two pipelines target `DoseRules`; the
+Pass 1–5 vocabulary defined in this document belongs to the FTK one only.
+
+Note that the Scratch directory is gitignored, so the script is not tracked in the
+repository — searching git history for it finds nothing.
 
 ## Example dialogue
 
