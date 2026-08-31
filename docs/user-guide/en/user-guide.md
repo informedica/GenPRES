@@ -41,7 +41,7 @@ The live system runs at <http://genpres.nl>.
 In a clinical setting GenPRES is typically launched from an Electronic Patient Dossier (EPD) with patient parameters pre-filled in the URL, for example:
 
 ```url
-https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000
+https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000&ht=87
 ```
 
 The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
@@ -82,6 +82,11 @@ The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
 | `dc` | Disclaimer | `n` = hide |
 
 Example patients using query parameters:
+
+> **Some of these links do not set `ht` (height), and a few set neither `wt` nor `ht`.** GenPRES
+> calculates a dose only once both weight and height are present, so opening such a link lands on a
+> populated patient panel with the calculation still withheld — fill in the missing measurement to
+> continue. Links that already carry `wt` and `ht` go straight to a dose.
 
 | Age (years) | Age (days) | GA (weeks) | Weight (kg) | Height (cm) | Medication | Route | Indication | Link |
 |---|---|---|---|---|---|---|---|---|
@@ -134,16 +139,11 @@ After opening the application you will see the main screen divided into function
 
 Displays patient parameters (age, weight, gender, height). If these are not provided via the URL, you can enter them manually here.
 
-### Medication Search (main area)
+### Medication Selection (main area)
 
-Use the search field to find medications by:
-
-- Generic name (e.g., *paracetamol*, *morphine*)
-- ATC code
-
-### Medication List
-
-Select a medication from the search results to open the dosing panel.
+Narrow the medication down with the selection lists — indication, generic, route,
+pharmaceutical form and dose type. Each list only offers values that are still valid given
+what you have already chosen, so a combination with no matching rule cannot be selected.
 
 ### Dosing Panel
 
@@ -161,23 +161,19 @@ Shows the calculated dose range based on the patient parameters and the selected
 
 ### Step-by-step workflow
 
-1. **Enter patient details** (age, weight, gender) in the patient panel.
-2. **Search for a medication** by typing the generic name or ATC code in the search field.
-3. **Select the medication** from the list of results.
-4. **Review the dose range** shown in the dosing panel. The system highlights values that are outside safe limits.
-5. **Adjust dose or frequency** if clinically indicated. The system will warn you if the entered value exceeds maximum or minimum limits.
-6. **Select the administration route** (oral, IV, rectal, etc.).
-7. **Confirm the prescription** and transfer the details to the EPD or print/export as required.
+1. **Enter patient details** in the patient panel. Both **weight and height** are required
+   before doses are calculated — with either missing, the panel stays open and no dose appears.
+2. **Choose the indication and generic** from the selection lists.
+3. **Choose the route, form and dose type**. Only combinations for which a dose rule exists are
+   offered.
+4. **Review the resulting scenarios.** Each is a complete, valid way to prescribe the
+   medication; the values shown already satisfy every applicable rule.
+5. **Adjust dose or frequency** using the stepping controls. These move between allowed values
+   rather than accepting free text, so an out-of-range dose cannot be entered.
+6. **Print** the order if a paper record is needed.
 
-### Safety alerts
-
-GenPRES displays colour-coded alerts:
-
-| Colour | Meaning |
-|--------|---------|
-| 🟢 Green | Value within safe range |
-| 🟡 Yellow | Value at the boundary of the safe range – use with caution |
-| 🔴 Red | Value outside safe range – review before proceeding |
+> GenPRES prevents unsafe values rather than flagging them after entry: an option that violates
+> a rule is not offered in the first place. There is no separate "warning" state to read.
 
 ---
 
@@ -226,13 +222,14 @@ You can run a complete end-to-end workflow without real patient data, which is u
 3. On the main screen, **manually enter test patient data**:
    - Age: e.g., `2` years
    - Weight: e.g., `12` kg
+   - Height: e.g., `87` cm (required — no dose is calculated without it)
    - Gender: `Male`
 
-4. Search for a medication, e.g., `paracetamol`.
+4. Select a medication, e.g., `paracetamol`.
 
 5. Review the calculated dosing information.
 
-6. Optionally adjust dose values and observe safety alerts.
+6. Optionally step the dose up or down and observe how the other values follow.
 
 ### Demo cache
 
@@ -270,27 +267,25 @@ GenPRES internally uses `BigRational` arithmetic for exact unit-safe calculation
 
 ### Use case 1: Oral paracetamol for a toddler
 
-1. Enter: age `2` years, weight `12` kg, gender `Male`.
-2. Search: `paracetamol`.
-3. Select **Paracetamol – oral**.
-4. Observe the recommended dose range (typically 10–15 mg/kg, 4–6 times daily).
-5. Confirm the maximum daily dose is not exceeded.
+1. Enter: age `2` years, weight `12` kg, height `87` cm, gender `Male`.
+2. Select the generic `paracetamol` and an oral route.
+3. Observe the recommended dose range (typically 10–15 mg/kg, 4–6 times daily).
+4. Confirm the maximum daily dose is not exceeded.
 
 ### Use case 2: IV morphine infusion for a child
 
-1. Enter: age `5` years, weight `20` kg, gender `Female`.
-2. Search: `morphine`.
-3. Select **Morphine – IV continuous infusion**.
-4. Observe the starting dose (e.g., 10–40 µg/kg/h) and the calculated pump rate.
-5. Adjust the dose; confirm the rate updates.
+1. Enter: age `5` years, weight `20` kg, height `110` cm, gender `Female`.
+2. Select the generic `morfine`, an intravenous route, and the continuous dose type.
+3. Observe the starting dose (e.g., 10–40 µg/kg/h) and the calculated pump rate.
+4. Step the dose up or down; confirm the rate updates.
 
-### Use case 3: TPN calculation
+### Use case 3: Parenteral nutrition
 
-1. Enter patient parameters (weight, age).
-2. Navigate to **TPN** in the main menu.
-3. Review the auto-generated macronutrient and micronutrient formula.
+1. Enter the patient parameters, including weight and height.
+2. Open the **Nutrition** view.
+3. Review the calculated macronutrient totals against the intake targets.
 4. Adjust individual components if clinically indicated.
-5. Export or print the TPN order for pharmacy.
+5. Print the order for pharmacy.
 
 ---
 

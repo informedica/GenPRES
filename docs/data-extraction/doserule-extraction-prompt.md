@@ -6,7 +6,7 @@ Extract Dose Rules from free text (formularies, guidelines, protocols) into a hi
 
 One **rule** = one patient group for one `(Source, Generic, Route, Indication)`. A rule carries 1..N **dose types** (phases: start / maintenance, load / continuous, …). Each dose type carries 1..N **dose limits**, one per `(Component, Substance)` pair.
 
-The GenFORM backend still consumes flat `DoseRuleData` rows (one per `(DoseType, DoseLimit)` pair, defined at `src/Informedica.GenFORM.Lib/Types.fs:359-412`). The TSV in `data/sources/Rules/doserules.tsv` keeps the legacy layout (51 active columns + a trailing duplicate block; see `doserule-extraction-flowchart.md` §7.4); flattening/grouping happens in the `Conversion` module inside `DoseRuleExtract.fsx`.
+The GenFORM backend still consumes flat `DoseRuleData` rows (one per `(DoseType, DoseLimit)` pair, defined at `src/Informedica.GenFORM.Lib/Types.fs`). The TSV in `data/sources/Rules/doserules.tsv` keeps the legacy layout (51 active columns + a trailing duplicate block; see `doserule-extraction-flowchart.md` §7.4); flattening/grouping happens in the `Conversion` module inside `DoseRuleExtract.fsx`.
 
 ## 2. Domain reference
 
