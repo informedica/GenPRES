@@ -11,7 +11,7 @@
 ## Context
 
 GenPRES dose rules are sourced primarily from Google Spreadsheets managed by
-clinical pharmacists (`GenFORM.DoseRule.get`). This crowd-sourced dataset
+clinical pharmacists (`GenFORM.Api.getDoseRules`). This crowd-sourced dataset
 provides excellent coverage for paediatric patients but often lacks rules for
 the *adult* patient category because GenPRES is a paediatric system and adult
 rules have historically not been entered.
