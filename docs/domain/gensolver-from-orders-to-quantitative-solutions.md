@@ -158,10 +158,19 @@ GenSOLVER applies the following strategy:
 3. Propagate domains through equations.
 4. Reduce domains monotonically.
 5. Detect empty domains early and fail fast.
-6. Iterate until a fixed point is reached.
-7. **Cycle detection**: monitor state fingerprints across iterations; terminate with a `CycleDetected` or `PotentialStall` result if the solver is not converging (see `LoopDetect.fsx`).
+6. Iterate until a fixed point is reached, or until the `MAX_LOOP_COUNT` iteration ceiling is hit, which raises `SolverTooManyLoops`.
 
-This guarantees convergence even in highly interdependent equation networks. In pathological cases where a cycle or stall is detected, the solver terminates gracefully with a typed `TerminationReason` rather than looping indefinitely, preserving system stability and auditability.
+Monotonic refinement guarantees convergence in the ordinary case. The iteration ceiling is the
+backstop for the pathological one: it terminates the solve, but it cannot distinguish a genuine
+cycle from a solve that simply needed more iterations, and it reports neither to the caller.
+
+> **Prototype, not yet in production.** A finer-grained scheme — fingerprinting solver state across
+> iterations and terminating with a typed `TerminationReason` of `CycleDetected` or `PotentialStall`
+> — exists in `src/Informedica.GenSOLVER.Lib/Scripts/LoopDetect.fsx`. That script is not in the
+> library's `<Compile>` list, so none of it runs in production; `Solver.fs` still has only the
+> `MAX_LOOP_COUNT` ceiling. See [GenSOLVER Stability Analysis](gensolver-stability-analysis.md) for
+> the gap analysis and [`w2-core-architecture-review.md`](../roadmap/w2-core-architecture-review.md)
+> for the migration status.
 
 ## 8. Logging and Explainability
 
