@@ -43,8 +43,6 @@ Each library has a dedicated test project under `tests/`. The following projects
 | Test Project | Library Under Test | Test File(s) |
 |---|---|---|
 | `Informedica.Agents.Tests` | `Informedica.Agents.Lib` | Tests.fs |
-| `Informedica.DataPlatform.Tests` | `Informedica.DataPlatform.Lib` | Tests.fs |
-| `Informedica.FHIR.Tests` | `Informedica.FHIR.Lib` | Tests.fs |
 | `Informedica.FTK.Tests` | `Informedica.FTK.Lib` | Tests.fs |
 | `Informedica.GenCORE.Tests` | `Informedica.GenCORE.Lib` | Tests.fs, Generators.fs |
 | `Informedica.GenFORM.Tests` | `Informedica.GenFORM.Lib` | Tests.fs |
@@ -53,12 +51,10 @@ Each library has a dedicated test project under `tests/`. The following projects
 | `Informedica.GenPRES.Shared.Tests` | `Informedica.GenPRES.Shared` | Tests.fs |
 | `Informedica.GenSOLVER.Tests` | `Informedica.GenSOLVER.Lib` | Tests.fs |
 | `Informedica.GenUNITS.Tests` | `Informedica.GenUNITS.Lib` | Tests.fs |
-| `Informedica.HIXConnect.Tests` | `Informedica.HIXConnect.Lib` | Tests.fs |
 | `Informedica.Logging.Tests` | `Informedica.Logging.Lib` | Tests.fs |
 | `Informedica.MCP.Tests` | `Informedica.MCP.Lib` | Tests.fs |
 | `Informedica.NKF.Tests` | `Informedica.NKF.Lib` | Tests.fs |
 | `Informedica.NLP.Tests` | `Informedica.NLP.Lib` | Tests.fs |
-| `Informedica.OTS.Tests` | `Informedica.OTS.Lib` | Tests.fs |
 | `Informedica.Utils.Tests` | `Informedica.Utils.Lib` | Tests.fs, Generators.fs |
 | `Informedica.ZForm.Tests` | `Informedica.ZForm.Lib` | Tests.fs |
 | `Informedica.ZIndex.Tests` | `Informedica.ZIndex.Lib` | Tests.fs, FixtureTests.fs, ZIndexFixture.fs |

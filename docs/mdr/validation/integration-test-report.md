@@ -21,7 +21,7 @@ Integration testing in GenPRES targets the boundaries between subsystems, specif
 | Server command dispatch | `Api.Command` → `ServerApi.Command.processCmd` → domain ports |
 | Dose-check severity | Raw tab-delimited check output → `TextBlock` DU (Valid / Caution / Warning / Alert) |
 
-Client-side (Fable/Elmish) integration is validated manually and through the `dotnet run TestHeadless` smoke test. FHIR and external EHR integration is addressed separately in ADR-0020.
+Client-side (Fable/Elmish) integration is validated manually and through the `dotnet run TestHeadless` smoke test. External EHR integration is not implemented; see ADR-0020 for the superseded FHIR design.
 
 ---
 
@@ -33,7 +33,7 @@ Client-side (Fable/Elmish) integration is validated manually and through the `do
 | Test runner | Expecto ~> 10 with YoloDev.Expecto.TestSdk 0.15.5 |
 | Test project | `tests/Informedica.GenPRES.Server.Tests/` |
 | CI platforms | Ubuntu, Windows, macOS (GitHub Actions `build.yml`) |
-| Run command | `dotnet run ServerTests` (includes all 20 test projects) |
+| Run command | `dotnet run ServerTests` (includes all 16 test projects) |
 
 ---
 
@@ -133,7 +133,6 @@ Tests that the `DoseCheck.build` function correctly classifies raw server-side d
 | Docker image startup | ✗ Not covered | Validated manually via `dotnet run DockerRun` |
 | Interaction API (external service) | ✗ Stub only | `InteractionPort` stubbed in server tests; no external call |
 | MCP stdio transport | ✗ Not covered | `Informedica.MCP.Tests` covers tool registration; stdio not tested in CI |
-| FHIR R4 `MedicationRequest` round-trip | ✗ Script only | `FhirExpectoTests.fsx` (script) covers translation; not in CI run |
 | Admin authentication (password check) | ✗ Not covered | Manual testing; no CI tests for the auth endpoint |
 | Log analysis pipeline | ✗ Stub only | `LogAnalyzerPort` stubbed; file I/O not tested in CI |
 
@@ -146,7 +145,6 @@ Tests that the `DoseCheck.build` function correctly classifies raw server-side d
 | No end-to-end server startup test | Medium — composition root wiring errors may only surface at runtime | Add a smoke-test fixture in `Informedica.GenPRES.Server.Tests` that boots the Saturn application in-process and issues a single HTTP request |
 | No round-trip tests for Fable.Remoting wire format | Low — format is generated; mismatch would be caught at runtime | Add a serialisation test using `Fable.Remoting.Json` in the Shared tests project |
 | Google Sheets integration relies on manual testing | Medium — CSV column renames in the spreadsheet are not caught by CI | Add offline snapshot tests using representative CSV fixtures from `tests/` data directories |
-| FHIR translation tests are script-only | Low — scripts are executed manually; regressions not caught in CI | Migrate `FhirExpectoTests.fsx` scenarios to `Informedica.FHIR.Tests/Tests.fs` once the FHIR library stabilises |
 
 ---
 
