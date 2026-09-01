@@ -172,6 +172,24 @@ Key points agreed during implementation:
 
 **Accepted trade-off**: GHCR is temporary. Once the `informedica` Docker Hub account exists, the follow-up is a small PR that changes the `IMAGE_NAME` value and swaps the `docker login` call to Docker Hub credentials — a new secret, unlike GHCR's `GITHUB_TOKEN`. Keeping this amendment focused means the workflow stays simple and uses one registry for now.
 
+### Docker registry moved to Docker Hub — amended 2026-09-01
+
+The `informedica` Docker Hub organisation now exists, so the follow-up anticipated above landed as issue
+[#459](https://github.com/informedica/GenPRES/issues/459).
+
+**Decision**: `publish-docker-image` publishes to `docker.io/informedica/genpres` instead of GHCR. This
+is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plus:
+
+| Question | Decision |
+|---|---|
+| Authentication | Docker Hub OIDC, not a stored token. The `informedica` org is on the Docker Team plan, which supports GitHub OIDC connections. `docker/login-action@v4.6.0` exchanges the job's GitHub OIDC token for a short-lived Docker Hub token via a connection created in Docker Home; the connection ID is a repo *variable* `DOCKERHUB_OIDC_CONNECTIONID` (not a secret, it is an identifier, inert without the ruleset). No credential to rotate or leak. |
+| OIDC subject scoping | The job runs on `pull_request: closed`, whose bare OIDC subject (`repo:informedica/GenPRES:pull_request`) is shared by every PR's workflow run, any PR could then mint a push token. The job is given a GitHub Actions `environment: docker-publish`, so the subject becomes `repo:informedica/GenPRES:environment:docker-publish`, and the Docker Hub ruleset matches that. The environment also takes required-reviewer protection for a manual gate before each push. |
+| Job permissions | `id-token: write` added (for the OIDC token request), `contents: read` kept (checkout). `packages: write` dropped — that was a GitHub Packages/GHCR grant, useless for Docker Hub. |
+| Marketplace actions | `docker/login-action` is now used for the login step only, the OIDC token exchange cannot be done with plain `docker login`. This is a carve-out from the 2026-08-25 "plain CLI throughout" decision; `docker build` and `docker push` stay CLI. |
+| GHCR | Not kept as a mirror. Nothing was ever published to `ghcr.io/informedica/genpres` (no release triggered `publish-docker-image` while it targeted GHCR), so there are no existing pulls to preserve. A clean switch keeps the workflow single-registry, matching the 2026-08-25 "one registry for now" position. |
+| Repository visibility | Still a manual step, same shape as GHCR's was: the first push creates `informedica/genpres` as a **private** Docker Hub repo. A Docker Hub org admin must set it public afterwards; the OIDC token cannot change repo visibility. |
+| Local `DockerBuild` default | `Build.fs`'s `DOCKER_IMAGE` default moves from `ghcr.io/informedica/genpres` to `informedica/genpres` in the same PR, so a local `dotnet run DockerBuild` tags the image with the name releases actually publish. `DockerBuild`/`DockerRun` only build and run locally — they never push — so this is a label change, not a new push target. Agent-facing docs (`AGENTS.md`, `DEVELOPMENT.md`, `.github/copilot-instructions.md`, the `Dockerfile` run example) are updated to match. |
+
 ## Consequences
 
 **Positive**:
@@ -204,10 +222,11 @@ Key points agreed during implementation:
 - The tag and Release are created with the workflow's own `GITHUB_TOKEN`, so nothing can
   chain off them with `on: release` or `on: push: tags:`. Any future release-time automation
   has to live inside `tag-release.yml`, be dispatched explicitly, or use a PAT / App token.
-- GHCR is an interim registry, not the project's preferred long-term home ([#459](https://github.com/informedica/GenPRES/issues/459));
-  moving to Docker Hub once the `informedica` account exists is a deliberate follow-up, not
-  automatic. Package visibility is also a manual step outside the workflow's `GITHUB_TOKEN`
-  permissions — see the "Package visibility" row above.
+- Release images publish to Docker Hub (`docker.io/informedica/genpres`) authenticated by OIDC —
+  no stored registry credential, but a one-time setup (an OIDC connection in Docker Home, a
+  `docker-publish` GitHub environment, a `DOCKERHUB_OIDC_CONNECTIONID` repo variable) and a manual
+  "make the repository public" step, both outside the workflow. See the 2026-09-01 amendment above.
+  (The workflow started on GHCR; [#459](https://github.com/informedica/GenPRES/issues/459) moved it.)
 
 **MDR / Safety**:
 
