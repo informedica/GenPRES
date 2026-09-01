@@ -188,7 +188,7 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 | Marketplace actions | `docker/login-action` is now used for the login step only, the OIDC token exchange cannot be done with plain `docker login`. This is a carve-out from the 2026-08-25 "plain CLI throughout" decision; `docker build` and `docker push` stay CLI. |
 | GHCR | Not kept as a mirror. Nothing was ever published to `ghcr.io/informedica/genpres` (no release triggered `publish-docker-image` while it targeted GHCR), so there are no existing pulls to preserve. A clean switch keeps the workflow single-registry, matching the 2026-08-25 "one registry for now" position. |
 | Repository visibility | Still a manual step, same shape as GHCR's was: the first push creates `informedica/genpres` as a **private** Docker Hub repo. A Docker Hub org admin must set it public afterwards; the OIDC token cannot change repo visibility. |
-| Local `DockerBuild` default | `Build.fs`'s `DOCKER_IMAGE` default is a separate change from this workflow amendment, tracked alongside it — see the follow-up note in issue #459. |
+| Local `DockerBuild` default | `Build.fs`'s `DOCKER_IMAGE` default moves from `ghcr.io/informedica/genpres` to `informedica/genpres` in the same PR, so a local `dotnet run DockerBuild` tags the image with the name releases actually publish. `DockerBuild`/`DockerRun` only build and run locally — they never push — so this is a label change, not a new push target. Agent-facing docs (`AGENTS.md`, `DEVELOPMENT.md`, `.github/copilot-instructions.md`, the `Dockerfile` run example) are updated to match. |
 
 ## Consequences
 
