@@ -120,8 +120,9 @@ Per `gensolver-stability-analysis.md`, the cycle-detection prototype in
 
 - [ ] Migrate `LoopDetect.fsx` / `DetectingLoop.solve` into
       `Informedica.GenSolver.Lib`.
-- [ ] Replace the `MAX_CALC_COUNT` hard cap with the typed `TerminationReason`
-      mechanism.
+- [ ] Replace the `MAX_LOOP_COUNT` iteration ceiling (which raises
+      `SolverTooManyLoops`) with the typed `TerminationReason` mechanism.
+      `MAX_CALC_COUNT` is a separate, unrelated value-set size cap.
 - [ ] Add regression tests for the previously identified instability scenarios.
 
 ---
