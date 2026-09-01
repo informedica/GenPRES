@@ -114,24 +114,7 @@ module OrderPlan =
             |]
 
         let rows =
-            let parseVals vars =
-                vars
-                |> Array.map (Order.Variable.renderValue 3)
-                |> Array.map (String.split " ")
-                |> Array.groupBy Array.tryLast
-                |> Array.map (fun (k, v) ->
-                    match k with
-                    | Some u ->
-                        v
-                        |> Array.collect id
-                        |> Array.map (String.replace u "")
-                        |> Array.map _.Trim()
-                        |> Array.filter (String.isNullOrWhiteSpace >> not)
-                        |> String.concat "/"
-                        |> fun s -> $"{s} {u}"
-                    | None -> ""
-                )
-                |> String.concat ""
+            let parseVals = Order.Variable.renderValues 3
 
             match orderPlan with
             | Resolved tp

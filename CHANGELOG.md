@@ -1,5 +1,5 @@
 ---
-last_commit_released: 1bf876330c71a01a426d38cc7d05070bcc0eb42d
+last_commit_released: f965ea6d0425ccbe582d2ed316a429d4193b1366
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,14 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.7 - 2026-09-01
+
+### 🐞 Bug Fixes
+
+* *(client)* Render multi item dose ranges correctly ([7b54b68d](https://github.com/informedica/GenPRES/commit/7b54b68d8037f4a1188e880b0a00a8a4ecf48a06))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/1bf876330c71a01a426d38cc7d05070bcc0eb42d..f965ea6d0425ccbe582d2ed316a429d4193b1366)</small></strong>
 
 ## 0.1.2-alpha.6 - 2026-08-25
 

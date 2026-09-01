@@ -1639,6 +1639,44 @@ module Models =
                 | _ -> ""
 
 
+            /// <summary>
+            /// Render an array of variables as a single string, as used for the
+            /// items (substances) of one component in the order plan overview.
+            /// </summary>
+            /// <param name="prec">The precision</param>
+            /// <param name="vars">The variables, one per item</param>
+            let renderValues prec (vars: Variable[]) =
+                // split a rendered variable in its value part and its unit,
+                // the unit is the last token as units never contain a space
+                let split s =
+                    let tokens =
+                        s |> String.split " " |> Array.filter (String.isNullOrWhiteSpace >> not)
+
+                    {|
+                        Value = tokens |> Array.truncate (tokens.Length - 1) |> String.concat ""
+                        Unit = tokens |> Array.tryLast |> Option.defaultValue ""
+                    |}
+
+                vars
+                |> Array.map (renderValue prec)
+                |> Array.filter (String.isNullOrWhiteSpace >> not)
+                |> Array.map split
+                |> Array.groupBy _.Unit
+                |> Array.map (fun (unit, items) ->
+                    let values = items |> Array.map _.Value
+                    // a value can be a range itself, i.e. "10-20", so in that case
+                    // the items are spaced out to keep the ranges apart visually
+                    let sep =
+                        if values |> Array.exists (String.contains "-") then
+                            " / "
+                        else
+                            "/"
+
+                    $"%s{values |> String.concat sep} %s{unit}"
+                )
+                |> String.concat ", "
+
+
         module OrderVariable =
 
             let create nme cst cal var outerIncr level =
