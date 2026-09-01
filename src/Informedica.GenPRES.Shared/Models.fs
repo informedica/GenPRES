@@ -1648,29 +1648,31 @@ module Models =
             let renderValues prec (vars: Variable[]) =
                 // split a rendered variable in its value part and its unit,
                 // the unit is the last token as units never contain a space
-                let splitUnit s =
-                    let xs = s |> String.split " " |> Array.filter (String.isNullOrWhiteSpace >> not)
+                let split s =
+                    let tokens =
+                        s |> String.split " " |> Array.filter (String.isNullOrWhiteSpace >> not)
 
-                    let v = xs[.. xs.Length - 2] |> String.concat ""
-                    let u = xs |> Array.tryLast |> Option.defaultValue ""
-                    v, u
+                    {|
+                        Value = tokens |> Array.truncate (tokens.Length - 1) |> String.concat ""
+                        Unit = tokens |> Array.tryLast |> Option.defaultValue ""
+                    |}
 
                 vars
                 |> Array.map (renderValue prec)
                 |> Array.filter (String.isNullOrWhiteSpace >> not)
-                |> Array.map splitUnit
-                |> Array.groupBy snd
-                |> Array.map (fun (u, xs) ->
-                    let vs = xs |> Array.map fst
+                |> Array.map split
+                |> Array.groupBy _.Unit
+                |> Array.map (fun (unit, items) ->
+                    let values = items |> Array.map _.Value
                     // a value can be a range itself, i.e. "10-20", so in that case
                     // the items are spaced out to keep the ranges apart visually
                     let sep =
-                        if vs |> Array.exists (String.contains "-") then
+                        if values |> Array.exists (String.contains "-") then
                             " / "
                         else
                             "/"
 
-                    $"{vs |> String.concat sep} {u}"
+                    $"%s{values |> String.concat sep} %s{unit}"
                 )
                 |> String.concat ", "
 
