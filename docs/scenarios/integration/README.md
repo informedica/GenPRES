@@ -8,7 +8,14 @@ dotnet fsi Integration.fsx
 ```
 
 It prints a trace for every use case to `Integration.run.txt` and ends with a count of
-self-checks. Everything else in this directory is drawn from that trace.
+self-checks. Everything else in this directory is drawn from that trace. The trace
+itself is not tracked: it appears beside the script when you run it, so a fresh clone
+has the script but not yet its output.
+
+The design document these artifacts implement is
+[GenPRES-MainEHR-Integration-V8.md](GenPRES-MainEHR-Integration-V8.md), here in this
+directory. Where a page cites a Rule or a Concept by number, that is the document's
+numbering.
 
 ## The use cases
 

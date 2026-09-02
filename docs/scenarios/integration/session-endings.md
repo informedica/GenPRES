@@ -44,7 +44,7 @@ accident to be reported; it is what the User asked for.
 ## The four that owe
 
 **`Idle`**, **`Expired`**, **`Superseded`** and **`WrongPinLimit`** all happened *to*
-the User. They may have unsaved work on a screen that still looks alive — the Server
+the User. They may have unsigned work on a screen that still looks alive — the Server
 cannot reach a Client, so nothing warned them — and they are owed an account of it.
 
 `Superseded` is the interesting one: the User did open another Session, but somewhere

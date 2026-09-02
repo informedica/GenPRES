@@ -749,7 +749,7 @@ type SessionRecord =
         /// the launch, and again whenever a mail went out. It is never what a mail is
         /// addressed from — that is always a fresh answer. It is read only when the
         /// registry cannot be asked, and only for a notice; a confirmation code is
-        /// never sent to it (UC-6 ext 2b).
+        /// never sent to it (UC-6 ext 1c, 2b).
         Mail     : MailAddress option
         Patient  : PatientId option
         /// Rules 8 and 40. Without it the per-browser limit could only rest on a
@@ -822,7 +822,7 @@ type ResetFailure =
     /// Too many wrong entries. The code is void; a fresh reset mails a fresh one.
     | ResetVoid
     /// Rule 27. The registry could not say where to send the mail, so nothing was
-    /// done: a PIN is never set or replaced without the User being told (UC-6 ext 2b).
+    /// done: a PIN is never set or replaced without the User being told (UC-6 ext 1c).
     | AddressUnavailable
 
 type RegistryFailure =
@@ -865,10 +865,13 @@ type SessionCmd =
 type UserAct =
     | Prescribes of OrderContextId      // Concept 15: add or change, in the Client
     | EntersPatientData of PatientData  // Concept 2: the User supplies it by hand
-    | Signs of Pin                      // Concept 14: the only way a plan is created
+    /// Concept 14: the only way a plan is created. It asks for the challenge and
+    /// carries no PIN: UC-3 step 2 sends the WorkPlan, and nothing else.
+    | Signs
     /// Rule 43. The second half of signing: `Signs` asks for the challenge, and this
-    /// answers it. Nothing is submitted in between.
-    | ConfirmsSign
+    /// answers it with the PIN the modal asked for (UC-3 step 3). Nothing is
+    /// submitted in between.
+    | ConfirmsSign of Pin
     /// Rule 43. The User leaves the signature modal without signing.
     | CancelsSign
     | OpensTreatmentPlan of TreatmentPlanId       // Rules 18, 19
@@ -1302,10 +1305,11 @@ type BrowserState =
         Work           : WorkPlan
         /// Rule 34. Issued by the Server, returned with every request.
         Opened         : OpenedToken option
-        /// Rule 43. A signature the User has started: the PIN they typed while the
-        /// challenge is fetched, and then the challenge itself. While the modal is up
-        /// the WorkPlan cannot change, which is what it is for.
-        Signing        : Pin option
+        /// Rule 43. A signature the User has started: the challenge is on its way,
+        /// and then the challenge itself. The PIN is not here — it is asked for at
+        /// the modal (UC-3 step 3). While the modal is up the WorkPlan cannot
+        /// change, which is what it is for.
+        Signing        : bool
         Modal          : SigningChallenge option
         /// Rule 44. The Patient Data notice the User has accepted, returned with the
         /// Submission.
@@ -1906,7 +1910,7 @@ module Hospital =
             Patient = None
             Work = WorkPlan.empty
             Opened = None
-            Signing = None
+            Signing = false
             Modal = None
             DataOk = None
             NoticeFor = []
@@ -3192,7 +3196,7 @@ module Hospital =
             // the rule rests on is the code reaching an address the person at this
             // workstation does not control. So it is never sent to a remembered
             // address — only to one the registry gives now. No answer, no code, and
-            // nothing is parked that could not be delivered (UC-6 ext 2b).
+            // nothing is parked that could not be delivered (UC-6 ext 1c).
             | Some({ Stage = AwaitingResetAddress _ } as ctx) ->
                 dropFlight rid h,
                 [
@@ -3401,7 +3405,7 @@ module Hospital =
             match h.GenPres.InFlight |> Map.tryFind rid with
             | Some({ Stage = AwaitingPatientRecord r } as ctx) ->
                 match ctx.Cmd, r.User with
-                // Rules 17 and 18. Opening the most recent Signed TreatmentPlan is also how
+                // Rules 17 and 18. Opening the most recent TreatmentPlan is also how
                 // a blocked User gets unblocked: Rule 34's token is re-minted over it,
                 // so it becomes the TreatmentPlan the Session opened with and Rule 20 no
                 // longer bites.
@@ -3871,7 +3875,7 @@ module Hospital =
             // Rule 43. While the signature modal is up the WorkPlan cannot change:
             // the User is looking at exactly what they are about to attest to, and
             // a change under it would make the challenge name something else.
-            | (Prescribes _ | EntersPatientData _) when st.Modal.IsSome || st.Signing.IsSome ->
+            | (Prescribes _ | EntersPatientData _) when st.Modal.IsSome || st.Signing ->
                 h |> onClient b (fun s ->
                     { s with Showing = Some "finish or cancel the signature first" }), []
 
@@ -3896,14 +3900,15 @@ module Hospital =
                     { s with Work.Data = Some d; Work.From = Some(ByHand h.Env.Now) }),
                 toServer (Compute st.Work.Orders)
 
-            | Signs pin ->
+            | Signs ->
                 // Rule 43. Signing is two requests: first the challenge, over the
                 // WorkPlan as it stands, and then the signature that carries it back.
-                // The PIN waits in the page for the moment in between. It is a field on
-                // a form, and it goes no further than the Server (Rule 23).
+                // No PIN is asked for here — UC-3 step 2 is the ask, and step 3 is
+                // where the modal asks for it, so a User is never asked for a PIN on
+                // a Submission that was never going to land (Rule 28).
                 match st.Opened with
                 | Some tok ->
-                    h |> onClient b (fun s -> { s with Signing = Some pin }),
+                    h |> onClient b (fun s -> { s with Signing = true }),
                     toServer (RequestSignChallenge(st.Work, tok, st.DataOk))
                 | None -> h, []
 
@@ -3911,10 +3916,10 @@ module Hospital =
             // signature would attest to, and signs it as shown. Only now does anything
             // leave the Client, and it carries the challenge it was given, so the
             // commit can check that the plan committed is the plan the User saw.
-            | ConfirmsSign ->
-                match st.Modal, st.Signing, st.Opened with
-                | Some challenge, Some pin, Some opened ->
-                    h |> onClient b (fun s -> { s with Modal = None; Signing = None; Showing = None }),
+            | ConfirmsSign pin ->
+                match st.Modal, st.Opened with
+                | Some challenge, Some opened ->
+                    h |> onClient b (fun s -> { s with Modal = None; Signing = false; Showing = None }),
                     toServer (
                         SubmitTreatmentPlan
                             {
@@ -3932,7 +3937,7 @@ module Hospital =
             | CancelsSign ->
                 // Rule 43. Nothing was signed and nothing was asked for: the
                 // challenge is simply dropped, and the next one is minted fresh.
-                h |> onClient b (fun s -> { s with Signing = None; Modal = None; Showing = None }), []
+                h |> onClient b (fun s -> { s with Signing = false; Modal = None; Showing = None }), []
 
             // Rule 11. Taken by the match above, whether or not a notice is
             // standing: it belongs to a Session that has ended, and this branch is
@@ -4159,12 +4164,13 @@ module Hospital =
         | GenPresServer, GenPresClient b, Computed orders ->
             h |> onClient b (fun s -> { s with Work.Orders = orders }), []
 
-        // Rule 20. No challenge is coming, so the signature the User started is over:
-        // the PIN they typed is dropped with it, and prescribing is possible again.
+        // Rule 20. No challenge is coming, so the signature the User started is over,
+        // and prescribing is possible again. No PIN was ever typed: the modal that
+        // asks for one is exactly what is not going to appear.
         | GenPresServer, GenPresClient b, SubmissionBlocked _ ->
             h |> onClient b (fun s ->
                 { s with
-                    Signing = None
+                    Signing = false
                     Modal = None
                     Showing = Some "someone signed since you opened — open their plan to build on it" }), []
 
@@ -4179,7 +4185,7 @@ module Hospital =
         | GenPresServer, GenPresClient b, SubmissionRefused why ->
             h |> onClient b (fun s ->
                 { s with
-                    Signing = None
+                    Signing = false
                     Modal = None
                     Showing = Some $"the submission was refused: %s{why}" }), []
 
@@ -4188,14 +4194,13 @@ module Hospital =
         // goes out goes out on `ConfirmsSign`, carrying this challenge.
         | GenPresServer, GenPresClient b, SignChallengeIssued token ->
             let st = clientState b h
-            match st.Signing with
-            | Some _ ->
+            if st.Signing then
                 h |> onClient b (fun s ->
                     { s with
                         Modal = Some token
                         Showing = Some "sign the plan as shown, or cancel and edit" }), []
             // A challenge nobody asked for. Not shown, and certainly not signed.
-            | None -> h, []
+            else h, []
 
         // Rule 44. The Patient Data has moved under the Session. The User is shown it
         // and accepts by keeping the token, which the next Submission carries.
@@ -4203,7 +4208,7 @@ module Hospital =
             h |> onClient b (fun s ->
                 { s with
                     Modal = None
-                    Signing = None
+                    Signing = false
                     DataOk = Some token
                     Work.Data = Some fresh
                     Work.From = Some(FromPlatform h.Env.Now)
@@ -4216,7 +4221,7 @@ module Hospital =
             h |> onClient b (fun s ->
                 { s with
                     Modal = None
-                    Signing = None
+                    Signing = false
                     DataOk = Some token
                     Showing = Some "the Patient Data could not be checked — sign again to sign on it as it stands" }), []
 
@@ -4246,7 +4251,7 @@ module Hospital =
             h |> onClient b (fun s ->
                 { s with
                     Modal = None
-                    Signing = None
+                    Signing = false
                     Showing =
                         Some "signing is locked for a while — wait it out, or reset the PIN to sign now" }), []
 
@@ -4410,9 +4415,9 @@ module Envelope =
         function
         | Prescribes(OrderContextId o) -> $"Prescribes %s{o}"
         | EntersPatientData(PatientData d) -> $"EntersPatientData \"%s{d}\""
-        | Signs(Pin p) -> $"Signs (pin %s{p})"
+        | Signs -> "Signs"
         | OpensTreatmentPlan(TreatmentPlanId s) -> $"OpensTreatmentPlan %s{s}"
-        | ConfirmsSign -> "ConfirmsSign"
+        | ConfirmsSign(Pin p) -> $"ConfirmsSign (pin %s{p})"
         | CancelsSign -> "CancelsSign"
         | AcknowledgesNotice -> "AcknowledgesNotice"
         | AsksPinReset -> "AsksPinReset"
@@ -4597,7 +4602,7 @@ let handCreate (work: WorkPlan) (opened: OpenedToken) (pin: Pin option) =
 /// Rule 43. Signing is two acts of the User's, not one: asking, and then signing what
 /// the modal shows. A scenario that means "A signs" wants both, and a scenario testing
 /// the gate between them uses `Signs` and `ConfirmsSign` apart.
-let signs b pin = [ act b (Signs pin); act b ConfirmsSign ]
+let signs b pin = [ act b Signs; act b (ConfirmsSign pin) ]
 
 /// UC-1 steps 1 and 2. `None` is ext 1a: no Patient is active in the MainEHR Session.
 let launchAs (LoginName login) (patient: PatientId option) =
@@ -5555,7 +5560,7 @@ let uc2 () =
 
     // The order matters twice over: the code's address comes from the UserRegistry, so
     // it cannot even be mailed before the registry has said who the login belongs to.
-    expect "UC-2 the PIN is offered only after the registry recognised the login (Rule 24)"
+    expect "UC-2 the PIN is offered only after the registry recognised the login (Rule 25)"
         (before (function UserResolved _ -> true | _ -> false)
                 (function PinRequired _ -> true | _ -> false))
 
@@ -5583,7 +5588,7 @@ let uc2 () =
                  }
              ]
 
-    expect "UC-2 only the Client the prompt was put to may answer it (Concept 7; Rules 22, 24)"
+    expect "UC-2 only the Client the prompt was put to may answer it (Concept 7; Rules 23, 24)"
         (saw (function Refused _ -> true | _ -> false)
          && never (function ReplacePinIfCode _ -> true | _ -> false)
          && (credentialOf ucA intruder |> Option.bind _.Pin) = None
@@ -5911,7 +5916,7 @@ let uc3 () =
         step "UC-3 ext 3a — a new Session, the right PIN, and signing is still locked" relaunchedAfterLimit
              [ act 2 (Prescribes(OrderContextId "oc-locked")); yield! signs 2 pinA ]
 
-    expect "3a within the delay the correct PIN does not sign either (Rule 27)"
+    expect "3a within the delay the correct PIN does not sign either (Rule 28)"
         (saw (function SigningLocked -> true | _ -> false)
          && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 stillLocked = planCount pat2 relaunchedAfterLimit
@@ -5925,11 +5930,11 @@ let uc3 () =
         quiet "3b — the delay passes" stillLocked (ticks (until - stillLocked.Env.Now + 4))
 
     let waitedOut =
-        step "UC-3 ext 3a — and the same credential signs again, with no reset at all (Rule 27)" waited
+        step "UC-3 ext 3a — and the same credential signs again, with no reset at all (Rule 28)" waited
              (launchAs ucA.Login (Some pat2)
               @ [ act 3 (Prescribes(OrderContextId "oc-after-the-wait")); yield! signs 3 pinA ])
 
-    expect "3a a locked credential signs again once the delay passes — no reset, no mail (Rule 27)"
+    expect "3a a locked credential signs again once the delay passes — no reset, no mail (Rule 28)"
         (planCount pat2 waitedOut = planCount pat2 waited + 1
          && (credentialOf ucA waitedOut |> Option.map _.AttemptCount) = Some 0
          && (credentialOf ucA waitedOut |> Option.bind _.LockedUntil) = None
@@ -6022,7 +6027,7 @@ let uc3 () =
     // half way, which is where the rule bites.
     let modalUp =
         step "UC-3 ext 3b — A asks to sign, and is shown what the signature would attest to" signed
-             [ act 1 (Prescribes(OrderContextId "oc-shown")); act 1 (Signs pinA) ]
+             [ act 1 (Prescribes(OrderContextId "oc-shown")); act 1 Signs ]
 
     expect "3b the challenge is shown and nothing is submitted: the modal gates the signature (Rule 43)"
         (saw (function SignChallengeIssued _ -> true | _ -> false)
@@ -6046,10 +6051,10 @@ let uc3 () =
         (planCount pat2 cancelled = planCount pat2 signed
          && (clientOf 1 cancelled |> Option.bind _.Modal) = None)
 
-    // And cancelling really does drop it: the PIN goes with the challenge, so a
-    // confirm afterwards has nothing to answer and sends nothing (Rule 43).
+    // And cancelling really does drop it: the challenge is gone, so a confirm
+    // afterwards — PIN and all — has nothing to answer and sends nothing (Rule 43).
     let confirmedAfterCancel =
-        step "UC-3 ext 3b — a confirm after the cancel answers nothing" cancelled [ act 1 ConfirmsSign ]
+        step "UC-3 ext 3b — a confirm after the cancel answers nothing" cancelled [ act 1 (ConfirmsSign pinA) ]
 
     expect "3b a confirm with no challenge in front of the User sends nothing at all (Rule 43)"
         (never (function SessionRequest _ -> true | _ -> false)
@@ -6128,7 +6133,7 @@ let uc3 () =
     // Server's own, or Rule 43 refuses both copies and Rule 45 is never reached.
     let readyToSign =
         quiet "UC-3 ext 3d setup — A asks for a challenge" signedAfresh
-              [ act 1 (Prescribes(OrderContextId "oc-retry")); act 1 (Signs pinA) ]
+              [ act 1 (Prescribes(OrderContextId "oc-retry")); act 1 Signs ]
 
     let duplicated =
         let sid = (sidAt 1 readyToSign).Value
@@ -6163,10 +6168,10 @@ let uc3 () =
     let replayedChallenge =
         let signedOnce =
             quiet "3e precondition — a signature that landed, and the challenge it used" duplicated
-                  [ act 1 (Prescribes(OrderContextId "oc-once")); act 1 (Signs pinA) ]
+                  [ act 1 (Prescribes(OrderContextId "oc-once")); act 1 Signs ]
 
         let challenge = (challengeIssued ()).Value
-        let landed = quiet "3e precondition — and it lands" signedOnce [ act 1 ConfirmsSign ]
+        let landed = quiet "3e precondition — and it lands" signedOnce [ act 1 (ConfirmsSign pinA) ]
 
         let sid = (sidAt 1 landed).Value
         let opened = (clientOf 1 landed).Value.Opened.Value
@@ -6366,13 +6371,13 @@ let uc4 () =
               [
                   act 1 (Prescribes(OrderContextId "oc-a2"))
                   act 2 (Prescribes(OrderContextId "oc-b2"))
-                  act 1 (Signs pinA)
-                  act 2 (Signs pinB)
+                  act 1 Signs
+                  act 2 Signs
               ]
 
     let bothSign =
         racing "UC-4 ext 3b — A and B sign over the same base at once" bothChallenged
-               [ act 1 ConfirmsSign; act 2 ConfirmsSign ]
+               [ act 1 (ConfirmsSign pinA); act 2 (ConfirmsSign pinB) ]
 
     expect "3b exactly one signature landed, and the record moved once (Rules 36, 42)"
         (countOf (function TreatmentPlanSubmitted _ -> true | _ -> false) = 1
@@ -6563,14 +6568,14 @@ let uc6 () =
         ((mailsTo movedAddress mailedToNew).Length = 1
          && (mailsTo mailA mailedToNew).IsEmpty)
 
-    // ── Rule 27 — the registry cannot say where to send it ──
+    // ── UC-6 ext 1c, Rule 27 — the registry cannot say where to send it ──
     // Nothing is parked and nothing is replaced: a code the User can never be given
     // would sit there until it expired, blocking the next reset for no reason.
     let registryDown =
-        step "Rule 27 — the registry is unreachable when the address is needed" { opened with Registry.Up = false }
+        step "UC-6 ext 1c — the registry is unreachable when the address is needed" { opened with Registry.Up = false }
              [ act 1 AsksPinReset ]
 
-    expect "Rule 27 no mail, no parked reset, and the User is told (UC-6 ext 2b)"
+    expect "Rule 27 no mail, no parked reset, and the User is told (UC-6 ext 1c)"
         ((mailsTo mailA registryDown).IsEmpty
          && registryDown.Database.Private.Resets.IsEmpty
          && saw (function ResetDenied AddressUnavailable -> true | _ -> false)
@@ -6589,7 +6594,7 @@ let uc6 () =
         ((newestRecord registryDown |> Option.bind _.Mail) = Some mailA
          && (mailsTo mailA registryDown).IsEmpty)
 
-    // ── Rule 27 — a notice falls back on the address this Session had ──
+    // ── UC-6 ext 2b, Rule 27 — a notice falls back on the address this Session had ──
     // The other side of the line. A code cannot be sent to a remembered address, but a
     // notice can: not going at all is worse, because the notice is what tells the User
     // something happened to their credential. A has a code already, so the registry
@@ -6598,15 +6603,15 @@ let uc6 () =
     let code = (codeInMail mailA asked).Value
 
     let replacedWithRegistryDown =
-        step "Rule 27 — A completes the reset while the registry is down" { asked with Registry.Up = false }
+        step "UC-6 ext 2b — A completes the reset while the registry is down" { asked with Registry.Up = false }
              [ act 1 (EntersResetCode(code, Pin "6060")) ]
 
-    expect "Rule 27 the PIN is replaced and the notice still goes out, on the fallback address"
+    expect "UC-6 ext 2b: the PIN is replaced and the notice still goes out, on the fallback address (Rule 27)"
         ((credentialOf ucA replacedWithRegistryDown |> Option.bind _.Pin) = Some(Pin "6060")
          && (mailsTo mailA replacedWithRegistryDown).Length = (mailsTo mailA asked).Length + 1
          && saw (function PinChanged -> true | _ -> false))
 
-    expect "Rule 27 and the audit says the address was the Session's, not the registry's"
+    expect "UC-6 ext 2b: and the audit says the address was the Session's, not the registry's (Rule 27)"
         (replacedWithRegistryDown |> audited "the address this Session had stood")
 
     // Rule 46. Every mail names where it went, so a User who says they never got one
@@ -6660,7 +6665,7 @@ let uc6 () =
          && saw (function PinChanged -> true | _ -> false)
          && never (function ResetDenied _ -> true | _ -> false))
 
-    expect "UC-6 step 2: mailed and recorded, and the new PIN starts at zero (Rules 27, 27)"
+    expect "UC-6 step 2: mailed and recorded, and the new PIN starts at zero (Rules 27, 28)"
         ((mailsTo mailA replaced).Length = 2
          && replaced |> audited "PIN replaced"
          && (credentialOf ucA replaced |> Option.map _.AttemptCount) = Some 0)
@@ -7553,7 +7558,7 @@ let tokensAndArbitration () =
 
     let challenged =
         quiet "Concept 17 setup — B asks to sign, and is given a challenge" bOpen
-              [ act 1 (Prescribes(OrderContextId "oc-b1")); act 1 (Signs pinB) ]
+              [ act 1 (Prescribes(OrderContextId "oc-b1")); act 1 Signs ]
 
     let _ =
         let sid = (sidAt 1 challenged).Value
@@ -7625,7 +7630,7 @@ let tokensAndArbitration () =
     // makes this a test of Rule 35 rather than of Rule 43.
     let readyStamped =
         quiet "Rule 35 setup — A asks to sign an honest cart" aOnPat2
-              [ act 1 (Prescribes(OrderContextId "oc-new")); act 1 (Signs pinA) ]
+              [ act 1 (Prescribes(OrderContextId "oc-new")); act 1 Signs ]
 
     let preStamped =
         let sid = (sidAt 1 readyStamped).Value
@@ -7667,13 +7672,13 @@ let tokensAndArbitration () =
               [
                   act 1 (Prescribes(OrderContextId "oc-r1"))
                   act 2 (Prescribes(OrderContextId "oc-r2"))
-                  act 1 (Signs pinA)
-                  act 2 (Signs pinB)
+                  act 1 Signs
+                  act 2 Signs
               ]
 
     let raced =
         racing "Rules 36, 42 — two Sessions on one Patient, two signatures in flight at once" bothChallenged
-               [ act 1 ConfirmsSign; act 2 ConfirmsSign ]
+               [ act 1 (ConfirmsSign pinA); act 2 (ConfirmsSign pinB) ]
 
     expect "Rule 42 both signatures reached the Database as whole acts"
         (countOf (function CommitTreatmentPlan _ -> true | _ -> false) = 2)
@@ -7730,10 +7735,10 @@ let tokensAndArbitration () =
         let challenged =
             quiet "Rules 11, 42 precondition" world
                   (launchAs ucA.Login (Some pat2)
-                   @ [ act 1 (Prescribes(OrderContextId "oc-inflight")); act 1 (Signs pinA) ])
+                   @ [ act 1 (Prescribes(OrderContextId "oc-inflight")); act 1 Signs ])
 
         racing "Rules 11, 42 — the Session closes while a signature is in flight" challenged
-               [ act 1 ConfirmsSign; act 1 ClosesSession ]
+               [ act 1 (ConfirmsSign pinA); act 1 ClosesSession ]
 
     expect "Rule 42 the Submission is refused at the commit, because the Session ended under it"
         (saw (function CommitRefused(_, SessionNotOpen _) -> true | _ -> false)
@@ -7943,7 +7948,7 @@ let adversarialReview () =
         // under test is the retry, not the forging of a signature.
         let backUp =
             quiet "17 — the Server comes back, and A asks to sign" lostToADownServer
-                  [ envt GenPresServer (Start GenPresServer); act 1 (Signs pinA) ]
+                  [ envt GenPresServer (Start GenPresServer); act 1 Signs ]
 
         let again =
             SessionRequest(
@@ -8201,7 +8206,7 @@ let consequences () =
     let carriesPin (m: Msg) =
         match m with
         | ChoosePin _ | SupplyPin _ -> true
-        | Act(Signs _) -> true
+        | Act(ConfirmsSign _) -> true
         | SessionRequest(_, _, SubmitTreatmentPlan { Pin = Some _ }) -> true
         | Act(EntersResetCode _) -> true
         | SessionRequest(_, _, SupplyResetCode _) -> true
@@ -8210,12 +8215,12 @@ let consequences () =
         | CredentialRead(_, Some c) -> c.Pin.IsSome
         | _ -> false
 
-    expect "Rule 22 no envelope carrying a PIN ever goes outside GenPRES"
+    expect "Rule 23 no envelope carrying a PIN ever goes outside GenPRES"
         (allTrace
          |> List.filter (fun e -> carriesPin e.Msg)
          |> List.forall (fun e -> not (outsideGenPres.Contains e.To)))
 
-    expect "Rule 22 and the mail that says a PIN changed never carries the PIN itself"
+    expect "Rule 23 and the mail that says a PIN changed never carries the PIN itself"
         (allTrace
          |> List.forall (fun e ->
              match e.Msg with

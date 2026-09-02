@@ -29,8 +29,8 @@ sequenceDiagram
     Note over S: nothing is kept: the cart goes home with the reply
     end
 
-    Note over U,C: step 2 - the User signs. The PIN waits in the page.
-    U->>C: Signs (PIN)
+    Note over U,C: step 2 - the User signs. No PIN is asked for yet.
+    U->>C: Signs
     C->>S: RequestSignChallenge (WorkPlan + OpenedToken)
     S->>D: ReadSessionRecord
     D-->>S: SessionRecordRead (open)
@@ -41,8 +41,8 @@ sequenceDiagram
     P-->>S: PatientDataRead (unchanged)
     S-->>C: SignChallengeIssued (over this exact WorkPlan, under the current rule set)
 
-    Note over U,C: step 3 - the Client shows the challenge modally (Rule 43)
-    U->>C: ConfirmsSign
+    Note over U,C: step 3 - the Client shows the challenge modally,<br/>and asks the PIN (Rule 43)
+    U->>C: ConfirmsSign (PIN)
     C->>S: Submission (WorkPlan + OpenedToken + challenge + PIN + key)
     S->>D: ReadSessionRecord
     D-->>S: SessionRecordRead (open)
@@ -59,7 +59,7 @@ sequenceDiagram
 **Signing is two requests, not one.** The first asks for a challenge; the second returns
 it with the PIN. Nothing is submitted in between, and while the modal is up the WorkPlan
 cannot change — that is what the modal is for. Splitting it this way also means Rule 20's
-block is settled before the User is ever asked for a PIN they were never going to spend.
+block is settled before the modal ever asks for a PIN the User was never going to spend.
 
 **The Role is taken twice.** Once at the launch (Rule 5), and again here at the signature
 (Rule 38). Authority withdrawn since the launch blocks the signature at its commit, which
@@ -83,7 +83,7 @@ token — is refused before the PIN is looked at, so it costs the User no attemp
   computation, and the challenge is issued under it. The signed plan records which set.
 - **The Patient Data changing** (ext 2b). No challenge is issued until the User has seen
   the data as it now stands, or been told it could not be checked, and accepted it.
-- **The wrong PIN** (ext 3a). Nothing is created and no token is spent. Wrong entries
+- **The wrong PIN** (ext 3a). No TreatmentPlan is committed and no token is spent. Wrong entries
   count across Sessions; at the limit the Session ends and signing locks for a growing
   delay.
 - **Cancelling and editing** (ext 3b), **someone else at the keyboard** (ext 3c), **a late
@@ -101,17 +101,17 @@ sequenceDiagram
     participant C as GenPRES Client
     participant S as GenPRES Server
 
-    U->>C: Signs (PIN)
+    U->>C: Signs
     C->>S: RequestSignChallenge
     S-->>C: SignChallengeIssued
-    Note over U,C: the modal is up. The PIN sits in the page.
+    Note over U,C: the modal is up, asking for the PIN.
 
     U->>C: Prescribes
     C-->>U: "finish or cancel the signature first"
     Note over C: refused locally - nothing is sent,<br/>and the WorkPlan cannot change under the challenge
 
     U->>C: CancelsSign
-    Note over C: the challenge is dropped, and the PIN with it.<br/>Nothing was signed and nothing was submitted.
+    Note over C: the challenge is dropped, and the modal asking<br/>for the PIN with it. Nothing was signed and nothing was submitted.
 
     U->>C: Prescribes
     C->>S: Compute

@@ -23,10 +23,11 @@ sequenceDiagram
     S-->>C: Computed
     Note over C: the WorkPlan carries no attribution and sits in no<br/>record (Concept 16), and the Server keeps none of it
 
-    B->>C: Signs (B's own PIN)
+    B->>C: Signs
     C->>S: RequestSignChallenge
     S-->>C: SignChallengeIssued
-    B->>C: ConfirmsSign
+    Note over B,C: the modal asks for the PIN, and B types their own
+    B->>C: ConfirmsSign (B's own PIN)
     C->>S: Submission (B's PIN)
 
     S->>D: ReadSessionRecord

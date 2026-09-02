@@ -52,6 +52,10 @@ sequenceDiagram
 
 ## Reading it
 
+**The steps run 1, 2, 4, 3.** Deliberate: the carry-over is step 3 in the document, but it
+has nowhere to land until the relaunch of step 4 has created the Session that receives it,
+so the drawing follows the order the messages actually occur in.
+
 **Nothing pushes.** Edge C5 goes one way, so the Session ends silently and A learns at
 their own next request. Everything in this use case follows from that one fact.
 
