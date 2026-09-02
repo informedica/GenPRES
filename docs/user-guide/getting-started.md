@@ -11,7 +11,7 @@ Before starting, ensure you have the following installed:
 - **.NET SDK** (see [DEVELOPMENT.md](../../DEVELOPMENT.md#toolchain-requirements) for supported versions)
 - **Node.js** and **npm**
 
-Refer to [`DEVELOPMENT.md`](../../DEVELOPMENT.md) for full environment setup instructions, including the `GENPRES_URL_ID` environment variable needed for live data.
+Refer to [`DEVELOPMENT.md`](../../DEVELOPMENT.md) for full environment setup instructions, including the `GENPRES_URL_ID` environment variable the server requires in every mode.
 
 ---
 
@@ -23,7 +23,7 @@ dotnet run
 
 Open your browser to **<http://localhost:5173>**.
 
-> The demo cache included in the repository is loaded automatically when `GENPRES_URL_ID` is not set. This provides a subset of sample medication data sufficient for testing.
+> `GENPRES_URL_ID` must always be set — the server refuses to start without it, in demo mode as well as production. Point it at the public demo sheet ID documented in `.env.example` to run against the sample medication data; that is sufficient for testing.
 
 ---
 
@@ -46,13 +46,16 @@ To use all features, enter patient data either:
 
 1. Open <http://localhost:5173>.
 2. The **Patient** accordion is expanded. Fill in the following fields:
-   - **Birth date** (year, month, day) — used to calculate age
+   - **Age** as years, months, weeks and days — entered directly, not as a birth date
    - **Weight** (in kg) — required to enable dose calculations
    - **Height** (in cm) — required to enable dose calculations
-   - **Department** — optional; filters applicable protocols
-   - **Gestational age** — optional; relevant for neonates
-   - **Central venous line** — optional; affects available routes
-3. Once **weight** and **height** are set, the Patient panel collapses automatically and dose calculations become available.
+   - **Gestational age** (weeks, days) — optional; relevant for neonates
+   - **Gender** — optional
+   - **Renal function** — optional; drives renal dose adjustment
+   - **Access** — optional CVL, PVL and enteral-tube toggles; affects available routes
+3. Once **weight** and **height** are set, the Patient panel collapses automatically and dose calculations become available. Both are required: with either missing, no dose is calculated.
+
+> **Department** is not a field in this panel. It can only be supplied through the `dp` URL parameter.
 
 ---
 
@@ -105,7 +108,7 @@ http://localhost:5173/#patient?<param1>=<value1>&<param2>=<value2>
 
 | Parameter | Description | Notes |
 |-----------|-------------|-------|
-| `la` | Language | `en` (English), `du` (Dutch), `fr` (French) |
+| `la` | Language | `en` (English), `du` (Dutch), `fr` (French), `gr` (German), `sp` (Spanish), `it` (Italian) |
 | `dc` | Show disclaimer | `n` = suppress disclaimer on load |
 
 ### Example URLs
@@ -150,8 +153,8 @@ For a full walkthrough with screenshots, see the [external user guides](README.m
 
 | Mode | Configuration | Data |
 |------|--------------|------|
-| **Demo** (default) | `GENPRES_PROD=0` or unset | Sample medication data bundled with repository |
-| **Live** | `GENPRES_PROD=1` and valid `GENPRES_URL_ID` | Full medication formulary from Google Sheets |
+| **Demo** (default) | `GENPRES_PROD=0` or unset, with `GENPRES_URL_ID` set to the public demo sheet | Sample medication data |
+| **Live** | `GENPRES_PROD=1` with `GENPRES_URL_ID` set to the production sheet | Full medication formulary from Google Sheets |
 
 In demo mode the formulary is limited to a representative subset. It is sufficient for testing the application UI and calculation logic but does not reflect the complete clinical rule set.
 

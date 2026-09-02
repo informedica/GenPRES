@@ -567,6 +567,15 @@ Classification:
 Libraries:  
 List of libraries and applications along with capabilities and dependencies. Note that only top level dependencies are shown. Transitive dependencies are not listed.
 
+> **This list is a target architecture, not an inventory.** Several entries below are planned
+> rather than present. As of 2026-08-28 the solution does **not** contain
+> `Informedica.OTS.Lib`, `Informedica.FHIR.Lib`, `Informedica.DataPlatform.Lib`,
+> `Informedica.HIXConnect.Lib` or `Informedica.MetaVision.Lib` — the first four existed as
+> uncompiled projects outside `GenPRES.sln` and were deleted; the last never existed. Conversely
+> the list omits `Informedica.GenINTERACT.Lib` and `Informedica.MCP.Server`, which do exist.
+> For what is actually built today, see
+> [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries) — that is the inventory; this is the plan.
+
 1. **Informedica.Utils.Lib:** Utility library.  
    - Capabilities:  
      - Basic common functionality (string manipulation, collection extensions, file I/O)  

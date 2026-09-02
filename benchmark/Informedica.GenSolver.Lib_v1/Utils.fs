@@ -80,7 +80,7 @@ module Utils =
                     | [ u1; u2; u3 ] when u3 |> String.startsWith "kg" -> [ u1; u3; u2 ]
                     | xs -> xs
                 |> String.concat "/"
-                |> Units.fromString
+                |> UnitsParse.fromString
                 |> Option.defaultValue (vu |> getUnit)
 
             vu

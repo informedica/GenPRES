@@ -1,66 +1,45 @@
 # W1: Project Structure & Governance - Missing Items Analysis
 
-## Workshop Status: In Progress ✅
+## Workshop Status: Complete
 
-**Last Updated**: 2025-10-25
+**Last reviewed**: 2026-08-28 (superseding the 2025-10-25 content below)
 
-### Completed Work
+W1 is recorded as complete in [ROADMAP.md](../../ROADMAP.md); this document is retained as the
+gap analysis that drove it.
 
-The following critical community health files have been added to the repository root:
+### Delivered
 
-- ✅ **CODE_OF_CONDUCT.md** - Contributor Covenant v2.1 code of conduct
-- ✅ **SECURITY.md** - Security policy and vulnerability disclosure process
-- ✅ **GOVERNANCE.md** - Project governance model and decision-making process
-- ✅ **SUPPORT.md** - User support and help resources
-- ✅ **ROADMAP.md** - Public roadmap with version planning and feature timeline
-- ✅ **CHANGELOG.md** - Structured release notes following Keep a Changelog format
-- ✅ **MAINTAINERS.md** - Maintainer roster and areas of responsibility
+The community health and governance baseline is in place: `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+`GOVERNANCE.md`, `SUPPORT.md`, `ROADMAP.md`, `CHANGELOG.md`, `MAINTAINERS.md` and
+`ARCHITECTURE.md` at the repository root, plus `.editorconfig`, `.github/PULL_REQUEST_TEMPLATE/`,
+`.github/ISSUE_TEMPLATE/`, Husky pre-commit hooks (Fantomas formatting and markdown linting),
+and a CI matrix in `.github/workflows/build.yml` that runs `dotnet fantomas --check` and the
+Expecto suite across Linux, Windows and macOS.
 
-These documents establish:
+Architecture Decision Records live in `docs/mdr/design-history/`, not the `docs/adr/` this
+document originally proposed. That relocation was deliberate — the ADRs are part of the MDR
+Design History File.
 
-- Community standards and professional conduct expectations
-- Responsible vulnerability disclosure procedures
-- Clear governance and decision-making processes
-- Support channels for users and contributors
-- Transparent roadmap for future development
-- Structured changelog for release tracking
-- Maintainer identification and contact information
+### Still open
 
-### Next Steps
+- FSharpLint is not configured or wired into CI (Fantomas formatting is).
+- No issue template for MDR change requests (`bug_report`, `feature_request` and `ux_report` exist).
+- No `docs/api/` — auto-generated API documentation is tracked as
+  [#460](https://github.com/informedica/GenPRES/issues/460).
+- No contributor guide beyond `CONTRIBUTING.md`.
+- No documented branch-protection rules.
+- No code-coverage collection, no security scanning, and no dependency-update automation
+  (`.github/dependabot.yml` does not exist).
 
-The following items from the W1 workshop remain to be addressed:
-
-**Phase 1 Remaining (Critical Foundation)**:
-
-- [ ] .editorconfig for consistent coding style
-- [ ] Enhanced PULL_REQUEST_TEMPLATE.md with MDR checklist
-- [ ] Format checking workflow (Fantomas)
-- [ ] Linting workflow (FSharpLint)
-- [ ] ISSUE_TEMPLATE for change requests (MDR compliance)
-
-**Phase 2 (Documentation Structure)**:
-
-- [ ] ARCHITECTURE.md (root-level summary linking to detailed docs)
-- [ ] docs/adr/ directory with Architecture Decision Records
-- [ ] docs/api/ directory for API documentation
-- [ ] docs/guides/contributor-guide.md
-
-**Phase 3-4 (Automation & Quality)**:
-
-- [ ] Pre-commit hooks
-- [ ] Branch protection rules documentation
-- [ ] Automated testing and coverage workflows
-- [ ] Security scanning integration
-- [ ] Dependency management automation
-
-See the sections below for detailed analysis of missing items and implementation priorities.
+The detailed per-category analysis below is the original October 2025 assessment. Individual
+✅/❌ marks in it have not been re-verified and should be read as historical.
 
 ---
 
 - [W1: Project Structure \& Governance - Missing Items Analysis](#w1-project-structure--governance---missing-items-analysis)
-  - [Workshop Status: In Progress ✅](#workshop-status-in-progress-)
-    - [Completed Work](#completed-work)
-    - [Next Steps](#next-steps)
+  - [Workshop Status: Complete](#workshop-status-complete)
+    - [Delivered](#delivered)
+    - [Still open](#still-open)
   - [Current Repository State Assessment](#current-repository-state-assessment)
     - [✅ Present](#-present)
       - [Root Level Files](#root-level-files)
@@ -153,7 +132,6 @@ See the sections below for detailed analysis of missing items and implementation
 - ✅ **user-requirements.md** - User requirements (UR-001 through UR-XXX)
 - ✅ **software-requirements.md** - Software requirements specification
 - ✅ **chemo_specific_requirements.md** - Chemotherapy-specific requirements
-- ✅ **chemo_specific_requirements.pdf** - PDF version
 - ✅ **informedica.genunits.lib.requirements.md** - Units library requirements
 - ✅ **traceability-matrix.xlsx** - Requirements traceability
 - ✅ **genpres_traceability_matrix.xlsx** - GenPRES traceability
@@ -178,7 +156,6 @@ See the sections below for detailed analysis of missing items and implementation
 ##### Interface Specifications (`docs/mdr/interface/`)
 
 - ✅ **genpres_interface_specification.md** - GenPRES interface specification
-- ✅ **genpres_interface_specification.pdf** - PDF version
 - ✅ **treatmentplan-interface-specification.md** - Treatment plan interface
 - ✅ **treatmentplan-interface-specification-FHIR-IHE-revision.md** - FHIR/IHE revision
 - ✅ **treatmentplan-interface-specification-merged.md** - Merged specification
@@ -217,12 +194,11 @@ See the sections below for detailed analysis of missing items and implementation
 - ✅ **docs/code-reviews/** - Code review documentation (3 files)
   - genpres-review.md, parseTextItem-refactoring.md, solver-memoization.md
 - ✅ **docs/literature/** - EHR prescribing research (4 files)
-  - ehr_medication_prescribing_research.md/.pdf
-  - epic_medication_prescribing_research.md/.pdf
+  - ehr_medication_prescribing_research.md
+  - epic_medication_prescribing_research.md
 - ✅ **docs/data-extraction/** - Data extraction prompts (1 file)
   - doserule-extraction-prompt.md
 - ✅ **docs/mdr/mdr-regulations.md** - MDR regulations overview
-- ✅ **docs/mdr/mdr-regulations.pdf** - PDF version
 
 ### ❌ Missing Items by Category
 
@@ -809,213 +785,15 @@ See the sections below for detailed analysis of missing items and implementation
 
 ### Proposed Repository Structure
 
-Below is the recommended folder structure showing where missing documents should be placed and references to existing documentation. Items marked with ❌ are missing, ⚠️ need enhancement, and ✅ already exist.
+This section used to carry a ~200-line annotated tree of every file in the repository, each
+marked ✅ present or ❌ missing. It was deleted: the repository is the authoritative record of
+its own layout, a hand-maintained copy goes stale silently (it still claimed `.pdf` files that
+do not exist), and per [issue #411](https://github.com/informedica/GenPRES/issues/411) that kind
+of snapshot is not what a document should be carrying.
 
-```text
-GenPRES2/
-│
-├── 📄 README.md                              ✅ Exists - Entry point
-├── 📄 LICENSE                                ✅ Exists - Open source license
-├── 📄 CONTRIBUTING.md                        ⚠️ Enhance with MDR checklist
-├── 📄 CODE_OF_CONDUCT.md                     ✅ Exists - Contributor Covenant v2.1
-├── 📄 SECURITY.md                            ✅ Exists - Vulnerability disclosure
-├── 📄 SUPPORT.md                             ✅ Exists - Getting help guide
-├── 📄 GOVERNANCE.md                          ✅ Exists - Project governance model
-├── 📄 MAINTAINERS.md                         ✅ Exists - Maintainer roster
-├── 📄 ARCHITECTURE.md                        ✅ Exists - Quick architecture reference
-│                                                      → Links to docs/mdr/design-history/0001-system-architecture.md
-├── 📄 ROADMAP.md                             ✅ Exists - Public roadmap
-│                                                      → Links to docs/roadmap/genpres-architecture-and-timeline.md
-├── 📄 CHANGELOG.md                           ✅ Exists - User-facing release notes
-│                                                      → Separate from docs/mdr/design-history/0000-change-log.md
-├── 📄 AUTHORS.md                             ❌ ADD - Contributors list
-├── 📄 .editorconfig                          ❌ ADD - Editor configuration
-├── 📄 .gitattributes                         ✅ Check if exists
-├── 📄 paket.dependencies                     ✅ Exists
-├── 📄 GenPres.sln                           ✅ Exists
-│
-├── 📁 .github/                               ✅ Exists
-│   ├── 📄 copilot-instructions.md            ✅ Exists
-│   ├── 📄 PULL_REQUEST_TEMPLATE.md           ⚠️ Enhance with MDR checklist
-│   │
-│   ├── 📁 workflows/                         ✅ Exists
-│   │   ├── 📄 build.yml                      ✅ Exists - Basic build
-│   │   ├── 📄 test.yml                       ❌ ADD - Separate test workflow
-│   │   ├── 📄 format-check.yml               ❌ ADD - Fantomas check
-│   │   ├── 📄 lint.yml                       ❌ ADD - FSharpLint check
-│   │   ├── 📄 coverage.yml                   ❌ ADD - Test coverage
-│   │   ├── 📄 security-scan.yml              ❌ ADD - CodeQL/dependency scan
-│   │   ├── 📄 sbom-generate.yml              ❌ ADD - Auto-generate SBOM
-│   │   └── 📄 release.yml                    ❌ ADD - Automated releases
-│   │
-│   ├── 📁 ISSUE_TEMPLATE/                    ✅ Exists
-│   │   ├── 📄 bug_report.md                  ✅ Exists
-│   │   ├── 📄 feature_request.md             ✅ Exists
-│   │   ├── 📄 change_request.md              ❌ ADD - MDR change control
-│   │   ├── 📄 adverse_event.md               ❌ ADD - Adverse event reporting
-│   │   └── 📄 config.yml                     ❌ ADD - Issue routing config
-│   │
-│   └── 📁 instructions/                      ✅ Exists
-│       ├── 📄 fsharp-coding.instructions.md  ✅ Exists
-│       ├── 📄 commit-message.instructions.md ✅ Exists
-│       └── 📄 mdr-compliance.instructions.md ❌ ADD - MDR-specific guidelines
-│
-├── 📁 docs/                                  ✅ Exists
-│   │
-│   ├── 📁 roadmap/                           ✅ Exists - Strategic planning & workshops
-│   │   ├── 📄 genpres-architecture-and-timeline.md ✅ Exists - Architecture and timeline
-│   │   ├── 📄 w1-project-structure-and-governance.md ✅ This document
-│   │   └── 📄 w2-through-w12.md              ❌ ADD - Future workshop docs
-│   │
-│   ├── 📁 adr/                               ❌ ADD - Architecture Decision Records
-│   │   ├── 📄 0000-use-adr.md                ❌ ADD - ADR about using ADRs
-│   │   ├── 📄 0001-safe-stack.md             ❌ ADD - Why SAFE Stack
-│   │   ├── 📄 0002-bigrationals.md           ❌ ADD - Why BigRational for calculations
-│   │   ├── 📄 0003-stateless-sessions.md     ❌ ADD - Stateless design decision
-│   │   ├── 📄 0004-mailbox-processor.md      ❌ ADD - MailboxProcessor choice
-│   │   └── 📄 template.md                    ❌ ADD - ADR template
-│   │
-│   ├── 📁 api/                               ❌ ADD - Developer API documentation
-│   │   ├── 📄 index.md                       ❌ ADD - API overview
-│   │   ├── 📄 getting-started.md             ❌ ADD - Integration guide
-│   │   ├── 📄 authentication.md              ❌ ADD - Auth/session handling
-│   │   ├── 📄 endpoints.md                   ❌ ADD - Endpoint reference
-│   │   └── 📄 fsharp-interop.md              ❌ ADD - F# library usage
-│   │
-│   ├── 📁 guides/                            ❌ ADD - User and developer guides
-│   │   ├── 📄 user-guide.md                  ❌ ADD - End user guide
-│   │   ├── 📄 developer-guide.md             ❌ ADD - Developer onboarding
-│   │   ├── 📄 contributor-guide.md           ❌ ADD - Contributing workflow
-│   │   └── 📄 deployment-guide.md            ❌ ADD - Deployment instructions
-│   │
-│   ├── 📁 scenarios/                         ✅ Exists
-│   │   ├── 📄 UC-GENPRES-001.md              ✅ Exists
-│   │   ├── 📄 UC-GENPRES-002.md              ✅ Exists
-│   │   ├── 📄 UC-GENPRES-003.md              ✅ Exists
-│   │   └── 📄 UC-GENPRES-004.md              ✅ Exists
-│   │       (age-group scenario markdown is generated by Scenarios.fsx
-│   │        and not kept in the repository)
-│   │
-│   ├── 📁 code-reviews/                      ✅ Exists
-│   │   ├── 📄 genpres-review.md              ✅ Exists
-│   │   ├── 📄 parseTextItem-refactoring.md   ✅ Exists
-│   │   └── 📄 solver-memoization.md          ✅ Exists
-│   │
-│   ├── 📁 literature/                        ✅ Exists - EHR research
-│   │   ├── 📄 ehr_medication_prescribing_research.md ✅ Exists
-│   │   ├── 📄 ehr_medication_prescribing_research.pdf ✅ Exists
-│   │   ├── 📄 epic_medication_prescribing_research.md ✅ Exists
-│   │   └── 📄 epic_medication_prescribing_research.pdf ✅ Exists
-│   │
-│   ├── 📁 data-extraction/                   ✅ Exists - Extraction prompts
-│   │   └── 📄 doserule-extraction-prompt.md  ✅ Exists
-│   │
-│   └── 📁 mdr/                               ✅ Exists - Medical Device Regulation docs
-│       ├── 📄 mdr-regulations.md             ✅ Exists
-│       ├── 📄 mdr-regulations.pdf            ✅ Exists
-│       │
-│       ├── 📁 design-history/                ✅ Exists
-│       │   ├── 📄 0000-change-log.md          ✅ Exists - Design changes (developer)
-│       │   ├── 📄 0001-system-architecture.md  ✅ Exists - Detailed architecture
-│       │   ├── 📄 0009-mcp-server-architecture.md ✅ Exists
-│       │   ├── 📄 0014-staged-value-expansion-timed-orders.md ✅ Exists
-│       │   ├── 📄 0015-security-baseline.md    ✅ Exists
-│       │   ├── 📄 0016-gstand-dose-rule-fallback.md ✅ Exists
-│       │   ├── 📄 0018-nlp-dose-rule-extraction.md ✅ Exists
-│       │   ├── 📄 0019-shared-clinical-calculations.md ✅ Exists
-│       │   └── 📄 0020-fhir-r4-integration.md  ✅ Exists
-│       │
-│       ├── 📁 requirements/                  ✅ Exists
-│       │   ├── 📄 user-requirements.md       ✅ Exists (UR-XXX)
-│       │   ├── 📄 software-requirements.md   ✅ Exists (SR-XXX)
-│       │   ├── 📄 chemo_specific_requirements.md ✅ Exists
-│       │   ├── 📄 chemo_specific_requirements.pdf ✅ Exists
-│       │   ├── 📄 informedica.genunits.lib.requirements.md ✅ Exists
-│       │   ├── 📄 traceability-matrix.xlsx   ✅ Exists
-│       │   ├── 📄 genpres_traceability_matrix.xlsx ✅ Exists
-│       │   └── 📄 traceability-automated.json ❌ ADD - Automated traceability
-│       │
-│       ├── 📁 risk-analysis/                 ✅ Exists
-│       │   ├── 📄 risk-management-plan.md    ✅ Exists (ISO 14971)
-│       │   ├── 📄 risk-management-report.md  ✅ Exists
-│       │   ├── 📄 hazard-analysis.xlsx       ✅ Exists
-│       │   ├── 📄 genpres_hazard_analysis.xlsx ✅ Exists
-│       │   ├── 📄 genpres_hazard_control.xlsx ✅ Exists
-│       │   ├── 📄 risk-control-table.xlsx    ✅ Exists
-│       │   └── 📄 hazard_analysis.md         ✅ Exists
-│       │
-│       ├── 📁 validation/                    ✅ Exists
-│       │   ├── 📄 test-strategy.md           ✅ Exists
-│       │   ├── 📄 unit-test-report.md        ✅ Exists
-│       │   ├── 📄 integration-test-report.md ✅ Exists
-│       │   ├── 📄 usability-validation-report.md ✅ Exists
-│       │   ├── 📄 performance-validation.md  ❌ ADD - Performance benchmarks
-│       │   └── 📄 security-validation.md     ❌ ADD - Security testing
-│       │
-│       ├── 📁 interface/                     ✅ Exists
-│       │   ├── 📄 genpres_interface_specification.md ✅ Exists
-│       │   ├── 📄 genpres_interface_specification.pdf ✅ Exists
-│       │   ├── 📄 treatmentplan-interface-specification.md ✅ Exists
-│       │   ├── 📄 treatmentplan-interface-specification-FHIR-IHE-revision.md ✅ Exists
-│       │   ├── 📄 treatmentplan-interface-specification-merged.md ✅ Exists
-│       │   ├── 📄 merged_fhir_specification.md ✅ Exists
-│       │   └── 📄 merged_fhir_specification_FIXED.md ✅ Exists
-│       │
-│       ├── 📁 post-market/                   ✅ Exists
-│       │   ├── 📄 feedback-log.md            ✅ Exists
-│       │   ├── 📄 known-issues.md            ✅ Exists
-│       │   ├── 📄 update-plan.md             ✅ Exists
-│       │   ├── 📄 genpres_protocol_draft.md  ✅ Exists
-│       │   ├── 📄 adverse-event-procedure.md ❌ ADD - Adverse event process
-│       │   ├── 📄 vigilance-report-template.md ❌ ADD - Vigilance reporting
-│       │   └── 📄 post-market-clinical-followup.md ❌ ADD - PMCF plan
-│       │
-│       ├── 📁 usability/                     ✅ Exists
-│       │   ├── 📄 user-profile.md            ✅ Exists
-│       │   ├── 📄 critical-tasks.md          ✅ Exists
-│       │   ├── 📄 formative-testing.md       ✅ Exists
-│       │   └── 📄 summative-testing.md       ✅ Exists
-│       │
-│       ├── 📁 clinical-evaluation/           ❌ ADD - Clinical evaluation framework
-│       │   ├── 📄 clinical-evaluation-plan.md ❌ ADD - Evaluation plan
-│       │   ├── 📄 literature-review.md       ❌ ADD - Literature search
-│       │   ├── 📄 clinical-data.md           ❌ ADD - Clinical data collection
-│       │   └── 📄 benefit-risk-analysis.md   ❌ ADD - Benefit-risk assessment
-│       │
-│       └── 📁 change-control/                ❌ ADD - Change control process
-│           ├── 📄 change-control-procedure.md ❌ ADD - Change process
-│           ├── 📄 change-request-template.md ❌ ADD - Change request form
-│           └── 📄 change-log.md              ❌ ADD - Change tracking log
-│
-├── 📁 src/                                   ✅ Exists
-│   ├── 📁 Client/                            ✅ Exists
-│   ├── 📁 Server/                            ✅ Exists
-│   ├── 📁 Shared/                            ✅ Exists
-│   └── 📁 Informedica.*.Lib/                 ✅ Exists (multiple libraries)
-│
-├── 📁 tests/                                 ✅ Exists
-│   ├── 📁 Informedica.*.Tests/               ✅ Exists (multiple test projects)
-│   └── 📄 coverage-report/                   ❌ ADD - Coverage output directory
-│
-├── 📁 benchmarks/                            ⚠️ Check - Performance benchmarks
-│   └── 📁 Informedica.GenSolver.Benchmarks/  ❌ ADD - Solver benchmarks
-│
-├── 📁 artifacts/                             ❌ ADD - Build artifacts
-│   ├── 📄 sbom.json                          ❌ ADD - Auto-generated SBOM
-│   ├── 📄 sbom.xml                           ❌ ADD - SBOM (SPDX format)
-│   └── 📄 licenses.txt                       ❌ ADD - License compilation
-│
-├── 📁 scripts/                               ⚠️ Check if exists
-│   ├── 📄 setup-dev-env.sh                   ❌ ADD - Dev environment setup
-│   ├── 📄 pre-commit-hook.sh                 ❌ ADD - Pre-commit checks
-│   ├── 📄 generate-sbom.sh                   ❌ ADD - SBOM generation
-│   └── 📄 run-all-tests.sh                   ❌ ADD - Test runner
-│
-└── 📁 tools/                                 ❌ ADD - Development tools
-    ├── 📄 fantomas-config.json               ❌ ADD - Formatting config
-    ├── 📄 fsharplint.json                    ❌ ADD - Linting config
-    └── 📄 traceability-checker.fsx           ❌ ADD - Traceability automation
-```
+For the current layout see the folder structure in
+[DEVELOPMENT.md](../../DEVELOPMENT.md#project-folder-structure). What is still genuinely absent
+is listed under "Still open" at the top of this document.
 
 ### Priority Implementation Order
 

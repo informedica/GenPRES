@@ -40,7 +40,6 @@ Use specific scopes relevant to the GenPRES project:
 - **agents**: Changes to Agents.Lib (agent-based execution, MailboxProcessor)
 - **logging**: Changes to Logging.Lib (concurrent logging utilities)
 - **nlp**: Changes to NLP.Lib (parsing free text to structured rules)
-- **ots**: Changes to OTS.Lib (Google Sheets/CSV/OTS data access)
 - **genunits**: Changes to GenUnits.Lib (units of measure, calculations)
 - **gensolver**: Changes to GenSolver.Lib (constraint solving, equations, variables)
 - **gencore**: Changes to GenCore.Lib (core domain model)
@@ -50,10 +49,8 @@ Use specific scopes relevant to the GenPRES project:
 - **ftk**: Changes to FTK.Lib (Farmacotherapeutisch Kompas rules)
 - **genform**: Changes to GenForm.Lib (operational knowledge rules)
 - **genorder**: Changes to GenOrder.Lib (clinical order scenarios)
+- **geninteract**: Changes to GenINTERACT.Lib (drug interaction rules)
 - **mcp**: Changes to MCP.Lib (LLM/MCP integrations)
-- **fhir**: Changes to FHIR.Lib (FHIR conversions)
-- **dataplatform**: Changes to DataPlatform.Lib (data platform integrations)
-- **hixconnect**: Changes to HIXConnect.Lib (HIX Connect integrations)
 - **utils**: Changes to Utils.Lib (shared utilities, common functions)
 
 #### Application Scopes
@@ -127,7 +124,7 @@ Fixed conversion factor calculation that was causing incorrect
 concentration values for sodium chloride solutions.
 ```
 
-``` 
+```
 feat(nlp): improve dosage phrase extraction
 
 Enhance pattern matching for Dutch medical dosage phrases,
@@ -135,17 +132,17 @@ reducing false negatives in free-text parsing.
 ```
 
 ```
-fix(ots): handle missing sheet columns gracefully
+fix(genform): handle missing sheet columns gracefully
 
 Add validation and clearer error messages when required
 Google Sheets columns are absent in demo datasets.
 ```
 
 ```
-feat(fhir): add MedicationRequest mapping for GenORDER prescriptions
+feat(geninteract): add interaction lookup for GenORDER prescriptions
 
-Implement conversion from GenORDER domain models to FHIR
-MedicationRequest resources with unit-safe quantities.
+Implement drug-drug interaction checking over the substances of
+an order plan, returning severity-classified results.
 ```
 
 ### Documentation Examples

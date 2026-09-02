@@ -9,7 +9,7 @@ Pass 3 is the terminal LLM-driven pass and emits the canonical TSV with structur
 Pass 4 is a deterministic post-processing pass that fills the `Id` / `GrpId` / `SortNo` columns from a stable hash of the canonical key fields — no NuExtract spend.
 Pass 5 (validation) is an optional bridge that feeds the Pass-4 artefact through the production GenFORM `DoseRule` parser and renders the resulting `DoseRule` records as markdown (also written next to the script as `<stem>_doserules.md`), confirming the extracted TSV is consumable as real operational rules — no NuExtract spend, no column changes.
 
-The whole pipeline is implemented as a single self-contained FSI script (`ftk_extract_v2.fsx`) that bundles all phase modules, NuExtract HTTP plumbing, Drive helpers, the FTK XML reader / decomposer, and the TSV writer. NuExtract 2.0's `verbatim-string` typing keeps Dutch source text intact across the round-trip; raw FTK XML is fed directly to NuExtract (no curation in front).
+The whole pipeline is implemented as a single self-contained FSI script (`Informedica.NLP.Lib.fsx`) that bundles all phase modules, NuExtract HTTP plumbing, Drive helpers, the FTK XML reader / decomposer, and the TSV writer. NuExtract 2.0's `verbatim-string` typing keeps Dutch source text intact across the round-trip; raw FTK XML is fed directly to NuExtract (no curation in front).
 
 ### Pipeline at a glance
 
@@ -364,7 +364,7 @@ Every pass calls NuExtract Online via the shared HTTP plumbing in `module NuExtr
 | **Cardinality** | Read-only consumer — does not alter the TSV or row count. |
 | **Diagnostic** (`Phase5.diagnose`) | Replays the pipeline stage-by-stage **without** the silent swallows, printing per-stage survival counts and what each stage drops: (1) raw rows, (2) `doseRuleDataIsValid` filter, (3) `processDoseRuleData` (product match / synthetic substitution), (4) `mapToDoseRule` **with every `Error` printed** — `DoseRule.getFromGetData` (`DoseRule.fs:923-927`) partitions Ok/Error and discards the Error rows with no log, and `processDoseRuleData` collects a "no products found" warnings dict it never returns; the diagnostic surfaces both. |
 | **Dependencies** | The script `#r`s a single consistent DLL set from the **GenForm bin** (`Informedica.GenFORM.Lib.dll` + its co-located `Utils` / `Logging` / `GenUNITS` / `GenCORE` / `ZIndex` / `ZForm` / `OTS` / `Agents`) so the Phase-5 parser and the rest of the pipeline share one `Informedica.Utils.Lib` assembly (no FSI type-identity conflict), and pins `MathNet.Numerics.FSharp 5.0.0` to match the GenForm build (`BigRational` identity). |
-| **How to run** | `cd src/Informedica.NLP.Lib/Scratch && echo 'Run.runPhase5 ();;' \| dotnet fsi --use:ftk_extract_v2.fsx` (needs Drive ADC auth). Use `--use:` (not `#load` of the script from a wrapper — FSI does not expose a `#load`ed script's modules and the nested nuget refs trip NU1504). `Run.runPhase5Diag ()` for the stage trace. |
+| **How to run** | `cd src/Informedica.NLP.Lib/Scratch && echo 'Run.runPhase5 ();;' \| dotnet fsi --use:Informedica.NLP.Lib.fsx` (needs Drive ADC auth). Use `--use:` (not `#load` of the script from a wrapper — FSI does not expose a `#load`ed script's modules and the nested nuget refs trip NU1504). `Run.runPhase5Diag ()` for the stage trace. |
 
 Pass 5 (validation) is **not** a column-filling pass and has no `Ux` checkpoint — it is a validation/preview that the Pass-4 artefact ingests cleanly as real `DoseRule` records, ahead of the TBD downstream typed-emit step (§8).
 
@@ -403,7 +403,7 @@ Pass 3 is terminal for the LLM-driven pipeline; Pass 4 is a deterministic ID-ass
 
 ## 9. Implementation hooks
 
-All modules live in the extraction script (`ftk_extract_v2.fsx`). Its `#r` preamble references one consistent DLL set from the **GenForm bin** (so Pass 5's parser and the rest of the script share a single `Informedica.Utils.Lib` assembly) and pins `MathNet.Numerics.FSharp 5.0.0` to match that build — see §6.5 "Dependencies".
+All modules live in the extraction script (`Informedica.NLP.Lib.fsx`). Its `#r` preamble references one consistent DLL set from the **GenForm bin** (so Pass 5's parser and the rest of the script share a single `Informedica.Utils.Lib` assembly) and pins `MathNet.Numerics.FSharp 5.0.0` to match that build — see §6.5 "Dependencies".
 
 | Module | Key functions / values |
 |---|---|
@@ -461,7 +461,7 @@ Each pass writes a per-generic JSON dump to its `passNJsonDir`:
 
 ## 10. References
 
-- **Live implementation**: the FTK extraction FSI script (`ftk_extract_v2.fsx`) — leading point for the whole pipeline.
+- **Live implementation**: the FTK extraction FSI script (`Informedica.NLP.Lib.fsx`) — leading point for the whole pipeline.
 - **NuExtract prompts**: [`docs/data-extraction/instructions/`](instructions/) — `phase1-ftk.md`, `phase2-dose-type.md`, `phase3-patient-category.md`, `phase3-schedule-form.md` (classifier), `phase3-dose-limits.md` (CatchAll), `phase3-dose-limits-once.md`, `phase3-dose-limits-once-timed.md`, `phase3-dose-limits-disc-freq.md`, `phase3-dose-limits-disc-int.md`, `phase3-dose-limits-timed-freq.md`, `phase3-dose-limits-timed-int.md`, `phase3-dose-limits-continuous.md`. `phase3-dose-limits-slim-interval.md` exists on disk but is **legacy / unused** — its loader (`Schema.limitsSlimIntervalInstructions`) and `Schema.limitsSlimTemplate` are defined but not referenced by `Phase3.projectSpecs` (see §9). Edit-and-reload picks up changes.
 - **Per-checkpoint user instructions**: [`instructions/next-steps-pass1.md`](instructions/next-steps-pass1.md), [`next-steps-pass2.md`](instructions/next-steps-pass2.md), [`next-steps-pass3.md`](instructions/next-steps-pass3.md), [`next-steps-pass4.md`](instructions/next-steps-pass4.md) — canonical U1..U4 checkpoint text, loaded eagerly via `Schema.nextStepsPassN` and printed to the console by `UserSteps.print` at the end of each `Run.runPhaseN`.
 - [`drive-upload-setup.md`](drive-upload-setup.md) — one-time ADC auth setup (`gcloud auth application-default login`) used by `module Drive`.

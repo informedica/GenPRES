@@ -7,7 +7,7 @@ let commitMsgFile = fsi.CommandLineArgs[1]
 let types = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
 
 let scopes =
-    "agents|logging|nlp|ots|genunits|gensolver|gencore|zindex|zform|nkf|ftk|genform|genorder|mcp|fhir|dataplatform|hixconnect|utils|client|server|api|ui|config|deps|deps-dev|docker|github|deploy"
+    "agents|logging|nlp|genunits|gensolver|gencore|zindex|zform|nkf|ftk|genform|genorder|geninteract|mcp|utils|client|server|api|ui|config|deps|deps-dev|docker|github|deploy"
 
 let pattern = $"^(?:%s{types})(?:\((?:%s{scopes})\))?(?::) "
 let msgHeading = commitMsgFile |> File.ReadAllLines |> Array.head

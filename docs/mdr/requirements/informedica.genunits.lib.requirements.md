@@ -20,4 +20,4 @@
 - Pint is flexible, but domain features must be user-defined.
 - SymPy Units is symbolic and precise but not domain-focused.
 - UnitsNet and FSharp.Units are strong for SI/science but less so for clinical or custom domain units.
-- For more on the F# code, see the [source on GitHub](https://github.com/halcwb/GenPres2/blob/1e0826dc2cdccac0e2d1ed14d60ad6658ffccf93/src/Informedica.GenUnits.Lib/ValueUnit.fs).
+- For more on the F# code, see [`src/Informedica.GenUNITS.Lib/ValueUnit.fs`](../../../src/Informedica.GenUNITS.Lib/ValueUnit.fs) in this repository. (This note previously linked to a pinned commit in the predecessor repository `halcwb/GenPres2`.)

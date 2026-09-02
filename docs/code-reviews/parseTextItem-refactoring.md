@@ -2,7 +2,7 @@
 
 ## Summary
 
-Refactored the `parseTextItem` function in `/src/Shared/Models.fs` to make it more extensible and maintainable.
+Refactored the `parseTextItem` function to make it more extensible and maintainable. At the time of this review it lived in `src/Shared/Models.fs`; the function now sits in `src/Informedica.GenPRES.Server/ServerApi.Mappers.fs`.
 
 ## What Changed
 
