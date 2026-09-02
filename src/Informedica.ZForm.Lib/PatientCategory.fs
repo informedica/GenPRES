@@ -7,9 +7,6 @@ module PatientCategory =
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
-    open Aether
-    open Aether.Operators
-
 
     /// Create a PatientCategory.
     let create ga age wght bsa gend =
@@ -31,103 +28,71 @@ module PatientCategory =
         module MinMax = MinMax.Optics
 
 
-        let setGender = Optic.set PatientCategory.Gender_
+        let setGender g (pc: PatientCategory) = { pc with Gender = g }
 
 
-        let inclMinGestAge = PatientCategory.GestAge_ >-> MinMax.inclMinLens
+        let setInclMinGestAge vu (pc: PatientCategory) =
+            { pc with GestAge = pc.GestAge |> (snd MinMax.inclMinLens) vu }
 
 
-        let setInclMinGestAge = Optic.set inclMinGestAge
+        let setExclMinGestAge vu (pc: PatientCategory) =
+            { pc with GestAge = pc.GestAge |> (snd MinMax.exclMinLens) vu }
 
 
-        let exclMinGestAge = PatientCategory.GestAge_ >-> MinMax.exclMinLens
+        let setInclMaxGestAge vu (pc: PatientCategory) =
+            { pc with GestAge = pc.GestAge |> (snd MinMax.inclMaxLens) vu }
 
 
-        let setExclMinGestAge = Optic.set exclMinGestAge
+        let setExclMaxGestAge vu (pc: PatientCategory) =
+            { pc with GestAge = pc.GestAge |> (snd MinMax.exclMaxLens) vu }
 
 
-        let inclMaxGestAge = PatientCategory.GestAge_ >-> MinMax.inclMaxLens
+        let setInclMinAge vu (pc: PatientCategory) =
+            { pc with Age = pc.Age |> (snd MinMax.inclMinLens) vu }
 
 
-        let setInclMaxGestAge = Optic.set inclMaxGestAge
+        let setExclMinAge vu (pc: PatientCategory) =
+            { pc with Age = pc.Age |> (snd MinMax.exclMinLens) vu }
 
 
-        let exclMaxGestAge = PatientCategory.GestAge_ >-> MinMax.exclMaxLens
+        let setInclMaxAge vu (pc: PatientCategory) =
+            { pc with Age = pc.Age |> (snd MinMax.inclMaxLens) vu }
 
 
-        let setExclMaxGestAge = Optic.set exclMaxGestAge
+        let setExclMaxAge vu (pc: PatientCategory) =
+            { pc with Age = pc.Age |> (snd MinMax.exclMaxLens) vu }
 
 
-        let inclMinAge = PatientCategory.Age_ >-> MinMax.inclMinLens
+        let setInclMinWeight vu (pc: PatientCategory) =
+            { pc with Weight = pc.Weight |> (snd MinMax.inclMinLens) vu }
 
 
-        let setInclMinAge = Optic.set inclMinAge
+        let setExclMinWeight vu (pc: PatientCategory) =
+            { pc with Weight = pc.Weight |> (snd MinMax.exclMinLens) vu }
 
 
-        let exclMinAge = PatientCategory.Age_ >-> MinMax.exclMinLens
+        let setInclMaxWeight vu (pc: PatientCategory) =
+            { pc with Weight = pc.Weight |> (snd MinMax.inclMaxLens) vu }
 
 
-        let setExclMinAge = Optic.set exclMinAge
+        let setExclMaxWeight vu (pc: PatientCategory) =
+            { pc with Weight = pc.Weight |> (snd MinMax.exclMaxLens) vu }
 
 
-        let inclMaxAge = PatientCategory.Age_ >-> MinMax.inclMaxLens
+        let setInclMinBSA vu (pc: PatientCategory) =
+            { pc with BSA = pc.BSA |> (snd MinMax.inclMinLens) vu }
 
 
-        let setInclMaxAge = Optic.set inclMaxAge
+        let setExclMinBSA vu (pc: PatientCategory) =
+            { pc with BSA = pc.BSA |> (snd MinMax.exclMinLens) vu }
 
 
-        let exclMaxAge = PatientCategory.Age_ >-> MinMax.exclMaxLens
+        let setInclMaxBSA vu (pc: PatientCategory) =
+            { pc with BSA = pc.BSA |> (snd MinMax.inclMaxLens) vu }
 
 
-        let setExclMaxAge = Optic.set exclMaxAge
-
-
-        let inclMinWeight = PatientCategory.Weight_ >-> MinMax.inclMinLens
-
-
-        let setInclMinWeight = Optic.set inclMinWeight
-
-
-        let exclMinWeight = PatientCategory.Weight_ >-> MinMax.exclMinLens
-
-
-        let setExclMinWeight = Optic.set exclMinWeight
-
-
-        let inclMaxWeight = PatientCategory.Weight_ >-> MinMax.inclMaxLens
-
-
-        let setInclMaxWeight = Optic.set inclMaxWeight
-
-
-        let exclMaxWeight = PatientCategory.Weight_ >-> MinMax.exclMaxLens
-
-
-        let setExclMaxWeight = Optic.set exclMaxWeight
-
-
-        let inclMinBSA = PatientCategory.BSA_ >-> MinMax.inclMinLens
-
-
-        let setInclMinBSA = Optic.set inclMinBSA
-
-
-        let exclMinBSA = PatientCategory.BSA_ >-> MinMax.exclMinLens
-
-
-        let setExclMinBSA = Optic.set exclMinBSA
-
-
-        let inclMaxBSA = PatientCategory.BSA_ >-> MinMax.inclMaxLens
-
-
-        let setInclMaxBSA = Optic.set inclMaxBSA
-
-
-        let exclMaxBSA = PatientCategory.BSA_ >-> MinMax.exclMaxLens
-
-
-        let setExclMaxBSA = Optic.set exclMaxBSA
+        let setExclMaxBSA vu (pc: PatientCategory) =
+            { pc with BSA = pc.BSA |> (snd MinMax.exclMaxLens) vu }
 
 
     /// Get the string representation of a Gener.

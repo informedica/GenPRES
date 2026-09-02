@@ -273,8 +273,7 @@ module AgeValue =
     //[<AutoOpen>]
     module SetGet =
 
-        open Aether
-        open Aether.Operators
+        open Informedica.Utils.Lib.Optics
 
 
         let getYears = Optic.get Optics.years
@@ -301,21 +300,27 @@ module AgeValue =
 
         let getDaysDef0 = getDays >> Option.defaultValue 0<day>
 
-        let setIntYears = Optics.years >-> Morphisms.intYearsOpt 0 |> Optic.set
+        let setIntYears =
+            Lens.composeIso Optics.years (Morphisms.intYearsOpt 0) |> Optic.set
 
-        let setIntMonths = Optics.months >-> Morphisms.intMonthsOpt 0 |> Optic.set
+        let setIntMonths =
+            Lens.composeIso Optics.months (Morphisms.intMonthsOpt 0) |> Optic.set
 
-        let setIntWeeks = Optics.weeks >-> Morphisms.intWeeksOpt 0 |> Optic.set
+        let setIntWeeks =
+            Lens.composeIso Optics.weeks (Morphisms.intWeeksOpt 0) |> Optic.set
 
-        let setIntDays = Optics.days >-> Morphisms.intDaysOpt 0 |> Optic.set
+        let setIntDays = Lens.composeIso Optics.days (Morphisms.intDaysOpt 0) |> Optic.set
 
-        let getIntYears = Optics.years >-> Morphisms.intYearsOpt 0 |> Optic.get
+        let getIntYears =
+            Lens.composeIso Optics.years (Morphisms.intYearsOpt 0) |> Optic.get
 
-        let getIntMonths = Optics.months >-> Morphisms.intMonthsOpt 0 |> Optic.get
+        let getIntMonths =
+            Lens.composeIso Optics.months (Morphisms.intMonthsOpt 0) |> Optic.get
 
-        let getIntWeeks = Optics.weeks >-> Morphisms.intWeeksOpt 0 |> Optic.get
+        let getIntWeeks =
+            Lens.composeIso Optics.weeks (Morphisms.intWeeksOpt 0) |> Optic.get
 
-        let getIntDays = Optics.days >-> Morphisms.intDaysOpt 0 |> Optic.get
+        let getIntDays = Lens.composeIso Optics.days (Morphisms.intDaysOpt 0) |> Optic.get
 
 
     let getDef0 av =
@@ -470,35 +475,36 @@ module BirthDate =
 
     module SetGet =
 
-        open Aether
-        open Aether.Operators
+        open Informedica.Utils.Lib.Optics
 
 
         let getYear = Optic.get Optics.year
 
         let setYear = Optic.set Optics.year
 
-        let getIntYear = Optics.year >-> Morphisms.intYears |> Optic.get
+        let getIntYear = Lens.composeIso Optics.year Morphisms.intYears |> Optic.get
 
-        let setIntYear = Optics.year >-> Morphisms.intYears |> Optic.set
+        let setIntYear = Lens.composeIso Optics.year Morphisms.intYears |> Optic.set
 
 
         let getMonth = Optic.get Optics.month
 
         let setMonth = Optic.set Optics.month
 
-        let getIntMonth = Optics.month >-> Morphisms.intMonthsOpt 1 |> Optic.get
+        let getIntMonth =
+            Lens.composeIso Optics.month (Morphisms.intMonthsOpt 1) |> Optic.get
 
-        let setIntMonth = Optics.month >-> Morphisms.intMonthsOpt 1 |> Optic.set
+        let setIntMonth =
+            Lens.composeIso Optics.month (Morphisms.intMonthsOpt 1) |> Optic.set
 
 
         let getDay = Optic.get Optics.day
 
         let setDay = Optic.set Optics.day
 
-        let getIntDay = Optics.day >-> Morphisms.intDaysOpt 1 |> Optic.get
+        let getIntDay = Lens.composeIso Optics.day (Morphisms.intDaysOpt 1) |> Optic.get
 
-        let setIntDay = Optics.day >-> Morphisms.intDaysOpt 1 |> Optic.set
+        let setIntDay = Lens.composeIso Optics.day (Morphisms.intDaysOpt 1) |> Optic.set
 
 
     let toDate bd =
@@ -795,7 +801,7 @@ module WeightAtDate =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getDate = Optics.date |> Optic.get
 
@@ -871,7 +877,7 @@ module Weight =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getActual = Optic.get Optics.actual
 
@@ -1092,7 +1098,7 @@ module HeightAtDate =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getDate = Optics.date |> Optic.get
 
@@ -1164,7 +1170,7 @@ module Height =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getActual = Optic.get Optics.actual
 
@@ -1519,7 +1525,7 @@ module AgeWeeksDays =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getWeeks = Optic.get Optics.weeks
 
@@ -1700,8 +1706,7 @@ module Patient =
 
     module SetGet =
 
-        open Aether
-        open Aether.Operators
+        open Informedica.Utils.Lib.Optics
 
         let getAge = Optic.get Optics.age
 
@@ -1709,18 +1714,21 @@ module Patient =
 
         let getHeight = Optic.get Optics.height
 
-        let getWeightActual = Optics.weight >-> Weight.Optics.actual |> Optic.get
+        let getWeightActual =
+            Lens.composeLens Optics.weight Weight.Optics.actual |> Optic.get
 
-        let getWeightCalc = Optics.weight >-> Weight.Optics.calculation |> Optic.get
+        let getWeightCalc =
+            Lens.composeLens Optics.weight Weight.Optics.calculation |> Optic.get
 
-        let getHeightCalc = Optics.height >-> Height.Optics.calculation |> Optic.get
+        let getHeightCalc =
+            Lens.composeLens Optics.height Height.Optics.calculation |> Optic.get
 
         let getGestationalAge = Optic.get Optics.gestationalAge
 
         let ageValuePrism dt =
-            Optics.age >-> PatientAge.Optics.ageValue dt
+            Lens.composePrism Optics.age (PatientAge.Optics.ageValue dt)
 
-        let getAgeValue dt = ageValuePrism dt |> Optic.get
+        let getAgeValue dt = ageValuePrism dt |> Optic.getOpt
 
 
     module BSA =

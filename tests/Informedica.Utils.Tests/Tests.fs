@@ -1646,3 +1646,158 @@ module Tests =
                         Expect.equal calls.Value 1 "f evaluated exactly once despite concurrent first-misses"
                     }
                 ]
+
+    module Optic =
+
+        open Informedica.Utils.Lib.Optics
+
+        let equals exp txt res = Expect.equal res exp txt
+
+        type MM =
+            {
+                Min: int option
+                Max: int option
+            }
+
+        let min_: Lens<MM, int option> =
+            (fun mm -> mm.Min), (fun v mm -> { mm with Min = v })
+
+        type Limit =
+            | Inclusive of int
+            | Exclusive of int
+
+        let inclusive_: Prism<Limit, int> =
+            (fun l ->
+                match l with
+                | Inclusive v -> Some v
+                | Exclusive _ -> None
+            ),
+            (fun v l ->
+                match l with
+                | Inclusive _ -> Inclusive v
+                | Exclusive _ -> l
+            )
+
+        type Outer = { Inner: MM }
+        let inner_: Lens<Outer, MM> = (fun o -> o.Inner), (fun v o -> { o with Inner = v })
+
+        type DoseRangeLike = { NormWeight: Limit * string }
+
+        let normWeight_: Lens<DoseRangeLike, Limit * string> =
+            (fun d -> d.NormWeight), (fun v d -> { d with NormWeight = v })
+
+        [<Tests>]
+        let tests =
+            testList
+                "Optic"
+                [
+
+                    test "lens get-set law: get (set b a) = b" {
+                        let mm =
+                            {
+                                Min = Some 1
+                                Max = Some 5
+                            }
+
+                        Optic.get min_ (Optic.set min_ (Some 9) mm)
+                        |> equals (Some 9) "get (set b a) = b"
+                    }
+
+                    test "lens set-get law: set (get a) a = a" {
+                        let mm =
+                            {
+                                Min = Some 1
+                                Max = Some 5
+                            }
+
+                        Optic.set min_ (Optic.get min_ mm) mm |> equals mm "set (get a) a = a"
+                    }
+
+                    test "lens set-set law: set b2 (set b1 a) = set b2 a" {
+                        let mm =
+                            {
+                                Min = Some 1
+                                Max = Some 5
+                            }
+
+                        Optic.set min_ (Some 3) (Optic.set min_ (Some 2) mm)
+                        |> equals (Optic.set min_ (Some 3) mm) "set b2 (set b1 a) = set b2 a"
+                    }
+
+                    test "prism getOpt on matching case returns the set value" {
+                        Optic.getOpt inclusive_ (Optic.set inclusive_ 7 (Inclusive 1))
+                        |> equals (Some 7) "getOpt (set b a) = Some b"
+                    }
+
+                    test "prism set is a no-op on a non-matching case" {
+                        Optic.set inclusive_ 7 (Exclusive 1) |> equals (Exclusive 1) "unchanged"
+                    }
+
+                    test "prism getOpt on a non-matching case is None" {
+                        Optic.getOpt inclusive_ (Exclusive 1) |> equals None "None"
+                    }
+
+                    test "Lens.composeLens: get" {
+                        let outer =
+                            {
+                                Inner =
+                                    {
+                                        Min = Some 1
+                                        Max = Some 5
+                                    }
+                            }
+
+                        let outerMin_ = Lens.composeLens inner_ min_
+                        Optic.get outerMin_ outer |> equals (Some 1) "composed get"
+                    }
+
+                    test "Lens.composeLens: set" {
+                        let outer =
+                            {
+                                Inner =
+                                    {
+                                        Min = Some 1
+                                        Max = Some 5
+                                    }
+                            }
+
+                        let outerMin_ = Lens.composeLens inner_ min_
+
+                        Optic.get outerMin_ (Optic.set outerMin_ (Some 42) outer)
+                        |> equals (Some 42) "composed set"
+                    }
+
+                    // mirrors the real shape used throughout ZForm.Lib/DoseRule.fs:
+                    // `DoseRange.NormWeight_ >-> fst_ >-> MinMax.inclMinLens`
+                    test "3-level Lens.composeLens + Lens.composePrism: matching case" {
+                        let dr = { NormWeight = Inclusive 3, "mg" }
+
+                        let inclMinNormWeight_ =
+                            Lens.composePrism (Lens.composeLens normWeight_ fst_) inclusive_
+
+                        Optic.getOpt inclMinNormWeight_ dr |> equals (Some 3) "get through 3 levels"
+
+                        Optic.getOpt inclMinNormWeight_ (Optic.set inclMinNormWeight_ 99 dr)
+                        |> equals (Some 99) "set through 3 levels"
+                    }
+
+                    test "3-level Lens.composeLens + Lens.composePrism: non-matching case is a no-op" {
+                        let dr = { NormWeight = Exclusive 3, "mg" }
+
+                        let inclMinNormWeight_ =
+                            Lens.composePrism (Lens.composeLens normWeight_ fst_) inclusive_
+
+                        Optic.getOpt inclMinNormWeight_ dr |> equals None "None on non-matching case"
+                        Optic.set inclMinNormWeight_ 99 dr |> equals dr "set is a no-op"
+                    }
+
+                    test "fst_ get and set" {
+                        Optic.get fst_ (1, "a") |> equals 1 "get fst"
+                        Optic.set fst_ 9 (1, "a") |> equals (9, "a") "set fst"
+                    }
+
+                    test "snd_ get and set" {
+                        Optic.get snd_ (1, "a") |> equals "a" "get snd"
+                        Optic.set snd_ "z" (1, "a") |> equals (1, "z") "set snd"
+                    }
+                ]

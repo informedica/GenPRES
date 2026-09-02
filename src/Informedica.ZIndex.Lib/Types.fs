@@ -292,30 +292,6 @@ module Types =
             Unit: string
         }
 
-        static member Weight_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.Weight, (fun mm dr -> { dr with Weight = mm })
-
-        static member BSA_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.BSA, (fun mm dr -> { dr with BSA = mm })
-
-        static member Norm_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.Norm, (fun mm dr -> { dr with Norm = mm })
-
-        static member Abs_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.Abs, (fun mm dr -> { dr with Abs = mm })
-
-        static member NormKg_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.NormKg, (fun mm dr -> { dr with NormKg = mm })
-
-        static member AbsKg_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.AbsKg, (fun mm dr -> { dr with AbsKg = mm })
-
-        static member NormM2_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.NormM2, (fun mm dr -> { dr with NormM2 = mm })
-
-        static member AbsM2_: (DoseRule -> RuleMinMax) * (RuleMinMax -> DoseRule -> DoseRule) =
-            _.AbsM2, (fun mm dr -> { dr with AbsM2 = mm })
-
     /// A Z-Index trade or consumer product that is part of a dose rule.
     and RuleProduct =
         {

@@ -380,7 +380,6 @@ module MinMax =
 
     open System
     open Informedica.Utils.Lib.BCL
-    open Aether
 
     open Informedica.Utils.Lib
 
@@ -760,10 +759,10 @@ module MinMax =
         let max_ = _.Max, (fun v mm -> mm |> setMax (Some v))
 
 
-        let getMin = Optic.get min_
+        let getMin = fst min_
 
 
-        let setMin = Optic.set min_
+        let setMin = snd min_
 
 
         let inclMinLens =
@@ -798,10 +797,10 @@ module MinMax =
             )
 
 
-        let getMax = Optic.get max_
+        let getMax = fst max_
 
 
-        let setMax = Optic.set max_
+        let setMax = snd max_
 
 
         let inclMaxLens =

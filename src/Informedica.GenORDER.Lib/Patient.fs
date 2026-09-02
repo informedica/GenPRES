@@ -4,10 +4,6 @@ namespace Informedica.GenOrder.Lib
 module Patient =
 
 
-    open Aether
-    open Aether.Operators
-
-
     open Informedica.Utils.Lib.BCL
     open Informedica.GenForm.Lib
     open Informedica.GenUnits.Lib
@@ -97,15 +93,12 @@ module Patient =
                     dys |> Days
             ]
 
-        // Helper method for the Optics below
+        // Helper pair (to list of Age / from list of Age) for the get/set below
         let ageAgeList =
             Option.map ageFromValueUnit >> (Option.defaultValue []), (ageToValueUnit >> Some)
 
 
-        let age_ = Patient.Age_ >-> ageAgeList
-
-
-        // Helper method for the Optics below
+        // Helper pair for the get/set below
         let gestPMAgeList =
             let ageFromDec d =
                 d
@@ -118,11 +111,6 @@ module Patient =
                 )
 
             Option.map ageFromDec >> (Option.defaultValue []), (ageToValueUnit >> Some)
-
-
-        let gestAge_ = Patient.GestAge_ >-> gestPMAgeList
-
-        let pmAge_ = Patient.PMAge_ >-> gestPMAgeList
 
 
         type Weight =
@@ -150,9 +138,6 @@ module Patient =
             Option.map get, Option.map set
 
 
-        let weight_ = Patient.Weight_ >-> vuWeight
-
-
         type Height =
             | Meter of decimal
             | Centimeter of int
@@ -178,49 +163,48 @@ module Patient =
             Option.map get, Option.map set
 
 
-        let height_ = Patient.Height_ >-> vuHeight
+    let getGender (p: Patient) = p.Gender
 
 
-    let getGender = Optic.get Patient.Gender_
+    let setGender g (p: Patient) = { p with Gender = g }
 
 
-    let setGender = Optic.set Patient.Gender_
+    let getAge (p: Patient) = p.Age |> fst ageAgeList
 
 
-    let getAge = Optic.get age_
+    let setAge ags (p: Patient) = { p with Age = ags |> snd ageAgeList }
 
 
-    let setAge = Optic.set age_
+    let getWeight (p: Patient) = p.Weight |> fst vuWeight
 
 
-    let getWeight = Optic.get weight_
+    let setWeight w (p: Patient) = { p with Weight = w |> snd vuWeight }
 
 
-    let setWeight = Optic.set weight_
+    let getHeight (p: Patient) = p.Height |> fst vuHeight
 
 
-    let getHeight = Optic.get height_
+    let setHeight h (p: Patient) = { p with Height = h |> snd vuHeight }
 
 
-    let setHeight = Optic.set height_
+    let getGestAge (p: Patient) = p.GestAge |> fst gestPMAgeList
 
 
-    let getGestAge = Optic.get gestAge_
+    let setGestAge ags (p: Patient) =
+        { p with GestAge = ags |> snd gestPMAgeList }
 
 
-    let setGestAge = Optic.set gestAge_
+    let getPMAge (p: Patient) = p.PMAge |> fst gestPMAgeList
 
 
-    let getPMAge = Optic.get pmAge_
+    let setPMAge ags (p: Patient) =
+        { p with PMAge = ags |> snd gestPMAgeList }
 
 
-    let setPMAge = Optic.set pmAge_
+    let getDepartment (p: Patient) = p.Department
 
 
-    let getDepartment = Optic.get Patient.Department_
-
-
-    let setDepartment = Optic.set Patient.Department_
+    let setDepartment d (p: Patient) = { p with Department = d }
 
 
     let premature =

@@ -5,10 +5,8 @@ module DoseRule =
 
     open Informedica.Utils.Lib.BCL
 
-    open Aether
-    open Aether.Operators
-
     open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.Optics
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenUnits.Lib
 
@@ -186,7 +184,7 @@ module DoseRule =
             let exclMaxNormBSALens = DoseRange.NormBSA_ >-> fst_ >-> MinMax.exclMaxLens
 
 
-            let minAbsLens = DoseRange.Abs_ >-> MinMax.min_
+            let minAbsLens = Lens.composePrism DoseRange.Abs_ MinMax.min_
 
 
             let inclMinAbsLens = DoseRange.Abs_ >-> MinMax.inclMinLens
@@ -1731,13 +1729,13 @@ module DoseRule =
 
 
         let indDosDosagesLens n =
-            DoseRule.IndicationDosages_ >-> IndicationDosage.Optics.getRouteDosage n
+            Lens.composePrism DoseRule.IndicationDosages_ (IndicationDosage.Optics.getRouteDosage n)
 
 
         let getRouteDosages indd dr =
             match dr |> indxIndications indd with
             | Some n ->
-                match dr |> Optic.get (indDosDosagesLens n) with
+                match dr |> Optic.getOpt (indDosDosagesLens n) with
                 | Some rtds -> rtds
                 | None -> []
             | None -> []
@@ -1758,14 +1756,14 @@ module DoseRule =
 
 
         let formDosagesPrism n1 n2 =
-            indDosDosagesLens n1 >?> RouteDosage.Optics.getFormDosage n2
+            indDosDosagesLens n1 >??> RouteDosage.Optics.getFormDosage n2
 
 
         let getFormDosages inds rt dr =
 
             match dr |> indxRoute inds rt with
             | Some(ni, nr) ->
-                match dr |> Optic.get (formDosagesPrism ni nr) with
+                match dr |> Optic.getOpt (formDosagesPrism ni nr) with
                 | Some pds -> pds
                 | None -> []
             | None -> []
@@ -1791,12 +1789,13 @@ module DoseRule =
                     dr |> setFormDosages inds rt pds
 
 
-        let formDosagePrism n1 n2 n3 = formDosagesPrism n1 n2 >?> List.pos_ n3
+        let formDosagePrism n1 n2 n3 =
+            formDosagesPrism n1 n2 >??> List.pos_ n3
 
 
         let inline private formDosageProductsGetter prism inds rt frm dr =
             match dr |> indxForm inds rt frm with
-            | Some(ni, nr, ns) -> dr |> Optic.get (formDosagePrism ni nr ns >?> prism)
+            | Some(ni, nr, ns) -> dr |> Optic.getOpt (formDosagePrism ni nr ns >?> prism)
             | None -> None
 
 
@@ -1819,7 +1818,7 @@ module DoseRule =
         let getPatientDosages inds rt frm dr =
             match dr |> indxForm inds rt frm with
             | Some(ni, nr, ns) ->
-                match dr |> Optic.get (patientDosagesPrism ni nr ns) with
+                match dr |> Optic.getOpt (patientDosagesPrism ni nr ns) with
                 | Some sds -> sds
                 | None -> []
             | None -> []
@@ -1841,7 +1840,7 @@ module DoseRule =
 
 
         let patientDosagePrism n1 n2 n3 n4 =
-            patientDosagesPrism n1 n2 n3 >?> List.pos_ n4
+            patientDosagesPrism n1 n2 n3 >??> List.pos_ n4
 
 
         let substanceDosagesPrism n1 n2 n3 n4 =
@@ -1851,7 +1850,7 @@ module DoseRule =
         let getSubstanceDosages inds rt frm pat dr =
             match dr |> indxPatient inds rt frm pat with
             | Some(ni, nr, np, ns) ->
-                match dr |> Optic.get (substanceDosagesPrism ni nr np ns) with
+                match dr |> Optic.getOpt (substanceDosagesPrism ni nr np ns) with
                 | Some sds -> sds
                 | None -> []
             | None -> []
