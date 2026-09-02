@@ -273,25 +273,21 @@ module AgeValue =
     //[<AutoOpen>]
     module SetGet =
 
-        open Aether
-        open Aether.Operators
+        let getYears (a: AgeValue) = a.Years
 
+        let setYears y (a: AgeValue) = { a with Years = y }
 
-        let getYears = Optic.get Optics.years
+        let getMonths (a: AgeValue) = a.Months
 
-        let setYears = Optic.set Optics.years
+        let setMonths m (a: AgeValue) = { a with Months = m }
 
-        let getMonths = Optic.get Optics.months
+        let getWeeks (a: AgeValue) = a.Weeks
 
-        let setMonths = Optic.set Optics.months
+        let setWeeks w (a: AgeValue) = { a with Weeks = w }
 
-        let getWeeks = Optic.get Optics.weeks
+        let getDays (a: AgeValue) = a.Days
 
-        let setWeeks = Optic.set Optics.weeks
-
-        let getDays = Optic.get Optics.days
-
-        let setDays = Optic.set Optics.days
+        let setDays d (a: AgeValue) = { a with Days = d }
 
         let getYearsDef0 = getYears >> Option.defaultValue 0<year>
 
@@ -301,21 +297,29 @@ module AgeValue =
 
         let getDaysDef0 = getDays >> Option.defaultValue 0<day>
 
-        let setIntYears = Optics.years >-> Morphisms.intYearsOpt 0 |> Optic.set
+        let getIntYears (a: AgeValue) =
+            a.Years |> Option.map int |> Option.defaultValue 0
 
-        let setIntMonths = Optics.months >-> Morphisms.intMonthsOpt 0 |> Optic.set
+        let setIntYears i (a: AgeValue) =
+            { a with Years = Conversions.yearFromInt i |> Some }
 
-        let setIntWeeks = Optics.weeks >-> Morphisms.intWeeksOpt 0 |> Optic.set
+        let getIntMonths (a: AgeValue) =
+            a.Months |> Option.map int |> Option.defaultValue 0
 
-        let setIntDays = Optics.days >-> Morphisms.intDaysOpt 0 |> Optic.set
+        let setIntMonths i (a: AgeValue) =
+            { a with Months = Conversions.monthFromInt i |> Some }
 
-        let getIntYears = Optics.years >-> Morphisms.intYearsOpt 0 |> Optic.get
+        let getIntWeeks (a: AgeValue) =
+            a.Weeks |> Option.map int |> Option.defaultValue 0
 
-        let getIntMonths = Optics.months >-> Morphisms.intMonthsOpt 0 |> Optic.get
+        let setIntWeeks i (a: AgeValue) =
+            { a with Weeks = Conversions.weekFromInt i |> Some }
 
-        let getIntWeeks = Optics.weeks >-> Morphisms.intWeeksOpt 0 |> Optic.get
+        let getIntDays (a: AgeValue) =
+            a.Days |> Option.map int |> Option.defaultValue 0
 
-        let getIntDays = Optics.days >-> Morphisms.intDaysOpt 0 |> Optic.get
+        let setIntDays i (a: AgeValue) =
+            { a with Days = Conversions.dayFromInt i |> Some }
 
 
     let getDef0 av =
@@ -470,35 +474,36 @@ module BirthDate =
 
     module SetGet =
 
-        open Aether
-        open Aether.Operators
+        let getYear (bd: BirthDate) = bd.Year
+
+        let setYear y (bd: BirthDate) = { bd with Year = y }
+
+        let getIntYear (bd: BirthDate) = bd.Year |> int
+
+        let setIntYear i (bd: BirthDate) =
+            { bd with Year = Conversions.yearFromInt i }
 
 
-        let getYear = Optic.get Optics.year
+        let getMonth (bd: BirthDate) = bd.Month
 
-        let setYear = Optic.set Optics.year
+        let setMonth m (bd: BirthDate) = { bd with Month = m }
 
-        let getIntYear = Optics.year >-> Morphisms.intYears |> Optic.get
+        let getIntMonth (bd: BirthDate) =
+            bd.Month |> Option.map int |> Option.defaultValue 1
 
-        let setIntYear = Optics.year >-> Morphisms.intYears |> Optic.set
-
-
-        let getMonth = Optic.get Optics.month
-
-        let setMonth = Optic.set Optics.month
-
-        let getIntMonth = Optics.month >-> Morphisms.intMonthsOpt 1 |> Optic.get
-
-        let setIntMonth = Optics.month >-> Morphisms.intMonthsOpt 1 |> Optic.set
+        let setIntMonth i (bd: BirthDate) =
+            { bd with Month = Conversions.monthFromInt i |> Some }
 
 
-        let getDay = Optic.get Optics.day
+        let getDay (bd: BirthDate) = bd.Day
 
-        let setDay = Optic.set Optics.day
+        let setDay d (bd: BirthDate) = { bd with Day = d }
 
-        let getIntDay = Optics.day >-> Morphisms.intDaysOpt 1 |> Optic.get
+        let getIntDay (bd: BirthDate) =
+            bd.Day |> Option.map int |> Option.defaultValue 1
 
-        let setIntDay = Optics.day >-> Morphisms.intDaysOpt 1 |> Optic.set
+        let setIntDay i (bd: BirthDate) =
+            { bd with Day = Conversions.dayFromInt i |> Some }
 
 
     let toDate bd =
@@ -795,7 +800,7 @@ module WeightAtDate =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getDate = Optics.date |> Optic.get
 
@@ -871,7 +876,7 @@ module Weight =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getActual = Optic.get Optics.actual
 
@@ -1092,7 +1097,7 @@ module HeightAtDate =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getDate = Optics.date |> Optic.get
 
@@ -1164,7 +1169,7 @@ module Height =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getActual = Optic.get Optics.actual
 
@@ -1519,7 +1524,7 @@ module AgeWeeksDays =
 
     module SetGet =
 
-        open Aether
+        open Informedica.Utils.Lib.Optics
 
         let getWeeks = Optic.get Optics.weeks
 
@@ -1700,27 +1705,21 @@ module Patient =
 
     module SetGet =
 
-        open Aether
-        open Aether.Operators
+        let getAge (pat: Patient) = pat.Age
 
-        let getAge = Optic.get Optics.age
+        let getWeight (pat: Patient) = pat.Weight
 
-        let getWeight = Optic.get Optics.weight
+        let getHeight (pat: Patient) = pat.Height
 
-        let getHeight = Optic.get Optics.height
+        let getWeightActual (pat: Patient) = pat.Weight.Actual
 
-        let getWeightActual = Optics.weight >-> Weight.Optics.actual |> Optic.get
+        let getWeightCalc (pat: Patient) = pat.Weight.Calculation
 
-        let getWeightCalc = Optics.weight >-> Weight.Optics.calculation |> Optic.get
+        let getHeightCalc (pat: Patient) = pat.Height.Calculation
 
-        let getHeightCalc = Optics.height >-> Height.Optics.calculation |> Optic.get
+        let getGestationalAge (pat: Patient) = pat.GestationalAge
 
-        let getGestationalAge = Optic.get Optics.gestationalAge
-
-        let ageValuePrism dt =
-            Optics.age >-> PatientAge.Optics.ageValue dt
-
-        let getAgeValue dt = ageValuePrism dt |> Optic.get
+        let getAgeValue dt (pat: Patient) = pat.Age |> PatientAge.getAgeValue dt
 
 
     module BSA =

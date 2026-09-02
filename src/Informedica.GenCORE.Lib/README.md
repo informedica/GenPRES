@@ -53,9 +53,6 @@ Defines units of measure and measurement-related functionality for the medical d
 ### Validus.fs
 Provides functional validation patterns for input validation and business rule enforcement.
 
-### Aether.fs
-Implements lens-based functional programming patterns for immutable data manipulation.
-
 ## Dependencies
 
 - **MathNet.Numerics**: For advanced mathematical operations
@@ -82,7 +79,6 @@ let doseRange = MinMax.create (Some 5.0) (Some 20.0) true false
 
 ```
 src/Informedica.GenCore.Lib/
-├── Aether.fs              # Lens-based data manipulation
 ├── Calculations.fs        # Medical calculations
 ├── Measures.fs           # Units of measure definitions
 ├── MinMax.fs             # Range and constraint modeling
