@@ -84,5 +84,5 @@ reach.
 
 ---
 
-Drawn from `EndMark`, `SessionNotice` and `owesNotice` in [`Session.fsx`](Session.fsx),
-with Rules 9 and 10.
+Drawn from `EndMark`, `SessionNotice` and `owesNotice` in [`Integration.fsx`](Integration.fsx),
+with Rules 10 and 11.
