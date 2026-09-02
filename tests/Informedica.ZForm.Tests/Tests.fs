@@ -139,7 +139,7 @@ module PatientTests =
 
 module DoseRangeTests =
 
-    open Aether
+    open Informedica.Utils.Lib.Optics
     open Informedica.GenUnits.Lib
 
     module Dto = DoseRule.DoseRange.Dto

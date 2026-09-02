@@ -40,7 +40,6 @@ nuget Microsoft.Net.Test.Sdk 18.4.0
 nuget Validus
 nuget YoloDev.Expecto.TestSdk 0.15.5
 nuget Markdig 1.1.3
-nuget Aether
 nuget ConsoleTables
 nuget IcedTasks 0.11.9
 

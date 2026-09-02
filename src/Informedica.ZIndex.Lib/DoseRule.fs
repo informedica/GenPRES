@@ -5,8 +5,6 @@ module DoseRule =
 
     open System
 
-    open Aether
-
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
     open ConsoleWriter.NewLineNoTime
@@ -611,49 +609,49 @@ module DoseRule =
     module Optics =
 
 
-        let getWeight = Optic.get DoseRule.Weight_
+        let getWeight (dr: DoseRule) = dr.Weight
 
 
-        let setWeight = Optic.set DoseRule.Weight_
+        let setWeight v (dr: DoseRule) = { dr with Weight = v }
 
 
-        let getBSA = Optic.get DoseRule.BSA_
+        let getBSA (dr: DoseRule) = dr.BSA
 
 
-        let setBSA = Optic.set DoseRule.BSA_
+        let setBSA v (dr: DoseRule) = { dr with BSA = v }
 
 
-        let getNorm = Optic.get DoseRule.Norm_
+        let getNorm (dr: DoseRule) = dr.Norm
 
 
-        let setNorm = Optic.set DoseRule.Norm_
+        let setNorm v (dr: DoseRule) = { dr with Norm = v }
 
 
-        let getAbs = Optic.get DoseRule.Abs_
+        let getAbs (dr: DoseRule) = dr.Abs
 
 
-        let setAbs = Optic.set DoseRule.Abs_
+        let setAbs v (dr: DoseRule) = { dr with Abs = v }
 
 
-        let getNormKg = Optic.get DoseRule.NormKg_
+        let getNormKg (dr: DoseRule) = dr.NormKg
 
 
-        let setNormKg = Optic.set DoseRule.NormKg_
+        let setNormKg v (dr: DoseRule) = { dr with NormKg = v }
 
 
-        let getAbsKg = Optic.get DoseRule.AbsKg_
+        let getAbsKg (dr: DoseRule) = dr.AbsKg
 
 
-        let setAbsKg = Optic.set DoseRule.AbsKg_
+        let setAbsKg v (dr: DoseRule) = { dr with AbsKg = v }
 
 
-        let getNormM2 = Optic.get DoseRule.NormM2_
+        let getNormM2 (dr: DoseRule) = dr.NormM2
 
 
-        let setNormM2 = Optic.set DoseRule.NormM2_
+        let setNormM2 v (dr: DoseRule) = { dr with NormM2 = v }
 
 
-        let getAbsM2 = Optic.get DoseRule.AbsM2_
+        let getAbsM2 (dr: DoseRule) = dr.AbsM2
 
 
-        let setAbsM2 = Optic.set DoseRule.AbsM2_
+        let setAbsM2 v (dr: DoseRule) = { dr with AbsM2 = v }

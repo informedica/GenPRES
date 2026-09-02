@@ -2,8 +2,6 @@ STORAGE: NONE
 RESTRICTION: == net10.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    Aether (8.3.1)
-      FSharp.Core (>= 4.3.4)
     Azure.Core (1.53)
       Microsoft.Bcl.AsyncInterfaces (>= 10.0.3)
       Microsoft.Extensions.Configuration.Abstractions (>= 10.0.3)

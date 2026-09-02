@@ -6,7 +6,7 @@ module GStand =
     open Informedica.Utils.Lib.BCL
 
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
-    open Aether
+    open Informedica.Utils.Lib.Optics
     open DoseRule
 
     open Informedica.GenUnits.Lib

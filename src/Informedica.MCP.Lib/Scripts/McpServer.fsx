@@ -45,7 +45,6 @@
 #r "nuget: Newtonsoft.Json"
 #r "nuget: FsToolkit.ErrorHandling"
 #r "nuget: FParsec"
-#r "nuget: Aether"
 #r "nuget: FSharp.Data, 8.0"
 #r "nuget: ModelContextProtocol, 1.2.0"
 #r "nuget: Microsoft.Extensions.Hosting"

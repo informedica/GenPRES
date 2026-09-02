@@ -8,7 +8,6 @@
 #r "nuget: MathNet.Numerics.FSharp"
 #r "nuget: FParsec"
 #r "nuget: Newtonsoft.Json"
-#r "nuget: Aether"
 #r "nuget: Markdig"
 #r "nuget: FsToolkit.ErrorHandling"
 #r "nuget: FSharpPlus, 1.7.0"
