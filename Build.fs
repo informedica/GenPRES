@@ -329,11 +329,12 @@ let requireEnvVar name =
 
 
 // Override via DOCKER_IMAGE if you're pushing to your own registry/namespace
-// rather than the project's `halcwb/genpres`.
+// rather than the project's `informedica/genpres` on Docker Hub (the same image
+// tag-release.yml's publish-docker-image job publishes on release).
 let dockerImage =
     match System.Environment.GetEnvironmentVariable "DOCKER_IMAGE" with
     | null
-    | "" -> "halcwb/genpres"
+    | "" -> "informedica/genpres"
     | image -> image
 
 

@@ -8,6 +8,13 @@
 **G-Standard Compliance:** Required  
 **IHE Profile Compliance:** IHE Pharmacy (PHARM), IHE Audit Trail and Node Authentication (ATNA), IHE Internet User Authorization (IUA)
 
+> **Status: specification of intended future work, not of a shipped interface.** Nothing described
+> here is implemented. The live client/server contract is the Fable.Remoting `Command`/`Response`
+> discriminated unions in `src/Informedica.GenPRES.Shared/Api.fs`, which is unrelated to the FHIR
+> R4 REST/Bundle interface specified below. The FHIR prototype that once accompanied this document
+> was deleted along with `Informedica.FHIR.Lib`; see
+> [ADR-0020](../design-history/0020-fhir-r4-integration.md), now superseded.
+
 ## Table of Contents
 
 - [GenPRES-EHR Treatment Plan Interface Specification - FHIR R4 Compliant](#genpres-ehr-treatment-plan-interface-specification---fhir-r4-compliant)
