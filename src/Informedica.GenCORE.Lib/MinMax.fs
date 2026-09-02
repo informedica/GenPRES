@@ -781,6 +781,9 @@ module MinMax =
             )
 
 
+        let setInclMin = snd inclMinLens
+
+
         let exclMinLens =
             (fun mm ->
                 match mm |> getMin with
@@ -795,6 +798,9 @@ module MinMax =
                 | Some vu_ -> mm |> setMin (vu_ |> Limit.exclusive)
                 | None -> mm
             )
+
+
+        let setExclMin = snd exclMinLens
 
 
         let getMax = fst max_
@@ -819,6 +825,9 @@ module MinMax =
             )
 
 
+        let setInclMax = snd inclMaxLens
+
+
         let exclMaxLens =
             (fun mm ->
                 match mm |> getMax with
@@ -833,6 +842,9 @@ module MinMax =
                 | Some vu_ -> mm |> setMax (vu_ |> Limit.exclusive)
                 | None -> mm
             )
+
+
+        let setExclMax = snd exclMaxLens
 
 
     /// The dto object to represent a `MinMax` type

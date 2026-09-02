@@ -3,7 +3,6 @@
 
 
 #load "../../../src/Informedica.GenCore.Lib/Measures.fs"
-#load "../../../src/Informedica.GenCore.Lib/Morphisms.fs"
 #load "../../../src/Informedica.GenCore.Lib/Validus.fs"
 #load "../../../src/Informedica.GenCore.Lib/Calculations.fs"
 #load "../../../src/Informedica.GenCore.Lib/ValueUnit.fs"

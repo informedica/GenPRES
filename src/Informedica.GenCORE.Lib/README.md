@@ -53,9 +53,6 @@ Defines units of measure and measurement-related functionality for the medical d
 ### Validus.fs
 Provides functional validation patterns for input validation and business rule enforcement.
 
-### Morphisms.fs
-To/from pairs between unit-of-measure ints and their optional wrappers, used by `Patient.fs`'s get/set helpers.
-
 ## Dependencies
 
 - **MathNet.Numerics**: For advanced mathematical operations
@@ -82,7 +79,6 @@ let doseRange = MinMax.create (Some 5.0) (Some 20.0) true false
 
 ```
 src/Informedica.GenCore.Lib/
-├── Morphisms.fs           # int <-> unit-of-measure int to/from pairs
 ├── Calculations.fs        # Medical calculations
 ├── Measures.fs           # Units of measure definitions
 ├── MinMax.fs             # Range and constraint modeling

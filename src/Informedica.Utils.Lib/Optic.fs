@@ -24,6 +24,12 @@ type Isomorphism<'a, 'b> = ('a -> 'b) * ('b -> 'a)
 /// elsewhere as `('a -> 'b) * ('b -> 'a -> 'a)` need no changes; only the
 /// dispatch functions below replace Aether's `Optic.get`/`Optic.set` and the
 /// `Aether.Operators` `>->`/`>?>` operators.
+///
+/// Naming convention carried over from Aether: a value whose name ends in `_`
+/// (e.g. `min_`, `DoseRange.Norm_`, `fst_`) is a lens or prism, i.e. a
+/// getter/setter tuple, not a plain accessor. Prefer plain get/set functions for
+/// single-level field access; reach for these optics only where composition over
+/// several levels is doing real work.
 /// </remarks>
 [<RequireQualifiedAccess>]
 module Optic =
@@ -97,10 +103,13 @@ module TupleOptics =
     let snd_: Lens<'a * 'b, 'b> = snd, (fun b (a, _) -> a, b)
 
 
-/// Infix composition operators. Non-SRTP replacements for `Aether.Operators`.
-/// Because these are plain (non-inline) functions they cannot overload on the
-/// optic kind the way Aether's `>->`/`>?>` do, so the four composition shapes
-/// this codebase uses get one operator each; the compiler rejects a wrong pick.
+/// Infix composition operators for the long optic chains in
+/// `ZForm.Lib/DoseRule.fs`, where reading left to right beats nested
+/// `Lens.composeLens` calls. Non-SRTP replacements for `Aether.Operators`: being
+/// plain (non-inline) functions they cannot overload on the optic kind the way
+/// Aether's `>->` did, so lens and prism composition get one operator each and
+/// the compiler rejects a wrong pick. Prism-with-prism composition is rare enough
+/// that those few sites call `Prism.composePrism` directly.
 [<AutoOpen>]
 module Operators =
 
@@ -109,6 +118,3 @@ module Operators =
 
     /// Compose a `Prism` with a `Lens`.
     let (>?>) (p: Prism<'a, 'b>) (l: Lens<'b, 'c>) : Prism<'a, 'c> = Prism.composeLens p l
-
-    /// Compose a `Prism` with a `Prism`.
-    let (>??>) (p1: Prism<'a, 'b>) (p2: Prism<'b, 'c>) : Prism<'a, 'c> = Prism.composePrism p1 p2

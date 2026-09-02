@@ -1756,7 +1756,7 @@ module DoseRule =
 
 
         let formDosagesPrism n1 n2 =
-            indDosDosagesLens n1 >??> RouteDosage.Optics.getFormDosage n2
+            Prism.composePrism (indDosDosagesLens n1) (RouteDosage.Optics.getFormDosage n2)
 
 
         let getFormDosages inds rt dr =
@@ -1790,7 +1790,7 @@ module DoseRule =
 
 
         let formDosagePrism n1 n2 n3 =
-            formDosagesPrism n1 n2 >??> List.pos_ n3
+            Prism.composePrism (formDosagesPrism n1 n2) (List.pos_ n3)
 
 
         let inline private formDosageProductsGetter prism inds rt frm dr =
@@ -1840,7 +1840,7 @@ module DoseRule =
 
 
         let patientDosagePrism n1 n2 n3 n4 =
-            patientDosagesPrism n1 n2 n3 >??> List.pos_ n4
+            Prism.composePrism (patientDosagesPrism n1 n2 n3) (List.pos_ n4)
 
 
         let substanceDosagesPrism n1 n2 n3 n4 =
