@@ -2,7 +2,7 @@ name: Tag and Release
 
 # This workflow turns a merged ShipIt release PR into permanent release artifacts: an annotated git tag
 # on the merge commit, a GitHub Release with that version's section from CHANGELOG.md, and (issue #459)
-# a Docker image published to GHCR and tagged with that same version.
+# a Docker image published to Docker Hub (docker.io/informedica/genpres) tagged with that same version.
 #
 # This is a separate workflow, not a job inside build.yml or release.yml. The reason is the same as for
 # release.yml: a failure here must not stop the test and format matrix, and it runs on a different event
@@ -144,28 +144,38 @@ jobs:
     name: Build, smoke test, and publish Docker image
     # Runs after tag-and-release so it only fires for a real, verified release, and so it can reuse
     # that job's version/tag/prerelease facts instead of re-deriving them from CHANGELOG.md a second
-    # time. GHCR is an interim registry: the project wants an `informedica` Docker Hub account
-    # (see issue #459), but that account does not exist yet, and GHCR needs no new secret, it
-    # authenticates with this workflow's own GITHUB_TOKEN. IMAGE_NAME is the one place the
-    # registry/namespace is named, so repointing at Docker Hub later is a one-line change here.
+    # time. The image is published to Docker Hub as `docker.io/informedica/genpres` (issue #459);
+    # this started on GHCR as an interim registry and moved once the `informedica` Docker Hub org
+    # (Docker Team plan) existed. IMAGE_NAME is the one place the registry/namespace is named.
     #
-    # Plain `docker` CLI throughout, not docker/build-push-action or docker/login-action: this repo
-    # already drives every other Docker operation (DockerBuild/DockerRun in Build.fs) with the CLI
-    # via FAKE, and this job builds once per release rather than once per PR, so a GHA layer-cache
-    # setup wasn't worth three more marketplace actions to maintain. `--platform` needs no separate
-    # buildx setup either — ubuntu-latest ships Docker Buildx preinstalled.
+    # Auth is Docker Hub OIDC, so there is no stored registry credential: docker/login-action
+    # exchanges the job's GitHub OIDC token for a short-lived Docker Hub token, gated by a ruleset on
+    # the `DOCKERHUB_OIDC_CONNECTIONID` connection in Docker Home. The ruleset is scoped to the
+    # `docker-publish` GitHub environment below, so the OIDC subject is
+    # `repo:informedica/GenPRES:environment:docker-publish` — a plain `pull_request` subject would
+    # let any PR's workflow mint a push token. Setup: DEVELOPMENT.md § Publishing the Docker image.
+    #
+    # docker/login-action is the one marketplace action here — the OIDC token exchange lives in it
+    # and cannot be done with plain `docker login`. `docker build` / `docker push` stay CLI, matching
+    # how Build.fs's DockerBuild/DockerRun drive Docker everywhere else. `--platform` needs no buildx
+    # setup action — ubuntu-latest ships Docker Buildx preinstalled.
     needs: tag-and-release
     runs-on: ubuntu-latest
 
-    # Job-level, not the workflow-level `contents: write` above: this job never writes repo
-    # contents, only reads the tagged commit and pushes a package, so it gets its own narrower grant
-    # rather than inheriting tag-and-release's.
+    # A GitHub Actions environment, so the OIDC subject claim carries `environment:docker-publish`
+    # for the Docker Hub ruleset to match. Add required reviewers to this environment in repo
+    # settings if a manual gate before each Docker Hub push is wanted.
+    environment: docker-publish
+
+    # id-token: write lets the job request a GitHub OIDC token for the Docker Hub exchange.
+    # contents: read is for checking out the tagged commit. No packages/write scope: the push goes
+    # to Docker Hub, not GHCR.
     permissions:
       contents: read
-      packages: write
+      id-token: write
 
     env:
-      IMAGE_NAME: ghcr.io/informedica/genpres
+      IMAGE_NAME: docker.io/informedica/genpres
 
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -173,8 +183,16 @@ jobs:
         # Same merge commit tag-and-release tagged, so the image matches the tagged source exactly.
         ref: ${{ github.event.pull_request.merge_commit_sha }}
 
-    - name: Log in to GHCR
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+    - name: Log in to Docker Hub via OIDC
+      # No password: docker/login-action reads DOCKERHUB_OIDC_CONNECTIONID, requests a GitHub OIDC
+      # token, and exchanges it for a short-lived Docker Hub token. `username` is the Docker Hub org
+      # name. DOCKERHUB_OIDC_CONNECTIONID is a repo *variable* (not a secret — it is an identifier,
+      # useless without a matching ruleset), set from the connection created in Docker Home.
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      with:
+        username: informedica
+      env:
+        DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
 
     - name: Determine image tags
       id: tags

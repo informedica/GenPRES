@@ -102,7 +102,7 @@ packages for the Fable/Vite dev server).
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`ghcr.io/informedica/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
+| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
 | `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
 #### Target Dependency Chains
@@ -333,7 +333,7 @@ dotnet run
 
 Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in `Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into the image — that constraint is enforced by the `Dockerfile` itself and described in [Environment Configuration](#environment-configuration).
 
-**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `ghcr.io/informedica/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
+**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `informedica/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
 
 ```bash
 # local architecture
@@ -495,31 +495,43 @@ that job's `version`/`tag`/`prerelease` outputs. For a given release it:
    target), `linux/amd64` only, tagging every tag the release needs in one `docker build -t ... -t ...` call.
 3. Starts the built image with the public demo `GENPRES_URL_ID` (from `.env.example`) and a random
    per-run `GENPRES_PASSWORD`, and requires `/` to return 200 within 60 seconds before treating the image as good.
-4. Pushes `ghcr.io/informedica/genpres:<version>`, and also `:latest` when the version is a stable release
+4. Pushes `docker.io/informedica/genpres:<version>`, and also `:latest` when the version is a stable release
    (currently we only ship alphas, so `:latest` stays unpublished). Any `+` in `<version>` is folded to `-`
    first: `Versioning.fsx` allows SemVer build metadata in `<Version>`, but a raw `+` isn't a legal Docker
    tag character.
 
-Registry is GHCR, as an interim step. The project's preferred home is a Docker Hub `informedica` account,
-which is pending. GHCR needs no new secret, it authenticates with the workflow's own `GITHUB_TOKEN`, and the
-registry/namespace is a single `IMAGE_NAME` job-level env var in `tag-release.yml`, so switching to Docker Hub
-later is a small follow-up.
+Registry is Docker Hub (`docker.io/informedica/genpres`); the `informedica` org is on the Docker Team plan.
+This started on GHCR as an interim step and moved once the org existed. The registry/namespace is a single
+`IMAGE_NAME` job-level env var in `tag-release.yml`.
 
-The job drives Docker with plain `docker login`/`docker build`/`docker push`, not `docker/login-action`,
-`docker/setup-buildx-action`, or `docker/build-push-action`. Everywhere else in this repo Docker goes through
-the CLI (`Build.fs`'s `DockerBuild`/`DockerRun`), and this job runs once a release rather than once a PR, so a
-GHA layer cache wasn't worth three more marketplace actions to pin and keep updated. `ubuntu-latest` ships
-Buildx preinstalled, so `--platform` still works with no setup step.
+**Authentication is Docker Hub OIDC — there is no stored registry credential.** `docker/login-action`
+exchanges the job's GitHub OIDC token for a short-lived Docker Hub token, so nothing to rotate and nothing
+to leak. `docker build` and `docker push` still run as plain CLI (matching `Build.fs`); `docker/login-action`
+is the one marketplace action, because the OIDC token exchange cannot be done with `docker login` alone.
 
-**Package visibility is a manual step.** A container package pushed to an organization's GHCR for the
-first time from a workflow defaults to **private**. Since GenPRES is public, someone with org admin
-rights needs to set `informedica/genpres` to public in GitHub's package settings after the first
-successful push — the workflow's `GITHUB_TOKEN` can't change package visibility itself.
+One-time setup (Docker Team org admin + repo admin):
+
+1. **Docker Home → `informedica` → OIDC connections → Create OIDC connection.** Add a ruleset with subject
+   `repo:informedica/GenPRES:environment:docker-publish` (scoped to the GitHub environment, not a bare
+   `pull_request` subject). Copy the connection ID.
+2. **GitHub repo → Settings → Environments → New environment** named `docker-publish`. Optionally add
+   required reviewers here for a manual gate before every Docker Hub push.
+3. **GitHub repo → Settings → Secrets and variables → Actions → Variables → New repository variable**
+   `DOCKERHUB_OIDC_CONNECTIONID` = the connection ID from step 1. It is a variable, not a secret: an
+   identifier, useless without the matching ruleset.
+4. If the connection's **Failures** tab in Docker Home shows a rejected claim on the first run, copy the
+   exact `sub` it logged into the ruleset — repos created after 2026-07-15 use immutable identifiers
+   (`repo:informedica@<id>/GenPRES@<id>:...`); GenPRES predates that and uses the plain form.
+
+**Repository visibility is a manual step.** The first push creates `informedica/genpres` as a **private**
+Docker Hub repository. Since GenPRES is public and the image must be pullable without credentials, a Docker
+Hub org admin needs to set the repository to public in its settings after the first successful push — the
+OIDC token cannot change repository visibility itself.
 
 To build and smoke test the same image locally before relying on the workflow, use the existing
 `DockerBuild`/`DockerRun` FAKE targets (see [Docker wrappers](#docker-wrappers) above); they build
-`ghcr.io/informedica/genpres` by default (override with `DOCKER_IMAGE`), matching what the workflow
-publishes, though the local build is never pushed.
+`informedica/genpres` by default (override with `DOCKER_IMAGE`), the same name the workflow publishes,
+though the local build is never pushed.
 
 ### IDE Integration
 
@@ -911,7 +923,7 @@ This means you can always override `.env` values by setting an environment varia
 - **Shell**: Source `.env` manually with `set -a; source .env; set +a` before running commands.
 - **F# scripts (FSI)**: Scripts call `Informedica.Utils.Lib.Env.loadDotEnv()` which searches upward for `.env` from the current directory.
 - **IDEs (Rider, VS Code)**: The `Env.loadDotEnv()` call in scripts ensures variables are available even when the IDE doesn't inherit shell environment.
-- **Docker**: Inject `GENPRES_URL_ID` (and `GENPRES_PASSWORD` for admin operations) at *container runtime*, not at build time. Example: `docker run -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -p 8080:8085 ghcr.io/informedica/genpres`. For production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
+- **Docker**: Inject `GENPRES_URL_ID` (and `GENPRES_PASSWORD` for admin operations) at *container runtime*, not at build time. Example: `docker run -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -p 8080:8085 informedica/genpres`. For production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
 
 #### Common Environment Variable Issues
 

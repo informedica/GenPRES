@@ -67,7 +67,7 @@ ENV GENPRES_ROOT="/app"
 #
 #   docker run -e GENPRES_URL_ID="<your_url_id>" \
 #              -e GENPRES_PASSWORD="<your_admin_password>" \
-#              -p 8080:8085 halcwb/genpres
+#              -p 8080:8085 informedica/genpres
 #
 # Or via a Docker / Kubernetes secret. The server fails closed (no admin
 # operations) when GENPRES_PASSWORD is unset, and refuses to start when
