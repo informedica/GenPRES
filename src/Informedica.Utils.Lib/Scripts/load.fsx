@@ -1,5 +1,6 @@
 #load "../../../scripts/load-dependencies.fsx"
 
+#load "../Optic.fs"
 #load "../Constants.fs"
 #load "../Memoization.fs"
 #load "../Reflection.fs"

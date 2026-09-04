@@ -13,6 +13,14 @@ module List =
     let prepend xs1 xs2 = xs1 |> List.append xs2
 
 
+    /// Prism onto the element at index `i` of a list: `getOpt` returns it when the
+    /// list is long enough, `set` replaces it in place and is a no-op otherwise.
+    /// Matches Aether's `Optics.List.pos_`, which the ZForm optics compose onto.
+    let pos_ (i: int) : Informedica.Utils.Lib.Optics.Prism<'v list, 'v> =
+        (fun xs -> if List.length xs > i then Some(List.item i xs) else None),
+        (fun v xs -> xs |> List.mapi (fun j x -> if j = i then v else x))
+
+
     //----------------------------------------------------------------------------
     // Change lists
     //----------------------------------------------------------------------------

@@ -6,6 +6,7 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Optic.fs" />
     <Compile Include="Memoization.fs" />
     <Compile Include="Reflection.fs" />
     <Compile Include="NullCheck.fs" />

@@ -380,7 +380,6 @@ module MinMax =
 
     open System
     open Informedica.Utils.Lib.BCL
-    open Aether
 
     open Informedica.Utils.Lib
 
@@ -760,10 +759,10 @@ module MinMax =
         let max_ = _.Max, (fun v mm -> mm |> setMax (Some v))
 
 
-        let getMin = Optic.get min_
+        let getMin = fst min_
 
 
-        let setMin = Optic.set min_
+        let setMin = snd min_
 
 
         let inclMinLens =
@@ -782,6 +781,9 @@ module MinMax =
             )
 
 
+        let setInclMin = snd inclMinLens
+
+
         let exclMinLens =
             (fun mm ->
                 match mm |> getMin with
@@ -798,10 +800,13 @@ module MinMax =
             )
 
 
-        let getMax = Optic.get max_
+        let setExclMin = snd exclMinLens
 
 
-        let setMax = Optic.set max_
+        let getMax = fst max_
+
+
+        let setMax = snd max_
 
 
         let inclMaxLens =
@@ -820,6 +825,9 @@ module MinMax =
             )
 
 
+        let setInclMax = snd inclMaxLens
+
+
         let exclMaxLens =
             (fun mm ->
                 match mm |> getMax with
@@ -834,6 +842,9 @@ module MinMax =
                 | Some vu_ -> mm |> setMax (vu_ |> Limit.exclusive)
                 | None -> mm
             )
+
+
+        let setExclMax = snd exclMaxLens
 
 
     /// The dto object to represent a `MinMax` type
