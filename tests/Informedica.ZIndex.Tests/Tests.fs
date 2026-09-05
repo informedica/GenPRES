@@ -736,6 +736,40 @@ module Tests =
                 ]
 
 
+    /// Guards the deferred-read property from issue #526: no ZIndex module may read a
+    /// G-Standaard file while merely initialising.
+    ///
+    /// Two of the three ways that could regress are already closed without a test.
+    /// Reverting `posl` or `records` to a value breaks every call site — applying a
+    /// non-function does not compile — so such a change cannot merge. The third way is
+    /// the code generator silently drifting back to the eager form, which no compiler
+    /// checks because the template is a string. That is what this asserts.
+    ///
+    /// Not covered: a NEW eager binding added to a ZIndex module later. Detecting that
+    /// needs a child process pointed at a root with no raw BST files, because AppPath
+    /// caches the resolved root and this test project installs fixtures at module init.
+    module ModuleInitTests =
+
+        let tests =
+            testList
+                "module init"
+                [
+
+                    test "CodeGen template emits posl as a function" {
+                        CodeGen.codeString
+                        |> String.contains "let posl () = BST001T.getPosl name"
+                        |> Expect.isTrue "generated table modules must defer the BST001T read"
+                    }
+
+                    test "CodeGen template applies posl inside the reader" {
+                        CodeGen.codeString
+                        |> String.contains "Parser.getData name (posl ()) pickList"
+                        |> Expect.isTrue "generated readers must call posl (), not close over a value"
+                    }
+
+                ]
+
+
     let testHelloWorld =
         test "hello world test" { "Hello World" |> Expect.equal "Strings should be equal" "Hello World" }
 
@@ -743,6 +777,7 @@ module Tests =
     let tests =
         [
             testHelloWorld
+            ModuleInitTests.tests
             FilePathTests.tests
             DoseRuleExceptionTests.tests
             FixtureTests.tests
