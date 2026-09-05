@@ -61,7 +61,7 @@ To use all features, enter patient data either:
 
 ## URL Parameters
 
-GenPRES supports **hash-based URL routing** for integration with Electronic Patient Record (EPD) systems. Patient context is passed via query parameters after the hash fragment.
+GenPRES supports **hash-based URL routing** for integration with Electronic Health Record (EHR; in Dutch EPD) systems. Patient context is passed via query parameters after the hash fragment.
 
 **URL format:**
 

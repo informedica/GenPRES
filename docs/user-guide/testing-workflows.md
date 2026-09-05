@@ -36,7 +36,7 @@ This document describes reproducible testing procedures for developers and QA te
 
 1. Open <http://localhost:5173>.
 2. In the **Patient** panel, enter:
-   - Birth year: `2015`, birth month: `6`, birth day: `1`
+   - Age: `10` years (the panel takes years, months, weeks and days, not a birth date)
    - Weight: `20` kg
    - Height: `115` cm
 3. **Expected**: The Patient panel collapses automatically once weight and height are set.

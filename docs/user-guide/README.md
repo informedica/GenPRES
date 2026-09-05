@@ -59,7 +59,7 @@ Full functional user guides are maintained at the GenPRES project site. These in
 | Document | Description |
 |----------|-------------|
 | [Getting Started](getting-started.md) | Running the application, accessing it without patient data, entering patient data via the UI or URL parameters |
-| [Testing Workflows](testing-workflows.md) | Reproducible testing procedures for QA: no-patient-context testing, unit conversion testing, basic prescribing workflow |
+| [Testing Workflows](testing-workflows.md) | Reproducible testing procedures for QA: no-patient-context testing, manual and URL-based patient entry, unit conversion, emergency list, neonate scenarios, language switching |
 
 ---
 

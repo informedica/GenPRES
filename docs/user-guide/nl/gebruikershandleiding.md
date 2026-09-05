@@ -42,7 +42,7 @@ Aanvullende achtergrondinformatie is beschikbaar op <https://medicatieveiligensn
 
 In een klinische omgeving wordt GenPRES doorgaans gestart vanuit een Elektronisch Patiënten Dossier (EPD) waarbij patiëntparameters vooraf zijn ingevuld in de URL, bijvoorbeeld:
 
-```
+```url
 https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=730&wt=12000&ht=87
 ```
 
@@ -119,13 +119,13 @@ Voorbeeldpatiënten via queryparameters:
 
 De applicatie kan worden gebruikt **zonder patiëntgegevens** in de querystring. Open de applicatie direct via:
 
-```
+```url
 http://localhost:5173
 ```
 
 of op de productieserver:
 
-```
+```url
 http://genpres.nl
 ```
 
@@ -143,7 +143,7 @@ Toont de patiëntparameters (leeftijd, gewicht, geslacht, lengte). Als deze niet
 
 ### Medicatiekeuze (hoofdgebied)
 
-Bak de medicatie af met de keuzelijsten — indicatie, generiek, toedieningsweg, farmaceutische
+Baken de medicatie af met de keuzelijsten — indicatie, generiek, toedieningsweg, farmaceutische
 vorm en doseertype. Elke lijst toont alleen waarden die nog geldig zijn bij wat u al gekozen
 hebt, zodat een combinatie zonder bijbehorende doseerregel niet te selecteren is.
 
@@ -244,7 +244,7 @@ De repository bevat een democachebestand met voorbeeldmedicatiegegevens. Dit is 
 
 GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige berekeningen via **Informedica.GenUNITS.Lib**. De volgende procedure stelt u in staat eenheidconversies in de gebruikersinterface te verifiëren.
 
-### Dosisoenheden verifiëren
+### Doseereenheden verifiëren
 
 1. Selecteer een medicament met een bekende dosis (bijv. *paracetamol* oraal).
 2. Bekijk het veld **dosis per kg** — dit moet de waarde in `mg/kg` tonen.
@@ -296,7 +296,7 @@ GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige ber
 
 ### Applicatie start niet op
 
-- Zorg ervoor dat de vereiste vereisten zijn geïnstalleerd (.NET SDK, Node.js, npm). Zie [DEVELOPMENT.md](../../../DEVELOPMENT.md#toolchain-requirements).
+- Zorg ervoor dat de vereiste software is geïnstalleerd (.NET SDK, Node.js, npm). Zie [DEVELOPMENT.md](../../../DEVELOPMENT.md#toolchain-requirements).
 - Voer `dotnet run` uit vanuit de root van de repository.
 - Controleer of poort `5173` niet bezet is door een ander proces.
 

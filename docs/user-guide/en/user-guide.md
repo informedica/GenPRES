@@ -36,9 +36,9 @@ The live system runs at <http://genpres.nl>.
 
 ## 2. Accessing the Application
 
-### With Patient Data (EPD Integration)
+### With Patient Data (EHR Integration)
 
-In a clinical setting GenPRES is typically launched from an Electronic Patient Dossier (EPD) with patient parameters pre-filled in the URL, for example:
+In a clinical setting GenPRES is typically launched from an Electronic Health Record (EHR; in Dutch EPD) with patient parameters pre-filled in the URL, for example:
 
 ```url
 https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000&ht=87
