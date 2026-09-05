@@ -148,6 +148,14 @@ image tag in the root `compose.yaml` (`informedica/genpres:${GENPRES_IMAGE_TAG:-
 `git pull && docker compose pull && docker compose up -d` after a release runs the version that was
 just shipped. Do not hand-edit `<Version>` or that compose default.
 
+The `regex` updater writes the version verbatim, whereas `tag-release.yml` folds any `+` in the
+version to `-` because `+` is not a legal Docker tag character. The two agree only as long as
+`<Version>` carries no SemVer build metadata. ShipIt never generates build metadata (versions come
+from conventional commits plus the `alpha.N` pre-release counter), so this holds unless someone
+hand-edits `<Version>` with a `+`, which is already disallowed above. If build metadata is ever
+introduced deliberately, replace the `regex` updater with a `command` updater that applies the same
+fold before writing `compose.yaml`.
+
 To preview locally what ShipIt would generate:
 
 ```bash
@@ -368,7 +376,7 @@ Get-Content .env | ForEach-Object {
 dotnet run DockerRun
 ```
 
-**Run a published image** — the `compose.yaml` at the repo root (tracked; see the `!compose.yaml` allow-line in `.gitignore`) runs an image pulled from Docker Hub with port, secrets and mode read from `.env`, so nothing has to be retyped after a new release. Compose interpolates `${...}` from the `.env` in the project directory by itself; no `source` needed. The image tag defaults to the current release: ShipIt bumps it in `compose.yaml` as part of every release PR (see [Changelog & Release Automation](#changelog--release-automation-easybuildshipit)), so `git pull` brings the new tag along. Set `GENPRES_IMAGE_TAG` in `.env` only to pin a different version.
+**Run a published image** — the `compose.yaml` at the repo root (tracked; see the `!compose.yaml` allow-line in `.gitignore`) runs an image pulled from Docker Hub with port, secrets and mode read from `.env`, so nothing has to be retyped after a new release. Compose interpolates `${...}` from the `.env` in the project directory by itself; no `source` needed. The image tag defaults to the current release: ShipIt bumps it in `compose.yaml` as part of every release PR (see [Changelog & Release Automation](#changelog--release-automation-easybuildshipit)), so `git pull` brings the new tag along. Set `GENPRES_IMAGE_TAG` in `.env` only to pin a different version. If you added `GENPRES_IMAGE_TAG` to `.env` while it was still required (between [#550](https://github.com/informedica/GenPRES/pull/550) and [#552](https://github.com/informedica/GenPRES/pull/552)), remove it: a leftover value silently overrides the ShipIt-maintained default and keeps `docker compose pull` on the old image.
 
 ```bash
 cp .env.example .env            # once; for production, set the secrets
