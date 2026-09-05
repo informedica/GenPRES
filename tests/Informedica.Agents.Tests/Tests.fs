@@ -719,7 +719,11 @@ module Tests =
                         ""
                 with _ -> ""
 
-            let waitForFileWrite () = Thread.Sleep(100)
+            // No wait is needed between `FileWriterAgent.flush` and reading the file
+            // back: flush is PostAndReply, the agent handles messages in order, and it
+            // replies only after StreamWriter.Flush() on every open writer. A fixed
+            // Thread.Sleep here used to cost 100 ms x 100 cases in each FsCheck
+            // property below.
 
         open TestHelpers
 
@@ -743,8 +747,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should write single line" [|"Hello, World!"|]
 
@@ -763,8 +765,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile lines
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should write all lines" lines
@@ -786,8 +786,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should accumulate lines" [|"First"; "Second"; "Third"|]
 
@@ -806,8 +804,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [|"Created file"|]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         (File.Exists tempFile) |> Expect.isTrue "Should create file"
                         let content = readAllLines tempFile
@@ -836,8 +832,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllText tempFile
                         content |> Expect.equal "Should be empty after clear" ""
 
@@ -856,8 +850,6 @@ module Tests =
                         |> FileWriterAgent.clear tempFile
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         (File.Exists tempFile) |> Expect.isTrue "Should create file"
                         let content = readAllText tempFile
@@ -881,8 +873,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [|"New content"|]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should only have new content" [|"New content"|]
@@ -909,8 +899,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content1 = readAllLines tempFile1
                         let content2 = readAllLines tempFile2
 
@@ -936,15 +924,11 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         // Clear only file 1
                         writer
                         |> FileWriterAgent.clear tempFile1
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content1 = readAllText tempFile1
                         let content2 = readAllLines tempFile2
@@ -975,8 +959,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should handle Unicode correctly" unicodeContent
 
@@ -997,8 +979,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [|"Appended content"|]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should preserve and append correctly" [|"Initial content"; "Appended content"|]
@@ -1032,8 +1012,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Agent should continue working after error" [|"Valid operation"|]
 
@@ -1051,8 +1029,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [||]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllText tempFile
                         content |> Expect.equal "Empty array should result in no content" ""
@@ -1079,8 +1055,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content.Length |> Expect.equal "Should handle large content" 1000
                         content[0] |> Expect.equal "First line should be correct" "Line 0"
@@ -1103,7 +1077,6 @@ module Tests =
                             |> ignore
 
                         writer |> FileWriterAgent.flush |> ignore
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content.Length |> Expect.equal "Should handle all rapid operations" 100
@@ -1136,8 +1109,6 @@ module Tests =
                             |> FileWriterAgent.append tempFile linesArray
                             |> FileWriterAgent.flush
                             |> ignore
-
-                            waitForFileWrite()
 
                             let content = readAllLines tempFile
                             content = linesArray
@@ -1172,8 +1143,6 @@ module Tests =
                             |> FileWriterAgent.clear tempFile
                             |> FileWriterAgent.flush
                             |> ignore
-
-                            waitForFileWrite()
 
                             let content = readAllText tempFile
                             content = ""
@@ -1222,8 +1191,6 @@ module Tests =
                                 |> FileWriterAgent.append tempFile2 (List.toArray validLines2)
                                 |> ignore
                             writer |> FileWriterAgent.flush |> ignore
-
-                            waitForFileWrite()
 
                             let content1 = readAllLines tempFile1
                             let content2 = readAllLines tempFile2
