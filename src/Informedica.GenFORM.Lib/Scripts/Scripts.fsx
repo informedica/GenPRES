@@ -167,7 +167,7 @@ let printAllDoseRules () =
     let gs (rs: DoseRule[]) =
         rs |> Array.map _.Generic |> Array.distinct
 
-    DoseRule.Print.printGenerics gs rs
+    DoseRule.Print.printGenerics (Api.getNKFLinkProvider provider) gs rs
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 

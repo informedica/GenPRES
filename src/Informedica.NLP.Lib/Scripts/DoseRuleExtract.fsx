@@ -1243,7 +1243,9 @@ module Pipeline =
                 else
                     match buildDoseRules payload.rules with
                     | Error msgs -> return Error $"buildDoseRules failed: {msgs}"
-                    | Ok rules -> return rules |> DoseRule.Print.toMarkdown |> Ok
+                    // No resource provider here, and these rules were just extracted by an
+                    // LLM rather than looked up, so there is nothing to link out to.
+                    | Ok rules -> return rules |> DoseRule.Print.toMarkdown Source.noLinks |> Ok
         }
 
 

@@ -171,6 +171,33 @@ module Resources =
             Ok(box v, ws)
 
 
+    let private messageText =
+        function
+        | Info s
+        | Warning s -> s
+        | ErrorMsg(s, _) -> s
+
+
+    /// <summary>
+    /// An <b>optional</b> IO leaf resource: one whose failure must not fail the whole
+    /// load, and so empty every other resource with it.
+    /// </summary>
+    /// <remarks>
+    /// On error the load succeeds with <paramref name="fallback"/>, and each error
+    /// becomes a <c>Warning</c> prefixed with <paramref name="note"/> — so the failure
+    /// still surfaces in <c>ResourceInfo.Messages</c> where an admin can see it, and an
+    /// admin ReloadResources retries the fetch.
+    /// </remarks>
+    /// <param name="note">Prefix explaining what was not loaded and what the effect is.</param>
+    /// <param name="fallback">The degraded value to serve instead.</param>
+    /// <param name="f">The fetch.</param>
+    let ofResultOrDefault (note: string) (fallback: 'T) (f: unit -> Result<'T, Message list>) : ResourceLoader =
+        fun _ ->
+            match f () with
+            | Ok v -> Ok(box v, [])
+            | Error msgs -> Ok(box fallback, msgs |> List.map (fun m -> Warning $"%s{note}: %s{messageText m}"))
+
+
     /// Typed keys — one per resource. Adding a resource adds a key here.
     module Keys =
         let unitMappings = ResourceKey.create<UnitMapping[]> "unitMappings"
@@ -195,6 +222,9 @@ module Resources =
         let renalRules = ResourceKey.create<RenalRule[]> "renalRules"
         // G-Standaard dose-rule capability, served as a function-valued resource.
         let gStandProvider = ResourceKey.create<Check.GStandProvider> "gStandProvider"
+
+        // Nederlands Kinder Formularium link lookup, likewise function-valued.
+        let nkfLinkProvider = ResourceKey.create<Source.LinkProvider> "nkfLinkProvider"
 
 
     /// Default resource registry using the standard v2 get functions.
@@ -245,21 +275,10 @@ module Resources =
                 // Totals is an optional intake-reference resource: a load failure must
                 // not empty the others, so swallow to [||] and surface a Warning.
                 Keys.totalsData.Name,
-                (fun _ ->
-                    match Mapping.getTotals dataUrlId with
-                    | Ok d -> Ok(box d, [])
-                    | Error msgs ->
-                        let text =
-                            function
-                            | Info s
-                            | Warning s -> s
-                            | ErrorMsg(s, _) -> s
-
-                        Ok(
-                            box ([||]: TotalsData[]),
-                            msgs |> List.map (fun m -> Warning $"Totals resource not loaded: {text m}")
-                        )
-                )
+                ofResultOrDefault
+                    "Totals resource not loaded"
+                    ([||]: TotalsData[])
+                    (fun () -> Mapping.getTotals dataUrlId)
 
                 // Narrow the raw ZIndex products to those referenced by dose rules
                 // BEFORE building, so discarded products are never constructed.
@@ -311,6 +330,25 @@ module Resources =
                 // closure depends only on routeMappings; ZIndex caches stay memoised
                 // in ZIndex.Lib and patient filtering (RuleFinder) is untouched.
                 Keys.gStandProvider.Name, derive (fun r -> Check.gStandProvider (r.Get Keys.routeMappings))
+
+                // The NKF link lookup is decoration on a rendered dose rule, and it is the
+                // only resource fetched from a third party rather than a sheet, so it is
+                // optional in exactly the sense totalsData is. Registering it here rather
+                // than caching inside DoseRule.Print keeps that module pure, puts the
+                // failure in ResourceInfo where an admin can see it, and lets
+                // ReloadResources retry.
+                //
+                // Degrade to `getLink []`, not `Source.noLinks`: an empty index costs the
+                // NKF links, which is the outage, but FTK links are built from the generic
+                // name alone and must survive it.
+                Keys.nkfLinkProvider.Name,
+                ofResultOrDefault
+                    "NKF links not loaded, falling back to \"*Lokaal*\""
+                    (Source.getLink []: Source.LinkProvider)
+                    (fun () ->
+                        SourceLoader.fetchNKFMedications ()
+                        |> Result.map (fun meds -> (Source.getLink meds: Source.LinkProvider))
+                    )
             ]
 
 

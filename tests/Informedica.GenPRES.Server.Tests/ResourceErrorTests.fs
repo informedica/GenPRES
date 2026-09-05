@@ -137,6 +137,40 @@ let cachedProviderErrorStateTests =
                 (provider :> IResourceProvider).GetRenalRules()
                 |> Expect.equal "RenalRules should be empty" [||]
             }
+
+            test "getNKFLinkProvider serves FK-only links instead of throwing when loader failed" {
+                // Nothing is registered on a failed load, so `Get` would raise
+                // KeyNotFoundException; a decorative link must not fail a request.
+                let provider =
+                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+
+                let getLink =
+                    Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
+
+                let label = GenericLabel.fromShorthand "paracetamol"
+
+                getLink (Source.identified "FK") label
+                |> Expect.isSome "FK link is built from the generic name alone"
+
+                getLink (Source.identified "NKF") label
+                |> Expect.isNone "NKF link needs the index, which did not load"
+            }
+
+            test "getNKFLinkProvider degrades when the key is unresolved on a loaded provider" {
+                // The state a reload race leaves behind: IsLoaded says yes, the resolved
+                // map has no nkfLinkProvider. An IsLoaded guard would not catch this.
+                let provider =
+                    CachedResourceProvider((fun () -> loadAllResourcesWithRegistry okRegistry), None)
+
+                (provider :> IResourceProvider).GetResourceInfo().IsLoaded
+                |> Expect.isTrue "precondition: provider is loaded"
+
+                let getLink =
+                    Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
+
+                getLink (Source.identified "FK") (GenericLabel.fromShorthand "paracetamol")
+                |> Expect.isSome "FK link served instead of KeyNotFoundException"
+            }
         ]
 
 

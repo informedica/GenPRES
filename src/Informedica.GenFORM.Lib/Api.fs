@@ -43,6 +43,25 @@ module Api =
     let getGStandProvider (provider: IResourceProvider) = provider.GetGStandProvider()
 
 
+    /// <summary>
+    /// The Nederlands Kinder Formularium link lookup, for `DoseRule.Print.toMarkdown`.
+    /// </summary>
+    /// <remarks>
+    /// When only the NKF fetch failed the registry already serves `Source.getLink []`
+    /// (FK links intact, NKF links gone); see `Keys.nkfLinkProvider`. When the whole
+    /// resource load failed nothing is registered at all and `Get` raises
+    /// `KeyNotFoundException`, so serve that same degraded provider here: a decorative
+    /// link must never fail a request. One provider call, not an `IsLoaded` check followed
+    /// by `Get`: a `CachedResourceProvider` takes its lock per call, so a reload failing
+    /// between the two would still throw.
+    /// </remarks>
+    let getNKFLinkProvider (provider: IResourceProvider) : Source.LinkProvider =
+        try
+            provider.Get Keys.nkfLinkProvider
+        with :? System.Collections.Generic.KeyNotFoundException ->
+            Source.getLink []
+
+
     let getDoseRules (provider: IResourceProvider) = provider.GetDoseRules()
 
 
