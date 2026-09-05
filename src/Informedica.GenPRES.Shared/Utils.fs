@@ -403,7 +403,7 @@ module Csv =
         | FloatData ->
             match Double.TryParse(x) with
             | true, n -> n |> box
-            | _ -> $"cannot parse {x} to double" |> failwith
+            | _ -> raise (System.FormatException $"cannot parse {x} to double")
         | FloatOptionData ->
             match Double.TryParse(x) with
             | true, n -> n |> Some |> box

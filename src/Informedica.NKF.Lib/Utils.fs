@@ -72,7 +72,7 @@ module Utils =
 
         let private getDataUrlId () =
             Env.getItem "GENPRES_URL_ID"
-            |> Option.defaultWith (fun () -> failwith "No valid data url id")
+            |> Option.defaultWith (fun () -> invalidOp "No valid data url id")
             |> fun s ->
                 ConsoleWriter.writeInfoMessage $"using: {s}" true false
                 s

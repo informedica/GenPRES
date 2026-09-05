@@ -40,7 +40,7 @@ module Csv =
             if isOption then
                 None
             else
-                $"cannot parse {x} to {typeDescr}" |> failwith
+                raise (System.FormatException $"cannot parse {x} to {typeDescr}")
 
 
     /// Try to cast a string to a value of the given type.

@@ -87,7 +87,7 @@ module Web =
         | None ->
             let msg = "Cannot load the GENPRES_URL_ID"
             ConsoleWriter.writeErrorMessage msg true false
-            failwith msg
+            invalidOp msg
         | Some urlId ->
             sheet
             |> Web.GoogleSheets.getCsvDataFromSheetSync urlId

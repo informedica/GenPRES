@@ -246,7 +246,7 @@ module Product =
                         let n, u =
                             match s |> String.split " " with
                             | [ n; u ] -> n |> String.trim, u |> String.trim
-                            | _ -> failwith $"cannot parse substance {s}"
+                            | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
                         createSubstance n q u formUnit unitMapping
                     )
@@ -297,7 +297,7 @@ module Product =
                         let n, u =
                             match s |> String.split " " with
                             | [ n; u ] -> n |> String.trim, u |> String.trim
-                            | _ -> failwith $"cannot parse substance {s}"
+                            | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
                         createSubstance n q u Units.Volume.milliLiter unitMapping
                     )
@@ -457,7 +457,7 @@ module Product =
                             let n, u =
                                 match s |> String.split " " with
                                 | [ n; u ] -> n |> String.trim, u |> String.trim
-                                | _ -> failwith $"cannot parse substance {s}"
+                                | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
                             createSubstance n q u formUnit unitMapping
                         )

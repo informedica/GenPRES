@@ -156,7 +156,7 @@ module SolutionRule =
                                 match l.Substance, l.Component with
                                 | s, _ when s |> String.isNullOrWhiteSpace |> not -> s |> SubstanceLimitTarget
                                 | _, c when c |> String.isNullOrWhiteSpace |> not -> c |> ComponentLimitTarget
-                                | _ -> failwith "Solution limit should be either a substance or a component limit"
+                                | _ -> invalidOp "Solution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
                             QuantityAdj = (l.MinQtyAdj, l.MaxQtyAdj) |> fromTupleInclIncl au
                             Quantities =

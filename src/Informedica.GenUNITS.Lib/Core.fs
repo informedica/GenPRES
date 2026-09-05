@@ -23,7 +23,7 @@ module Core =
         | _ when s = "*" -> OpTimes
         | _ when s = "+" -> OpPlus
         | _ when s = "-" -> OpMinus
-        | _ -> failwith <| $"Cannot parse %s{s} to operand"
+        | _ -> raise (System.FormatException $"Cannot parse %s{s} to operand")
 
 
     /// A 'count' unit with n = 1

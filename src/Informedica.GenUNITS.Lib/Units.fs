@@ -1276,7 +1276,8 @@ module Units =
             match e with
             | Calorie n -> (n, Energy.calorie)
             | KiloCalorie n -> (n, Energy.kiloCalorie)
-        | CombiUnit(u1, op, u2) -> failwith <| $"Cannot map combined unit %A{(u1, op, u2) |> CombiUnit}"
+        | CombiUnit(u1, op, u2) ->
+            raise (System.NotSupportedException $"Cannot map combined unit %A{(u1, op, u2) |> CombiUnit}")
 
 
     /// <summary>

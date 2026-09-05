@@ -79,7 +79,7 @@ module GStand =
     /// i.e. if all min weights are the same and all max weights are the same.
     /// </summary>
     /// <param name="drs"></param>
-    /// <exception cref="System.Exception">Cannot calculate weight min max with: {drs}</exception>
+    /// <exception cref="System.InvalidOperationException">Cannot calculate weight min max with: {drs}</exception>
     let calcWeightMinMax (drs: ZIndexTypes.DoseRule seq) =
 
         match drs |> Seq.toList with
@@ -89,7 +89,7 @@ module GStand =
             if tail |> List.forall (fun mm -> mm.Weight = h.Weight) then
                 h.Weight
             else
-                failwith $"cannot calculate weight min max with: {drs}"
+                invalidOp $"cannot calculate weight min max with: {drs}"
         |> mapMinMax
             ((Option.map ValueUnit.weightInKg) >> (Optic.set MinMax.Optics.inclMinLens))
             ((Option.map ValueUnit.weightInKg) >> (Optic.set MinMax.Optics.inclMaxLens))
@@ -100,7 +100,7 @@ module GStand =
     /// i.e. if all min bsa are the same and all max bsa are the same.
     /// </summary>
     /// <param name="drs"></param>
-    /// <exception cref="System.Exception">Cannot calculate bsa min max with: {drs}</exception>
+    /// <exception cref="System.InvalidOperationException">Cannot calculate bsa min max with: {drs}</exception>
     let calcBSAMinMax (drs: ZIndexTypes.DoseRule seq) =
 
         match drs |> Seq.toList with
@@ -110,7 +110,7 @@ module GStand =
             if tail |> List.forall (fun mm -> mm.BSA = h.BSA) then
                 h.BSA
             else
-                failwith $"cannot calculate bsa min max with: {drs}"
+                invalidOp $"cannot calculate bsa min max with: {drs}"
         |> mapMinMax
             ((Option.map ValueUnit.bsaInM2) >> (Optic.set MinMax.Optics.inclMinLens))
             ((Option.map ValueUnit.bsaInM2) >> (Optic.set MinMax.Optics.inclMaxLens))
@@ -141,7 +141,7 @@ module GStand =
     /// </summary>
     /// <param name="freq">The frequency to map</param>
     /// <returns>The mapped frequency</returns>
-    /// <exception cref="System.Exception">Cannot parse freq value unit</exception>
+    /// <exception cref="System.FormatException">Cannot parse freq value unit</exception>
     /// <example>
     /// <code>
     /// let freq : ZIndexTypes.RuleFrequency = { Frequency = 1.; Time = "dag" }
@@ -191,7 +191,7 @@ module GStand =
             |> function
                 | Error err ->
                     writeErrorMessage $"Cannot parse |{s}| freq value unit: {freq}\n{err}"
-                    err |> failwith
+                    raise (System.FormatException err)
                 | Ok vu -> vu
             |> map
 
@@ -387,7 +387,7 @@ module GStand =
                             |> List.map (ValueUnit.toStringDecimalDutchShortWithPrec 1)
                             |> String.concat ", "
 
-                        failwith <| $"cannot add frequency %s{s1} to list with units %s{s2}"
+                        invalidOp $"cannot add frequency %s{s1} to list with units %s{s2}"
 
 
                     if frs |> List.exists ((=) d.frequency) then
