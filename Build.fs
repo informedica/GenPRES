@@ -249,18 +249,20 @@ Target.create
                 printfn "-------------------------------------------------------------------------"
 
                 if totalFailed.Value = 0 then
-                    // The signature of a test DISCOVERY failure: a non-zero exit while
-                    // every assembly that did load reports 0 failures. An assembly whose
-                    // static initializer throws produces no results at all, so it adds
-                    // nothing to these counters and the summary reads green on a red
-                    // build. See issue #523.
+                    // Results are missing rather than failing: every assembly that did report
+                    // reported no failures, so whatever went wrong produced no summary at all.
+                    // A discovery failure does this (a static initializer that throws yields no
+                    // results — see issue #523), but so does a crashed or cancelled test host,
+                    // so name the likely cause without asserting it.
                     failwithf
-                        $"dotnet test exited %i{result.ExitCode} with 0 reported failures \
-                          (%i{totalPassed.Value} passed). This is the signature of a test \
-                          DISCOVERY failure: an assembly's static initializer threw before \
-                          Expecto could enumerate its tests. Search the dumped output above \
-                          for TypeInitializationException, and look for a top-level `let` \
-                          VALUE binding that performs IO — see issue #523."
+                        $"dotnet test exited %i{result.ExitCode}, but no assembly reported a \
+                          failing test (%i{totalPassed.Value} passed). Results are missing \
+                          rather than failing. Most often an assembly threw during discovery, \
+                          before Expecto could enumerate its tests — look for a top-level \
+                          `let` VALUE binding that performs IO, and search the dumped output \
+                          above for TypeInitializationException (see issue #523). A crashed \
+                          or cancelled test host looks the same, so check the output above \
+                          for a project that reported no summary line at all."
                 else
                     failwithf "Tests failed with exit code %d" result.ExitCode
 
