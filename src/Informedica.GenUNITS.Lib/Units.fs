@@ -65,7 +65,7 @@ module Units =
         /// create a general unit with unit value = 1
         let general n =
             if n |> String.isNullOrWhiteSpace then
-                failwith "the name of a General Unit cannot be an empty string"
+                invalidArg (nameof n) "the name of a General Unit cannot be an empty string"
 
             (n, 1N) |> toGeneral
 
@@ -512,7 +512,7 @@ module Units =
         /// </example>
         let createGeneral n v =
             if n |> String.isNullOrWhiteSpace then
-                "The name for a general unit cannot be an empty string" |> failwith
+                invalidArg (nameof n) "The name for a general unit cannot be an empty string"
 
             let un = (n, v) |> General
 

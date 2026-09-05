@@ -346,7 +346,7 @@ module Agent =
             |> tryPostAndReply fallbackMs msg
             |> function
                 | Some v -> v
-                | None -> failwith $"Timed out waiting for reply after {fallbackMs} ms"
+                | None -> raise (TimeoutException $"Timed out waiting for reply after {fallbackMs} ms")
         else
             agent.PostAndReply(fun replyChannel -> msg, replyChannel)
 

@@ -156,7 +156,7 @@ module ContinuousMeds =
 
         let rowCreate (cells: string[]) =
             if cells |> Array.length <> 7 then
-                failwith $"cannot create row with {cells}"
+                invalidArg (nameof cells) $"cannot create row with {cells}"
             else
                 {|
                     id = cells[0]

@@ -64,11 +64,11 @@ module Csv =
     /// </summary>
     /// <remarks>
     /// Header names are matched case-insensitively, and an unknown column name
-    /// RAISES rather than yielding a default. Callers that parse a whole sheet wrap
-    /// this in try/with and surface the failure as an Error, which makes the header
-    /// row of a sheet a checkable contract: feed a parser exactly the column set it
-    /// is supposed to read and it succeeds, drop any one of them and it fails. The
-    /// GenFORM column-contract tests rely on that.
+    /// RAISES a <c>KeyNotFoundException</c> rather than yielding a default. Callers
+    /// that parse a whole sheet wrap this in try/with and surface the failure as an
+    /// Error, which makes the header row of a sheet a checkable contract: feed a
+    /// parser exactly the column set it is supposed to read and it succeeds, drop
+    /// any one of them and it fails. The GenFORM column-contract tests rely on that.
     ///
     /// A column that may legitimately be absent therefore needs an explicit
     /// tolerant wrapper at the call site (see DoseRuleData.getIfNull) - there is no
@@ -78,7 +78,11 @@ module Csv =
         columns
         |> Array.tryFindIndex (String.equalsCapInsens name)
         |> function
-            | None -> $"""cannot find column {name} in {columns |> String.concat ", "}""" |> failwith
+            | None ->
+                raise (
+                    System.Collections.Generic.KeyNotFoundException
+                        $"""cannot find column {name} in {columns |> String.concat ", "}"""
+                )
             | Some i -> row |> Array.item i |> tryCast<'T> dataType
 
 

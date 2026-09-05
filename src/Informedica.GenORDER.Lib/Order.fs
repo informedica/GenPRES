@@ -3335,30 +3335,36 @@ module Order =
                 match xs with
                 | h :: rest ->
                     let h =
-                        try
-                            ovars |> List.find (fun v -> v.Variable.Name |> Name.toString = h)
-                        with _ ->
+                        match ovars |> List.tryFind (fun v -> v.Variable.Name |> Name.toString = h) with
+                        | Some v -> v
+                        | None ->
                             let h =
                                 if h |> String.isNullOrWhiteSpace then
                                     "'empty string'"
                                 else
                                     h
 
-                            failwith $"cannot find {h} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
+                            raise (
+                                System.Collections.Generic.KeyNotFoundException
+                                    $"cannot find {h} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
+                            )
 
                     let rest =
                         rest
                         |> List.map (fun s ->
-                            try
-                                ovars |> List.find (fun v -> v.Variable.Name |> Name.toString = s)
-                            with _ ->
+                            match ovars |> List.tryFind (fun v -> v.Variable.Name |> Name.toString = s) with
+                            | Some v -> v
+                            | None ->
                                 let s =
                                     if s |> String.isNullOrWhiteSpace then
                                         "'empty string'"
                                     else
                                         s
 
-                                failwith $"cannot find {s} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
+                                raise (
+                                    System.Collections.Generic.KeyNotFoundException
+                                        $"cannot find {s} from\n{eqMapping}\nin {ovars |> OrderVariable.getNames}"
+                                )
                         )
                         |> fun rest ->
                             if repl <> "+" then
