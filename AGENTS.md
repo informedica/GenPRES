@@ -133,6 +133,51 @@ The same applies to the docker ignore file.
 - IO and parsing functions should return `GenFormResult<'T>` (i.e., Result). Use `FsToolkit.ErrorHandling.ResultCE` computation expression for readability (`result { let! x = ... }`).
 - When editing `ResourceConfig` or callers, make sure to handle `Result` values consistently; use `Result.bind`, CE, or `delay` for unit-returning getters.
 
+## Never Perform IO in a Top-Level `let` Value
+
+F# packs every top-level `let` **value** binding of a compilation unit into a single static
+initializer (`<StartupCode$X>.$File..cctor()`). So a value whose right-hand side performs IO runs
+that IO the first time *anything* in the file is touched — and .NET caches a failed type
+initializer for the life of the process, so one touch poisons the type permanently. Under Expecto
+this kills test *discovery* for the whole assembly: it produces zero results while `dotnet test`
+still exits non-zero, so the summary reads "0 failed" on a red build.
+
+The distinction is **value vs. function**, and it is easy to miss when the IO hides behind a
+partial application:
+
+```fsharp
+// BAD — a VALUE. `getKFMedications ()` is applied here, so the HTTP fetch runs in the
+// file's static constructor, triggered by any unrelated binding in the same file.
+let getLink = Source.getLink (getKFMedications ())
+
+// GOOD — a FUNCTION. The fetch happens on first actual use; `getKFMedications` is
+// memoized, so it still runs at most once per process.
+let getLink source gen = Source.getLink (getKFMedications ()) source gen
+```
+
+Nesting inside a sub-module does **not** isolate it — the cctor is per file, not per module.
+
+Two idioms already in the codebase do this correctly; follow them:
+
+- **Memoized accessor** — `src/Informedica.NKF.Lib/WebSiteParser.fs`:
+  `let medications : unit -> Drug.Drug list = memoizeN _medications` (memoized, *not* applied).
+  Every BST table module in `src/Informedica.ZIndex.Lib/Zindex.fs` uses the same shape.
+  `Memoization.memoize` is `ConcurrentDictionary + Lazy`, so `f` runs at most once per key even
+  under concurrent access.
+- **Explicit `lazy`** — `src/Informedica.Utils.Lib/AppPath.fs`:
+  `let root = lazy (resolveRoot ())` with `let rootPath () = root.Value`, deliberately deferred so
+  that an `Env.loadDotEnv ()` setting `GENPRES_ROOT` runs first.
+
+This applies to network calls, file reads, `.env` loading, `Web.getDataFromSheet`, and anything
+under `Async.RunSynchronously`. It applies to test files too: work done at module level in a test
+module runs at discovery time, so wrap expensive or fallible fixtures in `lazy`, or guard them with
+`try/with` as `tests/Informedica.ZIndex.Tests/Tests.fs` does.
+
+Incidents caused by this exact pattern: [#523](https://github.com/informedica/GenPRES/issues/523)
+(HTTP fetch in `GenFORM.Lib/DoseRule.fs`), commit `8617f7a6` (ZIndex tables touched before the test
+fixtures existed), and the Google-sheet fetch since replaced by injection in
+`tests/Informedica.GenORDER.Tests/Tests.fs`.
+
 ## BigRational & ValueUnit Semantics
 
 - BigRational operations are used broadly for dosing math. Respect existing helpers in `Informedica.GenUnits.Lib`.
