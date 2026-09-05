@@ -49,3 +49,12 @@ nuget Expecto.FsCheck
 
 nuget ModelContextProtocol 1.2.0
 nuget Microsoft.Extensions.Hosting
+
+// Benchmark suite (benchmark/, excluded from GenPRES.sln). Kept in its own group so that
+// BenchmarkDotNet's transitive tree never influences the Main resolution. See issue #513.
+group Benchmark
+  source https://api.nuget.org/v3/index.json
+  framework: net10.0
+  storage: none
+
+  nuget BenchmarkDotNet

@@ -13,10 +13,7 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="10.1.203" />
-    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.GenORDER.Lib\Informedica.GenORDER.Lib.fsproj" />
   </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

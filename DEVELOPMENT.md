@@ -94,6 +94,7 @@ packages for the Fable/Vite dev server).
 | `dotnet run list` | *(special)* | List all available FAKE targets |
 | `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
 | `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
+| `dotnet run BenchmarkBuild` | `BenchmarkBuild` | Compile the four benchmark projects under `benchmark/` in Release. They are excluded from `GenPRES.sln` and not built in CI |
 | `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
 | `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artifacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
@@ -112,6 +113,7 @@ Clean ──► RestoreClient ──► Bundle
 Clean ──► RestoreClient ──► ClientBuild
 
 ServerBuild            (no prerequisites — restores itself)
+BenchmarkBuild         (no prerequisites — restores itself)
 
 Build ──► Run
 RestoreClient ──► Run
@@ -226,7 +228,7 @@ Common conventions for both categories:
 These three scripts ship with the repository and are listed explicitly in `.gitignore` with `!` allow-entries.
 
 - **`debugTests.sh`** — sources `.env`, then iterates through eight test projects (`Utils`, `Agents`, `Logging`, `GenUnits`, `GenCore`, `GenSolver`, `GenForm`, `GenOrder`, plus the `Server` test project) and runs each with `dotnet run --project <proj> -- --debug --summary --sequenced`. Exits non-zero on the first failure. Similar to `dotnet run ServerTests` but with per-project isolation, debug output, and forced sequential execution — useful when chasing flaky tests or test interactions. The project list is hardcoded; if you add a new test project, update both this script and the `ServerTests` FAKE target.
-- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`.
+- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513)); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
 - **`.husky/scripts/format-staged.sh`** — invoked by the Husky pre-commit hook. Receives staged F# files as positional arguments, warns about partially-staged files (Fantomas formats the *full working-tree* version of each file, not just the staged hunks), runs `dotnet fantomas` on them, and re-stages the formatted output. You normally never call this directly; it runs automatically on `git commit`. See also [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 
 #### Optional local scripts (not in the repo — paste into your working copy)

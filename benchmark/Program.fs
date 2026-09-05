@@ -117,6 +117,8 @@ module TestSolver =
 module Utils =
 
     open MathNet.Numerics
+    // `open` after MathNet so that `1N` literals and `BigRational` resolve to RationalX (Utils.Lib).
+    open Informedica.Utils.Lib.BCL
 
     let inline allPairs min incr max =
         let x1 = [| min..incr..max |]
@@ -137,8 +139,8 @@ module Utils =
 
         Array.zip nums denums
         |> Array.map (fun (n, d) ->
-            let n = BigRational.FromInt(n)
-            let d = BigRational.FromInt(d)
+            let n = RationalX.FromInt n
+            let d = RationalX.FromInt d
             n / d
         )
 
@@ -152,6 +154,8 @@ module Utils =
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
 open MathNet.Numerics
+// `open` after MathNet so that `1N` literals resolve to RationalX (Utils.Lib), which ValueUnit expects.
+open Informedica.Utils.Lib.BCL
 
 open TestSolver
 open Informedica.GenUnits.Lib
@@ -237,7 +241,7 @@ type ValueUnitBenchmarks() =
         |> fun (x1, x2) -> ValueUnit.create Units.Count.times x1, ValueUnit.create Units.Count.times x2
 
     let rand_100_a_mg_per_ml, rand_100_b_ml =
-        let mgPerMl = Units.Mass.milliGram |> Units.per Units.Volume.milliLiter
+        let mgPerMl = Units.Mass.milliGram |> ValueUnit.per Units.Volume.milliLiter
         let ml = Units.Volume.milliLiter
 
         Utils.getTwoRandomLists 100 1_000

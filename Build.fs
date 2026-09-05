@@ -112,6 +112,22 @@ Target.create
     )
 
 
+// Builds the benchmark suite, which is deliberately excluded from GenPRES.sln (issue #513).
+// Nothing depends on this target and it is not run in CI; it exists so the directory can be
+// compiled with one command instead of rotting silently.
+Target.create
+    "BenchmarkBuild"
+    (fun _ ->
+        [
+            "benchmark/benchmark.fsproj"
+            "benchmark/RationalXBench/RationalXBench.fsproj"
+            "benchmark/ScenarioBench/ScenarioBench.fsproj"
+            "benchmark/ValueUnitBench/ValueUnitBench.fsproj"
+        ]
+        |> List.iter (fun proj -> run dotnet [ "build"; proj; "-c"; "Release" ] ".")
+    )
+
+
 // Umbrella target: restores and builds every project in the solution (libraries, server, tests, and client).
 // Its body is deliberately unchanged by the ServerBuild/ClientBuild split, so the chains that hang off it
 // behave exactly as before. In particular it still involves no npm, which is what keeps `Build ==> ServerTests`

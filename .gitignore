@@ -343,9 +343,7 @@
 !/benchmark/
 !/benchmark/run.bat
 !/benchmark/run.sh
-!/benchmark/.paket/
-!/benchmark/.paket/Paket.Restore.targets
-!/benchmark/Informedica.GenSOLVER.Lib_v1/
+!/benchmark/Informedica.GenSolver.Lib_v1/
 !/benchmark/BenchmarkDotNet.Artifacts/
 !/benchmark/BenchmarkDotNet.Artifacts/results/
 !/benchmark/BenchmarkDotNet.Artifacts/results/*.md
