@@ -43,19 +43,9 @@ module Tests =
 
     module AgentTests  =
 
-        // Poll until a condition holds or a timeout elapses. Used instead of a
-        // fixed Async.Sleep/Thread.Sleep after Post so the tests stay deterministic
-        // on slow or heavily-loaded CI runners, where a fixed wait can expire
-        // before the agent has processed the posted message(s).
-        let waitUntil (timeoutMs: int) (predicate: unit -> bool) =
-            let sw = Diagnostics.Stopwatch.StartNew()
-
-            while not (predicate ()) && sw.ElapsedMilliseconds < int64 timeoutMs do
-                Thread.Sleep 5
-
-            predicate ()
-
-        // Async variant for use inside `testAsync` bodies. It MUST yield the
+        // Poll until a condition holds or a timeout elapses, for `testAsync` bodies.
+        // Used instead of a fixed Async.Sleep after Post so the tests stay
+        // deterministic on slow or heavily-loaded CI runners. It MUST yield the
         // thread (Async.Sleep) rather than block it (Thread.Sleep): Expecto runs
         // tests in parallel, and the MailboxProcessor agents under test run their
         // loops on thread-pool threads. A blocking wait here would occupy those
@@ -453,51 +443,59 @@ module Tests =
                 testProperty "agent should process all posted messages" <| fun (messages: int list) ->
                     (messages.Length <= 100) ==> lazy (
                         let mutable receivedMessages = []
+                        let expected = messages.Length
+
+                        // Set from the agent's thread once every posted message has been
+                        // handled, and waited on here. A poll with Thread.Sleep 5 has ~15 ms
+                        // granularity on Windows, which made these 100-case properties take
+                        // up to 9 s there; the 30 s wait is a hang guard, not a timing budget.
+                        let allProcessed = new ManualResetEventSlim(false)
 
                         let agent = Agent.createSimple (fun msg ->
-                            receivedMessages <- msg :: receivedMessages)
+                            receivedMessages <- msg :: receivedMessages
+                            if List.length receivedMessages = expected then allProcessed.Set())
 
                         try
-                            messages |> List.iter agent.Post
+                            try
+                                messages |> List.iter agent.Post
 
-                            // Wait until every posted message has been processed.
-                            waitUntil 30000 (fun () -> List.length receivedMessages = List.length messages)
-                            |> ignore
-
-                            let result = List.rev receivedMessages = messages
+                                // Nothing to wait for when nothing was posted.
+                                let completed = expected = 0 || allProcessed.Wait 30_000
+                                completed && List.rev receivedMessages = messages
+                            with _ ->
+                                false
+                        finally
                             agent |> Agent.dispose
-                            result
-                        with
-                        | ex ->
-                            agent |> Agent.dispose
-                            false
+                            allProcessed.Dispose()
                     )
 
                 testProperty "stateful agent maintains state consistency" <| fun (operations: int list) ->
                     (operations.Length > 0 && operations.Length <= 50) ==> lazy (
                         let mutable finalState = None
+                        let mutable processed = 0
+                        let expected = operations.Length
+                        let allProcessed = new ManualResetEventSlim(false)
 
+                        // Signal on the message COUNT, not on the sum: an intermediate state
+                        // can equal the expected sum (e.g. [5; 0]) before the last message
+                        // has been handled, which is what the old sum-polling raced on.
                         let agent = Agent.createStateful (0, fun state msg ->
                             let newState = state + msg
                             finalState <- Some newState
+                            processed <- processed + 1
+                            if processed = expected then allProcessed.Set()
                             newState)
 
                         try
-                            operations |> List.iter agent.Post
+                            try
+                                operations |> List.iter agent.Post
 
-                            let expectedSum = List.sum operations
-
-                            // Wait until the accumulated state reaches the expected sum.
-                            waitUntil 30000 (fun () -> finalState = Some expectedSum)
-                            |> ignore
-
-                            let result = finalState = Some expectedSum
+                                allProcessed.Wait 30_000 && finalState = Some (List.sum operations)
+                            with _ ->
+                                false
+                        finally
                             agent |> Agent.dispose
-                            result
-                        with
-                        | ex ->
-                            agent |> Agent.dispose
-                            false
+                            allProcessed.Dispose()
                     )
 
                 testProperty "request-reply should preserve message content" <| fun (msg: string) ->
@@ -719,7 +717,11 @@ module Tests =
                         ""
                 with _ -> ""
 
-            let waitForFileWrite () = Thread.Sleep(100)
+            // No wait is needed between `FileWriterAgent.flush` and reading the file
+            // back: flush is PostAndReply, the agent handles messages in order, and it
+            // replies only after StreamWriter.Flush() on every open writer. A fixed
+            // Thread.Sleep here used to cost 100 ms x 100 cases in each FsCheck
+            // property below.
 
         open TestHelpers
 
@@ -743,8 +745,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should write single line" [|"Hello, World!"|]
 
@@ -763,8 +763,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile lines
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should write all lines" lines
@@ -786,8 +784,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should accumulate lines" [|"First"; "Second"; "Third"|]
 
@@ -806,8 +802,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [|"Created file"|]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         (File.Exists tempFile) |> Expect.isTrue "Should create file"
                         let content = readAllLines tempFile
@@ -836,8 +830,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllText tempFile
                         content |> Expect.equal "Should be empty after clear" ""
 
@@ -856,8 +848,6 @@ module Tests =
                         |> FileWriterAgent.clear tempFile
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         (File.Exists tempFile) |> Expect.isTrue "Should create file"
                         let content = readAllText tempFile
@@ -881,8 +871,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [|"New content"|]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should only have new content" [|"New content"|]
@@ -909,8 +897,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content1 = readAllLines tempFile1
                         let content2 = readAllLines tempFile2
 
@@ -936,15 +922,11 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         // Clear only file 1
                         writer
                         |> FileWriterAgent.clear tempFile1
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content1 = readAllText tempFile1
                         let content2 = readAllLines tempFile2
@@ -975,8 +957,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should handle Unicode correctly" unicodeContent
 
@@ -998,8 +978,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content |> Expect.equal "Should preserve and append correctly" [|"Initial content"; "Appended content"|]
 
@@ -1015,13 +993,19 @@ module Tests =
                 testAsync "should handle invalid path gracefully" {
                     use writer = FileWriterAgent.create()
 
-                    // This should not crash the agent
-                    let invalidPath = "//invalid//path//file.txt"
+                    // This should not crash the agent. A path whose parent is a regular
+                    // file fails immediately on every OS; the previous "//invalid//path//..."
+                    // parsed as a UNC path on Windows and cost a ~3 s network name lookup.
+                    let parentFile = createTempFile()
+                    let invalidPath = Path.Combine(parentFile, "file.txt")
 
-                    writer
-                    |> FileWriterAgent.append invalidPath [|"test"|]
-                    |> FileWriterAgent.flush
-                    |> ignore
+                    try
+                        writer
+                        |> FileWriterAgent.append invalidPath [|"test"|]
+                        |> FileWriterAgent.flush
+                        |> ignore
+                    finally
+                        deleteFileIfExists parentFile
 
                     // Agent should still be responsive
                     let tempFile = createTempFile()
@@ -1031,8 +1015,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [|"Valid operation"|]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content |> Expect.equal "Agent should continue working after error" [|"Valid operation"|]
@@ -1051,8 +1033,6 @@ module Tests =
                         |> FileWriterAgent.append tempFile [||]
                         |> FileWriterAgent.flush
                         |> ignore
-
-                        waitForFileWrite()
 
                         let content = readAllText tempFile
                         content |> Expect.equal "Empty array should result in no content" ""
@@ -1079,8 +1059,6 @@ module Tests =
                         |> FileWriterAgent.flush
                         |> ignore
 
-                        waitForFileWrite()
-
                         let content = readAllLines tempFile
                         content.Length |> Expect.equal "Should handle large content" 1000
                         content[0] |> Expect.equal "First line should be correct" "Line 0"
@@ -1103,7 +1081,6 @@ module Tests =
                             |> ignore
 
                         writer |> FileWriterAgent.flush |> ignore
-                        waitForFileWrite()
 
                         let content = readAllLines tempFile
                         content.Length |> Expect.equal "Should handle all rapid operations" 100
@@ -1136,8 +1113,6 @@ module Tests =
                             |> FileWriterAgent.append tempFile linesArray
                             |> FileWriterAgent.flush
                             |> ignore
-
-                            waitForFileWrite()
 
                             let content = readAllLines tempFile
                             content = linesArray
@@ -1172,8 +1147,6 @@ module Tests =
                             |> FileWriterAgent.clear tempFile
                             |> FileWriterAgent.flush
                             |> ignore
-
-                            waitForFileWrite()
 
                             let content = readAllText tempFile
                             content = ""
@@ -1222,8 +1195,6 @@ module Tests =
                                 |> FileWriterAgent.append tempFile2 (List.toArray validLines2)
                                 |> ignore
                             writer |> FileWriterAgent.flush |> ignore
-
-                            waitForFileWrite()
 
                             let content1 = readAllLines tempFile1
                             let content2 = readAllLines tempFile2

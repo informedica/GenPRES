@@ -1,5 +1,5 @@
 ---
-last_commit_released: adeee27fb3aedc85eaa5a0d88236510876a87e85
+last_commit_released: e74fbf4d11688f801f9a8c84e2d0cdedcd5aec43
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,15 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.10 - 2026-09-05
+
+### ⚡ Performance Improvements
+
+* *(genorder)* Memoise getEquations once instead of per call ([8781158c](https://github.com/informedica/GenPRES/commit/8781158cf54687ddc8d58d1a425d0e89ac4738b1))
+* *(genorder)* Keep getEquations an argument-taking function ([06ca0d19](https://github.com/informedica/GenPRES/commit/06ca0d199bb14462936a0fb163cdd4feb623ee08))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/adeee27fb3aedc85eaa5a0d88236510876a87e85..e74fbf4d11688f801f9a8c84e2d0cdedcd5aec43)</small></strong>
 
 ## 0.1.2-alpha.9 - 2026-09-05
 

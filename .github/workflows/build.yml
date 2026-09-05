@@ -19,6 +19,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - name: Runner hardware
+      # Diagnostic for the macOS leg: GenSOLVER.Tests takes 66s there against 15s on ubuntu and
+      # 18s on windows, and nothing in the job log says what each leg actually runs on. Read the
+      # core count and RAM off the log rather than assuming the published runner specs.
+      shell: bash
+      run: |
+        echo "arch:  $(uname -m)"
+        case "$(uname -s)" in
+          Darwin)
+            echo "cores: $(sysctl -n hw.ncpu)"
+            echo "ram:   $(( $(sysctl -n hw.memsize) / 1073741824 )) GB" ;;
+          Linux)
+            echo "cores: $(nproc)"
+            echo "ram:   $(free -g | awk '/^Mem:/ {print $2}') GB" ;;
+          *)
+            echo "cores: $(nproc)"
+            echo "ram:   $(powershell -NoProfile -Command '[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)') GB" ;;
+        esac
     - name: Use .NET Core 10.0 SDK
       # global-json-file (not dotnet-version) so global.json's pinned version + rollForward is the
       # single source of truth for which SDK CI installs — see issue #447: dotnet-version: '10.0.x'
@@ -55,6 +73,21 @@ jobs:
       # on Build, which transitively depends on Clean/RestoreClient, so it would redo the full restore/build 
       # which the "Test execution" just did. The DLLs are already fresh from build at this point.
       run: dotnet fsi scripts/CheckSolutionVersions.fsx
+
+    - name: Upload test results
+      # The trx files carry per-test durations; only the ubuntu ones were ever read (by the publish
+      # step below). Upload all three legs so the macOS GenSOLVER.Tests slowdown can be traced to
+      # specific tests. always(): a red run is still data.
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: test-results-${{ matrix.os }}
+        path: '**/TestResults/**/*.trx'
+        retention-days: 7
+        # Artifact names are unique per workflow run, and a re-run of a job is the same run: without
+        # this, "Re-run jobs" on any leg fails at this step with a name conflict. The re-run's trx
+        # replaces the earlier attempt's, which is the one you want anyway.
+        overwrite: true
 
     - name: Publish test results
       # continue-on-error: Dependabot PRs (and PRs from forks) get a read-only GITHUB_TOKEN that GitHub forces 

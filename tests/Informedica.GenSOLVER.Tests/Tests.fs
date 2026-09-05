@@ -1133,6 +1133,33 @@ module Tests =
                     |> List.zip (opStr |> opToSheet |> scenarios)
 
 
+                // One test per operator rather than one per fixture line. With 4 x 1156
+                // lines, per-test harness overhead (Expecto scheduling plus the adapter
+                // reporting every result to VSTest) dwarfed the assertions: on the 3-core
+                // macOS CI runner the 4624 tests summed to under a second of work inside
+                // a 46 second window. Mismatches are listed by line, so a failure still
+                // says exactly which scenarios diverged from the fixture.
+                let scenarioTest name op opStr =
+                    test name {
+                        let scenarios = testScenarios op opStr
+
+                        // testScenarios zips the fixture line first, the computed line second
+                        let mismatches =
+                            scenarios
+                            |> List.indexed
+                            |> List.filter (fun (_, (fixture, computed)) -> fixture <> computed)
+                            |> List.map (fun (i, (fixture, computed)) ->
+                                $"scenario %i{i}: fixture %s{fixture}, computed %s{computed}"
+                            )
+
+                        mismatches
+                        |> Expect.isEmpty (
+                            $"%i{mismatches.Length} of %i{scenarios.Length} %s{name} scenarios differ from the fixture:\n"
+                            + (mismatches |> String.concat "\n")
+                        )
+                    }
+
+
                 let toValueUnit = List.toArray >> ValueUnit.withUnit Units.Count.times
 
                 let singleToValueUnit = ValueUnit.singleWithUnit Units.Count.times
@@ -1683,54 +1710,10 @@ module Tests =
                                     testList
                                         "Scenarios"
                                         [
-                                            testList
-                                                "Mult"
-                                                [
-                                                    yield!
-                                                        testScenarios mult "x"
-                                                        |> List.mapi (fun i (act, exp) ->
-                                                            test $"scenario: {i}" {
-                                                                act |> Expect.equal "should be equal" exp
-                                                            }
-                                                        )
-                                                ]
-
-                                            testList
-                                                "Div"
-                                                [
-                                                    yield!
-                                                        testScenarios div "/"
-                                                        |> List.mapi (fun i (act, exp) ->
-                                                            test $"scenario: {i}" {
-                                                                act |> Expect.equal "should be equal" exp
-                                                            }
-                                                        )
-                                                ]
-
-                                            testList
-                                                "Add"
-                                                [
-                                                    yield!
-                                                        testScenarios add "+"
-                                                        |> List.mapi (fun i (act, exp) ->
-                                                            test $"scenario: {i}" {
-                                                                act |> Expect.equal "should be equal" exp
-                                                            }
-                                                        )
-                                                ]
-
-                                            testList
-                                                "Sub"
-                                                [
-                                                    yield!
-                                                        testScenarios sub "-"
-                                                        |> List.mapi (fun i (act, exp) ->
-                                                            test $"scenario: {i}" {
-                                                                act |> Expect.equal "should be equal" exp
-                                                            }
-                                                        )
-                                                ]
-
+                                            scenarioTest "Mult" mult "x"
+                                            scenarioTest "Div" div "/"
+                                            scenarioTest "Add" add "+"
+                                            scenarioTest "Sub" sub "-"
                                         ]
 
                                 ]

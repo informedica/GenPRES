@@ -108,3 +108,56 @@ Three client-UI features this session. All changes are in `src/Informedica.GenPR
   that's `.fs` server code → would need the `.fsx` prototype-and-migrate workflow, not done.
 - Unit assumption in the ceiling `min`: dose qty and orderable qty share a unit (mL volume);
   holds for the orderable dose quantity, would be wrong if ever different-unit.
+
+---
+
+# Session Decisions - 2026-09-05 (macOS CI leg investigation)
+
+Branch `perf/ci-no-build-test`, PR open against informedica/GenPRES master.
+
+## Established facts (measured, not inferred)
+
+- Runner hardware (now echoed by a `Runner hardware` step in build.yml): macos-latest arm64 = 3 cores / 7 GB;
+  ubuntu-latest = 4 / 15 GB; windows-latest = 4 / 16 GB.
+- Restore+build costs the same on all three OSes (~105 s). The macOS gap was entirely in the `ServerTests` target.
+- `dotnet test` without `--no-build` re-evaluated the whole solution: 16 of 29 s locally; ~28 s on every CI leg. Fixed (c3cec9e5).
+- `DOTNET_EnableWriteXorExecute` has no effect on arm64 macOS (13.3 vs 13.4 s). Do not re-suggest.
+- GenSOLVER.Tests (4748 tests): per-test *durations* summed to ~3 s on macOS, but the tests window was 49 s.
+  The time was harness overhead between tests (~10 ms/test on macOS, ~2.5 ms ubuntu, ~0.2 ms local) × 4624 golden
+  MinMax scenario tests. Throughput ~65 tests/s while other testhosts ran, ~170/s alone → contention amplifies it.
+- Agents.Tests 13 → 25 s on macOS: three FileWriterAgent FsCheck properties each do `Thread.Sleep 100` per case
+  (`waitForFileWrite`) × 100 cases + temp-file IO. Not addressed yet.
+- Expecto worker count = ProcessorCount (max in-flight tests 3 on macOS, 4 on ubuntu, 16 locally).
+
+## Changes on the branch
+
+1. c3cec9e5 `Build.fs`: `--no-build` on ServerTests; per-assembly progress line with wall-clock + VSTest Duration.
+2. a6208fe0 `build.yml`: `Runner hardware` step; upload `**/TestResults/**/*.trx` per OS (7 days, always()).
+3. 36411726 `tests/Informedica.GenSOLVER.Tests/Tests.fs`: 4624 per-line scenario tests → 4 per-operator tests
+   (`scenarioTest`), mismatches listed by index. User explicitly authorised the .fs edit. Mutation-checked.
+4. 9889a752 `Build.fs`: `-m:(max 2 (ProcessorCount - 1))` — MEASURED WORSE and reverted (see Rejected).
+
+## Rejected
+
+- W^X env var (no effect). Trimming macOS from the PR matrix (user chose to keep full matrix).
+- Lowering FsCheck `maxTest=1000` in GenSOLVER: the properties were the *fast* part on macOS.
+- MSBuild `-m` cap on `dotnet test` (run 33973552546): macOS ServerTests 32.5 → 56.6 s, ubuntu 22.9 → 27.2 s,
+  windows 36.0 → 32.3 s. Once the 4624-test overhead was gone, less overlap only serialised the sleep-bound
+  assemblies. Uncapped default stays.
+
+## Analysis tooling (scratchpad, not in repo)
+
+- `trx_profile.py <file.trx>`: run window / discovery gap / per-bucket sums / top tests from trx startTime+endTime.
+- `wait_and_profile.sh <label> <sha>`: waits for the build.yml run on a commit, prints per-assembly lines, downloads trx.
+
+## Results
+
+| ServerTests | ubuntu | windows | macOS |
+|---|---|---|---|
+| original (5-run avg) | 57 s | 61 s | 116 s |
+| + --no-build (33972679870) | 26 s | 39 s | 60 s |
+| + scenario collapse (33973502710) | 23 s | 36 s | 32.5 s |
+
+Remaining long pole on every OS: Agents.Tests (13 / 15 / 26 s) — three FileWriterAgent FsCheck properties at
+~20 s each on macOS, `Thread.Sleep 100` per case × 100 cases. Next candidate fix (needs user OK, .fs test file):
+replace the fixed sleep with the file's existing `waitUntil` poll.
