@@ -86,11 +86,13 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 ### Docker
 
-`GENPRES_URL_ID` is required at server startup, in both demo and production mode — not just for admin operations. The image also sets `GENPRES_PROD=1` by default, so the server refuses to start unless `GENPRES_PASSWORD` is also set to at least 16 characters — it's not purely an admin-operations toggle either. Neither the proprietary URL ID nor the password is baked into the image; inject both at container runtime, ideally via a Docker / Kubernetes secret. For local testing without production credentials, use the public demo sheet ID documented in `.env.example`.
+The published image defaults to demo mode: `GENPRES_PROD=0` and the public demo sheet ID from `.env.example` baked in as `GENPRES_URL_ID`, so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` (or the Docker Desktop "Run" button) starts a working demo with no secrets. Admin operations are disabled because `GENPRES_PASSWORD` is empty.
+
+Production is an explicit opt-in at container runtime and needs all four of `GENPRES_PROD=1`, the proprietary `GENPRES_URL_ID`, a `GENPRES_PASSWORD` of at least 16 characters (the server refuses to start otherwise), and a bind mount of the host's `data/cache` onto `/app/data/cache` — production reads `*.cache`, and the image ships only the `*.demo` files. Neither the proprietary URL ID nor the password is baked into the image; inject both at runtime, ideally via a Docker / Kubernetes secret. The repo-root `compose.yaml` wires all of this from `.env`: `docker compose pull && docker compose up -d`.
 
 - `dotnet run DockerBuild` - Build the image, labelled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
 - `dotnet run DockerRun` - Run the built image, reading `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) and failing fast if either is unset.
-- Equivalent manual commands: `docker build -t informedica/genpres .` / `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" informedica/genpres`
+- Equivalent manual commands: `docker build -t informedica/genpres .` / demo: `docker run -it -p 8080:8085 informedica/genpres` / production: `docker run -it -p 8080:8085 -e GENPRES_PROD=1 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" -v "$PWD/data/cache:/app/data/cache" informedica/genpres`
 
 ## Key Code Locations
 

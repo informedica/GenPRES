@@ -365,6 +365,17 @@ Get-Content .env | ForEach-Object {
 dotnet run DockerRun
 ```
 
+**Run a published image** — the `compose.yaml` at the repo root (tracked; see the `!compose.yaml` allow-line in `.gitignore`) runs an image pulled from Docker Hub with the tag, port, secrets and mode all read from `.env`, so nothing has to be retyped after a new release. Compose interpolates `${...}` from the `.env` in the project directory by itself; no `source` needed.
+
+```bash
+cp .env.example .env            # once; set GENPRES_IMAGE_TAG (and the secrets for production)
+docker compose pull             # after each release, once GENPRES_IMAGE_TAG is bumped
+docker compose up -d            # (re)creates container "genpres" on http://localhost:8080
+docker compose logs -f genpres
+```
+
+Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
+
 If you find yourself wanting to commit one of these local scripts (e.g. because the team agrees it should be standardized), add a `!`-prefixed allow-line for the file to `.gitignore` in the same PR — otherwise the opt-in strategy will silently keep it untracked.
 
 ### CI/CD Pipeline (GitHub Actions)
@@ -923,7 +934,7 @@ This means you can always override `.env` values by setting an environment varia
 - **Shell**: Source `.env` manually with `set -a; source .env; set +a` before running commands.
 - **F# scripts (FSI)**: Scripts call `Informedica.Utils.Lib.Env.loadDotEnv()` which searches upward for `.env` from the current directory.
 - **IDEs (Rider, VS Code)**: The `Env.loadDotEnv()` call in scripts ensures variables are available even when the IDE doesn't inherit shell environment.
-- **Docker**: Inject `GENPRES_URL_ID` (and `GENPRES_PASSWORD` for admin operations) at *container runtime*, not at build time. Example: `docker run -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -p 8080:8085 informedica/genpres`. For production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
+- **Docker**: The image defaults to demo mode with the public demo sheet ID, so no variables are needed for a demo run. For production, inject `GENPRES_PROD=1`, `GENPRES_URL_ID` and `GENPRES_PASSWORD` at *container runtime*, not at build time, and mount `data/cache` — the repo-root `compose.yaml` does all of this from `.env` (`docker compose up -d`; see [Docker wrappers](#docker-wrappers)). Manual equivalent: `docker run -e GENPRES_PROD=1 -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -v "$PWD/data/cache:/app/data/cache" -p 8080:8085 informedica/genpres:<tag>`. In real production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
 
 #### Common Environment Variable Issues
 
