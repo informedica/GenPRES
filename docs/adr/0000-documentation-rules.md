@@ -83,7 +83,7 @@ An ADR is **not** written for:
 | `literature/` | Research background |
 | `user-guide/` | End-user documentation (English and Dutch) and manual test workflows |
 
-What does **not** live here: MDR technical-file artefacts — requirements, risk analysis, usability
+What does **not** live here: MDR technical-file artifacts — requirements, risk analysis, usability
 engineering, validation reports, post-market surveillance, traceability. Those are maintained in the
 separate, proprietary MDR documentation repository. A document in this repository may state that
 fact but does not link to it.
@@ -92,6 +92,11 @@ fact but does not link to it.
 
 - Root community files are `UPPERCASE.md` (`README.md`, `SECURITY.md`). Everything under `docs/`
   is `lowercase-with-hyphens.md`. No spaces in file names.
+- Library and project names use the folder casing in prose: GenFORM, GenORDER, GenSOLVER,
+  GenUNITS, GenCORE (`src/Informedica.GenFORM.Lib`). The F# namespace casing
+  (`Informedica.GenForm.Lib`) appears only in code spans and code blocks.
+- Prose is written in American English. Dutch proper nouns keep their spelling
+  (G-Standaard, Kinderformularium); microgram is written `mcg`.
 - Link to a file instead of restating its content. Name a source file by path only when the
   reader has to go there.
 - Every `docs` change runs the markdown linter (`dotnet run MarkdownLint`) and leaves no

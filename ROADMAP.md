@@ -2,33 +2,33 @@
 
 ## Vision
 
-GenPRES aims to be the leading open-source medication decision support system for pediatric care, providing safe, accurate, and evidence-based dosing calculations that reduce medication errors and improve patient outcomes.
+GenPRES aims to be the leading open-source medication decision support system for pediatric and adult care, providing safe, accurate, and evidence-based dosing calculations that reduce medication errors and improve patient outcomes.
 
-## Current Status (v2.0 Development)
+## Current Status
 
 🚧 **Active Development** - Moving toward production-ready release
 
 **Current Phase**: Foundation Building & Documentation
-- Core libraries implemented (GenSolver, GenUnits, GenOrder, GenForm, NLP, MCP)
+- Core libraries implemented (GenSOLVER, GenUNITS, GenORDER, GenFORM, NLP, MCP)
 - SAFE Stack architecture in place (upgraded to Fable 5 / React 19 / Vite 8 in Q1 2026)
 - Architecture decisions recorded in `docs/adr/` (pruned under issue #411, numbering is not contiguous); MDR compliance documentation maintained in the separate, proprietary MDR documentation repository
-- Test coverage expanding (Expecto property tests for solver, GenUnits, GenOrder)
-- LRU memoisation for GenSolver prototyped in scripts (pending integration; see the GenSOLVER domain document)
+- Test coverage expanding (Expecto property tests for solver, GenUNITS, GenORDER)
+- LRU memoization for GenSOLVER prototyped in scripts (pending integration; see the GenSOLVER domain document)
 - MCP stdio server (Informedica.MCP.Server) exposing GenFORM/GenORDER tools
 - NLP dose-rule extraction pipeline (DoseRuleExtract.fsx) for semi-automated data entry
-- G-Standard dose-rule fallback for medications without GenFORM spreadsheet entries (prototype; implementation plan for #307)
+- G-Standaard dose-rule fallback for medications without GenFORM spreadsheet entries (prototype; implementation plan for #307)
 - Shared clinical calculations (BSA, age, renal eGFR) in `Informedica.GenPRES.Shared` for server and client (ADR-0019)
 
 ## Release Schedule
 
-### v2.0.0 - Production Release (Target: Q4 2026)
+### First production release (Target: Q4 2026)
 
-First production-ready release with MDR compliance and clinical validation.
+First production-ready (non-pre-release) version with MDR compliance and clinical validation. Version numbers are derived from conventional commits by EasyBuild.ShipIt (see [DEVELOPMENT.md](DEVELOPMENT.md#changelog--release-automation-easybuildshipit)); the current line is `0.1.x-alpha` and the stable number is assigned when the pre-release marker is dropped, not planned here.
 
 **Status**: In Development
 
 **Major Milestones**:
-- 12 structured workshops (see [Architecture and Timeline](docs/roadmap/genpres-architecture-and-timeline.md))
+- 12 structured workshops (W1–W12, below)
 - Complete MDR documentation package
 - Clinical validation studies
 - Regulatory compliance verification
@@ -123,7 +123,7 @@ First production-ready release with MDR compliance and clinical validation.
 
 ## Feature Roadmap
 
-### v2.1.0 - Enhanced Clinical Features (Target: Q1 2027)
+### Enhanced Clinical Features (Target: Q1 2027)
 
 **Focus**: Expanded clinical capabilities
 
@@ -144,7 +144,7 @@ First production-ready release with MDR compliance and clinical validation.
   - Severity classification
   - Clinical recommendations
 
-### v2.2.0 - Advanced Calculations (Target: Q2 2027)
+### Advanced Calculations (Target: Q2 2027)
 
 **Focus**: Sophisticated dosing algorithms
 
@@ -161,7 +161,7 @@ First production-ready release with MDR compliance and clinical validation.
   - Adjusted body weight
   - Obesity dosing guidelines
 
-### v2.3.0 - Workflow Integration (Target: Q3 2027)
+### Workflow Integration (Target: Q3 2027)
 
 **Focus**: Clinical workflow optimization
 
@@ -178,7 +178,7 @@ First production-ready release with MDR compliance and clinical validation.
   - Audit trail reports
   - Utilization statistics
 
-### v3.0.0 - AI/ML Integration (Target: 2028)
+### AI/ML Integration (Target: 2028)
 
 **Focus**: Machine learning enhancements
 
@@ -236,17 +236,11 @@ Features are prioritized based on:
 
 ## Versioning Strategy
 
-We follow [Semantic Versioning](https://semver.org/):
-
-- **Major (x.0.0)**: Breaking changes, major features, architectural changes
-- **Minor (2.x.0)**: New features, non-breaking enhancements
-- **Patch (2.0.x)**: Bug fixes, security patches, minor improvements
+We follow [Semantic Versioning](https://semver.org/). The version is not chosen by hand: EasyBuild.ShipIt derives it from the conventional-commit history (`feat` bumps minor, `fix` bumps patch, a breaking change bumps major) and opens a release PR with the changelog section — see [DEVELOPMENT.md](DEVELOPMENT.md#changelog--release-automation-easybuildshipit). Until the first stable release the line is `0.1.x-alpha.N`.
 
 ### Release Cadence
 
-- **Major releases**: Annually or as needed
-- **Minor releases**: Quarterly
-- **Patch releases**: As needed (especially for critical bugs)
+There is no calendar cadence. ShipIt opens or updates the release PR on every push to `master`; a release happens when the release manager merges it, after which `tag-release.yml` tags the merge commit and publishes the GitHub Release and the Docker image.
 
 ## Development Principles
 
@@ -278,11 +272,6 @@ Our roadmap is guided by:
 - Early regulatory engagement
 - Strong testing and validation
 - Active community building
-
-## Detailed Planning
-
-For detailed workshop planning and task breakdown, see:
-- [GenPRES Architecture and Timeline](docs/roadmap/genpres-architecture-and-timeline.md)
 
 ## Get Involved
 

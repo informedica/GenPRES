@@ -148,7 +148,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
    (Age: 5 days, weight: 3200 g, gestational age: 39 weeks + 2 days)
 
-2. **Expected**: Patient is recognised as a neonate; gestational-age-specific dosing rules apply where applicable.
+2. **Expected**: Patient is recognized as a neonate; gestational-age-specific dosing rules apply where applicable.
 3. Select a medication and verify the dose recommendation reflects neonatal constraints.
 
 **Pass criteria**: Application correctly identifies neonate patient type; dosing constraints are applied.

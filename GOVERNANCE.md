@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document describes the governance model for GenPRES, a medical decision support system for medication safety in pediatrics. As medical device software, GenPRES requires robust governance to ensure patient safety, regulatory compliance, and sustainable development.
+This document describes the governance model for GenPRES, a medical decision support system for medication safety in pediatric and adult care. As medical device software, GenPRES requires robust governance to ensure patient safety, regulatory compliance, and sustainable development.
 
 ## Project Vision
 
-GenPRES aims to provide safe, accurate, and reliable medication dosing calculations for pediatric patients, reducing medication errors and improving patient outcomes through evidence-based decision support.
+GenPRES aims to provide safe, accurate, and reliable medication dosing calculations for pediatric and adult patients, reducing medication errors and improving patient outcomes through evidence-based decision support.
 
 ## Governance Principles
 
@@ -104,7 +104,7 @@ GenPRES aims to provide safe, accurate, and reliable medication dosing calculati
 - Submit pull requests
 - Comment on issues and PRs
 - Participate in discussions
-- Recognition in CONTRIBUTORS.md
+- Recognition in the release notes
 
 Current maintainers are listed in [MAINTAINERS.md](MAINTAINERS.md).
 
@@ -253,11 +253,7 @@ Maintainers who step back retain emeritus status:
 5. Release manager reviews and merges the release PR
 6. `tag-release.yml` tags the merge commit, publishes the GitHub Release and the Docker image
 
-**Release Schedule:**
-
-- **Patch releases**: As needed for critical bugs
-- **Minor releases**: Monthly (if changes warrant)
-- **Major releases**: Quarterly or as needed
+**Release Schedule:** there is no calendar cadence. ShipIt keeps a release PR current on every push to `master`; the release manager merges it when a release is warranted (see [ROADMAP.md](ROADMAP.md#release-cadence)).
 
 ## Medical Device Governance
 
@@ -335,7 +331,7 @@ All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Violatio
 
 ## License
 
-GenPRES is licensed under [INSERT LICENSE - check LICENSE file]. All contributions are made under this license.
+GenPRES is licensed under the GNU General Public License v3.0 (see [LICENSE](LICENSE)). All contributions are made under this license.
 
 ## Acknowledgments
 

@@ -1,6 +1,6 @@
 # GenPRES User Guide
 
-GenPRES is a Clinical Decision Support System (CDSS) for safe and efficient medication prescribing in (pediatric) intensive care settings.
+GenPRES is a Clinical Decision Support System (CDSS) for safe and efficient medication prescribing for pediatric and adult patients, developed in an intensive care setting.
 
 This user guide is available in multiple languages:
 
@@ -33,12 +33,12 @@ Additional background (in Dutch, with a language banner) is available at <https:
 
 ## Overview
 
-GenPRES supports medication prescribing, preparation, and administration in pediatric (and adult) critical care. It performs rule lookup, dose calculations, and constraint validation based on patient-specific parameters.
+GenPRES supports medication prescribing, preparation, and administration for pediatric and adult patients. It performs rule lookup, dose calculations, and constraint validation based on patient-specific parameters.
 
 This guide is aimed at:
 
 - **New developers** onboarding to the project
-- **QA testers** verifying application behaviour
+- **QA testers** verifying application behavior
 - **Clinical informatics staff** evaluating the system
 
 ---
