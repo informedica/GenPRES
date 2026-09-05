@@ -79,6 +79,9 @@
 !/.claude/CLAUDE.md
 !/.claude/docs/
 !/.claude/docs/**
+# Per-session agent scratch written per CLAUDE.md; kept locally, never committed
+/.claude/docs/session-log.md
+/.claude/docs/session-decisions.md
 !/.claude/commands/
 !/.claude/commands/**
 !/.claude/skills/
