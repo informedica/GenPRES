@@ -184,8 +184,7 @@ module EquationMapping =
     /// The indx can be 3 for discontinuous equations, 4 for continuous
     /// and 5 for timed equations.
     /// </remarks>
-    let getEquations indx =
-        indx |> Memoization.memoize getEquations_
+    let getEquations = Memoization.memoize getEquations_
 
 
     /// <summary>

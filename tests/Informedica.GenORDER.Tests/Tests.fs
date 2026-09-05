@@ -1347,6 +1347,16 @@ module EquationsTests =
                         EquationMapping.getEquations indx
                         |> Expect.equal $"embedded {name} equations equal the sheet" (expectedFor pos)
                     }
+
+                test "getEquations is memoised: repeat calls return the same instance" {
+                    // Issue #530: memoize used to be applied per call, so every call
+                    // built and missed a fresh cache and returned a new list.
+                    let first = EquationMapping.getEquations 3
+                    let second = EquationMapping.getEquations 3
+
+                    obj.ReferenceEquals(first, second)
+                    |> Expect.isTrue "second call is served from the cache"
+                }
             ]
 
 
