@@ -13,7 +13,6 @@
     <Compile Include="ServerApi.Ports.fs" />
     <Compile Include="ServerApi.Services.fs" />
     <Compile Include="ServerApi.Adapters.fs" />
-    <Compile Include="ServerApi.AgentAdapters.fs" />
     <Compile Include="ServerApi.Command.fs" />
     <Compile Include="ServerApi.CompositionRoot.fs" />
     <Compile Include="ServerApi.ApiImpl.fs" />
