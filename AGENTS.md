@@ -161,7 +161,7 @@ Two idioms already in the codebase do this correctly; follow them:
 
 - **Memoized accessor** — `src/Informedica.NKF.Lib/WebSiteParser.fs`:
   `let medications : unit -> Drug.Drug list = memoizeN _medications` (memoized, *not* applied).
-  The same shape appears ~40 times in `src/Informedica.ZIndex.Lib/Zindex.fs`.
+  Every BST table module in `src/Informedica.ZIndex.Lib/Zindex.fs` uses the same shape.
   `Memoization.memoize` is `ConcurrentDictionary + Lazy`, so `f` runs at most once per key even
   under concurrent access.
 - **Explicit `lazy`** — `src/Informedica.Utils.Lib/AppPath.fs`:
