@@ -788,7 +788,7 @@ This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 
 ### Core Libraries
 
-For complete library specifications including capabilities and dependencies, see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#addendum-b3-genform-libraries).
+For complete library specifications including capabilities and dependencies, see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#appendix-b3-genform-libraries).
 
 Key libraries in dependency order:
 

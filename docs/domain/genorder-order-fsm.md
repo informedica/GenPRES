@@ -70,7 +70,7 @@ Transitions are the pipeline commands handled by `processPipeline`
 
 The `Cleared` state is refined by an active pattern in `OrderProcessor.fs`:
 
-```
+```text
 FrequencyCleared | RateCleared | TimeCleared
 | ConcentrationCleared | DoseQuantityCleared | DosePerTimeCleared | NotCleared
 ```

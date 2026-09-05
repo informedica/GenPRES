@@ -1,6 +1,6 @@
 # GenORDER: from Operational Knowledge Rules to Executable Order Scenarios
 
-## Core Definitions {#core-definitions}
+## Core Definitions
 
 | Term | Definition |
 | ----- | ----- |
@@ -30,7 +30,7 @@
 | *Exposure* | The real-world administration of an executable Order to a patient. |
 | *Outcome* | The observed clinical effect resulting from Exposure, used for evaluation and feedback. |
 
-## 1. Positioning of GenORDER {#1.-positioning-of-genorder}
+## 1. Positioning of GenORDER
 
 GenORDER is the execution-layer follow-up of GenFORM. Where [GenFORM](genform-free-text-to-operational-rules.md) is responsible for extracting, structuring, and validating Operational Knowledge Rules (OKRs), GenORDER is responsible for transforming these rules into concrete, patient-specific, executable order scenarios (Appendix A. The Medication Treatment Cycle). See [Core Domain Model: The Transformation Pipeline](core-domain.md#the-transformation-pipeline) for the overall architecture.
 
@@ -42,7 +42,7 @@ GenFORM (OKRs) → Selection Constraints → Calculation Constraints → GenORDE
 
 GenFORM guarantees formal validity of all options. GenORDER guarantees computability and workflow execution of those formally valid options.
 
-## 2. Objectives {#2.-objectives}
+## 2. Objectives
 
 GenORDER enables the medication (order) process as a cyclic operational process in which an Order is:
 
@@ -57,11 +57,11 @@ GenORDER consumes Operational Knowledge Rules by transforming GenFORM’s select
 
 All quantitative options calculated by GenORDER are guaranteed to be valid by construction, because they are derived exclusively from GenFORM-validated constraints.
 
-## 3. Formal Constraint Execution Model {#3.-formal-constraint-execution-model}
+## 3. Formal Constraint Execution Model
 
 GenORDER operates as the execution engine of a hybrid constraint system:
 
-### 3.1. Filter Stage (Inherited from GenFORM) {#3.1.-filter-stage-(inherited-from-genform)}
+### 3.1. Filter Stage (Inherited from GenFORM)
 
 At this stage, categorical constraints originating from GenFORM are applied:
 
@@ -76,11 +76,11 @@ At this stage, categorical constraints originating from GenFORM are applied:
 
 This stage produces a bounded rule domain that is guaranteed to contain only clinically valid rule sets.
 
-### 3.2 Solver Stage (GenORDER + GenSOLVER) {#3.2-solver-stage-(genorder-+-gensolver)}
+### 3.2 Solver Stage (GenORDER + GenSOLVER)
 
 GenORDER transforms the quantitative calculation constraints into explicit equations. These equations are passed to [GenSOLVER](gensolver-from-orders-to-quantitative-solutions.md), which applies constraint logic programming and monotonic domain refinement to compute valid numerical values.
 
-## 4. OrderContext {#4.-ordercontext}
+## 4. OrderContext
 
 An OrderContext is created using:
 
@@ -104,7 +104,7 @@ The minimal selection required to produce Order Scenarios is:
 
 When the selection satisfies the above, a set of Order Scenarios is calculated.
 
-## 5. Order Scenario {#5.-order-scenario}
+## 5. Order Scenario
 
 An Order Scenario defines a fully computable medication use scenario and consists of:
 
@@ -114,11 +114,11 @@ An Order Scenario defines a fully computable medication use scenario and consist
 
 Each Order Scenario represents a unique, fully constrained clinical alternative that the user can safely choose.
 
-## 6. Order Model (Executable Structure) {#6.-order-model-(executable-structure)}
+## 6. Order Model (Executable Structure)
 
 GenORDER uses a generic, domain-independent Order model that can represent medication orders as well as other clinical orders (Appendix C.1. Order Model Figure).
 
-### 6.1. Core Objects {#6.1.-core-objects}
+### 6.1. Core Objects
 
 * Order: Identified by a unique Id  
 * Schedule: Defines how an Order is timed  
@@ -128,31 +128,31 @@ GenORDER uses a generic, domain-independent Order model that can represent medic
 
 Each Orderable consists of one or more Components. Each Component consists of one or more Items (Appendix C.2. Order Model Table).
 
-#### 6.1.1 Schedule representation across layers {#6.1.1-schedule-representation-across-layers}
+#### 6.1.1 Schedule representation across layers
 
 In **GenORDER** (server/domain), `Schedule` is modeled as a discriminated union (DU) because it is a closed set of mutually exclusive cases:
 
-- `Once`
-- `OnceTimed of Time`
-- `Continuous of Time`
-- `Discontinuous of Frequency`
-- `Timed of Frequency * Time`
+* `Once`
+* `OnceTimed of Time`
+* `Continuous of Time`
+* `Discontinuous of Frequency`
+* `Timed of Frequency * Time`
 
 Across the **client/server boundary**, the client is transpiled to JavaScript (Fable), and the shared transport types are designed to be simple DTOs.
 For that reason, `GenPRES.Shared` represents `Schedule` as a record with boolean flags (`IsOnce`, `IsOnceTimed`, `IsContinuous`, `IsDiscontinuous`, `IsTimed`) plus the payload fields (`Frequency`, `Time`).
 
 This is a deliberate cross-language transport strategy:
 
-- Exactly one of the `Is*` flags should be `true` for a valid schedule.
-- The boolean flags represent the DU case; `Frequency` and/or `Time` carry the case payload when applicable.
-- `Once` has no payload.
-- `OnceTimed` and `Continuous` use `Time`.
-- `Discontinuous` uses `Frequency`.
-- `Timed` uses both `Frequency` and `Time`.
+* Exactly one of the `Is*` flags should be `true` for a valid schedule.
+* The boolean flags represent the DU case; `Frequency` and/or `Time` carry the case payload when applicable.
+* `Once` has no payload.
+* `OnceTimed` and `Continuous` use `Time`.
+* `Discontinuous` uses `Frequency`.
+* `Timed` uses both `Frequency` and `Time`.
 
 Conceptually, both representations describe the same domain concept; the DTO exists to support safe and predictable serialization between .NET and JavaScript.
 
-## 7. Quantitative Dose Semantics {#7.-quantitative-dose-semantics}
+## 7. Quantitative Dose Semantics
 
 GenORDER distinguishes the following quantitative dose concepts:
 
@@ -172,7 +172,7 @@ Mathematical Dose relations:
 
 These relations form the equation system that GenSOLVER resolves.
 
-## 8. Equation System and Solver Integration {#8.-equation-system-and-solver-integration}
+## 8. Equation System and Solver Integration
 
 GenORDER maps all Order, Orderable, Component and Item properties to symbolic variables. These variables are used to construct the formal equation system that is solved by [GenSOLVER](gensolver-from-orders-to-quantitative-solutions.md).
 
@@ -182,7 +182,7 @@ The solver guarantees (see [GenSOLVER Section 3: Formal Constraint Solving Model
 * Completeness: all valid solutions remain available  
 * Monotonic convergence: each constraint application reduces the solution space
 
-## 9. Relationship Between Rule-Based and AI-Based CDS {#9.-relationship-between-rule-based-and-ai-based-cds}
+## 9. Relationship Between Rule-Based and AI-Based CDS
 
 GenORDER operates exclusively on Rule-Based CDS generated by GenFORM. This ensures:
 
@@ -192,7 +192,7 @@ GenORDER operates exclusively on Rule-Based CDS generated by GenFORM. This ensur
 
 AI-Based CDS can operate on top of this bounded solution space, but is never allowed to violate the formal constraint envelope defined by GenFORM and executed by GenORDER.
 
-## 10. Exposure and Outcome Feedback {#10.-exposure-and-outcome-feedback}
+## 10. Exposure and Outcome Feedback
 
 GenORDER produces executable orders that result in real-world administrations. These administrations form the Exposure layer. Clinical Evaluation produces the Outcome layer.
 
@@ -206,7 +206,7 @@ This completes the full learning loop of:
 
 Expert Knowledge → Operational Knowledge Rules → Orders → Exposure → Outcome → Updated Expert Knowledge
 
-## 11. Summary of Responsibilities {#11.-summary-of-responsibilities}
+## 11. Summary of Responsibilities
 
 **GenFORM** (see [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md)):
 
@@ -239,21 +239,21 @@ This GenORDER document is part of the GenPRES domain documentation. For the comp
 | [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md) | How free-text expert knowledge is transformed into structured Operational Knowledge Rules (OKRs). |
 | [GenSOLVER: Order Scenarios to Quantitative Solutions](gensolver-from-orders-to-quantitative-solutions.md) | The quantitative constraint solving engine that computes valid numerical values from the equation systems. |
 
-## Appendices {#appendices}
+## Appendices
 
-### Appendix A. The Medication Treatment Cycle {#appendix-a.-the-medication-treatment-cycle}
+### Appendix A. The Medication Treatment Cycle
 
 ![image1](https://docs.google.com/drawings/d/e/2PACX-1vRenb7b36iQWiNvOj3_KiRkMFABNwlt_xOA2lWkWMo24-2SFmhNOtU9uzOMtGF4-hC67rOs6pO9tDJI/pub?w=960&h=599)
 
-### Appendix B.1. GenORDER Conceptual Architecture {#appendix-b.1.-genorder-conceptual-architecture}
+### Appendix B.1. GenORDER Conceptual Architecture
 
 ![image2](https://docs.google.com/drawings/d/e/2PACX-1vRu889V2jIJb_3SJ60pcE7lx0cd9r4caWs3miw_M9cb6LLO9Y8rsAz8j60GSYyskmN6W5-4i3J_H1R2/pub?w=958&h=654)
 
-### Appendix B.2. GenORDER Technical Architecture {#appendix-b.2.-genorder-technical-architecture}
+### Appendix B.2. GenORDER Technical Architecture
 
 ![image3](https://docs.google.com/drawings/d/e/2PACX-1vSvbbHm3JutpteK6TK7u84p6DGu6F44JuAhiTu2KXj4pE_Pg8Jrxey8Fe7mZUr4eVqPt8NHq0TYi3Tb/pub?w=817&h=519)
 
-### Addendum B.3. GenORDER Libraries {#addendum-b.3.-genorder-libraries}
+### Appendix B.3. GenORDER Libraries
 
 This appendix used to restate the library list with per-library capabilities and dependencies.
 The same list also appeared in the GenFORM document and in
@@ -266,11 +266,11 @@ omitted two that do. There is now one copy:
 * **What is actually built today**: the Core Libraries list in
   [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries)
 
-### Appendix C.1. Order Model Figure {#appendix-c.1.-order-model-figure}
+### Appendix C.1. Order Model Figure
 
 ![image4](https://docs.google.com/drawings/d/e/2PACX-1vTgBB0m625rx2mrDYibTaQ2moIUVPkJNKTRm8yvvWu5JaOZE-HcyoDIFtfLjYQluqKkl23_p4qRJWQG/pub?w=1299&h=665)
 
-### Appendix C.2. Order Model Table {#appendix-c.2.-order-model-table}
+### Appendix C.2. Order Model Table
 
 | No | Short Name | Long Name | Type | Unit | Description |
 | ----- | ----- | ----- | ----- | ----- | ----- |
@@ -299,7 +299,7 @@ omitted two that do. There is now one copy:
 | 23 | [cmp]_dos_qty_adj | Component.Dose.QuantityAdjust | QuantityAdjust | Component Unit / Adjust Unit | Adjusted Dose Quantity of a Component |
 | 24 | [cmp]_dos_ptm_adj | Component.Dose.PerTimeAdjust | PerTimeAdjust | Component Unit / Adjust Unit / Time Unit | Adjusted dose per unit time of a Component |
 | 25 | [cmp]_dos_rte_adj | Component.Dose.RateAdjust | RateAdjust | Component Unit / Adjust Unit / Time Unit | Adjusted Dose Rate of a Component |
-| 26 | [cmp].dos_tot_adj | Component.Dose.TotalAdjust | TotalAdjust | Component Unit / Adjust Unit | Adjusted total component dose over the order |
+| 26 | [cmp]_dos_tot_adj | Component.Dose.TotalAdjust | TotalAdjust | Component Unit / Adjust Unit | Adjusted total component dose over the order |
 | 27 | [orb]_orb_qty | Orderable.Quantity | Quantity | Orderable Unit | Quantity of Orderable |
 | 28 | [orb]_ord_qty | Orderable.OrderQuantity | Quantity | Orderable Unit | Quantity of Orderable in an Order |
 | 29 | [orb]_ord_cnt | Orderable.OrderCount | Count | Count Unit | Amount of Orderable in an Order |
@@ -317,7 +317,7 @@ omitted two that do. There is now one copy:
 | 41 | [ord]_adj_qty | Order.Adjust.Quantity | Quantity | Adjust Unit | Quantity used to adjust dose |
 | 42 | [ord]_ord_tme | Order.Time | Time | Time Unit | Duration of the order |
 
-### Appendix D.1. Equations Table {#appendix-d.1.-equations-table}
+### Appendix D.1. Equations Table
 
 | No | Formula | Discont | Cont | Timed | Once | Once Timed |
 | :---- | :---- | ----- | ----- | ----- | ----- | ----- |
@@ -390,27 +390,23 @@ omitted two that do. There is now one copy:
 Discont: Discontinuous  
 Cont: Continuous
 
-##
-
-### Appendix D.2. DoseType Specific Variables {#appendix-d.2.-dosetype-specific-variables}
+### Appendix D.2. DoseType Specific Variables
 
 Note on rate vs per-time:
 
 * dos_rte: instantaneous rate/speed (Unit/Time), typical for continuous infusions.  
 * dos_ptm: quantity per unit time (Unit/Time) derived from discrete administrations (dose x frequency). Timed regimens often specify both: dos_rte for infusion rate and dos_ptm for prescribed periodic dose.
 
-#### - Variables for Prescription {#--variables-for-prescription}
+#### Variables for Prescription
 
 The prescription defines regimen (how often, how long) and the intended dose at orderable and, if needed, at component/item level.
-
-*
 
 | Variable | Name | Unit | Description |
 | :---- | :---- | :---- | :---- |
 | [ord]_sch_frq | Schedule.Frequency | Count/Time | Number of administrations per time |
 | [ord]_sch_tme | Schedule.Time | Time | Duration of a single administration |
-| [ord]_adj_qty | Order.Adjust | Adjust Unit | Patient-specific adjustor (e.g., kg or m²) |
-| [ord]_dur | Order.Duration | Time | Total duration of the order |
+| [ord]_adj_qty | Order.Adjust.Quantity | Adjust Unit | Patient-specific adjustor (e.g., kg or m²) |
+| [ord]_ord_tme | Order.Time | Time | Total duration of the order |
 | [orb]_dos_qty | Orderable.Dose.Quantity | Orderable Unit | Dose per administration |
 | [orb]_dos_rte | Orderable.Dose.Rate | Orderable Unit/Time | Administration rate |
 | [orb]_dos_ptm | Orderable.Dose.PerTime | Orderable Unit/Time | Dose per unit time (e.g., per day) |
@@ -433,15 +429,15 @@ Totals over the order duration (optional, mainly for verification/reporting):
 
 | Variable | Name | Unit | Description |
 | :---- | :---- | :---- | :---- |
-| [itm]_dos_tot | Item.DoseTotal | Item Unit | Total dose over the order duration |
+| [itm]_dos_tot | Item.Dose.Total | Item Unit | Total dose over the order duration |
 
-#### - Variables for Preparation {#--variables-for-preparation}
+#### Variables for Preparation
 
 The preparation describes how to make the dose from available containers/components and their concentrations.
 
 | Variable | Name | Unit | Description |
 | :---- | :---- | :---- | :---- |
-| [orb]_qty | Orderable.Quantity | Orderable Unit | Quantity of orderable per unit preparation |
+| [orb]_orb_qty | Orderable.Quantity | Orderable Unit | Quantity of orderable per unit preparation |
 | [orb]_ord_qty | Orderable.OrderQuantity | Orderable Unit | Total quantity of orderable to prepare for the order |
 | [cmp]_orb_cnc | Component.OrderableConcentration | Component Unit/Orderable Unit | Concentration of a component in the orderable |
 | [cmp]_orb_qty | Component.Orderable.Quantity | Component Unit | Quantity of a component per orderable unit |
@@ -451,7 +447,7 @@ The preparation describes how to make the dose from available containers/compone
 | [itm]_cmp_cnc | Item.ComponentConcentration | Item Unit/Component Unit | Concentration of an item in a component |
 | [itm]_cmp_qty | Item.ComponentQuantity | Item Unit | Quantity of an item contributed by one component |
 
-#### - Variables for Administration {#--variables-for-administration}
+#### Variables for Administration
 
 Administration captures what is delivered per administration and over time.
 
@@ -459,7 +455,7 @@ Administration captures what is delivered per administration and over time.
 | :---- | :---- | :---- | :---- |
 | [ord]_sch_frq | Schedule.Frequency | Count/Time | Number of administrations per time |
 | [ord]_sch_tme | Schedule.Time | Time | Duration of each administration |
-| [ord]_dur | Order.Duration | Time | Total planned administration period |
+| [ord]_ord_tme | Order.Time | Time | Total planned administration period |
 | [orb]_dos_qty | Orderable.Dose.Quantity | Orderable Unit | Quantity delivered per administration |
 | [orb]_dos_rte | Orderable.Dose.Rate | Orderable Unit/Time | Delivery rate |
 | [orb]_dos_ptm | Orderable.Dose.PerTime | Orderable Unit/Time | Quantity delivered per unit time |

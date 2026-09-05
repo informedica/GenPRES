@@ -20,7 +20,9 @@ It serves as a reference for anyone maintaining or reasoning about the stability
 2. **Incorrect increment arithmetic**: Multiplying two domains with increments used a flawed formula that produced values not actually reachable by element-wise multiplication.
 3. **Stability**: Removing increments to fix (2) exposed infinite loops caused by **cycles** in constraint propagation.
 
-## Problem 1: Incorrect Increment Arithmetic — FIXED
+The efficiency problem (1) is outside this document's scope; the analysis below covers problems 2 and 3.
+
+## Problem 2: Incorrect Increment Arithmetic — FIXED
 
 ### Original Problem
 
@@ -36,7 +38,7 @@ The fix lives in `src/Informedica.GenSOLVER.Lib/Variable.fs`:
 
 No assumption is made that the result of arithmetic on two increment-based domains fits an increment pattern. The bug is eliminated.
 
-## Problem 2: Stability via Cycles — NOT FIXED AS PROPOSED
+## Problem 3: Stability via Cycles — NOT FIXED AS PROPOSED
 
 ### Original Problem (Thesis Chapter 4.3)
 
