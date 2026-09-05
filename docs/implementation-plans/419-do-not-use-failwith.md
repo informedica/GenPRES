@@ -9,10 +9,14 @@ discussion: rate every site and only claim a benefit where the exception type ac
 carries information, so the change does not become a "colouring book exercise".
 
 At the time of writing there are 114 `failwith`/`failwithf` calls in `src/` and `tests/`
-(63 and 51), plus one hand-built `exn "..." |> raise`. There are zero uses of `invalidOp`,
-while `invalidArg`, `raise` and four custom exception types (`SolverException`,
-`OrderException`, `BigRationalException`, `ResourceLoadError`) already exist, so every
-target idiom is already in the repo.
+(61 and 53), plus one hand-built `exn "..." |> raise`. `invalidOp` has two existing uses
+(`Logging.Lib/Logging.fs`, `MCP.Server/Program.fs`), and `invalidArg`, `raise` and four
+custom exception types (`SolverException`, `OrderException`, `BigRationalException`,
+`ResourceLoadError`) are already in use, so every target idiom is already in the repo.
+
+A further ten calls live outside `src/` and `tests/`: six in `Build.fs`, two in
+`Helpers.fs` and two in `benchmark/Program.fs`. They are build and benchmark tooling, not
+shipped code, and are out of scope for the three PRs below; see *Out of scope* at the end.
 
 ## Approaches considered
 
@@ -34,7 +38,19 @@ target idiom is already in the repo.
 
 Option 2. Each site is assigned one of the categories below. The replacement never widens
 or narrows behaviour: every new type still derives from `System.Exception`, so every
-existing `| e ->` handler keeps working. Messages are preserved verbatim.
+existing `| e ->` handler keeps working. Messages are preserved verbatim, with two
+deliberate exceptions:
+
+- **G.** `reraise ()` propagates the original exception, so the `"didn't catch {e}"` /
+  `"something unexpected happened, didn't catch {e}"` wrapper text disappears. The wrapper
+  is still written to the console by `writeErrorMessage` before the rethrow; only the
+  exception that leaves `Solver.solve` changes, from a `System.Exception` with the wrapper
+  message to the original exception with its own message, stack trace and inner exception.
+- **I.** `"Operator is not supported"` becomes a `BigRationalException CannotMatchOperator`.
+  The one test on that path (`GenUNITS.Tests`, "opFromString throws on an unknown token")
+  uses an untyped `Expect.throws` and does not read the message.
+
+No other site changes its message text.
 
 | Category | Replacement | Benefit | Why |
 |---|---|---|---|
@@ -116,9 +132,20 @@ Fable compile of `Shared`/`Client` verify it.
    `Shared` or `Client` is touched. Commits use `refactor(<scope>)`, which ShipIt does not
    render into the changelog; that is correct, nothing user-visible changes.
 6. Done when `grep -rnE '\bfailwith(f)?\b|\bexn "' --include='*.fs' src tests` is empty.
+   The rule in the coding instructions applies to new code anywhere in the repository; the
+   ten pre-existing tooling calls listed under *Out of scope* are the known remainder.
 
 ## Process note
 
 The repository's script-only policy keeps LLMs out of `.fs` files. The issue thread
 anticipated that this refactor needs an exception to that policy, and the maintainer granted
 it for #419 explicitly. The implementation PRs disclose this in the AI/Vibe Coding section.
+
+## Out of scope
+
+Ten `failwith`/`failwithf` calls remain in build and benchmark tooling after the three PRs:
+`Build.fs` (6), `Helpers.fs` (2) and `benchmark/Program.fs` (2). They fail a FAKE target or
+a benchmark run, are never caught, and do not ship. Converting them is a small mechanical
+follow-up (`invalidOp` for the build helpers, the same `failtest`-style swap for the
+benchmark print helpers as in the GenSOLVER tests); it is left out here to keep the
+implementation PRs within the issue's stated scope and the 200-line limit.
