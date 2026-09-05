@@ -1,8 +1,12 @@
-# ADR-0016: G-Standard Dose Rule Fallback for Missing Adult Rules
+# Implementation plan for issue #307: G-Standard dose rule fallback for missing adult rules
 
 **Date**: 2026-04-17
 
-**Status**: Proposed
+**Status**: Proposed — prototype exists in `src/Informedica.GenFORM.Lib/Scripts/GStandDoseRules.fsx`, not yet migrated
+
+**Confidence**: Medium
+
+> Formerly ADR-0016 (proposed 2026-04-17). Moved out of `docs/adr/` under issue #411 because it is a plan for ongoing work, not a hard-to-reverse decision; see [ADR-0000](../adr/0000-documentation-rules.md).
 
 **Related PR**: [#310 — GStandDoseRules.fsx prototype](https://github.com/informedica/GenPRES/pull/310)
 
@@ -104,10 +108,10 @@ When the maintainer is ready to migrate:
 - The type conversion is non-trivial; an incorrect unit mapping (months→days,
   kg→grams) would silently produce wrong age/weight thresholds. The prototype
   includes explicit unit-conversion tests to guard against this.
-- Continuous and reconstitution rules are silently filtered; a future ADR should
+- Continuous and reconstitution rules are silently filtered; a follow-up should
   address how these are surfaced.
 
-**MDR / Safety**:
+**Safety**:
 
 - G-Standard-sourced rules must be visually distinguished from pharmacist-curated
   rules (colour badge, source label). This is a safety requirement.
@@ -122,6 +126,6 @@ When the maintainer is ready to migrate:
 
 - [GStandDoseRules.fsx prototype — PR #310](https://github.com/informedica/GenPRES/pull/310)
 - [G-Standard dose rule check colour coding — PR #309](https://github.com/informedica/GenPRES/pull/309)
-- [GenFORM sheet contract — the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs`](../../../src/Informedica.GenFORM.Lib/Types.fs)
-- [MCP Server Architecture — ADR-0009](0009-mcp-server-architecture.md)
-- [ZForm.GStand API — `src/Informedica.ZForm.Lib/GStand.fs`](../../../src/Informedica.ZForm.Lib/GStand.fs)
+- [GenFORM sheet contract — the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs`](../../src/Informedica.GenFORM.Lib/Types.fs)
+- [MCP Server Architecture — ADR-0009](../adr/0009-mcp-server-architecture.md)
+- [ZForm.GStand API — `src/Informedica.ZForm.Lib/GStand.fs`](../../src/Informedica.ZForm.Lib/GStand.fs)

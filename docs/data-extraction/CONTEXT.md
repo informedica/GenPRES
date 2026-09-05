@@ -95,8 +95,8 @@ discovered; safety-critical findings are ADR-gated.
 "Never reaches into `.fs`" describes the prototype's data boundary — not a ban
 on the prototype shaping the future domain model.
 
-This FTK pipeline is **not** the same thing as the LLM dose-rule extraction pipeline of
-[ADR-0018](../mdr/design-history/0018-nlp-dose-rule-extraction.md), which lives in
+This FTK pipeline is **not** the same thing as the
+[LLM dose-rule extraction pipeline](llm-dose-rule-extraction.md) (formerly ADR-0018), which lives in
 `src/Informedica.NLP.Lib/Scripts/DoseRuleExtract.fsx` and has its own module structure
 (`Config`, `Prompt`, `Extraction`, `Pipeline`, …). Two pipelines target `DoseRules`; the
 Pass 1–5 vocabulary defined in this document belongs to the FTK one only.

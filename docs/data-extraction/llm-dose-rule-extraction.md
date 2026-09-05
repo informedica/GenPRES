@@ -1,4 +1,6 @@
-# ADR-0018: LLM-Based Dose-Rule Extraction Pipeline
+# LLM-Based Dose-Rule Extraction Pipeline
+
+> Formerly ADR-0018 (proposed 2026-04-26). Moved out of `docs/adr/` under issue #411 because it describes a data-preparation pipeline that is still evolving, not a hard-to-reverse decision; see [ADR-0000](../adr/0000-documentation-rules.md).
 
 **Date**: 2026-04-26
 
@@ -74,7 +76,7 @@ preparation tool only, operating offline under human supervision.
 | 1 | Structured JSON output schema validated with NJsonSchema | Eliminates ambiguous free-text output; allows automated validation before human review |
 | 2 | Hierarchical schema: `DoseRuleExtracted → doseTypes[] → doseLimits[]` | Mirrors the GenFORM shape; a single LLM call per schedule text (age/weight band) produces one complete record |
 | 3 | Multi-pass pipeline: extract → grammar check → validate → interactive REPL | Each stage has an independent exit/save point; a pharmacist can stop and correct at any step without restarting |
-| 4 | Mandatory human review gate before spreadsheet entry | MDR requirement: AI-generated clinical data must be reviewed by a competent person; the pipeline has no automated write path |
+| 4 | Mandatory human review gate before spreadsheet entry | Safety requirement: AI-generated clinical data must be reviewed by a competent person; the pipeline has no automated write path |
 | 5 | Provider-agnostic sender abstraction | Allows Ollama (local, offline), OpenAI GPT-4o/o3-mini, and Fireworks Llama-4 to be swapped with a single parameter; each has different cost/latency/accuracy trade-offs |
 | 6 | JSON ↔ TSV round-trip via `Conversion.toTsv` / `Conversion.fromTsv` | Extracted output can be saved as a TSV row matching `data/sources/Rules/doserules.tsv`; enables automated benchmark scoring against ground-truth rows |
 | 7 | Recursive validation-retry loop (up to 2 attempts) | LLMs occasionally produce malformed JSON; a single automatic retry with the error message reduces the failure rate without requiring manual intervention |
@@ -215,7 +217,7 @@ This allows tracking extraction quality across model and prompt versions.
 - The pipeline is not a source file; it cannot be directly called from tests or
   the production server.
 
-### MDR / Safety
+### Safety constraints
 
 This pipeline handles **data preparation only**, not run-time clinical
 decisions. The following safety constraints apply:
@@ -242,14 +244,14 @@ decisions. The following safety constraints apply:
 
 ## References
 
-- [DoseRuleExtract.fsx — full pipeline](../../../src/Informedica.NLP.Lib/Scripts/DoseRuleExtract.fsx)
-- [DoseRuleExtractInteractiveDemo.fsx — interactive REPL demo](../../../src/Informedica.NLP.Lib/Scripts/DoseRuleExtractInteractiveDemo.fsx)
-- [DoseRuleTests.fsx — benchmark test cases](../../../src/Informedica.NLP.Lib/Scripts/DoseRuleTests.fsx)
-- [DoseRuleValidation.fsx — validation logic](../../../src/Informedica.NLP.Lib/Scripts/DoseRuleValidation.fsx)
-- [doserule-extraction-prompt.md](../../../docs/data-extraction/doserule-extraction-prompt.md)
+- [DoseRuleExtract.fsx — full pipeline](../../src/Informedica.NLP.Lib/Scripts/DoseRuleExtract.fsx)
+- [DoseRuleExtractInteractiveDemo.fsx — interactive REPL demo](../../src/Informedica.NLP.Lib/Scripts/DoseRuleExtractInteractiveDemo.fsx)
+- [DoseRuleTests.fsx — benchmark test cases](../../src/Informedica.NLP.Lib/Scripts/DoseRuleTests.fsx)
+- [DoseRuleValidation.fsx — validation logic](../../src/Informedica.NLP.Lib/Scripts/DoseRuleValidation.fsx)
+- [doserule-extraction-prompt.md](doserule-extraction-prompt.md)
 - [PR #317 — NLP pipeline overhaul](https://github.com/informedica/GenPRES/pull/317)
 - [PR #321 — Extraction prompt improvement](https://github.com/informedica/GenPRES/pull/321)
-- [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
-- [ADR-0016: G-Standard Dose Rule Fallback](0016-gstand-dose-rule-fallback.md)
+- [ADR-0009: MCP Server Architecture](../adr/0009-mcp-server-architecture.md)
+- [Implementation plan for issue #307: G-Standard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016)
 - [Nederlands Kinderformularium](https://www.kinderformularium.nl/)
 - [Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/)

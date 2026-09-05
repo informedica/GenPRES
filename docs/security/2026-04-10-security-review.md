@@ -100,7 +100,7 @@ Two ancillary hardening items landed alongside §7.1 (detail in
 
 | ID | Why | Re-enable when |
 |---|---|---|
-| **A5** (clinical RPCs unauthenticated) | Public demo at `https://genpres.nl/` exists for visibility; gating defeats the purpose. | Any non-demo deployment. Re-use `validateToken` at `ServerApi.Command.fs:72-121` behind a `GENPRES_REQUIRE_AUTH=1` flag. Live regression tests 3.3 / 3.4 / 3.5 FAIL on the demo and must PASS elsewhere. Decision recorded at A5 in §4 and in [ADR-0015](../mdr/design-history/0015-security-baseline.md). |
+| **A5** (clinical RPCs unauthenticated) | Public demo at `https://genpres.nl/` exists for visibility; gating defeats the purpose. | Any non-demo deployment. Re-use `validateToken` at `ServerApi.Command.fs:72-121` behind a `GENPRES_REQUIRE_AUTH=1` flag. Live regression tests 3.3 / 3.4 / 3.5 FAIL on the demo and must PASS elsewhere. Decision recorded at A5 in §4 and in the [security baseline](security-baseline.md). |
 | **1.3** (`X-Powered-By: PleskLin`) | Plesk-managed proxy injects the header downstream of any user-configurable Apache or nginx directive. Discloses managed-hosting type only; no exploitable surface. | C2 migration off shared Plesk hosting (§7.2) resolves it automatically. Investigation log preserved in *Hotfix — 2026-04-11 (1.3 X-Powered-By disclosure — accepted as deferred)*. |
 
 ### Open — blocks any C2 (on-prem) rollout
@@ -134,7 +134,7 @@ pinning · `G2` remove unused project references ·
 
 **Untrusted input must not be used as a key into server-side storage
 without a trust-boundary check.** Recorded in
-[ADR-0015 §Decision 6](../mdr/design-history/0015-security-baseline.md)
+[security baseline, Decision 6](security-baseline.md)
 with the B3 + A2 interaction as the canonical example. Standing
 review item for any future request handler that allocates
 server-side state: rate-limiter partitions, login-attempt counters,
@@ -145,10 +145,10 @@ deduplication maps.
 
 These docs are written to be MDR-ready but are **not** yet part of an
 active MDR change-control process. On formal MDR entry, this review
-and ADR-0015 come in together as the security baseline; resolved
-findings then map into
-`docs/mdr/risk-analysis/risk-management-report.md` and the
-hazard-analysis spreadsheets through normal change control.
+and [`security-baseline.md`](security-baseline.md) come in together as the security
+baseline; resolved findings then map into the risk-management report and
+hazard-analysis spreadsheets of the MDR documentation (maintained outside this
+repository) through normal change control.
 
 ---
 
@@ -166,7 +166,7 @@ severity delta.
 | **C1** | ✅ Fixed | `TypeNameHandling` flipped from `Auto` to `None` with a SECURITY block-comment explaining the gadget-chain risk. Three Expecto regression tests added under a new `JsonSecurity` sub-module: (i) `deSerialize<obj>` ignores a malicious `$type` payload, (ii) plain-record round-trip stays lossless, (iii) serialized output never contains `$type`. Verified by running the full server test suite (5408 passed). | `src/Informedica.Utils.Lib/Json.fs:38-56`, `tests/Informedica.Utils.Tests/Tests.fs` (new `JsonSecurity` sub-module) |
 | **D4** | ✅ Partially fixed | Plain `<>` string equality replaced with `CryptographicOperations.FixedTimeEquals` on UTF-8 bytes. Fail-closed default (`Option.defaultValue true` when `GENPRES_PASSWORD` is unset) preserved. The deeper structural fix — migrate `ReloadResources` onto the HMAC token system used by `LogAnalyzerCmd` so the raw password no longer travels on the wire — is tracked by an inline `TODO(D4 follow-up)` comment. | `src/Informedica.GenPRES.Server/ServerApi.Services.fs:347-373` |
 | **E2** | ✅ Fixed | Production password policy added to `.env.example` and to a new "Password policy" subsection in `DEVELOPMENT.md`. New startup check `validateProductionPassword` in `Server.fs` runs before any HTTP listener is bound and refuses to start when `GENPRES_PROD=1` and `GENPRES_PASSWORD` is missing, empty, whitespace-only, or shorter than 16 characters. Demo mode (`GENPRES_PROD≠1`) is unaffected. | `src/Informedica.GenPRES.Server/Server.fs:60-94`, `.env.example`, `DEVELOPMENT.md` (Password policy section) |
-| **E3** | ✅ Fixed | `ARG GENPRES_URL_ARG` / `ENV GENPRES_URL_ID=$GENPRES_URL_ARG` removed from `Dockerfile`. Replaced with empty `ENV GENPRES_URL_ID=` / `ENV GENPRES_PASSWORD=` defaults so the variables remain discoverable in container management UIs (Plesk, Portainer, Rancher, Kubernetes manifests) while operators inject the real values at runtime via `docker run -e`, Docker secret, or Kubernetes secret. All docs that referenced the old `--build-arg GENPRES_URL_ARG` pattern updated. | `Dockerfile`, `README.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `docs/mdr/design-history/0001-system-architecture.md`, `DEVELOPMENT.md` |
+| **E3** | ✅ Fixed | `ARG GENPRES_URL_ARG` / `ENV GENPRES_URL_ID=$GENPRES_URL_ARG` removed from `Dockerfile`. Replaced with empty `ENV GENPRES_URL_ID=` / `ENV GENPRES_PASSWORD=` defaults so the variables remain discoverable in container management UIs (Plesk, Portainer, Rancher, Kubernetes manifests) while operators inject the real values at runtime via `docker run -e`, Docker secret, or Kubernetes secret. All docs that referenced the old `--build-arg GENPRES_URL_ARG` pattern updated. | `Dockerfile`, `README.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `docs/adr/0001-system-architecture.md`, `DEVELOPMENT.md` |
 
 ### Additional improvements made during implementation
 
@@ -215,11 +215,11 @@ GENPRES_PROD=0 GENPRES_PASSWORD=anything dotnet run
 
 ### MDR follow-up
 
-The risk-analysis files in `docs/mdr/risk-analysis/` are formal regulatory
-artifacts and have **not** been touched by this implementation pass. The
-maintainer should map these resolved items into `risk-management-report.md`
-and the hazard-analysis spreadsheets through the project's normal change
-control process.
+The risk-analysis files are formal regulatory artifacts maintained with the MDR
+documentation outside this repository and have **not** been touched by this
+implementation pass. The maintainer should map these resolved items into the
+risk-management report and the hazard-analysis spreadsheets through the
+project's normal change control process.
 
 ---
 
@@ -316,9 +316,9 @@ update:
 
 ### MDR follow-up
 
-Same as the 2026-04-10 update: the regulatory artifacts in
-`docs/mdr/risk-analysis/` have not been touched. The maintainer should
-map L1, L2, B2, A2, B3, D2 into `risk-management-report.md` and the
+Same as the 2026-04-10 update: the regulatory risk-analysis artifacts (MDR
+documentation, outside this repository) have not been touched. The maintainer
+should map L1, L2, B2, A2, B3, D2 into the risk-management report and the
 hazard-analysis spreadsheets through normal change control before any
 deployment beyond C1.
 
@@ -467,13 +467,13 @@ Per the plan at
 5. Malformed-RPC smoke: `POST /api/IServerApi/<cmd>` with
    `not-valid-json` returns HTTP 400 with a short body and no
    `System.*` / `Giraffe.*` / `Fable.Remoting.*` type names.
-6. The live regression suite (ADR-0015, Decision 4; maintained
+6. The live regression suite (security baseline, Decision 4; maintained
    out-of-repo) — test 2.2 must re-run PASS against the new build
    before deploying to `https://genpres.nl/`.
 
 ### MDR follow-up
 
-- `docs/mdr/design-history/0015-security-baseline.md:46-51` updated
+- [`security-baseline.md`](security-baseline.md) (L1 item) updated
   to reflect the upstream fix and the retained `safeWebApi` wrapper.
 - `CHANGELOG.md` carries the user-visible entry.
 
@@ -805,7 +805,7 @@ No `UseHttpsRedirection`, no HSTS, no certificate config. `vite.config.js:6` lik
 
 - **Short term:** Front the server with a TLS-terminating reverse proxy (nginx, Caddy, Traefik). The proxy enforces HTTPS, HSTS, optional client certificate auth. Document this in `DEVELOPMENT.md` as the recommended deployment topology.
 - **Medium term:** Bind directly to HTTPS in production using a Saturn `use_https` directive + Let's Encrypt certs (or hospital-managed certs in C2).
-- **MDR:** Document the network topology decision in `docs/mdr/risk-analysis/`.
+- **MDR:** Document the network topology decision in the MDR risk analysis (maintained outside this repository).
 
 ---
 
@@ -1170,7 +1170,7 @@ Beta/RC versions carry no support guarantees, may contain unfixed bugs, and are 
 
 A grep across `src/` for `audit`, `tamper`, `integrity`, `signature` returns no application-level audit logging. The existing logging (request logs, computation traces) is operational, not auditable.
 
-**MDR/21 CFR Part 11 requirements** the project itself acknowledges in `docs/mdr/`:
+**MDR/21 CFR Part 11 requirements** the project itself acknowledges in its MDR documentation:
 
 - Append-only record of all actions affecting clinical decisions
 - User attribution (depends on A1 being fixed first)
@@ -1182,7 +1182,7 @@ A grep across `src/` for `audit`, `tamper`, `integrity`, `signature` returns no 
 1. First fix A1 (real user identity), otherwise the audit log can only attribute to "the password holder".
 2. Introduce an `Informedica.Audit.Lib` module that writes append-only entries for: login, scenario selection/modification, resource reload, log access, configuration change.
 3. Sign each entry or chain entries with a hash of the previous (`prev_hash || payload || HMAC`).
-4. Document the audit log in `docs/mdr/risk-analysis/`.
+4. Document the audit log in the MDR risk analysis.
 
 ---
 
@@ -1269,7 +1269,7 @@ A grep across `src/` for `audit`, `tamper`, `integrity`, `signature` returns no 
 | Integrity of records | 21 CFR Part 11.10(c) | **Not met** for cache files (F2); partially met for code (git signatures) |
 | Authentication of system access | 21 CFR Part 11.200 | **Partial** — exists for admin only, not for clinical users (A1, A5) |
 | Software lifecycle process | EU MDR Annex I §17.4 | Documented in `AGENTS.md`/`DEVELOPMENT.md`; script-only policy is a strong control |
-| Risk analysis documented | EU MDR Annex I §3 | Partially documented in `docs/mdr/risk-analysis/`; this review is an input |
+| Risk analysis documented | EU MDR Annex I §3 | Partially documented in the MDR risk analysis (outside this repository); this review is an input |
 | Validation of off-the-shelf software | EU MDR Annex I §17.4 | **Gap** — beta/RC dependencies (E4) and outdated `ClosedXML` (E5) need explicit acceptance |
 
 ---
@@ -1290,7 +1290,7 @@ A grep across `src/` for `audit`, `tamper`, `integrity`, `signature` returns no 
 
 ### 7.2 Before any C2 (on-prem) rollout
 
-1. **A1, A5** — Place the server behind a TLS-terminating reverse proxy that enforces per-user authentication (OIDC against the hospital IdP is the lowest-friction path). Document the deployment topology in `docs/mdr/`.
+1. **A1, A5** — Place the server behind a TLS-terminating reverse proxy that enforces per-user authentication (OIDC against the hospital IdP is the lowest-friction path). Document the deployment topology in the MDR documentation.
 2. **B1, B2** — HTTPS at the edge plus the security header baseline from §4 B2.
 3. **A2** — Per-IP rate limiting on `ValidatePassword` (and ideally on every RPC).
 4. **F1** — Implement `Informedica.Audit.Lib` for tamper-evident audit logging. Depends on §7.2 item 1 (A1) for user identity.

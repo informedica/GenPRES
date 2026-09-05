@@ -1,4 +1,6 @@
-# ADR-0014: Preventing Value Explosion in the Constraint Solver
+# Preventing Value Explosion in the Constraint Solver
+
+> Formerly ADR-0014 (accepted 2026-04-07). Moved out of `docs/adr/` under issue #411 because it explains a solver algorithm and its pipeline placement, not a hard-to-reverse decision; see [ADR-0000](../adr/0000-documentation-rules.md).
 
 **Date**: 2026-04-07 (updated 2026-04-08)
 
@@ -6,13 +8,13 @@
 
 **References**:
 
-- [Core Domain Model](../../domain/core-domain.md)
-- [GenSOLVER: Order Scenarios to Quantitative Solutions](../../domain/gensolver-from-orders-to-quantitative-solutions.md)
-- [GenORDER: Operational Rules to Orders](../../domain/genorder-operational-rules-to-orders.md)
+- [Core Domain Model](core-domain.md)
+- [GenSOLVER: Order Scenarios to Quantitative Solutions](gensolver-from-orders-to-quantitative-solutions.md)
+- [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md)
 
 ## Summary
 
-This ADR describes a layered strategy to prevent value explosion (combinatorial overflow) in the GenSOLVER constraint solver. Value explosion occurs when the solver computes cartesian products of large discrete value sets, producing more values than the system can handle. The strategy comprises two complementary defenses:
+This document describes a layered strategy to prevent value explosion (combinatorial overflow) in the GenSOLVER constraint solver. Value explosion occurs when the solver computes cartesian products of large discrete value sets, producing more values than the system can handle. The strategy comprises two complementary defenses:
 
 1. **GenORDER layer — Staged value expansion** (pipeline-level): For OnceTimed and Timed orders, expand dose quantity variables before rate variables so that the `dos_qty = dos_rte * sch_tme` three-way equation is already constrained before rate expansion.
 2. **GenSOLVER layer — ValueRange cartesian product cap** (solver-level): When two `ValSet` value ranges are multiplied and their combined size would exceed `MAX_CALC_COUNT` (500), fall back to computing only min/max bounds instead of the full cartesian product.
