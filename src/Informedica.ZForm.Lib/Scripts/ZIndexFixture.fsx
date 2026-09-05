@@ -1138,8 +1138,13 @@ module ZIndexFixture =
     /// synthetic data visible to the ZIndex fixed-width parsers.
     /// </summary>
     /// <remarks>
-    /// Must be called BEFORE loading the ZIndex library, because
-    /// <c>BST001T._data</c> is initialised eagerly on the first module access.
+    /// Must be called BEFORE anything reads a ZIndex table. <c>BST001T</c> no
+    /// longer reads the G-Standaard file at module initialisation (issue #523),
+    /// so merely loading the library is now safe — but the read is memoized, and
+    /// the underlying <c>Lazy</c> caches a thrown exception as readily as a
+    /// result. So a first read against missing fixtures still fails for the rest
+    /// of the process; it just fails per accessor now, instead of poisoning the
+    /// whole type.
     /// Call <see cref="teardownAfterTest"/> afterwards to remove the temporary
     /// copies and avoid accidentally committing plain <c>BST*</c> files.
     /// </remarks>

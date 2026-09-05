@@ -90,7 +90,10 @@ module BST001T =
     let pickList = [ 1..5 ] @ [ 7..11 ]
 
 
-    let data _ =
+    // Split raw/memoized so the G-Standaard file is read on first use rather than in
+    // this file's static constructor, where a missing data/zindex/ (a fresh checkout,
+    // a worktree) threw and poisoned the type for the process. See issue #523.
+    let private _data () =
         FilePath.GStandPath + "/" + name
         |> File.readAllLines
         |> Array.filter (String.length >> ((<) 10))
@@ -99,11 +102,12 @@ module BST001T =
         |> Array.map (Array.pickArray pickList)
 
 
-    let _data = data ()
+    let data: unit -> string array array = Memoization.memoize _data
 
 
-    let records _ =
-        _data
+    /// See _data comment
+    let private _records () =
+        data ()
         |> Array.map (fun d ->
             let vn = Int32.Parse d[2]
             let ln = Int32.Parse d[7]
@@ -114,7 +118,7 @@ module BST001T =
         |> Array.sortBy (fun r -> r.MDBST, r.MDVNR)
 
 
-    let _records = records ()
+    let records: unit -> BST001T[] = Memoization.memoize _records
 
 
     /// <summary>
@@ -122,7 +126,7 @@ module BST001T =
     /// </summary>
     /// <param name="name">The name of the file</param>
     let getPosl name =
-        _records
+        records ()
         |> Array.toList
         |> List.filter (fun d -> d.MDBST = name)
         |> List.map _.MDRLEN
@@ -133,14 +137,14 @@ module BST001T =
     /// </summary>
     /// <param name="n">The name of the file</param>
     let recordLength n =
-        _records |> Seq.filter (fun r -> r.MDBST = n) |> Seq.sumBy _.MDRLEN
+        records () |> Seq.filter (fun r -> r.MDBST = n) |> Seq.sumBy _.MDRLEN
 
 
     /// <summary>
     /// Get the all colums for a file
     /// </summary>
     let columns n =
-        _records
+        records ()
         |> Seq.filter (fun r -> r.MDBST = n)
         |> Seq.filter (fun r -> r.MDRNAM <> "******")
 

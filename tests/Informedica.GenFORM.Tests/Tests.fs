@@ -1359,14 +1359,20 @@ module DoseRuleRoundtripTests =
         |> File.ReadAllText
         |> FixtureJson.deSerialize<'T>
 
-    let private data = load<DoseRuleData[]> "doserules.json"
-    let private rm = load<RouteMapping[]> "routemappings.json"
-    let private prods = load<ProductComponent[]> "products.json"
+    // `lazy`, not plain values: a module-level binding runs in this module's static
+    // constructor, i.e. during Expecto's test discovery. Anything that throws there
+    // takes down the whole assembly, which then reports zero tests instead of one
+    // failure — exactly how issue #523 hid a red build behind "0 failed". Lazy is
+    // thread-safe by default, so each is still computed at most once even though
+    // Expecto runs tests in parallel.
+    let private data = lazy (load<DoseRuleData[]> "doserules.json")
+    let private rm = lazy (load<RouteMapping[]> "routemappings.json")
+    let private prods = lazy (load<ProductComponent[]> "products.json")
 
     // fr = [||]: fromData uses FormRoute only for FormLimit, which toData does not
     // emit and the round-trip does not compare (as DoseRuleProductTests do).
     let private forward (d: DoseRuleData[]) =
-        DoseRuleLoader.fromData rm [||] prods d |> fst
+        DoseRuleLoader.fromData rm.Value [||] prods.Value d |> fst
 
 
     // ---- comparison machinery (mirrors the scratch Analyse module) ----
@@ -1549,9 +1555,10 @@ module DoseRuleRoundtripTests =
             | _ -> true
         )
 
-    // computed once
-    let private g1 = generate data
-    let private g2 = generate g1
+    // Computed once, on first use rather than at test-discovery time (see the note
+    // on the fixture bindings above).
+    let private g1 = lazy (generate data.Value)
+    let private g2 = lazy (generate g1.Value)
 
 
     // NOTE: the literal counts below (206/52/299/202) are INTENTIONAL snapshot
@@ -1567,18 +1574,20 @@ module DoseRuleRoundtripTests =
             "DoseRule round-trip (offline fixtures)"
             [
                 test "fixtures load and forward builds rules" {
-                    data.Length |> Expect.equal "subset dose-rule rows" 206
-                    prods.Length |> Expect.equal "subset products" 52
-                    (data |> forward |> Array.length) |> Expect.equal "PASS 1 forward rules" 299
+                    data.Value.Length |> Expect.equal "subset dose-rule rows" 206
+                    prods.Value.Length |> Expect.equal "subset products" 52
+
+                    (data.Value |> forward |> Array.length)
+                    |> Expect.equal "PASS 1 forward rules" 299
                 }
 
                 test "PASS 1 round-trips the source-derived fixture (frozen counts)" {
-                    g1.Length |> Expect.equal "PASS 1 generated (distinct)" 202
-                    (missing data g1).Length |> Expect.equal "PASS 1 missing" 0
+                    g1.Value.Length |> Expect.equal "PASS 1 generated (distinct)" 202
+                    (missing data.Value g1.Value).Length |> Expect.equal "PASS 1 missing" 0
                 }
 
                 test "PASS 2 is a 100% containment fixpoint" {
-                    (missing g1 g2).Length
+                    (missing g1.Value g2.Value).Length
                     |> Expect.equal "PASS 2 missing (every input contained)" 0
                 }
             ]
@@ -3319,11 +3328,16 @@ module Tests =
             |> System.IO.File.ReadAllText
             |> FixtureJson.deSerialize<'T>
 
+        // `lazy` for the same reason as DoseRuleRoundtripTests' fixtures: as a plain
+        // value this reads three files and runs the loader in this module's static
+        // constructor, during test discovery, where a throw costs the whole assembly
+        // its results rather than failing the one test that needs this (issue #523).
         let private sampleDoseRule =
-            let data = fixture<DoseRuleData[]> "doserules.json"
-            let rm = fixture<RouteMapping[]> "routemappings.json"
-            let prods = fixture<ProductComponent[]> "products.json"
-            DoseRuleLoader.fromData rm [||] prods data |> fst |> Array.head
+            lazy
+                (let data = fixture<DoseRuleData[]> "doserules.json"
+                 let rm = fixture<RouteMapping[]> "routemappings.json"
+                 let prods = fixture<ProductComponent[]> "products.json"
+                 DoseRuleLoader.fromData rm [||] prods data |> fst |> Array.head)
 
         let tests =
             testList
@@ -3510,7 +3524,7 @@ module Tests =
                                 Seq.empty
 
                         let result =
-                            Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule
+                            Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
 
                         calls > 0 |> Expect.isTrue "injected provider was invoked"
 

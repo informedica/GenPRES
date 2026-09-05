@@ -65,7 +65,7 @@ module BST000T =
         }
 
 
-    let posl = BST001T.getPosl name
+    let posl () = BST001T.getPosl name
 
 
     let pickList = [ 1 ] @ [ 2; 3 ] @ [ 5 ] @ [ 9..14 ]
@@ -75,7 +75,7 @@ module BST000T =
     /// Get all the records from the BST000T file
     /// </summary>
     let records _ =
-        Parser.getData name posl pickList
+        Parser.getData name (posl ()) pickList
         |> Array.map (Array.map String.trim)
         |> Array.map (fun d ->
             let rl = Int32.Parse d[3]
