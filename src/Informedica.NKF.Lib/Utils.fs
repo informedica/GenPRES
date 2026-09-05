@@ -37,7 +37,12 @@ module Utils =
 
         open System.IO
 
-        let cachePath =
+
+        /// The pediatric formulary cache path, resolved on each call rather than at
+        /// module initialisation, so it sees the process's final working directory
+        /// and any GENPRES_ROOT set by a later Env.loadDotEnv (). See issue #523.
+        /// Not memoized: this is a string concat over AppPath's already-lazy root.
+        let cachePath () =
             Path.Combine(Informedica.Utils.Lib.AppPath.cacheDir (), "pediatric.cache")
 
         (*

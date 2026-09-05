@@ -149,7 +149,9 @@ module DoseRangeTests =
     // which requires GENPRES_URL_ID. When it is not configured (e.g. CI, where
     // only demo/cached data is available) these tests cannot run, so skip them.
     // The DTO round-trip tests below need no sheet data and always run.
-    // Resolution mirrors ZForm.Lib Web.genpresUrlId exactly.
+    // Duplicates the resolution in ZForm.Lib Web.genpresUrlId rather than calling it:
+    // that is now a deferred, memoized accessor (issue #523), and forcing it here to
+    // build the test list would defeat the deferral.
     let private hasUrlId =
         Informedica.Utils.Lib.Env.loadDotEnv () |> ignore
         Informedica.Utils.Lib.Env.getItem "GENPRES_URL_ID" |> Option.isSome
