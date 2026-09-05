@@ -248,11 +248,27 @@ Target.create
                 captured |> Seq.iter (printfn "%s")
                 printfn "-------------------------------------------------------------------------"
 
-                failwithf "Tests failed with exit code %d" result.ExitCode
+                if totalFailed.Value = 0 then
+                    // Results are missing rather than failing: every assembly that did report
+                    // reported no failures, so whatever went wrong produced no summary at all.
+                    // A discovery failure does this (a static initializer that throws yields no
+                    // results — see issue #523), but so does a crashed or cancelled test host,
+                    // so name the likely cause without asserting it.
+                    failwithf
+                        $"dotnet test exited %i{result.ExitCode}, but no assembly reported a \
+                          failing test (%i{totalPassed.Value} passed). Results are missing \
+                          rather than failing. Most often an assembly threw during discovery, \
+                          before Expecto could enumerate its tests — look for a top-level \
+                          `let` VALUE binding that performs IO, and search the dumped output \
+                          above for TypeInitializationException (see issue #523). A crashed \
+                          or cancelled test host looks the same, so check the output above \
+                          for a project that reported no summary line at all."
+                else
+                    failwithf "Tests failed with exit code %d" result.ExitCode
 
             if totalTests.Value = 0 then
                 failwith
-                    "No tests were discovered or run. The solution was likely not built/restored before 'dotnet test'."
+                    "No tests were discovered or run. The solution was likely not built/restored before `dotnet test`."
     )
 
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
