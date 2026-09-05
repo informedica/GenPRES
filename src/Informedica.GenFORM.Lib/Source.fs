@@ -48,7 +48,9 @@ module Source =
     /// links only, and leaves FTK links intact.
     /// </remarks>
     let getLink (meds: NKFMedication list) source gen : string option =
-        let gen = gen |> GenericLabel.toString
+        // The base substance name: a brand or form qualifier ("glycopyrronium (Sialanar)")
+        // is neither an NKF index entry nor an FK monograph slug.
+        let gen = gen |> GenericLabel.genericName
         let src = source |> toString
         let slug = gen |> String.replace "/" "-"
 

@@ -3577,6 +3577,25 @@ module Tests =
                         |> Expect.equal $"FK link should be {exp}" (Some exp)
                     }
 
+                    test "brand- and form-qualified labels link on the base generic" {
+                        let fkExp =
+                            "[Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/bladeren/preparaatteksten/p/paracetamol#doseringen)"
+
+                        let nkfExp =
+                            "[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/123/paracetamol)"
+
+                        let brand = GenericLabel.fromGenericBrand "paracetamol" "Panadol"
+                        let form = GenericLabel.fromGenericForm "paracetamol" "zetpil"
+
+                        Source.getLink meds fk brand |> Expect.equal "FK, brand qualified" (Some fkExp)
+                        Source.getLink meds fk form |> Expect.equal "FK, form qualified" (Some fkExp)
+
+                        Source.getLink meds nkf brand
+                        |> Expect.equal "NKF, brand qualified" (Some nkfExp)
+
+                        Source.getLink meds nkf form |> Expect.equal "NKF, form qualified" (Some nkfExp)
+                    }
+
                     test "FK link does not need the NKF index" {
                         Source.getLink [] fk (label "paracetamol")
                         |> Expect.equal

@@ -49,13 +49,16 @@ module Api =
     /// <remarks>
     /// When only the NKF fetch failed the registry already serves `Source.getLink []`
     /// (FK links intact, NKF links gone); see `Keys.nkfLinkProvider`. When the whole
-    /// resource load failed nothing is registered at all and `Get` would throw, so serve
-    /// that same degraded provider here: a decorative link must never fail a request.
+    /// resource load failed nothing is registered at all and `Get` raises
+    /// `KeyNotFoundException`, so serve that same degraded provider here: a decorative
+    /// link must never fail a request. One provider call, not an `IsLoaded` check followed
+    /// by `Get`: a `CachedResourceProvider` takes its lock per call, so a reload failing
+    /// between the two would still throw.
     /// </remarks>
     let getNKFLinkProvider (provider: IResourceProvider) : Source.LinkProvider =
-        if provider.GetResourceInfo().IsLoaded then
+        try
             provider.Get Keys.nkfLinkProvider
-        else
+        with :? System.Collections.Generic.KeyNotFoundException ->
             Source.getLink []
 
 
