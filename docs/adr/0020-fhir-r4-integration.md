@@ -167,6 +167,6 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 - Dutch G-Standard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
 - IHE Pharmacy profile: <https://www.ihe.net/resources/technical_frameworks/#pharmacy>
 - [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
-- [ADR-0015: Security Baseline](0015-security-baseline.md)
+- [Security baseline (formerly ADR-0015)](../security/security-baseline.md)
 - PR #215: Scripts (FHIR): Add `ImplementationPlan.fsx`
 - PR #222: Scripts (FHIR): Fix `ImplementationPlan.fsx` — major rework with correct FHIR property mappings
