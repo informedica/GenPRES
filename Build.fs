@@ -159,9 +159,12 @@ Target.create
 
         let started = ref false
 
+        // Wall-clock since the target began, stamped on each assembly summary below.
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+
         // Capture all output so we can surface the failing tests on a non-zero
-        // exit. The progress dots replace the raw `dotnet test` output, so
-        // without this the CI log shows no indication of *what* failed.
+        // exit. The per-assembly progress lines replace the raw `dotnet test`
+        // output, so without this the CI log shows no indication of *what* failed.
         let captured = System.Collections.Generic.List<string>()
 
         let parseLine (line: string) =
@@ -195,9 +198,13 @@ Target.create
 
                 if not started.Value then
                     started.Value <- true
-                    printf "Running tests "
+                    printfn "Running tests ..."
 
-                printf "."
+                // One line per assembly rather than a bare dot, so a slow *assembly* can be
+                // told apart from a slow *platform*. `dotnet test` runs the test projects
+                // concurrently, so the stamp is when this assembly finished, while VSTest's
+                // own `Duration:` inside the line is how long it took.
+                printfn "  [%6.1fs] %s" sw.Elapsed.TotalSeconds (line.Trim())
 
         // Build the process directly rather than via the `dotnet` helper: that
         // helper attaches an `addOnExited` that throws on a non-zero exit code
@@ -209,6 +216,13 @@ Target.create
             [
                 "test"
                 sln
+                // ServerTests depends on Build, which has just run `dotnet build` over the
+                // whole solution (test projects included). Without --no-build, `dotnet test`
+                // evaluates the project graph and up-to-date-checks every project a second
+                // time: measured locally that second pass is 16 of the target's 29 seconds,
+                // more than the test run itself. The `totalTests = 0` guard below turns a
+                // genuinely unbuilt tree into a loud failure rather than a green no-op.
+                "--no-build"
                 "--no-restore"
                 "--verbosity"
                 "quiet"
@@ -240,7 +254,7 @@ Target.create
             printfn "====================================================================="
 
             if result.ExitCode <> 0 then
-                // The progress dots replace the raw `dotnet test` output, so dump
+                // The per-assembly progress lines replace the raw `dotnet test` output, so dump
                 // the captured output to reveal *what* failed. At minimal verbosity
                 // this is just the per-project summaries plus the failure blocks
                 // (no passing-test noise), so it stays readable.
