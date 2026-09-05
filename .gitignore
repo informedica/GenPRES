@@ -156,6 +156,7 @@
 /docs/scenarios/Adult.md
 !/docs/data-extraction/
 !/docs/domain/
+!/docs/adr/
 !/docs/mdr/
 !/docs/mdr/design-history/
 !/docs/mdr/post-market/
