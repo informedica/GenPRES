@@ -94,7 +94,7 @@ let createProcess exe args dir =
     |> CreateProcess.addOnExited (fun data exitCode ->
         // Treat SIGINT (130) and SIGTERM (143) as graceful shutdown
         if exitCode <> 0 && exitCode <> 130 && exitCode <> 143 then
-            failwithf "Process exit code '%d' <> 0. Command Line: %s %s" exitCode exe (args |> String.concat " ")
+            invalidOp $"""Process exit code '%d{exitCode}' <> 0. Command Line: %s{exe} %s{args |> String.concat " "}"""
 
         data
     )
@@ -111,7 +111,7 @@ let createProcessFromPath processName args dir =
         | None ->
             "npm was not found in path. Please install it and make sure it's available from your path. "
             + "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
-            |> failwith
+            |> invalidOp
 
     createProcess path args dir
 

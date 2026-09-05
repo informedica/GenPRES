@@ -44,7 +44,7 @@ module UnitsParse =
                                 None
                             else
                                 if s |> groupIsGeneralOrNone |> not then
-                                    failwith $"invalid unit group {s}"
+                                    raise (System.FormatException $"invalid unit group {s}")
 
                                 s |> String.removeBrackets |> Units.General.general |> Some
                     )

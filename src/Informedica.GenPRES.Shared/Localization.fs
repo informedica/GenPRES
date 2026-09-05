@@ -205,7 +205,7 @@ module Localization =
         | _ when s = "deutsch" -> German
         | _ when s = "italiano" -> Italian
         //        | _ when s = "中文" -> Chinees
-        | _ -> failwith $"{s} is not a known language"
+        | _ -> raise (System.FormatException $"{s} is not a known language")
 
 
     let languages = [| English; Dutch; French; German; Spanish; Italian |]

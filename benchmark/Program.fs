@@ -30,13 +30,13 @@ module TestSolver =
     let printEqs =
         function
         | Ok eqs -> eqs |> Solver.printEqs true procss
-        | Error _ -> failwith "errors"
+        | Error _ -> invalidOp "errors"
 
 
     let printEqsWithUnits =
         function
         | Ok eqs -> eqs |> Solver.printEqs false procss
-        | Error _ -> failwith "errors"
+        | Error _ -> invalidOp "errors"
 
 
     let setProp n p eqs =

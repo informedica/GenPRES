@@ -2297,7 +2297,7 @@ module Models =
                     | 1 -> Caution
                     | 2 -> Warning
                     | 3 -> Alert
-                    | i -> failwith $"not a valid textblock: {i}"
+                    | i -> raise (System.FormatException $"not a valid textblock: {i}")
 
 
         /// Flatten TextBlock[][] to a single-row TextBlock[][] for compact display.

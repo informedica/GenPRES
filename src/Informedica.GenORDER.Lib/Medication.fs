@@ -302,7 +302,7 @@ module Medication =
                         | first :: rest when not (first |> Seq.exists Char.IsDigit) ->
                             SubstanceLimitTarget first, rest |> String.concat ", "
                         | _ -> NoLimitTarget, s
-                    | _ -> $"{firstLabelPos} not valid" |> failwith
+                    | _ -> raise (System.FormatException $"{firstLabelPos} not valid")
 
                 // Split constraints by field labels using regex
                 // Pattern matches: [label] value until next [label] or end
@@ -1326,8 +1326,16 @@ module Medication =
         /// Create the base Order DTO based on order type
         let createBaseOrderDto (med: Medication) =
             match med.OrderType with
-            | AnyOrder -> failwith "Not implemented for a medication order, the order type cannot be 'Any'"
-            | ProcessOrder -> failwith "Not implemented for a mediction order, the order type cannot be 'Process'"
+            | AnyOrder ->
+                raise (
+                    System.NotSupportedException
+                        "Not implemented for a medication order, the order type cannot be 'Any'"
+                )
+            | ProcessOrder ->
+                raise (
+                    System.NotSupportedException
+                        "Not implemented for a medication order, the order type cannot be 'Process'"
+                )
             | OnceOrder -> Order.Dto.once med.Id med.Name med.Route []
             | OnceTimedOrder -> Order.Dto.onceTimed med.Id med.Name med.Route []
             | ContinuousOrder -> Order.Dto.continuous med.Id med.Name med.Route []

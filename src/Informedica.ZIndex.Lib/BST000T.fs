@@ -110,7 +110,7 @@ module BST000T =
 
             if t.MDRECL <> BST001T.recordLength n then
                 $"Calculated record length: %i{t.MDRECL}, is not equal to table record length: %i{BST001T.recordLength n}"
-                |> failwith
+                |> invalidOp
 
             t.MDOBST
 

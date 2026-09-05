@@ -246,7 +246,7 @@ module Solver =
             let n2 = eqs |> List.length
 
             if n2 <> n1 then
-                failwith $"not the same number of eqs, was: {n1}, now {n2}"
+                invalidOp $"not the same number of eqs, was: {n1}, now {n2}"
             else
                 Ok eqs
 
@@ -270,6 +270,6 @@ module Solver =
             let n2 = eqs |> List.length
 
             if n2 <> n1 then
-                failwith $"not the same number of eqs, was: {n1}, now {n2}"
+                invalidOp $"not the same number of eqs, was: {n1}, now {n2}"
             else
                 Ok eqs

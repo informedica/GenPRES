@@ -26,7 +26,7 @@ module Utils =
             Env.loadDotEnv () |> ignore
 
             Env.getItem Constants.GENPRES_URL_ID
-            |> Option.defaultWith (fun () -> failwith $"{Constants.GENPRES_URL_ID} not set")
+            |> Option.defaultWith (fun () -> invalidOp $"{Constants.GENPRES_URL_ID} not set")
             |> fun urlId -> GoogleSheets.getCsvDataFromSheetSync urlId sheet // urlId sheet
             |> Result.defaultValue [||]
 

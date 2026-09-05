@@ -36,7 +36,7 @@ type GenFormMcpTools() =
 
     static member private Provider =
         _provider
-        |> Option.defaultWith (fun () -> failwith "Provider not initialized. Call GenFormMcpTools.SetProvider first.")
+        |> Option.defaultWith (fun () -> invalidOp "Provider not initialized. Call GenFormMcpTools.SetProvider first.")
 
 
     [<McpServerTool(Name = "get_resource_info")>]
@@ -131,7 +131,7 @@ type GenOrderMcpTools() =
 
     static member private Provider =
         _provider
-        |> Option.defaultWith (fun () -> failwith "Provider not initialized. Call GenOrderMcpTools.SetProvider first.")
+        |> Option.defaultWith (fun () -> invalidOp "Provider not initialized. Call GenOrderMcpTools.SetProvider first.")
 
 
     [<McpServerTool(Name = "get_order_context_filter_options")>]

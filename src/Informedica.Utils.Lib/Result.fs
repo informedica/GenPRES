@@ -7,7 +7,7 @@ module Result =
     let get =
         function
         | Ok r -> r
-        | Error _ -> failwith "cannot get result from Error"
+        | Error _ -> invalidOp "cannot get result from Error"
 
     module Tests =
 

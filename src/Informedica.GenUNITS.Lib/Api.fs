@@ -41,7 +41,7 @@ module Api =
             | _ when s = "/" -> (fun a b -> a / b)
             | _ when s = "+" -> (fun a b -> a + b)
             | _ when s = "-" -> (fun a b -> a - b)
-            | _ -> failwith <| $"Cannot evaluate string %s{s}"
+            | _ -> raise (System.FormatException $"Cannot evaluate string %s{s}")
 
         let rec eval' acc terms =
             if acc |> Option.isNone then
@@ -59,7 +59,7 @@ module Api =
 
                     rest |> eval' vu
 
-                | _ -> failwith <| sprintf "Cannot evaluate string %s" (terms |> String.concat ",")
+                | _ -> raise (System.FormatException $"""Cannot evaluate string %s{terms |> String.concat ","}""")
 
         s
         |> String.replace mults (mults |> addDel)

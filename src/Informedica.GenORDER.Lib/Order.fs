@@ -2504,9 +2504,7 @@ module Order =
                 | false, false, false, true, false -> dto.Frequency |> Frequency.fromDto |> Discontinuous
                 | false, false, false, false, true ->
                     (dto.Frequency |> Frequency.fromDto, dto.Time |> Time.fromDto) |> Timed
-                | _ ->
-                    exn "dto is neither or both process, continuous, discontinuous or timed"
-                    |> raise
+                | _ -> invalidOp "dto is neither or both process, continuous, discontinuous or timed"
 
 
             let toDto schedule =
@@ -3373,7 +3371,7 @@ module Order =
                                 rest |> List.filter (OrderVariable.eqsUnitGroup h)
 
                     (h, rest) |> c
-                | _ -> failwith $"cannot map {eqs}"
+                | _ -> invalidOp $"cannot map {eqs}"
             )
 
         let sumEqs, prodEqs = eqMapping

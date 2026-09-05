@@ -137,13 +137,13 @@ let private validateProductionPassword () =
             |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
         with
         | None ->
-            failwith
+            invalidOp
                 "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty). \
                  Refusing to start in production without an admin password. \
                  Generate one with `openssl rand -base64 32` and inject it via a secret store. \
                  See DEVELOPMENT.md → Password policy."
         | Some pwd when pwd.Length < minProductionPasswordLength ->
-            failwith
+            invalidOp
                 $"GENPRES_PROD=1 but GENPRES_PASSWORD is shorter than %i{minProductionPasswordLength} characters. \
                  Refusing to start in production with a weak admin password. \
                  Generate a stronger one with `openssl rand -base64 32`. \
@@ -172,7 +172,7 @@ let provider =
     // confusing "cannot find column" error from GenForm.
     tryGetEnv "GENPRES_URL_ID"
     |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
-    |> Option.defaultWith (fun () -> failwith "No GENPRES_URL_ID (or value is empty)")
+    |> Option.defaultWith (fun () -> invalidOp "No GENPRES_URL_ID (or value is empty)")
     |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger
 
 

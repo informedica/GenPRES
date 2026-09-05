@@ -115,7 +115,7 @@ module Combine =
                     match n1, n2 with
                     | Some x1, Some x2 -> u1 |> Units.setUnitValue (x1 + x2)
                     | _ -> u1
-                | _ -> failwith <| $"Cannot combine units {u1} and {u2} with operator {op}"
+                | _ -> raise (System.NotSupportedException $"Cannot combine units {u1} and {u2} with operator {op}")
 
 
     /// <summary>
