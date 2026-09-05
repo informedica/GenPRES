@@ -283,7 +283,6 @@ Our roadmap is guided by:
 
 For detailed workshop planning and task breakdown, see:
 - [GenPRES Architecture and Timeline](docs/roadmap/genpres-architecture-and-timeline.md)
-- [W1: Project Structure & Governance](docs/roadmap/w1-project-structure-and-governance.md)
 
 ## Get Involved
 

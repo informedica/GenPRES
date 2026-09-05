@@ -4,7 +4,7 @@
 
 The AfsprakenProgramma 2019 (AP2019) is the PICU/NICU clinical workflow application at UMC Utrecht / WKZ, launched November 2019 in its current state. This analysis maps its medication, feeding, and fluids requirements against the current GenPRES Prescribe, Nutrition, and TreatmentPlan views to identify what GenPRES already covers, what partially exists, and what is missing.
 
-**Revisions**: Items 5.4, 5.5, 5.7, 5.10, 5.11, 9.4, 9.8 and 9.10 were corrected against the *UC TPN prescribing* walkthrough (`docs/scenarios/UC TPN prescribing.pdf`) and the use cases in `docs/scenarios/`. Each either understated what GenPRES does, or measured it against a mis-stated AP2019 requirement, or recorded as a shortfall something the use cases make a deliberate non-goal. Rows 5.17, 5.18 and section 11 were added.
+**Revisions**: Items 5.4, 5.5, 5.7, 5.10, 5.11, 9.4, 9.8 and 9.10 were corrected against the *UC TPN prescribing* walkthrough (`docs/scenarios/tpn-prescribing/UC TPN prescribing.pdf`, a local file not tracked in git) and the use cases in `docs/scenarios/`. Each either understated what GenPRES does, or measured it against a mis-stated AP2019 requirement, or recorded as a shortfall something the use cases make a deliberate non-goal. Rows 5.17, 5.18 and section 11 were added.
 
 **Status values**: **Fit**, **Partial** and **Gap** measure GenPRES against an AP2019 requirement and are counted in the summary. **Out of scope** marks an AP2019 capability GenPRES deliberately does not reproduce, with the reason given; these are excluded from the counts, as is section 11.
 

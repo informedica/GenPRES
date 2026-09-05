@@ -169,8 +169,7 @@ cycle from a solve that simply needed more iterations, and it reports neither to
 > — exists in `src/Informedica.GenSOLVER.Lib/Scripts/LoopDetect.fsx`. That script is not in the
 > library's `<Compile>` list, so none of it runs in production; `Solver.fs` still has only the
 > `MAX_LOOP_COUNT` ceiling. See [GenSOLVER Stability Analysis](gensolver-stability-analysis.md) for
-> the gap analysis and [`w2-core-architecture-review.md`](../roadmap/w2-core-architecture-review.md)
-> for the migration status.
+> the gap analysis; the migration status is tracked in the issue tracker.
 
 ## 8. Logging and Explainability
 
