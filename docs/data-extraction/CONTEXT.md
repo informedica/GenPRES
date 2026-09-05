@@ -48,11 +48,13 @@ An extraction-produced, positive-only boolean facet attached to a rule's
 rather than as a numeric age range." `"x"` = confirmed adult; absence asserts
 **nothing** (never "not an adult"). Elderly (`ouderen`/`bejaarden`) is
 deliberately folded into Adult. A deliberate single exception to the
-ranges-only Patient Category model. It is a **prototyping finding**: it does
-not yet exist in GenFORM `.fs`. Carrying it into source — so Patient Category
-consumes it and matching enforces "adults only" — is a port-time task. Until
-then no `IsAdult = "x"` row may reach GenFORM ingest (its `MinAge`/`MaxAge`
-are blanked, so it would otherwise match every age).
+ranges-only Patient Category model. It started as a **prototyping finding** and
+has since been carried into GenFORM source: `DoseRuleData.IsAdult` is parsed
+and `PatientCategory.Age` has an `IsAdult` case. Matching does **not** yet
+enforce "adults only" (`Patient.getAge` returns an empty range for the case;
+see the `TODO` in `src/Informedica.GenFORM.Lib/Patient.fs`), so until it does
+no `IsAdult = "x"` row may reach GenFORM ingest (its `MinAge`/`MaxAge` are
+blanked, so it would otherwise match every age).
 _Avoid_: AgeCategory, age band, adult flag (it is not a tri-state, does not generalise).
 
 **SortNo**:

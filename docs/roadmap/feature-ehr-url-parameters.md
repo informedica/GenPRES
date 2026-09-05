@@ -134,12 +134,12 @@ record has no identifier and no name. Delivering this needs:
   ([Types.fs:103](../../src/Informedica.GenPRES.Shared/Types.fs#L103)); a
   `Location` (`string option`) field also already exists
   ([Types.fs:102](../../src/Informedica.GenPRES.Shared/Types.fs#L102)) and may
-  be a fit for bed/ward location — decide whether `bi` maps to a new `BedId`
+  be a fit for bed/ward location — decide whether `bed` maps to a new `BedId`
   field or reuses `Location`.
-- Introduce a user/session-context value for `us`. There is currently **no**
+- Introduce a user/session-context value for `usr`. There is currently **no**
   per-user identity model — the only auth is a single password gate for the
   settings page ([App.fs:48-49](../../src/Informedica.GenPRES.Client/App.fs#L48)).
-  Decide whether `us` is display/audit-only metadata or feeds a future
+  Decide whether `usr` is display/audit-only metadata or feeds a future
   identity model.
 - Update `parseUrl` / `parsePatientParams`
   ([App.fs:225-349](../../src/Informedica.GenPRES.Client/App.fs#L225)) to read

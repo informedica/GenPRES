@@ -1,6 +1,6 @@
 # GenPRES Backlog
 
-Feature backlog covering the path from data extraction to EMR-integrated, multi-user
+Feature backlog covering the path from data extraction to EHR-integrated, multi-user
 production deployment. Items are numbered as originally proposed; the
 [Dependency Graph](#dependency-graph) and [Suggested Phasing](#suggested-phasing)
 sections below reorder them by what must be built first.
@@ -41,7 +41,7 @@ sections below reorder them by what must be built first.
                  └───────┬─────────────────┘
                          ▼
                  ┌─────────────────────────┐
-                 │ 7. EMR integration      │
+                 │ 7. EHR integration      │
                  └─────────────────────────┘
 ```
 
@@ -59,9 +59,9 @@ Key chains:
 | ----- | ----- | ----- |
 | P1 | 1, 2 | Author + validate the full rule set (all rule types) through a UI |
 | P2 | 3, 5 | Make rules a versioned, storable artifact |
-| P3 | 8 | Identity + audit foundation (needed before persistent orders / EMR) |
+| P3 | 8 | Identity + audit foundation (needed before persistent orders / EHR) |
 | P4 | 4, 6 | Bind orders to a publication; persist running orders |
-| P5 | 7 | Integrate with external EMR systems |
+| P5 | 7 | Integrate with external EHR systems |
 
 ---
 
@@ -222,27 +222,27 @@ access control + audit mandatory). Storage tech choice is **open**.
 
 ---
 
-### 7. Interface with existing EMR systems 🔲
+### 7. Interface with existing EHR systems 🔲
 
-**Description.** Integration layer to exchange orders/patient context with external EMR
+**Description.** Integration layer to exchange orders/patient context with external EHR
 systems. GenPRES has no integration libraries today: the earlier `Informedica.FHIR.Lib`,
 `Informedica.HIXConnect.Lib`, `Informedica.DataPlatform.Lib` and `Informedica.OTS.Lib`
 projects were removed from the solution, so this item starts from scratch. See ADR-0020
 for the superseded FHIR design.
 
 **Rationale.** GenPRES must consume patient context from and return validated orders to the
-EMR of record to be clinically useful in situ.
+EHR of record to be clinically useful in situ.
 
 **Dependencies.** Needs 6 (durable orders to exchange) and 8 (identity + audit on every
 inbound/outbound exchange). Highest-risk item — defer until data + auth foundation solid.
 
 **Affected areas.**
 - A new integration library under `src/`; `Informedica.GenPRES.Shared` for the wire types
-- Inbound: patient demographics → Order Context; outbound: order → FHIR/EMR format
+- Inbound: patient demographics → Order Context; outbound: order → FHIR/EHR format
 
 **Acceptance criteria.**
-- Pull patient context from at least one EMR → populate Order Context.
-- Push a validated order to at least one EMR as a FHIR MedicationRequest (unit-safe
+- Pull patient context from at least one EHR → populate Order Context.
+- Push a validated order to at least one EHR as a FHIR MedicationRequest (unit-safe
   quantities).
 - Mapping errors mapped to domain errors at the boundary (no leaking exceptions).
 - End-to-end exchange audited.
@@ -256,7 +256,7 @@ inbound/outbound exchange). Highest-risk item — defer until data + auth founda
 significant action. Replaces the current single `GENPRES_PASSWORD` admin gate.
 
 **Rationale.** Cross-cutting prerequisite for anything that persists patient data or talks
-to an EMR (items 4, 6, 7). Required for MDR + privacy. Current model is a single shared
+to an EHR (items 4, 6, 7). Required for MDR + privacy. Current model is a single shared
 admin password — insufficient for multi-user clinical use.
 
 **Dependencies.** None technically, but should land **before** 4/6/7 go live. Best started
@@ -283,7 +283,7 @@ in parallel with P1/P2.
   queryable, privacy-sensitive — may warrant different stores.
 - **Publication format (item 3).** JSON graph vs. existing CSV/TSV resource shapes vs. a
   packed archive? Must round-trip losslessly through `getFromGetData`/`toData`.
-- **Identity provider (item 8).** Self-hosted vs. OIDC/hospital SSO? EMR integration (7)
+- **Identity provider (item 8).** Self-hosted vs. OIDC/hospital SSO? EHR integration (7)
   may dictate this.
-- **EMR scope (item 7).** Which EMR(s) first? HIX and MetaVision are the candidates —
+- **EHR scope (item 7).** Which EHR(s) first? HIX and MetaVision are the candidates —
   confirm priority + available test environments.

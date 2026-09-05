@@ -146,6 +146,11 @@ the caller to switch providers without changing the pipeline.
 
 ### Structured schema (abridged)
 
+> **Superseded.** The record shapes below are the April 2026 design. The live output
+> contract of `DoseRuleExtract.fsx` — dose types `once` / `onceTimed` / `discontinuous` /
+> `timed` / `continuous`, and the full `Min*`/`Max*` quantity, per-time and rate fields — is
+> [`doserule-extraction-prompt.md`](doserule-extraction-prompt.md) §3.
+
 ```fsharp
 type DoseLimit = {|
     ``component``: string    // drug component name (e.g. "Paracetamol")

@@ -777,7 +777,7 @@ For the canonical and up-to-date development toolchain requirements
 
 #### Frontend Technologies
 
-- **Fable 4.x**: F# to JavaScript transpiler  
+- **Fable 5.x**: F# to JavaScript transpiler  
 - **Elmish**: Model-View-Update architecture  
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions)  
 - **npm**: 10.x or later for package management  
@@ -788,8 +788,7 @@ For the canonical and up-to-date development toolchain requirements
 
 - **Saturn**: F# web framework built on ASP.NET Core  
 - **ASP.NET Core 10.0**: Web server and API framework  
-- **Giraffe**: Functional ASP.NET Core micro web framework  
-- **Suave.IO**: Lightweight web server (if applicable)
+- **Giraffe**: Functional ASP.NET Core micro web framework
 
 ### Testing & Quality Assurance
 
@@ -898,10 +897,10 @@ For the canonical and up-to-date development toolchain requirements
 #### Core Domain Libraries
 
 - **Informedica.GenUNITS.Lib**: Unit-of-measure calculations with exact arithmetic  
-- **Informedica.GenSolver.Lib**: Constraint satisfaction solver  
-- **Informedica.GenCore.Lib**: Core domain concepts (Patient, measurements)  
-- **Informedica.GenForm.Lib**: Prescription rules and formularies  
-- **Informedica.GenOrder.Lib**: Order management and calculations
+- **Informedica.GenSOLVER.Lib**: Constraint satisfaction solver  
+- **Informedica.GenCORE.Lib**: Core domain concepts (Patient, measurements)  
+- **Informedica.GenFORM.Lib**: Prescription rules and formularies  
+- **Informedica.GenORDER.Lib**: Order management and calculations
 
 #### Supporting Libraries
 
@@ -910,7 +909,7 @@ For the canonical and up-to-date development toolchain requirements
 - **Informedica.Logging.Lib**: Structured logging with human-readable output  
 - **Informedica.ZIndex.Lib**: Z-Index data parsing  
 - **Informedica.ZForm.Lib**: Dose rule processing  
-- **Informedica.FHIR.Lib**: FHIR resource serialization  
+- **Informedica.FHIR.Lib**: FHIR resource serialization (planned; not in the solution, see Addendum 3)  
 - **Informedica.MCP.Lib**: Model Context Protocol implementation
 
 ### Browser Compatibility

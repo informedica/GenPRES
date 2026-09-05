@@ -191,9 +191,6 @@ rows are excluded from the summary counts.
 
 ---
 
-
----
-
 ## Summary
 
 | Status | Count | Percentage |

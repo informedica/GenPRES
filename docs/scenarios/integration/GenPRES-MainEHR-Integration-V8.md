@@ -937,4 +937,4 @@ Decisions not yet made. Each one blocks something.
 
 ## Appendix Simulation Runs
 
-*Regenerated from Session.fsx once the model carries this revision.*  
+*The traces are produced by `Integration.fsx` (see [README](README.md)); they are written to `Integration.run.txt` beside the script and are not reproduced here.*  
