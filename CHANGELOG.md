@@ -1,5 +1,5 @@
 ---
-last_commit_released: f965ea6d0425ccbe582d2ed316a429d4193b1366
+last_commit_released: ec537a2a1fde2a3cdfc0bb1eec5ba9d65a99208f
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,14 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.8 - 2026-09-05
+
+### 🐞 Bug Fixes
+
+* *(genform)* Fix eager evaluation that perform IO (issue #523) ([45c40e1f](https://github.com/informedica/GenPRES/commit/45c40e1f965a237b8d61a0708e4297b3e992d28a))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/f965ea6d0425ccbe582d2ed316a429d4193b1366..ec537a2a1fde2a3cdfc0bb1eec5ba9d65a99208f)</small></strong>
 
 ## 0.1.2-alpha.7 - 2026-09-01
 
