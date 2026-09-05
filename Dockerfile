@@ -54,7 +54,7 @@ LABEL org.opencontainers.image.version="${APP_VERSION}"
 COPY --from=app-build /workspace/deploy /app
 
 ENV GENPRES_LOG=0
-ENV GENPRES_PROD="1"
+ENV GENPRES_PROD="0"
 ENV GENPRES_DEBUG="0"
 
 # Application root: the directory containing data/ (cache, config, logs).
@@ -62,17 +62,26 @@ ENV GENPRES_DEBUG="0"
 # Set explicitly so AppPath resolves without relying on the cwd fallback.
 ENV GENPRES_ROOT="/app"
 
-# SECURITY: GENPRES_URL_ID is a proprietary FAIR asset and MUST NOT be
-# baked into the published image. Inject it at container runtime instead, e.g.:
+# The defaults above (GENPRES_PROD=0) plus the public demo sheet ID below make a
+# bare `docker run -p 8080:8085 informedica/genpres` start a working demo with no
+# secrets (issue #541). They match what the image ships: /app/data/cache holds
+# only the *.demo files, and demo mode is what reads them. Admin operations stay
+# disabled because GENPRES_PASSWORD is empty.
 #
-#   docker run -e GENPRES_URL_ID="<your_url_id>" \
-#              -e GENPRES_PASSWORD="<your_admin_password>" \
-#              -p 8080:8085 informedica/genpres
+# Production is an explicit opt-in at container runtime and needs all four of:
 #
-# Or via a Docker / Kubernetes secret. The server fails closed (no admin
-# operations) when GENPRES_PASSWORD is unset, and refuses to start when
-# GENPRES_URL_ID is unset.
-ENV GENPRES_URL_ID=
+#   -e GENPRES_PROD=1
+#   -e GENPRES_URL_ID="<proprietary_url_id>"
+#   -e GENPRES_PASSWORD="<admin_password, 16+ chars>"
+#   -v "$PWD/data/cache:/app/data/cache"   (production reads *.cache, not shipped)
+#
+# `docker compose up -d` with the repo-root compose.yaml wires all four from .env.
+#
+# SECURITY: the proprietary production GENPRES_URL_ID is a FAIR asset and MUST
+# NOT be baked into the published image; inject it at runtime, ideally via a
+# Docker / Kubernetes secret. The ID below is the public demo sheet already
+# published in .env.example and the release workflow, so it leaks nothing.
+ENV GENPRES_URL_ID=1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
 ENV GENPRES_PASSWORD=
 
 WORKDIR /app

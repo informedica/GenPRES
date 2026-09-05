@@ -246,8 +246,9 @@ jobs:
         # steps.tags already folded any "+" build-metadata to "-"; reuse it rather than
         # rebuilding the tag from the raw version here and risking the two drifting apart.
         IMAGE: ${{ steps.tags.outputs.version_tag }}
-        # Public demo spreadsheet ID from .env.example. GENPRES_PROD defaults to 1 in the image, so
-        # the server refuses to start without both this and a 16+ char GENPRES_PASSWORD.
+        # Public demo spreadsheet ID from .env.example. The image now defaults to demo mode with this
+        # same ID baked in (#541), so neither -e is strictly required any more; both are still passed
+        # so the test also proves that runtime injection of the two variables keeps working.
         DEMO_URL_ID: 1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA
       # There is no dedicated health endpoint (see DEVELOPMENT.md), so "/" is the only smoke-test target
       # available. This does not exercise medication calculations; it only proves the image starts and serves.

@@ -5,6 +5,7 @@
 !.gitignore
 !.gitattributes
 !.dockerignore
+!compose.yaml
 
 # Add license
 !LICENSE.txt

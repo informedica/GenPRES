@@ -1,0 +1,29 @@
+# Run a published GenPRES image with everything read from .env (issue #541).
+#
+#   cp .env.example .env      # once: set GENPRES_IMAGE_TAG and, for production, the secrets
+#   docker compose pull       # after each release
+#   docker compose up -d      # (re)creates container "genpres" on http://localhost:${GENPRES_PORT:-8080}
+#
+# Compose interpolates ${...} from the .env in this directory automatically, so .env stays the
+# single source of truth (DEVELOPMENT.md → Environment Configuration). Only the GENPRES_* keys are
+# forwarded on purpose: `env_file: .env` would also push unrelated local secrets into the container.
+services:
+  genpres:
+    # No :latest is published (only pre-releases), so the tag is mandatory.
+    image: informedica/genpres:${GENPRES_IMAGE_TAG:?set GENPRES_IMAGE_TAG in .env}
+    container_name: genpres
+    ports:
+      - "${GENPRES_PORT:-8080}:8085"
+    environment:
+      # Falls back to the public demo sheet (the image default) when .env leaves it unset or empty.
+      GENPRES_URL_ID: ${GENPRES_URL_ID:-1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA}
+      # Optional in demo mode (admin operations disabled); required, 16+ chars, when GENPRES_PROD=1.
+      GENPRES_PASSWORD: ${GENPRES_PASSWORD:-}
+      GENPRES_PROD: ${GENPRES_PROD:-0}
+      GENPRES_LOG: ${GENPRES_LOG:-0}
+      GENPRES_DEBUG: ${GENPRES_DEBUG:-0}
+    volumes:
+      # Production reads *.cache, which the image does not ship. The host data/cache also
+      # holds the *.demo files, so the mount is harmless in demo mode.
+      - ./data/cache:/app/data/cache
+    restart: unless-stopped

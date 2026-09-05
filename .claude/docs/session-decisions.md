@@ -158,6 +158,23 @@ Branch `perf/ci-no-build-test`, PR open against informedica/GenPRES master.
 | + --no-build (33972679870) | 26 s | 39 s | 60 s |
 | + scenario collapse (33973502710) | 23 s | 36 s | 32.5 s |
 
-Remaining long pole on every OS: Agents.Tests (13 / 15 / 26 s) — three FileWriterAgent FsCheck properties at
-~20 s each on macOS, `Thread.Sleep 100` per case × 100 cases. Next candidate fix (needs user OK, .fs test file):
-replace the fixed sleep with the file's existing `waitUntil` poll.
+Follow-ups after #543 merged (all user-authorised `tests/*.fs` edits, each its own PR off master):
+
+- #544 (merged) `test(agents)`: dropped `waitForFileWrite` (`Thread.Sleep 100` after every `flush`) — flush is
+  PostAndReply and replies after StreamWriter.Flush, so the sleep guarded nothing. Agents.Tests 13/15/26 s →
+  2/15/4 s (ubuntu/windows/macOS). Windows unchanged because its cost was elsewhere.
+- #545 `ci(github)`: `overwrite: true` on the trx upload — v4+ upload-artifact rejects a duplicate name, so
+  since #543 a job re-run failed at that step.
+- #546 `test(agents)`: the two Agent FsCheck properties polled with `Thread.Sleep 5` (~15 ms granularity on
+  Windows → 8.5 s each there); now a `ManualResetEventSlim` set from the handler on processed COUNT (the sum
+  poll could return early on e.g. `[5; 0]`), 30 s hang guard. Invalid path is now a child of a regular file
+  (the `//invalid//...` UNC form cost a 3-4 s lookup on Windows). Sync `waitUntil` removed.
+  Merged. CI: Agents.Tests 2 s on all three legs (run 33976752836); a second Windows sample (33976951986,
+  merge commit) showed 12 s with discovery itself 8× slower — CPU contention with GenCORE/Logging testhosts on
+  the 4-core box, not the tests. Logging.Tests has the same Windows-only signature (4 agent-logging tests at
+  5–12 s each vs 4 s total elsewhere): next Windows target if wanted, not started.
+
+Final ServerTests per leg (fast samples): ubuntu ~28–30 s, windows ~33–38 s, macOS ~23 s; from 57 / 61 / 116 s.
+
+Principle that held throughout: replace timing guesses with the protocol's own completion signal (reply
+channel / event); keep timeouts only as hang guards (≥ 30 s).
