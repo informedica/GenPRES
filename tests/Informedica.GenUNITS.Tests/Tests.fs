@@ -204,7 +204,7 @@ module Tests =
         | Ok exp -> res =? exp |> Expect.isTrue ""
         | _ ->
             false |> Expect.isTrue ""
-            failwith "can't run the test"
+            failtest "can't run the test"
 
         res
 
@@ -306,7 +306,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringDutchShort
                     |> Expect.equal "should equal" "1 x[Count]/4 weken[Time]"
                 }
@@ -333,7 +333,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "3/2 mg[Mass]"
                 }
@@ -343,7 +343,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "1;3;5 x[Count]"
                 }
@@ -353,7 +353,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "1;3;5 x[Count]"
                 }
@@ -363,7 +363,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "10;20;30 mg[Mass]"
                 }
@@ -373,7 +373,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "1/2;1;3/2 mg[Mass]"
                 }
@@ -383,7 +383,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "120 stuk[General]"
                 }
@@ -393,7 +393,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "120 stuk[General]"
                 }
@@ -403,7 +403,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "1 stuk[General]"
                 }
@@ -413,7 +413,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "120;240;500 mg[Mass]/stuk[General]"
                 }
@@ -423,7 +423,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "10;20;30 tablet[General]"
                 }
@@ -433,7 +433,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> get
                     |> snd
                     |> Group.unitToGroup
@@ -445,7 +445,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "10 mg[Mass]/ml[Volume]"
                 }
@@ -455,7 +455,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "5 ml[Volume]/ampul[General]"
                 }
@@ -468,7 +468,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> Expect.equal "should equal original" original
                 }
 
@@ -477,7 +477,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "1;3;5 x[Count]"
                 }
@@ -487,7 +487,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> toStringEngShort
                     |> Expect.equal "should equal" "1/2;1;3/2 sachet[General]"
                 }
@@ -814,7 +814,7 @@ module Tests =
                     |> fromString
                     |> function
                         | Ok vu -> vu
-                        | Error err -> $"can't run this test: {err}" |> failwith
+                        | Error err -> $"can't run this test: {err}" |> failtest
                     |> getUnit
                     |> Group.unitToGroup
                     |> Expect.equal "kg should resolve to Weight" Group.WeightGroup

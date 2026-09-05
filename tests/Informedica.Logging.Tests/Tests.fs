@@ -823,14 +823,7 @@ module Tests =
                         (logger :> IDisposable).Dispose()
 
                         // Should not be able to use after disposal
-                        Expect.throws
-                            (fun () ->
-                                try
-                                    logger.Start None Level.Informative
-                                with exn ->
-                                    "should throw and exception" |> failwith
-                            )
-                            "should throw an exception"
+                        Expect.throws (fun () -> logger.Start None Level.Informative) "should throw an exception"
                     }
 
                 ]
@@ -879,7 +872,7 @@ module Tests =
                 [
 
                     testAsync "should handle formatter exceptions gracefully" {
-                        let badFormatter = fun (_: IMessage) -> failwith "Formatter error!"
+                        let badFormatter = fun (_: IMessage) -> invalidOp "Formatter error!"
 
                         let config =
                             { AgentLogging.AgentLoggerDefaults.config with Formatter = badFormatter }

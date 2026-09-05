@@ -66,7 +66,7 @@ let errorPropagationTests =
             test "loader throws exception is caught and returned as Error" {
                 let result =
                     okRegistry
-                    |> Map.add Keys.unitMappings.Name (fun _ -> failwith "unexpected crash")
+                    |> Map.add Keys.unitMappings.Name (fun _ -> invalidOp "unexpected crash")
                     |> loadAllResourcesWithRegistry
 
                 result |> Result.isError |> Expect.isTrue "should be Error"
@@ -80,7 +80,7 @@ let errorPropagationTests =
                         | _ -> false
                     )
                     |> Expect.isTrue "should contain 'Failed to load resources' message"
-                | Ok _ -> failwith "expected Error"
+                | Ok _ -> failtest "expected Error"
             }
         ]
 
@@ -100,7 +100,7 @@ let successPathTests =
                     loaded.State.IsLoaded |> Expect.isTrue "IsLoaded should be true"
 
                     loaded.State.Messages |> Expect.equal "Messages should be empty" [||]
-                | Error _ -> failwith "expected Ok"
+                | Error _ -> failtest "expected Ok"
             }
         ]
 

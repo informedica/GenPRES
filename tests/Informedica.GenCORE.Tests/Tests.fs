@@ -431,7 +431,7 @@ module Tests =
                                     | Some(Inclusive minVu), Some(Inclusive maxVu) ->
                                         minVu |> ValueUnit.getValue |> Expect.equal "min should be 15" [| 15N |]
                                         maxVu |> ValueUnit.getValue |> Expect.equal "max should be 15" [| 15N |]
-                                    | _ -> failwith "Expected both min and max to be Inclusive"
+                                    | _ -> failtest "Expected both min and max to be Inclusive"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }
@@ -448,7 +448,7 @@ module Tests =
                                         minVu
                                         |> ValueUnit.getUnit
                                         |> Expect.equal "units should match" (maxVu |> ValueUnit.getUnit)
-                                    | _ -> failwith "Expected both min and max to be Inclusive"
+                                    | _ -> failtest "Expected both min and max to be Inclusive"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }
@@ -465,7 +465,7 @@ module Tests =
                                         minVu
                                         |> ValueUnit.getUnit
                                         |> Expect.equal "units should match" (maxVu |> ValueUnit.getUnit)
-                                    | _ -> failwith "Expected both min and max to be Inclusive"
+                                    | _ -> failtest "Expected both min and max to be Inclusive"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }
@@ -477,7 +477,7 @@ module Tests =
                                     match mm.Min, mm.Max with
                                     | Some(Inclusive minVu), None ->
                                         minVu |> ValueUnit.getValue |> Expect.equal "min should be 10" [| 10N |]
-                                    | _ -> failwith "Expected min to be Inclusive and max to be None"
+                                    | _ -> failtest "Expected min to be Inclusive and max to be None"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }
@@ -489,7 +489,7 @@ module Tests =
                                     match mm.Min, mm.Max with
                                     | None, Some(Inclusive maxVu) ->
                                         maxVu |> ValueUnit.getValue |> Expect.equal "max should be 50" [| 50N |]
-                                    | _ -> failwith "Expected min to be None and max to be Inclusive"
+                                    | _ -> failtest "Expected min to be None and max to be Inclusive"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }
@@ -502,7 +502,7 @@ module Tests =
                                     | Some(Inclusive minVu), Some(Inclusive maxVu) ->
                                         minVu |> ValueUnit.getValue |> Expect.equal "min should be 5" [| 5N |]
                                         maxVu |> ValueUnit.getValue |> Expect.equal "max should be 10" [| 10N |]
-                                    | _ -> failwith "Expected both min and max to be Inclusive"
+                                    | _ -> failtest "Expected both min and max to be Inclusive"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }
@@ -522,7 +522,7 @@ module Tests =
                                         |> ValueUnit.getValue
                                         |> Array.head
                                         |> Expect.equal "max should be 20.5" (41N / 2N)
-                                    | _ -> failwith "Expected both min and max to be Inclusive"
+                                    | _ -> failtest "Expected both min and max to be Inclusive"
                                 )
                                 |> Expect.isOk "should parse successfully"
                             }

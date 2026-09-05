@@ -440,7 +440,7 @@ module ZIndexFixture =
     /// to the corresponding field length and concatenating.
     let private buildRecord (lens: int[]) (vals: string[]) =
         if lens.Length <> vals.Length then
-            failwith $"buildRecord: field count mismatch — expected {lens.Length}, got {vals.Length}"
+            invalidArg (nameof vals) $"buildRecord: field count mismatch — expected {lens.Length}, got {vals.Length}"
 
         Array.map2
             (fun (len: int) (v: string) ->

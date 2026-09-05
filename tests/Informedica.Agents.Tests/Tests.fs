@@ -203,7 +203,7 @@ module Tests =
 
                     let agent = Agent.createSimple (fun msg ->
                         match msg with
-                        | ErrorMessage _ -> failwith "Test exception"
+                        | ErrorMessage _ -> invalidOp "Test exception"
                         | _ -> ())
 
                     agent.OnError.Add (fun ex -> errorReceived <- Some ex.Message)
@@ -225,7 +225,7 @@ module Tests =
                     let agent = Agent.createSimple (fun msg ->
                         try
                             match msg with
-                            | ErrorMessage _ -> failwith "Recoverable error"
+                            | ErrorMessage _ -> invalidOp "Recoverable error"
                             | SimpleMessage _ -> messageCount <- messageCount + 1
                             | _ -> ()
                         with

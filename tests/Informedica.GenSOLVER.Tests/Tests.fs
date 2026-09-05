@@ -116,13 +116,13 @@ module TestSolver =
     let printEqs =
         function
         | Ok eqs -> eqs |> Solver.printEqs true procss
-        | Error _ -> failwith "errors"
+        | Error _ -> Expecto.Tests.failtest "errors"
 
 
     let printEqsWithUnits =
         function
         | Ok eqs -> eqs |> Solver.printEqs false procss
-        | Error _ -> failwith "errors"
+        | Error _ -> Expecto.Tests.failtest "errors"
 
 
     let setProp n p eqs =
@@ -534,7 +534,7 @@ module Tests =
                                             ]
                                         |> Variable.ValueRange.getIncr
                                         |> function
-                                            | None -> failwith "no incr"
+                                            | None -> failtest "no incr"
                                             | Some incr -> incr |> Expect.equal "should be 100" (create [| 100N |])
                                     }
 
@@ -553,7 +553,7 @@ module Tests =
                                              |> List.map (ValueUnit.singleWithUnit u >> Increment.create))
                                         |> Variable.ValueRange.getIncr
                                         |> function
-                                            | None -> failwith "no incr"
+                                            | None -> failtest "no incr"
                                             | Some incr ->
                                                 incr
                                                 |> Expect.equal
@@ -1126,7 +1126,7 @@ module Tests =
                         | "/" -> "div"
                         | "+" -> "add"
                         | "-" -> "sub"
-                        | _ -> failwith $"unknown op {opStr}"
+                        | _ -> failtest $"unknown op {opStr}"
 
                     validPermutations
                     |> List.mapi (scenarioToString op opStr)
@@ -2102,7 +2102,7 @@ module Tests =
                                          |> List.map (ValueUnit.singleWithUnit u >> Increment.create))
                                     |> fun v -> v.Values |> Variable.ValueRange.getIncr
                                     |> function
-                                        | None -> failwith "no incr"
+                                        | None -> failtest "no incr"
                                         | Some incr ->
                                             incr
                                             |> Expect.equal

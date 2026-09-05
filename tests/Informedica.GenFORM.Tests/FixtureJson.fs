@@ -41,7 +41,7 @@ module FixtureJson =
             let parts = s.Split('/')
 
             if parts.Length <> 2 then
-                failwith $"BigRational fixture token expected 'num/den', got: '%s{s}'"
+                raise (FormatException $"BigRational fixture token expected 'num/den', got: '%s{s}'")
 
             let bi (t: string) = System.Numerics.BigInteger.Parse t
             (BigRational.FromBigInt(bi parts[0]) / BigRational.FromBigInt(bi parts[1])) :> obj

@@ -85,7 +85,7 @@ module Result =
     let get result =
         match result with
         | Ok value -> value
-        | Error err -> failwith $"{err}"
+        | Error err -> failtest $"{err}"
 
 
 // --- New tests for fluent pipeline guard/order behavior ---
@@ -121,13 +121,13 @@ module Pipeline =
         Scenarios.kaliumchlorideOnceTimedText
         |> Medication.fromString
         |> function
-            | Error errs -> failwith $"Failed to parse kaliumchloride OnceTimed: {errs}"
+            | Error errs -> failtest $"Failed to parse kaliumchloride OnceTimed: {errs}"
             | Ok med ->
                 med
                 |> Medication.toOrderDto
                 |> Dto.fromDto
                 |> function
-                    | Error msg -> failwith $"Failed to create order: {msg}"
+                    | Error msg -> failtest $"Failed to create order: {msg}"
                     | Ok ord -> ord
 
     [<Tests>]
@@ -254,7 +254,7 @@ module Pipeline =
                         |> Medication.toOrderDto
                         |> Dto.fromDto
                         |> function
-                            | Error msg -> failwith $"{msg}"
+                            | Error msg -> failtest $"{msg}"
                             | Ok o -> o
 
                     let res = OrderProcessor.processPipeline noLogger (CalcMinMax ord)
@@ -593,8 +593,8 @@ module ToOrderDto =
 
         let dto =
             match d.OrderType with
-            | AnyOrder -> "the order type cannot be 'Any'" |> failwith
-            | ProcessOrder -> "the order type cannot be 'Process'" |> failwith
+            | AnyOrder -> "the order type cannot be 'Any'" |> failtest
+            | ProcessOrder -> "the order type cannot be 'Process'" |> failtest
             | OnceOrder -> Order.Dto.once d.Id d.Name d.Route []
             | OnceTimedOrder -> Order.Dto.onceTimed d.Id d.Name d.Route []
             | ContinuousOrder -> Order.Dto.continuous d.Id d.Name d.Route []
@@ -1385,7 +1385,7 @@ module OrderProcessorTests =
         |> Order.Dto.fromDto
         |> function
             | Ok o -> o
-            | Error e -> failwith $"could not create tpn order: %A{e}"
+            | Error e -> failtest $"could not create tpn order: %A{e}"
         |> run CalcMinMax
         |> fst
         |> run IncreaseIncrements

@@ -12,7 +12,8 @@ open ServerApi
 /// No IResourceProvider, no network, no data loading.
 module StubAdapters =
 
-    let private notStubbed _ = failwith "not stubbed"
+    let private notStubbed _ =
+        raise (System.NotImplementedException "not stubbed")
 
 
     let formularyAlwaysOk (returnForm: Formulary) : FormularyPort =
