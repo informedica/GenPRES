@@ -268,7 +268,7 @@ Target.create
                     // A discovery failure does this (a static initializer that throws yields no
                     // results — see issue #523), but so does a crashed or cancelled test host,
                     // so name the likely cause without asserting it.
-                    failwithf
+                    invalidOp
                         $"dotnet test exited %i{result.ExitCode}, but no assembly reported a \
                           failing test (%i{totalPassed.Value} passed). Results are missing \
                           rather than failing. Most often an assembly threw during discovery, \
@@ -278,10 +278,10 @@ Target.create
                           or cancelled test host looks the same, so check the output above \
                           for a project that reported no summary line at all."
                 else
-                    failwithf "Tests failed with exit code %d" result.ExitCode
+                    invalidOp $"Tests failed with exit code %d{result.ExitCode}"
 
             if totalTests.Value = 0 then
-                failwith
+                invalidOp
                     "No tests were discovered or run. The solution was likely not built/restored before `dotnet test`."
     )
 
@@ -354,7 +354,7 @@ Target.create
 let requireEnvVar name =
     match System.Environment.GetEnvironmentVariable name with
     | v when System.String.IsNullOrWhiteSpace v ->
-        failwithf "%s is not set. Load it from .env first (see DEVELOPMENT.md)." name
+        invalidOp $"%s{name} is not set. Load it from .env first (see DEVELOPMENT.md)."
     | v -> v
 
 
@@ -374,7 +374,7 @@ let buildDockerImage () =
         |> Seq.tryHead
         |> Option.map (fun e -> e.Value.Trim())
         |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
-        |> Option.defaultWith (fun () -> failwith "Directory.Build.props: <Version> element is missing or empty.")
+        |> Option.defaultWith (fun () -> invalidOp "Directory.Build.props: <Version> element is missing or empty.")
 
     // Cross-build for a different target platform, e.g. amd64 from Apple
     // Silicon, via: DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild
@@ -414,7 +414,7 @@ let dockerImageExistsLocally () =
     elif result.Result.Error.Contains "No such image" then
         false
     else
-        failwithf "docker image inspect failed:\n%s" result.Result.Error
+        invalidOp $"docker image inspect failed:\n%s{result.Result.Error}"
 
 
 Target.create "DockerBuild" (fun _ -> buildDockerImage ())
