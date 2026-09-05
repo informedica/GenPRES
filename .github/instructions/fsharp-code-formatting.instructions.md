@@ -7,6 +7,8 @@ applyTo: "**/*.fs,**/*.fsx"
 
 ## Indentation and Delimiters
 
+CI enforces `dotnet fantomas --check`, and the pre-commit hook formats staged files. The repo's `.editorconfig` configures Fantomas (`fsharp_multiline_bracket_style = aligned`, `fsharp_align_function_signature_to_indentation = true`, and related settings) so that its output matches the "Good" examples below; the "Fantomas formatted" examples show what Fantomas produces with its *default* settings, which is what this configuration avoids.
+
 Block indentation should follow a general standard of 4 spaces per indentation level. Also, whatever is delimiting the scope (like `[` or `{` or `(`) should be aligned with the indentation level of the block when it is closed.
 `match with` blocks, `let` bindings that span multiple lines, and function bodies should all follow this convention.
 

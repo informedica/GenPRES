@@ -8,7 +8,7 @@ integration point used when an external Electronic Health Record (EHR) links
 into GenPRES for a specific patient.
 
 The current parameter set (parsed in
-[App.fs:237](../../src/Informedica.GenPRES.Client/App.fs#L237)) only covers
+[App.fs](../../src/Informedica.GenPRES.Client/App.fs)) only covers
 demographic/clinical values needed for dose calculation:
 
 | Param | Meaning |
@@ -92,7 +92,7 @@ Example redesigned launch URL:
 ### Venous access
 
 The domain already models access as a list
-([Types.fs:129-132](../../src/Informedica.GenPRES.Shared/Types.fs#L129)):
+([Types.fs](../../src/Informedica.GenPRES.Shared/Types.fs)):
 
 ```fsharp
 and Access =
@@ -125,27 +125,27 @@ to remove later.
 ### Required supporting changes
 
 These fields do not exist on the domain `Patient` today
-([Types.fs:93-104](../../src/Informedica.GenPRES.Shared/Types.fs#L93)) — the
+([Types.fs](../../src/Informedica.GenPRES.Shared/Types.fs)) — the
 record has no identifier and no name. Delivering this needs:
 
 - Extend `Patient` (Shared) with optional `Id`, `FirstName`, `LastName`,
   `AdmissionDate` (`DateTime option`), and `BedId` (`string option`) fields.
   `Department` already exists as `Patient.Department`
-  ([Types.fs:103](../../src/Informedica.GenPRES.Shared/Types.fs#L103)); a
+  ([Types.fs](../../src/Informedica.GenPRES.Shared/Types.fs)); a
   `Location` (`string option`) field also already exists
-  ([Types.fs:102](../../src/Informedica.GenPRES.Shared/Types.fs#L102)) and may
+  ([Types.fs](../../src/Informedica.GenPRES.Shared/Types.fs)) and may
   be a fit for bed/ward location — decide whether `bed` maps to a new `BedId`
   field or reuses `Location`.
 - Introduce a user/session-context value for `usr`. There is currently **no**
   per-user identity model — the only auth is a single password gate for the
-  settings page ([App.fs:48-49](../../src/Informedica.GenPRES.Client/App.fs#L48)).
+  settings page ([App.fs](../../src/Informedica.GenPRES.Client/App.fs)).
   Decide whether `usr` is display/audit-only metadata or feeds a future
   identity model.
 - Update `parseUrl` / `parsePatientParams`
-  ([App.fs:225-349](../../src/Informedica.GenPRES.Client/App.fs#L225)) to read
+  ([App.fs](../../src/Informedica.GenPRES.Client/App.fs)) to read
   the new keys.
 - Update the parameter doc comment
-  ([App.fs:206-224](../../src/Informedica.GenPRES.Client/App.fs#L206)).
+  ([App.fs](../../src/Informedica.GenPRES.Client/App.fs)).
 - Surface Id + name in the UI patient header so the clinician can confirm the
   right patient.
 
@@ -170,7 +170,7 @@ require redacting PII in logs
 ([fsharp-coding.instructions.md](../../.github/instructions/fsharp-coding.instructions.md)
 — "Avoid logging PII; redact sensitive data"). Note the current warning path
 logs the raw URL on parse failure
-([App.fs:313](../../src/Informedica.GenPRES.Client/App.fs#L313)) — this must
+([App.fs](../../src/Informedica.GenPRES.Client/App.fs)) — this must
 not leak the new fields. Consider:
 
 - Redacting `pid/fnm/lnm/usr` (and `bed`, `adm` together with `dep` since

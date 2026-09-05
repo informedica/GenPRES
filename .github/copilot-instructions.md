@@ -80,7 +80,7 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 `GENPRES_URL_ID` is required at server startup, in both demo and production mode — not just for admin operations. The image also sets `GENPRES_PROD=1` by default, so the server refuses to start unless `GENPRES_PASSWORD` is also set to at least 16 characters — it's not purely an admin-operations toggle either. Neither the proprietary URL ID nor the password is baked into the image; inject both at container runtime, ideally via a Docker / Kubernetes secret. For local testing without production credentials, use the public demo sheet ID documented in `.env.example`.
 
-- `dotnet run DockerBuild` - Build the image, labelled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
+- `dotnet run DockerBuild` - Build the image, labeled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
 - `dotnet run DockerRun` - Run the built image, reading `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) and failing fast if either is unset.
 - Equivalent manual commands: `docker build -t informedica/genpres .` / `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" informedica/genpres`
 
@@ -114,7 +114,7 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 - Check those for expected sheet and column names.
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
-- The central `ResourceConfig` (in `Api.fs`) expects functions returning `GenFormResult<'T>` (alias for `Result<'T, Message list>`). Use the `*Result` variants where present (e.g., `Mapping.getRouteMapping` or `Mapping.getRouteMappingResult`) and wrap with `delay` when the signature expects a `unit -> GenFormResult<_>`.
+- Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`): a map from a `ResourceKey` name to a `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`, derive a resource from others with `derive` / `deriveWith` (dependencies are declared by calling `r.Get Keys.x` and resolved lazily, once, by `LoadEngine`). `loadAllResourcesWithRegistry` resolves the whole map; callers reach the result through `IResourceProvider` (`Api.fs`).
 - To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the field comments on the matching `Data` record, and update the declared column list in the column-contract test.
 - Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
 - If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
@@ -122,7 +122,7 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 ## Result and Error Handling
 
 - IO and parsing functions should return `GenFormResult<'T>` (i.e., Result). Use `FsToolkit.ErrorHandling.ResultCE` computation expression for readability (`result { let! x = ... }`).
-- When editing `ResourceConfig` or callers, make sure to handle `Result` values consistently; use `Result.bind`, CE, or `delay` for unit-returning getters.
+- When editing the registry or its callers, keep every loader returning `Result`; use `Result.bind`, the CE, or `ofResult` for readers.
 
 ## BigRational & ValueUnit Semantics
 
@@ -236,7 +236,7 @@ module ValueUnit =
             |> ValueUnit.toUnit
 ```
 
-Because `load.fsx` loads the GenUnits source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
+Because `load.fsx` loads the GenUNITS source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
 
 ### Infrastructure
 

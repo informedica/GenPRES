@@ -26,7 +26,7 @@ stateDiagram-v2
     NormDoseSet --> ValuesCalculated: CalcValues
 
     ValuesCalculated --> Solved: SolveOrder\n(final-solve, pick-cmp-qty)
-    Solved --> Solved: ReCalcValues\n(recalc-qty/rate-values)
+    Solved --> Solved: ReCalcValues\n(apply-calculated-constraints,\ncalc-qty/rate-values, final-solve)
 
     Solved --> Cleared: user clears variable\n(isCleared)
     ValuesCalculated --> Cleared: user clears variable
@@ -57,13 +57,14 @@ States map to the `OrderState` flags (`OrderProcessor.fs`):
 ## Transitions
 
 Transitions are the pipeline commands handled by `processPipeline`
-(`OrderProcessor.fs`):
+(`OrderProcessor.fs`); the step names are the `Name` values of the `Step` records
+it runs (`"<command>: <step>"` in the log):
 
 - `CalcMinMax` — apply-constraints → calc-minmax → increase-increments → set-calculated-constraints → (optional) ensure-dose-values → set-normdose
 - `IncreaseIncrements` — increase-increment
 - `CalcValues` — calc-qty-values → (optional) calc-rate-values
 - `SolveOrder` — (optional) process-cleared → (optional) ensure-values → final-solve → pick-cmp-qty
-- `ReCalcValues` — apply-calculated-constraints → recalc-qty-values → (optional) recalc-rate-values → (optional) final-solve
+- `ReCalcValues` — apply-calculated-constraints → calc-qty-values → (optional) calc-rate-values → (optional) final-solve
 - `ChangeProperty` — change-property → solve-minmax
 
 ## Cleared Sub-States

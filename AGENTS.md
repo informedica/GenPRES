@@ -57,7 +57,7 @@ dotnet test
 - `dotnet run Bundle` - Create production bundle
 - `dotnet run CheckVersions` - Proves that every project shipped in GenPRES.sln reports the same version as the repo-root Directory.Build.props
 - `dotnet run Clean` - Clean build artifacts
-- `dotnet run DockerBuild` - Builds the Docker image, version-labelled from `Directory.Build.props`
+- `dotnet run DockerBuild` - Builds the Docker image, version-labeled from `Directory.Build.props`
 - `dotnet run DockerRun` - Runs a Docker container
 - `dotnet run Format` - Uses Fantomas to format F# code
 - `dotnet run MarkdownLint` - Runs the mark down linter
@@ -90,7 +90,7 @@ The published image defaults to demo mode: `GENPRES_PROD=0` and the public demo 
 
 Production is an explicit opt-in at container runtime and needs all four of `GENPRES_PROD=1`, the proprietary `GENPRES_URL_ID`, a `GENPRES_PASSWORD` of at least 16 characters (the server refuses to start otherwise), and a bind mount of the host's `data/cache` onto `/app/data/cache` — production reads `*.cache`, and the image ships only the `*.demo` files. Neither the proprietary URL ID nor the password is baked into the image; inject both at runtime, ideally via a Docker / Kubernetes secret. The repo-root `compose.yaml` wires all of this from `.env`: `docker compose pull && docker compose up -d`.
 
-- `dotnet run DockerBuild` - Build the image, labelled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
+- `dotnet run DockerBuild` - Build the image, labeled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
 - `dotnet run DockerRun` - Run the built image, reading `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) and failing fast if either is unset.
 - Equivalent manual commands: `docker build -t informedica/genpres .` / demo: `docker run -it -p 8080:8085 informedica/genpres` / production: `docker run -it -p 8080:8085 -e GENPRES_PROD=1 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" -v "$PWD/data/cache:/app/data/cache" informedica/genpres`
 
@@ -125,7 +125,7 @@ The same applies to the docker ignore file.
 - Check that record — and the declared column lists in `DoseRuleToDataTests.ColumnContract` (`tests/Informedica.GenFORM.Tests/Tests.fs`) — for expected sheet and column names.
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
-- The central `ResourceConfig` (in `Api.fs`) expects functions returning `GenFormResult<'T>` (alias for `Result<'T, Message list>`). Use the `*Result` variants where present (e.g., `Mapping.getRouteMapping` or `Mapping.getRouteMappingResult`) and wrap with `delay` when the signature expects a `unit -> GenFormResult<_>`.
+- Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`): a map from a `ResourceKey` name to a `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`, derive a resource from others with `derive` / `deriveWith` (dependencies are declared by calling `r.Get Keys.x` and resolved lazily, once, by `LoadEngine`). `loadAllResourcesWithRegistry` resolves the whole map; callers reach the result through `IResourceProvider` (`Api.fs`).
 - To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the field comments on the matching `Data` record, and update the declared column list in the column-contract test.
 - Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
 - If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
@@ -133,7 +133,7 @@ The same applies to the docker ignore file.
 ## Result and Error Handling
 
 - IO and parsing functions should return `GenFormResult<'T>` (i.e., Result). Use `FsToolkit.ErrorHandling.ResultCE` computation expression for readability (`result { let! x = ... }`).
-- When editing `ResourceConfig` or callers, make sure to handle `Result` values consistently; use `Result.bind`, CE, or `delay` for unit-returning getters.
+- When editing the registry or its callers, keep every loader returning `Result`; use `Result.bind`, the CE, or `ofResult` for readers.
 
 ## Never Perform IO in a Top-Level `let` Value
 
@@ -158,7 +158,7 @@ let index () = fetch () |> Result.defaultValue []
 ```
 
 The test: no parameters, not `lazy`, and the right-hand side reaches IO — then it runs at type
-initialisation. Give it a `()` parameter or wrap it in `lazy`, keep the IO leaf returning a
+initialization. Give it a `()` parameter or wrap it in `lazy`, keep the IO leaf returning a
 `Result`, and let the composition site own the failure policy.
 
 Nesting inside a sub-module does **not** isolate it — the cctor is per file, not per module.
@@ -296,7 +296,7 @@ module ValueUnit =
             |> ValueUnit.toUnit
 ```
 
-Because `load.fsx` loads the GenUnits source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
+Because `load.fsx` loads the GenUNITS source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
 
 ### Infrastructure
 
