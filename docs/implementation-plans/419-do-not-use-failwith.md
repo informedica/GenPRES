@@ -16,7 +16,8 @@ custom exception types (`SolverException`, `OrderException`, `BigRationalExcepti
 
 A further ten calls live outside `src/` and `tests/`: six in `Build.fs`, two in
 `Helpers.fs` and two in `benchmark/Program.fs`. They are build and benchmark tooling, not
-shipped code, and are out of scope for the three PRs below; see *Out of scope* at the end.
+shipped code, but the rule is repository-wide, so they are converted too (category E,
+`invalidOp`) in the second implementation PR.
 
 ## Approaches considered
 
@@ -125,27 +126,18 @@ Fable compile of `Shared`/`Client` verify it.
 2. PR: high-benefit source sites (categories A, C, G, H, I), including the `Solver.fs`
    `reraise` and the `Agent.fs` `TimeoutException`. The existing timeout test is tightened
    to match on `TimeoutException`.
-3. PR: remaining source sites (B, D, E, F).
+3. PR: remaining source sites (B, D, E, F), plus the ten build and benchmark tooling sites
+   (`invalidOp`; FAKE fails a target on any exception, so build behaviour is unchanged).
 4. PR: tests (T, T2). The `Logging.Tests` case that uses `failwith` *inside* an
    `Expect.throws` lambda is rewritten rather than converted, since its logic is inverted.
 5. Each PR runs `dotnet run Format`, `dotnet run servertests`, and a Fable compile when
    `Shared` or `Client` is touched. Commits use `refactor(<scope>)`, which ShipIt does not
    render into the changelog; that is correct, nothing user-visible changes.
-6. Done when `grep -rnE '\bfailwith(f)?\b|\bexn "' --include='*.fs' src tests` is empty.
-   The rule in the coding instructions applies to new code anywhere in the repository; the
-   ten pre-existing tooling calls listed under *Out of scope* are the known remainder.
+6. Done when `grep -rnE '\bfailwith(f)?\b|\bexn "' --include='*.fs' . --exclude-dir=node_modules`
+   is empty, matching the repository-wide rule in the coding instructions.
 
 ## Process note
 
 The repository's script-only policy keeps LLMs out of `.fs` files. The issue thread
 anticipated that this refactor needs an exception to that policy, and the maintainer granted
 it for #419 explicitly. The implementation PRs disclose this in the AI/Vibe Coding section.
-
-## Out of scope
-
-Ten `failwith`/`failwithf` calls remain in build and benchmark tooling after the three PRs:
-`Build.fs` (6), `Helpers.fs` (2) and `benchmark/Program.fs` (2). They fail a FAKE target or
-a benchmark run, are never caught, and do not ship. Converting them is a small mechanical
-follow-up (`invalidOp` for the build helpers, the same `failtest`-style swap for the
-benchmark print helpers as in the GenSOLVER tests); it is left out here to keep the
-implementation PRs within the issue's stated scope and the 200-line limit.
